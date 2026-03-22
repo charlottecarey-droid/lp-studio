@@ -48,17 +48,13 @@ export default function VideoTemplate() {
       {/* Hero CTA button */}
       <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-auto" style={{ bottom: '130px' }}>
         <button
-          className="flex items-center gap-3 px-10 py-5 rounded-full text-xl font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
+          className="px-14 py-6 rounded-full text-2xl font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
           style={{
             backgroundColor: '#C7E738',
             color: '#003A30',
-            boxShadow: '0 8px 32px rgba(199,231,56,0.4)',
           }}
         >
-          Get started
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
+          Get Started
         </button>
       </div>
     </div>
