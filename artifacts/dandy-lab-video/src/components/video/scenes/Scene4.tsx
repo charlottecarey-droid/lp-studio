@@ -33,14 +33,13 @@ export default function Scene4() {
       <div className="absolute inset-0 w-1/2 left-1/2 h-full flex items-center justify-center p-12">
         <motion.div
           className="relative flex justify-center items-center"
-          style={{ height: '80%' }}
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 150, damping: 20, delay: 0.5 }}
         >
           <div
-            className="overflow-hidden rounded-[2rem] shadow-2xl"
-            style={{ height: '100%', aspectRatio: '9/14' }}
+            className="overflow-hidden shadow-2xl"
+            style={{ width: '260px', aspectRatio: '9/19.5', borderRadius: '2.5rem' }}
           >
             <img
               src={appImg}
