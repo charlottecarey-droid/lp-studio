@@ -29,11 +29,11 @@ export default function Scene8() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-start p-8 pr-0 overflow-hidden">
+      <div className="w-1/2 h-full flex items-center justify-center p-10">
         <motion.img
           src={orderImg}
           alt="Dandy order screen"
-          className="h-full w-auto object-contain object-left rounded-2xl shadow-lg border border-white/20"
+          className="h-full w-auto object-contain rounded-2xl shadow-lg"
           initial={{ opacity: 0, y: 40, scale: 0.94 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
