@@ -74,11 +74,6 @@ export default function Scene7() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
         />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to right, #FFFFFF 0%, transparent 20%)' }}
-        />
-
         {/* Scan quality badge */}
         <motion.div
           className="absolute bottom-12 left-10 bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-3"
