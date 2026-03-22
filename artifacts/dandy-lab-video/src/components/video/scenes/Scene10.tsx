@@ -19,7 +19,7 @@ export default function Scene10() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#003A30] pl-16 pr-24 flex flex-col justify-center">
+      <div className="w-1/2 h-full bg-[#003A30] pl-16 pr-24 flex flex-col justify-end pb-20">
         <motion.div
           className="w-16 h-2 rounded-full mb-8"
           style={{ backgroundColor: '#C7E738' }}
