@@ -29,7 +29,7 @@ export default function Scene6() {
         </motion.div>
 
         <motion.h3 
-          className="text-4xl font-display font-light text-white mb-16"
+          className="text-4xl font-display text-white mb-16"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
@@ -43,7 +43,7 @@ export default function Scene6() {
           transition={{ duration: 0.8, delay: 1, type: "spring", stiffness: 200, damping: 20 }}
         >
           <div className="px-12 py-6 bg-[#C7E738] rounded-full shadow-2xl">
-            <span className="text-[#003A30] text-2xl font-bold tracking-widest uppercase">
+            <span className="text-[#003A30] text-2xl font-display tracking-widest uppercase">
               GET STARTED AT MEETDANDY.COM
             </span>
           </div>

@@ -29,7 +29,7 @@ export default function Scene1() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 1, ease: 'easeOut' }}
         >
-          <h2 className="text-5xl font-display font-medium tracking-wide text-[#003A30]">
+          <h2 className="text-5xl font-display text-[#003A30]">
             Your One-Stop Dental Lab
           </h2>
         </motion.div>

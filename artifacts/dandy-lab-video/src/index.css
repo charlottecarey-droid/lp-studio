@@ -13,7 +13,7 @@
   --color-text-inverse: #FFFFFF;
   
   --font-display: Arial, sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-body: Arial, sans-serif;
 }
 
 :root {
@@ -29,7 +29,7 @@
   --color-text-inverse: #FFFFFF;
   
   --font-display: Arial, sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-body: Arial, sans-serif;
 }
 
 body {
