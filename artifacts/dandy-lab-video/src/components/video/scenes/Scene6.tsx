@@ -34,7 +34,7 @@ export default function Scene6() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
         >
-          A paradigm shift for your practice.
+          Behind every dentist, there's a great lab. That's Dandy.
         </motion.h3>
 
         <motion.div
