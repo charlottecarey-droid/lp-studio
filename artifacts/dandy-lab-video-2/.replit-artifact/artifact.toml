@@ -1,6 +1,6 @@
 kind = "video"
 previewPath = "/dandy-lab-video-2/"
-title = "Dandy Dental Lab Video (Copy)"
+title = "Dandy Website animation"
 version = "1.0.0"
 id = "artifacts/dandy-lab-video-2"
 router = "path"
