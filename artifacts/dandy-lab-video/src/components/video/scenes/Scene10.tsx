@@ -27,6 +27,42 @@ export default function Scene10() {
           {/* Dark overlay to help cards read */}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 100%)' }} />
 
+          {/* Scan flags */}
+          {[
+            { top: '22%', left: '52%', label: 'Margin', delay: 0.7, color: '#C7E738', textColor: '#003A30' },
+            { top: '48%', left: '28%', label: 'Prep angle', delay: 1.0, color: '#C7E738', textColor: '#003A30' },
+            { top: '64%', left: '60%', label: 'Scan gap', delay: 1.3, color: '#FF6B6B', textColor: '#fff' },
+          ].map(({ top, left, label, delay, color, textColor }) => (
+            <motion.div
+              key={label}
+              className="absolute flex flex-col items-center"
+              style={{ top, left }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18, delay }}
+            >
+              {/* Flag label */}
+              <div
+                className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide whitespace-nowrap mb-1 shadow-lg"
+                style={{ backgroundColor: color, color: textColor }}
+              >
+                {label}
+              </div>
+              {/* Stem */}
+              <div className="w-px h-4" style={{ backgroundColor: color, opacity: 0.7 }} />
+              {/* Dot with pulse */}
+              <div className="relative flex items-center justify-center">
+                <motion.div
+                  className="absolute rounded-full"
+                  style={{ width: 18, height: 18, backgroundColor: color, opacity: 0.25 }}
+                  animate={{ scale: [1, 1.8, 1], opacity: [0.25, 0, 0.25] }}
+                  transition={{ duration: 1.8, repeat: Infinity, delay: delay + 0.3 }}
+                />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              </div>
+            </motion.div>
+          ))}
+
           {/* Card 1 — No issues detected */}
           <motion.div
             className="absolute rounded-2xl px-4 py-3 shadow-2xl"
