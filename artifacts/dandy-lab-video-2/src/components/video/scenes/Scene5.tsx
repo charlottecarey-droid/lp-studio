@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
+
 export default function Scene5() {
   const bulletPoints = [
     "5-day crowns",
@@ -12,9 +13,9 @@ export default function Scene5() {
       className="absolute inset-0 flex overflow-hidden"
       {...sceneTransitions.wipe}
     >
-      <div className="w-1/2 h-full bg-[#003A30] flex flex-col justify-center pl-24 pr-16">
+      <div className="w-1/2 h-full bg-white flex flex-col justify-center pl-24 pr-16">
         <motion.h2
-          className="text-[5rem] font-display font-bold text-white leading-tight"
+          className="text-[5rem] font-display font-bold text-[#003A30] leading-tight"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
@@ -30,7 +31,7 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-center px-16 gap-8">
+      <div className="w-1/2 h-full bg-[#F8F7F4] flex flex-col justify-center px-16 gap-8">
         <div className="w-full space-y-8">
           {bulletPoints.map((text, i) => (
             <motion.div

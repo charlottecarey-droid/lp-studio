@@ -27,7 +27,7 @@ export default function Scene3() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center bg-[#003A30] overflow-hidden"
+      className="absolute inset-0 flex flex-col items-center justify-center bg-white overflow-hidden"
       {...sceneTransitions.clipCircle}
     >
       <div className="relative z-10 text-center flex flex-col items-center">
@@ -38,7 +38,7 @@ export default function Scene3() {
           transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.2 }}
         >
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#2A4B3D" strokeWidth="4" />
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#E8F0ED" strokeWidth="4" />
             <motion.circle
               cx="50" cy="50" r="45"
               fill="none" stroke="#C7E738" strokeWidth="4"
@@ -49,7 +49,7 @@ export default function Scene3() {
               transform="rotate(-90 50 50)"
             />
           </svg>
-          <h2 className="font-display font-bold text-white leading-none tracking-tighter" style={{ fontSize: '7rem' }}>
+          <h2 className="font-display font-bold text-[#003A30] leading-none tracking-tighter" style={{ fontSize: '7rem' }}>
             {count}%
           </h2>
         </motion.div>
@@ -60,7 +60,7 @@ export default function Scene3() {
           transition={{ duration: 0.8, delay: 1 }}
           className="max-w-3xl"
         >
-          <h3 className="text-5xl font-display text-white leading-tight">
+          <h3 className="text-5xl font-display text-[#003A30] leading-tight">
             Average reduction in remakes<br />when partnering with Dandy
           </h3>
         </motion.div>

@@ -5,7 +5,7 @@ import orderImg from '@assets/IMG_0117_1774192251780.jpeg';
 export default function Scene8() {
   return (
     <motion.div
-      className="absolute inset-0 flex bg-[#003A30] overflow-hidden"
+      className="absolute inset-0 flex bg-white overflow-hidden"
       {...sceneTransitions.fadeBlur}
     >
       <div className="w-1/2 pl-24 pr-16 flex flex-col justify-center h-full">
@@ -20,16 +20,16 @@ export default function Scene8() {
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
           />
-          <h2 className="text-6xl font-display font-bold text-white leading-tight mb-8">
+          <h2 className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8">
             Order anything.<br />From one place.
           </h2>
-          <p className="text-3xl text-[#A8C4B8] leading-relaxed">
+          <p className="text-3xl text-[#4A6358] leading-relaxed">
             Crowns, implants, aligners, dentures — every restoration your practice needs, in a single workflow.
           </p>
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-10 relative">
+      <div className="w-1/2 h-full flex items-center justify-center p-10 bg-[#F8F7F4] relative">
         <motion.img
           src={orderImg}
           alt="Dandy order screen"
@@ -50,9 +50,8 @@ export default function Scene8() {
           <svg width="28" height="28" viewBox="0 0 24 24" fill="#003A30" stroke="white" strokeWidth="1.5">
             <path d="M4 3l16 9-7 1-4 7z" />
           </svg>
-          {/* Click ripple */}
           <motion.div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#003A30]"
             initial={{ width: 0, height: 0, opacity: 0.8 }}
             animate={{ width: 40, height: 40, opacity: 0 }}
             transition={{ duration: 0.5, delay: 1.8 }}
@@ -61,7 +60,7 @@ export default function Scene8() {
 
         {/* Order confirmed toast */}
         <motion.div
-          className="absolute top-12 right-8 bg-white rounded-2xl shadow-xl px-5 py-4 flex items-center gap-3"
+          className="absolute top-12 right-8 bg-white rounded-2xl shadow-xl px-5 py-4 flex items-center gap-3 border border-gray-100"
           initial={{ opacity: 0, y: -20, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 2.2 }}

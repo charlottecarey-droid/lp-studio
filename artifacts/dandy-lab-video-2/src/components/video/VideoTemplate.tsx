@@ -12,17 +12,19 @@ import Scene9 from './scenes/Scene9';
 import Scene10 from './scenes/Scene10';
 
 const SCENE_DURATIONS = {
-  scene1:  4500,  // Intro
-  scene2:  5000,  // Products grid
-  scene3:  4500,  // 89% stat
-  scene4:  5500,  // Live support (phone)
-  scene5:  5000,  // Guided scanning
-  scene6:  5000,  // AI scan review
-  scene7:  5000,  // Order anything
-  scene8:  5000,  // Review designs live
-  scene9:  5000,  // Why Dandy
-  scene10: 5000,  // CTA
+  scene1:  4500,
+  scene2:  5000,
+  scene3:  4500,
+  scene4:  5500,
+  scene5:  5000,
+  scene6:  5000,
+  scene7:  5000,
+  scene8:  5000,
+  scene9:  5000,
+  scene10: 5000,
 };
+
+const LAST_SCENE = Object.keys(SCENE_DURATIONS).length - 1;
 
 export default function VideoTemplate() {
   const { currentScene } = useVideoPlayer({
@@ -33,7 +35,7 @@ export default function VideoTemplate() {
   return (
     <div
       className="w-full h-screen overflow-hidden relative font-sans"
-      style={{ backgroundColor: 'var(--color-bg-light)' }}
+      style={{ backgroundColor: '#FFFFFF' }}
     >
       <AnimatePresence mode="wait">
         {currentScene === 0 && <Scene1  key="scene1"  />}
@@ -47,6 +49,18 @@ export default function VideoTemplate() {
         {currentScene === 8 && <Scene5  key="scene5"  />}
         {currentScene === 9 && <Scene6  key="scene6"  />}
       </AnimatePresence>
+
+      {/* Persistent sign-up button — hidden on final scene */}
+      {currentScene !== LAST_SCENE && (
+        <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
+          <button
+            className="px-8 py-4 rounded-full text-lg font-bold shadow-xl transition-all"
+            style={{ backgroundColor: '#003A30', color: '#FFFFFF', letterSpacing: '-0.01em' }}
+          >
+            Sign up
+          </button>
+        </div>
+      )}
     </div>
   );
 }
