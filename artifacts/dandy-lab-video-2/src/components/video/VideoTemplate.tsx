@@ -46,7 +46,7 @@ export default function VideoTemplate() {
       </AnimatePresence>
 
       {/* Persistent sign-up button — always visible */}
-      <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
         <button
           className="px-8 py-4 rounded-full text-lg font-bold shadow-xl transition-all"
           style={{ backgroundColor: '#003A30', color: '#FFFFFF', letterSpacing: '-0.01em' }}
