@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import CreateTest from "@/pages/create-test";
 import TestDetail from "@/pages/test-detail";
 import LandingPageViewer from "@/pages/landing-page-viewer";
+import LivePages from "@/pages/live-pages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ function Router() {
     <Switch>
       {/* Platform Routes */}
       <Route path="/" component={Dashboard} />
+      <Route path="/live-pages" component={LivePages} />
       <Route path="/tests/new" component={CreateTest} />
       <Route path="/tests/:testId" component={TestDetail} />
       

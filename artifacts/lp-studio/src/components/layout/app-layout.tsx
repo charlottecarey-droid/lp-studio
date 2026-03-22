@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Beaker, PlusCircle, LayoutPanelTop } from "lucide-react";
+import { LayoutDashboard, Beaker, PlusCircle, LayoutPanelTop, Radio } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle"; // Assume we might make one, or skip if not strict
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,18 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/live-pages"}>
+                  <Link href="/live-pages" className="font-medium">
+                    <Radio className="w-4 h-4" />
+                    <span>Live Pages</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location.startsWith("/tests/") && location !== "/tests/new"}>
                   <Link href="/" className="font-medium">
                     <Beaker className="w-4 h-4" />
-                    <span>Active Tests</span>
+                    <span>All Experiments</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
