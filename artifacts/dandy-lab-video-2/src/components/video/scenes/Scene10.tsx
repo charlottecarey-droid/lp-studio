@@ -58,28 +58,7 @@ export default function Scene10() {
             </motion.div>
           ))}
 
-          {/* Card 1 — No issues detected */}
-          <motion.div
-            className="absolute rounded-2xl px-4 py-3 shadow-2xl"
-            style={{ top: '12%', left: '8%', width: 230, backgroundColor: 'rgba(255,255,255,0.96)' }}
-            initial={{ opacity: 0, y: -16, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 1.0 }}
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-5 h-5 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </div>
-              <p className="text-sm font-bold text-[#003A30]">No issues detected</p>
-            </div>
-            <p className="text-xs text-[#4A6358] leading-relaxed">
-              We didn't spot any critical issues. Scan quality is excellent.
-            </p>
-          </motion.div>
-
-          {/* Card 2 — Confirmation */}
+          {/* Card — Confirmation */}
           <motion.div
             className="absolute rounded-2xl px-4 py-4 shadow-2xl"
             style={{ bottom: '10%', right: '6%', width: 210, backgroundColor: '#1C2E26', border: '1px solid rgba(199,231,56,0.25)' }}

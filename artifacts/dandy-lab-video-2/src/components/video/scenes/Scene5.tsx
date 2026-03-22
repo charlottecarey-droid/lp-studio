@@ -10,11 +10,11 @@ export default function Scene5() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex items-center bg-white overflow-hidden"
+      className="absolute inset-0 flex items-center justify-center bg-white overflow-hidden gap-10 px-16"
       {...sceneTransitions.wipe}
     >
-      {/* Headline — on white, no card */}
-      <div className="w-5/12 flex flex-col justify-center pl-20 pr-4">
+      {/* Headline — sits on white, right-aligned to be close to the card */}
+      <div className="flex flex-col justify-center shrink-0">
         <motion.h2
           className="text-[4.5rem] font-display font-bold text-[#003A30] leading-tight"
           initial={{ opacity: 0, y: 30 }}
@@ -32,24 +32,22 @@ export default function Scene5() {
         />
       </div>
 
-      {/* Grey card — only wraps the bullets */}
-      <div className="w-7/12 flex flex-col justify-center pr-16 pl-4">
-        <div className="bg-[#F5F5F3] rounded-3xl px-14 py-12 flex flex-col gap-8">
-          {bulletPoints.map((text, i) => (
-            <motion.div
-              key={text}
-              className="flex items-center gap-6"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 + i * 0.2 }}
-            >
-              <div className="w-14 h-14 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <span className="text-5xl font-display text-[#003A30]">{text}</span>
-            </motion.div>
-          ))}
-        </div>
+      {/* Grey card — sized to fit the bullets only */}
+      <div className="bg-[#F5F5F3] rounded-3xl px-14 py-12 flex flex-col gap-8 shrink-0">
+        {bulletPoints.map((text, i) => (
+          <motion.div
+            key={text}
+            className="flex items-center gap-6"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 + i * 0.2 }}
+          >
+            <div className="w-14 h-14 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span className="text-5xl font-display text-[#003A30]">{text}</span>
+          </motion.div>
+        ))}
       </div>
     </motion.div>
   );
