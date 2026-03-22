@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
-import productsImg from '@assets/IMG_0116_1774192251780.jpeg';
+import productsImg from '@assets/IMG_0124_1774192855940.webp';
 
 export default function Scene2() {
   return (
