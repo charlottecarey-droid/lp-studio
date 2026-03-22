@@ -19,23 +19,25 @@ export default function Scene6() {
       </motion.div>
       
       <div className="relative z-10 flex flex-col items-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
-          className="text-center mb-8"
-        >
-          <img src={`${import.meta.env.BASE_URL}dandy-logo.svg`} alt="dandy" className="h-[12vh]" style={{ filter: 'brightness(0) invert(1)' }} />
-        </motion.div>
+        <div className="flex flex-col items-stretch mb-16">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
+            className="mb-6"
+          >
+            <img src={`${import.meta.env.BASE_URL}dandy-logo.svg`} alt="dandy" className="w-full h-auto" style={{ filter: 'brightness(0) invert(1)' }} />
+          </motion.div>
 
-        <motion.h3 
-          className="text-4xl font-display text-white mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          Behind every dentist, there's a great lab. That's Dandy.
-        </motion.h3>
+          <motion.h3
+            className="text-4xl font-display text-white w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+          >
+            Behind every dentist, there's a great lab.
+          </motion.h3>
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 30 }}
