@@ -1,5 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'Bagoss Standard';
+  src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
+       url('./fonts/BagossStandard-Regular.woff') format('woff'),
+       url('./fonts/BagossStandard-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
@@ -122,7 +132,7 @@
   --chart-5: 27 87% 67%;
 
   --app-font-sans: 'Inter', sans-serif;
-  --app-font-display: Arial, Helvetica, sans-serif;
+  --app-font-display: 'Bagoss Standard', Arial, Helvetica, sans-serif;
   --radius: 0.75rem;
 
   --shadow-2xs: 0px 2px 0px 0px rgba(0,0,0, 0.02);
