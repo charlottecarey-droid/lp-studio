@@ -133,7 +133,7 @@ export default function LandingPageViewer() {
       </div>
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 py-3 flex items-center justify-between z-40 relative bg-black">
+      <nav className="w-full px-6 py-2 flex items-center justify-between z-40 relative bg-black">
         <img
           src={dandyLogoUrl}
           alt="Dandy"
@@ -142,7 +142,7 @@ export default function LandingPageViewer() {
         />
         <button
           onClick={handleCtaClick}
-          className="px-5 py-2 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
+          className="px-5 py-3 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
           style={{ backgroundColor: ctaColor, color: FOREST }}
         >
           {variantConf.ctaText}
