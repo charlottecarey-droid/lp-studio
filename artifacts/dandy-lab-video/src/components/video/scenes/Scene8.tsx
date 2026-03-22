@@ -5,7 +5,7 @@ import orderImg from '@assets/IMG_0117_1774192251780.jpeg';
 export default function Scene8() {
   return (
     <motion.div
-      className="absolute inset-0 flex items-center bg-[#003A30] overflow-hidden"
+      className="absolute inset-0 flex bg-[#003A30] overflow-hidden"
       {...sceneTransitions.fadeBlur}
     >
       <div className="w-1/2 pl-24 pr-16 flex flex-col justify-center h-full">
@@ -29,12 +29,12 @@ export default function Scene8() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-16">
+      <div className="w-1/2 h-full flex items-center justify-center p-8">
         <motion.img
           src={orderImg}
           alt="Dandy order screen"
-          className="w-full h-auto object-contain rounded-2xl shadow-2xl"
-          initial={{ opacity: 0, y: 60, scale: 0.92 }}
+          className="w-full h-auto object-contain rounded-xl shadow-xl"
+          initial={{ opacity: 0, y: 40, scale: 0.94 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
         />

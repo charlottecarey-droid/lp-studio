@@ -21,7 +21,7 @@ export default function Scene5() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          See why <br/>dentists love <br/>Dandy.
+          See why <br />dentists love <br />Dandy.
         </motion.h2>
 
         <motion.div
@@ -32,8 +32,8 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col items-center justify-end pb-16 px-16 gap-10">
-        <div className="w-full space-y-10">
+      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-end px-16 pb-16 gap-8">
+        <div className="w-full space-y-8">
           {bulletPoints.map((text, i) => (
             <motion.div
               key={text}
@@ -53,10 +53,10 @@ export default function Scene5() {
         <motion.img
           src={restorationsImg}
           alt="Dandy restorations"
-          className="w-[65%] h-auto object-contain opacity-60"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 0.6, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.3 }}
+          className="w-[60%] h-auto object-contain self-center"
+          style={{ opacity: 0 }}
+          animate={{ opacity: 0.55 }}
+          transition={{ duration: 0.8, delay: 1.4 }}
         />
       </div>
     </motion.div>

@@ -5,7 +5,7 @@ import scanImg from '@assets/IMG_0111_1774192855940.webp';
 export default function Scene7() {
   return (
     <motion.div
-      className="absolute inset-0 flex items-center bg-[#FFFFFF] overflow-hidden"
+      className="absolute inset-0 flex bg-[#FFFFFF] overflow-hidden"
       {...sceneTransitions.slideLeft}
     >
       <div className="w-1/2 pl-24 pr-16 flex flex-col justify-center h-full">
@@ -29,14 +29,14 @@ export default function Scene7() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-12 bg-[#F8F7F4]">
+      <div className="w-1/2 h-full overflow-hidden">
         <motion.img
           src={scanImg}
           alt="Dandy scan workflow"
-          className="w-full h-auto object-contain rounded-2xl shadow-2xl"
-          initial={{ opacity: 0, x: 60, scale: 0.95 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ duration: 0.9, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full h-full object-cover object-center"
+          initial={{ opacity: 0, scale: 1.06 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
         />
       </div>
     </motion.div>
