@@ -75,7 +75,7 @@ export default function Scene7() {
             transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           />
           <motion.div
-            className="absolute bottom-10 left-8 bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-3"
+            className="absolute bottom-10 right-8 bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-3"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.8 }}
