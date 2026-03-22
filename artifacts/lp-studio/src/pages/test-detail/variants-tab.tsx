@@ -16,6 +16,9 @@ import {
 } from "@workspace/api-client-react";
 
 import { useToast } from "@/hooks/use-toast";
+import { useComments } from "@/hooks/use-collaboration";
+import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,11 +98,12 @@ const variantSchema = z.object({
   })
 });
 
-export function VariantsTab({ test }: { test: TestWithVariants }) {
+export function VariantsTab({ test, commentMode = false }: { test: TestWithVariants; commentMode?: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createMutation = useCreateVariant();
   const deleteMutation = useDeleteVariant();
+  const { blocks, addComment, resolveComment } = useComments(test.id);
 
   const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
 
@@ -182,15 +186,41 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
         </div>
       ) : (
         <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={`variant-${test.variants[0]?.id}`}>
-          {test.variants.map((variant) => (
-            <VariantEditor 
-              key={variant.id} 
-              testId={test.id}
-              testSlug={test.slug}
-              variant={variant} 
-              onDelete={() => handleDelete(variant.id)}
-            />
-          ))}
+          {test.variants.map((variant, idx) => {
+            const blockComments = blocks.find(b => b.blockIndex === idx);
+            const commentCount = blockComments
+              ? blockComments.threads.reduce((sum, t) => sum + 1 + t.replies.length, 0)
+              : 0;
+            return (
+              <div key={variant.id} className="relative">
+                {commentMode && (
+                  <div className="absolute -right-3 top-3 z-20">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div>
+                          <CommentBadge count={commentCount} onClick={() => {}} />
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-auto p-0 border-0 shadow-none bg-transparent" align="start">
+                        <CommentsPanel
+                          blockComments={blockComments}
+                          blockIndex={idx}
+                          onAddComment={addComment}
+                          onResolve={resolveComment}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+                <VariantEditor 
+                  testId={test.id}
+                  testSlug={test.slug}
+                  variant={variant} 
+                  onDelete={() => handleDelete(variant.id)}
+                />
+              </div>
+            );
+          })}
         </Accordion>
       )}
     </div>

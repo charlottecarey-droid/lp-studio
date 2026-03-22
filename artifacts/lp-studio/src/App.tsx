@@ -12,6 +12,7 @@ import LivePages from "@/pages/live-pages";
 import BrandSettings from "@/pages/brand-settings";
 import PagesGallery from "@/pages/pages-gallery";
 import BuilderEditor from "@/pages/builder/BuilderEditor";
+import ReviewShell from "@/pages/review-shell";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,9 @@ function Router() {
       
       {/* Visitor Facing Landing Page (No App Layout) */}
       <Route path="/lp/:slug" component={LandingPageViewer} />
+
+      {/* Review Shell (No App Layout) */}
+      <Route path="/review/:pageId" component={ReviewShell} />
       
       <Route component={NotFound} />
     </Switch>

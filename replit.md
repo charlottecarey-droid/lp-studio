@@ -99,18 +99,22 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - **Pages gallery** at `/lp-studio/pages` — list, create, edit, delete builder pages; "New Page" modal with template picker
 - **Builder editor** at `/lp-studio/builder/:pageId` — three-panel DnD builder (block library, live canvas, property panel)
 - **Landing page viewer** at `/lp-studio/lp/:slug` — serves A/B test variants OR builder pages (pageType: "builder")
+- **Review shell** at `/lp-studio/review/:pageId?token=xxx` — standalone read-only review page with approve/request changes workflow (no auth required)
 - **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, stats, AND pages CRUD
-- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages` tables
+- **Collaboration API routes**: `/api/lp/pages/:pageId/comments`, `/api/lp/pages/:pageId/reviews`, `/api/lp/review/:token`, `/api/lp/pages/:pageId/presence`
+- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages`, `lp_page_comments`, `lp_page_reviews`, `lp_page_presence` tables
 - **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
 - **Block system**: 14 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources) with property panels
 - **Builder ↔ A/B Test connection**: Variants can link to a builder page via `builderPageId` (nullable FK column on `lp_variants` → `lp_pages`). The tracking route fetches the linked page and returns `linkedPage` in the variant. The landing page viewer detects `linkedPage` and renders builder blocks instead of the legacy config.
 - **DnD**: `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop block reordering
 - **Templates**: 5 pre-built templates (video-hero, clean-conversion, social-proof-heavy, comparison-focused, minimal-cta)
+- **Collaboration features**: Comment Mode toggle with per-variant comment threads, Share for Review links with approval workflow, presence strip showing other active viewers
 - The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
 - Uses generated React Query hooks from `@workspace/api-client-react`
+- New collaboration hooks in `src/hooks/use-collaboration.ts` use direct `/api/...` fetch calls (not the generated client)
 
 #### Block System Files
-- `src/lib/block-types.ts` — `BLOCK_REGISTRY` with all 11 block type definitions + default props
+- `src/lib/block-types.ts` — `BLOCK_REGISTRY` with all block type definitions + default props
 - `src/lib/templates.ts` — `LP_TEMPLATES` with 5 pre-built page templates
 - `src/blocks/BlockRenderer.tsx` — dispatches rendering to individual block components
 - `src/blocks/*.tsx` — individual block components (Hero, TrustBar, PasSection, etc.)
