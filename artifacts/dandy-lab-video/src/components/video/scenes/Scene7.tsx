@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
-import scanImg from '@assets/IMG_0111_1774192855940.webp';
+import scanImg from '@assets/IMG_0125_1774200650937.webp';
 
 export default function Scene7() {
   const steps = [
@@ -65,13 +65,13 @@ export default function Scene7() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full relative overflow-hidden">
+      <div className="w-1/2 h-full flex items-center justify-center p-10 bg-[#F8F7F4] relative">
         <motion.img
           src={scanImg}
           alt="Dandy scan workflow"
-          className="w-full h-full object-cover object-center"
-          initial={{ opacity: 0, scale: 1.06 }}
-          animate={{ opacity: 1, scale: 1 }}
+          className="w-full h-auto object-contain rounded-2xl shadow-lg"
+          initial={{ opacity: 0, scale: 0.94, x: 40 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
         />
         {/* Scan quality badge */}
