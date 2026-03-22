@@ -5,11 +5,10 @@ import aiScanImg from '@assets/IMG_0122_1774192576713.jpeg';
 export default function Scene10() {
   return (
     <motion.div
-      className="absolute inset-0 flex items-center overflow-hidden"
-      style={{ backgroundColor: '#003A30' }}
+      className="absolute inset-0 flex overflow-hidden"
       {...sceneTransitions.fadeBlur}
     >
-      <div className="w-1/2 h-full flex items-center justify-center relative">
+      <div className="w-1/2 h-full relative">
         <motion.img
           src={aiScanImg}
           alt="AI scan review"
@@ -18,15 +17,9 @@ export default function Scene10() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
         />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(to right, transparent 30%, #003A30 85%, #003A30 100%)',
-          }}
-        />
       </div>
 
-      <div className="w-1/2 pl-16 pr-24 flex flex-col justify-center">
+      <div className="w-1/2 h-full bg-[#003A30] pl-16 pr-24 flex flex-col justify-center">
         <motion.div
           className="w-16 h-2 rounded-full mb-8"
           style={{ backgroundColor: '#C7E738' }}
@@ -61,10 +54,7 @@ export default function Scene10() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.3 }}
         >
-          <div
-            className="w-4 h-4 rounded-full"
-            style={{ backgroundColor: '#C7E738' }}
-          />
+          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#C7E738' }} />
           <span className="text-xl font-semibold" style={{ color: '#C7E738' }}>
             Powered by Dandy AI
           </span>
