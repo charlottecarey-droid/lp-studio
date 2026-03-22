@@ -9,7 +9,7 @@ export default function Scene10() {
       {...sceneTransitions.fadeBlur}
     >
       {/* Left panel — image card with animations inside */}
-      <div className="w-1/2 h-full flex items-center justify-center p-10">
+      <div className="w-1/2 h-full flex items-center justify-center px-10 pt-20 pb-10">
         <motion.div
           className="relative w-full h-full rounded-3xl overflow-hidden"
           style={{ border: '1.5px solid rgba(0,58,48,0.12)', boxShadow: '0 8px 48px rgba(0,0,0,0.12)' }}
@@ -21,7 +21,7 @@ export default function Scene10() {
             src={toothImg}
             alt="AI scan review"
             className="w-full h-full object-cover"
-            style={{ objectPosition: '50% 35%' }}
+            style={{ objectPosition: '50% 60%' }}
           />
 
           <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.05) 100%)' }} />
