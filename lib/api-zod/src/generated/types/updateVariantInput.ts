@@ -10,5 +10,8 @@ import type { VariantConfig } from "./variantConfig";
 export interface UpdateVariantInput {
   name?: string;
   trafficWeight?: number;
+  isControl?: boolean;
   config?: VariantConfig;
+  /** FK to lp_pages.id; set to link a builder page, null to unlink */
+  builderPageId?: number | null;
 }

@@ -144,9 +144,11 @@ export default function LandingPageViewer() {
   }
 
   // If the assigned variant has a linked builder page, render it as blocks
-  const assignedVariantAny = config.assignedVariant as unknown as { linkedPage?: { blocks: import("@/lib/block-types").PageBlock[] } };
-  if (assignedVariantAny.linkedPage?.blocks?.length) {
-    const blocks = assignedVariantAny.linkedPage.blocks;
+  const assignedVariantAny = config.assignedVariant as Record<string, unknown> & { linkedPage?: { id: number; title: string; blocks: import("@/lib/block-types").PageBlock[] } };
+  if (assignedVariantAny.linkedPage !== undefined) {
+    const linkedPage = assignedVariantAny.linkedPage;
+    const blocks = linkedPage?.blocks ?? [];
+
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
       if (dest) {
@@ -192,9 +194,20 @@ export default function LandingPageViewer() {
             </button>
           </div>
         )}
-        {blocks.map((block, i) => (
-          <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
-        ))}
+        {blocks.length > 0
+          ? blocks.map((block, i) => (
+              <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+            ))
+          : (
+            <div className="min-h-screen flex flex-col items-center justify-center text-slate-400 text-sm gap-4">
+              <div className="text-4xl">🧱</div>
+              <p className="font-medium text-slate-500">This builder page has no blocks yet.</p>
+              <p className="text-xs max-w-xs text-center leading-relaxed">
+                Open the builder to add blocks to "{linkedPage?.title ?? config.assignedVariant.name}".
+              </p>
+            </div>
+          )
+        }
       </div>
     );
   }

@@ -15,5 +15,7 @@ export interface Variant {
   /** Weight 0-100, all variants in a test should sum to 100 */
   trafficWeight: number;
   config: VariantConfig;
+  /** FK to lp_pages.id; when set, this variant renders using the linked builder page blocks */
+  builderPageId?: number | null;
   createdAt: Date;
 }

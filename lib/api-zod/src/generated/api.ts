@@ -108,6 +108,12 @@ export const GetTestResponse = zod
             .describe(
               "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
             ),
+          builderPageId: zod
+            .number()
+            .nullish()
+            .describe(
+              "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
+            ),
           createdAt: zod.date(),
         }),
       ),
@@ -191,6 +197,12 @@ export const ListVariantsResponseItem = zod.object({
     .describe(
       "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
     ),
+  builderPageId: zod
+    .number()
+    .nullish()
+    .describe(
+      "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
+    ),
   createdAt: zod.date(),
 });
 export const ListVariantsResponse = zod.array(ListVariantsResponseItem);
@@ -254,6 +266,7 @@ export const updateVariantBodyConfigShowSocialProofDefault = false;
 export const UpdateVariantBody = zod.object({
   name: zod.string().optional(),
   trafficWeight: zod.number().optional(),
+  isControl: zod.boolean().optional(),
   config: zod
     .object({
       heroType: zod
@@ -279,6 +292,10 @@ export const UpdateVariantBody = zod.object({
     .describe(
       "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
     ),
+  builderPageId: zod
+    .number()
+    .nullish()
+    .describe("FK to lp_pages.id; set to link a builder page, null to unlink"),
 });
 
 export const updateVariantResponseConfigHeroTypeDefault = `dandy-video`;
@@ -317,6 +334,12 @@ export const UpdateVariantResponse = zod.object({
     })
     .describe(
       "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
+  builderPageId: zod
+    .number()
+    .nullish()
+    .describe(
+      "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
     ),
   createdAt: zod.date(),
 });
@@ -444,6 +467,12 @@ export const GetPageConfigResponse = zod.object({
       })
       .describe(
         "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+      ),
+    builderPageId: zod
+      .number()
+      .nullish()
+      .describe(
+        "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
       ),
     createdAt: zod.date(),
   }),

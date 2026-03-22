@@ -342,6 +342,10 @@ components:
           description: Weight 0-100, all variants in a test should sum to 100
         config:
           $ref: "#/components/schemas/VariantConfig"
+        builderPageId:
+          type: integer
+          nullable: true
+          description: FK to lp_pages.id; when set, this variant renders using the linked builder page blocks
         createdAt:
           type: string
           format: date-time
@@ -378,8 +382,14 @@ components:
           type: string
         trafficWeight:
           type: number
+        isControl:
+          type: boolean
         config:
           $ref: "#/components/schemas/VariantConfig"
+        builderPageId:
+          type: integer
+          nullable: true
+          description: FK to lp_pages.id; set to link a builder page, null to unlink
 
     Test:
       type: object

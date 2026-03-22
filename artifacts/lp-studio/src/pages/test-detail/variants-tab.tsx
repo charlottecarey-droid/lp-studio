@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate, Eye, Link2, Link2Off, ExternalLink, LayoutDashboard } from "lucide-react";
+import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate, Eye, Link2, Link2Off, LayoutDashboard, ArrowRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 import { 
   TestWithVariants, 
@@ -35,7 +36,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -197,20 +197,23 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
   );
 }
 
-function PageLinker({ testId, testSlug, variant }: { testId: number; testSlug: string; variant: Variant }) {
+interface PageLinkerProps {
+  testId: number;
+  testSlug: string;
+  variant: Variant;
+}
+
+function PageLinker({ testId, testSlug, variant }: PageLinkerProps) {
   const updateMutation = useUpdateVariant();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [isLoadingPages, setIsLoadingPages] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [newPageTitle, setNewPageTitle] = useState("");
-  const [newPageSlug, setNewPageSlug] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const config = variant.config as Record<string, unknown>;
-  const linkedPageId = typeof config.pageId === "number" ? config.pageId : null;
+  const linkedPageId = variant.builderPageId ?? null;
 
   useEffect(() => {
     setIsLoadingPages(true);
@@ -222,48 +225,52 @@ function PageLinker({ testId, testSlug, variant }: { testId: number; testSlug: s
 
   const linkedPage = pages.find(p => p.id === linkedPageId);
 
-  const handleLink = (pageId: number) => {
-    const newConfig = { ...config, pageId };
+  const linkPage = (pageId: number) => {
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: { name: variant.name, trafficWeight: variant.trafficWeight, isControl: variant.isControl, config: newConfig } as never },
+      { testId, variantId: variant.id, data: { name: variant.name, trafficWeight: variant.trafficWeight, isControl: variant.isControl, builderPageId: pageId } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });
-          toast({ title: "Page linked to variant" });
+          toast({ title: "Builder page linked to variant" });
         }
       }
     );
   };
 
-  const handleUnlink = () => {
-    const newConfig = { ...config };
-    delete newConfig.pageId;
+  const unlinkPage = () => {
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: { name: variant.name, trafficWeight: variant.trafficWeight, isControl: variant.isControl, config: newConfig } as never },
+      { testId, variantId: variant.id, data: { name: variant.name, trafficWeight: variant.trafficWeight, isControl: variant.isControl, builderPageId: null } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });
-          toast({ title: "Page unlinked from variant" });
+          toast({ title: "Builder page unlinked from variant" });
         }
       }
     );
   };
 
-  const handleCreateAndLink = async () => {
-    if (!newPageTitle.trim()) {
-      toast({ title: "Please enter a page title", variant: "destructive" });
-      return;
+  const handleOpenInBuilder = () => {
+    if (linkedPage) {
+      navigate(`/builder/${linkedPage.id}`);
     }
-    const slug = newPageSlug.trim() || newPageTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  };
+
+  const handleCreateAndOpen = async () => {
+    const variantSlug = variant.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const slug = `${testSlug}-${variantSlug}`;
     setIsCreating(true);
     try {
-      const page = await createPage(newPageTitle.trim(), slug);
+      const page = await createPage(variant.name, slug);
       setPages(prev => [...prev, page]);
-      handleLink(page.id);
-      setShowCreateForm(false);
-      setNewPageTitle("");
-      setNewPageSlug("");
-      toast({ title: "Page created and linked" });
+      updateMutation.mutate(
+        { testId, variantId: variant.id, data: { name: variant.name, trafficWeight: variant.trafficWeight, isControl: variant.isControl, builderPageId: page.id } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });
+            navigate(`/builder/${page.id}`);
+          }
+        }
+      );
     } catch (err) {
       toast({ title: err instanceof Error ? err.message : "Failed to create page", variant: "destructive" });
     } finally {
@@ -284,39 +291,37 @@ function PageLinker({ testId, testSlug, variant }: { testId: number; testSlug: s
             <p className="text-sm font-semibold text-foreground truncate">{linkedPage.title}</p>
             <p className="text-xs text-muted-foreground font-mono">/{linkedPage.slug}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant={linkedPage.status === "published" ? "default" : "secondary"} className={cn("text-xs", linkedPage.status === "published" ? "bg-green-500/10 text-green-700 border-green-200" : "")}>
-              {linkedPage.status === "published" ? "Live" : "Draft"}
-            </Badge>
-          </div>
+          <Badge variant={linkedPage.status === "published" ? "default" : "secondary"} className={cn("text-xs shrink-0", linkedPage.status === "published" ? "bg-green-500/10 text-green-700 border-green-200" : "")}>
+            {linkedPage.status === "published" ? "Live" : "Draft"}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/builder/${linkedPage.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1"
+          <Button
+            variant="default"
+            size="sm"
+            className="flex-1 gap-1.5"
+            onClick={handleOpenInBuilder}
+            disabled={updateMutation.isPending}
           >
-            <Button variant="outline" size="sm" className="w-full gap-1.5">
-              <ExternalLink className="w-3.5 h-3.5" />
-              Open in Builder
-            </Button>
-          </a>
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            Open in Builder
+            <ArrowRight className="w-3.5 h-3.5 ml-auto" />
+          </Button>
           <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-1.5 text-primary border-primary/30">
               <Eye className="w-3.5 h-3.5" />
               Preview
             </Button>
           </a>
-          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-1.5" onClick={handleUnlink} disabled={updateMutation.isPending}>
+          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 gap-1.5 shrink-0" onClick={unlinkPage} disabled={updateMutation.isPending}>
             <Link2Off className="w-3.5 h-3.5" />
             Unlink
           </Button>
         </div>
 
         <p className="text-xs text-muted-foreground leading-relaxed">
-          This variant will render using the blocks from the linked builder page. Changes to the builder page are reflected immediately.
+          This variant renders blocks from the linked builder page. Edits to the page take effect immediately — no re-linking needed.
         </p>
       </div>
     );
@@ -324,89 +329,64 @@ function PageLinker({ testId, testSlug, variant }: { testId: number; testSlug: s
 
   return (
     <div className="space-y-4">
-      <div className="p-4 bg-muted/40 border border-border rounded-xl text-sm text-muted-foreground leading-relaxed">
-        No builder page linked. This variant uses the <strong className="text-foreground">Legacy Config</strong> tab for its content. Link a builder page to use drag-and-drop blocks instead.
+      <div className="p-4 bg-muted/40 border border-border rounded-xl">
+        <p className="text-sm font-medium mb-1">No builder page linked</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Create a new builder page for this variant, or link an existing one. The builder page's blocks will replace the legacy config as the page content.
+        </p>
       </div>
 
-      {showCreateForm ? (
-        <div className="space-y-3 p-4 border border-border rounded-xl bg-background">
-          <p className="text-sm font-semibold">Create a new page</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Page Title</label>
-              <Input
-                value={newPageTitle}
-                onChange={e => {
-                  setNewPageTitle(e.target.value);
-                  if (!newPageSlug) {
-                    setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
-                  }
-                }}
-                placeholder="My Landing Page"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">URL Slug</label>
-              <Input
-                value={newPageSlug}
-                onChange={e => setNewPageSlug(e.target.value)}
-                placeholder="my-landing-page"
-                className="h-8 text-sm font-mono"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleCreateAndLink} disabled={isCreating} className="gap-1.5">
-              <Plus className="w-3.5 h-3.5" />
-              {isCreating ? "Creating..." : "Create & Link"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowCreateForm(false)}>Cancel</Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={handleCreateAndOpen}
+          disabled={isCreating || updateMutation.isPending}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {isCreating ? "Creating..." : "Create Page & Open Builder"}
+        </Button>
+
+        {!isLoadingPages && pages.length > 0 && (
           <div className="flex-1">
-            {isLoadingPages ? (
-              <div className="h-9 bg-muted/40 rounded-lg animate-pulse" />
-            ) : pages.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">No pages created yet.</p>
-            ) : (
-              <Select onValueChange={(val) => handleLink(parseInt(val, 10))} value="">
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Link existing page…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pages.map(p => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      <span className="flex items-center gap-2">
-                        {p.title}
-                        <span className="text-muted-foreground font-mono text-xs">/{p.slug}</span>
-                        {p.status === "published" && <Badge className="text-[9px] px-1 py-0 h-4 bg-green-500/10 text-green-700 border-green-200">Live</Badge>}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select onValueChange={(val) => linkPage(parseInt(val, 10))} value="">
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Or link existing page…" />
+              </SelectTrigger>
+              <SelectContent>
+                {pages.map(p => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    <span className="flex items-center gap-2">
+                      {p.title}
+                      <span className="text-muted-foreground font-mono text-xs">/{p.slug}</span>
+                      {p.status === "published" && <Badge className="text-[9px] px-1 py-0 h-4 bg-green-500/10 text-green-700 border-green-200">Live</Badge>}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Button size="sm" variant="outline" onClick={() => setShowCreateForm(true)} className="shrink-0 gap-1.5">
-            <Plus className="w-3.5 h-3.5" />
-            New Page
-          </Button>
-        </div>
-      )}
+        )}
+        {isLoadingPages && <div className="flex-1 h-9 bg-muted/40 rounded-lg animate-pulse" />}
+      </div>
     </div>
   );
 }
 
-function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number, testSlug: string, variant: Variant, onDelete: () => void }) {
+interface VariantEditorProps {
+  testId: number;
+  testSlug: string;
+  variant: Variant;
+  onDelete: () => void;
+}
+
+function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorProps) {
   const updateMutation = useUpdateVariant();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const variantConfigAny = variant.config as Record<string, unknown>;
-  const hasLinkedPage = typeof variantConfigAny.pageId === "number";
+  const hasLinkedPage = variant.builderPageId != null;
 
   const form = useForm<z.infer<typeof variantSchema>>({
     resolver: zodResolver(variantSchema),
@@ -430,13 +410,8 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
   });
 
   const onSubmit = (values: z.infer<typeof variantSchema>) => {
-    const mergedConfig = {
-      ...variantConfigAny,
-      ...values.config
-    };
-
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: { ...values, config: mergedConfig } as never },
+      { testId, variantId: variant.id, data: { name: values.name, isControl: values.isControl, trafficWeight: values.trafficWeight, config: values.config as Record<string, unknown> } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });
@@ -503,7 +478,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
-            {/* Top row settings — always visible */}
+            {/* Top row settings */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-muted/30 p-5 rounded-xl border border-border/50">
               <div className="md:col-span-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
@@ -527,7 +502,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
                         />
                         <Input 
                           type="number" 
-                          {...field} 
+                          value={field.value}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                           className="w-20 bg-background text-center font-mono" 
                         />
@@ -572,12 +547,11 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
                 <div className={cn("space-y-8", hasLinkedPage && "opacity-50 pointer-events-none select-none")}>
                   {hasLinkedPage && (
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-                      A builder page is linked — the legacy config below is currently inactive. Unlink the page to use this config.
+                      A builder page is linked — the legacy config below is currently inactive. Unlink the page to use this config instead.
                     </div>
                   )}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-8">
                     
-                    {/* Left Column: Content */}
                     <div className="space-y-6">
                       <div className="flex items-center gap-2 pb-2 border-b">
                         <Settings2 className="w-4 h-4 text-primary" />
@@ -614,7 +588,6 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
                       </div>
                     </div>
 
-                    {/* Right Column: Design */}
                     <div className="space-y-6">
                       <div className="flex items-center gap-2 pb-2 border-b">
                         <PaintBucket className="w-4 h-4 text-primary" />
@@ -659,56 +632,48 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number
                             <SelectContent>
                               <SelectItem value="white">Clean White</SelectItem>
                               <SelectItem value="dark">Dark Mode</SelectItem>
-                              <SelectItem value="gradient">Subtle Gradient</SelectItem>
+                              <SelectItem value="gradient">Gradient</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormItem>
                       )} />
 
-                      <div className="bg-muted/30 p-4 rounded-xl space-y-4 border border-border/50">
-                        <FormField control={form.control} name="config.showSocialProof" render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">Show Social Proof</FormLabel>
-                              <FormDescription>Display a trust badge below CTA</FormDescription>
-                            </div>
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <FormField control={form.control} name="config.showSocialProof" render={({ field }) => (
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                          <FormLabel className="font-normal cursor-pointer">Show social proof below CTA</FormLabel>
+                        </FormItem>
+                      )} />
+
+                      {form.watch("config.showSocialProof") && (
+                        <FormField control={form.control} name="config.socialProofText" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Social Proof Text</FormLabel>
+                            <FormControl><Input {...field} placeholder="Trusted by 2,000+ dental offices" /></FormControl>
                           </FormItem>
                         )} />
-                        
-                        {form.watch("config.showSocialProof") && (
-                          <FormField control={form.control} name="config.socialProofText" render={({ field }) => (
-                            <FormItem>
-                              <FormControl><Input {...field} placeholder="e.g. Trusted by 10,000+ clinics" /></FormControl>
-                            </FormItem>
-                          )} />
-                        )}
-                      </div>
+                      )}
                     </div>
-
                   </div>
-                </div>
-
-                {/* Save button for legacy config */}
-                <div className="flex items-center justify-between pt-6 border-t mt-8">
-                  <Button type="button" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive/20" onClick={onDelete}>
-                    <Trash2 className="w-4 h-4 mr-2" /> Delete Variant
-                  </Button>
-                  <Button type="submit" disabled={updateMutation.isPending || hasLinkedPage} className="rounded-xl px-8 shadow-md">
-                    Save Changes
-                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
 
-            {/* Delete button always visible in builder tab */}
-            {hasLinkedPage && (
-              <div className="flex items-center justify-between pt-4 border-t">
-                <Button type="button" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive/20" onClick={onDelete}>
-                  <Trash2 className="w-4 h-4 mr-2" /> Delete Variant
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center justify-between pt-2 border-t">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={onDelete}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Delete Variant
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending} size="sm">
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </form>
         </Form>
       </AccordionContent>

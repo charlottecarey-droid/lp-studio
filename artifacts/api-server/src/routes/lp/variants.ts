@@ -6,7 +6,6 @@ import {
   CreateVariantParams,
   CreateVariantBody,
   UpdateVariantParams,
-  UpdateVariantBody,
   DeleteVariantParams,
   ListVariantsParams,
 } from "@workspace/api-zod";
@@ -38,13 +37,15 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  // Use raw req.body.config to preserve extended JSONB fields the Zod schema would strip
+  const builderPageId =
+    typeof req.body.builderPageId === "number" ? req.body.builderPageId : null;
   const [variant] = await db.insert(lpVariantsTable).values({
     testId: params.data.testId,
     name: parsed.data.name,
     isControl: parsed.data.isControl ?? false,
     trafficWeight: parsed.data.trafficWeight,
-    config: req.body.config ?? parsed.data.config,
+    config: parsed.data.config ?? {},
+    builderPageId,
   }).returning();
   res.status(201).json(variant);
 });
@@ -55,21 +56,27 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
     res.status(400).json({ error: params.error.message });
     return;
   }
-  // Validate top-level fields only; skip strict config validation since the
-  // JSONB config field may contain extended fields (pageId, trustBar, benefits, etc.)
-  // that the generated Zod schema would strip or reject.
-  const parsed = UpdateVariantBody.omit({ config: true }).safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+
+  const body = req.body as Record<string, unknown>;
+
+  const updateData: Record<string, unknown> = {};
+  if (typeof body.name === "string" && body.name.length > 0) updateData.name = body.name;
+  if (typeof body.trafficWeight === "number") updateData.trafficWeight = body.trafficWeight;
+  if (typeof body.isControl === "boolean") updateData.isControl = body.isControl;
+  if (body.config !== undefined && typeof body.config === "object" && body.config !== null) {
+    updateData.config = body.config;
+  }
+  if ("builderPageId" in body) {
+    updateData.builderPageId =
+      body.builderPageId === null ? null :
+      typeof body.builderPageId === "number" ? body.builderPageId :
+      null;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
     return;
   }
-  const updateData: Record<string, unknown> = {};
-  if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
-  if (parsed.data.trafficWeight !== undefined) updateData.trafficWeight = parsed.data.trafficWeight;
-  if (req.body.isControl !== undefined) updateData.isControl = req.body.isControl;
-  // Use raw req.body.config to preserve extended JSONB fields (pageId, templateId, trustBar, benefits, etc.)
-  // that Zod strips when validating against the base VariantConfig schema
-  if (req.body.config !== undefined) updateData.config = req.body.config;
 
   const [variant] = await db
     .update(lpVariantsTable)

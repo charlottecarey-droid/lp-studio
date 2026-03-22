@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, integer, boolean, real, jsonb } from 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lpTestsTable } from "./lpTests";
+import { lpPagesTable } from "./lpPages";
 
 export const lpVariantsTable = pgTable("lp_variants", {
   id: serial("id").primaryKey(),
@@ -10,6 +11,7 @@ export const lpVariantsTable = pgTable("lp_variants", {
   isControl: boolean("is_control").notNull().default(false),
   trafficWeight: real("traffic_weight").notNull().default(50),
   config: jsonb("config").notNull().default({}),
+  builderPageId: integer("builder_page_id").references(() => lpPagesTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

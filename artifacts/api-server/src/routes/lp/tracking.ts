@@ -3,16 +3,24 @@ import { db } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
+import type { LpVariant } from "@workspace/db";
 
-async function enrichVariantWithPage(variant: { config: unknown; [key: string]: unknown }) {
-  const config = variant.config as Record<string, unknown>;
-  if (config && typeof config.pageId === "number") {
+async function enrichVariantWithPage(variant: LpVariant) {
+  if (variant.builderPageId != null) {
     const [linkedPage] = await db
       .select()
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.id, config.pageId));
+      .where(eq(lpPagesTable.id, variant.builderPageId));
     if (linkedPage) {
-      return { ...variant, linkedPage: { id: linkedPage.id, title: linkedPage.title, slug: linkedPage.slug, blocks: linkedPage.blocks } };
+      return {
+        ...variant,
+        linkedPage: {
+          id: linkedPage.id,
+          title: linkedPage.title,
+          slug: linkedPage.slug,
+          blocks: linkedPage.blocks,
+        },
+      };
     }
   }
   return variant;
@@ -117,7 +125,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       eq(lpSessionsTable.testId, test.id),
     ));
 
-  let assignedVariant;
+  let assignedVariant: LpVariant | undefined;
 
   if (existingSession) {
     assignedVariant = variants.find(v => v.id === existingSession.variantId);
