@@ -137,7 +137,7 @@ export default function LandingPageViewer() {
       </div>
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 py-1 flex items-center justify-between z-40 relative bg-black">
+      <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative bg-black">
         <img
           src={dandyLogoUrl}
           alt="Dandy"
