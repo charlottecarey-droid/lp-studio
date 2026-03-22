@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/"
+title = "Dental Clinic Video"
+version = "1.0.0"
+id = "artifacts/dental-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25332
+
+[services.development]
+run = "pnpm --filter @workspace/dental-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dental-video", "run", "build" ]
+publicDir = "artifacts/dental-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25332"
+BASE_PATH = "/"
