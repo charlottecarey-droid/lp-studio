@@ -32,7 +32,7 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col items-center justify-center px-16 gap-10">
+      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col items-center justify-end pb-16 px-16 gap-10">
         <div className="w-full space-y-10">
           {bulletPoints.map((text, i) => (
             <motion.div
