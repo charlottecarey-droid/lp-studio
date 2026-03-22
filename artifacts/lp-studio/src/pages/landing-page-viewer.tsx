@@ -50,6 +50,13 @@ export default function LandingPageViewer() {
   );
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => { if (window.scrollY > 40) setScrolled(true); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (config?.assignedVariant && sessionId && !hasTrackedImpression) {
@@ -226,7 +233,10 @@ export default function LandingPageViewer() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none">
+        <div className={cn(
+          "absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none transition-opacity duration-500",
+          scrolled ? "opacity-0" : "opacity-100"
+        )}>
           <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[#003A30]/15")} />
           <div className="animate-bounce">
             <ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[#003A30]/30")} />
