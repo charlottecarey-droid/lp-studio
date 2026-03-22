@@ -20,7 +20,8 @@ export default function Scene10() {
           <img
             src={toothImg}
             alt="AI scan review"
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover"
+            style={{ objectPosition: '50% 35%' }}
           />
 
           <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.05) 100%)' }} />

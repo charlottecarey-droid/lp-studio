@@ -33,7 +33,6 @@ export default function Scene7() {
             Built-in tips, real-time feedback, and Dandy support — all in one place while you scan.
           </p>
 
-          {/* Step progress tracker */}
           <div className="mt-12 flex flex-col gap-3">
             {steps.map((step, i) => (
               <motion.div
@@ -65,30 +64,31 @@ export default function Scene7() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-10 bg-[#F8F7F4] relative">
-        <motion.img
-          src={scanImg}
-          alt="Dandy scan workflow"
-          className="w-full h-auto object-contain rounded-2xl shadow-lg"
-          initial={{ opacity: 0, scale: 0.94, x: 40 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-        />
-        {/* Scan quality badge */}
-        <motion.div
-          className="absolute bottom-12 left-10 bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.8 }}
-        >
-          <div className="w-10 h-10 rounded-full bg-[#C7E738] flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-[#003A30]">Scan Quality</p>
-            <p className="text-xs text-[#4A6358]">Excellent · No gaps detected</p>
-          </div>
-        </motion.div>
+      <div className="w-1/2 h-full flex items-center justify-center p-6 bg-white">
+        <div className="w-full h-full bg-[#F5F5F3] rounded-3xl flex items-center justify-center p-8 relative">
+          <motion.img
+            src={scanImg}
+            alt="Dandy scan workflow"
+            className="w-full h-auto object-contain rounded-2xl shadow-lg"
+            initial={{ opacity: 0, scale: 0.94, x: 40 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          />
+          <motion.div
+            className="absolute bottom-10 left-8 bg-white rounded-2xl shadow-lg px-5 py-4 flex items-center gap-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1.8 }}
+          >
+            <div className="w-10 h-10 rounded-full bg-[#C7E738] flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#003A30]">Scan Quality</p>
+              <p className="text-xs text-[#4A6358]">Excellent · No gaps detected</p>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </motion.div>
   );

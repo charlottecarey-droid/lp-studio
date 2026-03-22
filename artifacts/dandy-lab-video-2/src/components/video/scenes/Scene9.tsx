@@ -32,7 +32,6 @@ export default function Scene9() {
           Your lab tech joins your op virtually to review 3D models, catch issues early, and approve cases together.
         </motion.p>
 
-        {/* Chat thread */}
         <div className="mt-10 flex flex-col gap-3">
           <motion.div
             className="self-start bg-[#F0F4F2] rounded-2xl rounded-tl-none px-4 py-2.5 max-w-xs"
@@ -56,26 +55,27 @@ export default function Scene9() {
         </div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-10 bg-[#F8F7F4] relative">
-        <motion.img
-          src={reviewImg}
-          alt="3D design review with lab tech"
-          className="w-full h-auto object-contain rounded-2xl shadow-lg"
-          initial={{ opacity: 0, scale: 0.92, x: 40 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        />
+      <div className="w-1/2 h-full flex items-center justify-center p-6 bg-white">
+        <div className="w-full h-full bg-[#F5F5F3] rounded-3xl flex items-center justify-center p-8 relative">
+          <motion.img
+            src={reviewImg}
+            alt="3D design review with lab tech"
+            className="w-full h-auto object-contain rounded-2xl shadow-lg"
+            initial={{ opacity: 0, scale: 0.92, x: 40 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          />
 
-        {/* Approved stamp */}
-        <motion.div
-          className="absolute bottom-16 right-14 bg-[#C7E738] rounded-full px-5 py-2.5 flex items-center gap-2 shadow-lg"
-          initial={{ opacity: 0, scale: 0, rotate: -15 }}
-          animate={{ opacity: 1, scale: 1, rotate: -8 }}
-          transition={{ type: 'spring', stiffness: 250, damping: 18, delay: 2.4 }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          <span className="text-sm font-bold text-[#003A30] tracking-wide uppercase">Approved</span>
-        </motion.div>
+          <motion.div
+            className="absolute bottom-10 right-10 bg-[#C7E738] rounded-full px-5 py-2.5 flex items-center gap-2 shadow-lg"
+            initial={{ opacity: 0, scale: 0, rotate: -15 }}
+            animate={{ opacity: 1, scale: 1, rotate: -8 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 18, delay: 2.4 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span className="text-sm font-bold text-[#003A30] tracking-wide uppercase">Approved</span>
+          </motion.div>
+        </div>
       </div>
     </motion.div>
   );
