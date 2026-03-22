@@ -127,8 +127,8 @@ export default function LandingPageViewer() {
         }
       `}</style>
 
-      {/* Above-fold wrapper — fills exactly one viewport height */}
-      <div className="min-h-screen flex flex-col">
+      {/* Above-fold wrapper — 80vh so the video peeks below */}
+      <div className="min-h-[80vh] flex flex-col">
 
       {/* 1. Test Banner */}
       <div className="bg-black text-white text-[10px] md:text-xs py-1.5 text-center font-mono tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity z-50 relative">
