@@ -31,7 +31,6 @@ export default function Scene10() {
           {[
             { top: '22%', left: '52%', label: 'Margin', delay: 0.7, color: '#C7E738', textColor: '#003A30' },
             { top: '48%', left: '28%', label: 'Prep angle', delay: 1.0, color: '#C7E738', textColor: '#003A30' },
-            { top: '64%', left: '60%', label: 'Scan gap', delay: 1.3, color: '#FF6B6B', textColor: '#fff' },
           ].map(({ top, left, label, delay, color, textColor }) => (
             <motion.div
               key={label}
