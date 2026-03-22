@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/dandy-lab-video/"
+title = "Dandy Dental Lab Video"
+version = "1.0.0"
+id = "artifacts/dandy-lab-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/dandy-lab-video/" ]
+localPort = 20207
+
+[services.development]
+run = "pnpm --filter @workspace/dandy-lab-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dandy-lab-video", "run", "build" ]
+publicDir = "artifacts/dandy-lab-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20207"
+BASE_PATH = "/dandy-lab-video/"
