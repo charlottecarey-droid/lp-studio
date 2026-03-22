@@ -127,6 +127,9 @@ export default function LandingPageViewer() {
         }
       `}</style>
 
+      {/* Above-fold wrapper — fills exactly one viewport height */}
+      <div className="min-h-screen flex flex-col">
+
       {/* 1. Test Banner */}
       <div className="bg-black text-white text-[10px] md:text-xs py-1.5 text-center font-mono tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity z-50 relative">
         RUNNING • VARIANT: {config.assignedVariant.name}
@@ -151,8 +154,7 @@ export default function LandingPageViewer() {
 
       {/* 3. Hero Section (text + CTA only, plus video in split mode) */}
       <section className={cn(
-        "relative w-full px-6 flex flex-col items-center",
-        isMinimal ? "py-24 md:py-40" : "py-12 md:py-20",
+        "relative w-full px-6 flex flex-col items-center justify-center flex-1",
         isDark ? "bg-[#003A30]" : "bg-white"
       )}>
         <div className={cn(
@@ -222,6 +224,8 @@ export default function LandingPageViewer() {
           )}
         </div>
       </section>
+
+      </div>{/* end min-h-screen above-fold wrapper */}
 
       {/* 4. Video (Centered Mode — contained with white padding) */}
       {!isSplit && variantConf.heroType !== "none" && (
