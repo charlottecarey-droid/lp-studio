@@ -55,7 +55,10 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const parsed = UpdateVariantBody.safeParse(req.body);
+  // Validate top-level fields only; skip strict config validation since the
+  // JSONB config field may contain extended fields (pageId, trustBar, benefits, etc.)
+  // that the generated Zod schema would strip or reject.
+  const parsed = UpdateVariantBody.omit({ config: true }).safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -63,7 +66,8 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
   const updateData: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.trafficWeight !== undefined) updateData.trafficWeight = parsed.data.trafficWeight;
-  // Use raw req.body.config to preserve extended JSONB fields (templateId, trustBar, benefits, etc.)
+  if (req.body.isControl !== undefined) updateData.isControl = req.body.isControl;
+  // Use raw req.body.config to preserve extended JSONB fields (pageId, templateId, trustBar, benefits, etc.)
   // that Zod strips when validating against the base VariantConfig schema
   if (req.body.config !== undefined) updateData.config = req.body.config;
 

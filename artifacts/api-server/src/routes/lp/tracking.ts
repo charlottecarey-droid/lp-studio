@@ -4,6 +4,20 @@ import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesT
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 
+async function enrichVariantWithPage(variant: { config: unknown; [key: string]: unknown }) {
+  const config = variant.config as Record<string, unknown>;
+  if (config && typeof config.pageId === "number") {
+    const [linkedPage] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.id, config.pageId));
+    if (linkedPage) {
+      return { ...variant, linkedPage: { id: linkedPage.id, title: linkedPage.title, slug: linkedPage.slug, blocks: linkedPage.blocks } };
+    }
+  }
+  return variant;
+}
+
 const router = Router();
 
 router.post("/lp/track", async (req, res): Promise<void> => {
@@ -80,12 +94,13 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   if (previewVariantId) {
     const previewVariant = variants.find(v => v.id === previewVariantId);
     if (previewVariant) {
+      const enriched = await enrichVariantWithPage(previewVariant);
       res.json({
         testId: test.id,
         slug: test.slug,
         testName: test.name,
         sessionId: `preview-${previewVariantId}`,
-        assignedVariant: previewVariant,
+        assignedVariant: enriched,
         status: test.status,
         isPreview: true,
       });
@@ -130,12 +145,13 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     }).onConflictDoNothing();
   }
 
+  const enrichedVariant = await enrichVariantWithPage(assignedVariant!);
   res.json({
     testId: test.id,
     slug: test.slug,
     testName: test.name,
     sessionId,
-    assignedVariant,
+    assignedVariant: enrichedVariant,
     status: test.status,
   });
 });

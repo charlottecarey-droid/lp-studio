@@ -143,6 +143,62 @@ export default function LandingPageViewer() {
     );
   }
 
+  // If the assigned variant has a linked builder page, render it as blocks
+  const assignedVariantAny = config.assignedVariant as unknown as { linkedPage?: { blocks: import("@/lib/block-types").PageBlock[] } };
+  if (assignedVariantAny.linkedPage?.blocks?.length) {
+    const blocks = assignedVariantAny.linkedPage.blocks;
+    const handleBuilderCtaClick = (ctaUrl: string) => {
+      const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
+      if (dest) {
+        if (!isPreviewMode) {
+          trackEvent.mutate({
+            data: {
+              sessionId,
+              testId: config.testId,
+              variantId: config.assignedVariant.id,
+              eventType: "conversion",
+              conversionType: "cta_click"
+            }
+          });
+        }
+        window.open(dest, "_blank", "noopener,noreferrer");
+      }
+    };
+
+    return (
+      <div className="min-h-screen w-full font-sans">
+        <style>{`
+          @keyframes marquee {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+          }
+          .animate-marquee { animation: marquee 40s linear infinite; }
+          .animate-marquee:hover { animation-play-state: paused; }
+        `}</style>
+        {isPreviewMode && (
+          <div className="bg-[#C7E738] text-[#003A30] py-2 px-4 flex items-center justify-between z-50 relative">
+            <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#003A30] opacity-70" />
+                Preview Mode
+              </span>
+              <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
+            </div>
+            <button
+              onClick={() => window.close()}
+              className="text-xs font-semibold underline underline-offset-2 opacity-60 hover:opacity-100 transition-opacity"
+            >
+              Close Preview
+            </button>
+          </div>
+        )}
+        {blocks.map((block, i) => (
+          <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+        ))}
+      </div>
+    );
+  }
+
   const variantConf = config.assignedVariant.config as unknown as ExtendedVariantConfig;
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
