@@ -6,7 +6,7 @@
   src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
        url('./fonts/BagossStandard-Regular.woff') format('woff'),
        url('./fonts/BagossStandard-Regular.ttf') format('truetype');
-  font-weight: 400;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
