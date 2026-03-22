@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
+import productsImg from '@assets/IMG_0116_1774192251780.jpeg';
 
 export default function Scene2() {
   return (
@@ -43,7 +44,7 @@ export default function Scene2() {
 
         <div className="w-1/2 bg-[#F8F7F4] relative flex items-center justify-center p-12">
           <motion.img 
-            src={`${import.meta.env.BASE_URL}brand-products.png`} 
+            src={productsImg} 
             alt="Dandy Products"
             className="w-full h-auto object-contain drop-shadow-xl"
             initial={{ opacity: 0, scale: 0.8, rotate: -5 }}

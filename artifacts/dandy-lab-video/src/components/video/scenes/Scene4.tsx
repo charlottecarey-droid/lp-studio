@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
+import appImg from '@assets/IMG_0118_1774192251780.jpeg';
 
 export default function Scene4() {
   return (
@@ -37,7 +38,7 @@ export default function Scene4() {
           transition={{ type: 'spring', stiffness: 150, damping: 20, delay: 0.5 }}
         >
           <img
-            src={`${import.meta.env.BASE_URL}brand-app.png`}
+            src={appImg}
             alt="Dandy App"
             className="h-full w-auto object-contain drop-shadow-2xl rounded-[3rem]"
           />
