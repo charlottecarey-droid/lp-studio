@@ -43,7 +43,7 @@ export default function Scene2() {
 
         <div className="w-1/2 bg-[#F8F7F4] relative flex items-center justify-center p-12">
           <motion.img 
-            src="/brand-products.png" 
+            src={`${import.meta.env.BASE_URL}brand-products.png`} 
             alt="Dandy Products"
             className="w-full h-auto object-contain drop-shadow-xl"
             initial={{ opacity: 0, scale: 0.8, rotate: -5 }}

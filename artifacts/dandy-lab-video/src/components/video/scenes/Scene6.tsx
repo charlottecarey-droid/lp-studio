@@ -25,7 +25,7 @@ export default function Scene6() {
           transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
           className="text-center mb-8"
         >
-          <img src="/dandy-logo.svg" alt="dandy" className="h-[12vh]" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={`${import.meta.env.BASE_URL}dandy-logo.svg`} alt="dandy" className="h-[12vh]" style={{ filter: 'brightness(0) invert(1)' }} />
         </motion.div>
 
         <motion.h3 

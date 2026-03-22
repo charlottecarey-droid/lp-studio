@@ -37,7 +37,7 @@ export default function Scene4() {
           transition={{ type: 'spring', stiffness: 150, damping: 20, delay: 0.5 }}
         >
           <img
-            src="/brand-app.png"
+            src={`${import.meta.env.BASE_URL}brand-app.png`}
             alt="Dandy App"
             className="h-full w-auto object-contain drop-shadow-2xl rounded-[3rem]"
           />

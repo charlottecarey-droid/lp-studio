@@ -14,7 +14,7 @@ export default function Scene1() {
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
           className="mb-8"
         >
-          <img src="/dandy-logo.svg" alt="dandy" className="h-[12vh]" />
+          <img src={`${import.meta.env.BASE_URL}dandy-logo.svg`} alt="dandy" className="h-[12vh]" />
         </motion.div>
 
         <motion.div
