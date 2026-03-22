@@ -30,7 +30,7 @@ export default function Scene4() {
       </div>
 
       <div className="w-1/2 h-full flex items-center justify-center p-6 bg-white">
-        <div className="w-full bg-[#F5F5F3] rounded-3xl flex items-center justify-center p-10 relative">
+        <div className="w-full h-full bg-white rounded-3xl flex items-center justify-center p-10 relative shadow-sm">
         <motion.div
           className="relative h-full flex items-center"
           initial={{ opacity: 0, scale: 0.94, x: 40 }}

@@ -56,7 +56,7 @@ export default function Scene9() {
       </div>
 
       <div className="w-1/2 h-full flex items-center justify-center p-6 bg-white">
-        <div className="w-full bg-[#F5F5F3] rounded-3xl flex items-center justify-center p-8 relative">
+        <div className="w-full h-full bg-white rounded-3xl flex items-center justify-center p-8 relative shadow-sm">
           <motion.img
             src={reviewImg}
             alt="3D design review with lab tech"
