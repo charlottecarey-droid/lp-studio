@@ -248,8 +248,8 @@ export default function LandingPageViewer() {
 
       {/* 4. Video (Centered Mode — contained with white padding) */}
       {!isSplit && variantConf.heroType !== "none" && (
-        <section className="w-full bg-white py-8 px-8 md:px-16">
-          <div className="max-w-4xl mx-auto">
+        <section className="w-full bg-white py-8 px-6 md:px-10">
+          <div className="max-w-5xl mx-auto">
             <div className="relative w-full aspect-video rounded-xl overflow-hidden">
               {variantConf.heroType === "dandy-video" ? (
                 <iframe 
