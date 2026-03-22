@@ -20,10 +20,10 @@ export default function Scene4() {
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.6 }}
           />
-          <h2 className="text-6xl font-display font-bold text-[#003A30] mb-8 leading-tight">
+          <h2 className="text-4xl font-display font-bold text-[#003A30] mb-8 leading-tight">
             In 60 seconds, a lab tech joins your op.
           </h2>
-          <p className="text-3xl text-[#4A6358] leading-relaxed">
+          <p className="text-xl text-[#4A6358] leading-relaxed">
             Dandy is the only lab with real-time collaboration — chat, review scans, and get expert guidance without leaving the chair.
           </p>
         </motion.div>

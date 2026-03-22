@@ -49,7 +49,7 @@ export default function Scene3() {
               transform="rotate(-90 50 50)"
             />
           </svg>
-          <h2 className="font-display font-bold text-[#003A30] leading-none tracking-tighter" style={{ fontSize: '7rem' }}>
+          <h2 className="font-display font-bold text-[#003A30] leading-none tracking-tighter" style={{ fontSize: '4rem' }}>
             {count}%
           </h2>
         </motion.div>
@@ -60,7 +60,7 @@ export default function Scene3() {
           transition={{ duration: 0.8, delay: 1 }}
           className="max-w-3xl"
         >
-          <h3 className="text-5xl font-display text-[#003A30] leading-tight">
+          <h3 className="text-3xl font-display text-[#003A30] leading-tight">
             Average reduction in remakes<br />when partnering with Dandy
           </h3>
         </motion.div>

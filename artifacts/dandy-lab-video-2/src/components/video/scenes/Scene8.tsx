@@ -20,10 +20,10 @@ export default function Scene8() {
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
           />
-          <h2 className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8">
+          <h2 className="text-4xl font-display font-bold text-[#003A30] leading-tight mb-8">
             Order anything.<br />From one place.
           </h2>
-          <p className="text-3xl text-[#4A6358] leading-relaxed">
+          <p className="text-xl text-[#4A6358] leading-relaxed">
             Crowns, implants, aligners, dentures — every restoration your practice needs, in a single workflow.
           </p>
         </motion.div>

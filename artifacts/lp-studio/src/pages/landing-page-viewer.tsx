@@ -223,24 +223,26 @@ export default function LandingPageViewer() {
         </div>
       </section>
 
-      {/* 4. Full-bleed Video (Centered Mode) */}
+      {/* 4. Video (Centered Mode — contained with white padding) */}
       {!isSplit && variantConf.heroType !== "none" && (
-        <section className="w-full m-0 p-0 bg-black">
-          <div className="relative w-full aspect-video">
-            {variantConf.heroType === "dandy-video" ? (
-              <iframe 
-                src={DANDY_VIDEO_URL} 
-                className="w-full h-full border-0"
-                title="Demo Video"
-              />
-            ) : (
-              <img 
-                src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
-                alt="Dental Office" 
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            )}
+        <section className="w-full bg-white py-8 px-8 md:px-16">
+          <div className="max-w-4xl mx-auto">
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm">
+              {variantConf.heroType === "dandy-video" ? (
+                <iframe 
+                  src={DANDY_VIDEO_URL} 
+                  className="w-full h-full border-0"
+                  title="Demo Video"
+                />
+              ) : (
+                <img 
+                  src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
+                  alt="Dental Office" 
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              )}
+            </div>
           </div>
         </section>
       )}

@@ -17,7 +17,7 @@ export default function Scene2() {
         />
 
         <motion.h2
-          className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8"
+          className="text-4xl font-display font-bold text-[#003A30] leading-tight mb-8"
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
@@ -26,7 +26,7 @@ export default function Scene2() {
         </motion.h2>
 
         <motion.p
-          className="text-3xl text-[#4A6358] leading-relaxed"
+          className="text-xl text-[#4A6358] leading-relaxed"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 1 }}

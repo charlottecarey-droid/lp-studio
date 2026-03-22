@@ -29,7 +29,7 @@ export default function Scene1() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 1, ease: 'easeOut' }}
         >
-          <h2 className="text-5xl font-display font-bold text-[#003A30]">
+          <h2 className="text-3xl font-display font-bold text-[#003A30]">
             Your one-stop dental lab
           </h2>
         </motion.div>

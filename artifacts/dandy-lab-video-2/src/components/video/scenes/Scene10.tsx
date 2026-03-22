@@ -101,7 +101,7 @@ export default function Scene10() {
         />
 
         <motion.h2
-          className="text-[4rem] font-display font-bold text-[#003A30] leading-tight mb-8"
+          className="text-[2.5rem] font-display font-bold text-[#003A30] leading-tight mb-8"
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
@@ -110,7 +110,7 @@ export default function Scene10() {
         </motion.h2>
 
         <motion.p
-          className="text-3xl text-[#4A6358] leading-relaxed"
+          className="text-xl text-[#4A6358] leading-relaxed"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.9 }}
