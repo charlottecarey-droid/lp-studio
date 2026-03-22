@@ -29,7 +29,7 @@ export default function Scene7() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full overflow-hidden">
+      <div className="w-1/2 h-full relative overflow-hidden">
         <motion.img
           src={scanImg}
           alt="Dandy scan workflow"
@@ -37,6 +37,11 @@ export default function Scene7() {
           initial={{ opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+        />
+        {/* Soft gradient on the left edge to blend into the white text panel */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to right, #FFFFFF 0%, transparent 20%)' }}
         />
       </div>
     </motion.div>

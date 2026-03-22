@@ -8,14 +8,19 @@ export default function Scene10() {
       className="absolute inset-0 flex overflow-hidden"
       {...sceneTransitions.fadeBlur}
     >
-      <div className="w-1/2 h-full relative">
+      <div className="w-1/2 h-full relative overflow-hidden">
         <motion.img
           src={aiScanImg}
           alt="AI scan review"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover object-center"
           initial={{ opacity: 0, scale: 1.08 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+        />
+        {/* Soft gradient on the right edge to blend into the dark green text panel */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to left, #003A30 0%, transparent 25%)' }}
         />
       </div>
 
