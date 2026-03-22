@@ -227,7 +227,7 @@ export default function LandingPageViewer() {
       {!isSplit && variantConf.heroType !== "none" && (
         <section className="w-full bg-white py-8 px-8 md:px-16">
           <div className="max-w-4xl mx-auto">
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm">
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden">
               {variantConf.heroType === "dandy-video" ? (
                 <iframe 
                   src={DANDY_VIDEO_URL} 
