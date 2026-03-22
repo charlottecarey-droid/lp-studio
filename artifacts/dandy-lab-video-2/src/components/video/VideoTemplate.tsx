@@ -52,7 +52,7 @@ export default function VideoTemplate() {
           style={{
             backgroundColor: '#C7E738',
             color: '#003A30',
-            boxShadow: '0 8px 32px rgba(199,231,56,0.5)',
+            boxShadow: '0 8px 32px rgba(0,58,48,0.35)',
           }}
         >
           Get Started
