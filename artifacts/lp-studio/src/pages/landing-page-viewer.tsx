@@ -37,14 +37,25 @@ const ICON_MAP: Record<string, React.FC<any>> = {
 export default function LandingPageViewer() {
   const [match, params] = useRoute("/lp/:slug");
   const slug = params?.slug || "";
+
+  // Preview mode: ?previewVariantId=123 forces a specific variant, no tracking
+  const searchParams = new URLSearchParams(window.location.search);
+  const previewVariantId = searchParams.get("previewVariantId")
+    ? parseInt(searchParams.get("previewVariantId")!, 10)
+    : undefined;
+  const isPreviewMode = !!previewVariantId;
   
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
   
+  const apiParams = isPreviewMode
+    ? { previewVariantId }
+    : { sessionId };
+
   const { data: config, isLoading, error } = useGetPageConfig(
     slug, 
-    { sessionId }, 
-    { query: { enabled: !!slug && !!sessionId, retry: false } }
+    apiParams,
+    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false } }
   );
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
@@ -62,6 +73,8 @@ export default function LandingPageViewer() {
   }, []);
 
   useEffect(() => {
+    // Never track impressions in preview mode
+    if (isPreviewMode) return;
     if (config?.assignedVariant && sessionId && !hasTrackedImpression) {
       trackEvent.mutate({
         data: {
@@ -73,9 +86,9 @@ export default function LandingPageViewer() {
       });
       setHasTrackedImpression(true);
     }
-  }, [config, sessionId, hasTrackedImpression, trackEvent]);
+  }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode]);
 
-  if (isLoading || !sessionId) {
+  if (isLoading || (!isPreviewMode && !sessionId)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-[#003A30]" />
@@ -147,10 +160,28 @@ export default function LandingPageViewer() {
       {/* Above-fold wrapper — 80vh so the video peeks below */}
       <div className="min-h-[80vh] flex flex-col">
 
-      {/* 1. Test Banner */}
-      <div className="bg-black text-white text-[10px] md:text-xs py-1.5 text-center font-mono tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity z-50 relative">
-        RUNNING • VARIANT: {config.assignedVariant.name}
-      </div>
+      {/* 1. Banner — preview stripe or running stripe */}
+      {isPreviewMode ? (
+        <div className="bg-[#C7E738] text-[#003A30] py-2 px-4 flex items-center justify-between z-50 relative">
+          <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#003A30] opacity-70" />
+              Preview Mode
+            </span>
+            <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
+          </div>
+          <button
+            onClick={() => window.close()}
+            className="text-xs font-semibold underline underline-offset-2 opacity-60 hover:opacity-100 transition-opacity"
+          >
+            Close Preview
+          </button>
+        </div>
+      ) : (
+        <div className="bg-black text-white text-[10px] md:text-xs py-1.5 text-center font-mono tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity z-50 relative">
+          RUNNING • VARIANT: {config.assignedVariant.name}
+        </div>
+      )}
 
       {/* 2. Nav */}
       <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>

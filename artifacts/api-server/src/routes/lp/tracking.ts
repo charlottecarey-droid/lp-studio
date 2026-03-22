@@ -33,6 +33,11 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     ? queryParsed.data.sessionId
     : `anon-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+  // Preview mode: bypass session assignment, no tracking
+  const previewVariantId = req.query.previewVariantId
+    ? parseInt(req.query.previewVariantId as string, 10)
+    : undefined;
+
   const [test] = await db
     .select()
     .from(lpTestsTable)
@@ -51,6 +56,23 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   if (variants.length === 0) {
     res.status(404).json({ error: "No variants configured" });
     return;
+  }
+
+  // Preview mode: return the requested variant without session assignment
+  if (previewVariantId) {
+    const previewVariant = variants.find(v => v.id === previewVariantId);
+    if (previewVariant) {
+      res.json({
+        testId: test.id,
+        slug: test.slug,
+        testName: test.name,
+        sessionId: `preview-${previewVariantId}`,
+        assignedVariant: previewVariant,
+        status: test.status,
+        isPreview: true,
+      });
+      return;
+    }
   }
 
   // Check if this session already has a variant assignment

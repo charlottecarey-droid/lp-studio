@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate } from "lucide-react";
+import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate, Eye } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { 
@@ -157,7 +157,8 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
           {test.variants.map((variant) => (
             <VariantEditor 
               key={variant.id} 
-              testId={test.id} 
+              testId={test.id}
+              testSlug={test.slug}
               variant={variant} 
               onDelete={() => handleDelete(variant.id)}
             />
@@ -168,7 +169,7 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
   );
 }
 
-function VariantEditor({ testId, variant, onDelete }: { testId: number, variant: Variant, onDelete: () => void }) {
+function VariantEditor({ testId, testSlug, variant, onDelete }: { testId: number, testSlug: string, variant: Variant, onDelete: () => void }) {
   const updateMutation = useUpdateVariant();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -243,10 +244,19 @@ function VariantEditor({ testId, variant, onDelete }: { testId: number, variant:
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 text-sm">
             <div className="text-muted-foreground font-mono">
               Weight: <span className="text-foreground font-bold">{form.watch("trafficWeight")}%</span>
             </div>
+            <a
+              href={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${variant.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2.5 py-1 rounded-lg transition-colors no-default-active-elevate"
+            >
+              <Eye className="w-3.5 h-3.5" /> Preview
+            </a>
           </div>
         </div>
       </AccordionTrigger>

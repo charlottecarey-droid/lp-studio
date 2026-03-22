@@ -211,4 +211,5 @@ export interface PageConfig {
 
 export type GetPageConfigParams = {
   sessionId?: string;
+  previewVariantId?: number;
 };
