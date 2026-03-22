@@ -4,7 +4,7 @@ import { sceneTransitions } from '@/lib/video/animations';
 export default function Scene6() {
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center bg-[#1C3A2E] overflow-hidden"
+      className="absolute inset-0 flex flex-col items-center justify-center bg-[#003A30] overflow-hidden"
       {...sceneTransitions.fadeBlur}
     >
       {/* Decorative background element */}
@@ -14,8 +14,8 @@ export default function Scene6() {
         animate={{ scale: 1, opacity: 0.2 }}
         transition={{ duration: 2, ease: "easeOut" }}
       >
-        <div className="w-[80vw] h-[80vw] border-[1px] border-[#C8E63C] rounded-full" />
-        <div className="absolute w-[60vw] h-[60vw] border-[1px] border-[#C8E63C] rounded-full" />
+        <div className="w-[80vw] h-[80vw] border-[1px] border-[#C7E738] rounded-full" />
+        <div className="absolute w-[60vw] h-[60vw] border-[1px] border-[#C7E738] rounded-full" />
       </motion.div>
       
       <div className="relative z-10 flex flex-col items-center">
@@ -25,9 +25,7 @@ export default function Scene6() {
           transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
           className="text-center mb-8"
         >
-          <h2 className="text-[8vw] font-bold text-white tracking-tight leading-none" style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
-            dandy
-          </h2>
+          <img src="/dandy-logo.svg" alt="dandy" className="h-[12vh]" style={{ filter: 'brightness(0) invert(1)' }} />
         </motion.div>
 
         <motion.h3 
@@ -44,8 +42,8 @@ export default function Scene6() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 1, type: "spring", stiffness: 200, damping: 20 }}
         >
-          <div className="px-12 py-6 bg-[#C8E63C] rounded-full shadow-2xl">
-            <span className="text-[#1C3A2E] text-2xl font-bold tracking-widest uppercase">
+          <div className="px-12 py-6 bg-[#C7E738] rounded-full shadow-2xl">
+            <span className="text-[#003A30] text-2xl font-bold tracking-widest uppercase">
               GET STARTED AT MEETDANDY.COM
             </span>
           </div>

@@ -4,7 +4,7 @@ import { sceneTransitions } from '@/lib/video/animations';
 export default function Scene2() {
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center bg-[#F0EDE6] overflow-hidden p-16"
+      className="absolute inset-0 flex items-center justify-center bg-[#FFFFFF] overflow-hidden p-16"
       {...sceneTransitions.slideLeft}
     >
       <motion.div 
@@ -16,7 +16,7 @@ export default function Scene2() {
       >
         <div className="w-1/2 p-16 flex flex-col justify-center">
           <motion.h2 
-            className="text-6xl font-display font-bold text-[#0F2318] leading-tight mb-8"
+            className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8"
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
@@ -25,7 +25,7 @@ export default function Scene2() {
           </motion.h2>
           
           <motion.div 
-            className="w-16 h-2 bg-[#C8E63C] rounded-full mb-8"
+            className="w-16 h-2 bg-[#C7E738] rounded-full mb-8"
             initial={{ scaleX: 0, originX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.8 }}

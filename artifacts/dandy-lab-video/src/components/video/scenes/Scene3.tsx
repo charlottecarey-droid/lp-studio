@@ -31,7 +31,7 @@ export default function Scene3() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center bg-[#1C3A2E] overflow-hidden"
+      className="absolute inset-0 flex flex-col items-center justify-center bg-[#003A30] overflow-hidden"
       {...sceneTransitions.clipCircle}
     >
       <div className="relative z-10 text-center flex flex-col items-center">
@@ -49,7 +49,7 @@ export default function Scene3() {
               cy="50" 
               r="45" 
               fill="none" 
-              stroke="#C8E63C" 
+              stroke="#C7E738" 
               strokeWidth="4"
               strokeDasharray="283"
               strokeLinecap="round"
@@ -60,7 +60,7 @@ export default function Scene3() {
             />
           </svg>
           
-          <h2 className="text-[7rem] font-bold text-white leading-none tracking-tighter" style={{ fontFamily: 'Inter, sans-serif' }}>
+          <h2 className="text-[7rem] font-bold text-white leading-none tracking-tighter" style={{ fontFamily: 'Figtree, sans-serif' }}>
             {count}%
           </h2>
         </motion.div>
