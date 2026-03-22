@@ -52,12 +52,12 @@ export default function Scene4() {
             animate={{ opacity: [0, 1, 1, 0], scale: [0.7, 1, 1, 0.7] }}
             transition={{ duration: 1.2, delay: 1.4, times: [0, 0.2, 0.7, 1] }}
           >
-            {[0, 0.15, 0.3].map((delay, i) => (
+            {[0, 0.2, 0.4].map((delay, i) => (
               <motion.div
                 key={i}
                 className="w-2 h-2 rounded-full bg-[#4A6358]"
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 0.6, delay: 1.5 + delay, repeat: 2, repeatType: 'loop' }}
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 0.8, delay: 1.4 + delay, repeat: 2, repeatType: 'loop', ease: 'easeInOut' }}
               />
             ))}
           </motion.div>
