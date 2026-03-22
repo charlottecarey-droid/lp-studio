@@ -35,7 +35,7 @@ export default function Scene10() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
         >
-          AI-powered scan review. Before it leaves your chair.
+          AI Scan Review before the patient leaves the chair.
         </motion.h2>
 
         <motion.p
@@ -56,7 +56,7 @@ export default function Scene10() {
         >
           <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#C7E738' }} />
           <span className="text-xl font-semibold" style={{ color: '#C7E738' }}>
-            Powered by Dandy AI
+            89% Remake Reduction
           </span>
         </motion.div>
       </div>
