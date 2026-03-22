@@ -74,7 +74,7 @@ export default function Scene4() {
 
         {/* Typing indicator */}
         <motion.div
-          className="absolute top-8 right-8 bg-white px-4 py-2 rounded-2xl rounded-tr-none shadow-md border border-gray-100 flex items-center gap-1"
+          className="absolute top-20 right-8 bg-white px-4 py-2 rounded-2xl rounded-tr-none shadow-md border border-gray-100 flex items-center gap-1"
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: [0, 1, 1, 0], scale: [0.7, 1, 1, 0.7] }}
           transition={{ duration: 1.2, delay: 1.4, times: [0, 0.2, 0.7, 1] }}
