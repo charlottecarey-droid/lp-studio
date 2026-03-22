@@ -91,6 +91,18 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/lp-studio` (`@workspace/lp-studio`)
+
+Landing Page Studio — A/B and multivariate testing platform for landing pages. Built with React + Vite.
+
+- **Admin dashboard** at `/lp-studio/` — manage tests, configure variants, view results with statistical significance
+- **Landing page viewer** at `/lp-studio/lp/:slug` — serves the right variant to each visitor (cookie-based assignment), tracks impressions/conversions
+- **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, statistical results
+- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events` tables
+- **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
+- The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
+- Uses generated React Query hooks from `@workspace/api-client-react`
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: tests
+    description: A/B test management
+  - name: variants
+    description: Variant management
+  - name: tracking
+    description: Impression and conversion tracking
+  - name: results
+    description: Test results and statistics
+  - name: pages
+    description: Landing page serving
 paths:
   /healthz:
     get:
@@ -24,6 +34,252 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /lp/tests:
+    get:
+      operationId: listTests
+      tags: [tests]
+      summary: List all A/B tests
+      responses:
+        "200":
+          description: List of tests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Test"
+    post:
+      operationId: createTest
+      tags: [tests]
+      summary: Create a new A/B test
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestInput"
+      responses:
+        "201":
+          description: Created test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test"
+
+  /lp/tests/{testId}:
+    get:
+      operationId: getTest
+      tags: [tests]
+      summary: Get a single test with its variants
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Test with variants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestWithVariants"
+        "404":
+          description: Not found
+    put:
+      operationId: updateTest
+      tags: [tests]
+      summary: Update a test
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTestInput"
+      responses:
+        "200":
+          description: Updated test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test"
+    delete:
+      operationId: deleteTest
+      tags: [tests]
+      summary: Delete a test
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /lp/tests/{testId}/variants:
+    get:
+      operationId: listVariants
+      tags: [variants]
+      summary: List variants for a test
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Variant"
+    post:
+      operationId: createVariant
+      tags: [variants]
+      summary: Create a new variant
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVariantInput"
+      responses:
+        "201":
+          description: Created variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+
+  /lp/tests/{testId}/variants/{variantId}:
+    put:
+      operationId: updateVariant
+      tags: [variants]
+      summary: Update a variant
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVariantInput"
+      responses:
+        "200":
+          description: Updated variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+    delete:
+      operationId: deleteVariant
+      tags: [variants]
+      summary: Delete a variant
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /lp/tests/{testId}/results:
+    get:
+      operationId: getTestResults
+      tags: [results]
+      summary: Get test results with statistical analysis
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Test results with statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestResults"
+
+  /lp/track:
+    post:
+      operationId: trackEvent
+      tags: [tracking]
+      summary: Track an impression or conversion event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackEventInput"
+      responses:
+        "200":
+          description: Event tracked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackEventResponse"
+
+  /lp/page/{slug}:
+    get:
+      operationId: getPageConfig
+      tags: [pages]
+      summary: Get landing page config and assign variant for a session
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sessionId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page config with assigned variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageConfig"
+        "404":
+          description: Page not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +290,292 @@ components:
       required:
         - status
 
+    VariantConfig:
+      type: object
+      description: The configurable elements of a landing page variant
+      properties:
+        heroType:
+          type: string
+          enum: [dandy-video, static-image, none]
+          default: dandy-video
+        headline:
+          type: string
+        subheadline:
+          type: string
+        ctaText:
+          type: string
+        ctaColor:
+          type: string
+        ctaUrl:
+          type: string
+        layout:
+          type: string
+          enum: [centered, split, minimal]
+          default: centered
+        backgroundStyle:
+          type: string
+          enum: [white, dark, gradient]
+          default: white
+        showSocialProof:
+          type: boolean
+          default: false
+        socialProofText:
+          type: string
+      required:
+        - headline
+        - ctaText
+
+    Variant:
+      type: object
+      properties:
+        id:
+          type: integer
+        testId:
+          type: integer
+        name:
+          type: string
+        isControl:
+          type: boolean
+        trafficWeight:
+          type: number
+          description: Weight 0-100, all variants in a test should sum to 100
+        config:
+          $ref: "#/components/schemas/VariantConfig"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - testId
+        - name
+        - isControl
+        - trafficWeight
+        - config
+        - createdAt
+
+    CreateVariantInput:
+      type: object
+      properties:
+        name:
+          type: string
+        isControl:
+          type: boolean
+          default: false
+        trafficWeight:
+          type: number
+        config:
+          $ref: "#/components/schemas/VariantConfig"
+      required:
+        - name
+        - trafficWeight
+        - config
+
+    UpdateVariantInput:
+      type: object
+      properties:
+        name:
+          type: string
+        trafficWeight:
+          type: number
+        config:
+          $ref: "#/components/schemas/VariantConfig"
+
+    Test:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, running, paused, completed]
+        testType:
+          type: string
+          enum: [ab, multivariate]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        variantCount:
+          type: integer
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - testType
+        - createdAt
+        - updatedAt
+
+    TestWithVariants:
+      allOf:
+        - $ref: "#/components/schemas/Test"
+        - type: object
+          properties:
+            variants:
+              type: array
+              items:
+                $ref: "#/components/schemas/Variant"
+          required:
+            - variants
+
+    CreateTestInput:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        testType:
+          type: string
+          enum: [ab, multivariate]
+          default: ab
+      required:
+        - name
+        - slug
+
+    UpdateTestInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, running, paused, completed]
+        testType:
+          type: string
+          enum: [ab, multivariate]
+
+    VariantResult:
+      type: object
+      properties:
+        variantId:
+          type: integer
+        variantName:
+          type: string
+        isControl:
+          type: boolean
+        impressions:
+          type: integer
+        conversions:
+          type: integer
+        conversionRate:
+          type: number
+        relativeUplift:
+          type: number
+          description: Percentage uplift vs control (null for control)
+        zScore:
+          type: number
+        pValue:
+          type: number
+        isSignificant:
+          type: boolean
+          description: True if p-value < 0.05
+        confidenceLevel:
+          type: number
+          description: 1 - p-value as percentage
+      required:
+        - variantId
+        - variantName
+        - isControl
+        - impressions
+        - conversions
+        - conversionRate
+        - isSignificant
+        - confidenceLevel
+
+    TestResults:
+      type: object
+      properties:
+        testId:
+          type: integer
+        testName:
+          type: string
+        status:
+          type: string
+        totalImpressions:
+          type: integer
+        totalConversions:
+          type: integer
+        overallConversionRate:
+          type: number
+        winnerId:
+          type: integer
+          description: Variant ID of the current winner (null if no clear winner)
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/VariantResult"
+      required:
+        - testId
+        - testName
+        - status
+        - totalImpressions
+        - totalConversions
+        - overallConversionRate
+        - variants
+
+    TrackEventInput:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        testId:
+          type: integer
+        variantId:
+          type: integer
+        eventType:
+          type: string
+          enum: [impression, conversion]
+        conversionType:
+          type: string
+          description: Optional label for the conversion (e.g. "cta_click", "form_submit")
+      required:
+        - sessionId
+        - testId
+        - variantId
+        - eventType
+
+    TrackEventResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        eventId:
+          type: integer
+      required:
+        - success
+
+    PageConfig:
+      type: object
+      properties:
+        testId:
+          type: integer
+        slug:
+          type: string
+        testName:
+          type: string
+        sessionId:
+          type: string
+        assignedVariant:
+          $ref: "#/components/schemas/Variant"
+        status:
+          type: string
+      required:
+        - testId
+        - slug
+        - testName
+        - sessionId
+        - assignedVariant
+        - status

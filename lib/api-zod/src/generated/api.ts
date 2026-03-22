@@ -14,3 +14,426 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List all A/B tests
+ */
+export const ListTestsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  status: zod.enum(["draft", "running", "paused", "completed"]),
+  testType: zod.enum(["ab", "multivariate"]),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  variantCount: zod.number().optional(),
+});
+export const ListTestsResponse = zod.array(ListTestsResponseItem);
+
+/**
+ * @summary Create a new A/B test
+ */
+export const createTestBodyTestTypeDefault = `ab`;
+
+export const CreateTestBody = zod.object({
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  testType: zod
+    .enum(["ab", "multivariate"])
+    .default(createTestBodyTestTypeDefault),
+});
+
+/**
+ * @summary Get a single test with its variants
+ */
+export const GetTestParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+export const getTestResponseTwoVariantsItemConfigHeroTypeDefault = `dandy-video`;
+export const getTestResponseTwoVariantsItemConfigLayoutDefault = `centered`;
+export const getTestResponseTwoVariantsItemConfigBackgroundStyleDefault = `white`;
+export const getTestResponseTwoVariantsItemConfigShowSocialProofDefault = false;
+
+export const GetTestResponse = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    description: zod.string().optional(),
+    status: zod.enum(["draft", "running", "paused", "completed"]),
+    testType: zod.enum(["ab", "multivariate"]),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    variantCount: zod.number().optional(),
+  })
+  .and(
+    zod.object({
+      variants: zod.array(
+        zod.object({
+          id: zod.number(),
+          testId: zod.number(),
+          name: zod.string(),
+          isControl: zod.boolean(),
+          trafficWeight: zod
+            .number()
+            .describe("Weight 0-100, all variants in a test should sum to 100"),
+          config: zod
+            .object({
+              heroType: zod
+                .enum(["dandy-video", "static-image", "none"])
+                .default(getTestResponseTwoVariantsItemConfigHeroTypeDefault),
+              headline: zod.string(),
+              subheadline: zod.string().optional(),
+              ctaText: zod.string(),
+              ctaColor: zod.string().optional(),
+              ctaUrl: zod.string().optional(),
+              layout: zod
+                .enum(["centered", "split", "minimal"])
+                .default(getTestResponseTwoVariantsItemConfigLayoutDefault),
+              backgroundStyle: zod
+                .enum(["white", "dark", "gradient"])
+                .default(
+                  getTestResponseTwoVariantsItemConfigBackgroundStyleDefault,
+                ),
+              showSocialProof: zod
+                .boolean()
+                .default(
+                  getTestResponseTwoVariantsItemConfigShowSocialProofDefault,
+                ),
+              socialProofText: zod.string().optional(),
+            })
+            .describe("The configurable elements of a landing page variant"),
+          createdAt: zod.date(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a test
+ */
+export const UpdateTestParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+export const UpdateTestBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  status: zod.enum(["draft", "running", "paused", "completed"]).optional(),
+  testType: zod.enum(["ab", "multivariate"]).optional(),
+});
+
+export const UpdateTestResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  status: zod.enum(["draft", "running", "paused", "completed"]),
+  testType: zod.enum(["ab", "multivariate"]),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+  variantCount: zod.number().optional(),
+});
+
+/**
+ * @summary Delete a test
+ */
+export const DeleteTestParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+/**
+ * @summary List variants for a test
+ */
+export const ListVariantsParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+export const listVariantsResponseConfigHeroTypeDefault = `dandy-video`;
+export const listVariantsResponseConfigLayoutDefault = `centered`;
+export const listVariantsResponseConfigBackgroundStyleDefault = `white`;
+export const listVariantsResponseConfigShowSocialProofDefault = false;
+
+export const ListVariantsResponseItem = zod.object({
+  id: zod.number(),
+  testId: zod.number(),
+  name: zod.string(),
+  isControl: zod.boolean(),
+  trafficWeight: zod
+    .number()
+    .describe("Weight 0-100, all variants in a test should sum to 100"),
+  config: zod
+    .object({
+      heroType: zod
+        .enum(["dandy-video", "static-image", "none"])
+        .default(listVariantsResponseConfigHeroTypeDefault),
+      headline: zod.string(),
+      subheadline: zod.string().optional(),
+      ctaText: zod.string(),
+      ctaColor: zod.string().optional(),
+      ctaUrl: zod.string().optional(),
+      layout: zod
+        .enum(["centered", "split", "minimal"])
+        .default(listVariantsResponseConfigLayoutDefault),
+      backgroundStyle: zod
+        .enum(["white", "dark", "gradient"])
+        .default(listVariantsResponseConfigBackgroundStyleDefault),
+      showSocialProof: zod
+        .boolean()
+        .default(listVariantsResponseConfigShowSocialProofDefault),
+      socialProofText: zod.string().optional(),
+    })
+    .describe("The configurable elements of a landing page variant"),
+  createdAt: zod.date(),
+});
+export const ListVariantsResponse = zod.array(ListVariantsResponseItem);
+
+/**
+ * @summary Create a new variant
+ */
+export const CreateVariantParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+export const createVariantBodyIsControlDefault = false;
+export const createVariantBodyConfigHeroTypeDefault = `dandy-video`;
+export const createVariantBodyConfigLayoutDefault = `centered`;
+export const createVariantBodyConfigBackgroundStyleDefault = `white`;
+export const createVariantBodyConfigShowSocialProofDefault = false;
+
+export const CreateVariantBody = zod.object({
+  name: zod.string(),
+  isControl: zod.boolean().default(createVariantBodyIsControlDefault),
+  trafficWeight: zod.number(),
+  config: zod
+    .object({
+      heroType: zod
+        .enum(["dandy-video", "static-image", "none"])
+        .default(createVariantBodyConfigHeroTypeDefault),
+      headline: zod.string(),
+      subheadline: zod.string().optional(),
+      ctaText: zod.string(),
+      ctaColor: zod.string().optional(),
+      ctaUrl: zod.string().optional(),
+      layout: zod
+        .enum(["centered", "split", "minimal"])
+        .default(createVariantBodyConfigLayoutDefault),
+      backgroundStyle: zod
+        .enum(["white", "dark", "gradient"])
+        .default(createVariantBodyConfigBackgroundStyleDefault),
+      showSocialProof: zod
+        .boolean()
+        .default(createVariantBodyConfigShowSocialProofDefault),
+      socialProofText: zod.string().optional(),
+    })
+    .describe("The configurable elements of a landing page variant"),
+});
+
+/**
+ * @summary Update a variant
+ */
+export const UpdateVariantParams = zod.object({
+  testId: zod.coerce.number(),
+  variantId: zod.coerce.number(),
+});
+
+export const updateVariantBodyConfigHeroTypeDefault = `dandy-video`;
+export const updateVariantBodyConfigLayoutDefault = `centered`;
+export const updateVariantBodyConfigBackgroundStyleDefault = `white`;
+export const updateVariantBodyConfigShowSocialProofDefault = false;
+
+export const UpdateVariantBody = zod.object({
+  name: zod.string().optional(),
+  trafficWeight: zod.number().optional(),
+  config: zod
+    .object({
+      heroType: zod
+        .enum(["dandy-video", "static-image", "none"])
+        .default(updateVariantBodyConfigHeroTypeDefault),
+      headline: zod.string(),
+      subheadline: zod.string().optional(),
+      ctaText: zod.string(),
+      ctaColor: zod.string().optional(),
+      ctaUrl: zod.string().optional(),
+      layout: zod
+        .enum(["centered", "split", "minimal"])
+        .default(updateVariantBodyConfigLayoutDefault),
+      backgroundStyle: zod
+        .enum(["white", "dark", "gradient"])
+        .default(updateVariantBodyConfigBackgroundStyleDefault),
+      showSocialProof: zod
+        .boolean()
+        .default(updateVariantBodyConfigShowSocialProofDefault),
+      socialProofText: zod.string().optional(),
+    })
+    .optional()
+    .describe("The configurable elements of a landing page variant"),
+});
+
+export const updateVariantResponseConfigHeroTypeDefault = `dandy-video`;
+export const updateVariantResponseConfigLayoutDefault = `centered`;
+export const updateVariantResponseConfigBackgroundStyleDefault = `white`;
+export const updateVariantResponseConfigShowSocialProofDefault = false;
+
+export const UpdateVariantResponse = zod.object({
+  id: zod.number(),
+  testId: zod.number(),
+  name: zod.string(),
+  isControl: zod.boolean(),
+  trafficWeight: zod
+    .number()
+    .describe("Weight 0-100, all variants in a test should sum to 100"),
+  config: zod
+    .object({
+      heroType: zod
+        .enum(["dandy-video", "static-image", "none"])
+        .default(updateVariantResponseConfigHeroTypeDefault),
+      headline: zod.string(),
+      subheadline: zod.string().optional(),
+      ctaText: zod.string(),
+      ctaColor: zod.string().optional(),
+      ctaUrl: zod.string().optional(),
+      layout: zod
+        .enum(["centered", "split", "minimal"])
+        .default(updateVariantResponseConfigLayoutDefault),
+      backgroundStyle: zod
+        .enum(["white", "dark", "gradient"])
+        .default(updateVariantResponseConfigBackgroundStyleDefault),
+      showSocialProof: zod
+        .boolean()
+        .default(updateVariantResponseConfigShowSocialProofDefault),
+      socialProofText: zod.string().optional(),
+    })
+    .describe("The configurable elements of a landing page variant"),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a variant
+ */
+export const DeleteVariantParams = zod.object({
+  testId: zod.coerce.number(),
+  variantId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get test results with statistical analysis
+ */
+export const GetTestResultsParams = zod.object({
+  testId: zod.coerce.number(),
+});
+
+export const GetTestResultsResponse = zod.object({
+  testId: zod.number(),
+  testName: zod.string(),
+  status: zod.string(),
+  totalImpressions: zod.number(),
+  totalConversions: zod.number(),
+  overallConversionRate: zod.number(),
+  winnerId: zod
+    .number()
+    .optional()
+    .describe("Variant ID of the current winner (null if no clear winner)"),
+  variants: zod.array(
+    zod.object({
+      variantId: zod.number(),
+      variantName: zod.string(),
+      isControl: zod.boolean(),
+      impressions: zod.number(),
+      conversions: zod.number(),
+      conversionRate: zod.number(),
+      relativeUplift: zod
+        .number()
+        .optional()
+        .describe("Percentage uplift vs control (null for control)"),
+      zScore: zod.number().optional(),
+      pValue: zod.number().optional(),
+      isSignificant: zod.boolean().describe("True if p-value < 0.05"),
+      confidenceLevel: zod.number().describe("1 - p-value as percentage"),
+    }),
+  ),
+});
+
+/**
+ * @summary Track an impression or conversion event
+ */
+export const TrackEventBody = zod.object({
+  sessionId: zod.string(),
+  testId: zod.number(),
+  variantId: zod.number(),
+  eventType: zod.enum(["impression", "conversion"]),
+  conversionType: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional label for the conversion (e.g. \"cta_click\", \"form_submit\")',
+    ),
+});
+
+export const TrackEventResponse = zod.object({
+  success: zod.boolean(),
+  eventId: zod.number().optional(),
+});
+
+/**
+ * @summary Get landing page config and assign variant for a session
+ */
+export const GetPageConfigParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetPageConfigQueryParams = zod.object({
+  sessionId: zod.coerce.string().optional(),
+});
+
+export const getPageConfigResponseAssignedVariantConfigHeroTypeDefault = `dandy-video`;
+export const getPageConfigResponseAssignedVariantConfigLayoutDefault = `centered`;
+export const getPageConfigResponseAssignedVariantConfigBackgroundStyleDefault = `white`;
+export const getPageConfigResponseAssignedVariantConfigShowSocialProofDefault = false;
+
+export const GetPageConfigResponse = zod.object({
+  testId: zod.number(),
+  slug: zod.string(),
+  testName: zod.string(),
+  sessionId: zod.string(),
+  assignedVariant: zod.object({
+    id: zod.number(),
+    testId: zod.number(),
+    name: zod.string(),
+    isControl: zod.boolean(),
+    trafficWeight: zod
+      .number()
+      .describe("Weight 0-100, all variants in a test should sum to 100"),
+    config: zod
+      .object({
+        heroType: zod
+          .enum(["dandy-video", "static-image", "none"])
+          .default(getPageConfigResponseAssignedVariantConfigHeroTypeDefault),
+        headline: zod.string(),
+        subheadline: zod.string().optional(),
+        ctaText: zod.string(),
+        ctaColor: zod.string().optional(),
+        ctaUrl: zod.string().optional(),
+        layout: zod
+          .enum(["centered", "split", "minimal"])
+          .default(getPageConfigResponseAssignedVariantConfigLayoutDefault),
+        backgroundStyle: zod
+          .enum(["white", "dark", "gradient"])
+          .default(
+            getPageConfigResponseAssignedVariantConfigBackgroundStyleDefault,
+          ),
+        showSocialProof: zod
+          .boolean()
+          .default(
+            getPageConfigResponseAssignedVariantConfigShowSocialProofDefault,
+          ),
+        socialProofText: zod.string().optional(),
+      })
+      .describe("The configurable elements of a landing page variant"),
+    createdAt: zod.date(),
+  }),
+  status: zod.string(),
+});

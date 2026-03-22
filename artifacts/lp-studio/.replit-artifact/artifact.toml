@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/lp-studio/"
+title = "Landing Page Studio"
+version = "1.0.0"
+id = "artifacts/lp-studio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/lp-studio/" ]
+localPort = 24565
+
+[services.development]
+run = "pnpm --filter @workspace/lp-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lp-studio", "run", "build" ]
+publicDir = "artifacts/lp-studio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24565"
+BASE_PATH = "/lp-studio/"

@@ -8,3 +8,206 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type VariantConfigHeroType =
+  (typeof VariantConfigHeroType)[keyof typeof VariantConfigHeroType];
+
+export const VariantConfigHeroType = {
+  "dandy-video": "dandy-video",
+  "static-image": "static-image",
+  none: "none",
+} as const;
+
+export type VariantConfigLayout =
+  (typeof VariantConfigLayout)[keyof typeof VariantConfigLayout];
+
+export const VariantConfigLayout = {
+  centered: "centered",
+  split: "split",
+  minimal: "minimal",
+} as const;
+
+export type VariantConfigBackgroundStyle =
+  (typeof VariantConfigBackgroundStyle)[keyof typeof VariantConfigBackgroundStyle];
+
+export const VariantConfigBackgroundStyle = {
+  white: "white",
+  dark: "dark",
+  gradient: "gradient",
+} as const;
+
+/**
+ * The configurable elements of a landing page variant
+ */
+export interface VariantConfig {
+  heroType?: VariantConfigHeroType;
+  headline: string;
+  subheadline?: string;
+  ctaText: string;
+  ctaColor?: string;
+  ctaUrl?: string;
+  layout?: VariantConfigLayout;
+  backgroundStyle?: VariantConfigBackgroundStyle;
+  showSocialProof?: boolean;
+  socialProofText?: string;
+}
+
+export interface Variant {
+  id: number;
+  testId: number;
+  name: string;
+  isControl: boolean;
+  /** Weight 0-100, all variants in a test should sum to 100 */
+  trafficWeight: number;
+  config: VariantConfig;
+  createdAt: string;
+}
+
+export interface CreateVariantInput {
+  name: string;
+  isControl?: boolean;
+  trafficWeight: number;
+  config: VariantConfig;
+}
+
+export interface UpdateVariantInput {
+  name?: string;
+  trafficWeight?: number;
+  config?: VariantConfig;
+}
+
+export type TestStatus = (typeof TestStatus)[keyof typeof TestStatus];
+
+export const TestStatus = {
+  draft: "draft",
+  running: "running",
+  paused: "paused",
+  completed: "completed",
+} as const;
+
+export type TestTestType = (typeof TestTestType)[keyof typeof TestTestType];
+
+export const TestTestType = {
+  ab: "ab",
+  multivariate: "multivariate",
+} as const;
+
+export interface Test {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  status: TestStatus;
+  testType: TestTestType;
+  createdAt: string;
+  updatedAt: string;
+  variantCount?: number;
+}
+
+export type TestWithVariants = Test & {
+  variants: Variant[];
+};
+
+export type CreateTestInputTestType =
+  (typeof CreateTestInputTestType)[keyof typeof CreateTestInputTestType];
+
+export const CreateTestInputTestType = {
+  ab: "ab",
+  multivariate: "multivariate",
+} as const;
+
+export interface CreateTestInput {
+  name: string;
+  slug: string;
+  description?: string;
+  testType?: CreateTestInputTestType;
+}
+
+export type UpdateTestInputStatus =
+  (typeof UpdateTestInputStatus)[keyof typeof UpdateTestInputStatus];
+
+export const UpdateTestInputStatus = {
+  draft: "draft",
+  running: "running",
+  paused: "paused",
+  completed: "completed",
+} as const;
+
+export type UpdateTestInputTestType =
+  (typeof UpdateTestInputTestType)[keyof typeof UpdateTestInputTestType];
+
+export const UpdateTestInputTestType = {
+  ab: "ab",
+  multivariate: "multivariate",
+} as const;
+
+export interface UpdateTestInput {
+  name?: string;
+  description?: string;
+  status?: UpdateTestInputStatus;
+  testType?: UpdateTestInputTestType;
+}
+
+export interface VariantResult {
+  variantId: number;
+  variantName: string;
+  isControl: boolean;
+  impressions: number;
+  conversions: number;
+  conversionRate: number;
+  /** Percentage uplift vs control (null for control) */
+  relativeUplift?: number;
+  zScore?: number;
+  pValue?: number;
+  /** True if p-value < 0.05 */
+  isSignificant: boolean;
+  /** 1 - p-value as percentage */
+  confidenceLevel: number;
+}
+
+export interface TestResults {
+  testId: number;
+  testName: string;
+  status: string;
+  totalImpressions: number;
+  totalConversions: number;
+  overallConversionRate: number;
+  /** Variant ID of the current winner (null if no clear winner) */
+  winnerId?: number;
+  variants: VariantResult[];
+}
+
+export type TrackEventInputEventType =
+  (typeof TrackEventInputEventType)[keyof typeof TrackEventInputEventType];
+
+export const TrackEventInputEventType = {
+  impression: "impression",
+  conversion: "conversion",
+} as const;
+
+export interface TrackEventInput {
+  sessionId: string;
+  testId: number;
+  variantId: number;
+  eventType: TrackEventInputEventType;
+  /** Optional label for the conversion (e.g. "cta_click", "form_submit") */
+  conversionType?: string;
+}
+
+export interface TrackEventResponse {
+  success: boolean;
+  eventId?: number;
+}
+
+export interface PageConfig {
+  testId: number;
+  slug: string;
+  testName: string;
+  sessionId: string;
+  assignedVariant: Variant;
+  status: string;
+}
+
+export type GetPageConfigParams = {
+  sessionId?: string;
+};

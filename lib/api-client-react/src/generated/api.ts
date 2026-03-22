@@ -5,18 +5,35 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  CreateTestInput,
+  CreateVariantInput,
+  GetPageConfigParams,
+  HealthStatus,
+  PageConfig,
+  Test,
+  TestResults,
+  TestWithVariants,
+  TrackEventInput,
+  TrackEventResponse,
+  UpdateTestInput,
+  UpdateVariantInput,
+  Variant,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -92,6 +109,1034 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all A/B tests
+ */
+export const getListTestsUrl = () => {
+  return `/api/lp/tests`;
+};
+
+export const listTests = async (options?: RequestInit): Promise<Test[]> => {
+  return customFetch<Test[]>(getListTestsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTestsQueryKey = () => {
+  return [`/api/lp/tests`] as const;
+};
+
+export const getListTestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTests>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTestsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTests>>> = ({
+    signal,
+  }) => listTests({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTests>>
+>;
+export type ListTestsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all A/B tests
+ */
+
+export function useListTests<
+  TData = Awaited<ReturnType<typeof listTests>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listTests>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTestsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new A/B test
+ */
+export const getCreateTestUrl = () => {
+  return `/api/lp/tests`;
+};
+
+export const createTest = async (
+  createTestInput: CreateTestInput,
+  options?: RequestInit,
+): Promise<Test> => {
+  return customFetch<Test>(getCreateTestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTestInput),
+  });
+};
+
+export const getCreateTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTest>>,
+    TError,
+    { data: BodyType<CreateTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTest>>,
+  TError,
+  { data: BodyType<CreateTestInput> },
+  TContext
+> => {
+  const mutationKey = ["createTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTest>>,
+    { data: BodyType<CreateTestInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTest>>
+>;
+export type CreateTestMutationBody = BodyType<CreateTestInput>;
+export type CreateTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new A/B test
+ */
+export const useCreateTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTest>>,
+    TError,
+    { data: BodyType<CreateTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTest>>,
+  TError,
+  { data: BodyType<CreateTestInput> },
+  TContext
+> => {
+  return useMutation(getCreateTestMutationOptions(options));
+};
+
+/**
+ * @summary Get a single test with its variants
+ */
+export const getGetTestUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}`;
+};
+
+export const getTest = async (
+  testId: number,
+  options?: RequestInit,
+): Promise<TestWithVariants> => {
+  return customFetch<TestWithVariants>(getGetTestUrl(testId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTestQueryKey = (testId: number) => {
+  return [`/api/lp/tests/${testId}`] as const;
+};
+
+export const getGetTestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTest>>,
+  TError = ErrorType<void>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getTest>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTestQueryKey(testId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTest>>> = ({
+    signal,
+  }) => getTest(testId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!testId,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getTest>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetTestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTest>>
+>;
+export type GetTestQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single test with its variants
+ */
+
+export function useGetTest<
+  TData = Awaited<ReturnType<typeof getTest>>,
+  TError = ErrorType<void>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getTest>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTestQueryOptions(testId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a test
+ */
+export const getUpdateTestUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}`;
+};
+
+export const updateTest = async (
+  testId: number,
+  updateTestInput: UpdateTestInput,
+  options?: RequestInit,
+): Promise<Test> => {
+  return customFetch<Test>(getUpdateTestUrl(testId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTestInput),
+  });
+};
+
+export const getUpdateTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTest>>,
+    TError,
+    { testId: number; data: BodyType<UpdateTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTest>>,
+  TError,
+  { testId: number; data: BodyType<UpdateTestInput> },
+  TContext
+> => {
+  const mutationKey = ["updateTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTest>>,
+    { testId: number; data: BodyType<UpdateTestInput> }
+  > = (props) => {
+    const { testId, data } = props ?? {};
+
+    return updateTest(testId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTest>>
+>;
+export type UpdateTestMutationBody = BodyType<UpdateTestInput>;
+export type UpdateTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a test
+ */
+export const useUpdateTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTest>>,
+    TError,
+    { testId: number; data: BodyType<UpdateTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTest>>,
+  TError,
+  { testId: number; data: BodyType<UpdateTestInput> },
+  TContext
+> => {
+  return useMutation(getUpdateTestMutationOptions(options));
+};
+
+/**
+ * @summary Delete a test
+ */
+export const getDeleteTestUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}`;
+};
+
+export const deleteTest = async (
+  testId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTestUrl(testId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTest>>,
+    TError,
+    { testId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTest>>,
+  TError,
+  { testId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTest>>,
+    { testId: number }
+  > = (props) => {
+    const { testId } = props ?? {};
+
+    return deleteTest(testId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTest>>
+>;
+
+export type DeleteTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a test
+ */
+export const useDeleteTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTest>>,
+    TError,
+    { testId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTest>>,
+  TError,
+  { testId: number },
+  TContext
+> => {
+  return useMutation(getDeleteTestMutationOptions(options));
+};
+
+/**
+ * @summary List variants for a test
+ */
+export const getListVariantsUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}/variants`;
+};
+
+export const listVariants = async (
+  testId: number,
+  options?: RequestInit,
+): Promise<Variant[]> => {
+  return customFetch<Variant[]>(getListVariantsUrl(testId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListVariantsQueryKey = (testId: number) => {
+  return [`/api/lp/tests/${testId}/variants`] as const;
+};
+
+export const getListVariantsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVariants>>,
+  TError = ErrorType<unknown>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listVariants>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListVariantsQueryKey(testId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listVariants>>> = ({
+    signal,
+  }) => listVariants(testId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!testId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listVariants>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListVariantsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listVariants>>
+>;
+export type ListVariantsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List variants for a test
+ */
+
+export function useListVariants<
+  TData = Awaited<ReturnType<typeof listVariants>>,
+  TError = ErrorType<unknown>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listVariants>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListVariantsQueryOptions(testId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new variant
+ */
+export const getCreateVariantUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}/variants`;
+};
+
+export const createVariant = async (
+  testId: number,
+  createVariantInput: CreateVariantInput,
+  options?: RequestInit,
+): Promise<Variant> => {
+  return customFetch<Variant>(getCreateVariantUrl(testId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createVariantInput),
+  });
+};
+
+export const getCreateVariantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVariant>>,
+    TError,
+    { testId: number; data: BodyType<CreateVariantInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVariant>>,
+  TError,
+  { testId: number; data: BodyType<CreateVariantInput> },
+  TContext
+> => {
+  const mutationKey = ["createVariant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVariant>>,
+    { testId: number; data: BodyType<CreateVariantInput> }
+  > = (props) => {
+    const { testId, data } = props ?? {};
+
+    return createVariant(testId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVariantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVariant>>
+>;
+export type CreateVariantMutationBody = BodyType<CreateVariantInput>;
+export type CreateVariantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new variant
+ */
+export const useCreateVariant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVariant>>,
+    TError,
+    { testId: number; data: BodyType<CreateVariantInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createVariant>>,
+  TError,
+  { testId: number; data: BodyType<CreateVariantInput> },
+  TContext
+> => {
+  return useMutation(getCreateVariantMutationOptions(options));
+};
+
+/**
+ * @summary Update a variant
+ */
+export const getUpdateVariantUrl = (testId: number, variantId: number) => {
+  return `/api/lp/tests/${testId}/variants/${variantId}`;
+};
+
+export const updateVariant = async (
+  testId: number,
+  variantId: number,
+  updateVariantInput: UpdateVariantInput,
+  options?: RequestInit,
+): Promise<Variant> => {
+  return customFetch<Variant>(getUpdateVariantUrl(testId, variantId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVariantInput),
+  });
+};
+
+export const getUpdateVariantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVariant>>,
+    TError,
+    { testId: number; variantId: number; data: BodyType<UpdateVariantInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateVariant>>,
+  TError,
+  { testId: number; variantId: number; data: BodyType<UpdateVariantInput> },
+  TContext
+> => {
+  const mutationKey = ["updateVariant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateVariant>>,
+    { testId: number; variantId: number; data: BodyType<UpdateVariantInput> }
+  > = (props) => {
+    const { testId, variantId, data } = props ?? {};
+
+    return updateVariant(testId, variantId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateVariantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateVariant>>
+>;
+export type UpdateVariantMutationBody = BodyType<UpdateVariantInput>;
+export type UpdateVariantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a variant
+ */
+export const useUpdateVariant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVariant>>,
+    TError,
+    { testId: number; variantId: number; data: BodyType<UpdateVariantInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateVariant>>,
+  TError,
+  { testId: number; variantId: number; data: BodyType<UpdateVariantInput> },
+  TContext
+> => {
+  return useMutation(getUpdateVariantMutationOptions(options));
+};
+
+/**
+ * @summary Delete a variant
+ */
+export const getDeleteVariantUrl = (testId: number, variantId: number) => {
+  return `/api/lp/tests/${testId}/variants/${variantId}`;
+};
+
+export const deleteVariant = async (
+  testId: number,
+  variantId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteVariantUrl(testId, variantId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteVariantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteVariant>>,
+    TError,
+    { testId: number; variantId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteVariant>>,
+  TError,
+  { testId: number; variantId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteVariant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteVariant>>,
+    { testId: number; variantId: number }
+  > = (props) => {
+    const { testId, variantId } = props ?? {};
+
+    return deleteVariant(testId, variantId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteVariantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteVariant>>
+>;
+
+export type DeleteVariantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a variant
+ */
+export const useDeleteVariant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteVariant>>,
+    TError,
+    { testId: number; variantId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteVariant>>,
+  TError,
+  { testId: number; variantId: number },
+  TContext
+> => {
+  return useMutation(getDeleteVariantMutationOptions(options));
+};
+
+/**
+ * @summary Get test results with statistical analysis
+ */
+export const getGetTestResultsUrl = (testId: number) => {
+  return `/api/lp/tests/${testId}/results`;
+};
+
+export const getTestResults = async (
+  testId: number,
+  options?: RequestInit,
+): Promise<TestResults> => {
+  return customFetch<TestResults>(getGetTestResultsUrl(testId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTestResultsQueryKey = (testId: number) => {
+  return [`/api/lp/tests/${testId}/results`] as const;
+};
+
+export const getGetTestResultsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTestResults>>,
+  TError = ErrorType<unknown>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTestResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTestResultsQueryKey(testId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTestResults>>> = ({
+    signal,
+  }) => getTestResults(testId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!testId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTestResults>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTestResultsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTestResults>>
+>;
+export type GetTestResultsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get test results with statistical analysis
+ */
+
+export function useGetTestResults<
+  TData = Awaited<ReturnType<typeof getTestResults>>,
+  TError = ErrorType<unknown>,
+>(
+  testId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTestResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTestResultsQueryOptions(testId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Track an impression or conversion event
+ */
+export const getTrackEventUrl = () => {
+  return `/api/lp/track`;
+};
+
+export const trackEvent = async (
+  trackEventInput: TrackEventInput,
+  options?: RequestInit,
+): Promise<TrackEventResponse> => {
+  return customFetch<TrackEventResponse>(getTrackEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(trackEventInput),
+  });
+};
+
+export const getTrackEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackEvent>>,
+    TError,
+    { data: BodyType<TrackEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof trackEvent>>,
+  TError,
+  { data: BodyType<TrackEventInput> },
+  TContext
+> => {
+  const mutationKey = ["trackEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof trackEvent>>,
+    { data: BodyType<TrackEventInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return trackEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TrackEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof trackEvent>>
+>;
+export type TrackEventMutationBody = BodyType<TrackEventInput>;
+export type TrackEventMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Track an impression or conversion event
+ */
+export const useTrackEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackEvent>>,
+    TError,
+    { data: BodyType<TrackEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof trackEvent>>,
+  TError,
+  { data: BodyType<TrackEventInput> },
+  TContext
+> => {
+  return useMutation(getTrackEventMutationOptions(options));
+};
+
+/**
+ * @summary Get landing page config and assign variant for a session
+ */
+export const getGetPageConfigUrl = (
+  slug: string,
+  params?: GetPageConfigParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/lp/page/${slug}?${stringifiedParams}`
+    : `/api/lp/page/${slug}`;
+};
+
+export const getPageConfig = async (
+  slug: string,
+  params?: GetPageConfigParams,
+  options?: RequestInit,
+): Promise<PageConfig> => {
+  return customFetch<PageConfig>(getGetPageConfigUrl(slug, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPageConfigQueryKey = (
+  slug: string,
+  params?: GetPageConfigParams,
+) => {
+  return [`/api/lp/page/${slug}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPageConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPageConfig>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  params?: GetPageConfigParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPageConfig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPageConfigQueryKey(slug, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPageConfig>>> = ({
+    signal,
+  }) => getPageConfig(slug, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPageConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPageConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPageConfig>>
+>;
+export type GetPageConfigQueryError = ErrorType<void>;
+
+/**
+ * @summary Get landing page config and assign variant for a session
+ */
+
+export function useGetPageConfig<
+  TData = Awaited<ReturnType<typeof getPageConfig>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  params?: GetPageConfigParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPageConfig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPageConfigQueryOptions(slug, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
