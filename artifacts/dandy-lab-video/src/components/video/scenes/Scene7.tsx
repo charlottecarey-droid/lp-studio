@@ -6,7 +6,7 @@ export default function Scene7() {
   const steps = [
     { label: 'Upper arch', status: 'Complete' },
     { label: 'Lower arch', status: 'Complete' },
-    { label: 'Bite registration', status: 'Scanning…' },
+    { label: 'Bite registration', status: 'In progress' },
   ];
 
   return (
@@ -45,8 +45,8 @@ export default function Scene7() {
               >
                 <motion.div
                   className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: step.status === 'Scanning…' ? '#E8F0ED' : '#C7E738' }}
-                  animate={step.status === 'Scanning…' ? { scale: [1, 1.15, 1] } : {}}
+                  style={{ backgroundColor: step.status === 'In progress' ? '#E8F0ED' : '#C7E738' }}
+                  animate={step.status === 'In progress' ? { scale: [1, 1.15, 1] } : {}}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
                   {step.status === 'Complete' ? (
@@ -56,7 +56,7 @@ export default function Scene7() {
                   )}
                 </motion.div>
                 <span className="text-xl text-[#003A30] font-medium">{step.label}</span>
-                <span className="text-lg ml-auto" style={{ color: step.status === 'Complete' ? '#4A6358' : '#C7E738', fontWeight: step.status === 'Scanning…' ? 600 : 400 }}>
+                <span className="text-lg ml-auto" style={{ color: step.status === 'Complete' ? '#4A6358' : '#C7E738', fontWeight: step.status === 'In progress' ? 600 : 400 }}>
                   {step.status}
                 </span>
               </motion.div>

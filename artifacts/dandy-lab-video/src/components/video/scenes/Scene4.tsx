@@ -21,10 +21,10 @@ export default function Scene4() {
             transition={{ duration: 0.6, delay: 0.6 }}
           />
           <h2 className="text-6xl font-display font-bold text-[#003A30] mb-8 leading-tight">
-            In 60 seconds, a lab-tech joins your op.
+            In 60 seconds, a lab tech joins your op.
           </h2>
           <p className="text-3xl text-[#4A6358] leading-relaxed">
-            Dandy is the only lab with real-time collaboration. Chat, video-calls, and get scans reviewed remotely.
+            Dandy is the only lab with real-time collaboration — chat, review scans, and get expert guidance without leaving the chair.
           </p>
         </motion.div>
       </div>
@@ -70,7 +70,7 @@ export default function Scene4() {
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 0.4, delay: 2 }}
           >
-            <p className="text-sm font-medium leading-snug">Scan looks great — margin is clean 👍</p>
+            <p className="text-sm font-medium leading-snug">Scan looks great — margin is clean.</p>
             <p className="text-[10px] text-[#A8C4B8] mt-1">Lab Tech · just now</p>
           </motion.div>
 

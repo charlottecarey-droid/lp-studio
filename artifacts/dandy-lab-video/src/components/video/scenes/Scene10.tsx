@@ -135,8 +135,7 @@ export default function Scene10() {
         />
 
         <motion.h2
-          className="font-display text-white leading-tight mb-8"
-          style={{ fontSize: '4rem' }}
+          className="text-[4rem] font-display font-bold text-white leading-tight mb-8"
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}

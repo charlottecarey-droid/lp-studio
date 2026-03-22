@@ -2,9 +2,9 @@ import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
 export default function Scene5() {
   const bulletPoints = [
-    "5-Day Crowns",
-    "2-Appointment Dentures",
-    "89% Fewer Remakes"
+    "5-day crowns",
+    "2-appointment dentures",
+    "89% fewer remakes"
   ];
 
   return (

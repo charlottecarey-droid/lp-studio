@@ -71,7 +71,7 @@ export default function Scene8() {
           </div>
           <div>
             <p className="text-sm font-bold text-[#003A30]">Order Confirmed</p>
-            <p className="text-xs text-[#4A6358]">PFM Crown · Ships in 5 days</p>
+            <p className="text-xs text-[#4A6358]">Crown restoration · Ships in 5 days</p>
           </div>
         </motion.div>
       </div>
