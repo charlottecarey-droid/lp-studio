@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig } from "@/lib/page-types";
+import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
@@ -133,9 +134,12 @@ export default function LandingPageViewer() {
 
       {/* 2. Nav */}
       <nav className="w-full px-6 py-4 flex items-center justify-between z-40 relative">
-        <div className="font-display font-black text-2xl tracking-tighter" style={{ color: isDark ? 'white' : FOREST }}>
-          dandy
-        </div>
+        <img
+          src={dandyLogoUrl}
+          alt="Dandy"
+          className="h-7 w-auto"
+          style={isDark ? { filter: "brightness(0) invert(1)" } : undefined}
+        />
         <button
           onClick={handleCtaClick}
           className="px-5 py-2.5 rounded-full font-bold text-sm transition-transform hover:scale-105 active:scale-95"
@@ -538,7 +542,15 @@ export default function LandingPageViewer() {
 
       {/* 16. Footer */}
       <footer className="w-full bg-[#003A30] text-white/50 py-12 px-6 text-center text-sm border-t border-white/10">
-        <p>© {new Date().getFullYear()} Dandy. All rights reserved.</p>
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src={dandyLogoUrl}
+            alt="Dandy"
+            className="h-6 w-auto"
+            style={{ filter: "brightness(0) invert(1)", opacity: 0.6 }}
+          />
+          <p>© {new Date().getFullYear()} Dandy. All rights reserved.</p>
+        </div>
       </footer>
 
     </div>
