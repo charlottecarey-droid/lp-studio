@@ -35,18 +35,14 @@ export default function Scene2() {
         </motion.p>
       </div>
 
-      <div className="w-[60%] h-full relative">
+      <div className="w-[60%] h-full flex items-center justify-start pl-4">
         <motion.img
           src={productsImg}
           alt="Dandy dashboard"
-          className="w-full h-full object-cover object-left-top"
+          className="w-full h-full object-contain object-left"
           initial={{ opacity: 0, scale: 1.05, x: 40 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to right, #FFFFFF 0%, transparent 25%)' }}
         />
       </div>
     </motion.div>
