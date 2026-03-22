@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { useVideoPlayer } from '@/lib/video';
 import Scene1 from './scenes/Scene1';
 import Scene2 from './scenes/Scene2';
@@ -45,40 +45,6 @@ export default function VideoTemplate() {
         {currentScene === 8 && <Scene5  key="scene5"  />}
       </AnimatePresence>
 
-      {/* Hero CTA button */}
-      <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-auto" style={{ bottom: '130px' }}>
-        {/* Ripple rings — only on scene 1 */}
-        {currentScene === 0 && (
-          <>
-            {[0, 0.6, 1.2].map((delay, i) => (
-              <motion.span
-                key={i}
-                className="absolute inset-0 rounded-full pointer-events-none"
-                style={{ backgroundColor: '#C7E738' }}
-                initial={{ opacity: 0.5, scale: 1 }}
-                animate={{ opacity: 0, scale: 1.7 }}
-                transition={{
-                  duration: 1.8,
-                  delay,
-                  repeat: Infinity,
-                  repeatDelay: 0,
-                  ease: 'easeOut',
-                }}
-              />
-            ))}
-          </>
-        )}
-        <button
-          className="relative px-10 py-5 rounded-full text-xl uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
-          style={{
-            backgroundColor: '#C7E738',
-            color: '#003A30',
-            boxShadow: '0 8px 32px rgba(0,58,48,0.35)',
-          }}
-        >
-          Get Started
-        </button>
-      </div>
     </div>
   );
 }
