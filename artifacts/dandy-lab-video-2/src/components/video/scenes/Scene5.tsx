@@ -10,34 +10,31 @@ export default function Scene5() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center bg-white p-10"
+      className="absolute inset-0 flex items-center bg-white overflow-hidden"
       {...sceneTransitions.wipe}
     >
-      <div className="w-full h-full bg-[#F5F5F3] rounded-3xl flex overflow-hidden">
-        {/* Headline */}
-        <div className="w-5/12 flex flex-col justify-center pl-14 pr-8">
-          <motion.h2
-            className="text-[4.5rem] font-display font-bold text-[#003A30] leading-tight"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            See why <br />dentists love <br />Dandy.
-          </motion.h2>
+      {/* Headline — on white, no card */}
+      <div className="w-5/12 flex flex-col justify-center pl-20 pr-4">
+        <motion.h2
+          className="text-[4.5rem] font-display font-bold text-[#003A30] leading-tight"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        >
+          See why <br />dentists love <br />Dandy.
+        </motion.h2>
 
-          <motion.div
-            className="w-20 h-2 bg-[#C7E738] mt-10 rounded-full"
-            initial={{ scaleX: 0, originX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 0.6, delay: 0.7 }}
-          />
-        </div>
+        <motion.div
+          className="w-20 h-2 bg-[#C7E738] mt-10 rounded-full"
+          initial={{ scaleX: 0, originX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+        />
+      </div>
 
-        {/* Divider */}
-        <div className="w-px bg-[#E8E8E6] self-stretch my-10" />
-
-        {/* Bullets */}
-        <div className="w-7/12 flex flex-col justify-center px-12 gap-8">
+      {/* Grey card — only wraps the bullets */}
+      <div className="w-7/12 flex flex-col justify-center pr-16 pl-4">
+        <div className="bg-[#F5F5F3] rounded-3xl px-14 py-12 flex flex-col gap-8">
           {bulletPoints.map((text, i) => (
             <motion.div
               key={text}
