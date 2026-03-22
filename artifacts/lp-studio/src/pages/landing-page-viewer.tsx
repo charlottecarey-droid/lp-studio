@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig } from "@/lib/page-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
@@ -123,6 +123,7 @@ export default function LandingPageViewer() {
   const isDark = variantConf.backgroundStyle === "dark";
   const isMinimal = variantConf.layout === "minimal";
   const isSplit = variantConf.layout === "split";
+  const sectionPy = SECTION_PY[brand.sectionPadding];
 
   return (
     <div className={cn(
@@ -163,7 +164,7 @@ export default function LandingPageViewer() {
           href={brand.navCtaUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-5 py-3 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
+          className={getButtonClasses(brand)}
           style={{ backgroundColor: LIME, color: FOREST }}
         >
           {brand.navCtaText}
@@ -202,7 +203,7 @@ export default function LandingPageViewer() {
             <div className={cn("flex flex-col gap-4 w-full sm:w-auto pt-2", !isSplit && "items-center")}>
               <button
                 onClick={handleCtaClick}
-                className="inline-flex items-center justify-center px-5 py-3 font-normal text-sm rounded-full uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
+                className={getButtonClasses(brand, "inline-flex items-center justify-center")}
                 style={{ backgroundColor: ctaColor, color: FOREST }}
               >
                 {variantConf.ctaText}
@@ -317,7 +318,7 @@ export default function LandingPageViewer() {
 
       {/* 7. Pain Section (PAS) */}
       {variantConf.painSection?.enabled && (
-        <section className="w-full bg-[#003A30] text-white py-20 md:py-32 px-6">
+        <section className={cn("w-full bg-[#003A30] text-white px-6", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
             <div className="md:w-1/2 space-y-6">
               <h2 className="text-3xl md:text-5xl font-display font-bold leading-tight">
@@ -343,7 +344,7 @@ export default function LandingPageViewer() {
 
       {/* 8. Comparison Section */}
       {variantConf.comparisonSection?.enabled && (
-        <section className="w-full bg-slate-50 py-24 px-6">
+        <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
             {variantConf.comparisonSection.headline && (
               <h2 className="text-4xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16">
@@ -399,7 +400,7 @@ export default function LandingPageViewer() {
             <div className="text-center">
               <button
                 onClick={handleCtaClick}
-                className="px-5 py-3 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95 inline-flex items-center"
+                className={getButtonClasses(brand, "inline-flex items-center")}
                 style={{ backgroundColor: ctaColor, color: FOREST }}
               >
                 {variantConf.comparisonSection.ctaText || variantConf.ctaText}
@@ -412,7 +413,7 @@ export default function LandingPageViewer() {
 
       {/* 9. Stat Callout */}
       {variantConf.statCallout?.enabled && (
-        <section className="w-full bg-[#003A30] py-24 px-6 text-center">
+        <section className={cn("w-full bg-[#003A30] px-6 text-center", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col items-center">
             <div className="text-8xl md:text-[10rem] font-display font-bold leading-none mb-6" style={{ color: LIME }}>
               {variantConf.statCallout.stat}
@@ -431,7 +432,7 @@ export default function LandingPageViewer() {
 
       {/* 10. Benefits Grid */}
       {variantConf.benefits?.enabled && (
-        <section className="w-full bg-white py-20 md:py-32 px-6">
+        <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
             {variantConf.benefits.headline && (
               <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight">
@@ -461,7 +462,7 @@ export default function LandingPageViewer() {
 
       {/* 11. Testimonial */}
       {variantConf.testimonial?.enabled && (
-        <section className="w-full bg-[#F0F7F4] py-24 px-6 relative overflow-hidden">
+        <section className={cn("w-full bg-[#F0F7F4] px-6 relative overflow-hidden", sectionPy)}>
           <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center text-center">
             <Quote className="w-16 h-16 text-[#C7E738] mb-8 opacity-50" />
             <blockquote className="text-2xl md:text-4xl font-display font-medium text-[#003A30] leading-snug mb-10">
@@ -480,7 +481,7 @@ export default function LandingPageViewer() {
 
       {/* 12. How It Works */}
       {variantConf.howItWorks?.enabled && (
-        <section className="w-full bg-white py-20 md:py-32 px-6">
+        <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
             {variantConf.howItWorks.headline && (
               <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-20">
@@ -505,7 +506,7 @@ export default function LandingPageViewer() {
 
       {/* 13. Product Grid */}
       {variantConf.productGrid?.enabled && (
-        <section className="w-full bg-white py-20 md:py-32 px-6">
+        <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
             <div className="text-center max-w-3xl mx-auto mb-16">
               {variantConf.productGrid.headline && (
@@ -544,7 +545,7 @@ export default function LandingPageViewer() {
 
       {/* 14. Bottom CTA Band */}
       {variantConf.bottomCta?.enabled && (
-        <section className="w-full bg-[#003A30] text-white py-24 px-6 text-center">
+        <section className={cn("w-full bg-[#003A30] text-white px-6 text-center", sectionPy)}>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">
               {variantConf.bottomCta.headline}
@@ -556,7 +557,7 @@ export default function LandingPageViewer() {
             )}
             <button
               onClick={handleCtaClick}
-              className="px-5 py-3 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95 inline-flex items-center"
+              className={getButtonClasses(brand, "inline-flex items-center")}
               style={{ backgroundColor: ctaColor, color: FOREST }}
             >
               {variantConf.bottomCta.ctaText || variantConf.ctaText}
