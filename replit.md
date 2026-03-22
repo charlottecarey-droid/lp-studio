@@ -93,15 +93,29 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 ### `artifacts/lp-studio` (`@workspace/lp-studio`)
 
-Landing Page Studio — A/B and multivariate testing platform for landing pages. Built with React + Vite.
+Landing Page Studio — A/B testing platform + visual drag-and-drop page builder. Built with React + Vite.
 
 - **Admin dashboard** at `/lp-studio/` — manage tests, configure variants, view results with statistical significance
-- **Landing page viewer** at `/lp-studio/lp/:slug` — serves the right variant to each visitor (cookie-based assignment), tracks impressions/conversions
-- **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, statistical results
-- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events` tables
+- **Pages gallery** at `/lp-studio/pages` — list, create, edit, delete builder pages; "New Page" modal with template picker
+- **Builder editor** at `/lp-studio/builder/:pageId` — three-panel DnD builder (block library, live canvas, property panel)
+- **Landing page viewer** at `/lp-studio/lp/:slug` — serves A/B test variants OR builder pages (pageType: "builder")
+- **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, stats, AND pages CRUD
+- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages` tables
 - **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
+- **Block system**: 11 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta) with property panels
+- **DnD**: `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop block reordering
+- **Templates**: 5 pre-built templates (video-hero, clean-conversion, social-proof-heavy, comparison-focused, minimal-cta)
 - The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
 - Uses generated React Query hooks from `@workspace/api-client-react`
+
+#### Block System Files
+- `src/lib/block-types.ts` — `BLOCK_REGISTRY` with all 11 block type definitions + default props
+- `src/lib/templates.ts` — `LP_TEMPLATES` with 5 pre-built page templates
+- `src/blocks/BlockRenderer.tsx` — dispatches rendering to individual block components
+- `src/blocks/*.tsx` — individual block components (Hero, TrustBar, PasSection, etc.)
+- `src/pages/builder/BuilderEditor.tsx` — full-screen three-panel builder UI
+- `src/pages/builder/property-panels/` — per-block property editor panels
+- `src/pages/pages-gallery.tsx` — pages list + create modal
 
 ### `scripts` (`@workspace/scripts`)
 

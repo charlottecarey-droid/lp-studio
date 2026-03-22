@@ -19,13 +19,15 @@ import {
   ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ExtendedVariantConfig } from "@/lib/page-types";
+import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-types";
+import { isBuilderPageResponse } from "@/lib/page-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { BlockRenderer } from "@/blocks/BlockRenderer";
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
-const ICON_MAP: Record<string, React.FC<any>> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
   ScanLine,
   RefreshCcw,
@@ -92,6 +94,40 @@ export default function LandingPageViewer() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-[#003A30]" />
+      </div>
+    );
+  }
+
+  // Handle builder pages (blocks array format)
+  if (isBuilderPageResponse(config)) {
+    const builderPage: BuilderPageResponse = config;
+    const blocks = builderPage.blocks ?? [];
+
+    const handleBuilderCtaClick = (ctaUrl: string) => {
+      const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
+      if (dest) {
+        window.open(dest, "_blank", "noopener,noreferrer");
+      }
+    };
+
+    return (
+      <div className="min-h-screen w-full font-sans">
+        <style>{`
+          @keyframes marquee {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+          }
+          .animate-marquee { animation: marquee 40s linear infinite; }
+          .animate-marquee:hover { animation-play-state: paused; }
+        `}</style>
+        {blocks.map((block, i) => (
+          <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+        ))}
+        {blocks.length === 0 && (
+          <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
+            This page has no blocks yet.
+          </div>
+        )}
       </div>
     );
   }

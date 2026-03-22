@@ -10,6 +10,8 @@ import TestDetail from "@/pages/test-detail";
 import LandingPageViewer from "@/pages/landing-page-viewer";
 import LivePages from "@/pages/live-pages";
 import BrandSettings from "@/pages/brand-settings";
+import PagesGallery from "@/pages/pages-gallery";
+import BuilderEditor from "@/pages/builder/BuilderEditor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +31,10 @@ function Router() {
       <Route path="/tests/new" component={CreateTest} />
       <Route path="/tests/:testId" component={TestDetail} />
       <Route path="/brand" component={BrandSettings} />
+      <Route path="/pages" component={PagesGallery} />
+      
+      {/* Builder Editor (no app layout — full screen) */}
+      <Route path="/builder/:pageId" component={BuilderEditor} />
       
       {/* Visitor Facing Landing Page (No App Layout) */}
       <Route path="/lp/:slug" component={LandingPageViewer} />

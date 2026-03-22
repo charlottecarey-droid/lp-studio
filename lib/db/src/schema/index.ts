@@ -3,3 +3,4 @@ export * from "./lpVariants";
 export * from "./lpSessions";
 export * from "./lpEvents";
 export * from "./lpBrandSettings";
+export * from "./lpPages";

@@ -1,0 +1,137 @@
+import type { HeroBlockProps } from "@/lib/block-types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+
+interface Props {
+  props: HeroBlockProps;
+  onChange: (props: HeroBlockProps) => void;
+}
+
+export function HeroPanel({ props, onChange }: Props) {
+  const set = <K extends keyof HeroBlockProps>(k: K, v: HeroBlockProps[K]) =>
+    onChange({ ...props, [k]: v });
+
+  const isSplit = props.layout === "split" || props.layout === "split-right";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
+        <Textarea
+          value={props.headline}
+          onChange={e => set("headline", e.target.value)}
+          rows={2}
+          className="text-sm resize-none"
+        />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
+        <Textarea
+          value={props.subheadline}
+          onChange={e => set("subheadline", e.target.value)}
+          rows={2}
+          className="text-sm resize-none"
+        />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text</Label>
+        <Input value={props.ctaText} onChange={e => set("ctaText", e.target.value)} className="text-sm" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
+        <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Color</Label>
+        <div className="flex items-center gap-2">
+          <input type="color" value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="w-9 h-9 rounded border cursor-pointer" />
+          <Input value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="text-sm font-mono" />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Layout</Label>
+        <Select
+          value={props.layout}
+          onValueChange={v => {
+            if (v === "centered" || v === "split" || v === "split-right" || v === "minimal") set("layout", v);
+          }}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="centered">Centered</SelectItem>
+            <SelectItem value="split">Split (Text Left, Media Right)</SelectItem>
+            <SelectItem value="split-right">Split (Media Left, Text Right)</SelectItem>
+            <SelectItem value="minimal">Minimal</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {isSplit && (
+        <>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Hero Media</Label>
+            <Select
+              value={props.heroType}
+              onValueChange={v => {
+                if (v === "dandy-video" || v === "static-image" || v === "none") set("heroType", v);
+              }}
+            >
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="static-image">Image</SelectItem>
+                <SelectItem value="dandy-video">Video (Embed)</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {props.heroType === "static-image" && (
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Image URL</Label>
+              <Input
+                value={props.imageUrl ?? ""}
+                onChange={e => set("imageUrl", e.target.value)}
+                className="text-sm"
+                placeholder="Leave empty for default Dandy platform image"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Paste an image URL or leave blank for the default</p>
+            </div>
+          )}
+          {props.heroType === "dandy-video" && (
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Video Embed URL</Label>
+              <Input
+                value={props.mediaUrl ?? ""}
+                onChange={e => set("mediaUrl", e.target.value)}
+                className="text-sm"
+                placeholder="https://www.youtube.com/embed/..."
+              />
+              <p className="text-xs text-muted-foreground mt-1">Paste a YouTube, Vimeo, or Loom embed URL</p>
+            </div>
+          )}
+        </>
+      )}
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Background</Label>
+        <Select value={props.backgroundStyle} onValueChange={v => { if (v === "white" || v === "dark") set("backgroundStyle", v); }}>
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="white">White</SelectItem>
+            <SelectItem value="dark">Dark</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show Social Proof</Label>
+        <Switch checked={props.showSocialProof} onCheckedChange={v => set("showSocialProof", v)} />
+      </div>
+      {props.showSocialProof && (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Social Proof Text</Label>
+          <Input value={props.socialProofText} onChange={e => set("socialProofText", e.target.value)} className="text-sm" />
+        </div>
+      )}
+    </div>
+  );
+}

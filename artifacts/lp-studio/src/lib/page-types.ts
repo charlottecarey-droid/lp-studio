@@ -1,3 +1,23 @@
+import type { PageBlock } from "./block-types";
+
+export interface BuilderPageResponse {
+  pageType: "builder";
+  id: number;
+  title: string;
+  slug: string;
+  blocks: PageBlock[];
+  status: "draft" | "published";
+}
+
+export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "pageType" in value &&
+    (value as { pageType: unknown }).pageType === "builder"
+  );
+}
+
 export interface TrustBarItem {
   value: string;
   label: string;

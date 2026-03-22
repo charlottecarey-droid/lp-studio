@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 
@@ -44,6 +44,24 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     .where(eq(lpTestsTable.slug, params.data.slug));
 
   if (!test) {
+    // Check if it's a builder page
+    const [builderPage] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.slug, params.data.slug));
+
+    if (builderPage) {
+      res.json({
+        pageType: "builder",
+        id: builderPage.id,
+        title: builderPage.title,
+        slug: builderPage.slug,
+        blocks: builderPage.blocks,
+        status: builderPage.status,
+      });
+      return;
+    }
+
     res.status(404).json({ error: "Page not found" });
     return;
   }

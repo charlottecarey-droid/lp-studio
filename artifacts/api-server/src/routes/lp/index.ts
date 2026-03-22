@@ -4,6 +4,7 @@ import variantsRouter from "./variants";
 import trackingRouter from "./tracking";
 import resultsRouter from "./results";
 import brandRouter from "./brand";
+import pagesRouter from "./pages";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use(variantsRouter);
 router.use(trackingRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
+router.use(pagesRouter);
 
 export default router;
