@@ -39,7 +39,7 @@ export default function Scene4() {
         >
           <div
             className="overflow-hidden shadow-2xl"
-            style={{ width: '260px', aspectRatio: '9/19.5', borderRadius: '2.5rem' }}
+            style={{ width: '380px', aspectRatio: '9/19.5', borderRadius: '2.5rem' }}
           >
             <img
               src={appImg}
