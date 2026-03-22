@@ -31,8 +31,8 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-white flex flex-col justify-center px-16 gap-8">
-        <div className="w-full space-y-8">
+      <div className="w-1/2 h-full bg-white flex flex-col justify-center px-10">
+        <div className="w-full bg-[#F5F5F3] rounded-3xl px-12 py-14 space-y-8">
           {bulletPoints.map((text, i) => (
             <motion.div
               key={text}
