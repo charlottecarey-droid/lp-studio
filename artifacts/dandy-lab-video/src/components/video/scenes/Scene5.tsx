@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
-import restorationsImg from '@assets/IMG_0116_1774192251780.jpeg';
-
 export default function Scene5() {
   const bulletPoints = [
     "5-Day Crowns",
@@ -32,7 +30,7 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-end px-16 pb-16 gap-8">
+      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-center px-16 gap-8">
         <div className="w-full space-y-8">
           {bulletPoints.map((text, i) => (
             <motion.div
@@ -49,15 +47,6 @@ export default function Scene5() {
             </motion.div>
           ))}
         </div>
-
-        <motion.img
-          src={restorationsImg}
-          alt="Dandy restorations"
-          className="w-[60%] h-auto object-contain self-center"
-          style={{ opacity: 0 }}
-          animate={{ opacity: 0.55 }}
-          transition={{ duration: 0.8, delay: 1.4 }}
-        />
       </div>
     </motion.div>
   );
