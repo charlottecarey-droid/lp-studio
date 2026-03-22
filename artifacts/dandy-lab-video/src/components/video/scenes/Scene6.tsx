@@ -43,7 +43,7 @@ export default function Scene6() {
           transition={{ duration: 0.8, delay: 1, type: "spring", stiffness: 200, damping: 20 }}
         >
           <div className="px-12 py-6 bg-[#C7E738] rounded-full shadow-2xl">
-            <span className="text-[#003A30] text-2xl font-display tracking-widest uppercase">
+            <span className="text-[#003A30] text-2xl font-bold tracking-widest uppercase">
               GET STARTED AT MEETDANDY.COM
             </span>
           </div>
