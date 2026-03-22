@@ -56,7 +56,7 @@ export default function VideoTemplate() {
                 className="absolute inset-0 rounded-full pointer-events-none"
                 style={{ backgroundColor: '#C7E738' }}
                 initial={{ opacity: 0.5, scale: 1 }}
-                animate={{ opacity: 0, scale: 2.2 }}
+                animate={{ opacity: 0, scale: 1.7 }}
                 transition={{
                   duration: 1.8,
                   delay,

@@ -5,7 +5,7 @@ export default function Scene5() {
   const bulletPoints = [
     "5-day crowns",
     "2-appointment dentures",
-    "89% fewer remakes"
+    "Dedicated lab support"
   ];
 
   return (

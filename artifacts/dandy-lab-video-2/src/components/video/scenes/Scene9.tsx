@@ -49,7 +49,7 @@ export default function Scene9() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4, delay: 2 }}
           >
-            <p className="text-sm text-white font-medium">Looks great — cleared for production ✓</p>
+            <p className="text-sm text-white font-medium flex items-center gap-1.5">Looks great — cleared for production <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg></p>
             <p className="text-[10px] text-[#A8C4B8] mt-0.5">Lab Tech</p>
           </motion.div>
         </div>
