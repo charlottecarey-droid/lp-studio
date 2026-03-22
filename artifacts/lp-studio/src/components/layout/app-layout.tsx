@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Beaker, PlusCircle, LayoutPanelTop, Radio, Paintbrush } from "lucide-react";
+import { LayoutDashboard, Beaker, PlusCircle, Radio, Paintbrush } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import dandyLogo from "@/assets/dandy-logo.svg";
 
 export function AppSidebar() {
   const [location] = useLocation();
@@ -9,11 +10,9 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
       <SidebarContent>
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <LayoutPanelTop className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <h2 className="font-display font-bold text-lg text-foreground tracking-tight">LP Studio</h2>
+        <div className="px-6 py-5 flex flex-col gap-1">
+          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto" />
+          <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">LP Studio</span>
         </div>
         
         <SidebarGroup>
