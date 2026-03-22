@@ -64,7 +64,7 @@ export default function Scene4() {
 
           {/* Incoming message bubble */}
           <motion.div
-            className="absolute top-64 left-4 bg-[#003A30] text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-lg max-w-[220px]"
+            className="absolute top-64 left-2 bg-[#003A30] text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-lg max-w-[160px]"
             initial={{ opacity: 0, scale: 0.7, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 3.4 }}
