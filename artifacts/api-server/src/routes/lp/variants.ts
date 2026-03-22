@@ -39,12 +39,18 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
   }
   const builderPageId =
     typeof req.body.builderPageId === "number" ? req.body.builderPageId : null;
+  // Use raw req.body.config to preserve extended JSONB fields (trustBar, benefits,
+  // testimonials, templateId, etc.) that the generated Zod schema strips on parse.
+  const rawConfig =
+    req.body.config !== undefined && typeof req.body.config === "object" && req.body.config !== null
+      ? req.body.config
+      : (parsed.data.config ?? {});
   const [variant] = await db.insert(lpVariantsTable).values({
     testId: params.data.testId,
     name: parsed.data.name,
     isControl: parsed.data.isControl ?? false,
     trafficWeight: parsed.data.trafficWeight,
-    config: parsed.data.config ?? {},
+    config: rawConfig,
     builderPageId,
   }).returning();
   res.status(201).json(variant);
