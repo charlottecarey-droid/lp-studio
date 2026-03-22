@@ -564,15 +564,76 @@ export default function LandingPageViewer() {
       )}
 
       {/* 16. Footer */}
-      <footer className="w-full bg-[#003A30] text-white/50 py-12 px-6 text-center text-sm border-t border-white/10">
-        <div className="flex flex-col items-center gap-4">
-          <img
-            src={dandyLogoUrl}
-            alt="Dandy"
-            className="h-6 w-auto"
-            style={{ filter: "brightness(0) invert(1)", opacity: 0.6 }}
-          />
-          <p>© {new Date().getFullYear()} Dandy. All rights reserved.</p>
+      <footer className="w-full bg-[#003A30] text-white">
+        <div className="max-w-6xl mx-auto px-8 pt-16 pb-10">
+          {/* Top row: logo + nav columns */}
+          <div className="flex flex-col md:flex-row gap-12 md:gap-16">
+            {/* Logo */}
+            <div className="flex-shrink-0">
+              <img
+                src={dandyLogoUrl}
+                alt="Dandy"
+                className="w-40 h-auto"
+                style={{ filter: "brightness(0) invert(1)", opacity: 0.9 }}
+              />
+            </div>
+
+            {/* Nav columns */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-10 flex-1">
+              <div>
+                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Dandy</p>
+                <ul className="space-y-2.5">
+                  {["Home","Pricing","Get in touch","Careers","Privacy Policy","Terms of Use"].map(l => (
+                    <li key={l}><a href="#" className="text-white/50 text-sm hover:text-white/80 transition-colors">{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Products</p>
+                <ul className="space-y-2.5">
+                  {["Vision Scanner & Cart","Chairside","Lab Services","Crown & Bridge","Partial Dentures","Digital Dentures","Clear Aligners"].map(l => (
+                    <li key={l}><a href="#" className="text-white/50 text-sm hover:text-white/80 transition-colors">{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Practices</p>
+                <ul className="space-y-2.5">
+                  {["Private Practice","Group Practice","DSO","Refer a Practice","Login"].map(l => (
+                    <li key={l}><a href="#" className="text-white/50 text-sm hover:text-white/80 transition-colors">{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Resources</p>
+                <ul className="space-y-2.5">
+                  {["Learning Center","Articles","Webinars","eBooks","Lab Product Catalog","Newsroom"].map(l => (
+                    <li key={l}><a href="#" className="text-white/50 text-sm hover:text-white/80 transition-colors">{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="mt-14 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-white/40 text-xs">© {new Date().getFullYear()} Dandy. All rights reserved.</p>
+            {/* Social icons */}
+            <div className="flex items-center gap-5">
+              {/* Facebook */}
+              <a href="#" aria-label="Facebook" className="text-white/40 hover:text-white/70 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+              </a>
+              {/* Instagram */}
+              <a href="#" aria-label="Instagram" className="text-white/40 hover:text-white/70 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              </a>
+              {/* LinkedIn */}
+              <a href="#" aria-label="LinkedIn" className="text-white/40 hover:text-white/70 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
 

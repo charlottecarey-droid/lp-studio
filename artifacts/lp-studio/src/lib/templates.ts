@@ -226,7 +226,7 @@ export const templateProblemFirst: LPTemplate = {
     },
     guaranteeBar: {
       enabled: true,
-      text: "🔄 Free remakes on every case, forever. If it doesn't fit, we fix it — at no cost to you.",
+      text: "Free remakes on every case, forever. If it doesn't fit, we fix it — at no cost to you.",
     },
   },
 };
