@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
-import scanImg from '@assets/IMG_0120_1774192251780.jpeg';
+import scanImg from '@assets/IMG_0111_1774192855940.webp';
 
 export default function Scene7() {
   return (

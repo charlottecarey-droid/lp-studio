@@ -6,7 +6,7 @@ export default function Scene10() {
   return (
     <motion.div
       className="absolute inset-0 flex items-center overflow-hidden"
-      style={{ backgroundColor: '#070F0D' }}
+      style={{ backgroundColor: '#003A30' }}
       {...sceneTransitions.fadeBlur}
     >
       <div className="w-1/2 h-full flex items-center justify-center relative">
@@ -21,7 +21,7 @@ export default function Scene10() {
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to right, transparent 60%, #070F0D 100%)',
+            background: 'linear-gradient(to right, transparent 30%, #003A30 85%, #003A30 100%)',
           }}
         />
       </div>
