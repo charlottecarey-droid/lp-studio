@@ -270,6 +270,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: previewVariantId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: When set, bypasses session assignment and returns this specific variant (preview mode)
       responses:
         "200":
           description: Page config with assigned variant

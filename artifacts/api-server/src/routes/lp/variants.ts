@@ -63,7 +63,7 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
   if (typeof body.name === "string" && body.name.length > 0) updateData.name = body.name;
   if (typeof body.trafficWeight === "number") updateData.trafficWeight = body.trafficWeight;
   if (typeof body.isControl === "boolean") updateData.isControl = body.isControl;
-  if (body.config !== undefined && typeof body.config === "object" && body.config !== null) {
+  if ("config" in body && body.config !== undefined && typeof body.config === "object" && body.config !== null) {
     updateData.config = body.config;
   }
   if ("builderPageId" in body) {

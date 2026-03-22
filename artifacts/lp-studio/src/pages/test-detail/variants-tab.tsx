@@ -410,8 +410,12 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
   });
 
   const onSubmit = (values: z.infer<typeof variantSchema>) => {
+    const mergedConfig = {
+      ...variantConfigAny,
+      ...values.config,
+    };
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: { name: values.name, isControl: values.isControl, trafficWeight: values.trafficWeight, config: values.config as Record<string, unknown> } },
+      { testId, variantId: variant.id, data: { name: values.name, isControl: values.isControl, trafficWeight: values.trafficWeight, config: mergedConfig as Record<string, unknown> } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });

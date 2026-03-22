@@ -420,6 +420,12 @@ export const GetPageConfigParams = zod.object({
 
 export const GetPageConfigQueryParams = zod.object({
   sessionId: zod.coerce.string().optional(),
+  previewVariantId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "When set, bypasses session assignment and returns this specific variant (preview mode)",
+    ),
 });
 
 export const getPageConfigResponseAssignedVariantConfigHeroTypeDefault = `dandy-video`;

@@ -8,4 +8,8 @@
 
 export type GetPageConfigParams = {
   sessionId?: string;
+  /**
+   * When set, bypasses session assignment and returns this specific variant (preview mode)
+   */
+  previewVariantId?: number;
 };
