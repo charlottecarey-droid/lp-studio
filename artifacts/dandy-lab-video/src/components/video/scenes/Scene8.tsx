@@ -29,7 +29,7 @@ export default function Scene8() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-10">
+      <div className="w-1/2 h-full flex items-center justify-center pl-4 pr-10 py-10">
         <motion.img
           src={orderImg}
           alt="Dandy order screen"
