@@ -47,7 +47,7 @@ export default function Scene4() {
 
         {/* Live Chat badge */}
         <motion.div
-          className="absolute bottom-16 left-8 bg-white px-5 py-3 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-3"
+          className="absolute bottom-36 left-8 bg-white px-5 py-3 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-3"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 1.3 }}
