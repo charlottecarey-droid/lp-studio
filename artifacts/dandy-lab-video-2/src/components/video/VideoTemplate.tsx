@@ -5,7 +5,6 @@ import Scene2 from './scenes/Scene2';
 import Scene3 from './scenes/Scene3';
 import Scene4 from './scenes/Scene4';
 import Scene5 from './scenes/Scene5';
-import Scene6 from './scenes/Scene6';
 import Scene7 from './scenes/Scene7';
 import Scene8 from './scenes/Scene8';
 import Scene9 from './scenes/Scene9';
@@ -21,10 +20,7 @@ const SCENE_DURATIONS = {
   scene7:  5000,
   scene8:  5000,
   scene9:  5000,
-  scene10: 5000,
 };
-
-const LAST_SCENE = Object.keys(SCENE_DURATIONS).length - 1;
 
 export default function VideoTemplate() {
   const { currentScene } = useVideoPlayer({
@@ -47,20 +43,17 @@ export default function VideoTemplate() {
         {currentScene === 6 && <Scene8  key="scene8"  />}
         {currentScene === 7 && <Scene9  key="scene9"  />}
         {currentScene === 8 && <Scene5  key="scene5"  />}
-        {currentScene === 9 && <Scene6  key="scene6"  />}
       </AnimatePresence>
 
-      {/* Persistent sign-up button — hidden on final scene */}
-      {currentScene !== LAST_SCENE && (
-        <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
-          <button
-            className="px-8 py-4 rounded-full text-lg font-bold shadow-xl transition-all"
-            style={{ backgroundColor: '#003A30', color: '#FFFFFF', letterSpacing: '-0.01em' }}
-          >
-            Sign up
-          </button>
-        </div>
-      )}
+      {/* Persistent sign-up button — always visible */}
+      <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
+        <button
+          className="px-8 py-4 rounded-full text-lg font-bold shadow-xl transition-all"
+          style={{ backgroundColor: '#003A30', color: '#FFFFFF', letterSpacing: '-0.01em' }}
+        >
+          Sign up
+        </button>
+      </div>
     </div>
   );
 }
