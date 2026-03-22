@@ -15,7 +15,8 @@ import {
   XCircle, 
   AlertTriangle, 
   Quote,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig } from "@/lib/page-types";
@@ -222,6 +223,14 @@ export default function LandingPageViewer() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Scroll indicator */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none">
+          <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[#003A30]/15")} />
+          <div className="animate-bounce">
+            <ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[#003A30]/30")} />
+          </div>
         </div>
       </section>
 
