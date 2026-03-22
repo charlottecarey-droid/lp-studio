@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Beaker, PlusCircle, Radio, Paintbrush, FileText } from "lucide-react";
+import { LayoutDashboard, Beaker, PlusCircle, Radio, Paintbrush, FileText, ClipboardCheck } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -48,6 +48,14 @@ export function AppSidebar() {
                   <Link href="/" className="font-medium">
                     <Beaker className="w-4 h-4" />
                     <span>All Experiments</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/reviews"}>
+                  <Link href="/reviews" className="font-medium">
+                    <ClipboardCheck className="w-4 h-4" />
+                    <span>Reviews</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
