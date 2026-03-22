@@ -2,50 +2,52 @@ import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
 
 export default function Scene5() {
+  const bulletPoints = [
+    "5-Day Crowns",
+    "2-Appointment Dentures",
+    "89% Fewer Remakes"
+  ];
+
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center bg-teal-500 overflow-hidden"
-      {...sceneTransitions.zoomThrough}
+      className="absolute inset-0 flex overflow-hidden"
+      {...sceneTransitions.wipe}
     >
-      <motion.div 
-        className="absolute inset-0 opacity-20"
-        initial={{ backgroundPosition: '0% 0%' }}
-        animate={{ backgroundPosition: '100% 100%' }}
-        transition={{ duration: 10, repeat: Infinity }}
-        style={{ backgroundImage: 'radial-gradient(circle at center, #020617 2px, transparent 2.5px)', backgroundSize: '40px 40px' }}
-      />
-      
-      <div className="relative z-10 text-center flex flex-col items-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.2 }}
-          className="relative"
-        >
-          <h2 className="text-[12rem] font-display font-bold text-[#020617] leading-none tracking-tighter">
-            89%
-          </h2>
-          <motion.div 
-            className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-32 h-2 bg-[#020617] rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: 128 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-          />
-        </motion.div>
-
-        <motion.div
+      <div className="w-1/2 h-full bg-[#1C3A2E] flex flex-col justify-center pl-24 pr-16">
+        <motion.h2 
+          className="text-[5rem] font-display font-bold text-white leading-tight"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-          className="mt-16"
+          transition={{ duration: 0.8, delay: 0.3 }}
         >
-          <h3 className="text-5xl font-display font-semibold text-[#020617]">
-            Fewer Remakes
-          </h3>
-          <p className="text-2xl text-[#020617]/80 mt-4 font-medium max-w-2xl mx-auto">
-            Better outcomes. Less chair time.
-          </p>
-        </motion.div>
+          See why <br/>dentists love <br/>Dandy.
+        </motion.h2>
+        
+        <motion.div 
+          className="w-24 h-2 bg-[#C8E63C] mt-12 rounded-full"
+          initial={{ scaleX: 0, originX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+        />
+      </div>
+
+      <div className="w-1/2 h-full bg-[#F0EDE6] flex flex-col justify-center px-24">
+        <div className="space-y-12">
+          {bulletPoints.map((text, i) => (
+            <motion.div 
+              key={text}
+              className="flex items-center gap-8"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 + i * 0.2 }}
+            >
+              <div className="w-16 h-16 rounded-full bg-[#C8E63C] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span className="text-5xl font-semibold text-[#0F2318]">{text}</span>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </motion.div>
   );

@@ -9,11 +9,11 @@ import Scene6 from './scenes/Scene6';
 
 const SCENE_DURATIONS = {
   scene1: 4500, // Intro
-  scene2: 4000, // 5-Day Crowns
-  scene3: 5000, // Scan to Delivery
+  scene2: 5000, // Products
+  scene3: 4500, // Speed stat
   scene4: 4500, // Live Support
-  scene5: 4500, // 89% Remakes
-  scene6: 4500, // CTA
+  scene5: 5000, // Why Dandy
+  scene6: 5000, // CTA
 };
 
 export default function VideoTemplate() {
@@ -25,26 +25,8 @@ export default function VideoTemplate() {
   return (
     <div
       className="w-full h-screen overflow-hidden relative font-sans"
-      style={{ backgroundColor: 'var(--color-bg-dark)' }}
+      style={{ backgroundColor: 'var(--color-bg-light)' }}
     >
-      {/* Persistent Background Layer */}
-      <motion.div 
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        animate={{
-          backgroundPosition: ['0% 0%', '100% 100%'],
-        }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        style={{
-          backgroundImage: 'radial-gradient(circle at center, rgba(20, 184, 166, 0.15) 0%, transparent 50%)',
-          backgroundSize: '100vw 100vh',
-        }}
-      />
-      
-      {/* Noise Texture */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay" 
-        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} 
-      />
-
       <AnimatePresence mode="wait">
         {currentScene === 0 && <Scene1 key="scene1" />}
         {currentScene === 1 && <Scene2 key="scene2" />}
