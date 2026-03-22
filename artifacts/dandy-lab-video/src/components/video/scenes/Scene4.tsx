@@ -32,16 +32,22 @@ export default function Scene4() {
 
       <div className="absolute inset-0 w-1/2 left-1/2 h-full flex items-center justify-center p-12">
         <motion.div
-          className="relative w-full h-[80%] flex justify-center items-center"
+          className="relative flex justify-center items-center"
+          style={{ height: '80%' }}
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 150, damping: 20, delay: 0.5 }}
         >
-          <img
-            src={appImg}
-            alt="Dandy App"
-            className="h-full w-auto object-contain drop-shadow-2xl rounded-[3rem]"
-          />
+          <div
+            className="overflow-hidden rounded-[2rem] shadow-2xl"
+            style={{ height: '100%', aspectRatio: '9/14' }}
+          >
+            <img
+              src={appImg}
+              alt="Dandy App"
+              className="w-full h-full object-cover object-top block"
+            />
+          </div>
           
           <motion.div 
             className="absolute top-1/4 -left-12 bg-white px-6 py-4 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-4"
