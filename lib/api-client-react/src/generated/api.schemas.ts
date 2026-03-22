@@ -37,7 +37,7 @@ export const VariantConfigBackgroundStyle = {
 } as const;
 
 /**
- * The configurable elements of a landing page variant
+ * The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).
  */
 export interface VariantConfig {
   heroType?: VariantConfigHeroType;
@@ -50,6 +50,7 @@ export interface VariantConfig {
   backgroundStyle?: VariantConfigBackgroundStyle;
   showSocialProof?: boolean;
   socialProofText?: string;
+  [key: string]: unknown;
 }
 
 export interface Variant {

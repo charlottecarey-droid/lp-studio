@@ -38,12 +38,13 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Use raw req.body.config to preserve extended JSONB fields the Zod schema would strip
   const [variant] = await db.insert(lpVariantsTable).values({
     testId: params.data.testId,
     name: parsed.data.name,
     isControl: parsed.data.isControl ?? false,
     trafficWeight: parsed.data.trafficWeight,
-    config: parsed.data.config,
+    config: req.body.config ?? parsed.data.config,
   }).returning();
   res.status(201).json(variant);
 });
@@ -62,7 +63,9 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
   const updateData: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.trafficWeight !== undefined) updateData.trafficWeight = parsed.data.trafficWeight;
-  if (parsed.data.config !== undefined) updateData.config = parsed.data.config;
+  // Use raw req.body.config to preserve extended JSONB fields (templateId, trustBar, benefits, etc.)
+  // that Zod strips when validating against the base VariantConfig schema
+  if (req.body.config !== undefined) updateData.config = req.body.config;
 
   const [variant] = await db
     .update(lpVariantsTable)

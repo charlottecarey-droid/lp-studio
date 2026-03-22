@@ -105,7 +105,9 @@ export const GetTestResponse = zod
                 ),
               socialProofText: zod.string().optional(),
             })
-            .describe("The configurable elements of a landing page variant"),
+            .describe(
+              "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+            ),
           createdAt: zod.date(),
         }),
       ),
@@ -186,7 +188,9 @@ export const ListVariantsResponseItem = zod.object({
         .default(listVariantsResponseConfigShowSocialProofDefault),
       socialProofText: zod.string().optional(),
     })
-    .describe("The configurable elements of a landing page variant"),
+    .describe(
+      "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
   createdAt: zod.date(),
 });
 export const ListVariantsResponse = zod.array(ListVariantsResponseItem);
@@ -229,7 +233,9 @@ export const CreateVariantBody = zod.object({
         .default(createVariantBodyConfigShowSocialProofDefault),
       socialProofText: zod.string().optional(),
     })
-    .describe("The configurable elements of a landing page variant"),
+    .describe(
+      "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
 });
 
 /**
@@ -270,7 +276,9 @@ export const UpdateVariantBody = zod.object({
       socialProofText: zod.string().optional(),
     })
     .optional()
-    .describe("The configurable elements of a landing page variant"),
+    .describe(
+      "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
 });
 
 export const updateVariantResponseConfigHeroTypeDefault = `dandy-video`;
@@ -307,7 +315,9 @@ export const UpdateVariantResponse = zod.object({
         .default(updateVariantResponseConfigShowSocialProofDefault),
       socialProofText: zod.string().optional(),
     })
-    .describe("The configurable elements of a landing page variant"),
+    .describe(
+      "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
   createdAt: zod.date(),
 });
 
@@ -432,7 +442,9 @@ export const GetPageConfigResponse = zod.object({
           ),
         socialProofText: zod.string().optional(),
       })
-      .describe("The configurable elements of a landing page variant"),
+      .describe(
+        "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+      ),
     createdAt: zod.date(),
   }),
   status: zod.string(),

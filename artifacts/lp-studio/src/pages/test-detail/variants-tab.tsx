@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { 
   Accordion,
   AccordionContent,
@@ -44,6 +43,10 @@ import {
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+import { TemplatePicker } from "@/components/template-picker";
+import { LPTemplate, templateVideoHero } from "@/lib/templates";
 
 // Form Schema matching the VariantConfig
 const variantSchema = z.object({
@@ -70,28 +73,24 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
   const createMutation = useCreateVariant();
   const deleteMutation = useDeleteVariant();
 
-  const handleAddVariant = () => {
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+
+  const handleCreateVariantFromTemplate = (templateConfig: any) => {
     createMutation.mutate(
       {
         testId: test.id,
         data: {
           name: `Variant ${test.variants.length + 1}`,
           isControl: test.variants.length === 0,
-          trafficWeight: test.variants.length === 0 ? 100 : 0, // Simplified distribution logic for initial create
-          config: {
-            heroType: "dandy-video",
-            headline: "Elevate your practice",
-            ctaText: "Get Started",
-            layout: "split",
-            backgroundStyle: "white",
-            showSocialProof: false
-          }
+          trafficWeight: test.variants.length === 0 ? 100 : 0,
+          config: templateConfig
         }
       },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
           toast({ title: "Variant created" });
+          setIsTemplatePickerOpen(false);
         }
       }
     );
@@ -120,10 +119,24 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
           <h2 className="text-xl font-bold font-display">Page Variants</h2>
           <p className="text-muted-foreground mt-1">Configure layout, copy, and traffic distribution.</p>
         </div>
-        <Button onClick={handleAddVariant} disabled={createMutation.isPending} className="rounded-xl shadow-sm">
+        <Button onClick={() => setIsTemplatePickerOpen(true)} disabled={createMutation.isPending} className="rounded-xl shadow-sm">
           <Plus className="w-4 h-4 mr-2" /> Add Variant
         </Button>
       </div>
+
+      <Dialog open={isTemplatePickerOpen} onOpenChange={setIsTemplatePickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-background/95 backdrop-blur-xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Choose a Landing Page Template</DialogTitle>
+          </DialogHeader>
+          <div className="p-8">
+            <TemplatePicker 
+              onSelect={(template) => handleCreateVariantFromTemplate(template.config)}
+              onSkip={() => handleCreateVariantFromTemplate(templateVideoHero.config)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {totalWeight !== 100 && test.variants.length > 0 && (
         <div className="p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-xl flex items-center gap-3">
@@ -137,7 +150,7 @@ export function VariantsTab({ test }: { test: TestWithVariants }) {
       {test.variants.length === 0 ? (
         <div className="text-center p-12 border border-dashed rounded-2xl bg-muted/20">
           <p className="text-muted-foreground mb-4">No variants created yet.</p>
-          <Button onClick={handleAddVariant} variant="outline">Create Initial Variant</Button>
+          <Button onClick={() => setIsTemplatePickerOpen(true)} variant="outline">Create Initial Variant</Button>
         </div>
       ) : (
         <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={`variant-${test.variants[0]?.id}`}>
@@ -160,6 +173,8 @@ function VariantEditor({ testId, variant, onDelete }: { testId: number, variant:
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const variantConfigAny = variant.config as any;
+
   const form = useForm<z.infer<typeof variantSchema>>({
     resolver: zodResolver(variantSchema),
     defaultValues: {
@@ -167,23 +182,29 @@ function VariantEditor({ testId, variant, onDelete }: { testId: number, variant:
       isControl: variant.isControl,
       trafficWeight: variant.trafficWeight,
       config: {
-        heroType: variant.config.heroType as any || "dandy-video",
-        headline: variant.config.headline || "",
-        subheadline: variant.config.subheadline || "",
-        ctaText: variant.config.ctaText || "",
-        ctaColor: variant.config.ctaColor || "",
-        ctaUrl: variant.config.ctaUrl || "",
-        layout: variant.config.layout as any || "centered",
-        backgroundStyle: variant.config.backgroundStyle as any || "white",
-        showSocialProof: variant.config.showSocialProof || false,
-        socialProofText: variant.config.socialProofText || "",
+        heroType: variantConfigAny.heroType || "dandy-video",
+        headline: variantConfigAny.headline || "",
+        subheadline: variantConfigAny.subheadline || "",
+        ctaText: variantConfigAny.ctaText || "",
+        ctaColor: variantConfigAny.ctaColor || "",
+        ctaUrl: variantConfigAny.ctaUrl || "",
+        layout: variantConfigAny.layout || "centered",
+        backgroundStyle: variantConfigAny.backgroundStyle || "white",
+        showSocialProof: variantConfigAny.showSocialProof || false,
+        socialProofText: variantConfigAny.socialProofText || "",
       }
     }
   });
 
   const onSubmit = (values: z.infer<typeof variantSchema>) => {
+    // Merge the form values with the existing config to preserve non-editable fields (like benefits, testimonials)
+    const mergedConfig = {
+      ...variantConfigAny,
+      ...values.config
+    };
+
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: values as any },
+      { testId, variantId: variant.id, data: { ...values, config: mergedConfig } as any },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });
@@ -193,6 +214,18 @@ function VariantEditor({ testId, variant, onDelete }: { testId: number, variant:
     );
   };
 
+  const getTemplateName = () => {
+    const tId = variantConfigAny.templateId;
+    if (tId === "video-hero") return "Video Hero";
+    if (tId === "problem-first") return "Problem First";
+    if (tId === "social-proof-leader") return "Social Proof Leader";
+    if (tId === "how-it-works") return "How It Works";
+    if (tId === "minimal-cta") return "Minimal CTA";
+    return null;
+  };
+
+  const templateName = getTemplateName();
+
   return (
     <AccordionItem value={`variant-${variant.id}`} className="border rounded-2xl bg-background overflow-hidden px-1 shadow-sm">
       <AccordionTrigger className="hover:no-underline px-4 py-4 group">
@@ -201,7 +234,13 @@ function VariantEditor({ testId, variant, onDelete }: { testId: number, variant:
             <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
             <h3 className="font-semibold text-base">{form.watch("name")}</h3>
             {form.watch("isControl") && (
-              <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">Control</Badge>
+              <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 no-default-active-elevate">Control</Badge>
+            )}
+            {templateName && (
+              <Badge variant="outline" className="text-muted-foreground font-normal ml-2 no-default-active-elevate border-border/60">
+                <LayoutTemplate className="w-3 h-3 mr-1" />
+                Template: {templateName}
+              </Badge>
             )}
           </div>
           <div className="flex items-center gap-4 text-sm">
