@@ -121,23 +121,6 @@ export default function Scene10() {
             </div>
           </motion.div>
 
-          {/* Side labels */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4">
-            {['ALERTS', 'GUIDANCE', 'CONFIRMATION'].map((label, i) => (
-              <motion.div
-                key={label}
-                className="flex items-center gap-2"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 2.0 + i * 0.15 }}
-              >
-                <span className="text-[9px] font-bold tracking-widest" style={{ color: i === 2 ? '#C7E738' : 'rgba(255,255,255,0.35)' }}>
-                  {label}
-                </span>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: i === 2 ? '#C7E738' : 'rgba(255,255,255,0.2)' }} />
-              </motion.div>
-            ))}
-          </div>
         </motion.div>
       </div>
 
