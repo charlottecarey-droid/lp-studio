@@ -142,7 +142,7 @@ export default function LandingPageViewer() {
         />
         <button
           onClick={handleCtaClick}
-          className="px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
+          className="px-5 py-2 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
           style={{ backgroundColor: ctaColor, color: FOREST }}
         >
           {variantConf.ctaText}
