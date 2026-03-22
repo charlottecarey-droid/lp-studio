@@ -133,16 +133,16 @@ export default function LandingPageViewer() {
       </div>
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 py-4 flex items-center justify-between z-40 relative">
+      <nav className="w-full px-6 py-5 flex items-center justify-between z-40 relative bg-black">
         <img
           src={dandyLogoUrl}
           alt="Dandy"
           className="h-7 w-auto"
-          style={isDark ? { filter: "brightness(0) invert(1)" } : undefined}
+          style={{ filter: "brightness(0) invert(1)" }}
         />
         <button
           onClick={handleCtaClick}
-          className="px-5 py-2.5 rounded-full font-bold text-sm transition-transform hover:scale-105 active:scale-95"
+          className="px-5 py-2.5 rounded-full font-bold text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
           style={{ backgroundColor: ctaColor, color: FOREST }}
         >
           {variantConf.ctaText}
@@ -171,8 +171,8 @@ export default function LandingPageViewer() {
             
             {variantConf.subheadline && (
               <p className={cn(
-                "text-lg md:text-xl leading-relaxed",
-                isDark ? "text-white/80" : "text-[#4A6358]",
+                "text-lg md:text-xl leading-relaxed font-sans",
+                isDark ? "text-white/80" : "text-[#003A30]/70",
                 !isSplit && "max-w-2xl"
               )}>
                 {variantConf.subheadline}
