@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Beaker, PlusCircle, LayoutPanelTop, Radio } from "lucide-react";
+import { LayoutDashboard, Beaker, PlusCircle, LayoutPanelTop, Radio, Paintbrush } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/theme-toggle"; // Assume we might make one, or skip if not strict
 import { Button } from "@/components/ui/button";
 
 export function AppSidebar() {
@@ -49,6 +48,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/brand"}>
+                  <Link href="/brand" className="font-medium">
+                    <Paintbrush className="w-4 h-4" />
+                    <span>Brand Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <div className="mt-auto p-4">
           <Link href="/tests/new">
             <Button className="w-full justify-start gap-2 shadow-sm hover:shadow-md transition-all duration-300 group" variant="default">
@@ -75,7 +90,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col flex-1 min-w-0">
           <header className="h-16 flex items-center justify-between px-6 border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
             <SidebarTrigger className="hover:bg-muted/50 transition-colors rounded-lg p-2" />
-            {/* Theme toggle could go here if implemented */}
           </header>
           <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10">
             <div className="max-w-6xl mx-auto w-full">

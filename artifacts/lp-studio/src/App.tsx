@@ -9,6 +9,7 @@ import CreateTest from "@/pages/create-test";
 import TestDetail from "@/pages/test-detail";
 import LandingPageViewer from "@/pages/landing-page-viewer";
 import LivePages from "@/pages/live-pages";
+import BrandSettings from "@/pages/brand-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/live-pages" component={LivePages} />
       <Route path="/tests/new" component={CreateTest} />
       <Route path="/tests/:testId" component={TestDetail} />
+      <Route path="/brand" component={BrandSettings} />
       
       {/* Visitor Facing Landing Page (No App Layout) */}
       <Route path="/lp/:slug" component={LandingPageViewer} />

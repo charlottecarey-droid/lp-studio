@@ -21,11 +21,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig } from "@/lib/page-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
-
-const LIME = "#C7E738";
-const FOREST = "#003A30";
 
 const ICON_MAP: Record<string, React.FC<any>> = {
   Zap,
@@ -51,6 +49,11 @@ export default function LandingPageViewer() {
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+
+  useEffect(() => {
+    fetchBrandConfig().then(setBrand);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => { if (window.scrollY > 40) setScrolled(true); };
@@ -92,6 +95,8 @@ export default function LandingPageViewer() {
   }
 
   const variantConf = config.assignedVariant.config as unknown as ExtendedVariantConfig;
+  const LIME = brand.accentColor;
+  const FOREST = brand.primaryColor;
   const ctaColor = variantConf.ctaColor || LIME;
 
   const handleCtaClick = () => {
@@ -105,8 +110,11 @@ export default function LandingPageViewer() {
       }
     });
 
-    if (variantConf.ctaUrl && variantConf.ctaUrl !== "#") {
-      window.location.href = variantConf.ctaUrl;
+    const dest = variantConf.ctaUrl && variantConf.ctaUrl !== "#"
+      ? variantConf.ctaUrl
+      : brand.defaultCtaUrl;
+    if (dest) {
+      window.location.href = dest;
     } else {
       alert("Conversion Tracked! (No URL configured)");
     }
@@ -144,20 +152,22 @@ export default function LandingPageViewer() {
       </div>
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative bg-black">
+      <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
         <img
           src={dandyLogoUrl}
           alt="Dandy"
           className="h-8 w-auto"
           style={{ filter: "brightness(0) invert(1)" }}
         />
-        <button
-          onClick={handleCtaClick}
+        <a
+          href={brand.navCtaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="px-5 py-3 rounded-full font-normal text-sm uppercase tracking-wider transition-transform hover:scale-105 active:scale-95"
-          style={{ backgroundColor: ctaColor, color: FOREST }}
+          style={{ backgroundColor: LIME, color: FOREST }}
         >
-          {variantConf.ctaText}
-        </button>
+          {brand.navCtaText}
+        </a>
       </nav>
 
       {/* 3. Hero Section (text + CTA only, plus video in split mode) */}
@@ -581,7 +591,7 @@ export default function LandingPageViewer() {
             {/* Nav columns */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-10 flex-1">
               <div>
-                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Dandy</p>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Dandy</p>
                 <ul className="space-y-2.5">
                   {[
                     ["Home", "https://www.meetdandy.com/"],
@@ -599,7 +609,7 @@ export default function LandingPageViewer() {
                 </ul>
               </div>
               <div>
-                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Products & Technology</p>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Products & Technology</p>
                 <ul className="space-y-2.5">
                   {[
                     ["Vision Scanner & Cart", "https://www.meetdandy.com/vision-scanner/"],
@@ -618,7 +628,7 @@ export default function LandingPageViewer() {
                 </ul>
               </div>
               <div>
-                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Practices</p>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Practices</p>
                 <ul className="space-y-2.5">
                   {[
                     ["Private Practice", "https://www.meetdandy.com/solutions/private-practice/"],
@@ -632,7 +642,7 @@ export default function LandingPageViewer() {
                 </ul>
               </div>
               <div>
-                <p className="text-[#C7E738] text-xs font-semibold tracking-widest uppercase mb-4">Resources</p>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: LIME }}>Resources</p>
                 <ul className="space-y-2.5">
                   {[
                     ["Learning Center", "https://www.meetdandy.com/learning-center/"],
@@ -651,21 +661,24 @@ export default function LandingPageViewer() {
 
           {/* Bottom bar */}
           <div className="mt-14 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-white/40 text-xs">© {new Date().getFullYear()} Dandy. All rights reserved.</p>
+            <p className="text-white/40 text-xs">© {new Date().getFullYear()} {brand.copyrightName}. All rights reserved.</p>
             {/* Social icons */}
             <div className="flex items-center gap-5">
-              {/* Facebook */}
-              <a href="#" aria-label="Facebook" className="text-white/40 hover:text-white/70 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-              </a>
-              {/* Instagram */}
-              <a href="#" aria-label="Instagram" className="text-white/40 hover:text-white/70 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-              </a>
-              {/* LinkedIn */}
-              <a href="#" aria-label="LinkedIn" className="text-white/40 hover:text-white/70 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
-              </a>
+              {brand.socialUrls.facebook && (
+                <a href={brand.socialUrls.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-white/40 hover:text-white/70 transition-colors">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                </a>
+              )}
+              {brand.socialUrls.instagram && (
+                <a href={brand.socialUrls.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-white/40 hover:text-white/70 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                </a>
+              )}
+              {brand.socialUrls.linkedin && (
+                <a href={brand.socialUrls.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="text-white/40 hover:text-white/70 transition-colors">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                </a>
+              )}
             </div>
           </div>
         </div>
