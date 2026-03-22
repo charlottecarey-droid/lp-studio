@@ -30,7 +30,7 @@ export default function Scene1() {
           transition={{ duration: 1, delay: 1, ease: 'easeOut' }}
         >
           <h2 className="text-5xl font-display text-[#003A30]">
-            Your One-Stop Dental Lab
+            Your one-stop dental lab
           </h2>
         </motion.div>
       </div>
