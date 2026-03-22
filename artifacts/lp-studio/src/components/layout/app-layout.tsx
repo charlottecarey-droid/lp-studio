@@ -11,8 +11,8 @@ export function AppSidebar() {
     <Sidebar className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
       <SidebarContent>
         <div className="px-6 py-5 flex flex-col gap-1">
-          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto" />
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">LP Studio</span>
+          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto sidebar-logo" />
+          <span className="text-[10px] font-semibold tracking-widest uppercase text-sidebar-foreground/40">LP Studio</span>
         </div>
         
         <SidebarGroup>
