@@ -4,7 +4,7 @@ export interface TrustBarItem {
 }
 
 export interface BenefitItem {
-  icon: string; // lucide icon name
+  icon: string;
   title: string;
   description: string;
 }
@@ -19,6 +19,12 @@ export interface TestimonialConfig {
 
 export interface HowItWorksStep {
   number: string;
+  title: string;
+  description: string;
+}
+
+export interface ProductGridItem {
+  image: string;
   title: string;
   description: string;
 }
@@ -83,5 +89,44 @@ export interface ExtendedVariantConfig {
   guaranteeBar?: {
     enabled: boolean;
     text: string;
+  };
+
+  // ── Scrolling horizontal photo strip ─────────────────────────────────
+  photoStrip?: {
+    enabled: boolean;
+    images: Array<{ src: string; alt: string }>;
+  };
+
+  // ── Old Way vs New Way comparison (meetdandy.com/labs/ style) ─────────
+  comparisonSection?: {
+    enabled: boolean;
+    headline?: string;
+    ctaText?: string;
+    oldWay: {
+      label: string;
+      sublabel?: string;
+      bullets: string[];
+    };
+    newWay: {
+      label: string;
+      sublabel?: string;
+      bullets: string[];
+    };
+  };
+
+  // ── Product/service image grid ────────────────────────────────────────
+  productGrid?: {
+    enabled: boolean;
+    headline?: string;
+    subheadline?: string;
+    items: ProductGridItem[];
+  };
+
+  // ── Large stat callout ────────────────────────────────────────────────
+  statCallout?: {
+    enabled: boolean;
+    stat: string;
+    description: string;
+    footnote?: string;
   };
 }

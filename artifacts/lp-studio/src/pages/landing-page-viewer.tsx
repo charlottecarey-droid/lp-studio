@@ -2,7 +2,21 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
-import { Loader2, ArrowRight, ShieldCheck, Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign, XCircle, AlertTriangle, Quote } from "lucide-react";
+import { 
+  Loader2, 
+  ArrowRight, 
+  ShieldCheck, 
+  Zap, 
+  ScanLine, 
+  RefreshCcw, 
+  HeadphonesIcon, 
+  BarChart2, 
+  DollarSign, 
+  XCircle, 
+  AlertTriangle, 
+  Quote,
+  CheckCircle2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig } from "@/lib/page-types";
 
@@ -99,6 +113,19 @@ export default function LandingPageViewer() {
       isDark ? "bg-[#003A30] text-white" : "bg-white text-slate-900"
     )}>
       
+      <style>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marquee 40s linear infinite;
+        }
+        .animate-marquee:hover {
+          animation-play-state: paused;
+        }
+      `}</style>
+
       {/* 1. Test Banner */}
       <div className="bg-black text-white text-[10px] md:text-xs py-1.5 text-center font-mono tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity z-50 relative">
         RUNNING • VARIANT: {config.assignedVariant.name}
@@ -118,7 +145,7 @@ export default function LandingPageViewer() {
         </button>
       </nav>
 
-      {/* 3. Hero Section & 4. Video */}
+      {/* 3. Hero Section (text + CTA only, plus video in split mode) */}
       <section className={cn(
         "relative w-full px-6 flex flex-col items-center",
         isMinimal ? "py-24 md:py-40" : "py-12 md:py-20",
@@ -172,15 +199,13 @@ export default function LandingPageViewer() {
             </div>
           </div>
 
-          {variantConf.heroType !== "none" && (
-            <div className={cn(
-              "relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-2xl z-10",
-              !isSplit && "mt-16 max-w-5xl mx-auto"
-            )}>
+          {/* 4. Full-bleed Video (Split Mode) */}
+          {isSplit && variantConf.heroType !== "none" && (
+            <div className="relative w-full aspect-[16/9] z-10 bg-black">
               {variantConf.heroType === "dandy-video" ? (
                 <iframe 
                   src={DANDY_VIDEO_URL} 
-                  className="w-full h-full border-0 bg-black"
+                  className="w-full h-full border-0"
                   title="Demo Video"
                 />
               ) : (
@@ -188,12 +213,35 @@ export default function LandingPageViewer() {
                   src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
                   alt="Dental Office" 
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
               )}
             </div>
           )}
         </div>
       </section>
+
+      {/* 4. Full-bleed Video (Centered Mode) */}
+      {!isSplit && variantConf.heroType !== "none" && (
+        <section className="w-full m-0 p-0 bg-black">
+          <div className="relative w-full aspect-video md:aspect-[21/9]">
+            {variantConf.heroType === "dandy-video" ? (
+              <iframe 
+                src={DANDY_VIDEO_URL} 
+                className="w-full h-full border-0"
+                title="Demo Video"
+              />
+            ) : (
+              <img 
+                src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1600" 
+                alt="Dental Office" 
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 5. Trust Bar */}
       {variantConf.trustBar?.enabled && (
@@ -209,7 +257,28 @@ export default function LandingPageViewer() {
         </section>
       )}
 
-      {/* 6. Pain Section (PAS) */}
+      {/* 6. Photo Strip */}
+      {variantConf.photoStrip?.enabled && (
+        <section className="w-full h-64 md:h-80 overflow-hidden relative bg-white">
+          <div className="absolute inset-y-0 left-0 w-16 md:w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-y-0 right-0 w-16 md:w-32 bg-gradient-to-l from-white via-white/80 to-transparent z-10 pointer-events-none" />
+          
+          <div className="flex h-full animate-marquee w-max">
+            {/* Render array twice for seamless loop */}
+            {[...variantConf.photoStrip.images, ...variantConf.photoStrip.images].map((img, i) => (
+              <img
+                key={i}
+                src={img.src}
+                alt={img.alt}
+                loading="lazy"
+                className="h-full aspect-square md:w-[280px] shrink-0 object-cover"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 7. Pain Section (PAS) */}
       {variantConf.painSection?.enabled && (
         <section className="w-full bg-[#003A30] text-white py-20 md:py-32 px-6">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
@@ -235,7 +304,95 @@ export default function LandingPageViewer() {
         </section>
       )}
 
-      {/* 7. Benefits Grid */}
+      {/* 8. Comparison Section */}
+      {variantConf.comparisonSection?.enabled && (
+        <section className="w-full bg-slate-50 py-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            {variantConf.comparisonSection.headline && (
+              <h2 className="text-4xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16">
+                {variantConf.comparisonSection.headline}
+              </h2>
+            )}
+            
+            <div className="grid md:grid-cols-2 gap-8 items-stretch mb-16">
+              {/* Old Way */}
+              <div className="bg-slate-100 rounded-3xl p-8 md:p-12 opacity-80 flex flex-col">
+                <div className="mb-8">
+                  <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">
+                    {variantConf.comparisonSection.oldWay.sublabel || "OLD WAY"}
+                  </span>
+                  <h3 className="text-2xl font-bold text-[#003A30]">
+                    {variantConf.comparisonSection.oldWay.label}
+                  </h3>
+                </div>
+                <ul className="space-y-6 flex-1">
+                  {variantConf.comparisonSection.oldWay.bullets.map((bullet, i) => (
+                    <li key={i} className="flex items-start gap-4">
+                      <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
+                      <span className="text-[#4A6358] font-medium leading-relaxed">{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* New Way */}
+              <div className="bg-[#003A30] rounded-3xl p-8 md:p-12 flex flex-col ring-2 ring-[#C7E738]/20 shadow-xl relative overflow-hidden">
+                {/* Subtle highlight */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#C7E738] opacity-[0.03] blur-3xl rounded-full" />
+                
+                <div className="mb-8 relative z-10">
+                  <span className="text-sm font-bold tracking-widest text-[#C7E738] uppercase mb-2 block">
+                    {variantConf.comparisonSection.newWay.sublabel || "NEW WAY"}
+                  </span>
+                  <h3 className="text-2xl font-bold text-white">
+                    {variantConf.comparisonSection.newWay.label}
+                  </h3>
+                </div>
+                <ul className="space-y-6 flex-1 relative z-10">
+                  {variantConf.comparisonSection.newWay.bullets.map((bullet, i) => (
+                    <li key={i} className="flex items-start gap-4">
+                      <CheckCircle2 className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
+                      <span className="text-white/90 font-medium leading-relaxed">{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={handleCtaClick}
+                className="px-10 py-5 rounded-full font-bold text-lg transition-transform hover:scale-105 active:scale-95 shadow-xl inline-flex items-center"
+                style={{ backgroundColor: ctaColor, color: FOREST }}
+              >
+                {variantConf.comparisonSection.ctaText || variantConf.ctaText}
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 9. Stat Callout */}
+      {variantConf.statCallout?.enabled && (
+        <section className="w-full bg-[#003A30] py-24 px-6 text-center">
+          <div className="max-w-4xl mx-auto flex flex-col items-center">
+            <div className="text-8xl md:text-[10rem] font-display font-bold leading-none mb-6" style={{ color: LIME }}>
+              {variantConf.statCallout.stat}
+            </div>
+            <p className="text-xl md:text-2xl text-white font-medium max-w-xl mx-auto mb-8 leading-relaxed">
+              {variantConf.statCallout.description}
+            </p>
+            {variantConf.statCallout.footnote && (
+              <p className="text-sm text-white/50 max-w-lg mx-auto">
+                {variantConf.statCallout.footnote}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 10. Benefits Grid */}
       {variantConf.benefits?.enabled && (
         <section className="w-full bg-white py-20 md:py-32 px-6">
           <div className="max-w-7xl mx-auto">
@@ -265,7 +422,7 @@ export default function LandingPageViewer() {
         </section>
       )}
 
-      {/* 8. Testimonial */}
+      {/* 11. Testimonial */}
       {variantConf.testimonial?.enabled && (
         <section className="w-full bg-[#F0F7F4] py-24 px-6 relative overflow-hidden">
           <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center text-center">
@@ -284,7 +441,7 @@ export default function LandingPageViewer() {
         </section>
       )}
 
-      {/* 9. How It Works */}
+      {/* 12. How It Works */}
       {variantConf.howItWorks?.enabled && (
         <section className="w-full bg-white py-20 md:py-32 px-6">
           <div className="max-w-6xl mx-auto">
@@ -309,7 +466,46 @@ export default function LandingPageViewer() {
         </section>
       )}
 
-      {/* 10. Bottom CTA Band */}
+      {/* 13. Product Grid */}
+      {variantConf.productGrid?.enabled && (
+        <section className="w-full bg-white py-20 md:py-32 px-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              {variantConf.productGrid.headline && (
+                <h2 className="text-3xl md:text-5xl font-display font-bold text-[#003A30] mb-6">
+                  {variantConf.productGrid.headline}
+                </h2>
+              )}
+              {variantConf.productGrid.subheadline && (
+                <p className="text-lg md:text-xl text-[#4A6358] leading-relaxed">
+                  {variantConf.productGrid.subheadline}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {variantConf.productGrid.items.map((item, i) => (
+                <div key={i} className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 bg-white flex flex-col">
+                  <div className="w-full h-52 overflow-hidden bg-slate-50">
+                    <img 
+                      src={item.image} 
+                      alt={item.title} 
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-6 flex-1 flex flex-col">
+                    <h3 className="text-lg font-bold text-[#003A30] mb-2">{item.title}</h3>
+                    <p className="text-[#4A6358] text-sm leading-relaxed flex-1">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 14. Bottom CTA Band */}
       {variantConf.bottomCta?.enabled && (
         <section className="w-full bg-[#003A30] text-white py-24 px-6 text-center">
           <div className="max-w-3xl mx-auto">
@@ -323,23 +519,24 @@ export default function LandingPageViewer() {
             )}
             <button
               onClick={handleCtaClick}
-              className="px-10 py-5 rounded-full font-bold text-lg transition-transform hover:scale-105 active:scale-95 shadow-xl"
+              className="px-10 py-5 rounded-full font-bold text-lg transition-transform hover:scale-105 active:scale-95 shadow-xl inline-flex items-center"
               style={{ backgroundColor: ctaColor, color: FOREST }}
             >
               {variantConf.bottomCta.ctaText || variantConf.ctaText}
+              <ArrowRight className="w-5 h-5 ml-2" />
             </button>
           </div>
         </section>
       )}
 
-      {/* 11. Guarantee Bar */}
+      {/* 15. Guarantee Bar */}
       {variantConf.guaranteeBar?.enabled && (
         <div className="w-full py-4 px-6 text-center text-sm font-bold tracking-wide" style={{ backgroundColor: LIME, color: FOREST }}>
           {variantConf.guaranteeBar.text}
         </div>
       )}
 
-      {/* 12. Footer */}
+      {/* 16. Footer */}
       <footer className="w-full bg-[#003A30] text-white/50 py-12 px-6 text-center text-sm border-t border-white/10">
         <p>© {new Date().getFullYear()} Dandy. All rights reserved.</p>
       </footer>
