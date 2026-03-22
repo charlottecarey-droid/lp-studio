@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
-import toothImg from '@assets/IMG_0126_1774200832142.jpeg';
+import toothImg from '@assets/IMG_0122_1774201109081.jpeg';
 
 export default function Scene10() {
   return (
