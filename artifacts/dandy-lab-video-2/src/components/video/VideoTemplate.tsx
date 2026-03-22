@@ -46,7 +46,7 @@ export default function VideoTemplate() {
       </AnimatePresence>
 
       {/* Hero CTA button */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
         <button
           className="flex items-center gap-3 px-10 py-5 rounded-full text-xl font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
           style={{

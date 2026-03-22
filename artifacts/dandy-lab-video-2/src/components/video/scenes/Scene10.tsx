@@ -61,7 +61,7 @@ export default function Scene10() {
           {/* Card — Confirmation */}
           <motion.div
             className="absolute rounded-2xl px-4 py-4 shadow-2xl"
-            style={{ bottom: '10%', right: '6%', width: 210, backgroundColor: '#1C2E26', border: '1px solid rgba(199,231,56,0.25)' }}
+            style={{ bottom: '22%', right: '6%', width: 210, backgroundColor: '#1C2E26', border: '1px solid rgba(199,231,56,0.25)' }}
             initial={{ opacity: 0, y: 16, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 1.6 }}
