@@ -43,7 +43,7 @@ export default function Scene5() {
               <div className="w-14 h-14 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <span className="text-5xl font-bold text-[#003A30]">{text}</span>
+              <span className="text-5xl font-display text-[#003A30]">{text}</span>
             </motion.div>
           ))}
         </div>

@@ -15,7 +15,7 @@ const SCENE_DURATIONS = {
   scene1:  4500,  // Intro
   scene2:  5000,  // Products grid
   scene3:  4500,  // 89% stat
-  scene4:  4500,  // Live support (phone)
+  scene4:  5500,  // Live support (phone)
   scene5:  5000,  // Guided scanning
   scene6:  5000,  // AI scan review
   scene7:  5000,  // Order anything

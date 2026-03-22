@@ -47,7 +47,7 @@ export default function Scene8() {
           animate={{ opacity: [0, 1, 1, 0], scale: [0.5, 1, 1, 0.8] }}
           transition={{ duration: 1.2, delay: 1.6, times: [0, 0.2, 0.7, 1] }}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="white" stroke="#003A30" strokeWidth="1.5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#003A30" stroke="white" strokeWidth="1.5">
             <path d="M4 3l16 9-7 1-4 7z" />
           </svg>
           {/* Click ripple */}

@@ -9,21 +9,21 @@ export default function Scene2() {
       {...sceneTransitions.slideLeft}
     >
       <div className="w-[40%] pl-24 pr-12 flex flex-col justify-center h-full relative z-10">
-        <motion.h2
-          className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8"
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-        >
-          Use one lab for all your patient needs
-        </motion.h2>
-
         <motion.div
           className="w-16 h-2 bg-[#C7E738] rounded-full mb-8"
           initial={{ scaleX: 0, originX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
         />
+
+        <motion.h2
+          className="text-6xl font-display font-bold text-[#003A30] leading-tight mb-8"
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+        >
+          Use one lab for all your patient needs
+        </motion.h2>
 
         <motion.p
           className="text-3xl text-[#4A6358] leading-relaxed"

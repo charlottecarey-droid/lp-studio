@@ -60,7 +60,7 @@ export default function Scene3() {
           transition={{ duration: 0.8, delay: 1 }}
           className="max-w-3xl"
         >
-          <h3 className="text-5xl font-display font-semibold text-white leading-tight">
+          <h3 className="text-5xl font-display text-white leading-tight">
             Average reduction in remakes<br />when partnering with Dandy
           </h3>
         </motion.div>
