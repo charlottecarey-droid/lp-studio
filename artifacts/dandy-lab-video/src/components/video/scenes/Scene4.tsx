@@ -44,7 +44,7 @@ export default function Scene4() {
             <img
               src={appImg}
               alt="Dandy App"
-              className="w-full h-full object-cover object-top block"
+              className="w-full h-full object-cover object-left-top block"
             />
           </div>
           
