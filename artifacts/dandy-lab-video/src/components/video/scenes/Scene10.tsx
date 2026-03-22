@@ -11,7 +11,7 @@ const scanMarkers = [
 export default function Scene10() {
   return (
     <motion.div
-      className="absolute inset-0 flex overflow-hidden"
+      className="absolute inset-0 flex overflow-hidden bg-[#003A30]"
       {...sceneTransitions.fadeBlur}
     >
       <div className="w-1/2 h-full relative overflow-hidden">
