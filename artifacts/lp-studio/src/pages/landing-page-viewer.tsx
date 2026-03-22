@@ -224,7 +224,7 @@ export default function LandingPageViewer() {
       {/* 4. Full-bleed Video (Centered Mode) */}
       {!isSplit && variantConf.heroType !== "none" && (
         <section className="w-full m-0 p-0 bg-black">
-          <div className="relative w-full aspect-video md:aspect-[21/9]">
+          <div className="relative w-full aspect-video">
             {variantConf.heroType === "dandy-video" ? (
               <iframe 
                 src={DANDY_VIDEO_URL} 
