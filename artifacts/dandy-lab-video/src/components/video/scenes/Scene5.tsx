@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { sceneTransitions } from '@/lib/video/animations';
+import restorationsImg from '@assets/IMG_0116_1774192251780.jpeg';
 
 export default function Scene5() {
   const bulletPoints = [
@@ -14,7 +15,7 @@ export default function Scene5() {
       {...sceneTransitions.wipe}
     >
       <div className="w-1/2 h-full bg-[#003A30] flex flex-col justify-center pl-24 pr-16">
-        <motion.h2 
+        <motion.h2
           className="text-[5rem] font-display font-bold text-white leading-tight"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -22,8 +23,8 @@ export default function Scene5() {
         >
           See why <br/>dentists love <br/>Dandy.
         </motion.h2>
-        
-        <motion.div 
+
+        <motion.div
           className="w-24 h-2 bg-[#C7E738] mt-12 rounded-full"
           initial={{ scaleX: 0, originX: 0 }}
           animate={{ scaleX: 1 }}
@@ -31,23 +32,32 @@ export default function Scene5() {
         />
       </div>
 
-      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-center px-24">
-        <div className="space-y-12">
+      <div className="w-1/2 h-full bg-[#FFFFFF] flex flex-col justify-center px-16 gap-8">
+        <div className="space-y-8">
           {bulletPoints.map((text, i) => (
-            <motion.div 
+            <motion.div
               key={text}
-              className="flex items-center gap-8"
+              className="flex items-center gap-6"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.6 + i * 0.2 }}
             >
-              <div className="w-16 h-16 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <div className="w-12 h-12 rounded-full bg-[#C7E738] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <span className="text-5xl font-semibold text-[#003A30]">{text}</span>
+              <span className="text-4xl font-semibold text-[#003A30]">{text}</span>
             </motion.div>
           ))}
         </div>
+
+        <motion.img
+          src={restorationsImg}
+          alt="Dandy restorations"
+          className="w-full h-auto object-contain"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.2 }}
+        />
       </div>
     </motion.div>
   );
