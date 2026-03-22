@@ -41,7 +41,7 @@ export default function Scene4() {
               src={appImg}
               alt="Dandy App"
               className="max-h-full w-auto object-contain rounded-2xl shadow-2xl"
-              style={{ border: '1.5px solid rgba(0,58,48,0.1)' }}
+              style={{ border: '1.5px solid rgba(0,58,48,0.1)', clipPath: 'inset(0 0 10% 0 round 16px)' }}
             />
           </motion.div>
 
