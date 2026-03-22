@@ -44,6 +44,24 @@ export default function VideoTemplate() {
         {currentScene === 7 && <Scene9  key="scene9"  />}
         {currentScene === 8 && <Scene5  key="scene5"  />}
       </AnimatePresence>
+
+      {/* Hero CTA button */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
+        <button
+          className="flex items-center gap-3 px-10 py-5 rounded-full text-xl font-bold transition-transform hover:scale-105 active:scale-95"
+          style={{
+            backgroundColor: '#C7E738',
+            color: '#003A30',
+            letterSpacing: '-0.01em',
+            boxShadow: '0 8px 32px rgba(199,231,56,0.4)',
+          }}
+        >
+          Get started
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#003A30" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
