@@ -29,15 +29,20 @@ export default function Scene4() {
         </motion.div>
       </div>
 
-      <div className="w-1/2 h-full flex items-center justify-center p-10 bg-[#F8F7F4] relative">
-        <motion.img
-          src={appImg}
-          alt="Dandy App"
-          className="w-full h-auto object-contain rounded-2xl shadow-2xl"
+      <div className="w-1/2 h-full flex items-center justify-center p-12 bg-[#F8F7F4] relative">
+        <motion.div
+          className="relative h-full flex items-center"
           initial={{ opacity: 0, scale: 0.94, x: 40 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
           transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-        />
+        >
+          <img
+            src={appImg}
+            alt="Dandy App"
+            className="max-h-full w-auto object-contain rounded-2xl shadow-2xl"
+            style={{ border: '1.5px solid rgba(0,58,48,0.1)' }}
+          />
+        </motion.div>
 
         {/* Live Chat badge */}
         <motion.div
