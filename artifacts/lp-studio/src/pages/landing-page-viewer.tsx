@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
-import { useGetPageConfig, useTrackEvent } from "@workspace/api-client-react";
+import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
 import { 
   Loader2, 
@@ -143,11 +143,12 @@ export default function LandingPageViewer() {
     );
   }
 
-  // If the assigned variant has a linked builder page, render it as blocks
-  const assignedVariantAny = config.assignedVariant as Record<string, unknown> & { linkedPage?: { id: number; title: string; blocks: import("@/lib/block-types").PageBlock[] } };
-  if (assignedVariantAny.linkedPage !== undefined) {
-    const linkedPage = assignedVariantAny.linkedPage;
-    const blocks = linkedPage?.blocks ?? [];
+  // If the assigned variant has a linked builder page, render it as blocks.
+  // `linkedPage` is typed in the generated Variant schema as LinkedPage | null | undefined.
+  const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: LinkedPage | null };
+  if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
+    const linkedPage = assignedVariantWithPage.linkedPage;
+    const blocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;

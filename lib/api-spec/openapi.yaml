@@ -332,6 +332,25 @@ components:
         - headline
         - ctaText
 
+    LinkedPage:
+      type: object
+      description: Builder page linked to a variant (present in tracking responses when builderPageId is set)
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        blocks:
+          type: array
+          items: {}
+      required:
+        - id
+        - title
+        - slug
+        - blocks
+
     Variant:
       type: object
       properties:
@@ -352,6 +371,10 @@ components:
           type: integer
           nullable: true
           description: FK to lp_pages.id; when set, this variant renders using the linked builder page blocks
+        linkedPage:
+          $ref: "#/components/schemas/LinkedPage"
+          nullable: true
+          description: Populated by the tracking route when builderPageId is set
         createdAt:
           type: string
           format: date-time

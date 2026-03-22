@@ -114,6 +114,17 @@ export const GetTestResponse = zod
             .describe(
               "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
             ),
+          linkedPage: zod
+            .object({
+              id: zod.number(),
+              title: zod.string(),
+              slug: zod.string(),
+              blocks: zod.array(zod.unknown()),
+            })
+            .nullish()
+            .describe(
+              "Populated by the tracking route when builderPageId is set",
+            ),
           createdAt: zod.date(),
         }),
       ),
@@ -203,6 +214,15 @@ export const ListVariantsResponseItem = zod.object({
     .describe(
       "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
     ),
+  linkedPage: zod
+    .object({
+      id: zod.number(),
+      title: zod.string(),
+      slug: zod.string(),
+      blocks: zod.array(zod.unknown()),
+    })
+    .nullish()
+    .describe("Populated by the tracking route when builderPageId is set"),
   createdAt: zod.date(),
 });
 export const ListVariantsResponse = zod.array(ListVariantsResponseItem);
@@ -341,6 +361,15 @@ export const UpdateVariantResponse = zod.object({
     .describe(
       "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
     ),
+  linkedPage: zod
+    .object({
+      id: zod.number(),
+      title: zod.string(),
+      slug: zod.string(),
+      blocks: zod.array(zod.unknown()),
+    })
+    .nullish()
+    .describe("Populated by the tracking route when builderPageId is set"),
   createdAt: zod.date(),
 });
 
@@ -480,6 +509,15 @@ export const GetPageConfigResponse = zod.object({
       .describe(
         "FK to lp_pages.id; when set, this variant renders using the linked builder page blocks",
       ),
+    linkedPage: zod
+      .object({
+        id: zod.number(),
+        title: zod.string(),
+        slug: zod.string(),
+        blocks: zod.array(zod.unknown()),
+      })
+      .nullish()
+      .describe("Populated by the tracking route when builderPageId is set"),
     createdAt: zod.date(),
   }),
   status: zod.string(),

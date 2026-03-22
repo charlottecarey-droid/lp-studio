@@ -53,6 +53,16 @@ export interface VariantConfig {
   [key: string]: unknown;
 }
 
+/**
+ * Builder page linked to a variant (present in tracking responses when builderPageId is set)
+ */
+export interface LinkedPage {
+  id: number;
+  title: string;
+  slug: string;
+  blocks: unknown[];
+}
+
 export interface Variant {
   id: number;
   testId: number;
@@ -63,6 +73,8 @@ export interface Variant {
   config: VariantConfig;
   /** FK to lp_pages.id; when set, this variant renders using the linked builder page blocks */
   builderPageId?: number | null;
+  /** Populated by the tracking route when builderPageId is set */
+  linkedPage?: LinkedPage | null;
   createdAt: string;
 }
 

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LinkedPage } from "./linkedPage";
 import type { VariantConfig } from "./variantConfig";
 
 export interface Variant {
@@ -17,5 +18,7 @@ export interface Variant {
   config: VariantConfig;
   /** FK to lp_pages.id; when set, this variant renders using the linked builder page blocks */
   builderPageId?: number | null;
+  /** Populated by the tracking route when builderPageId is set */
+  linkedPage?: LinkedPage | null;
   createdAt: Date;
 }

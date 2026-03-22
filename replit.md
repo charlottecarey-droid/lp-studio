@@ -103,7 +103,7 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages` tables
 - **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
 - **Block system**: 14 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources) with property panels
-- **Builder ↔ A/B Test connection**: Variants can link to a builder page via `config.pageId`. The tracking route fetches the linked page's blocks and returns them as `linkedPage` in the variant response. The landing page viewer detects `linkedPage` and renders it as blocks instead of legacy config.
+- **Builder ↔ A/B Test connection**: Variants can link to a builder page via `builderPageId` (nullable FK column on `lp_variants` → `lp_pages`). The tracking route fetches the linked page and returns `linkedPage` in the variant. The landing page viewer detects `linkedPage` and renders builder blocks instead of the legacy config.
 - **DnD**: `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop block reordering
 - **Templates**: 5 pre-built templates (video-hero, clean-conversion, social-proof-heavy, comparison-focused, minimal-cta)
 - The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
