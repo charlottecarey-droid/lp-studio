@@ -133,11 +133,11 @@ export default function LandingPageViewer() {
       </div>
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 py-2 flex items-center justify-between z-40 relative bg-black">
+      <nav className="w-full px-6 py-1 flex items-center justify-between z-40 relative bg-black">
         <img
           src={dandyLogoUrl}
           alt="Dandy"
-          className="h-6 w-auto"
+          className="h-8 w-auto"
           style={{ filter: "brightness(0) invert(1)" }}
         />
         <button
