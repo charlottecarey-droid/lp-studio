@@ -48,10 +48,11 @@ export default function VideoTemplate() {
       {/* Hero CTA button */}
       <div className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-auto" style={{ bottom: '130px' }}>
         <button
-          className="px-14 py-6 rounded-full text-2xl font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
+          className="px-10 py-5 rounded-full text-xl uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
           style={{
             backgroundColor: '#C7E738',
             color: '#003A30',
+            boxShadow: '0 8px 32px rgba(199,231,56,0.5)',
           }}
         >
           Get Started
