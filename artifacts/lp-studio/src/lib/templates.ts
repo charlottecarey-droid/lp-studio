@@ -136,7 +136,7 @@ const DANDY_PRODUCT_GRID = {
 // ─── Shared: stat callout ─────────────────────────────────────────────────────
 const STAT_CALLOUT_REMAKES = {
   enabled: true,
-  stat: "50%",
+  stat: "89%",
   description: "Average reduction in remakes when partnering with Dandy",
   footnote: "Based on statistics from real dentists who switched from traditional labs.",
 };
