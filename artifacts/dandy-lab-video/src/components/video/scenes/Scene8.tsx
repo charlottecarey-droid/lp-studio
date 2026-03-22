@@ -33,7 +33,7 @@ export default function Scene8() {
         <motion.img
           src={orderImg}
           alt="Dandy order screen"
-          className="h-full w-auto object-contain object-left rounded-xl shadow-xl"
+          className="h-full w-auto object-contain object-left rounded-2xl shadow-lg border border-white/20"
           initial={{ opacity: 0, y: 40, scale: 0.94 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
