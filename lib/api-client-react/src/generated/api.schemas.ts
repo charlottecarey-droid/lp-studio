@@ -83,6 +83,8 @@ export interface CreateVariantInput {
   isControl?: boolean;
   trafficWeight: number;
   config: VariantConfig;
+  /** FK to lp_pages.id; set to link a builder page at creation time */
+  builderPageId?: number | null;
 }
 
 export interface UpdateVariantInput {

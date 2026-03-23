@@ -49,7 +49,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-import { TemplatePicker } from "@/components/template-picker";
+import { TemplatePicker, BuilderPageSummary } from "@/components/template-picker";
 import { templateVideoHero } from "@/lib/templates";
 
 const API_BASE = "/api";
@@ -106,6 +106,13 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
   const { blocks, addComment, resolveComment } = useComments(test.id);
 
   const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+  const [builderPages, setBuilderPages] = useState<BuilderPageSummary[] | undefined>(undefined);
+
+  useEffect(() => {
+    fetchPages()
+      .then(pages => setBuilderPages(pages))
+      .catch(() => setBuilderPages([]));
+  }, []);
 
   const handleCreateVariantFromTemplate = (templateConfig: unknown) => {
     createMutation.mutate(
@@ -122,6 +129,28 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
           toast({ title: "Variant created" });
+          setIsTemplatePickerOpen(false);
+        }
+      }
+    );
+  };
+
+  const handleSelectBuilderPage = (pageId: number) => {
+    createMutation.mutate(
+      {
+        testId: test.id,
+        data: {
+          name: `Variant ${test.variants.length + 1}`,
+          isControl: test.variants.length === 0,
+          trafficWeight: test.variants.length === 0 ? 100 : 0,
+          config: templateVideoHero.config as Record<string, unknown>,
+          builderPageId: pageId,
+        }
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+          toast({ title: "Variant created with builder page" });
           setIsTemplatePickerOpen(false);
         }
       }
@@ -165,6 +194,8 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
             <TemplatePicker 
               onSelect={(template) => handleCreateVariantFromTemplate(template.config)}
               onSkip={() => handleCreateVariantFromTemplate(templateVideoHero.config)}
+              builderPages={builderPages}
+              onSelectBuilderPage={handleSelectBuilderPage}
             />
           </div>
         </DialogContent>

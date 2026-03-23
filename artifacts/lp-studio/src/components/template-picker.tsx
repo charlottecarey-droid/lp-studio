@@ -2,15 +2,26 @@ import { LPTemplate, LP_TEMPLATES } from "@/lib/templates";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LayoutTemplate } from "lucide-react";
+import { LayoutTemplate, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export interface BuilderPageSummary {
+  id: number;
+  title: string;
+  slug: string;
+  status: string;
+}
 
 interface TemplatePickerProps {
   onSelect: (template: LPTemplate) => void;
   onSkip: () => void;
+  builderPages?: BuilderPageSummary[];
+  onSelectBuilderPage?: (pageId: number) => void;
 }
 
-export function TemplatePicker({ onSelect, onSkip }: TemplatePickerProps) {
+export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilderPage }: TemplatePickerProps) {
+  const hasBuilderPages = builderPages && builderPages.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -80,6 +91,59 @@ export function TemplatePicker({ onSelect, onSkip }: TemplatePickerProps) {
           </Card>
         ))}
       </div>
+
+      {hasBuilderPages && onSelectBuilderPage && (
+        <div className="space-y-4 pt-2">
+          <div>
+            <h3 className="text-lg font-semibold font-display">Your Builder Pages</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">Reuse a page you've already built as a starting point for this variant.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {builderPages.map((page) => (
+              <Card key={page.id} className="flex flex-col border-2 hover:border-[#003A30] transition-colors duration-200 shadow-sm hover:shadow-md cursor-default">
+                <div className="p-5 flex flex-col flex-1 bg-white">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                        <LayoutDashboard className="w-4.5 h-4.5 text-[#003A30]" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-slate-900 truncate">{page.title}</h4>
+                        <p className="text-xs text-slate-500 font-mono truncate">/{page.slug}</p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs shrink-0 ml-2",
+                        page.status === "published"
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : "bg-slate-50 text-slate-500 border-slate-200"
+                      )}
+                    >
+                      {page.status === "published" ? "Live" : "Draft"}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onSelectBuilderPage(page.id)}
+                    className="w-full mt-auto border-[#003A30]/30 text-[#003A30] hover:bg-[#003A30]/5"
+                  >
+                    Use this page
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {builderPages && builderPages.length === 0 && (
+        <div className="pt-2 border-t border-border/60">
+          <p className="text-sm text-muted-foreground italic">No builder pages yet — create one from an existing variant or start from scratch.</p>
+        </div>
+      )}
     </div>
   );
 }
