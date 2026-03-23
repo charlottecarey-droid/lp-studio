@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft, Save, Globe, Copy, Monitor, Smartphone,
-  GripVertical, Trash2, Plus, CheckCircle, FlaskConical, Loader2
+  GripVertical, Trash2, Plus, CheckCircle, FlaskConical, Loader2, TestTube2
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -163,6 +163,13 @@ export default function BuilderEditor() {
   const [abTestCreating, setAbTestCreating] = useState(false);
   const [abTestError, setAbTestError] = useState<string | null>(null);
 
+  const [blockTestModalOpen, setBlockTestModalOpen] = useState(false);
+  const [blockTestTargetBlockId, setBlockTestTargetBlockId] = useState<string | null>(null);
+  const [blockTestName, setBlockTestName] = useState("");
+  const [blockTestSlug, setBlockTestSlug] = useState("");
+  const [blockTestCreating, setBlockTestCreating] = useState(false);
+  const [blockTestError, setBlockTestError] = useState<string | null>(null);
+
   const titleRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -218,6 +225,84 @@ export default function BuilderEditor() {
       setAbTestError(err instanceof Error ? err.message : "Failed to create test");
     } finally {
       setAbTestCreating(false);
+    }
+  };
+
+  const handleOpenBlockTestModal = (blockId: string) => {
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+    const def = getBlockDef(block.type);
+    const blockLabel = def?.label ?? block.type;
+    const suggestedName = `${title} — Test ${blockLabel}`;
+    const suggestedSlug = slug;
+    setBlockTestTargetBlockId(blockId);
+    setBlockTestName(suggestedName);
+    setBlockTestSlug(suggestedSlug);
+    setBlockTestError(null);
+    setBlockTestModalOpen(true);
+  };
+
+  const handleCreateBlockTest = async () => {
+    if (!blockTestName.trim() || !blockTestSlug.trim() || !blockTestTargetBlockId) return;
+    const block = blocks.find(b => b.id === blockTestTargetBlockId);
+    if (!block) return;
+    setBlockTestCreating(true);
+    setBlockTestError(null);
+    const pageIdNum = parseInt(pageId, 10);
+    try {
+      const testRes = await fetch(`${API_BASE}/lp/tests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: blockTestName.trim(), slug: blockTestSlug.trim(), testType: "ab" }),
+      });
+      if (!testRes.ok) {
+        const err = await testRes.json().catch(() => ({ error: "Failed to create test" })) as { error?: string };
+        throw new Error(err.error ?? "Failed to create test");
+      }
+      const test = await testRes.json() as { id: number };
+      const controlRes = await fetch(`${API_BASE}/lp/tests/${test.id}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Control",
+          isControl: true,
+          trafficWeight: 50,
+          builderPageId: pageIdNum,
+          testedBlockId: blockTestTargetBlockId,
+          blockOverrides: {},
+          config: { headline: "Control", ctaText: "CTA" },
+        }),
+      });
+      if (!controlRes.ok) {
+        await fetch(`${API_BASE}/lp/tests/${test.id}`, { method: "DELETE" }).catch(() => {});
+        const err = await controlRes.json().catch(() => ({ error: "Failed to create control variant" })) as { error?: string };
+        throw new Error(err.error ?? "Failed to create control variant");
+      }
+      const challengerRes = await fetch(`${API_BASE}/lp/tests/${test.id}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Challenger",
+          isControl: false,
+          trafficWeight: 50,
+          builderPageId: pageIdNum,
+          testedBlockId: blockTestTargetBlockId,
+          blockOverrides: {},
+          config: { headline: "Challenger", ctaText: "CTA" },
+        }),
+      });
+      if (!challengerRes.ok) {
+        await fetch(`${API_BASE}/lp/tests/${test.id}`, { method: "DELETE" }).catch(() => {});
+        const err = await challengerRes.json().catch(() => ({ error: "Failed to create challenger variant" })) as { error?: string };
+        throw new Error(err.error ?? "Failed to create challenger variant");
+      }
+      const challenger = await challengerRes.json() as { id: number };
+      setBlockTestModalOpen(false);
+      navigate(`/block-test-editor/${test.id}/${challenger.id}/${blockTestTargetBlockId}?pageId=${pageId}`);
+    } catch (err) {
+      setBlockTestError(err instanceof Error ? err.message : "Failed to create block test");
+    } finally {
+      setBlockTestCreating(false);
     }
   };
 
@@ -469,6 +554,57 @@ export default function BuilderEditor() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={blockTestModalOpen} onOpenChange={setBlockTestModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TestTube2 className="w-4 h-4 text-primary" />
+              Test This Block
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This creates a block-level A/B test. Visitors see the same page, but the selected block is swapped between <strong>Control</strong> (original) and <strong>Challenger</strong> (your new version).
+            </p>
+            <div>
+              <Label className="text-sm font-medium">Test Name</Label>
+              <Input
+                className="mt-1.5"
+                value={blockTestName}
+                onChange={e => setBlockTestName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">URL Slug</Label>
+              <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                <Input
+                  className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
+                  value={blockTestSlug}
+                  onChange={e => setBlockTestSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Use the same slug as your page so live traffic is automatically split.</p>
+            </div>
+            {blockTestError && (
+              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{blockTestError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockTestModalOpen(false)} disabled={blockTestCreating}>Cancel</Button>
+            <Button
+              onClick={handleCreateBlockTest}
+              disabled={blockTestCreating || !blockTestName.trim() || !blockTestSlug.trim()}
+              className="gap-2"
+            >
+              {blockTestCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <TestTube2 className="w-4 h-4" />}
+              {blockTestCreating ? "Creating..." : "Create Block Test"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
@@ -534,6 +670,7 @@ export default function BuilderEditor() {
                         isSelected={selectedBlockId === block.id}
                         onSelect={() => setSelectedBlockId(block.id === selectedBlockId ? null : block.id)}
                         onDelete={() => deleteBlock(block.id)}
+                        onTestBlock={() => handleOpenBlockTestModal(block.id)}
                       />
                     ))}
                   </SortableContext>
@@ -575,9 +712,10 @@ interface SortableCanvasBlockProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onTestBlock: () => void;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
 
   const style = {
@@ -615,6 +753,13 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete }: S
           title="Drag to reorder"
         >
           <GripVertical className="w-3.5 h-3.5" />
+        </button>
+        <button
+          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
+          onClick={e => { e.stopPropagation(); onTestBlock(); }}
+          title="Test this block"
+        >
+          <TestTube2 className="w-3.5 h-3.5" />
         </button>
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-red-500"

@@ -41,9 +41,9 @@ export const VariantConfigBackgroundStyle = {
  */
 export interface VariantConfig {
   heroType?: VariantConfigHeroType;
-  headline: string;
+  headline?: string;
   subheadline?: string;
-  ctaText: string;
+  ctaText?: string;
   ctaColor?: string;
   ctaUrl?: string;
   layout?: VariantConfigLayout;
@@ -75,6 +75,11 @@ export interface LinkedPage {
   blocks?: unknown[];
 }
 
+/**
+ * For block-level tests; map of blockId to override props for this variant
+ */
+export type VariantBlockOverrides = { [key: string]: unknown } | null;
+
 export interface Variant {
   id: number;
   testId: number;
@@ -87,8 +92,19 @@ export interface Variant {
   builderPageId?: number | null;
   /** Populated by the tracking route when builderPageId is set */
   linkedPage?: LinkedPage | null;
+  /** For block-level tests; the block ID in the base page being tested */
+  testedBlockId?: string | null;
+  /** For block-level tests; map of blockId to override props for this variant */
+  blockOverrides?: VariantBlockOverrides;
   createdAt: string;
 }
+
+/**
+ * For block-level tests; map of blockId to override props for this variant
+ */
+export type CreateVariantInputBlockOverrides = {
+  [key: string]: unknown;
+} | null;
 
 export interface CreateVariantInput {
   name: string;
@@ -97,7 +113,18 @@ export interface CreateVariantInput {
   config?: VariantConfig;
   /** FK to lp_pages.id; link a builder page as the content source for this variant */
   builderPageId?: number | null;
+  /** For block-level tests; the block ID in the base page being tested */
+  testedBlockId?: string | null;
+  /** For block-level tests; map of blockId to override props for this variant */
+  blockOverrides?: CreateVariantInputBlockOverrides;
 }
+
+/**
+ * For block-level tests; map of blockId to override props for this variant
+ */
+export type UpdateVariantInputBlockOverrides = {
+  [key: string]: unknown;
+} | null;
 
 export interface UpdateVariantInput {
   name?: string;
@@ -106,6 +133,10 @@ export interface UpdateVariantInput {
   config?: VariantConfig;
   /** FK to lp_pages.id; set to link a builder page, null to unlink */
   builderPageId?: number | null;
+  /** For block-level tests; the block ID in the base page being tested */
+  testedBlockId?: string | null;
+  /** For block-level tests; map of blockId to override props for this variant */
+  blockOverrides?: UpdateVariantInputBlockOverrides;
 }
 
 export type TestStatus = (typeof TestStatus)[keyof typeof TestStatus];

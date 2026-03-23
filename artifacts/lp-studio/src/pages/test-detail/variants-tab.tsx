@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate, Eye, Link2, Link2Off, LayoutDashboard, ArrowRight } from "lucide-react";
+import { Plus, Trash2, GripVertical, Settings2, ShieldCheck, PaintBucket, LayoutTemplate, Eye, Link2, Link2Off, LayoutDashboard, ArrowRight, TestTube2, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import type { PageBlock } from "@/lib/block-types";
 
 import { 
   TestWithVariants, 
@@ -173,6 +176,15 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
 
   const totalWeight = test.variants.reduce((sum, v) => sum + (v.trafficWeight || 0), 0);
 
+  const blockTestVariants = test.variants.filter(
+    v => !!(v as unknown as Record<string, unknown>).testedBlockId
+  );
+  const blockControlVariant = blockTestVariants.find(v => v.isControl);
+  const blockChallengerVariant = blockTestVariants.find(v => !v.isControl);
+  const testedBlockId = (blockControlVariant as unknown as Record<string, unknown>)?.testedBlockId as string | undefined;
+  const blockTestPageId = blockControlVariant?.builderPageId ?? null;
+  const [, navigateToBlockEditor] = useLocation();
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -184,6 +196,19 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
           <Plus className="w-4 h-4 mr-2" /> Add Variant
         </Button>
       </div>
+
+      {blockControlVariant && blockChallengerVariant && testedBlockId && blockTestPageId && (
+        <BlockTestComparison
+          testSlug={test.slug}
+          controlVariant={blockControlVariant}
+          challengerVariant={blockChallengerVariant}
+          testedBlockId={testedBlockId}
+          pageId={blockTestPageId}
+          onEditChallenger={() =>
+            navigateToBlockEditor(`/block-test-editor/${test.id}/${blockChallengerVariant.id}/${testedBlockId}?pageId=${blockTestPageId}`)
+          }
+        />
+      )}
 
       <Dialog open={isTemplatePickerOpen} onOpenChange={setIsTemplatePickerOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-background/95 backdrop-blur-xl">
@@ -447,6 +472,215 @@ interface LinkedPageInfo {
   blockCount: number;
 }
 
+interface BlockTestComparisonProps {
+  testSlug: string;
+  controlVariant: Variant;
+  challengerVariant: Variant;
+  testedBlockId: string;
+  pageId: number;
+  onEditChallenger: () => void;
+}
+
+function BlockTestComparison({
+  testSlug,
+  controlVariant,
+  challengerVariant,
+  testedBlockId,
+  pageId,
+  onEditChallenger,
+}: BlockTestComparisonProps) {
+  const [controlBlock, setControlBlock] = useState<PageBlock | null>(null);
+  const [challengerBlock, setChallengerBlock] = useState<PageBlock | null>(null);
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API_BASE}/lp/pages/${pageId}`).then(r => r.json() as Promise<{ blocks: PageBlock[] }>),
+      fetchBrandConfig(),
+    ]).then(([page, b]) => {
+      setBrand(b);
+      const base = page.blocks.find((bl: PageBlock) => bl.id === testedBlockId) ?? null;
+      setControlBlock(base);
+      if (base) {
+        const challengerOverrides = (
+          (challengerVariant as unknown as Record<string, unknown>).blockOverrides as Record<string, Record<string, unknown>> | null | undefined
+        )?.[testedBlockId];
+        if (challengerOverrides && Object.keys(challengerOverrides).length > 0) {
+          const mergedProps = { ...(base.props as unknown as Record<string, unknown>), ...challengerOverrides };
+          setChallengerBlock({ ...base, props: mergedProps as unknown as typeof base.props } as PageBlock);
+        } else {
+          setChallengerBlock(base);
+        }
+      }
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
+  }, [pageId, testedBlockId, challengerVariant]);
+
+  const controlPreviewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${controlVariant.id}`;
+  const challengerPreviewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${challengerVariant.id}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border/60 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border/40">
+          <TestTube2 className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-sm font-semibold">Block preview comparison</span>
+          <span className="ml-auto text-xs font-mono text-muted-foreground truncate max-w-[240px]">{testedBlockId}</span>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Loading block preview...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 divide-x divide-border/40">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 px-3 py-2 bg-sky-50/50 border-b border-border/30">
+                <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+                <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">Control</span>
+                <a href={controlPreviewUrl} target="_blank" rel="noopener noreferrer" className="ml-auto">
+                  <Eye className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                </a>
+              </div>
+              <div className="relative overflow-hidden bg-white" style={{ minHeight: 120 }}>
+                {controlBlock ? (
+                  <div className="origin-top-left" style={{ transform: "scale(0.4)", transformOrigin: "top left", width: "250%", pointerEvents: "none" }}>
+                    <style>{`@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}.animate-marquee{animation:marquee 40s linear infinite}`}</style>
+                    <BlockRenderer block={controlBlock} brand={brand} />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-28 text-xs text-muted-foreground">Block not found on page</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50 border-b border-border/30">
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Challenger</span>
+                <a href={challengerPreviewUrl} target="_blank" rel="noopener noreferrer" className="ml-auto">
+                  <Eye className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                </a>
+              </div>
+              <div className="relative overflow-hidden bg-white" style={{ minHeight: 120 }}>
+                {challengerBlock ? (
+                  <div className="origin-top-left" style={{ transform: "scale(0.4)", transformOrigin: "top left", width: "250%", pointerEvents: "none" }}>
+                    <style>{`@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}.animate-marquee{animation:marquee 40s linear infinite}`}</style>
+                    <BlockRenderer block={challengerBlock} brand={brand} />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-28 text-xs text-muted-foreground">Block not found on page</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Button
+        size="sm"
+        className="gap-1.5"
+        onClick={onEditChallenger}
+      >
+        <TestTube2 className="w-3.5 h-3.5" />
+        Edit Challenger Block
+        <ArrowRight className="w-3.5 h-3.5 ml-auto" />
+      </Button>
+    </div>
+  );
+}
+
+function BlockTestSection({ testId, testSlug, variant }: { testId: number; testSlug: string; variant: Variant }) {
+  const [, navigate] = useLocation();
+  const testedBlockId = (variant as unknown as Record<string, unknown>).testedBlockId as string | null | undefined;
+  const blockOverrides = (variant as unknown as Record<string, unknown>).blockOverrides as Record<string, unknown> | null | undefined;
+  const overrideProps = blockOverrides?.[testedBlockId ?? ""] as Record<string, unknown> | undefined;
+  const hasOverrides = overrideProps && Object.keys(overrideProps).length > 0;
+  const previewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${variant.id}`;
+
+  const handleEdit = () => {
+    if (!testedBlockId || !variant.builderPageId) return;
+    navigate(`/block-test-editor/${testId}/${variant.id}/${testedBlockId}?pageId=${variant.builderPageId}`);
+  };
+
+  const stringProps = overrideProps
+    ? Object.entries(overrideProps).filter(([, v]) => typeof v === "string")
+    : [];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border/60 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border/40">
+          <TestTube2 className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-sm font-semibold">Block-level test</span>
+          <span className="ml-auto text-xs font-mono text-muted-foreground truncate max-w-[200px]">{testedBlockId ?? "—"}</span>
+        </div>
+
+        <div className="grid grid-cols-2 divide-x divide-border/40">
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+              <span className="text-xs font-semibold text-sky-700 uppercase tracking-wider">Control</span>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Visitors see the <strong>original block</strong> from the base page unchanged.
+            </p>
+          </div>
+
+          <div className="p-4 space-y-2">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Challenger</span>
+            </div>
+            {hasOverrides ? (
+              <ul className="space-y-1.5">
+                {stringProps.slice(0, 4).map(([key, val]) => (
+                  <li key={key} className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wide">{key}</span>
+                    <span className="text-xs text-foreground truncate">{String(val)}</span>
+                  </li>
+                ))}
+                {Object.keys(overrideProps).length > stringProps.length && (
+                  <li className="text-xs text-muted-foreground italic">
+                    +{Object.keys(overrideProps).length - stringProps.length} more props
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                No overrides set yet. Use "Edit Challenger Block" to customize this block.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {!variant.isControl && (
+          <Button
+            size="sm"
+            className="flex-1 gap-1.5"
+            onClick={handleEdit}
+            disabled={!testedBlockId || !variant.builderPageId}
+          >
+            <TestTube2 className="w-3.5 h-3.5" />
+            Edit Challenger Block
+            <ArrowRight className="w-3.5 h-3.5 ml-auto" />
+          </Button>
+        )}
+        <a href={previewUrl} target="_blank" rel="noopener noreferrer" className={variant.isControl ? "flex-1" : undefined}>
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-primary border-primary/30">
+            <Eye className="w-3.5 h-3.5" />
+            Preview Variant
+          </Button>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorProps) {
   const updateMutation = useUpdateVariant();
   const queryClient = useQueryClient();
@@ -455,6 +689,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
 
   const variantConfigAny = variant.config as Record<string, unknown>;
   const hasLinkedPage = variant.builderPageId != null;
+  const isBlockTest = !!(variant as unknown as Record<string, unknown>).testedBlockId;
 
   useEffect(() => {
     if (!variant.builderPageId || !variant.linkedPage) {
@@ -528,7 +763,13 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
             {form.watch("isControl") && (
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 no-default-active-elevate">Control</Badge>
             )}
-            {hasLinkedPage && linkedPageInfo && (
+            {isBlockTest && (
+              <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5">
+                <TestTube2 className="w-3 h-3 mr-1" />
+                Block Test
+              </Badge>
+            )}
+            {!isBlockTest && hasLinkedPage && linkedPageInfo && (
               <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5 max-w-[260px]">
                 <Link2 className="w-3 h-3 mr-1 shrink-0" />
                 <span className="truncate">{linkedPageInfo.title}</span>
@@ -536,13 +777,13 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
                 <span className="text-muted-foreground text-[10px] shrink-0">· {linkedPageInfo.blockCount}b</span>
               </Badge>
             )}
-            {hasLinkedPage && !linkedPageInfo && (
+            {!isBlockTest && hasLinkedPage && !linkedPageInfo && (
               <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5">
                 <Link2 className="w-3 h-3 mr-1" />
                 Builder Page
               </Badge>
             )}
-            {templateName && !hasLinkedPage && (
+            {templateName && !hasLinkedPage && !isBlockTest && (
               <Badge variant="outline" className="text-muted-foreground font-normal ml-2 no-default-active-elevate border-border/60">
                 <LayoutTemplate className="w-3 h-3 mr-1" />
                 Template: {templateName}
@@ -567,6 +808,72 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
       </AccordionTrigger>
       
       <AccordionContent className="px-4 pb-6 pt-2 border-t">
+        {isBlockTest ? (
+          <div className="space-y-6 pt-2">
+            {/* Traffic settings for block tests */}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-muted/30 p-5 rounded-xl border border-border/50">
+                  <div className="md:col-span-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Variant Name</FormLabel>
+                        <FormControl><Input {...field} className="bg-background" /></FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="md:col-span-6">
+                    <FormField control={form.control} name="trafficWeight" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Traffic Distribution (%)</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-4 pt-2">
+                            <Slider 
+                              value={[field.value]} 
+                              onValueChange={(v) => field.onChange(v[0])} 
+                              max={100} step={1}
+                              className="flex-1"
+                            />
+                            <Input 
+                              type="number" 
+                              value={field.value}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              className="w-20 bg-background text-center font-mono" 
+                            />
+                          </div>
+                        </FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="md:col-span-2 flex items-center justify-end mt-6">
+                    <FormField control={form.control} name="isControl" render={({ field }) => (
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="font-normal cursor-pointer">Control</FormLabel>
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1.5" />
+                    Delete Variant
+                  </Button>
+                  <Button type="submit" disabled={updateMutation.isPending} size="sm">
+                    {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+            <BlockTestSection testId={testId} testSlug={testSlug} variant={variant} />
+          </div>
+        ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
@@ -768,6 +1075,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
             </div>
           </form>
         </Form>
+        )}
       </AccordionContent>
     </AccordionItem>
   );

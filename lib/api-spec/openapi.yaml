@@ -328,9 +328,6 @@ components:
           default: false
         socialProofText:
           type: string
-      required:
-        - headline
-        - ctaText
 
     LinkedPage:
       type: object
@@ -381,6 +378,15 @@ components:
           $ref: "#/components/schemas/LinkedPage"
           nullable: true
           description: Populated by the tracking route when builderPageId is set
+        testedBlockId:
+          type: string
+          nullable: true
+          description: For block-level tests; the block ID in the base page being tested
+        blockOverrides:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: For block-level tests; map of blockId to override props for this variant
         createdAt:
           type: string
           format: date-time
@@ -409,6 +415,15 @@ components:
           type: integer
           nullable: true
           description: FK to lp_pages.id; link a builder page as the content source for this variant
+        testedBlockId:
+          type: string
+          nullable: true
+          description: For block-level tests; the block ID in the base page being tested
+        blockOverrides:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: For block-level tests; map of blockId to override props for this variant
       required:
         - name
         - trafficWeight
@@ -428,6 +443,15 @@ components:
           type: integer
           nullable: true
           description: FK to lp_pages.id; set to link a builder page, null to unlink
+        testedBlockId:
+          type: string
+          nullable: true
+          description: For block-level tests; the block ID in the base page being tested
+        blockOverrides:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: For block-level tests; map of blockId to override props for this variant
 
     Test:
       type: object

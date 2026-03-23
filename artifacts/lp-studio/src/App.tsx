@@ -12,6 +12,7 @@ import LivePages from "@/pages/live-pages";
 import BrandSettings from "@/pages/brand-settings";
 import PagesGallery from "@/pages/pages-gallery";
 import BuilderEditor from "@/pages/builder/BuilderEditor";
+import BlockTestEditor from "@/pages/builder/BlockTestEditor";
 import ReviewShell from "@/pages/review-shell";
 import ReviewsOverview from "@/pages/reviews-overview";
 
@@ -37,6 +38,9 @@ function Router() {
       
       {/* Builder Editor (no app layout — full screen) */}
       <Route path="/builder/:pageId" component={BuilderEditor} />
+
+      {/* Block Test Editor (no app layout — full screen) */}
+      <Route path="/block-test-editor/:testId/:variantId/:blockId" component={BlockTestEditor} />
       
       {/* Visitor Facing Landing Page (No App Layout) */}
       <Route path="/lp/:slug" component={LandingPageViewer} />

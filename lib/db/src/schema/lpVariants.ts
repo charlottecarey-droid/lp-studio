@@ -12,6 +12,8 @@ export const lpVariantsTable = pgTable("lp_variants", {
   trafficWeight: real("traffic_weight").notNull().default(50),
   config: jsonb("config").notNull().default({}),
   builderPageId: integer("builder_page_id").references(() => lpPagesTable.id, { onDelete: "set null" }),
+  testedBlockId: text("tested_block_id"),
+  blockOverrides: jsonb("block_overrides").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

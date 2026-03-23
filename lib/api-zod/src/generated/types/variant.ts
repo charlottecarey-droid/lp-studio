@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { LinkedPage } from "./linkedPage";
+import type { VariantBlockOverrides } from "./variantBlockOverrides";
 import type { VariantConfig } from "./variantConfig";
 
 export interface Variant {
@@ -20,5 +21,9 @@ export interface Variant {
   builderPageId?: number | null;
   /** Populated by the tracking route when builderPageId is set */
   linkedPage?: LinkedPage | null;
+  /** For block-level tests; the block ID in the base page being tested */
+  testedBlockId?: string | null;
+  /** For block-level tests; map of blockId to override props for this variant */
+  blockOverrides?: VariantBlockOverrides;
   createdAt: Date;
 }

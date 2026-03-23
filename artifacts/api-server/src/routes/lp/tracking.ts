@@ -5,6 +5,18 @@ import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
 
+function applyBlockOverrides(blocks: unknown[], blockOverrides: Record<string, unknown>): unknown[] {
+  if (!blockOverrides || Object.keys(blockOverrides).length === 0) return blocks;
+  return blocks.map((block) => {
+    const b = block as Record<string, unknown>;
+    if (typeof b.id === "string" && b.id in blockOverrides) {
+      const overrideProps = blockOverrides[b.id];
+      return { ...b, props: { ...(b.props as Record<string, unknown>), ...(overrideProps as Record<string, unknown>) } };
+    }
+    return block;
+  });
+}
+
 async function enrichVariantWithPage(variant: LpVariant) {
   if (variant.builderPageId != null) {
     const [linkedPage] = await db
@@ -24,6 +36,29 @@ async function enrichVariantWithPage(variant: LpVariant) {
     }
   }
   return variant;
+}
+
+async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: number | null) {
+  const testedBlockId = variant.testedBlockId;
+  if (!testedBlockId) return variant;
+  const pageId = basePageId ?? variant.builderPageId;
+  if (!pageId) return variant;
+  const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
+  if (!page) return variant;
+  const blockOverrides = variant.blockOverrides as Record<string, unknown> | null | undefined;
+  const hasOverrides = blockOverrides && Object.keys(blockOverrides).length > 0;
+  const mergedBlocks = hasOverrides
+    ? applyBlockOverrides(page.blocks as unknown[], blockOverrides as Record<string, unknown>)
+    : page.blocks as unknown[];
+  return {
+    ...variant,
+    linkedPage: {
+      id: page.id,
+      title: page.title,
+      slug: page.slug,
+      blocks: mergedBlocks,
+    },
+  };
 }
 
 const router = Router();
@@ -98,11 +133,22 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     return;
   }
 
+  // Find the base page for block-level tests (from the control variant's builderPageId)
+  const controlVariant = variants.find(v => v.isControl);
+  const basePageId = controlVariant?.builderPageId ?? null;
+
+  async function enrichVariant(variant: LpVariant) {
+    if (variant.testedBlockId) {
+      return enrichVariantWithBlockOverrides(variant, basePageId);
+    }
+    return enrichVariantWithPage(variant);
+  }
+
   // Preview mode: return the requested variant without session assignment
   if (previewVariantId) {
     const previewVariant = variants.find(v => v.id === previewVariantId);
     if (previewVariant) {
-      const enriched = await enrichVariantWithPage(previewVariant);
+      const enriched = await enrichVariant(previewVariant);
       res.json({
         testId: test.id,
         slug: test.slug,
@@ -153,7 +199,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     }).onConflictDoNothing();
   }
 
-  const enrichedVariant = await enrichVariantWithPage(assignedVariant!);
+  const enrichedVariant = await enrichVariant(assignedVariant!);
   res.json({
     testId: test.id,
     slug: test.slug,

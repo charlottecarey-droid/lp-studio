@@ -9,6 +9,7 @@
 export * from "./createTestInput";
 export * from "./createTestInputTestType";
 export * from "./createVariantInput";
+export * from "./createVariantInputBlockOverrides";
 export * from "./getPageConfigParams";
 export * from "./healthStatus";
 export * from "./linkedPage";
@@ -26,7 +27,9 @@ export * from "./updateTestInput";
 export * from "./updateTestInputStatus";
 export * from "./updateTestInputTestType";
 export * from "./updateVariantInput";
+export * from "./updateVariantInputBlockOverrides";
 export * from "./variant";
+export * from "./variantBlockOverrides";
 export * from "./variantConfig";
 export * from "./variantConfigBackgroundStyle";
 export * from "./variantConfigHeroType";

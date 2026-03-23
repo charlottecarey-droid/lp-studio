@@ -85,9 +85,9 @@ export const GetTestResponse = zod
               heroType: zod
                 .enum(["dandy-video", "static-image", "none"])
                 .default(getTestResponseTwoVariantsItemConfigHeroTypeDefault),
-              headline: zod.string(),
+              headline: zod.string().optional(),
               subheadline: zod.string().optional(),
-              ctaText: zod.string(),
+              ctaText: zod.string().optional(),
               ctaColor: zod.string().optional(),
               ctaUrl: zod.string().optional(),
               layout: zod
@@ -134,6 +134,18 @@ export const GetTestResponse = zod
             .nullish()
             .describe(
               "Populated by the tracking route when builderPageId is set",
+            ),
+          testedBlockId: zod
+            .string()
+            .nullish()
+            .describe(
+              "For block-level tests; the block ID in the base page being tested",
+            ),
+          blockOverrides: zod
+            .record(zod.string(), zod.unknown())
+            .nullish()
+            .describe(
+              "For block-level tests; map of blockId to override props for this variant",
             ),
           createdAt: zod.date(),
         }),
@@ -199,9 +211,9 @@ export const ListVariantsResponseItem = zod.object({
       heroType: zod
         .enum(["dandy-video", "static-image", "none"])
         .default(listVariantsResponseConfigHeroTypeDefault),
-      headline: zod.string(),
+      headline: zod.string().optional(),
       subheadline: zod.string().optional(),
-      ctaText: zod.string(),
+      ctaText: zod.string().optional(),
       ctaColor: zod.string().optional(),
       ctaUrl: zod.string().optional(),
       layout: zod
@@ -243,6 +255,18 @@ export const ListVariantsResponseItem = zod.object({
     })
     .nullish()
     .describe("Populated by the tracking route when builderPageId is set"),
+  testedBlockId: zod
+    .string()
+    .nullish()
+    .describe(
+      "For block-level tests; the block ID in the base page being tested",
+    ),
+  blockOverrides: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "For block-level tests; map of blockId to override props for this variant",
+    ),
   createdAt: zod.date(),
 });
 export const ListVariantsResponse = zod.array(ListVariantsResponseItem);
@@ -269,9 +293,9 @@ export const CreateVariantBody = zod.object({
       heroType: zod
         .enum(["dandy-video", "static-image", "none"])
         .default(createVariantBodyConfigHeroTypeDefault),
-      headline: zod.string(),
+      headline: zod.string().optional(),
       subheadline: zod.string().optional(),
-      ctaText: zod.string(),
+      ctaText: zod.string().optional(),
       ctaColor: zod.string().optional(),
       ctaUrl: zod.string().optional(),
       layout: zod
@@ -294,6 +318,18 @@ export const CreateVariantBody = zod.object({
     .nullish()
     .describe(
       "FK to lp_pages.id; link a builder page as the content source for this variant",
+    ),
+  testedBlockId: zod
+    .string()
+    .nullish()
+    .describe(
+      "For block-level tests; the block ID in the base page being tested",
+    ),
+  blockOverrides: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "For block-level tests; map of blockId to override props for this variant",
     ),
 });
 
@@ -319,9 +355,9 @@ export const UpdateVariantBody = zod.object({
       heroType: zod
         .enum(["dandy-video", "static-image", "none"])
         .default(updateVariantBodyConfigHeroTypeDefault),
-      headline: zod.string(),
+      headline: zod.string().optional(),
       subheadline: zod.string().optional(),
-      ctaText: zod.string(),
+      ctaText: zod.string().optional(),
       ctaColor: zod.string().optional(),
       ctaUrl: zod.string().optional(),
       layout: zod
@@ -343,6 +379,18 @@ export const UpdateVariantBody = zod.object({
     .number()
     .nullish()
     .describe("FK to lp_pages.id; set to link a builder page, null to unlink"),
+  testedBlockId: zod
+    .string()
+    .nullish()
+    .describe(
+      "For block-level tests; the block ID in the base page being tested",
+    ),
+  blockOverrides: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "For block-level tests; map of blockId to override props for this variant",
+    ),
 });
 
 export const updateVariantResponseConfigHeroTypeDefault = `dandy-video`;
@@ -363,9 +411,9 @@ export const UpdateVariantResponse = zod.object({
       heroType: zod
         .enum(["dandy-video", "static-image", "none"])
         .default(updateVariantResponseConfigHeroTypeDefault),
-      headline: zod.string(),
+      headline: zod.string().optional(),
       subheadline: zod.string().optional(),
-      ctaText: zod.string(),
+      ctaText: zod.string().optional(),
       ctaColor: zod.string().optional(),
       ctaUrl: zod.string().optional(),
       layout: zod
@@ -407,6 +455,18 @@ export const UpdateVariantResponse = zod.object({
     })
     .nullish()
     .describe("Populated by the tracking route when builderPageId is set"),
+  testedBlockId: zod
+    .string()
+    .nullish()
+    .describe(
+      "For block-level tests; the block ID in the base page being tested",
+    ),
+  blockOverrides: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe(
+      "For block-level tests; map of blockId to override props for this variant",
+    ),
   createdAt: zod.date(),
 });
 
@@ -517,9 +577,9 @@ export const GetPageConfigResponse = zod.object({
         heroType: zod
           .enum(["dandy-video", "static-image", "none"])
           .default(getPageConfigResponseAssignedVariantConfigHeroTypeDefault),
-        headline: zod.string(),
+        headline: zod.string().optional(),
         subheadline: zod.string().optional(),
-        ctaText: zod.string(),
+        ctaText: zod.string().optional(),
         ctaColor: zod.string().optional(),
         ctaUrl: zod.string().optional(),
         layout: zod
@@ -565,6 +625,18 @@ export const GetPageConfigResponse = zod.object({
       })
       .nullish()
       .describe("Populated by the tracking route when builderPageId is set"),
+    testedBlockId: zod
+      .string()
+      .nullish()
+      .describe(
+        "For block-level tests; the block ID in the base page being tested",
+      ),
+    blockOverrides: zod
+      .record(zod.string(), zod.unknown())
+      .nullish()
+      .describe(
+        "For block-level tests; map of blockId to override props for this variant",
+      ),
     createdAt: zod.date(),
   }),
   status: zod.string(),

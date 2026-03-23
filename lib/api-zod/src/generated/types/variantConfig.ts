@@ -14,9 +14,9 @@ import type { VariantConfigLayout } from "./variantConfigLayout";
  */
 export interface VariantConfig {
   heroType?: VariantConfigHeroType;
-  headline: string;
+  headline?: string;
   subheadline?: string;
-  ctaText: string;
+  ctaText?: string;
   ctaColor?: string;
   ctaUrl?: string;
   layout?: VariantConfigLayout;

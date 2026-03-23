@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateVariantInputBlockOverrides } from "./updateVariantInputBlockOverrides";
 import type { VariantConfig } from "./variantConfig";
 
 export interface UpdateVariantInput {
@@ -14,4 +15,8 @@ export interface UpdateVariantInput {
   config?: VariantConfig;
   /** FK to lp_pages.id; set to link a builder page, null to unlink */
   builderPageId?: number | null;
+  /** For block-level tests; the block ID in the base page being tested */
+  testedBlockId?: string | null;
+  /** For block-level tests; map of blockId to override props for this variant */
+  blockOverrides?: UpdateVariantInputBlockOverrides;
 }

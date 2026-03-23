@@ -48,6 +48,14 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     body.config !== undefined && typeof body.config === "object" && body.config !== null && !Array.isArray(body.config)
       ? (body.config as Record<string, unknown>)
       : {};
+  const testedBlockId =
+    typeof body.testedBlockId === "string" && body.testedBlockId.length > 0
+      ? body.testedBlockId
+      : null;
+  const blockOverrides: Record<string, unknown> =
+    body.blockOverrides !== undefined && typeof body.blockOverrides === "object" && body.blockOverrides !== null && !Array.isArray(body.blockOverrides)
+      ? (body.blockOverrides as Record<string, unknown>)
+      : {};
   const [variant] = await db.insert(lpVariantsTable).values({
     testId: params.data.testId,
     name: parsed.data.name,
@@ -55,6 +63,8 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     trafficWeight: parsed.data.trafficWeight,
     config: rawConfig,
     builderPageId,
+    testedBlockId,
+    blockOverrides,
   }).returning();
   res.status(201).json(variant);
 });
@@ -80,6 +90,15 @@ router.put("/lp/tests/:testId/variants/:variantId", async (req, res): Promise<vo
       body.builderPageId === null ? null :
       typeof body.builderPageId === "number" ? body.builderPageId :
       null;
+  }
+  if ("testedBlockId" in body) {
+    updateData.testedBlockId =
+      typeof body.testedBlockId === "string" && body.testedBlockId.length > 0
+        ? body.testedBlockId
+        : null;
+  }
+  if ("blockOverrides" in body && body.blockOverrides !== undefined && typeof body.blockOverrides === "object" && body.blockOverrides !== null) {
+    updateData.blockOverrides = body.blockOverrides;
   }
 
   if (Object.keys(updateData).length === 0) {
