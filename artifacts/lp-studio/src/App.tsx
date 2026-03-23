@@ -15,6 +15,7 @@ import BuilderEditor from "@/pages/builder/BuilderEditor";
 import BlockTestEditor from "@/pages/builder/BlockTestEditor";
 import ReviewShell from "@/pages/review-shell";
 import ReviewsOverview from "@/pages/reviews-overview";
+import AllTests from "@/pages/all-tests";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/live-pages" component={LivePages} />
       <Route path="/tests/new" component={CreateTest} />
       <Route path="/tests/:testId" component={TestDetail} />
+      <Route path="/tests" component={AllTests} />
       <Route path="/brand" component={BrandSettings} />
       <Route path="/pages" component={PagesGallery} />
       

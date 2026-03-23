@@ -13,10 +13,11 @@ import {
   Zap,
   Activity,
   ChevronRight,
-  Beaker,
+  FlaskConical,
   ClipboardCheck,
   Share2,
   Edit2,
+  Wrench,
 } from "lucide-react";
 
 import { useListTests } from "@workspace/api-client-react";
@@ -79,6 +80,37 @@ export default function Dashboard() {
 
   const isEmpty = !isLoading && (!tests || tests.length === 0);
 
+  const statTiles = [
+    {
+      label: "Live Pages",
+      value: isLoading ? null : running.length,
+      icon: <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />,
+      color: "text-emerald-600",
+      href: "/live-pages",
+    },
+    {
+      label: "All Tests",
+      value: isLoading ? null : (tests?.length ?? 0),
+      icon: <FlaskConical className="w-3.5 h-3.5" />,
+      color: "text-foreground",
+      href: "/tests",
+    },
+    {
+      label: "Drafts",
+      value: isLoading ? null : drafts.length,
+      icon: <FileText className="w-3.5 h-3.5" />,
+      color: "text-foreground",
+      href: "/tests?status=draft",
+    },
+    {
+      label: "A/B Tests",
+      value: isLoading ? null : (tests?.filter(t => t.testType === "ab").length ?? 0),
+      icon: <Activity className="w-3.5 h-3.5" />,
+      color: "text-foreground",
+      href: "/tests",
+    },
+  ];
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-8 pb-12">
@@ -108,43 +140,23 @@ export default function Dashboard() {
 
         {/* ── Stat tiles ─────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            {
-              label: "Live Pages",
-              value: isLoading ? null : running.length,
-              icon: <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />,
-              color: "text-emerald-600",
-            },
-            {
-              label: "All Experiments",
-              value: isLoading ? null : (tests?.length ?? 0),
-              icon: <Beaker className="w-3.5 h-3.5" />,
-              color: "text-foreground",
-            },
-            {
-              label: "Drafts",
-              value: isLoading ? null : drafts.length,
-              icon: <FileText className="w-3.5 h-3.5" />,
-              color: "text-foreground",
-            },
-            {
-              label: "A/B Tests",
-              value: isLoading ? null : (tests?.filter(t => t.testType === "ab").length ?? 0),
-              icon: <Activity className="w-3.5 h-3.5" />,
-              color: "text-foreground",
-            },
-          ].map((stat) => (
-            <Card key={stat.label} className="p-5 rounded-2xl border border-border/60 bg-card">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                {stat.icon}
-                {stat.label}
-              </div>
-              {stat.value === null ? (
-                <Skeleton className="h-8 w-12 rounded-lg" />
-              ) : (
-                <p className={`text-3xl font-display font-bold ${stat.color}`}>{stat.value}</p>
-              )}
-            </Card>
+          {statTiles.map((stat) => (
+            <Link href={stat.href} key={stat.label}>
+              <Card className="group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                  {stat.icon}
+                  {stat.label}
+                </div>
+                {stat.value === null ? (
+                  <Skeleton className="h-8 w-12 rounded-lg" />
+                ) : (
+                  <div className="flex items-end justify-between">
+                    <p className={`text-3xl font-display font-bold ${stat.color}`}>{stat.value}</p>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors mb-1" />
+                  </div>
+                )}
+              </Card>
+            </Link>
           ))}
         </div>
 
@@ -211,22 +223,22 @@ export default function Dashboard() {
               {[
                 {
                   icon: <Plus className="w-4 h-4" />,
-                  label: "New Landing Page",
-                  sub: "Create a test or page",
+                  label: "New Test",
+                  sub: "Create a landing page & test",
                   href: "/tests/new",
                   primary: true,
                 },
                 {
                   icon: <FileText className="w-4 h-4" />,
-                  label: "Custom Pages",
-                  sub: "Build with drag & drop",
-                  href: "/pages",
+                  label: "Drafts",
+                  sub: `${drafts.length} test${drafts.length !== 1 ? "s" : ""} in progress`,
+                  href: "/tests?status=draft",
                 },
                 {
-                  icon: <ClipboardCheck className="w-4 h-4" />,
-                  label: "Reviews",
-                  sub: "Share & collect feedback",
-                  href: "/reviews",
+                  icon: <Wrench className="w-4 h-4" />,
+                  label: "Builder",
+                  sub: "Drag-and-drop page editor",
+                  href: "/pages",
                 },
                 {
                   icon: <Radio className="w-4 h-4" />,
@@ -253,8 +265,8 @@ export default function Dashboard() {
             {/* ── Recent Experiments ───────────────────────────── */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-display font-bold text-foreground">Recent Experiments</h2>
-                <Link href="/">
+                <h2 className="text-lg font-display font-bold text-foreground">Recent Tests</h2>
+                <Link href="/tests">
                   <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
                     View all →
                   </span>
@@ -317,7 +329,7 @@ export default function Dashboard() {
             {/* ── Recent Custom Pages ──────────────────────────── */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-display font-bold text-foreground">Custom Pages</h2>
+                <h2 className="text-lg font-display font-bold text-foreground">Builder Pages</h2>
                 <Link href="/pages">
                   <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
                     All pages →
@@ -377,7 +389,6 @@ export default function Dashboard() {
                       </Card>
                     </motion.div>
                   ))}
-                  {/* Add new page card */}
                   <Link href="/pages">
                     <Card className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-border hover:border-primary/40 cursor-pointer transition-all min-h-[100px]">
                       <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">

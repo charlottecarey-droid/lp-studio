@@ -99,8 +99,8 @@ export default function LivePages() {
             <p className="text-muted-foreground max-w-xs mb-6">
               Set a test's status to <strong>Running</strong> to start serving traffic to its landing page.
             </p>
-            <Link href="/">
-              <Button variant="secondary" className="rounded-xl">View all experiments</Button>
+            <Link href="/tests">
+              <Button variant="secondary" className="rounded-xl">View all tests</Button>
             </Link>
           </motion.div>
         ) : (
