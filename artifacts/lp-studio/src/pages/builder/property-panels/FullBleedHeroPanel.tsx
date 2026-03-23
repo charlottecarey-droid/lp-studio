@@ -1,0 +1,224 @@
+import type { FullBleedHeroBlockProps, NavHeaderLink } from "@/lib/block-types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2 } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
+
+interface Props {
+  props: FullBleedHeroBlockProps;
+  onChange: (props: FullBleedHeroBlockProps) => void;
+}
+
+export function FullBleedHeroPanel({ props, onChange }: Props) {
+  const set = <K extends keyof FullBleedHeroBlockProps>(k: K, v: FullBleedHeroBlockProps[K]) =>
+    onChange({ ...props, [k]: v });
+
+  const updateLink = (i: number, key: keyof NavHeaderLink, value: string) => {
+    const navLinks = props.navLinks.map((l, idx) => idx === i ? { ...l, [key]: value } : l);
+    onChange({ ...props, navLinks });
+  };
+
+  const addLink = () =>
+    onChange({ ...props, navLinks: [...props.navLinks, { label: "New Link", url: "#" }] });
+
+  const removeLink = (i: number) =>
+    onChange({ ...props, navLinks: props.navLinks.filter((_, idx) => idx !== i) });
+
+  return (
+    <div className="space-y-5">
+      {/* Content */}
+      <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Hero Content</p>
+
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
+        <Textarea
+          value={props.headline}
+          onChange={e => set("headline", e.target.value)}
+          rows={2}
+          className="text-sm resize-none"
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
+        <Textarea
+          value={props.subheadline}
+          onChange={e => set("subheadline", e.target.value)}
+          rows={2}
+          className="text-sm resize-none"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text</Label>
+          <Input value={props.ctaText} onChange={e => set("ctaText", e.target.value)} className="text-sm" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
+          <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Secondary CTA Text</Label>
+          <Input value={props.secondaryCtaText || ""} onChange={e => set("secondaryCtaText", e.target.value)} className="text-sm" placeholder="Optional" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Secondary CTA URL</Label>
+          <Input value={props.secondaryCtaUrl || ""} onChange={e => set("secondaryCtaUrl", e.target.value)} className="text-sm" placeholder="#" />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show Social Proof</Label>
+        <Switch checked={!!props.showSocialProof} onCheckedChange={v => set("showSocialProof", v)} />
+      </div>
+      {props.showSocialProof && (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Social Proof Text</Label>
+          <Input value={props.socialProofText || ""} onChange={e => set("socialProofText", e.target.value)} className="text-sm" />
+        </div>
+      )}
+
+      <div className="border-t pt-4 space-y-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Background & Layout</p>
+
+        <ImagePicker
+          label="Background Image"
+          value={props.backgroundImageUrl}
+          onChange={v => set("backgroundImageUrl", v)}
+          placeholder="Leave empty for solid color"
+        />
+
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            Overlay Opacity — {props.overlayOpacity ?? 50}%
+          </Label>
+          <Slider
+            min={0}
+            max={80}
+            step={5}
+            value={[props.overlayOpacity ?? 50]}
+            onValueChange={([v]) => set("overlayOpacity", v)}
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Controls how dark the overlay is over your image</p>
+        </div>
+
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Min Height</Label>
+          <Select
+            value={props.minHeight}
+            onValueChange={v => { if (v === "full" || v === "large" || v === "medium") set("minHeight", v); }}
+          >
+            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="full">Full Screen (100vh)</SelectItem>
+              <SelectItem value="large">Large (85vh)</SelectItem>
+              <SelectItem value="medium">Medium (70vh)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Content Alignment</Label>
+          <Select
+            value={props.contentAlignment}
+            onValueChange={v => { if (v === "left" || v === "center" || v === "right") set("contentAlignment", v); }}
+          >
+            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Left</SelectItem>
+              <SelectItem value="center">Center</SelectItem>
+              <SelectItem value="right">Right</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="border-t pt-4 space-y-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Transparent Header</p>
+        <p className="text-xs text-muted-foreground -mt-1">The header starts fully transparent and becomes opaque as the visitor scrolls.</p>
+
+        <ImagePicker
+          label="Logo Image (optional)"
+          value={props.logoImageUrl || ""}
+          onChange={v => set("logoImageUrl", v)}
+          placeholder="Leave empty for Dandy logo"
+        />
+
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Logo Link URL</Label>
+          <Input value={props.logoUrl || ""} onChange={e => set("logoUrl", e.target.value)} className="text-sm" placeholder="#" />
+        </div>
+
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Scrolled Header Color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={props.headerScrolledBg || "#003A30"}
+              onChange={e => set("headerScrolledBg", e.target.value)}
+              className="w-9 h-9 rounded border cursor-pointer"
+            />
+            <Input
+              value={props.headerScrolledBg || "#003A30"}
+              onChange={e => set("headerScrolledBg", e.target.value)}
+              className="text-sm font-mono"
+            />
+          </div>
+        </div>
+
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Nav Links</Label>
+        {props.navLinks.map((link, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <div className="flex-1 grid grid-cols-2 gap-1">
+              <Input
+                value={link.label}
+                onChange={e => updateLink(i, "label", e.target.value)}
+                className="text-xs h-7"
+                placeholder="Label"
+              />
+              <Input
+                value={link.url}
+                onChange={e => updateLink(i, "url", e.target.value)}
+                className="text-xs h-7"
+                placeholder="URL"
+              />
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="w-6 h-6 text-muted-foreground hover:text-red-500 shrink-0"
+              onClick={() => removeLink(i)}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addLink}>
+          <Plus className="w-3.5 h-3.5" /> Add Nav Link
+        </Button>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Header CTA Text</Label>
+            <Input value={props.headerCtaText || ""} onChange={e => set("headerCtaText", e.target.value)} className="text-sm" placeholder="Get Started" />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Header CTA URL</Label>
+            <Input value={props.headerCtaUrl || ""} onChange={e => set("headerCtaUrl", e.target.value)} className="text-sm" placeholder="#" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

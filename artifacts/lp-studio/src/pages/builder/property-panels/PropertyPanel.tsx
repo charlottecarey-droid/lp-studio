@@ -20,6 +20,7 @@ import { ZigzagFeaturesPanel } from "./ZigzagFeaturesPanel";
 import { ProductShowcasePanel } from "./ProductShowcasePanel";
 import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
+import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -168,6 +169,13 @@ export function PropertyPanel({ block, onChange }: Props) {
       case "cta-button":
         return (
           <CtaButtonPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "full-bleed-hero":
+        return (
+          <FullBleedHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

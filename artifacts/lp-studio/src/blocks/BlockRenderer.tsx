@@ -1,4 +1,4 @@
-import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -20,6 +20,7 @@ import { BlockZigzagFeatures } from "./BlockZigzagFeatures";
 import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
+import { BlockFullBleedHero } from "./BlockFullBleedHero";
 import type { ReactNode } from "react";
 
 interface Props {
@@ -187,6 +188,17 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
             brand={brand}
             onFieldChange={onBlockChange
               ? (updated: CtaButtonBlockProps) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "full-bleed-hero":
+        return (
+          <BlockFullBleedHero
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated: FullBleedHeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
           />
         );

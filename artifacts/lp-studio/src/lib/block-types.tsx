@@ -197,6 +197,27 @@ export interface CtaButtonBlockProps {
   bgColor: string;
 }
 
+export interface FullBleedHeroBlockProps {
+  headline: string;
+  subheadline: string;
+  ctaText: string;
+  ctaUrl: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  backgroundImageUrl: string;
+  overlayOpacity: number;
+  minHeight: "full" | "large" | "medium";
+  contentAlignment: "left" | "center" | "right";
+  logoImageUrl?: string;
+  logoUrl?: string;
+  navLinks: NavHeaderLink[];
+  headerCtaText?: string;
+  headerCtaUrl?: string;
+  headerScrolledBg?: string;
+  showSocialProof?: boolean;
+  socialProofText?: string;
+}
+
 type BlockVariant =
   | { type: "hero"; props: HeroBlockProps }
   | { type: "trust-bar"; props: TrustBarBlockProps }
@@ -217,7 +238,8 @@ type BlockVariant =
   | { type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
   | { type: "product-showcase"; props: ProductShowcaseBlockProps }
   | { type: "nav-header"; props: NavHeaderBlockProps }
-  | { type: "cta-button"; props: CtaButtonBlockProps };
+  | { type: "cta-button"; props: CtaButtonBlockProps }
+  | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -765,6 +787,56 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "full-bleed-hero",
+    label: "Full Bleed Hero",
+    category: "Layout",
+    defaultProps: (): FullBleedHeroBlockProps => ({
+      headline: "The Dental Lab Your Patients Will Thank You For",
+      subheadline: "Dandy's digital-first lab delivers crowns, bridges, and implants in 5 days — with a fit rate your old lab never came close to.",
+      ctaText: "Get Started Free",
+      ctaUrl: "#",
+      secondaryCtaText: "See How It Works",
+      secondaryCtaUrl: "#",
+      backgroundImageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=1920&h=1080&fit=crop",
+      overlayOpacity: 55,
+      minHeight: "full",
+      contentAlignment: "left",
+      logoImageUrl: "",
+      logoUrl: "#",
+      navLinks: [
+        { label: "Products", url: "#" },
+        { label: "How It Works", url: "#" },
+        { label: "Pricing", url: "#" },
+      ],
+      headerCtaText: "Get Started Free",
+      headerCtaUrl: "#",
+      headerScrolledBg: "#003A30",
+      showSocialProof: true,
+      socialProofText: "Trusted by 12,000+ dental practices across the US",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="fbg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#003A30" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#001a16" stopOpacity="1" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#fbg)" rx="4" />
+        <rect width="120" height="12" fill="rgba(0,0,0,0)" rx="0" />
+        <rect x="6" y="4" width="14" height="4" rx="1" fill="white" opacity="0.8" />
+        <rect x="38" y="5" width="8" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="50" y="5" width="8" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="62" y="5" width="8" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="90" y="3" width="24" height="7" rx="3.5" fill="#C7E738" />
+        <rect x="8" y="22" width="72" height="8" rx="2" fill="white" opacity="0.95" />
+        <rect x="8" y="34" width="60" height="6" rx="1.5" fill="white" opacity="0.55" />
+        <rect x="8" y="44" width="28" height="10" rx="5" fill="#C7E738" />
+        <rect x="40" y="44" width="28" height="10" rx="5" fill="rgba(255,255,255,0.15)" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -795,6 +867,7 @@ export function createBlock(type: "zigzag-features"): Extract<PageBlock, { type:
 export function createBlock(type: "product-showcase"): Extract<PageBlock, { type: "product-showcase" }>;
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
+export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -822,6 +895,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "product-showcase": return { id, type: "product-showcase", props: props as ProductShowcaseBlockProps };
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
+    case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
   }
 }
 
