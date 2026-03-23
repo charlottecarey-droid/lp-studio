@@ -15,6 +15,7 @@ import {
   useCreateVariant, 
   useUpdateVariant, 
   useDeleteVariant,
+  updateVariant,
   getGetTestQueryKey,
   getListTestsQueryKey,
 } from "@workspace/api-client-react";
@@ -57,6 +58,13 @@ import { TemplatePicker, BuilderPageSummary } from "@/components/template-picker
 import { templateVideoHero } from "@/lib/templates";
 
 const API_BASE = "/api";
+
+function distributeEvenly(count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(100 / count);
+  const remainder = 100 - base * count;
+  return Array.from({ length: count }, (_, i) => (i === 0 ? base + remainder : base));
+}
 
 interface PageSummary {
   id: number;
@@ -118,21 +126,35 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
       .catch(() => setBuilderPages([]));
   }, []);
 
+  const redistributeAfterCreate = async () => {
+    const newCount = test.variants.length + 1;
+    const weights = distributeEvenly(newCount);
+    await Promise.all(
+      test.variants.map((v, i) =>
+        updateVariant(test.id, v.id, { trafficWeight: weights[i] })
+      )
+    );
+    queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+    queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
+  };
+
   const handleCreateVariantFromTemplate = (templateConfig: unknown) => {
+    const newCount = test.variants.length + 1;
+    const weights = distributeEvenly(newCount);
+    const newVariantWeight = weights[newCount - 1];
     createMutation.mutate(
       {
         testId: test.id,
         data: {
           name: `Variant ${test.variants.length + 1}`,
           isControl: test.variants.length === 0,
-          trafficWeight: test.variants.length === 0 ? 100 : 0,
+          trafficWeight: newVariantWeight,
           config: templateConfig as Record<string, unknown>
         }
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
-          queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
+        onSuccess: async () => {
+          await redistributeAfterCreate();
           toast({ title: "Variant created" });
           setIsTemplatePickerOpen(false);
         }
@@ -141,21 +163,23 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
   };
 
   const handleSelectBuilderPage = (pageId: number) => {
+    const newCount = test.variants.length + 1;
+    const weights = distributeEvenly(newCount);
+    const newVariantWeight = weights[newCount - 1];
     createMutation.mutate(
       {
         testId: test.id,
         data: {
           name: `Variant ${test.variants.length + 1}`,
           isControl: test.variants.length === 0,
-          trafficWeight: test.variants.length === 0 ? 100 : 0,
+          trafficWeight: newVariantWeight,
           config: templateVideoHero.config as Record<string, unknown>,
           builderPageId: pageId,
         }
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
-          queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
+        onSuccess: async () => {
+          await redistributeAfterCreate();
           toast({ title: "Variant created with builder page" });
           setIsTemplatePickerOpen(false);
         }
@@ -163,12 +187,35 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
     );
   };
 
+  const handleSplitEvenly = async () => {
+    const count = test.variants.length;
+    if (count === 0) return;
+    const weights = distributeEvenly(count);
+    await Promise.all(
+      test.variants.map((v, i) =>
+        updateVariant(test.id, v.id, { trafficWeight: weights[i] })
+      )
+    );
+    queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+    queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
+    toast({ title: "Traffic split evenly" });
+  };
+
   const handleDelete = (variantId: number) => {
     if (confirm("Delete this variant? All tracking data will be lost.")) {
+      const remaining = test.variants.filter(v => v.id !== variantId);
       deleteMutation.mutate(
         { testId: test.id, variantId },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            if (remaining.length > 0) {
+              const weights = distributeEvenly(remaining.length);
+              await Promise.all(
+                remaining.map((v, i) =>
+                  updateVariant(test.id, v.id, { trafficWeight: weights[i] })
+                )
+              );
+            }
             queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
             queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
             toast({ title: "Variant deleted" });
@@ -233,9 +280,17 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
       {totalWeight !== 100 && test.variants.length > 0 && (
         <div className="p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-xl flex items-center gap-3">
           <ShieldCheck className="w-5 h-5 shrink-0" />
-          <div className="text-sm">
-            <strong className="font-semibold">Traffic weights must sum to 100%.</strong> Current total: {totalWeight}%. Please adjust the sliders below.
+          <div className="text-sm flex-1">
+            <strong className="font-semibold">Traffic weights must sum to 100%.</strong> Current total: {totalWeight}%. Adjust the sliders below, or split evenly.
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10"
+            onClick={handleSplitEvenly}
+          >
+            Split evenly
+          </Button>
         </div>
       )}
 
