@@ -1,9 +1,9 @@
 import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
-import { lpTestsTable } from "./lpTests";
+import { lpPagesTable } from "./lpPages";
 
 export const lpPageCommentsTable = pgTable("lp_page_comments", {
   id: serial("id").primaryKey(),
-  pageId: integer("page_id").notNull().references(() => lpTestsTable.id, { onDelete: "cascade" }),
+  pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   blockIndex: integer("block_index").notNull().default(0),
   authorName: text("author_name").notNull(),
   message: text("message").notNull(),
@@ -17,7 +17,7 @@ export type InsertLpPageComment = typeof lpPageCommentsTable.$inferInsert;
 
 export const lpPageReviewsTable = pgTable("lp_page_reviews", {
   id: serial("id").primaryKey(),
-  pageId: integer("page_id").notNull().references(() => lpTestsTable.id, { onDelete: "cascade" }),
+  pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   reviewerName: text("reviewer_name"),
   status: text("status").notNull().default("pending"),
@@ -30,7 +30,7 @@ export type LpPageReview = typeof lpPageReviewsTable.$inferSelect;
 export type InsertLpPageReview = typeof lpPageReviewsTable.$inferInsert;
 
 export const lpPagePresenceTable = pgTable("lp_page_presence", {
-  pageId: integer("page_id").notNull().references(() => lpTestsTable.id, { onDelete: "cascade" }),
+  pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   viewerId: text("viewer_id").notNull(),
   displayName: text("display_name").notNull().default("Anonymous"),
   lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),

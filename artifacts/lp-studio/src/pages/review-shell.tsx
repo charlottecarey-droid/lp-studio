@@ -4,6 +4,9 @@ import { ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Clock, MessageSquare
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BlockRenderer } from "@/blocks/BlockRenderer";
+import type { PageBlock } from "@/lib/block-types";
+import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 
 const API_BASE = "/api";
 
@@ -20,10 +23,10 @@ interface ReviewData {
   };
   page: {
     id: number;
-    name: string;
+    title: string;
     slug: string;
-    description: string | null;
     status: string;
+    blocks: PageBlock[];
   };
 }
 
@@ -53,14 +56,14 @@ function storeReviewerName(token: string, name: string) {
 }
 
 export default function ReviewShell() {
-  const [match, params] = useRoute("/review/:pageId");
-  const pageId = params?.pageId;
+  const [, params] = useRoute("/review/:pageId");
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
 
   const [data, setData] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
 
   const [reviewerName, setReviewerName] = useState(() => getStoredReviewerName(token));
   const [requestChangesComment, setRequestChangesComment] = useState("");
@@ -75,6 +78,10 @@ export default function ReviewShell() {
       .then(d => { setData(d); setLoading(false); })
       .catch(() => { setError("Review link not found or expired."); setLoading(false); });
   }, [token]);
+
+  useEffect(() => {
+    fetchBrandConfig().then(setBrand).catch(() => {});
+  }, []);
 
   const handleDecision = async (status: "approved" | "changes_requested") => {
     if (!reviewerName.trim()) return;
@@ -125,6 +132,8 @@ export default function ReviewShell() {
   }
 
   const { review, page } = data;
+  const blocks = (page.blocks ?? []) as PageBlock[];
+  const hasBlocks = blocks.length > 0;
   const isDecided = review.status !== "pending";
 
   return (
@@ -136,7 +145,7 @@ export default function ReviewShell() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {statusIcon(review.status)}
-                <span className="text-sm font-medium">{page.name}</span>
+                <span className="text-sm font-medium">{page.title}</span>
                 <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${statusClasses(review.status)}`}>
                   {statusLabel(review.status)}
                 </span>
@@ -155,7 +164,7 @@ export default function ReviewShell() {
                 <div className="flex items-center gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Review Request</p>
-                    <p className="font-semibold text-foreground">{page.name}</p>
+                    <p className="font-semibold text-foreground">{page.title}</p>
                   </div>
                   <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${statusClasses(review.status)}`}>
                     {statusIcon(review.status)}
@@ -253,39 +262,32 @@ export default function ReviewShell() {
         </div>
       </div>
 
-      {/* Page preview area */}
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
-        <div className="bg-card border border-border/50 rounded-2xl p-8 shadow-sm">
-          <div className="space-y-3 mb-8 pb-6 border-b border-border/40">
-            <h1 className="text-2xl font-bold font-display">{page.name}</h1>
-            {page.description && (
-              <p className="text-muted-foreground">{page.description}</p>
-            )}
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="bg-muted px-2 py-0.5 rounded font-mono text-xs">/lp/{page.slug}</span>
-              <span className="capitalize">{page.status} test</span>
-            </div>
-          </div>
-
-          <div className="text-center py-12 space-y-3">
+      {/* Page content — real block rendering */}
+      {hasBlocks ? (
+        <div className="flex-1 w-full">
+          {blocks.map((block, i) => (
+            <BlockRenderer
+              key={block.id ?? i}
+              block={block}
+              brand={brand}
+              onCtaClick={() => {}}
+              isPreview={false}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center py-20">
+          <div className="text-center space-y-3 max-w-sm">
             <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
               <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground font-medium">Landing Page Preview</p>
-            <p className="text-sm text-muted-foreground/70 max-w-sm mx-auto">
-              The full landing page preview would render here. Use the review bar above to submit your feedback.
+            <p className="text-muted-foreground font-medium">No content yet</p>
+            <p className="text-sm text-muted-foreground/70">
+              This page doesn't have any blocks built yet. Check back once the designer has added content.
             </p>
-            <a
-              href={`/lp/${page.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-2"
-            >
-              Open live page in new tab →
-            </a>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

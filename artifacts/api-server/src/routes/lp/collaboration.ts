@@ -5,7 +5,7 @@ import {
   lpPageCommentsTable,
   lpPageReviewsTable,
   lpPagePresenceTable,
-  lpTestsTable,
+  lpPagesTable,
 } from "@workspace/db";
 import { z } from "zod";
 import crypto from "crypto";
@@ -108,7 +108,7 @@ router.post("/lp/pages/:pageId/reviews", async (req, res): Promise<void> => {
   const pageId = parseInt(req.params.pageId, 10);
   if (isNaN(pageId)) { res.status(400).json({ error: "Invalid pageId" }); return; }
 
-  const [page] = await db.select().from(lpTestsTable).where(eq(lpTestsTable.id, pageId));
+  const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
   if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 
   const token = crypto.randomBytes(24).toString("hex");
@@ -145,8 +145,8 @@ router.get("/lp/review/:token", async (req, res): Promise<void> => {
 
   const [page] = await db
     .select()
-    .from(lpTestsTable)
-    .where(eq(lpTestsTable.id, review.pageId));
+    .from(lpPagesTable)
+    .where(eq(lpPagesTable.id, review.pageId));
 
   if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 

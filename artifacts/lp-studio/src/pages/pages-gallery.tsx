@@ -12,10 +12,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
+import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
+import { useReviews } from "@/hooks/use-collaboration";
 
 const API_BASE = "/api";
 
@@ -77,6 +79,20 @@ function getTemplateBlocks(templateId: string): PageBlock[] {
   return templateToBlocks(templateId);
 }
 
+function ShareModalWrapper({ pageId, pageTitle, onClose }: { pageId: number; pageTitle: string; onClose: () => void }) {
+  const { reviews, createReview } = useReviews(pageId);
+  return (
+    <ShareReviewModal
+      open
+      onClose={onClose}
+      pageId={pageId}
+      pageName={pageTitle}
+      reviews={reviews}
+      onCreateReview={createReview}
+    />
+  );
+}
+
 export default function PagesGallery() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +102,7 @@ export default function PagesGallery() {
   const [selectedTemplate, setSelectedTemplate] = useState("blank");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [, navigate] = useLocation();
 
   const load = () => {
@@ -212,6 +229,15 @@ export default function PagesGallery() {
                         Edit
                       </Button>
                     </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2 hover:text-primary"
+                      title="Share for review"
+                      onClick={() => setSharePageId({ id: page.id, title: page.title })}
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </Button>
                     <a
                       href={`/lp-studio/lp/${page.slug}`}
                       target="_blank"
@@ -237,6 +263,14 @@ export default function PagesGallery() {
           </div>
         )}
       </div>
+
+      {sharePageId && (
+        <ShareModalWrapper
+          pageId={sharePageId.id}
+          pageTitle={sharePageId.title}
+          onClose={() => setSharePageId(null)}
+        />
+      )}
 
       {/* Create Page Modal */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
