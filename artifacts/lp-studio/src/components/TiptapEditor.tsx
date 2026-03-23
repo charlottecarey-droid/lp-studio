@@ -1,16 +1,74 @@
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useCallback } from "react";
+import { Image } from "@tiptap/extension-image";
+import { Youtube } from "@tiptap/extension-youtube";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Highlight } from "@tiptap/extension-highlight";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   Bold, Italic, Underline as UnderlineIcon, Link as LinkIcon,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight,
   Heading1, Heading2, Heading3, Minus, Undo, Redo,
+  ImageIcon, Video, Columns2, Highlighter, ChevronDown,
 } from "lucide-react";
+
+declare module "@tiptap/extension-text-style" {
+  interface TextStyleAttributes {
+    fontSize?: string | null;
+  }
+}
+
+const FontSize = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            renderHTML(attributes: Record<string, unknown>) {
+              if (!attributes.fontSize) return {};
+              return { style: `font-size: ${attributes.fontSize as string}` };
+            },
+            parseHTML(element: HTMLElement) {
+              return element.style.fontSize || null;
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize:
+        (fontSize: string) =>
+        ({ commands }: { commands: Record<string, (...args: unknown[]) => boolean> }) =>
+          commands.setMark("textStyle", { fontSize }),
+      unsetFontSize:
+        () =>
+        ({ commands }: { commands: Record<string, (...args: unknown[]) => boolean> }) =>
+          commands.setMark("textStyle", { fontSize: null }),
+    };
+  },
+});
+
+const FONT_SIZES = [
+  { label: "XS", value: "0.75rem" },
+  { label: "SM", value: "0.875rem" },
+  { label: "Base", value: "1rem" },
+  { label: "LG", value: "1.125rem" },
+  { label: "XL", value: "1.25rem" },
+  { label: "2XL", value: "1.5rem" },
+  { label: "3XL", value: "1.875rem" },
+  { label: "4XL", value: "2.25rem" },
+];
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -59,11 +117,17 @@ export function TiptapEditor({
   showToolbar = true,
   onBlur,
 }: TiptapEditorProps) {
+  const [showImagePanel, setShowImagePanel] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const highlightColorRef = useRef<HTMLInputElement>(null);
+  const fontSizeMenuRef = useRef<HTMLDivElement>(null);
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-      }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
       Link.configure({
         openOnClick: false,
@@ -71,15 +135,22 @@ export function TiptapEditor({
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder }),
+      Image.configure({
+        HTMLAttributes: { class: "max-w-full h-auto rounded my-2" },
+      }),
+      Youtube.configure({ width: 640, height: 360 }),
+      TextStyle,
+      FontSize,
+      Highlight.configure({ multicolor: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content,
     editable,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
-    },
-    onBlur: () => {
-      onBlur?.();
-    },
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onBlur: () => onBlur?.(),
     editorProps: {
       attributes: {
         class: cn(
@@ -89,6 +160,10 @@ export function TiptapEditor({
           "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-1",
           "[&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
           "[&_a]:text-primary [&_a]:underline",
+          "[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-2",
+          "[&_table]:w-full [&_table]:border-collapse",
+          "[&_td]:p-2 [&_td]:align-top [&_th]:p-2 [&_th]:align-top",
+          "[&_table.column-table]:border-0 [&_table.column-table_td]:border-0",
         ),
       },
     },
@@ -97,10 +172,26 @@ export function TiptapEditor({
   useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
-    if (current !== content) {
-      editor.commands.setContent(content);
-    }
+    if (current !== content) editor.commands.setContent(content);
   }, [content, editor]);
+
+  useEffect(() => {
+    if (!showFontSizeMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (fontSizeMenuRef.current && !fontSizeMenuRef.current.contains(e.target as Node)) {
+        setShowFontSizeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showFontSizeMenu]);
+
+  useEffect(() => {
+    if (!showImagePanel) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setShowImagePanel(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showImagePanel]);
 
   const setLink = useCallback(() => {
     if (!editor) return;
@@ -114,131 +205,273 @@ export function TiptapEditor({
     }
   }, [editor]);
 
+  const insertVideo = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt("Paste a YouTube or Vimeo URL:", "https://www.youtube.com/watch?v=");
+    if (!url) return;
+    editor.chain().focus().setYoutubeVideo({ src: url }).run();
+  }, [editor]);
+
+  const insertImageByUrl = useCallback(() => {
+    if (!editor || !imageUrl.trim()) return;
+    editor.chain().focus().setImage({ src: imageUrl.trim() }).run();
+    setImageUrl("");
+    setShowImagePanel(false);
+  }, [editor, imageUrl]);
+
+  const handleImageFileUpload = useCallback(async (file: File) => {
+    if (!editor) return;
+    setImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json() as { url: string };
+      editor.chain().focus().setImage({ src: `/api/storage${url}` }).run();
+      setShowImagePanel(false);
+    } catch {
+      alert("Image upload failed. Try pasting a URL instead.");
+    } finally {
+      setImageUploading(false);
+    }
+  }, [editor]);
+
+  const insertColumns = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().insertContent(
+      `<table class="column-table" style="width:100%;border-collapse:collapse;table-layout:fixed"><tbody><tr>` +
+      `<td style="width:50%;vertical-align:top;padding:8px;border:none"><p>Column 1 — click to edit</p></td>` +
+      `<td style="width:50%;vertical-align:top;padding:8px;border:none"><p>Column 2 — click to edit</p></td>` +
+      `</tr></tbody></table>`
+    ).run();
+  }, [editor]);
+
+  const currentFontSize = editor?.getAttributes("textStyle")?.fontSize as string | undefined;
+
   if (!editor) return null;
 
   return (
     <div className={cn("border border-input rounded-md overflow-hidden bg-background", className)}>
       {showToolbar && editable && (
         <div className="flex flex-wrap items-center gap-0.5 p-1.5 border-b border-input bg-muted/30">
-          <ToolbarButton
-            title="Heading 1"
-            active={editor.isActive("heading", { level: 1 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          >
+
+          {/* Headings */}
+          <ToolbarButton title="Heading 1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
             <Heading1 className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Heading 2"
-            active={editor.isActive("heading", { level: 2 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          >
+          <ToolbarButton title="Heading 2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
             <Heading2 className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Heading 3"
-            active={editor.isActive("heading", { level: 3 })}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          >
+          <ToolbarButton title="Heading 3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
             <Heading3 className="w-3.5 h-3.5" />
           </ToolbarButton>
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          <ToolbarButton
-            title="Bold"
-            active={editor.isActive("bold")}
-            onClick={() => editor.chain().focus().toggleBold().run()}
-          >
+          {/* Formatting */}
+          <ToolbarButton title="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
             <Bold className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Italic"
-            active={editor.isActive("italic")}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-          >
+          <ToolbarButton title="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
             <Italic className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Underline"
-            active={editor.isActive("underline")}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-          >
+          <ToolbarButton title="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
             <UnderlineIcon className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Link"
-            active={editor.isActive("link")}
-            onClick={setLink}
-          >
+          <ToolbarButton title="Link" active={editor.isActive("link")} onClick={setLink}>
             <LinkIcon className="w-3.5 h-3.5" />
           </ToolbarButton>
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          <ToolbarButton
-            title="Bullet List"
-            active={editor.isActive("bulletList")}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          >
+          {/* Lists */}
+          <ToolbarButton title="Bullet List" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
             <List className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Numbered List"
-            active={editor.isActive("orderedList")}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          >
+          <ToolbarButton title="Numbered List" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
             <ListOrdered className="w-3.5 h-3.5" />
           </ToolbarButton>
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          <ToolbarButton
-            title="Align Left"
-            active={editor.isActive({ textAlign: "left" })}
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          >
+          {/* Alignment */}
+          <ToolbarButton title="Align Left" active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()}>
             <AlignLeft className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Align Center"
-            active={editor.isActive({ textAlign: "center" })}
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          >
+          <ToolbarButton title="Align Center" active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()}>
             <AlignCenter className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Align Right"
-            active={editor.isActive({ textAlign: "right" })}
-            onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          >
+          <ToolbarButton title="Align Right" active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()}>
             <AlignRight className="w-3.5 h-3.5" />
           </ToolbarButton>
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          <ToolbarButton
-            title="Horizontal Rule"
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          >
+          {/* Font Size */}
+          <div className="relative" ref={fontSizeMenuRef}>
+            <button
+              type="button"
+              title="Font Size"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFontSizeMenu(v => !v); }}
+              className="flex items-center gap-0.5 px-1.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-[28px]"
+            >
+              <span className="min-w-[22px] text-center font-medium">
+                {currentFontSize ? (FONT_SIZES.find(s => s.value === currentFontSize)?.label ?? "Aa") : "Aa"}
+              </span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showFontSizeMenu && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-background border border-input rounded shadow-md py-1 min-w-[110px]">
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
+                    setShowFontSizeMenu(false);
+                  }}
+                >
+                  Default
+                </button>
+                {FONT_SIZES.map(size => (
+                  <button
+                    key={size.value}
+                    type="button"
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex justify-between items-center gap-3",
+                      currentFontSize === size.value ? "bg-muted font-semibold" : "text-foreground"
+                    )}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editor.chain().focus().setMark("textStyle", { fontSize: size.value }).run();
+                      setShowFontSizeMenu(false);
+                    }}
+                  >
+                    <span>{size.label}</span>
+                    <span className="text-muted-foreground text-[10px]">{size.value}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Highlight Color */}
+          <div className="relative flex items-center gap-0.5">
+            <button
+              type="button"
+              title="Highlight color — click to pick"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); highlightColorRef.current?.click(); }}
+              className={cn(
+                "p-1.5 rounded text-sm transition-colors",
+                editor.isActive("highlight")
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Highlighter className="w-3.5 h-3.5" />
+            </button>
+            <input
+              ref={highlightColorRef}
+              type="color"
+              defaultValue="#fef08a"
+              className="sr-only"
+              onChange={(e) => {
+                editor.chain().focus().setHighlight({ color: e.target.value }).run();
+              }}
+            />
+            {editor.isActive("highlight") && (
+              <button
+                type="button"
+                title="Remove highlight"
+                onClick={(e) => { e.preventDefault(); editor.chain().focus().unsetHighlight().run(); }}
+                className="text-[10px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded hover:bg-muted leading-none"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="w-px h-4 bg-border mx-0.5" />
+
+          {/* Insert Image */}
+          <div className="relative">
+            <ToolbarButton title="Insert Image" active={showImagePanel} onClick={() => setShowImagePanel(v => !v)}>
+              <ImageIcon className="w-3.5 h-3.5" />
+            </ToolbarButton>
+            {showImagePanel && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-background border border-input rounded-md shadow-lg p-3 w-72">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Insert Image</p>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    autoFocus
+                    type="url"
+                    value={imageUrl}
+                    onChange={e => setImageUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); insertImageByUrl(); } }}
+                    placeholder="Paste image URL…"
+                    className="flex-1 text-xs border border-input rounded px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={insertImageByUrl}
+                    disabled={!imageUrl.trim()}
+                    className="text-xs px-2 py-1.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-40"
+                  >
+                    Insert
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 my-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <button
+                  type="button"
+                  disabled={imageUploading}
+                  onClick={() => imageFileRef.current?.click()}
+                  className="w-full text-xs border border-dashed border-input rounded py-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                >
+                  {imageUploading ? "Uploading…" : "Upload from computer"}
+                </button>
+                <input
+                  ref={imageFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) void handleImageFileUpload(f); }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Insert Video */}
+          <ToolbarButton title="Embed YouTube / Vimeo video" onClick={insertVideo}>
+            <Video className="w-3.5 h-3.5" />
+          </ToolbarButton>
+
+          {/* Insert Columns */}
+          <ToolbarButton title="Insert 2-column layout" onClick={insertColumns}>
+            <Columns2 className="w-3.5 h-3.5" />
+          </ToolbarButton>
+
+          <div className="w-px h-4 bg-border mx-0.5" />
+
+          {/* Divider */}
+          <ToolbarButton title="Horizontal Rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             <Minus className="w-3.5 h-3.5" />
           </ToolbarButton>
 
           <div className="flex-1" />
 
-          <ToolbarButton
-            title="Undo"
-            disabled={!editor.can().undo()}
-            onClick={() => editor.chain().focus().undo().run()}
-          >
+          {/* History */}
+          <ToolbarButton title="Undo" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>
             <Undo className="w-3.5 h-3.5" />
           </ToolbarButton>
-          <ToolbarButton
-            title="Redo"
-            disabled={!editor.can().redo()}
-            onClick={() => editor.chain().focus().redo().run()}
-          >
+          <ToolbarButton title="Redo" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>
             <Redo className="w-3.5 h-3.5" />
           </ToolbarButton>
+
         </div>
       )}
       <EditorContent editor={editor} />
