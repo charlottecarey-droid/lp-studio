@@ -15,7 +15,8 @@ import {
   useCreateVariant, 
   useUpdateVariant, 
   useDeleteVariant,
-  getGetTestQueryKey
+  getGetTestQueryKey,
+  getListTestsQueryKey,
 } from "@workspace/api-client-react";
 
 import { useToast } from "@/hooks/use-toast";
@@ -131,6 +132,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+          queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
           toast({ title: "Variant created" });
           setIsTemplatePickerOpen(false);
         }
@@ -153,6 +155,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+          queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
           toast({ title: "Variant created with builder page" });
           setIsTemplatePickerOpen(false);
         }
@@ -167,6 +170,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(test.id) });
+            queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
             toast({ title: "Variant deleted" });
           }
         }
