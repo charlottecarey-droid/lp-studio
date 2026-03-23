@@ -104,7 +104,9 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - **Collaboration API routes**: `/api/lp/pages/:pageId/comments`, `/api/lp/pages/:pageId/reviews`, `/api/lp/review/:token`, `/api/lp/pages/:pageId/presence`
 - **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages`, `lp_page_comments`, `lp_page_reviews`, `lp_page_presence` tables
 - **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
-- **Block system**: 14 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources) with property panels
+- **Block system**: 16 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources, rich-text, custom-html) with property panels
+- **Inline editing**: Click to select a block, then use the pencil icon or double-click to edit text inline on the canvas for hero, pas-section, stat-callout, testimonial, bottom-cta, comparison, how-it-works, benefits-grid blocks. Rich Text blocks render a Tiptap WYSIWYG editor inline when selected.
+- **Tiptap WYSIWYG**: `@tiptap/react` installed with StarterKit, Link, Underline, TextAlign, Placeholder extensions. Used in the Rich Text block canvas inline editor and property panel.
 - **Builder ↔ A/B Test connection**: Variants can link to a builder page via `builderPageId` (nullable FK column on `lp_variants` → `lp_pages`). The tracking route fetches the linked page and returns `linkedPage` in the variant. The landing page viewer detects `linkedPage` and renders builder blocks instead of the legacy config.
 - **DnD**: `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop block reordering
 - **Templates**: 5 pre-built templates (video-hero, clean-conversion, social-proof-heavy, comparison-focused, minimal-cta)

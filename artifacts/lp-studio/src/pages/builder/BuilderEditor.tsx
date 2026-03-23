@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   DndContext,
@@ -34,6 +34,7 @@ import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockTyp
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { LP_TEMPLATES } from "@/lib/templates";
+import { TiptapEditor } from "@/components/TiptapEditor";
 
 const API_BASE = "/api";
 
@@ -763,6 +764,7 @@ export default function BuilderEditor() {
                         onSelect={() => setSelectedBlockId(block.id === selectedBlockId ? null : block.id)}
                         onDelete={() => deleteBlock(block.id)}
                         onTestBlock={() => handleOpenBlockTestModal(block.id)}
+                        onBlockChange={updateBlock}
                       />
                     ))}
                   </SortableContext>
@@ -806,15 +808,17 @@ interface SortableCanvasBlockProps {
   onSelect: () => void;
   onDelete: () => void;
   onTestBlock: () => void;
+  onBlockChange: (updated: PageBlock) => void;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  const isRichTextBlock = block.type === "rich-text";
 
   return (
     <div
@@ -863,10 +867,26 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         </button>
       </div>
 
-      {/* Click target */}
-      <div className="cursor-pointer" onClick={onSelect}>
-        <BlockRenderer block={block} brand={brand} />
-      </div>
+      {/* Rich-text: show Tiptap inline when selected */}
+      {isRichTextBlock && isSelected ? (
+        <div className="relative" onClick={e => e.stopPropagation()}>
+          <div className="bg-white">
+            <div className="px-8 py-6">
+              <TiptapEditor
+                content={(block.props as { html: string }).html}
+                onChange={html => onBlockChange({ ...block, props: { ...block.props, html } })}
+                placeholder="Start writing your content..."
+                showToolbar={true}
+                className="border-primary/50"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="cursor-pointer" onClick={onSelect}>
+          <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} />
+        </div>
+      )}
     </div>
   );
 }

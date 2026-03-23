@@ -120,6 +120,14 @@ export interface ResourcesBlockProps {
   backgroundStyle: "white" | "light-gray" | "dark";
 }
 
+export interface RichTextBlockProps {
+  html: string;
+}
+
+export interface CustomHtmlBlockProps {
+  html: string;
+}
+
 export type PageBlock =
   | { id: string; type: "hero"; props: HeroBlockProps }
   | { id: string; type: "trust-bar"; props: TrustBarBlockProps }
@@ -134,7 +142,9 @@ export type PageBlock =
   | { id: string; type: "bottom-cta"; props: BottomCtaBlockProps }
   | { id: string; type: "video-section"; props: VideoSectionBlockProps }
   | { id: string; type: "case-studies"; props: CaseStudiesBlockProps }
-  | { id: string; type: "resources"; props: ResourcesBlockProps };
+  | { id: string; type: "resources"; props: ResourcesBlockProps }
+  | { id: string; type: "rich-text"; props: RichTextBlockProps }
+  | { id: string; type: "custom-html"; props: CustomHtmlBlockProps };
 
 export type BlockType = PageBlock["type"];
 
@@ -514,6 +524,47 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "rich-text",
+    label: "Rich Text",
+    category: "Content",
+    defaultProps: (): RichTextBlockProps => ({
+      html: "<p>Start writing your content here. Use the toolbar to format text with <strong>headings</strong>, <em>emphasis</em>, lists, and more.</p>",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="104" height="6" rx="2" fill="#003A30" opacity="0.8" />
+        <rect x="8" y="20" width="90" height="3" rx="1" fill="#94a3b8" opacity="0.6" />
+        <rect x="8" y="27" width="100" height="3" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="8" y="34" width="80" height="3" rx="1" fill="#94a3b8" opacity="0.4" />
+        <circle cx="12" cy="45" r="2" fill="#C7E738" />
+        <rect x="18" y="43" width="60" height="3" rx="1" fill="#94a3b8" opacity="0.4" />
+        <circle cx="12" cy="53" r="2" fill="#C7E738" />
+        <rect x="18" y="51" width="50" height="3" rx="1" fill="#94a3b8" opacity="0.4" />
+      </svg>
+    ),
+  },
+  {
+    type: "custom-html",
+    label: "Custom HTML",
+    category: "Content",
+    defaultProps: (): CustomHtmlBlockProps => ({
+      html: "",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#1e1e2e" rx="4" />
+        <text x="8" y="22" fontSize="9" fontFamily="monospace" fill="#89b4fa">&lt;div</text>
+        <text x="36" y="22" fontSize="9" fontFamily="monospace" fill="#a6e3a1"> class=</text>
+        <text x="74" y="22" fontSize="9" fontFamily="monospace" fill="#f38ba8">"block"</text>
+        <text x="104" y="22" fontSize="9" fontFamily="monospace" fill="#89b4fa">&gt;</text>
+        <rect x="14" y="27" width="60" height="3" rx="1" fill="#cdd6f4" opacity="0.4" />
+        <rect x="14" y="34" width="80" height="3" rx="1" fill="#cdd6f4" opacity="0.3" />
+        <text x="8" y="48" fontSize="9" fontFamily="monospace" fill="#89b4fa">&lt;/div&gt;</text>
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -538,6 +589,8 @@ export function createBlock(type: "bottom-cta"): Extract<PageBlock, { type: "bot
 export function createBlock(type: "video-section"): Extract<PageBlock, { type: "video-section" }>;
 export function createBlock(type: "case-studies"): Extract<PageBlock, { type: "case-studies" }>;
 export function createBlock(type: "resources"): Extract<PageBlock, { type: "resources" }>;
+export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
+export function createBlock(type: "custom-html"): Extract<PageBlock, { type: "custom-html" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -559,6 +612,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "video-section": return { id, type: "video-section", props: props as VideoSectionBlockProps };
     case "case-studies": return { id, type: "case-studies", props: props as CaseStudiesBlockProps };
     case "resources": return { id, type: "resources", props: props as ResourcesBlockProps };
+    case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
+    case "custom-html": return { id, type: "custom-html", props: props as CustomHtmlBlockProps };
   }
 }
 

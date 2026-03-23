@@ -13,6 +13,8 @@ import { BottomCtaPanel } from "./BottomCtaPanel";
 import { VideoSectionPanel } from "./VideoSectionPanel";
 import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
+import { RichTextPanel } from "./RichTextPanel";
+import { CustomHtmlPanel } from "./CustomHtmlPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -119,6 +121,20 @@ export function PropertyPanel({ block, onChange }: Props) {
       case "resources":
         return (
           <ResourcesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "rich-text":
+        return (
+          <RichTextPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "custom-html":
+        return (
+          <CustomHtmlPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
