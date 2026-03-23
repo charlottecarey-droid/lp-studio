@@ -1,4 +1,4 @@
-import type { PageBlock, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps } from "@/lib/block-types";
+import type { PageBlock, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -16,6 +16,10 @@ import BlockCaseStudies from "./BlockCaseStudies";
 import BlockResources from "./BlockResources";
 import { BlockRichText } from "./BlockRichText";
 import { BlockCustomHtml } from "./BlockCustomHtml";
+import { BlockZigzagFeatures } from "./BlockZigzagFeatures";
+import { BlockProductShowcase } from "./BlockProductShowcase";
+import { BlockNavHeader } from "./BlockNavHeader";
+import { BlockCtaButton } from "./BlockCtaButton";
 
 interface Props {
   block: PageBlock;
@@ -125,6 +129,46 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
       return <BlockRichText props={block.props} brand={brand} />;
     case "custom-html":
       return <BlockCustomHtml props={block.props} brand={brand} />;
+    case "zigzag-features":
+      return (
+        <BlockZigzagFeatures
+          props={block.props}
+          brand={brand}
+          onFieldChange={onBlockChange
+            ? (updated: ZigzagFeaturesBlockProps) => onBlockChange({ ...block, props: updated })
+            : undefined}
+        />
+      );
+    case "product-showcase":
+      return (
+        <BlockProductShowcase
+          props={block.props}
+          brand={brand}
+          onFieldChange={onBlockChange
+            ? (updated: ProductShowcaseBlockProps) => onBlockChange({ ...block, props: updated })
+            : undefined}
+        />
+      );
+    case "nav-header":
+      return (
+        <BlockNavHeader
+          props={block.props}
+          brand={brand}
+          onFieldChange={onBlockChange
+            ? (updated: NavHeaderBlockProps) => onBlockChange({ ...block, props: updated })
+            : undefined}
+        />
+      );
+    case "cta-button":
+      return (
+        <BlockCtaButton
+          props={block.props}
+          brand={brand}
+          onFieldChange={onBlockChange
+            ? (updated: CtaButtonBlockProps) => onBlockChange({ ...block, props: updated })
+            : undefined}
+        />
+      );
     default: {
       const _exhaustive: never = block;
       void _exhaustive;

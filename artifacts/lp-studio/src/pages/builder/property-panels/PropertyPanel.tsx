@@ -15,6 +15,10 @@ import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
 import { RichTextPanel } from "./RichTextPanel";
 import { CustomHtmlPanel } from "./CustomHtmlPanel";
+import { ZigzagFeaturesPanel } from "./ZigzagFeaturesPanel";
+import { ProductShowcasePanel } from "./ProductShowcasePanel";
+import { NavHeaderPanel } from "./NavHeaderPanel";
+import { CtaButtonPanel } from "./CtaButtonPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -135,6 +139,34 @@ export function PropertyPanel({ block, onChange }: Props) {
       case "custom-html":
         return (
           <CustomHtmlPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "zigzag-features":
+        return (
+          <ZigzagFeaturesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "product-showcase":
+        return (
+          <ProductShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "nav-header":
+        return (
+          <NavHeaderPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "cta-button":
+        return (
+          <CtaButtonPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

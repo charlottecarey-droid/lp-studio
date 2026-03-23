@@ -129,6 +129,60 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+export interface ZigzagFeatureRow {
+  tag: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+  imageUrl: string;
+}
+
+export interface ZigzagFeaturesBlockProps {
+  rows: ZigzagFeatureRow[];
+}
+
+export interface ProductShowcaseCard {
+  name: string;
+  description: string;
+  badge: string;
+}
+
+export interface ProductShowcaseBlockProps {
+  headline: string;
+  subheadline: string;
+  columns: 2 | 3 | 4;
+  cards: ProductShowcaseCard[];
+}
+
+export interface NavHeaderLink {
+  label: string;
+  url: string;
+}
+
+export interface NavHeaderCta {
+  label: string;
+  url: string;
+}
+
+export interface NavHeaderBlockProps {
+  logoText: string;
+  logoUrl: string;
+  navLinks: NavHeaderLink[];
+  phone: string;
+  cta1: NavHeaderCta;
+  cta2: NavHeaderCta;
+}
+
+export interface CtaButtonBlockProps {
+  label: string;
+  url: string;
+  style: "primary" | "secondary" | "outline";
+  size: "small" | "medium" | "large";
+  alignment: "left" | "center" | "right";
+  bgColor: string;
+}
+
 export type PageBlock =
   | { id: string; type: "hero"; props: HeroBlockProps }
   | { id: string; type: "trust-bar"; props: TrustBarBlockProps }
@@ -145,7 +199,11 @@ export type PageBlock =
   | { id: string; type: "case-studies"; props: CaseStudiesBlockProps }
   | { id: string; type: "resources"; props: ResourcesBlockProps }
   | { id: string; type: "rich-text"; props: RichTextBlockProps }
-  | { id: string; type: "custom-html"; props: CustomHtmlBlockProps };
+  | { id: string; type: "custom-html"; props: CustomHtmlBlockProps }
+  | { id: string; type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
+  | { id: string; type: "product-showcase"; props: ProductShowcaseBlockProps }
+  | { id: string; type: "nav-header"; props: NavHeaderBlockProps }
+  | { id: string; type: "cta-button"; props: CtaButtonBlockProps };
 
 export type BlockType = PageBlock["type"];
 
@@ -566,6 +624,131 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "zigzag-features",
+    label: "Zigzag Features",
+    category: "Content",
+    defaultProps: (): ZigzagFeaturesBlockProps => ({
+      rows: [
+        {
+          tag: "SPEED",
+          headline: "5-Day Turnarounds, Every Time",
+          body: "Dandy's digital-first lab ships crowns, bridges, and implants in just 5 business days — tracked end-to-end so you always know where your case is.",
+          ctaText: "Learn more",
+          ctaUrl: "#",
+          imageUrl: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop",
+        },
+        {
+          tag: "ACCURACY",
+          headline: "Perfect Fit, Guaranteed",
+          body: "AI-powered scan analysis catches issues before manufacturing. If a case doesn't fit, we remake it free — no questions asked.",
+          ctaText: "Learn more",
+          ctaUrl: "#",
+          imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=800&h=600&fit=crop",
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="6" y="8" width="48" height="22" rx="2" fill="#e2e8f0" />
+        <rect x="62" y="8" width="52" height="5" rx="1" fill="#C7E738" opacity="0.7" />
+        <rect x="62" y="17" width="48" height="3" rx="1" fill="#003A30" opacity="0.6" />
+        <rect x="62" y="24" width="44" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="62" y="40" width="48" height="22" rx="2" fill="#e2e8f0" />
+        <rect x="6" y="40" width="52" height="5" rx="1" fill="#C7E738" opacity="0.7" />
+        <rect x="6" y="49" width="48" height="3" rx="1" fill="#003A30" opacity="0.6" />
+        <rect x="6" y="56" width="44" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    type: "product-showcase",
+    label: "Product Showcase",
+    category: "Content",
+    defaultProps: (): ProductShowcaseBlockProps => ({
+      headline: "Everything Your Practice Needs",
+      subheadline: "One lab for all your restorations — delivered faster and with better fit.",
+      columns: 3,
+      cards: [
+        { name: "Crowns & Bridges", description: "Zirconia, PFM, and full-cast options with 5-day turnaround.", badge: "FROM $69/UNIT" },
+        { name: "Implant Restorations", description: "Custom abutments and crowns for all major implant systems.", badge: "FROM $149/UNIT" },
+        { name: "Dentures", description: "Complete and partial dentures using a streamlined 2-appointment workflow.", badge: "FROM $299/UNIT" },
+        { name: "Aligners", description: "Clear aligner therapy powered by Dandy's digital workflow.", badge: "FROM $99/CASE" },
+        { name: "Night Guards", description: "Hard and soft night guards with same-week turnaround.", badge: "FROM $49/UNIT" },
+        { name: "Veneers", description: "Premium feldspathic and pressed porcelain veneers.", badge: "FROM $99/UNIT" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="20" y="6" width="80" height="5" rx="1" fill="#003A30" opacity="0.7" />
+        <rect x="25" y="14" width="70" height="3" rx="1" fill="#94a3b8" opacity="0.5" />
+        {([0,1,2] as const).map(i => (
+          <g key={i} transform={`translate(${5 + i * 38}, 22)`}>
+            <rect width="33" height="38" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+            <rect x="4" y="4" width="25" height="3" rx="1" fill="#003A30" opacity="0.7" />
+            <rect x="4" y="10" width="22" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+            <rect x="4" y="14" width="22" height="2" rx="1" fill="#94a3b8" opacity="0.4" />
+            <rect x="4" y="22" width="25" height="8" rx="2" fill="#C7E738" opacity="0.6" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "nav-header",
+    label: "Nav Header",
+    category: "Layout",
+    defaultProps: (): NavHeaderBlockProps => ({
+      logoText: "Dandy",
+      logoUrl: "",
+      navLinks: [
+        { label: "Products", url: "#" },
+        { label: "How It Works", url: "#" },
+        { label: "Pricing", url: "#" },
+        { label: "Resources", url: "#" },
+      ],
+      phone: "1-800-DANDY-LAB",
+      cta1: { label: "Log In", url: "#" },
+      cta2: { label: "Get Started Free", url: "#" },
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect width="120" height="20" fill="white" stroke="#e2e8f0" strokeWidth="0.5" />
+        <rect x="6" y="7" width="18" height="6" rx="1" fill="#003A30" opacity="0.8" />
+        {([0,1,2,3] as const).map(i => (
+          <rect key={i} x={34 + i * 14} y="9" width="10" height="3" rx="1" fill="#94a3b8" opacity="0.6" />
+        ))}
+        <rect x="80" y="6" width="16" height="8" rx="4" fill="#e2e8f0" />
+        <rect x="99" y="6" width="16" height="8" rx="4" fill="#003A30" opacity="0.8" />
+        <rect x="8" y="28" width="60" height="5" rx="1" fill="#003A30" opacity="0.5" />
+        <rect x="8" y="37" width="90" height="3" rx="1" fill="#94a3b8" opacity="0.3" />
+        <rect x="8" y="44" width="80" height="3" rx="1" fill="#94a3b8" opacity="0.25" />
+      </svg>
+    ),
+  },
+  {
+    type: "cta-button",
+    label: "CTA Button",
+    category: "CTA",
+    defaultProps: (): CtaButtonBlockProps => ({
+      label: "Get Started Free",
+      url: "#",
+      style: "primary",
+      size: "medium",
+      alignment: "center",
+      bgColor: "#C7E738",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="25" y="25" width="70" height="20" rx="10" fill="#C7E738" />
+        <rect x="35" y="31" width="50" height="8" rx="2" fill="#003A30" opacity="0.6" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -592,6 +775,10 @@ export function createBlock(type: "case-studies"): Extract<PageBlock, { type: "c
 export function createBlock(type: "resources"): Extract<PageBlock, { type: "resources" }>;
 export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
 export function createBlock(type: "custom-html"): Extract<PageBlock, { type: "custom-html" }>;
+export function createBlock(type: "zigzag-features"): Extract<PageBlock, { type: "zigzag-features" }>;
+export function createBlock(type: "product-showcase"): Extract<PageBlock, { type: "product-showcase" }>;
+export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
+export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -615,6 +802,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "resources": return { id, type: "resources", props: props as ResourcesBlockProps };
     case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
     case "custom-html": return { id, type: "custom-html", props: props as CustomHtmlBlockProps };
+    case "zigzag-features": return { id, type: "zigzag-features", props: props as ZigzagFeaturesBlockProps };
+    case "product-showcase": return { id, type: "product-showcase", props: props as ProductShowcaseBlockProps };
+    case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
+    case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
   }
 }
 
