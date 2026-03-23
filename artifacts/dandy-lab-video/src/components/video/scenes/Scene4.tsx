@@ -60,18 +60,7 @@ export default function Scene4() {
           </div>
         </motion.div>
 
-        {/* Incoming message bubble */}
-        <motion.div
-          className="absolute top-16 right-8 bg-[#003A30] text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-lg max-w-[220px]"
-          initial={{ opacity: 0, scale: 0.7, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 2 }}
-        >
-          <p className="text-sm font-medium leading-snug">Scan looks great — margin is clean.</p>
-          <p className="text-[10px] text-[#A8C4B8] mt-1">Lab Tech · just now</p>
-        </motion.div>
-
-        {/* Typing indicator */}
+        {/* Typing indicator — rendered before bubble so bubble paints on top */}
         <motion.div
           className="absolute top-8 right-8 bg-white px-4 py-2 rounded-2xl rounded-tr-none shadow-md border border-gray-100 flex items-center gap-1"
           initial={{ opacity: 0, scale: 0.7 }}
@@ -86,6 +75,17 @@ export default function Scene4() {
               transition={{ duration: 0.6, delay: 1.5 + delay, repeat: 2, repeatType: 'loop' }}
             />
           ))}
+        </motion.div>
+
+        {/* Incoming message bubble — DOM-last so it always paints above the typing indicator */}
+        <motion.div
+          className="absolute top-16 right-8 bg-[#003A30] text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-lg max-w-[220px]"
+          initial={{ opacity: 0, scale: 0.7, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 2 }}
+        >
+          <p className="text-sm font-medium leading-snug">Scan looks great — margin is clean.</p>
+          <p className="text-[10px] text-[#A8C4B8] mt-1">Lab Tech · just now</p>
         </motion.div>
       </div>
     </motion.div>

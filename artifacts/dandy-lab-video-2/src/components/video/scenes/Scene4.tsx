@@ -45,6 +45,22 @@ export default function Scene4() {
             />
           </motion.div>
 
+          {/* Live Chat badge — rendered first so later elements paint on top */}
+          <motion.div
+            className="absolute bottom-48 left-8 bg-white px-5 py-3 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-3"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+          >
+            <div className="w-10 h-10 rounded-full bg-[#003A30] flex items-center justify-center text-white flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+            </div>
+            <div>
+              <p className="font-bold text-[#003A30] text-base leading-none mb-1">Live Chat</p>
+              <p className="text-[#4A6358] text-sm">Tech joined · just now</p>
+            </div>
+          </motion.div>
+
           {/* Typing indicator — grey bg so it's visible on white */}
           <motion.div
             className="absolute top-52 left-28 bg-[#F0F4F2] px-4 py-2 rounded-2xl rounded-tl-none shadow-md flex items-center gap-1"
@@ -62,7 +78,7 @@ export default function Scene4() {
             ))}
           </motion.div>
 
-          {/* Incoming message bubble */}
+          {/* Incoming message bubble — DOM-last so it always paints above the typing indicator and Live Chat badge */}
           <motion.div
             className="absolute top-64 left-2 bg-[#003A30] text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-lg max-w-[160px]"
             initial={{ opacity: 0, scale: 0.7, y: -10 }}
@@ -71,22 +87,6 @@ export default function Scene4() {
           >
             <p className="text-sm font-medium leading-snug">Scan looks great — margin is clean.</p>
             <p className="text-[10px] text-[#A8C4B8] mt-1">Lab Tech · just now</p>
-          </motion.div>
-
-          {/* Live Chat badge */}
-          <motion.div
-            className="absolute bottom-48 left-8 bg-white px-5 py-3 rounded-2xl shadow-lg border border-gray-100 flex items-center gap-3"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.8 }}
-          >
-            <div className="w-10 h-10 rounded-full bg-[#003A30] flex items-center justify-center text-white flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
-            </div>
-            <div>
-              <p className="font-bold text-[#003A30] text-base leading-none mb-1">Live Chat</p>
-              <p className="text-[#4A6358] text-sm">Tech joined · just now</p>
-            </div>
           </motion.div>
         </div>
       </div>
