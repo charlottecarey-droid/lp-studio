@@ -134,6 +134,15 @@ export function HeroPanel({ props, onChange }: Props) {
           </SelectContent>
         </Select>
       </div>
+      {(props.heroType === "static-image" || props.heroType === "dandy-video") && (props.layout === "split" || props.layout === "split-right") && (
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Image Drop Shadow</Label>
+          <Switch
+            checked={props.imageShadow !== false}
+            onCheckedChange={v => set("imageShadow", v)}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show Social Proof</Label>
         <Switch checked={props.showSocialProof} onCheckedChange={v => set("showSocialProof", v)} />

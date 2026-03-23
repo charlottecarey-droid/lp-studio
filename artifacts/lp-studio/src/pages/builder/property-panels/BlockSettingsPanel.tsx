@@ -17,6 +17,14 @@ const SPACING_OPTIONS = [
   { value: "xl", label: "XL – 96px" },
 ];
 
+const PADDING_X_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "sm", label: "Small – 16px" },
+  { value: "md", label: "Medium – 40px" },
+  { value: "lg", label: "Large – 80px" },
+  { value: "xl", label: "XL – 120px" },
+];
+
 const TEXT_SCALE_OPTIONS = [
   { value: "75", label: "75% (Smallest)" },
   { value: "85", label: "85%" },
@@ -67,6 +75,21 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Side Padding</Label>
+        <Select
+          value={s.paddingX ?? "none"}
+          onValueChange={v => set("paddingX", v as BlockSettings["paddingX"])}
+        >
+          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PADDING_X_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

@@ -16,6 +16,7 @@ export interface HeroBlockProps {
   imageUrl: string;
   mediaUrl: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  imageShadow?: boolean;
 }
 
 export interface TrustBarBlockProps {
@@ -87,6 +88,7 @@ export interface BlockSettings {
   spacingTop?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
   spacingBottom?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
   textScale?: "75" | "85" | "90" | "100" | "110" | "125" | "150";
+  paddingX?: "none" | "sm" | "md" | "lg" | "xl";
 }
 
 export interface VideoSectionBlockProps {

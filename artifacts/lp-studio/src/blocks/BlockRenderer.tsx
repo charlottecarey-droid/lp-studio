@@ -40,12 +40,24 @@ const SPACING_PX: Record<string, string> = {
   xl: "96px",
 };
 
+const PADDING_X_PX: Record<string, string> = {
+  none: "0px",
+  sm: "16px",
+  md: "40px",
+  lg: "80px",
+  xl: "120px",
+};
+
 function wrapWithSettings(children: ReactNode, settings?: BlockSettings): ReactNode {
   if (!settings) return children;
   const style: React.CSSProperties = {};
   if (settings.spacingTop && settings.spacingTop !== "md") style.paddingTop = SPACING_PX[settings.spacingTop];
   if (settings.spacingBottom && settings.spacingBottom !== "md") style.paddingBottom = SPACING_PX[settings.spacingBottom];
   if (settings.textScale && settings.textScale !== "100") style.zoom = Number(settings.textScale) / 100;
+  if (settings.paddingX && settings.paddingX !== "none") {
+    style.paddingLeft = PADDING_X_PX[settings.paddingX];
+    style.paddingRight = PADDING_X_PX[settings.paddingX];
+  }
   if (Object.keys(style).length === 0) return children;
   return <div style={style}>{children}</div>;
 }

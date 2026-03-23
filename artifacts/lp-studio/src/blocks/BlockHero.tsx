@@ -35,7 +35,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
       const videoSrc = resolvedMedia || "";
       if (!videoSrc) return renderImage();
       return (
-        <div className="relative w-full aspect-[16/9] z-10 rounded-xl overflow-hidden shadow-2xl">
+        <div className={cn("relative w-full aspect-[16/9] z-10 rounded-xl overflow-hidden", props.imageShadow !== false ? "shadow-2xl" : "")}>
           <iframe src={videoSrc} className="w-full h-full border-0" title="Demo Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         </div>
       );
@@ -45,7 +45,12 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
 
   const renderImage = () => (
     <div className="relative w-full z-10">
-      <img src={resolvedImage} alt="Product showcase" className="w-full h-auto object-contain rounded-xl shadow-2xl" loading="lazy" />
+      <img
+        src={resolvedImage}
+        alt="Product showcase"
+        className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
+        loading="lazy"
+      />
     </div>
   );
 
