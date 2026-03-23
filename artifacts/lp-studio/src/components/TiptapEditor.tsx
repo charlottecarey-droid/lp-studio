@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, Extension, type CommandProps } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, Node as TiptapNode, type CommandProps } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
@@ -29,6 +29,9 @@ declare module "@tiptap/core" {
     fontSize: {
       setFontSize: (fontSize: string) => ReturnType;
       unsetFontSize: () => ReturnType;
+    };
+    videoEmbed: {
+      setVideoEmbed: (attrs: { src: string; title?: string }) => ReturnType;
     };
   }
 }
@@ -64,6 +67,67 @@ const FontSize = Extension.create({
         () =>
         ({ commands }: CommandProps) =>
           commands.setMark("textStyle", { fontSize: null }),
+    };
+  },
+});
+
+const VideoEmbed = TiptapNode.create({
+  name: "videoEmbed",
+  group: "block",
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      title: { default: "Video" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "div[data-video-embed]" }];
+  },
+  renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, string> }) {
+    return [
+      "div",
+      {
+        "data-video-embed": "true",
+        style:
+          "position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:1rem 0;border-radius:8px",
+      },
+      [
+        "iframe",
+        {
+          src: HTMLAttributes.src ?? "",
+          title: HTMLAttributes.title ?? "Video",
+          style:
+            "position:absolute;top:0;left:0;width:100%;height:100%;border:0",
+          allowfullscreen: "true",
+          allow: "autoplay; fullscreen; picture-in-picture",
+        },
+      ],
+    ];
+  },
+  addCommands() {
+    return {
+      setVideoEmbed:
+        (attrs: { src: string; title?: string }) =>
+        ({ commands }: CommandProps) =>
+          commands.insertContent({ type: "videoEmbed", attrs }),
+    };
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText =
+        "position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:1rem 0;border-radius:8px;background:#000";
+      const iframe = document.createElement("iframe");
+      iframe.src = (node.attrs as { src: string; title?: string }).src ?? "";
+      iframe.title = (node.attrs as { src: string; title?: string }).title ?? "Video";
+      iframe.style.cssText =
+        "position:absolute;top:0;left:0;width:100%;height:100%;border:0";
+      iframe.setAttribute("allowfullscreen", "true");
+      iframe.setAttribute("allow", "autoplay; fullscreen; picture-in-picture");
+      wrapper.appendChild(iframe);
+      return { dom: wrapper };
     };
   },
 });
@@ -154,6 +218,7 @@ export function TiptapEditor({
       TableRow,
       TableHeader,
       TableCell,
+      VideoEmbed,
     ],
     content,
     editable,
@@ -171,7 +236,7 @@ export function TiptapEditor({
           "[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-2",
           "[&_table]:w-full [&_table]:border-collapse",
           "[&_td]:p-2 [&_td]:align-top [&_th]:p-2 [&_th]:align-top",
-          "[&_table.column-table]:border-0 [&_table.column-table_td]:border-0",
+          "[&_table.column-table_td]:border-0 [&_table.column-table]:border-0",
         ),
       },
     },
@@ -228,13 +293,8 @@ export function TiptapEditor({
 
     const vimeoMatch = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
     if (vimeoMatch) {
-      const videoId = vimeoMatch[1];
-      const embedUrl = `https://player.vimeo.com/video/${videoId}`;
-      editor.chain().focus().insertContent(
-        `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:1rem 0;border-radius:8px">` +
-        `<iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" ` +
-        `allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe></div>`
-      ).run();
+      const embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+      editor.chain().focus().setVideoEmbed({ src: embedUrl, title: "Vimeo video" }).run();
       return;
     }
 
@@ -268,12 +328,7 @@ export function TiptapEditor({
 
   const insertColumns = useCallback(() => {
     if (!editor) return;
-    editor.chain().focus().insertContent(
-      `<table class="column-table" style="width:100%;border-collapse:collapse;table-layout:fixed"><tbody><tr>` +
-      `<td style="width:50%;vertical-align:top;padding:8px;border:none"><p>Column 1 — click to edit</p></td>` +
-      `<td style="width:50%;vertical-align:top;padding:8px;border:none"><p>Column 2 — click to edit</p></td>` +
-      `</tr></tbody></table>`
-    ).run();
+    editor.chain().focus().insertTable({ rows: 1, cols: 2, withHeaderRow: false }).run();
   }, [editor]);
 
   const currentFontSize = editor?.getAttributes("textStyle")?.fontSize as string | undefined;
@@ -355,11 +410,7 @@ export function TiptapEditor({
                 <button
                   type="button"
                   className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editor.chain().focus().unsetFontSize().run();
-                    setShowFontSizeMenu(false);
-                  }}
+                  onClick={(e) => { e.preventDefault(); editor.chain().focus().unsetFontSize().run(); setShowFontSizeMenu(false); }}
                 >
                   Default
                 </button>
@@ -405,9 +456,7 @@ export function TiptapEditor({
               type="color"
               defaultValue="#fef08a"
               className="sr-only"
-              onChange={(e) => {
-                editor.chain().focus().setHighlight({ color: e.target.value }).run();
-              }}
+              onChange={(e) => { editor.chain().focus().setHighlight({ color: e.target.value }).run(); }}
             />
             {editor.isActive("highlight") && (
               <button
@@ -486,7 +535,7 @@ export function TiptapEditor({
 
           <div className="w-px h-4 bg-border mx-0.5" />
 
-          {/* Divider */}
+          {/* Horizontal Rule */}
           <ToolbarButton title="Horizontal Rule" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             <Minus className="w-3.5 h-3.5" />
           </ToolbarButton>
