@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -150,6 +150,179 @@ function TemplateLibrary({ onSelect }: { onSelect: (templateId: string) => void 
   );
 }
 
+// ─── Layers Panel ─────────────────────────────────────────────────────────────
+
+interface SortableLayerItemProps {
+  block: PageBlock;
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}
+
+function SortableLayerItem({ block, index, isSelected, onSelect, onDelete }: SortableLayerItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const def = getBlockDef(block.type);
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-left cursor-pointer transition-colors group/layer",
+        isDragging && "opacity-40",
+        isSelected
+          ? "bg-primary/10 border border-primary/30"
+          : "hover:bg-muted border border-transparent",
+      )}
+      onClick={onSelect}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        onClick={e => e.stopPropagation()}
+        className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-0.5"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
+      <span className="text-[10px] font-mono text-muted-foreground/60 w-4 shrink-0 text-right select-none">{index + 1}</span>
+
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-xs font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
+          {def?.label ?? block.type}
+        </p>
+      </div>
+
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        className="shrink-0 p-0.5 text-muted-foreground/0 group-hover/layer:text-muted-foreground hover:!text-destructive transition-colors"
+      >
+        <Trash2 className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+interface LayersPanelProps {
+  blocks: PageBlock[];
+  selectedBlockId: string | null;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onReorder: (blocks: PageBlock[]) => void;
+}
+
+function LayersPanel({ blocks, selectedBlockId, onSelect, onDelete, onReorder }: LayersPanelProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIdx = blocks.findIndex(b => b.id === active.id);
+      const newIdx = blocks.findIndex(b => b.id === over.id);
+      onReorder(arrayMove(blocks, oldIdx, newIdx));
+    }
+  };
+
+  if (blocks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center gap-2 text-muted-foreground">
+        <Layers className="w-8 h-8 opacity-30" />
+        <p className="text-xs">No blocks yet. Add blocks from the Blocks tab.</p>
+      </div>
+    );
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+        <div className="p-2 space-y-0.5">
+          {blocks.map((block, i) => (
+            <SortableLayerItem
+              key={block.id}
+              block={block}
+              index={i}
+              isSelected={selectedBlockId === block.id}
+              onSelect={() => onSelect(block.id)}
+              onDelete={() => onDelete(block.id)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// ─── Insert Block Dialog ───────────────────────────────────────────────────────
+
+interface InsertBlockDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onInsert: (type: string) => void;
+}
+
+function InsertBlockDialog({ open, onClose, onInsert }: InsertBlockDialogProps) {
+  const categories = ["Layout", "Content", "Social Proof", "CTA"] as const;
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Plus className="w-4 h-4" />
+            Insert Block
+          </DialogTitle>
+        </DialogHeader>
+        <div className="overflow-y-auto flex-1 space-y-5 pr-1">
+          {categories.map(cat => {
+            const catBlocks = BLOCK_REGISTRY.filter(b => b.category === cat);
+            if (catBlocks.length === 0) return null;
+            return (
+              <div key={cat}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{cat}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {catBlocks.map(block => (
+                    <button
+                      key={block.type}
+                      onClick={() => onInsert(block.type)}
+                      className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all text-center"
+                    >
+                      <div className="w-full h-10 rounded-md overflow-hidden">
+                        {block.thumbnail()}
+                      </div>
+                      <span className="text-[10px] font-medium leading-tight text-muted-foreground">{block.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Insertion Bar (between blocks) ───────────────────────────────────────────
+
+function InsertionBar({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="group relative h-3 flex items-center justify-center z-[80]">
+      <div className="absolute inset-x-0 h-px bg-transparent group-hover:bg-primary/30 transition-colors" />
+      <button
+        onClick={e => { e.stopPropagation(); onClick(); }}
+        className="relative opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold shadow-md hover:scale-105 active:scale-95"
+      >
+        <Plus className="w-2.5 h-2.5" />
+        Insert
+      </button>
+    </div>
+  );
+}
+
 function highlightCss(css: string): string {
   if (!css) return "";
   return css
@@ -270,6 +443,9 @@ export default function BuilderEditor() {
   const [blockTestSlug, setBlockTestSlug] = useState("");
   const [blockTestCreating, setBlockTestCreating] = useState(false);
   const [blockTestError, setBlockTestError] = useState<string | null>(null);
+
+  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
+  const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -416,11 +592,29 @@ export default function BuilderEditor() {
   const VALID_BLOCK_TYPES = new Set<string>(BLOCK_REGISTRY.map(b => b.type));
   const isBlockType = (t: string): t is BlockType => VALID_BLOCK_TYPES.has(t);
 
-  const addBlock = (type: string) => {
+  const addBlock = (type: string, atIndex?: number) => {
     if (!isBlockType(type)) return;
     const newBlock = createBlock(type);
-    setBlocks(prev => [...prev, newBlock]);
+    setBlocks(prev => {
+      if (atIndex !== undefined) {
+        const next = [...prev];
+        next.splice(atIndex, 0, newBlock);
+        return next;
+      }
+      return [...prev, newBlock];
+    });
     setSelectedBlockId(newBlock.id);
+  };
+
+  const openInsertAt = (index: number) => {
+    setInsertAtIndex(index);
+    setInsertDialogOpen(true);
+  };
+
+  const handleInsertBlock = (type: string) => {
+    addBlock(type, insertAtIndex ?? undefined);
+    setInsertDialogOpen(false);
+    setInsertAtIndex(null);
   };
 
   const applyTemplate = (templateId: string) => {
@@ -657,6 +851,13 @@ export default function BuilderEditor() {
         </DialogContent>
       </Dialog>
 
+      {/* Insert Block Dialog */}
+      <InsertBlockDialog
+        open={insertDialogOpen}
+        onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); }}
+        onInsert={handleInsertBlock}
+      />
+
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
@@ -666,11 +867,21 @@ export default function BuilderEditor() {
             <div className="sticky top-0 bg-background/90 backdrop-blur border-b border-border z-10">
               <TabsList className="w-full rounded-none border-0 bg-transparent h-10">
                 <TabsTrigger value="blocks" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Blocks</TabsTrigger>
+                <TabsTrigger value="layers" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Layers</TabsTrigger>
                 <TabsTrigger value="templates" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Templates</TabsTrigger>
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
               <BlockLibrary onAdd={addBlock} />
+            </TabsContent>
+            <TabsContent value="layers" className="mt-0">
+              <LayersPanel
+                blocks={blocks}
+                selectedBlockId={selectedBlockId}
+                onSelect={id => setSelectedBlockId(id === selectedBlockId ? null : id)}
+                onDelete={deleteBlock}
+                onReorder={setBlocks}
+              />
             </TabsContent>
             <TabsContent value="templates" className="mt-0">
               <TemplateLibrary onSelect={templateId => {
@@ -714,17 +925,20 @@ export default function BuilderEditor() {
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                    {blocks.map(block => (
-                      <SortableCanvasBlock
-                        key={block.id}
-                        block={block}
-                        brand={brand}
-                        isSelected={selectedBlockId === block.id}
-                        onSelect={() => setSelectedBlockId(block.id === selectedBlockId ? null : block.id)}
-                        onDelete={() => deleteBlock(block.id)}
-                        onTestBlock={() => handleOpenBlockTestModal(block.id)}
-                        onBlockChange={updateBlock}
-                      />
+                    <InsertionBar onClick={() => openInsertAt(0)} />
+                    {blocks.map((block, index) => (
+                      <div key={block.id}>
+                        <SortableCanvasBlock
+                          block={block}
+                          brand={brand}
+                          isSelected={selectedBlockId === block.id}
+                          onSelect={() => setSelectedBlockId(block.id === selectedBlockId ? null : block.id)}
+                          onDelete={() => deleteBlock(block.id)}
+                          onTestBlock={() => handleOpenBlockTestModal(block.id)}
+                          onBlockChange={updateBlock}
+                        />
+                        <InsertionBar onClick={() => openInsertAt(index + 1)} />
+                      </div>
                     ))}
                   </SortableContext>
                 </DndContext>
