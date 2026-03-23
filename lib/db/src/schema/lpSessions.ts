@@ -9,6 +9,10 @@ export const lpSessionsTable = pgTable("lp_sessions", {
   sessionId: text("session_id").notNull(),
   testId: integer("test_id").notNull().references(() => lpTestsTable.id, { onDelete: "cascade" }),
   variantId: integer("variant_id").notNull().references(() => lpVariantsTable.id, { onDelete: "cascade" }),
+  city: text("city"),
+  region: text("region"),
+  country: text("country"),
+  countryCode: text("country_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
