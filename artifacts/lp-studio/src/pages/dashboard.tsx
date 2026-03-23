@@ -180,9 +180,9 @@ export default function Dashboard() {
                 },
                 {
                   step: "02",
-                  title: "Create a landing page",
-                  desc: "Pick a template or start from scratch. Each page can run an A/B test or just serve a single variant.",
-                  cta: "Create First Page",
+                  title: "Create a test",
+                  desc: "Pick a template or start from scratch. Run an A/B test or serve a single variant — track every impression automatically.",
+                  cta: "Create First Test",
                   href: "/tests/new",
                   icon: <Plus className="w-5 h-5" />,
                   primary: true,
