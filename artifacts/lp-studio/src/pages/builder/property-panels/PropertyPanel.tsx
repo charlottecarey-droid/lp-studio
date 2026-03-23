@@ -1,3 +1,5 @@
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { PageBlock, BlockSettings } from "@/lib/block-types";
 import { BlockSettingsPanel } from "./BlockSettingsPanel";
 import { HeroPanel } from "./HeroPanel";
@@ -26,9 +28,10 @@ import { getBlockDef } from "@/lib/block-types";
 interface Props {
   block: PageBlock;
   onChange: (block: PageBlock) => void;
+  onDelete?: () => void;
 }
 
-export function PropertyPanel({ block, onChange }: Props) {
+export function PropertyPanel({ block, onChange, onDelete }: Props) {
   const def = getBlockDef(block.type);
 
   const renderForm = () => {
@@ -202,6 +205,19 @@ export function PropertyPanel({ block, onChange }: Props) {
           settings={block.blockSettings}
           onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
         />
+        {onDelete && (
+          <div className="mt-6 pt-4 border-t border-border">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full gap-2"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Remove Block
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -18,8 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowLeft, Save, Globe, Copy, Monitor, Smartphone,
-  GripVertical, Trash2, Plus, CheckCircle, FlaskConical, Loader2, TestTube2
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,7 @@ import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-c
 import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
+import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
 
@@ -515,86 +515,21 @@ export default function BuilderEditor() {
   return (
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Top Bar */}
-      <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
-        <Link href="/pages">
-          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline text-xs">Pages</span>
-          </Button>
-        </Link>
-
-        <div className="h-4 w-px bg-border mx-1" />
-
-        <input
-          ref={titleRef}
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onBlur={handleTitleBlur}
-          className="flex-1 max-w-xs bg-transparent text-sm font-semibold text-foreground outline-none border-b border-transparent hover:border-border focus:border-primary transition-colors py-0.5"
-          placeholder="Page Title"
-        />
-
-        <Badge
-          variant={status === "published" ? "default" : "secondary"}
-          className={cn("text-xs shrink-0", status === "published" ? "bg-green-500/10 text-green-700 border-green-200" : "")}
-        >
-          {status === "published" ? "Live" : "Draft"}
-        </Badge>
-
-        <div className="flex-1" />
-
-        <div className="flex items-center gap-1 border border-border rounded-lg p-0.5">
-          <button
-            onClick={() => setIsMobile(false)}
-            className={cn("p-1.5 rounded-md transition-colors", !isMobile ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-          >
-            <Monitor className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setIsMobile(true)}
-            className={cn("p-1.5 rounded-md transition-colors", isMobile ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-          >
-            <Smartphone className="w-4 h-4" />
-          </button>
-        </div>
-
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={copyPreviewLink}>
-          <Copy className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Copy Link</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn("gap-1.5 text-xs", saveSuccess && "border-green-500 text-green-600")}
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline">{saveSuccess ? "Saved!" : "Save"}</span>
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
-          onClick={() => setAbTestModalOpen(true)}
-        >
-          <FlaskConical className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">A/B Test</span>
-        </Button>
-
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={handlePublish}
-          disabled={isSaving}
-          variant={status === "published" ? "outline" : "default"}
-        >
-          <Globe className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{status === "published" ? "Unpublish" : "Publish"}</span>
-        </Button>
-      </header>
+      <BuilderTopBar
+        title={title}
+        titleRef={titleRef}
+        status={status}
+        isMobile={isMobile}
+        isSaving={isSaving}
+        saveSuccess={saveSuccess}
+        onTitleChange={setTitle}
+        onTitleBlur={handleTitleBlur}
+        onSetMobile={setIsMobile}
+        onCopyLink={copyPreviewLink}
+        onSave={handleSave}
+        onOpenAbTest={() => setAbTestModalOpen(true)}
+        onPublish={handlePublish}
+      />
 
       <Dialog open={abTestModalOpen} onOpenChange={setAbTestModalOpen}>
         <DialogContent className="max-w-md">
@@ -780,6 +715,7 @@ export default function BuilderEditor() {
             <PropertyPanel
               block={selectedBlock}
               onChange={updateBlock}
+              onDelete={() => deleteBlock(selectedBlock.id)}
             />
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 text-center p-6 gap-3">
