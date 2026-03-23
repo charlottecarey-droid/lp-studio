@@ -3,6 +3,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { ProductShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 interface Props {
   props: ProductShowcaseBlockProps;
@@ -31,7 +32,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-            className="text-3xl lg:text-4xl font-bold"
+            className={cn(getHeadlineSizeClass(props.headlineSize, "md"), "font-bold")}
             style={{ color: brand.primaryColor }}
           />
           {props.subheadline && (

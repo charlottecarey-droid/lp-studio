@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
+import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 
 interface Props {
   props: FullBleedHeroBlockProps;
@@ -43,6 +44,21 @@ export function FullBleedHeroPanel({ props, onChange }: Props) {
           rows={2}
           className="text-sm resize-none"
         />
+      </div>
+
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Size</Label>
+        <Select
+          value={props.headlineSize ?? "xl"}
+          onValueChange={v => { if (v === "sm" || v === "md" || v === "lg" || v === "xl" || v === "2xl") set("headlineSize", v); }}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(HEADLINE_SIZE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

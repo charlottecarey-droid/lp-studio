@@ -4,6 +4,7 @@ import type { BottomCtaBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 interface Props {
   props: BottomCtaBlockProps;
@@ -22,7 +23,7 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange }: Prop
   return (
     <section className={cn("w-full bg-[#003A30] text-white px-6 text-center", sectionPy)}>
       <div className="max-w-3xl mx-auto">
-        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className="text-4xl md:text-6xl font-display font-bold mb-6" />
+        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, "xl"), "font-display font-bold mb-6")} />
         {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className="text-xl text-white/80 mb-10" multiline />}
         <button onClick={onCtaClick} className={getButtonClasses(brand, "inline-flex items-center")} style={{ backgroundColor: LIME, color: FOREST }}>
           <InlineText value={props.ctaText} onUpdate={field("ctaText")} />

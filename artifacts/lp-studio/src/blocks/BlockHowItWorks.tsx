@@ -3,6 +3,7 @@ import type { HowItWorksBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 interface Props {
   props: HowItWorksBlockProps;
@@ -22,7 +23,7 @@ export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-6xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-20" />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize), "font-display font-bold text-center text-[#003A30] mb-20")} />
         )}
         <div className="grid md:grid-cols-3 gap-12 relative">
           <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />

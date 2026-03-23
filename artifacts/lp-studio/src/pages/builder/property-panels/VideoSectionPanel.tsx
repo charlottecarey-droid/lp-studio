@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { VideoPicker } from "@/components/VideoPicker";
+import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 
 interface Props {
   props: VideoSectionBlockProps;
@@ -60,6 +61,20 @@ export function VideoSectionPanel({ props, onChange }: Props) {
           className="text-sm resize-none"
           placeholder="Optional headline"
         />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Size</Label>
+        <Select
+          value={props.headlineSize ?? "lg"}
+          onValueChange={v => { if (v === "sm" || v === "md" || v === "lg" || v === "xl" || v === "2xl") set("headlineSize", v); }}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(HEADLINE_SIZE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>

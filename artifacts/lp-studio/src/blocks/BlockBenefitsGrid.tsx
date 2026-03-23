@@ -4,6 +4,7 @@ import type { BenefitsGridBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign,
@@ -27,7 +28,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange }: Props) {
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight" />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize), "font-display font-bold text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight")} />
         )}
         <div className={cn("grid gap-8", props.columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3")}>
           {props.items.map((benefit, i) => {

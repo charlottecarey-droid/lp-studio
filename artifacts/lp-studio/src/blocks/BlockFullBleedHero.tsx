@@ -5,6 +5,7 @@ import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 interface Props {
   props: FullBleedHeroBlockProps;
@@ -180,7 +181,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
             as="h1"
             value={props.headline}
             onUpdate={field("headline")}
-            className="font-display font-bold tracking-tight leading-[1.05] text-white text-5xl md:text-6xl lg:text-7xl max-w-4xl drop-shadow-sm"
+            className={cn("font-display font-bold tracking-tight leading-[1.05] text-white max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, "xl"))}
           />
 
           {props.subheadline && (

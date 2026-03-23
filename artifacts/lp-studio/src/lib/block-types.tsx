@@ -15,6 +15,7 @@ export interface HeroBlockProps {
   socialProofText: string;
   imageUrl: string;
   mediaUrl: string;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface TrustBarBlockProps {
@@ -25,6 +26,7 @@ export interface PasSectionBlockProps {
   headline: string;
   body: string;
   bullets: string[];
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface ComparisonBlockProps {
@@ -47,6 +49,7 @@ export interface BenefitsGridBlockProps {
   headline: string;
   columns: 2 | 3;
   items: Array<{ icon: string; title: string; description: string }>;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface TestimonialBlockProps {
@@ -59,6 +62,7 @@ export interface TestimonialBlockProps {
 export interface HowItWorksBlockProps {
   headline: string;
   steps: Array<{ number: string; title: string; description: string }>;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface ProductGridBlockProps {
@@ -76,6 +80,7 @@ export interface BottomCtaBlockProps {
   subheadline: string;
   ctaText: string;
   ctaUrl: string;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface BlockSettings {
@@ -88,6 +93,7 @@ export interface VideoSectionBlockProps {
   layout: "full-width" | "split-left" | "split-right";
   headline: string;
   subheadline: string;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   ctaText: string;
   ctaUrl: string;
   videoUrl: string;
@@ -153,6 +159,7 @@ export interface ZigzagFeatureRow {
 
 export interface ZigzagFeaturesBlockProps {
   rows: ZigzagFeatureRow[];
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface ProductShowcaseCard {
@@ -167,6 +174,7 @@ export interface ProductShowcaseBlockProps {
   subheadline: string;
   columns: 2 | 3 | 4;
   cards: ProductShowcaseCard[];
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 export interface NavHeaderLink {
@@ -208,6 +216,7 @@ export interface FullBleedHeroBlockProps {
   backgroundImageUrl: string;
   backgroundVideoUrl?: string;
   overlayOpacity: number;
+  headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   minHeight: "full" | "large" | "medium";
   contentAlignment: "left" | "center" | "right";
   logoImageUrl?: string;

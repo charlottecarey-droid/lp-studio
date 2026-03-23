@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 interface Props {
   props: VideoSectionBlockProps;
@@ -161,7 +162,8 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
     )}>
       {props.headline && (
         <h2 className={cn(
-          "text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-4 leading-tight",
+          getHeadlineSizeClass(props.headlineSize),
+          "font-display font-bold mb-4 leading-tight",
           isDark ? "text-white" : "text-[#003A30]"
         )}>
           {props.headline}
@@ -217,7 +219,8 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
           <div className="text-center max-w-3xl mx-auto mb-10">
             {props.headline && (
               <h2 className={cn(
-                "text-3xl md:text-5xl font-display font-bold mb-4",
+                getHeadlineSizeClass(props.headlineSize),
+                "font-display font-bold mb-4",
                 isDark ? "text-white" : "text-[#003A30]"
               )}>
                 {props.headline}

@@ -2,9 +2,11 @@ import type { ZigzagFeaturesBlockProps, ZigzagFeatureRow } from "@/lib/block-typ
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 
 interface Props {
   props: ZigzagFeaturesBlockProps;
@@ -31,6 +33,20 @@ export function ZigzagFeaturesPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Feature Headline Size</Label>
+        <Select
+          value={props.headlineSize ?? "md"}
+          onValueChange={v => { if (v === "sm" || v === "md" || v === "lg" || v === "xl" || v === "2xl") onChange({ ...props, headlineSize: v }); }}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(HEADLINE_SIZE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
         Feature Rows
       </Label>

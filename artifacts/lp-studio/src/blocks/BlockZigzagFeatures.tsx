@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { ZigzagFeaturesBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop";
 
@@ -51,7 +52,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
                 as="h2"
                 value={row.headline}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "headline", v) : undefined}
-                className="text-3xl lg:text-4xl font-bold leading-tight"
+                className={cn(getHeadlineSizeClass(props.headlineSize, "md"), "font-bold leading-tight")}
                 style={{ color: brand.primaryColor }}
               />
               <InlineText

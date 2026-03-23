@@ -4,6 +4,7 @@ import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { InlineText } from "@/components/InlineText";
+import { getHeadlineSizeClass } from "@/lib/typography";
 
 const DEFAULT_IMAGE = "/dandy-platform.webp";
 
@@ -54,7 +55,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
         as="h1"
         value={props.headline}
         onUpdate={field("headline")}
-        className={cn("font-display font-bold tracking-tight leading-[1.05]", isMinimal ? "text-5xl md:text-6xl lg:text-7xl" : "text-4xl md:text-6xl lg:text-7xl", isDark ? "text-white" : "text-[#003A30]")}
+        className={cn("font-display font-bold tracking-tight leading-[1.05]", getHeadlineSizeClass(props.headlineSize, "xl"), isDark ? "text-white" : "text-[#003A30]")}
       />
       {props.subheadline && (
         <InlineText
