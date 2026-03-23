@@ -66,6 +66,16 @@ const PRELOADED_VIDEOS = [
     createdAt: new Date("2025-01-01").toISOString(),
   },
   {
+    id: "preloaded-dandy-broll",
+    title: "Dandy B-Roll (No Text)",
+    url: "/lp-studio/videos/dandy-broll.mp4",
+    mediaType: "video",
+    mimeType: "video/mp4",
+    isPreloaded: true,
+    sizeBytes: null as number | null,
+    createdAt: new Date("2025-01-01").toISOString(),
+  },
+  {
     id: "preloaded-dandy-website-animation",
     title: "Dandy Website Animation",
     url: "/dandy-lab-video-2/",
