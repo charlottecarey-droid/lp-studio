@@ -82,8 +82,8 @@ export interface CreateVariantInput {
   name: string;
   isControl?: boolean;
   trafficWeight: number;
-  config: VariantConfig;
-  /** FK to lp_pages.id; set to link a builder page at creation time */
+  config?: VariantConfig;
+  /** FK to lp_pages.id; link a builder page as the content source for this variant */
   builderPageId?: number | null;
 }
 

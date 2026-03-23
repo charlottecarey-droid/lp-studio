@@ -206,7 +206,7 @@ export default function BuilderEditor() {
       const variantRes = await fetch(`${API_BASE}/lp/tests/${test.id}/variants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Control", isControl: true, trafficWeight: 50, config: {}, builderPageId: parseInt(pageId, 10) }),
+        body: JSON.stringify({ name: "Control", isControl: true, trafficWeight: 50, builderPageId: parseInt(pageId, 10) }),
       });
       if (!variantRes.ok) {
         await fetch(`${API_BASE}/lp/tests/${test.id}`, { method: "DELETE" }).catch(() => {});

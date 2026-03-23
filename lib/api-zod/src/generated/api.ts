@@ -265,8 +265,15 @@ export const CreateVariantBody = zod.object({
         .default(createVariantBodyConfigShowSocialProofDefault),
       socialProofText: zod.string().optional(),
     })
+    .optional()
     .describe(
       "The configurable elements of a landing page variant. Supports arbitrary additional section config fields (trustBar, benefits, testimonial, painSection, howItWorks, bottomCta, guaranteeBar, templateId).",
+    ),
+  builderPageId: zod
+    .number()
+    .nullish()
+    .describe(
+      "FK to lp_pages.id; link a builder page as the content source for this variant",
     ),
 });
 

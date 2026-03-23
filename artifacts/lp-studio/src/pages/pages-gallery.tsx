@@ -129,7 +129,6 @@ function CreateTestFromPageModal({
           name: "Control",
           isControl: true,
           trafficWeight: 50,
-          config: {},
           builderPageId: page.id,
         }),
       });

@@ -399,10 +399,13 @@ components:
           type: number
         config:
           $ref: "#/components/schemas/VariantConfig"
+        builderPageId:
+          type: integer
+          nullable: true
+          description: FK to lp_pages.id; link a builder page as the content source for this variant
       required:
         - name
         - trafficWeight
-        - config
 
     UpdateVariantInput:
       type: object
