@@ -18,6 +18,8 @@ interface Props {
 export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
+  const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
+  const isFullWidth = props.buttonWidth === "full";
   const isDark = props.backgroundStyle === "dark";
   const isMinimal = props.layout === "minimal";
   const isSplit = props.layout === "split" || props.layout === "split-right";
@@ -71,8 +73,8 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
           multiline
         />
       )}
-      <div className={cn("flex flex-col gap-4 w-full sm:w-auto pt-2", !isSplit && "items-center", isSplitRight && "items-end")}>
-        <button onClick={onCtaClick} className={getButtonClasses(brand, "inline-flex items-center justify-center")} style={{ backgroundColor: LIME, color: FOREST }}>
+      <div className={cn("flex flex-col gap-4 pt-2", isFullWidth ? "w-full" : "w-fit", !isSplit && "items-center", isSplitRight && "items-end")}>
+        <button onClick={onCtaClick} className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))} style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}>
           <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
           <ArrowRight className="w-4 h-4 ml-2" />
         </button>

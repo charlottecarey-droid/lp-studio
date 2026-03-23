@@ -61,11 +61,56 @@ export function HeroPanel({ props, onChange }: Props) {
         <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
       </div>
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Color</Label>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Background Color</Label>
         <div className="flex items-center gap-2">
           <input type="color" value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="w-9 h-9 rounded border cursor-pointer" />
           <Input value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="text-sm font-mono" />
         </div>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text Color</Label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={props.ctaTextColor || "#003A30"}
+            onChange={e => set("ctaTextColor", e.target.value)}
+            className="w-9 h-9 rounded border cursor-pointer"
+          />
+          <Input
+            value={props.ctaTextColor || "#003A30"}
+            onChange={e => set("ctaTextColor", e.target.value)}
+            className="text-sm font-mono"
+          />
+          <button
+            type="button"
+            className="text-xs px-2 py-1 rounded border border-input bg-background hover:bg-muted whitespace-nowrap"
+            onClick={() => set("ctaTextColor", "#ffffff")}
+            title="Set to white"
+          >
+            White
+          </button>
+          <button
+            type="button"
+            className="text-xs px-2 py-1 rounded border border-input bg-background hover:bg-muted whitespace-nowrap"
+            onClick={() => set("ctaTextColor", "#003A30")}
+            title="Set to dark green"
+          >
+            Dark Green
+          </button>
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Button Width</Label>
+        <Select
+          value={props.buttonWidth ?? "auto"}
+          onValueChange={v => set("buttonWidth", v as "auto" | "full")}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Auto (fit content)</SelectItem>
+            <SelectItem value="full">Full width</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Layout</Label>

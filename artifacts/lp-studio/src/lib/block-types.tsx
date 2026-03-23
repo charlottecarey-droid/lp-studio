@@ -17,6 +17,8 @@ export interface HeroBlockProps {
   mediaUrl: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   imageShadow?: boolean;
+  ctaTextColor?: string;
+  buttonWidth?: "auto" | "full";
 }
 
 export interface TrustBarBlockProps {
