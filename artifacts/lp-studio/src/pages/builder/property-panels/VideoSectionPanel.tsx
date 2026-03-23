@@ -1,8 +1,9 @@
 import type { VideoSectionBlockProps } from "@/lib/block-types";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VideoPicker } from "@/components/VideoPicker";
 
 interface Props {
   props: VideoSectionBlockProps;
@@ -31,16 +32,13 @@ export function VideoSectionPanel({ props, onChange }: Props) {
           </SelectContent>
         </Select>
       </div>
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Video URL</Label>
-        <Input
-          value={props.videoUrl}
-          onChange={e => set("videoUrl", e.target.value)}
-          className="text-sm"
-          placeholder="https://www.youtube.com/embed/... or iframe URL"
-        />
-        <p className="text-xs text-muted-foreground mt-1">Paste an embed URL (YouTube, Vimeo, Loom, etc.)</p>
-      </div>
+
+      <VideoPicker
+        label="Video"
+        value={props.videoUrl}
+        onChange={url => set("videoUrl", url)}
+      />
+
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
         <Textarea

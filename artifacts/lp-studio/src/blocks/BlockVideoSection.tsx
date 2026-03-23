@@ -33,17 +33,28 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
   const FOREST = brand.primaryColor;
 
   const hasVideo = props.videoUrl && props.videoUrl.trim() !== "";
+  const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
+  const isNativeVideo = hasVideo && VIDEO_EXTS.some(ext => props.videoUrl.toLowerCase().split("?")[0].endsWith(ext));
 
   const videoElement = (
     <div className={cn("relative w-full rounded-xl overflow-hidden", aspectClass)}>
       {hasVideo ? (
-        <iframe
-          src={props.videoUrl}
-          className="w-full h-full border-0"
-          title="Video"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+        isNativeVideo ? (
+          <video
+            src={props.videoUrl}
+            className="w-full h-full object-cover"
+            controls
+            preload="metadata"
+          />
+        ) : (
+          <iframe
+            src={props.videoUrl}
+            className="w-full h-full border-0"
+            title="Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
           <div className="text-center">

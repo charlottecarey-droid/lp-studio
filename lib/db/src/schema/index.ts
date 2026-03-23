@@ -5,3 +5,4 @@ export * from "./lpEvents";
 export * from "./lpBrandSettings";
 export * from "./lpPages";
 export * from "./lpCollaboration";
+export * from "./lpMedia";
