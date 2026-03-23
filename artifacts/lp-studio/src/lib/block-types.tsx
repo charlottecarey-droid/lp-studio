@@ -146,6 +146,7 @@ export interface ProductShowcaseCard {
   name: string;
   description: string;
   badge: string;
+  image?: string;
 }
 
 export interface ProductShowcaseBlockProps {

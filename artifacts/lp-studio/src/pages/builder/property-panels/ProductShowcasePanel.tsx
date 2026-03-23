@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: ProductShowcaseBlockProps;
@@ -114,6 +115,11 @@ export function ProductShowcasePanel({ props, onChange }: Props) {
               placeholder='e.g. FROM $99/UNIT'
             />
           </div>
+          <ImagePicker
+            label="Image (optional)"
+            value={card.image ?? ""}
+            onChange={url => updateCard(i, "image", url)}
+          />
         </div>
       ))}
       <Button

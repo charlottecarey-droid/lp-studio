@@ -49,8 +49,16 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
           {props.cards.map((card, i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
             >
+              {card.image && (
+                <img
+                  src={card.image}
+                  alt={card.name}
+                  className="w-full h-48 object-cover"
+                />
+              )}
+              <div className="p-6 flex flex-col gap-3 flex-1">
               <InlineText
                 as="h3"
                 value={card.name}
@@ -78,6 +86,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
                   </span>
                 </div>
               )}
+              </div>
             </div>
           ))}
         </div>
