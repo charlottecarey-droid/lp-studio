@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpTestsTable, lpVariantsTable } from "@workspace/db";
+import { lpTestsTable, lpVariantsTable, lpPagesTable } from "@workspace/db";
 import {
   CreateTestBody,
   UpdateTestBody,
@@ -74,7 +74,32 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
     .select()
     .from(lpVariantsTable)
     .where(eq(lpVariantsTable.testId, params.data.testId));
-  res.json({ ...test, variants });
+
+  const pageIds = variants
+    .map(v => v.builderPageId)
+    .filter((id): id is number => id != null);
+
+  const linkedPages = pageIds.length > 0
+    ? await db
+        .select({
+          id: lpPagesTable.id,
+          title: lpPagesTable.title,
+          slug: lpPagesTable.slug,
+          status: lpPagesTable.status,
+          blockCount: sql<number>`jsonb_array_length(coalesce(${lpPagesTable.blocks}, '[]'::jsonb))`,
+        })
+        .from(lpPagesTable)
+        .where(inArray(lpPagesTable.id, pageIds))
+    : [];
+
+  const linkedPageMap = Object.fromEntries(linkedPages.map(p => [p.id, p]));
+
+  const enrichedVariants = variants.map(v => ({
+    ...v,
+    linkedPageSummary: v.builderPageId != null ? (linkedPageMap[v.builderPageId] ?? null) : null,
+  }));
+
+  res.json({ ...test, variants: enrichedVariants });
 });
 
 router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
