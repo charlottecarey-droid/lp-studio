@@ -12,6 +12,7 @@ export * from "./createVariantInput";
 export * from "./getPageConfigParams";
 export * from "./healthStatus";
 export * from "./linkedPage";
+export * from "./linkedPageStatus";
 export * from "./pageConfig";
 export * from "./test";
 export * from "./testResults";

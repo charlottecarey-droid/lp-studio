@@ -334,7 +334,7 @@ components:
 
     LinkedPage:
       type: object
-      description: Builder page linked to a variant (present in tracking responses when builderPageId is set)
+      description: Builder page linked to a variant (present in test detail and tracking responses when builderPageId is set)
       properties:
         id:
           type: integer
@@ -342,14 +342,20 @@ components:
           type: string
         slug:
           type: string
+        status:
+          type: string
+          enum: [draft, published]
+        blockCount:
+          type: integer
+          description: Number of blocks in the page
         blocks:
           type: array
           items: {}
+          description: Present in tracking responses; omitted in test-detail summary
       required:
         - id
         - title
         - slug
-        - blocks
 
     Variant:
       type: object

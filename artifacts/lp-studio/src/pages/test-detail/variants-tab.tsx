@@ -461,9 +461,12 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
       setLinkedPageInfo(null);
       return;
     }
-    const serverSummary = (variant as unknown as { linkedPageSummary?: { title: string; slug: string; blockCount: number } | null }).linkedPageSummary;
-    if (serverSummary) {
-      setLinkedPageInfo({ title: serverSummary.title, slug: serverSummary.slug, blockCount: serverSummary.blockCount });
+    if (variant.linkedPage) {
+      setLinkedPageInfo({
+        title: variant.linkedPage.title,
+        slug: variant.linkedPage.slug,
+        blockCount: variant.linkedPage.blockCount ?? variant.linkedPage.blocks?.length ?? 0,
+      });
       return;
     }
     fetch(`${API_BASE}/lp/pages/${variant.builderPageId}`)
@@ -474,7 +477,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
         }
       })
       .catch(() => setLinkedPageInfo(null));
-  }, [variant.builderPageId, (variant as unknown as { linkedPageSummary?: unknown }).linkedPageSummary]);
+  }, [variant.builderPageId, variant.linkedPage]);
 
   const form = useForm<z.infer<typeof variantSchema>>({
     resolver: zodResolver(variantSchema),

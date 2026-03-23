@@ -119,7 +119,17 @@ export const GetTestResponse = zod
               id: zod.number(),
               title: zod.string(),
               slug: zod.string(),
-              blocks: zod.array(zod.unknown()),
+              status: zod.enum(["draft", "published"]).optional(),
+              blockCount: zod
+                .number()
+                .optional()
+                .describe("Number of blocks in the page"),
+              blocks: zod
+                .array(zod.unknown())
+                .optional()
+                .describe(
+                  "Present in tracking responses; omitted in test-detail summary",
+                ),
             })
             .nullish()
             .describe(
@@ -219,7 +229,17 @@ export const ListVariantsResponseItem = zod.object({
       id: zod.number(),
       title: zod.string(),
       slug: zod.string(),
-      blocks: zod.array(zod.unknown()),
+      status: zod.enum(["draft", "published"]).optional(),
+      blockCount: zod
+        .number()
+        .optional()
+        .describe("Number of blocks in the page"),
+      blocks: zod
+        .array(zod.unknown())
+        .optional()
+        .describe(
+          "Present in tracking responses; omitted in test-detail summary",
+        ),
     })
     .nullish()
     .describe("Populated by the tracking route when builderPageId is set"),
@@ -373,7 +393,17 @@ export const UpdateVariantResponse = zod.object({
       id: zod.number(),
       title: zod.string(),
       slug: zod.string(),
-      blocks: zod.array(zod.unknown()),
+      status: zod.enum(["draft", "published"]).optional(),
+      blockCount: zod
+        .number()
+        .optional()
+        .describe("Number of blocks in the page"),
+      blocks: zod
+        .array(zod.unknown())
+        .optional()
+        .describe(
+          "Present in tracking responses; omitted in test-detail summary",
+        ),
     })
     .nullish()
     .describe("Populated by the tracking route when builderPageId is set"),
@@ -521,7 +551,17 @@ export const GetPageConfigResponse = zod.object({
         id: zod.number(),
         title: zod.string(),
         slug: zod.string(),
-        blocks: zod.array(zod.unknown()),
+        status: zod.enum(["draft", "published"]).optional(),
+        blockCount: zod
+          .number()
+          .optional()
+          .describe("Number of blocks in the page"),
+        blocks: zod
+          .array(zod.unknown())
+          .optional()
+          .describe(
+            "Present in tracking responses; omitted in test-detail summary",
+          ),
       })
       .nullish()
       .describe("Populated by the tracking route when builderPageId is set"),

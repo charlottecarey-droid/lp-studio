@@ -53,14 +53,26 @@ export interface VariantConfig {
   [key: string]: unknown;
 }
 
+export type LinkedPageStatus =
+  (typeof LinkedPageStatus)[keyof typeof LinkedPageStatus];
+
+export const LinkedPageStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
 /**
- * Builder page linked to a variant (present in tracking responses when builderPageId is set)
+ * Builder page linked to a variant (present in test detail and tracking responses when builderPageId is set)
  */
 export interface LinkedPage {
   id: number;
   title: string;
   slug: string;
-  blocks: unknown[];
+  status?: LinkedPageStatus;
+  /** Number of blocks in the page */
+  blockCount?: number;
+  /** Present in tracking responses; omitted in test-detail summary */
+  blocks?: unknown[];
 }
 
 export interface Variant {

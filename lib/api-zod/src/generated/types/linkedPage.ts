@@ -5,13 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LinkedPageStatus } from "./linkedPageStatus";
 
 /**
- * Builder page linked to a variant (present in tracking responses when builderPageId is set)
+ * Builder page linked to a variant (present in test detail and tracking responses when builderPageId is set)
  */
 export interface LinkedPage {
   id: number;
   title: string;
   slug: string;
-  blocks: unknown[];
+  status?: LinkedPageStatus;
+  /** Number of blocks in the page */
+  blockCount?: number;
+  /** Present in tracking responses; omitted in test-detail summary */
+  blocks?: unknown[];
 }

@@ -96,7 +96,7 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
 
   const enrichedVariants = variants.map(v => ({
     ...v,
-    linkedPageSummary: v.builderPageId != null ? (linkedPageMap[v.builderPageId] ?? null) : null,
+    linkedPage: v.builderPageId != null ? (linkedPageMap[v.builderPageId] ?? null) : null,
   }));
 
   res.json({ ...test, variants: enrichedVariants });
