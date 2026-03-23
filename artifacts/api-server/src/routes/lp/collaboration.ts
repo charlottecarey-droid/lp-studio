@@ -180,6 +180,20 @@ router.patch("/lp/review/:token", async (req, res): Promise<void> => {
   res.json(review);
 });
 
+router.delete("/lp/pages/:pageId/reviews/:reviewId", async (req, res): Promise<void> => {
+  const pageId = parseInt(req.params.pageId, 10);
+  const reviewId = parseInt(req.params.reviewId, 10);
+  if (isNaN(pageId) || isNaN(reviewId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [deleted] = await db
+    .delete(lpPageReviewsTable)
+    .where(and(eq(lpPageReviewsTable.id, reviewId), eq(lpPageReviewsTable.pageId, pageId)))
+    .returning();
+
+  if (!deleted) { res.status(404).json({ error: "Review not found" }); return; }
+  res.json({ success: true });
+});
+
 // ─── Presence ─────────────────────────────────────────────────────────────────
 
 const PRESENCE_TTL_SECONDS = 30;

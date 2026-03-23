@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Link2, Copy, CheckCheck, ExternalLink } from "lucide-react";
+import { Link2, Copy, CheckCheck, ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PageReview } from "@/hooks/use-collaboration";
 
@@ -25,14 +24,18 @@ interface ShareReviewModalProps {
   pageName: string;
   reviews: PageReview[];
   onCreateReview: () => Promise<{ token: string; reviewUrl: string } | null>;
+  onDeleteReview: (reviewId: number) => Promise<boolean>;
 }
 
-export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onCreateReview }: ShareReviewModalProps) {
+export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onCreateReview, onDeleteReview }: ShareReviewModalProps) {
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [latestReviewUrl, setLatestReviewUrl] = useState<string | null>(null);
 
-  const latestReview = reviews[reviews.length - 1];
+  const latestReview = [...reviews].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  )[0];
   const baseUrl = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const reviewUrl = latestReviewUrl
@@ -56,6 +59,22 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleDelete = async (reviewId: number) => {
+    setDeletingId(reviewId);
+    try {
+      await onDeleteReview(reviewId);
+      if (latestReview?.id === reviewId) {
+        setLatestReviewUrl(null);
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const sortedReviews = [...reviews].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -135,25 +154,33 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
             </Button>
           )}
 
-          {reviews.length > 0 && (
+          {sortedReviews.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Review History</p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {[...reviews].reverse().map(review => (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {sortedReviews.map(review => (
                   <div key={review.id} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-lg bg-muted/30 border border-border/40">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-medium shrink-0 ${statusColor(review.status)}`}>
                         {statusLabel(review.status)}
                       </span>
                       <span className="text-xs text-muted-foreground truncate">
                         {review.reviewerName || "Awaiting reviewer"}
                       </span>
+                      {review.decisionComment && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[100px]" title={review.decisionComment}>
+                          "{review.decisionComment}"
+                        </span>
+                      )}
                     </div>
-                    {review.decisionComment && (
-                      <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={review.decisionComment}>
-                        "{review.decisionComment}"
-                      </span>
-                    )}
+                    <button
+                      onClick={() => handleDelete(review.id)}
+                      disabled={deletingId === review.id}
+                      className="shrink-0 p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40 transition-colors disabled:opacity-40"
+                      title="Delete this review link"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>

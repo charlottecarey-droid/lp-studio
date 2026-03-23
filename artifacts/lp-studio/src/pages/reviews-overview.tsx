@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -17,6 +17,7 @@ import {
   Edit2,
   Inbox,
   Globe,
+  RefreshCw,
 } from "lucide-react";
 
 const API_BASE = "/api";
@@ -39,6 +40,15 @@ interface PageReviewSummary {
   updatedAt: string;
   reviews: PageReview[];
   latestStatus: "pending" | "approved" | "changes_requested" | null;
+  latestReviewUpdatedAt: string | null;
+}
+
+function computeLatestStatus(reviews: PageReview[]): PageReviewSummary["latestStatus"] {
+  if (reviews.length === 0) return null;
+  const sorted = [...reviews].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+  return sorted[0].status as PageReviewSummary["latestStatus"];
 }
 
 function ReviewStatusBadge({ status }: { status: string }) {
@@ -67,12 +77,26 @@ function ShareModalWrapper({
   pageId,
   pageTitle,
   onClose,
+  onReviewsChanged,
 }: {
   pageId: number;
   pageTitle: string;
   onClose: () => void;
+  onReviewsChanged: () => void;
 }) {
-  const { reviews, createReview } = useReviews(pageId);
+  const { reviews, createReview, deleteReview } = useReviews(pageId);
+
+  const handleCreate = async () => {
+    const result = await createReview();
+    onReviewsChanged();
+    return result;
+  };
+
+  const handleDelete = async (reviewId: number) => {
+    const ok = await deleteReview(reviewId);
+    if (ok) onReviewsChanged();
+    return ok;
+  };
 
   return (
     <ShareReviewModal
@@ -81,7 +105,8 @@ function ShareModalWrapper({
       pageId={pageId}
       pageName={pageTitle}
       reviews={reviews}
-      onCreateReview={createReview}
+      onCreateReview={handleCreate}
+      onDeleteReview={handleDelete}
     />
   );
 }
@@ -89,65 +114,72 @@ function ShareModalWrapper({
 export default function ReviewsOverview() {
   const [rows, setRows] = useState<PageReviewSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [shareModal, setShareModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "changes_requested">("all");
 
-  useEffect(() => {
-    async function fetchAll() {
-      setLoading(true);
-      try {
-        const pagesRes = await fetch(`${API_BASE}/lp/pages`);
-        const pages: BuilderPage[] = pagesRes.ok ? await pagesRes.json() : [];
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const pagesRes = await fetch(`${API_BASE}/lp/pages`);
+      const pages: BuilderPage[] = pagesRes.ok ? await pagesRes.json() : [];
 
-        const results: PageReviewSummary[] = [];
+      const results: PageReviewSummary[] = [];
 
-        for (const page of pages) {
-          try {
-            const res = await fetch(`${API_BASE}/lp/pages/${page.id}/reviews`);
-            const reviews: PageReview[] = res.ok ? await res.json() : [];
-            const decided = reviews.find(r => r.status !== "pending");
-            const pending = reviews.find(r => r.status === "pending");
-            const latestStatus = (decided?.status ?? pending?.status ?? null) as PageReviewSummary["latestStatus"];
-            results.push({
-              pageId: page.id,
-              pageTitle: page.title,
-              pageSlug: page.slug,
-              pageStatus: page.status,
-              blockCount: (page.blocks ?? []).length,
-              updatedAt: page.updatedAt,
-              reviews,
-              latestStatus,
-            });
-          } catch {
-            results.push({
-              pageId: page.id,
-              pageTitle: page.title,
-              pageSlug: page.slug,
-              pageStatus: page.status,
-              blockCount: (page.blocks ?? []).length,
-              updatedAt: page.updatedAt,
-              reviews: [],
-              latestStatus: null,
-            });
-          }
+      await Promise.all(pages.map(async (page) => {
+        try {
+          const res = await fetch(`${API_BASE}/lp/pages/${page.id}/reviews`);
+          const reviews: PageReview[] = res.ok ? await res.json() : [];
+          const sorted = [...reviews].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+          results.push({
+            pageId: page.id,
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            pageStatus: page.status,
+            blockCount: (page.blocks ?? []).length,
+            updatedAt: page.updatedAt,
+            reviews,
+            latestStatus: computeLatestStatus(reviews),
+            latestReviewUpdatedAt: sorted[0]?.updatedAt ?? null,
+          });
+        } catch {
+          results.push({
+            pageId: page.id,
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            pageStatus: page.status,
+            blockCount: (page.blocks ?? []).length,
+            updatedAt: page.updatedAt,
+            reviews: [],
+            latestStatus: null,
+            latestReviewUpdatedAt: null,
+          });
         }
+      }));
 
-        const order = { pending: 0, changes_requested: 1, approved: 2 } as Record<string, number>;
-        results.sort((a, b) => {
-          const aO = a.latestStatus ? (order[a.latestStatus] ?? 3) : 3;
-          const bO = b.latestStatus ? (order[b.latestStatus] ?? 3) : 3;
-          if (aO !== bO) return aO - bO;
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-        });
+      const order = { pending: 0, changes_requested: 1, approved: 2 } as Record<string, number>;
+      results.sort((a, b) => {
+        const aO = a.latestStatus ? (order[a.latestStatus] ?? 3) : 3;
+        const bO = b.latestStatus ? (order[b.latestStatus] ?? 3) : 3;
+        if (aO !== bO) return aO - bO;
+        const aTime = a.latestReviewUpdatedAt ?? a.updatedAt;
+        const bTime = b.latestReviewUpdatedAt ?? b.updatedAt;
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      });
 
-        setRows(results);
-      } finally {
-        setLoading(false);
-      }
+      setRows(results);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    fetchAll();
   }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const filtered = rows.filter(r => {
     if (filter === "all") return true;
@@ -163,11 +195,23 @@ export default function ReviewsOverview() {
     <AppLayout>
       <div className="flex flex-col gap-8 pb-12">
         {/* Header */}
-        <div className="pt-2">
-          <h1 className="text-3xl font-display font-bold text-foreground">Reviews</h1>
-          <p className="text-muted-foreground mt-1 text-base">
-            Share custom pages for approval and track feedback in one place.
-          </p>
+        <div className="pt-2 flex items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-foreground">Reviews</h1>
+            <p className="text-muted-foreground mt-1 text-base">
+              Share custom pages for approval and track feedback in one place.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => fetchAll(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Stat tiles */}
@@ -226,66 +270,73 @@ export default function ReviewsOverview() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {filtered.map(item => (
-              <div
-                key={item.pageId}
-                className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150"
-              >
-                <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${item.pageStatus === "published" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+            {filtered.map(item => {
+              const mostRecentReview = item.reviews.length > 0
+                ? [...item.reviews].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+                : null;
+              return (
+                <div
+                  key={item.pageId}
+                  className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150"
+                >
+                  <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${item.pageStatus === "published" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-semibold text-foreground text-sm">{item.pageTitle}</span>
-                    {item.pageStatus === "published" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
-                        <Globe className="w-3 h-3" /> Published
-                      </span>
-                    )}
-                    {item.latestStatus ? (
-                      <ReviewStatusBadge status={item.latestStatus} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50 italic">No reviews sent</span>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-foreground text-sm">{item.pageTitle}</span>
+                      {item.pageStatus === "published" && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                          <Globe className="w-3 h-3" /> Published
+                        </span>
+                      )}
+                      {item.latestStatus ? (
+                        <ReviewStatusBadge status={item.latestStatus} />
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50 italic">No reviews sent</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <code className="text-xs text-muted-foreground font-mono">/lp/{item.pageSlug}</code>
+                      <span className="text-xs text-muted-foreground">{item.blockCount} block{item.blockCount !== 1 ? "s" : ""}</span>
+                      {item.reviews.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {item.reviews.length} review link{item.reviews.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {mostRecentReview?.reviewerName && (
+                        <span className="text-xs text-muted-foreground/60 italic">
+                          {mostRecentReview.reviewerName}
+                          {mostRecentReview.decisionComment ? ` — "${mostRecentReview.decisionComment}"` : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <code className="text-xs text-muted-foreground font-mono">/lp/{item.pageSlug}</code>
-                    <span className="text-xs text-muted-foreground">{item.blockCount} block{item.blockCount !== 1 ? "s" : ""}</span>
-                    {item.reviews.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {item.reviews.length} review link{item.reviews.length !== 1 ? "s" : ""} sent
-                      </span>
-                    )}
-                    {item.reviews.filter(r => r.reviewerName).slice(0, 2).map(r => (
-                      <span key={r.id} className="text-xs text-muted-foreground/60 italic">
-                        {r.reviewerName}
-                        {r.decisionComment ? ` — "${r.decisionComment}"` : ""}
-                      </span>
-                    ))}
+
+                  <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                    {mostRecentReview
+                      ? format(new Date(mostRecentReview.updatedAt), "MMM d")
+                      : format(new Date(item.updatedAt), "MMM d")}
                   </div>
-                </div>
 
-                <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                  {format(new Date(item.updatedAt), "MMM d")}
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
-                    title="Share for review"
-                    onClick={() => setShareModal({ pageId: item.pageId, pageTitle: item.pageTitle })}
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                  </Button>
-                  <Link href={`/builder/${item.pageId}`}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="Edit page">
-                      <Edit2 className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
+                      title="Share for review"
+                      onClick={() => setShareModal({ pageId: item.pageId, pageTitle: item.pageTitle })}
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
                     </Button>
-                  </Link>
+                    <Link href={`/builder/${item.pageId}`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="Edit page">
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -303,6 +354,7 @@ export default function ReviewsOverview() {
           pageId={shareModal.pageId}
           pageTitle={shareModal.pageTitle}
           onClose={() => setShareModal(null)}
+          onReviewsChanged={() => fetchAll(true)}
         />
       )}
     </AppLayout>

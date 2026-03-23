@@ -146,7 +146,18 @@ export function useReviews(pageId: number) {
     return null;
   }, [pageId, fetchReviews]);
 
-  return { reviews, loading, fetchReviews, createReview };
+  const deleteReview = useCallback(async (reviewId: number): Promise<boolean> => {
+    const res = await fetch(`${API_BASE}/lp/pages/${pageId}/reviews/${reviewId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      await fetchReviews();
+      return true;
+    }
+    return false;
+  }, [pageId, fetchReviews]);
+
+  return { reviews, loading, fetchReviews, createReview, deleteReview };
 }
 
 export function usePresence(pageId: number, displayName: string) {
