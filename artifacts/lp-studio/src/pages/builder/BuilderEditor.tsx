@@ -325,17 +325,21 @@ function InsertionBar({ onClick }: { onClick: () => void }) {
 
 function highlightCss(css: string): string {
   if (!css) return "";
-  return css
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span style="color:#6a9955">$1</span>')
-    .replace(/([.#]?[\w-]+)(?=\s*\{)/g, '<span style="color:#569cd6">$1</span>')
-    .replace(/\{/g, '<span style="color:#d4d4d4">{</span>')
-    .replace(/\}/g, '<span style="color:#d4d4d4">}</span>')
-    .replace(/([\w-]+)(?=\s*:)/g, '<span style="color:#9cdcfe">$1</span>')
-    .replace(/:\s*((?:#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|[\w-.]+(?:\([\s\S]*?\))?|"[^"]*"|'[^']*'))/g,
-      (_, val) => `: <span style="color:#ce9178">${val}</span>`);
+  const slots: string[] = [];
+  const protect = (html: string) => {
+    const key = `\x00${slots.length}\x00`;
+    slots.push(html);
+    return key;
+  };
+  let s = css.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  s = s.replace(/(\/\*[\s\S]*?\*\/)/g, (_, m) => protect(`<span style="color:#6a9955">${m}</span>`));
+  s = s.replace(/([.#*]?[\w-]+)(?=\s*\{)/g, (_, m) => protect(`<span style="color:#569cd6">${m}</span>`));
+  s = s.replace(/\{/g, () => protect(`<span style="color:#d4d4d4">{</span>`));
+  s = s.replace(/\}/g, () => protect(`<span style="color:#d4d4d4">}</span>`));
+  s = s.replace(/([\w-]+)(?=\s*:)/g, (_, m) => protect(`<span style="color:#9cdcfe">${m}</span>`));
+  s = s.replace(/:\s*((?:#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|[\w-.]+(?:\([\s\S]*?\))?|"[^"]*"|'[^']*'))/g,
+    (_, val) => `: ${protect(`<span style="color:#ce9178">${val}</span>`)}`);
+  return s.replace(/\x00(\d+)\x00/g, (_, i) => slots[parseInt(i)]);
 }
 
 function CustomCssPanel({ value, onChange }: { value: string; onChange: (v: string) => void }) {
