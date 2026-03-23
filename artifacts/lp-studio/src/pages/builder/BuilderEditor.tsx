@@ -768,14 +768,14 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
       {/* Selection / hover outline */}
       <div
         className={cn(
-          "absolute inset-0 pointer-events-none z-10 border-2 transition-colors",
+          "absolute inset-0 pointer-events-none z-[60] border-2 transition-colors",
           isSelected ? "border-primary" : "border-transparent group-hover:border-primary/30"
         )}
       />
 
       {/* Controls overlay */}
       <div className={cn(
-        "absolute top-2 right-2 z-20 flex items-center gap-1 transition-opacity",
+        "absolute top-2 right-2 z-[70] flex items-center gap-1 transition-opacity",
         isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
       )}>
         <button
