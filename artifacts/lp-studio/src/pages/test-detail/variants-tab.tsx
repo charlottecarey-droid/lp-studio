@@ -469,12 +469,11 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
       });
       return;
     }
+    setLinkedPageInfo(null);
     fetch(`${API_BASE}/lp/pages/${variant.builderPageId}`)
       .then(res => res.ok ? res.json() : null)
       .then((page: { title: string; slug: string; blocks?: unknown[] } | null) => {
-        if (page) {
-          setLinkedPageInfo({ title: page.title, slug: page.slug, blockCount: page.blocks?.length ?? 0 });
-        }
+        setLinkedPageInfo(page ? { title: page.title, slug: page.slug, blockCount: page.blocks?.length ?? 0 } : null);
       })
       .catch(() => setLinkedPageInfo(null));
   }, [variant.builderPageId, variant.linkedPage]);
