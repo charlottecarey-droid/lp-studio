@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/app-layout";
+import { getLpPublicBase } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -61,7 +62,7 @@ export default function LivePages() {
 
   const isLoading = testsLoading || pagesLoading;
   const runningTests = tests?.filter(t => t.status === "running") ?? [];
-  const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+  const base = getLpPublicBase();
 
   const totalLive = runningTests.length + (publishedPages?.length ?? 0);
 

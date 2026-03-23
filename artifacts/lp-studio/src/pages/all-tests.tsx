@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
-import { cn } from "@/lib/utils";
+import { cn, getLpPublicBase } from "@/lib/utils";
 import { useState } from "react";
 
 type StatusFilter = "all" | "running" | "draft";
@@ -34,7 +34,7 @@ export default function AllTests() {
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteTest();
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+  const base = getLpPublicBase();
 
   const handleDelete = async (e: React.MouseEvent, testId: number, testName: string) => {
     e.stopPropagation();

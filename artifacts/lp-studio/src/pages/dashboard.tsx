@@ -26,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
+import { getLpPublicBase } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -75,7 +76,7 @@ export default function Dashboard() {
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   ).slice(0, 5);
 
-  const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+  const base = getLpPublicBase();
   const today = format(new Date(), "EEEE, MMMM d");
 
   const isEmpty = !isLoading && (!tests || tests.length === 0);

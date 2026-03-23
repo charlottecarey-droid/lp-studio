@@ -52,7 +52,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, getLpPublicBase } from "@/lib/utils";
 
 import { TemplatePicker, BuilderPageSummary } from "@/components/template-picker";
 import { templateVideoHero } from "@/lib/templates";
@@ -423,7 +423,7 @@ function PageLinker({ testId, testSlug, variant }: PageLinkerProps) {
     }
   };
 
-  const previewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${variant.id}`;
+  const previewUrl = `${getLpPublicBase()}/lp/${testSlug}?previewVariantId=${variant.id}`;
 
   if (linkedPage) {
     return (
@@ -657,7 +657,7 @@ function BlockTestSection({ testId, testSlug, variant }: { testId: number; testS
   const blockOverrides = (variant as unknown as Record<string, unknown>).blockOverrides as Record<string, unknown> | null | undefined;
   const overrideProps = blockOverrides?.[testedBlockId ?? ""] as Record<string, unknown> | undefined;
   const hasOverrides = overrideProps && Object.keys(overrideProps).length > 0;
-  const previewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${variant.id}`;
+  const previewUrl = `${getLpPublicBase()}/lp/${testSlug}?previewVariantId=${variant.id}`;
 
   const handleEdit = () => {
     if (!testedBlockId || !variant.builderPageId) return;
@@ -810,7 +810,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
   };
 
   const templateName = getTemplateName();
-  const previewUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/lp/${testSlug}?previewVariantId=${variant.id}`;
+  const previewUrl = `${getLpPublicBase()}/lp/${testSlug}?previewVariantId=${variant.id}`;
 
   return (
     <AccordionItem value={`variant-${variant.id}`} className="border rounded-2xl bg-background overflow-hidden px-1 shadow-sm">
