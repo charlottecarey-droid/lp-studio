@@ -178,7 +178,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
     }
   };
 
-  const totalWeight = test.variants.reduce((sum, v) => sum + (v.trafficWeight || 0), 0);
+  const totalWeight = Math.round(test.variants.reduce((sum, v) => sum + (v.trafficWeight || 0), 0));
 
   const blockTestVariants = test.variants.filter(
     v => !!(v as unknown as Record<string, unknown>).testedBlockId
@@ -712,7 +712,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
     defaultValues: {
       name: variant.name,
       isControl: variant.isControl,
-      trafficWeight: variant.trafficWeight,
+      trafficWeight: Math.round(variant.trafficWeight),
       config: {
         heroType: (variantConfigAny.heroType as "dandy-video" | "static-image" | "none") || "dandy-video",
         headline: (variantConfigAny.headline as string) || "",
@@ -734,7 +734,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
       ...values.config,
     };
     updateMutation.mutate(
-      { testId, variantId: variant.id, data: { name: values.name, isControl: values.isControl, trafficWeight: values.trafficWeight, config: mergedConfig as Record<string, unknown> } },
+      { testId, variantId: variant.id, data: { name: values.name, isControl: values.isControl, trafficWeight: Math.round(values.trafficWeight), config: mergedConfig as Record<string, unknown> } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTestQueryKey(testId) });

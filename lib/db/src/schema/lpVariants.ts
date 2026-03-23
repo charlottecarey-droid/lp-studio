@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lpTestsTable } from "./lpTests";
@@ -9,7 +9,7 @@ export const lpVariantsTable = pgTable("lp_variants", {
   testId: integer("test_id").notNull().references(() => lpTestsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   isControl: boolean("is_control").notNull().default(false),
-  trafficWeight: real("traffic_weight").notNull().default(50),
+  trafficWeight: integer("traffic_weight").notNull().default(50),
   config: jsonb("config").notNull().default({}),
   builderPageId: integer("builder_page_id").references(() => lpPagesTable.id, { onDelete: "set null" }),
   testedBlockId: text("tested_block_id"),
