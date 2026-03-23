@@ -4,6 +4,7 @@ import { getButtonClasses } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 
 interface Props {
   props: NavHeaderBlockProps;
@@ -21,17 +22,12 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
   return (
     <header className="w-full bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
-        <div className="shrink-0 text-xl font-bold" style={{ color: brand.primaryColor }}>
-          {props.logoUrl ? (
-            <img src={props.logoUrl} alt={props.logoText} className="h-8 w-auto" />
-          ) : (
-            <InlineText
-              value={props.logoText}
-              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, logoText: v }) : undefined}
-              className="text-xl font-bold"
-              style={{ color: brand.primaryColor }}
-            />
-          )}
+        <div className="shrink-0">
+          <img
+            src={props.logoUrl || dandyLogoUrl}
+            alt={props.logoText || "Dandy"}
+            className="h-8 w-auto"
+          />
         </div>
 
         {props.navLinks.length > 0 && (
