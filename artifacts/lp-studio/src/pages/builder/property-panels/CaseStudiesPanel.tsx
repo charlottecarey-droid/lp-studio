@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: CaseStudiesBlockProps;
@@ -103,22 +104,20 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
               </div>
 
               <div>
-                <Label className="text-[11px] text-slate-400">Image URL</Label>
-                <Input
+                <Label className="text-[11px] text-slate-400 mb-1 block">Image</Label>
+                <ImagePicker
                   value={item.image}
-                  onChange={(e) => updateItem(idx, { image: e.target.value })}
+                  onChange={(v) => updateItem(idx, { image: v })}
                   placeholder="https://..."
-                  className="h-8 text-xs"
                 />
               </div>
 
               <div>
-                <Label className="text-[11px] text-slate-400">Logo URL</Label>
-                <Input
+                <Label className="text-[11px] text-slate-400 mb-1 block">Logo</Label>
+                <ImagePicker
                   value={item.logoUrl}
-                  onChange={(e) => updateItem(idx, { logoUrl: e.target.value })}
+                  onChange={(v) => updateItem(idx, { logoUrl: v })}
                   placeholder="https://..."
-                  className="h-8 text-xs"
                 />
               </div>
 

@@ -10,6 +10,7 @@ export * from "./createTestInput";
 export * from "./createTestInputTestType";
 export * from "./createVariantInput";
 export * from "./createVariantInputBlockOverrides";
+export * from "./errorEnvelope";
 export * from "./getPageConfigParams";
 export * from "./healthStatus";
 export * from "./linkedPage";

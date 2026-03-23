@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: ResourcesBlockProps;
@@ -133,12 +134,11 @@ export default function ResourcesPanel({ props, onChange }: Props) {
               </div>
 
               <div>
-                <Label className="text-[11px] text-slate-400">Image URL</Label>
-                <Input
+                <Label className="text-[11px] text-slate-400 mb-1 block">Image</Label>
+                <ImagePicker
                   value={item.image}
-                  onChange={(e) => updateItem(idx, { image: e.target.value })}
+                  onChange={(v) => updateItem(idx, { image: v })}
                   placeholder="https://..."
-                  className="h-8 text-xs"
                 />
               </div>
 

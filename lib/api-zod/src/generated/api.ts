@@ -641,3 +641,10 @@ export const GetPageConfigResponse = zod.object({
   }),
   status: zod.string(),
 });
+
+/**
+ * @summary Serve an object entity from PRIVATE_OBJECT_DIR
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
+});

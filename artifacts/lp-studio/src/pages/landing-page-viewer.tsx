@@ -25,6 +25,96 @@ import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 
+/**
+ * Scope all selectors in a CSS string with a prefix attribute selector.
+ * Handles: selector lists, @media rules (scoping inner rules), @keyframes
+ * (left as-is), :root (replaced with prefix), and top-level rules.
+ */
+function scopeCustomCss(css: string, scope: string): string {
+  const AT_RULE_PASSTHROUGH = /^@(keyframes|font-face|charset|import|namespace|layer)\b/i;
+
+  function scopeSelector(sel: string): string {
+    return sel
+      .split(",")
+      .map(s => {
+        const trimmed = s.trim();
+        if (!trimmed) return "";
+        if (trimmed === ":root") return scope;
+        if (trimmed.startsWith(":root")) return `${scope}${trimmed.slice(5)}`;
+        return `${scope} ${trimmed}`;
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function processBlock(css: string): string {
+    let result = "";
+    let i = 0;
+    while (i < css.length) {
+      const remaining = css.slice(i);
+
+      const commentMatch = remaining.match(/^\/\*[\s\S]*?\*\//);
+      if (commentMatch) {
+        result += commentMatch[0];
+        i += commentMatch[0].length;
+        continue;
+      }
+
+      const atMatch = remaining.match(/^(@[^{;]+)\s*(\{|;)/);
+      if (atMatch) {
+        const directive = atMatch[1].trim();
+        const terminator = atMatch[2];
+        i += atMatch[0].length;
+
+        if (terminator === ";") {
+          result += atMatch[0];
+          continue;
+        }
+
+        const blockStart = i;
+        let depth = 1;
+        while (i < css.length && depth > 0) {
+          if (css[i] === "{") depth++;
+          else if (css[i] === "}") depth--;
+          i++;
+        }
+        const innerBlock = css.slice(blockStart, i - 1);
+
+        if (AT_RULE_PASSTHROUGH.test(directive)) {
+          result += `${directive} {${innerBlock}}`;
+        } else {
+          result += `${directive} {${processBlock(innerBlock)}}`;
+        }
+        continue;
+      }
+
+      const ruleMatch = remaining.match(/^([^{]+)\{/);
+      if (ruleMatch) {
+        const selector = ruleMatch[1].trim();
+        i += ruleMatch[0].length;
+        const declStart = i;
+        let depth = 1;
+        while (i < css.length && depth > 0) {
+          if (css[i] === "{") depth++;
+          else if (css[i] === "}") depth--;
+          i++;
+        }
+        const declarations = css.slice(declStart, i - 1);
+        if (selector) {
+          result += `${scopeSelector(selector)} {${declarations}}`;
+        }
+        continue;
+      }
+
+      result += css[i];
+      i++;
+    }
+    return result;
+  }
+
+  return processBlock(css);
+}
+
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -102,6 +192,7 @@ export default function LandingPageViewer() {
   if (isBuilderPageResponse(config)) {
     const builderPage: BuilderPageResponse = config;
     const blocks = builderPage.blocks ?? [];
+    const customCss = builderPage.customCss ?? "";
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
@@ -110,8 +201,10 @@ export default function LandingPageViewer() {
       }
     };
 
+    const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
+
     return (
-      <div className="min-h-screen w-full font-sans">
+      <div className="min-h-screen w-full font-sans" data-lp-page>
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -120,6 +213,7 @@ export default function LandingPageViewer() {
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
+        {scopedCss && <style>{scopedCss}</style>}
         {blocks.map((block, i) => (
           <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
         ))}
@@ -149,6 +243,8 @@ export default function LandingPageViewer() {
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
     const blocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
+    const linkedPageCss = linkedPage?.customCss ?? "";
+    const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
@@ -169,7 +265,7 @@ export default function LandingPageViewer() {
     };
 
     return (
-      <div className="min-h-screen w-full font-sans">
+      <div className="min-h-screen w-full font-sans" data-lp-page>
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -178,6 +274,7 @@ export default function LandingPageViewer() {
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
+        {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
           <div className="bg-[#C7E738] text-[#003A30] py-2 px-4 flex items-center justify-between z-50 relative">
             <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">

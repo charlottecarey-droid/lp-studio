@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: PhotoStripBlockProps;
@@ -28,7 +29,12 @@ export function PhotoStripPanel({ props, onChange }: Props) {
               <Trash2 className="w-3 h-3" />
             </Button>
           </div>
-          <Input placeholder="Image URL" value={img.src} onChange={e => updateImage(i, "src", e.target.value)} className="text-xs h-7" />
+          <ImagePicker
+            value={img.src}
+            onChange={v => updateImage(i, "src", v)}
+            placeholder="Image URL"
+            className="mb-1"
+          />
           <Input placeholder="Alt text" value={img.alt} onChange={e => updateImage(i, "alt", e.target.value)} className="text-xs h-7" />
         </div>
       ))}

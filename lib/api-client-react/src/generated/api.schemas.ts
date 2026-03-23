@@ -73,6 +73,8 @@ export interface LinkedPage {
   blockCount?: number;
   /** Present in tracking responses; omitted in test-detail summary */
   blocks?: unknown[];
+  /** Custom CSS injected into the live page when served; present in tracking responses */
+  customCss?: string;
 }
 
 /**
@@ -269,6 +271,10 @@ export interface PageConfig {
   sessionId: string;
   assignedVariant: Variant;
   status: string;
+}
+
+export interface ErrorEnvelope {
+  error: string;
 }
 
 export type GetPageConfigParams = {

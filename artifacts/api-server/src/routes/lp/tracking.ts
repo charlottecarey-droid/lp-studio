@@ -31,6 +31,7 @@ async function enrichVariantWithPage(variant: LpVariant) {
           title: linkedPage.title,
           slug: linkedPage.slug,
           blocks: linkedPage.blocks,
+          customCss: linkedPage.customCss ?? "",
         },
       };
     }
@@ -115,6 +116,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         slug: builderPage.slug,
         blocks: builderPage.blocks,
         status: builderPage.status,
+        customCss: builderPage.customCss ?? "",
       });
       return;
     }

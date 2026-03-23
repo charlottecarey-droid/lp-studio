@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: HeroBlockProps;
@@ -87,16 +88,12 @@ export function HeroPanel({ props, onChange }: Props) {
             </Select>
           </div>
           {props.heroType === "static-image" && (
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Image URL</Label>
-              <Input
-                value={props.imageUrl ?? ""}
-                onChange={e => set("imageUrl", e.target.value)}
-                className="text-sm"
-                placeholder="Leave empty for default Dandy platform image"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Paste an image URL or leave blank for the default</p>
-            </div>
+            <ImagePicker
+              label="Hero Image"
+              value={props.imageUrl ?? ""}
+              onChange={v => set("imageUrl", v)}
+              placeholder="Leave empty for default image"
+            />
           )}
           {props.heroType === "dandy-video" && (
             <div>

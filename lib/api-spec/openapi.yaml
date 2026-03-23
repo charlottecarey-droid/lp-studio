@@ -20,6 +20,8 @@ tags:
     description: Test results and statistics
   - name: pages
     description: Landing page serving
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 paths:
   /healthz:
     get:
@@ -286,6 +288,83 @@ paths:
         "404":
           description: Page not found
 
+  /lp/upload:
+    post:
+      tags: [Storage]
+      operationId: uploadLpImage
+      summary: Upload an image for use in LP builder blocks
+      description: |
+        Accepts multipart/form-data with a single "file" field. Returns a
+        persistent serve URL that can be saved in block image properties.
+        Allowed types: jpeg, png, gif, webp, avif, heic, heif. Max 20 MB.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload succeeded; returns the serve URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    description: Serve path (e.g. /objects/uploads/<uuid>). Prefix with /api/storage to get the full URL.
+        '400':
+          description: No file, wrong MIME type, or file too large.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Upload failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to serve object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
 components:
   schemas:
     HealthStatus:
@@ -349,6 +428,9 @@ components:
           type: array
           items: {}
           description: Present in tracking responses; omitted in test-detail summary
+        customCss:
+          type: string
+          description: Custom CSS injected into the live page when served; present in tracking responses
       required:
         - id
         - title
@@ -652,3 +734,10 @@ components:
         - sessionId
         - assignedVariant
         - status
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

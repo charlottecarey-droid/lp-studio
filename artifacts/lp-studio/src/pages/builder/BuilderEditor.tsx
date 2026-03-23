@@ -43,6 +43,7 @@ interface FetchedPage {
   slug: string;
   blocks: PageBlock[];
   status: string;
+  customCss?: string;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -56,6 +57,7 @@ interface SavePageData {
   slug: string;
   blocks: PageBlock[];
   status: "draft" | "published";
+  customCss?: string;
 }
 
 async function savePage(id: string, data: SavePageData) {
@@ -141,6 +143,94 @@ function TemplateLibrary({ onSelect }: { onSelect: (templateId: string) => void 
   );
 }
 
+function highlightCss(css: string): string {
+  if (!css) return "";
+  return css
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span style="color:#6a9955">$1</span>')
+    .replace(/([.#]?[\w-]+)(?=\s*\{)/g, '<span style="color:#569cd6">$1</span>')
+    .replace(/\{/g, '<span style="color:#d4d4d4">{</span>')
+    .replace(/\}/g, '<span style="color:#d4d4d4">}</span>')
+    .replace(/([\w-]+)(?=\s*:)/g, '<span style="color:#9cdcfe">$1</span>')
+    .replace(/:\s*((?:#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|[\w-.]+(?:\([\s\S]*?\))?|"[^"]*"|'[^']*'))/g,
+      (_, val) => `: <span style="color:#ce9178">${val}</span>`);
+}
+
+function CustomCssPanel({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const lineCount = value ? value.split("\n").length : 0;
+  const charCount = value.length;
+
+  const syncScroll = () => {
+    if (textareaRef.current && preRef.current) {
+      preRef.current.scrollTop = textareaRef.current.scrollTop;
+      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
+
+  return (
+    <div className="border-t border-border shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <svg className="w-3.5 h-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Custom CSS</span>
+          {value && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+        </div>
+        <svg
+          className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          <div className="relative rounded-lg border border-border overflow-hidden" style={{ background: "#1e1e1e" }}>
+            <pre
+              ref={preRef}
+              aria-hidden="true"
+              className="absolute inset-0 pointer-events-none font-mono text-xs p-2.5 overflow-auto whitespace-pre-wrap break-words leading-relaxed"
+              style={{ color: "#d4d4d4", margin: 0 }}
+              dangerouslySetInnerHTML={{ __html: highlightCss(value) + "\n" }}
+            />
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              onScroll={syncScroll}
+              rows={10}
+              spellCheck={false}
+              className="relative w-full font-mono text-xs p-2.5 resize-y leading-relaxed outline-none focus:ring-1 focus:ring-primary"
+              style={{
+                background: "transparent",
+                color: "transparent",
+                caretColor: "#d4d4d4",
+                minHeight: "160px",
+              }}
+              placeholder={`.hero {\n  background: #f0f;\n}`}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground text-right">
+            {lineCount} line{lineCount !== 1 ? "s" : ""} · {charCount} char{charCount !== 1 ? "s" : ""}
+          </p>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            CSS is injected into the live page when served. Save the page to persist changes.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BuilderEditor() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
@@ -150,6 +240,7 @@ export default function BuilderEditor() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [customCss, setCustomCss] = useState("");
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -184,6 +275,7 @@ export default function BuilderEditor() {
         setSlug(p.slug);
         setStatus(p.status === "published" ? "published" : "draft");
         setBlocks(p.blocks ?? []);
+        setCustomCss(p.customCss ?? "");
         setBrand(b);
         setAbTestName(p.title);
         setAbTestSlug(p.slug);
@@ -355,7 +447,7 @@ export default function BuilderEditor() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await savePage(pageId, { title, slug, blocks, status });
+      await savePage(pageId, { title, slug, blocks, status, customCss });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
@@ -374,7 +466,7 @@ export default function BuilderEditor() {
     const newStatus: "draft" | "published" = isPublished ? "draft" : "published";
     setIsSaving(true);
     try {
-      await savePage(pageId, { title, slug, blocks, status: newStatus });
+      await savePage(pageId, { title, slug, blocks, status: newStatus, customCss });
       setStatus(newStatus);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -681,14 +773,14 @@ export default function BuilderEditor() {
         </main>
 
         {/* Right panel: Property Editor */}
-        <aside className="w-72 border-l border-border bg-background/60 overflow-y-auto shrink-0">
+        <aside className="w-72 border-l border-border bg-background/60 overflow-y-auto shrink-0 flex flex-col">
           {selectedBlock ? (
             <PropertyPanel
               block={selectedBlock}
               onChange={updateBlock}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-3">
+            <div className="flex flex-col items-center justify-center flex-1 text-center p-6 gap-3">
               <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
                 <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -700,6 +792,7 @@ export default function BuilderEditor() {
               </div>
             </div>
           )}
+          <CustomCssPanel value={customCss} onChange={setCustomCss} />
         </aside>
       </div>
     </div>

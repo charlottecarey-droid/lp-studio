@@ -8,6 +8,7 @@ export const lpPagesTable = pgTable("lp_pages", {
   slug: text("slug").notNull().unique(),
   blocks: jsonb("blocks").notNull().default([]),
   status: text("status").notNull().default("draft"),
+  customCss: text("custom_css").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

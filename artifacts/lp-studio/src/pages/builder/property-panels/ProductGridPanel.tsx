@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { ImagePicker } from "@/components/ImagePicker";
 
 interface Props {
   props: ProductGridBlockProps;
@@ -37,7 +38,12 @@ export function ProductGridPanel({ props, onChange }: Props) {
               <Trash2 className="w-3 h-3" />
             </Button>
           </div>
-          <Input placeholder="Image URL" value={item.image} onChange={e => updateItem(i, "image", e.target.value)} className="text-xs h-7" />
+          <ImagePicker
+            value={item.image}
+            onChange={v => updateItem(i, "image", v)}
+            placeholder="Image URL"
+            className="mb-1"
+          />
           <Input placeholder="Title" value={item.title} onChange={e => updateItem(i, "title", e.target.value)} className="text-xs h-7" />
           <Textarea placeholder="Description" value={item.description} onChange={e => updateItem(i, "description", e.target.value)} rows={2} className="text-xs resize-none" />
         </div>

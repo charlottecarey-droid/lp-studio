@@ -22,11 +22,12 @@ router.get("/lp/pages", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const { title, slug, blocks, status } = req.body as {
+  const { title, slug, blocks, status, customCss } = req.body as {
     title?: unknown;
     slug?: unknown;
     blocks?: unknown;
     status?: unknown;
+    customCss?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -44,6 +45,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         slug,
         blocks: Array.isArray(blocks) ? blocks : [],
         status: typeof status === "string" ? status : "draft",
+        customCss: typeof customCss === "string" ? customCss : "",
       })
       .returning();
     res.status(201).json(page);
@@ -76,18 +78,20 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const { title, slug, blocks, status } = req.body as {
+  const { title, slug, blocks, status, customCss } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
     status?: string;
+    customCss?: string;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) updates.slug = slug;
   if (blocks !== undefined) updates.blocks = blocks;
   if (status !== undefined) updates.status = status;
+  if (customCss !== undefined) updates.customCss = customCss;
 
   try {
     const [page] = await db

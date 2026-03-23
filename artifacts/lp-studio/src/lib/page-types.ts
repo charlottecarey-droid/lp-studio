@@ -7,6 +7,7 @@ export interface BuilderPageResponse {
   slug: string;
   blocks: PageBlock[];
   status: "draft" | "published";
+  customCss?: string;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {
