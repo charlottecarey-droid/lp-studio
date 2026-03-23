@@ -457,25 +457,15 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
   const hasLinkedPage = variant.builderPageId != null;
 
   useEffect(() => {
-    if (!variant.builderPageId) {
+    if (!variant.builderPageId || !variant.linkedPage) {
       setLinkedPageInfo(null);
       return;
     }
-    if (variant.linkedPage) {
-      setLinkedPageInfo({
-        title: variant.linkedPage.title,
-        slug: variant.linkedPage.slug,
-        blockCount: variant.linkedPage.blockCount ?? variant.linkedPage.blocks?.length ?? 0,
-      });
-      return;
-    }
-    setLinkedPageInfo(null);
-    fetch(`${API_BASE}/lp/pages/${variant.builderPageId}`)
-      .then(res => res.ok ? res.json() : null)
-      .then((page: { title: string; slug: string; blocks?: unknown[] } | null) => {
-        setLinkedPageInfo(page ? { title: page.title, slug: page.slug, blockCount: page.blocks?.length ?? 0 } : null);
-      })
-      .catch(() => setLinkedPageInfo(null));
+    setLinkedPageInfo({
+      title: variant.linkedPage.title,
+      slug: variant.linkedPage.slug,
+      blockCount: variant.linkedPage.blockCount ?? variant.linkedPage.blocks?.length ?? 0,
+    });
   }, [variant.builderPageId, variant.linkedPage]);
 
   const form = useForm<z.infer<typeof variantSchema>>({
