@@ -4,11 +4,30 @@ import { db } from "@workspace/db";
 import { lpVariantsTable } from "@workspace/db";
 import {
   CreateVariantParams,
-  CreateVariantBody,
   UpdateVariantParams,
   DeleteVariantParams,
   ListVariantsParams,
 } from "@workspace/api-zod";
+
+const CreateVariantBodyLoose = {
+  safeParse(body: unknown): { success: true; data: { name: string; isControl: boolean; trafficWeight: number } } | { success: false; error: { message: string } } {
+    const b = body as Record<string, unknown>;
+    if (typeof b.name !== "string" || b.name.length === 0) {
+      return { success: false, error: { message: "name is required" } };
+    }
+    if (typeof b.trafficWeight !== "number") {
+      return { success: false, error: { message: "trafficWeight must be a number" } };
+    }
+    return {
+      success: true,
+      data: {
+        name: b.name,
+        isControl: typeof b.isControl === "boolean" ? b.isControl : false,
+        trafficWeight: b.trafficWeight,
+      },
+    };
+  },
+};
 
 const router = Router();
 
@@ -32,7 +51,7 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const parsed = CreateVariantBody.safeParse(req.body);
+  const parsed = CreateVariantBodyLoose.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;

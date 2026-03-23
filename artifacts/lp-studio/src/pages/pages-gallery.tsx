@@ -134,6 +134,7 @@ function CreateTestFromPageModal({
         }),
       });
       if (!variantRes.ok) {
+        await fetch(`${API_BASE}/lp/tests/${test.id}`, { method: "DELETE" }).catch(() => {});
         const err = await variantRes.json().catch(() => ({ error: "Failed to create variant" }));
         throw new Error((err as { error?: string }).error ?? "Failed to create variant");
       }

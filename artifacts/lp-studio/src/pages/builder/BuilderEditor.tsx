@@ -209,6 +209,7 @@ export default function BuilderEditor() {
         body: JSON.stringify({ name: "Control", isControl: true, trafficWeight: 50, config: {}, builderPageId: parseInt(pageId, 10) }),
       });
       if (!variantRes.ok) {
+        await fetch(`${API_BASE}/lp/tests/${test.id}`, { method: "DELETE" }).catch(() => {});
         const err = await variantRes.json().catch(() => ({ error: "Failed to create variant" })) as { error?: string };
         throw new Error(err.error ?? "Failed to create variant");
       }
