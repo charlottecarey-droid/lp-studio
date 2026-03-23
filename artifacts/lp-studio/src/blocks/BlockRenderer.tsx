@@ -21,6 +21,7 @@ import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
+import { BlockFooter } from "./BlockFooter";
 import type { ReactNode } from "react";
 
 interface Props {
@@ -202,6 +203,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
               : undefined}
           />
         );
+      case "footer":
+        return <BlockFooter props={block.props} brand={brand} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

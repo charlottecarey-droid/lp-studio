@@ -206,6 +206,27 @@ export interface CtaButtonBlockProps {
   bgColor: string;
 }
 
+export interface FooterLink {
+  label: string;
+  url: string;
+}
+
+export interface FooterColumn {
+  title: string;
+  links: FooterLink[];
+}
+
+export interface FooterBlockProps {
+  backgroundColor: string;
+  accentColor: string;
+  copyrightText: string;
+  showSocialLinks: boolean;
+  facebookUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  columns: FooterColumn[];
+}
+
 export interface FullBleedHeroBlockProps {
   headline: string;
   subheadline: string;
@@ -252,7 +273,8 @@ type BlockVariant =
   | { type: "product-showcase"; props: ProductShowcaseBlockProps }
   | { type: "nav-header"; props: NavHeaderBlockProps }
   | { type: "cta-button"; props: CtaButtonBlockProps }
-  | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps };
+  | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps }
+  | { type: "footer"; props: FooterBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -802,6 +824,75 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "footer",
+    label: "Footer",
+    category: "Layout",
+    defaultProps: (): FooterBlockProps => ({
+      backgroundColor: "#003A30",
+      accentColor: "#C7E738",
+      copyrightText: `© ${new Date().getFullYear()} Dandy. All rights reserved.`,
+      showSocialLinks: false,
+      facebookUrl: "",
+      instagramUrl: "",
+      linkedinUrl: "",
+      columns: [
+        {
+          title: "Dandy",
+          links: [
+            { label: "Home", url: "https://www.meetdandy.com/" },
+            { label: "Pricing", url: "https://www.meetdandy.com/pricing/" },
+            { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
+            { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
+            { label: "Careers", url: "https://www.meetdandy.com/careers/" },
+          ],
+        },
+        {
+          title: "Products & Technology",
+          links: [
+            { label: "Lab Services", url: "https://www.meetdandy.com/lab-services/" },
+            { label: "Posterior Crown and Bridge", url: "https://www.meetdandy.com/posterior-crown-and-bridge/" },
+            { label: "Digital Dentures", url: "https://www.meetdandy.com/digital-dentures/" },
+            { label: "Implant Solutions", url: "https://www.meetdandy.com/implant-solutions/" },
+            { label: "Clear Aligners", url: "https://www.meetdandy.com/clear-aligners/" },
+          ],
+        },
+        {
+          title: "Practices",
+          links: [
+            { label: "Private Practice", url: "https://www.meetdandy.com/solutions/private-practice/" },
+            { label: "Group Practice", url: "https://www.meetdandy.com/solutions/group-practice/" },
+            { label: "DSO", url: "https://www.meetdandy.com/solutions/dso/" },
+            { label: "Login", url: "https://app.meetdandy.com/" },
+          ],
+        },
+        {
+          title: "Resources",
+          links: [
+            { label: "Learning Center", url: "https://www.meetdandy.com/learning-center/" },
+            { label: "Articles", url: "https://www.meetdandy.com/articles/" },
+            { label: "Webinars", url: "https://www.meetdandy.com/webinars/" },
+            { label: "Newsroom", url: "https://www.meetdandy.com/newsroom/" },
+          ],
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="8" y="10" width="20" height="5" rx="1" fill="white" opacity="0.7" />
+        {([0,1,2,3] as const).map(i => (
+          <g key={i} transform={`translate(${8 + i * 28}, 22)`}>
+            <rect width="16" height="3" rx="1" fill="#C7E738" opacity="0.8" />
+            <rect width="22" height="2" rx="1" fill="white" opacity="0.3" y="6" />
+            <rect width="18" height="2" rx="1" fill="white" opacity="0.3" y="11" />
+            <rect width="20" height="2" rx="1" fill="white" opacity="0.3" y="16" />
+          </g>
+        ))}
+        <rect x="8" y="58" width="50" height="2" rx="1" fill="white" opacity="0.2" />
+      </svg>
+    ),
+  },
+  {
     type: "full-bleed-hero",
     label: "Full Bleed Hero",
     category: "Layout",
@@ -885,6 +976,7 @@ export function createBlock(type: "product-showcase"): Extract<PageBlock, { type
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
 export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
+export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -913,6 +1005,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
     case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
+    case "footer": return { id, type: "footer", props: props as FooterBlockProps };
   }
 }
 
