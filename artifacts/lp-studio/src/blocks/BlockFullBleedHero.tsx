@@ -133,16 +133,33 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
       {/* Full-bleed background section */}
       <div
         className={cn("relative w-full flex items-center overflow-hidden -mt-16", minH)}
-        style={{
-          backgroundImage: props.backgroundImageUrl
-            ? `url(${props.backgroundImageUrl})`
-            : undefined,
-          backgroundColor: props.backgroundImageUrl ? undefined : FOREST,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
+        style={
+          props.backgroundType !== "video"
+            ? {
+                backgroundImage: props.backgroundImageUrl
+                  ? `url(${props.backgroundImageUrl})`
+                  : undefined,
+                backgroundColor: props.backgroundImageUrl ? undefined : FOREST,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }
+            : { backgroundColor: FOREST }
+        }
       >
+        {/* Video background */}
+        {props.backgroundType === "video" && props.backgroundVideoUrl && (
+          <video
+            key={props.backgroundVideoUrl}
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            src={props.backgroundVideoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        )}
+
         {/* Dark overlay */}
         <div
           className="absolute inset-0 pointer-events-none"

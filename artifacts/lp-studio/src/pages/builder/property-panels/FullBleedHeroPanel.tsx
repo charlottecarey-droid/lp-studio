@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 
 interface Props {
   props: FullBleedHeroBlockProps;
@@ -90,12 +91,42 @@ export function FullBleedHeroPanel({ props, onChange }: Props) {
       <div className="border-t pt-4 space-y-3">
         <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Background & Layout</p>
 
-        <ImagePicker
-          label="Background Image"
-          value={props.backgroundImageUrl}
-          onChange={v => set("backgroundImageUrl", v)}
-          placeholder="Leave empty for solid color"
-        />
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Background Type</Label>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {(["image", "video"] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => set("backgroundType", type)}
+                className={`flex-1 py-1.5 text-xs font-medium transition-colors capitalize ${
+                  (props.backgroundType ?? "image") === type
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {type === "image" ? "Image" : "Video"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {(props.backgroundType ?? "image") === "image" ? (
+          <ImagePicker
+            label="Background Image"
+            value={props.backgroundImageUrl}
+            onChange={v => set("backgroundImageUrl", v)}
+            placeholder="Leave empty for solid color"
+          />
+        ) : (
+          <div className="space-y-1.5">
+            <VideoPicker
+              label="Background Video"
+              value={props.backgroundVideoUrl ?? ""}
+              onChange={v => set("backgroundVideoUrl", v)}
+            />
+            <p className="text-xs text-muted-foreground">Upload an MP4 or WebM file. YouTube/Vimeo embed URLs do not work as backgrounds.</p>
+          </div>
+        )}
 
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">

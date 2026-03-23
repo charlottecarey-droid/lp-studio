@@ -204,7 +204,9 @@ export interface FullBleedHeroBlockProps {
   ctaUrl: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  backgroundType: "image" | "video";
   backgroundImageUrl: string;
+  backgroundVideoUrl?: string;
   overlayOpacity: number;
   minHeight: "full" | "large" | "medium";
   contentAlignment: "left" | "center" | "right";
@@ -798,7 +800,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaUrl: "#",
       secondaryCtaText: "See How It Works",
       secondaryCtaUrl: "#",
+      backgroundType: "image",
       backgroundImageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=1920&h=1080&fit=crop",
+      backgroundVideoUrl: "",
       overlayOpacity: 55,
       minHeight: "full",
       contentAlignment: "left",
