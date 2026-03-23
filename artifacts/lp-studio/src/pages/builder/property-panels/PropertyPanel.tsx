@@ -1,4 +1,5 @@
-import type { PageBlock } from "@/lib/block-types";
+import type { PageBlock, BlockSettings } from "@/lib/block-types";
+import { BlockSettingsPanel } from "./BlockSettingsPanel";
 import { HeroPanel } from "./HeroPanel";
 import { TrustBarPanel } from "./TrustBarPanel";
 import { PasSectionPanel } from "./PasSectionPanel";
@@ -189,6 +190,10 @@ export function PropertyPanel({ block, onChange }: Props) {
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         {renderForm()}
+        <BlockSettingsPanel
+          settings={block.blockSettings}
+          onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
+        />
       </div>
     </div>
   );

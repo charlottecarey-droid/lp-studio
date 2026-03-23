@@ -123,6 +123,94 @@ export function VideoSectionPanel({ props, onChange }: Props) {
           </SelectContent>
         </Select>
       </div>
+
+      {props.fillContainer && (
+        <>
+          <div className="border-t pt-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Video Overlay</p>
+            <p className="text-xs text-muted-foreground mb-3">Add text and a button on top of the full-bleed video.</p>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Overlay Headline</Label>
+            <Input
+              value={props.overlayHeadline ?? ""}
+              onChange={e => set("overlayHeadline", e.target.value)}
+              className="text-sm"
+              placeholder="Big headline over the video"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Overlay Subheadline</Label>
+            <Input
+              value={props.overlaySubheadline ?? ""}
+              onChange={e => set("overlaySubheadline", e.target.value)}
+              className="text-sm"
+              placeholder="Supporting line"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Overlay Button Text</Label>
+            <Input
+              value={props.overlayCtaText ?? ""}
+              onChange={e => set("overlayCtaText", e.target.value)}
+              className="text-sm"
+              placeholder="Leave empty for no button"
+            />
+          </div>
+          {props.overlayCtaText && (
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Overlay Button URL</Label>
+              <Input
+                value={props.overlayCtaUrl ?? ""}
+                onChange={e => set("overlayCtaUrl", e.target.value)}
+                className="text-sm"
+                placeholder="#"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Vertical</Label>
+              <Select
+                value={props.overlayVAlign ?? "center"}
+                onValueChange={v => {
+                  if (v === "top" || v === "center" || v === "bottom") set("overlayVAlign", v);
+                }}
+              >
+                <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top">Top</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="bottom">Bottom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Horizontal</Label>
+              <Select
+                value={props.overlayHAlign ?? "center"}
+                onValueChange={v => {
+                  if (v === "left" || v === "center" || v === "right") set("overlayHAlign", v);
+                }}
+              >
+                <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Light Text</Label>
+            <Switch
+              checked={props.overlayTextLight ?? true}
+              onCheckedChange={v => set("overlayTextLight", v)}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

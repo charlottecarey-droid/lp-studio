@@ -78,6 +78,12 @@ export interface BottomCtaBlockProps {
   ctaUrl: string;
 }
 
+export interface BlockSettings {
+  spacingTop?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
+  spacingBottom?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
+  textScale?: "75" | "85" | "90" | "100" | "110" | "125" | "150";
+}
+
 export interface VideoSectionBlockProps {
   layout: "full-width" | "split-left" | "split-right";
   headline: string;
@@ -87,6 +93,13 @@ export interface VideoSectionBlockProps {
   videoUrl: string;
   aspectRatio: "16/9" | "4/3" | "1/1";
   backgroundStyle: "white" | "dark" | "light-gray";
+  overlayHeadline?: string;
+  overlaySubheadline?: string;
+  overlayCtaText?: string;
+  overlayCtaUrl?: string;
+  overlayVAlign?: "top" | "center" | "bottom";
+  overlayHAlign?: "left" | "center" | "right";
+  overlayTextLight?: boolean;
   fillContainer?: boolean;
 }
 
@@ -184,27 +197,29 @@ export interface CtaButtonBlockProps {
   bgColor: string;
 }
 
-export type PageBlock =
-  | { id: string; type: "hero"; props: HeroBlockProps }
-  | { id: string; type: "trust-bar"; props: TrustBarBlockProps }
-  | { id: string; type: "pas-section"; props: PasSectionBlockProps }
-  | { id: string; type: "comparison"; props: ComparisonBlockProps }
-  | { id: string; type: "stat-callout"; props: StatCalloutBlockProps }
-  | { id: string; type: "benefits-grid"; props: BenefitsGridBlockProps }
-  | { id: string; type: "testimonial"; props: TestimonialBlockProps }
-  | { id: string; type: "how-it-works"; props: HowItWorksBlockProps }
-  | { id: string; type: "product-grid"; props: ProductGridBlockProps }
-  | { id: string; type: "photo-strip"; props: PhotoStripBlockProps }
-  | { id: string; type: "bottom-cta"; props: BottomCtaBlockProps }
-  | { id: string; type: "video-section"; props: VideoSectionBlockProps }
-  | { id: string; type: "case-studies"; props: CaseStudiesBlockProps }
-  | { id: string; type: "resources"; props: ResourcesBlockProps }
-  | { id: string; type: "rich-text"; props: RichTextBlockProps }
-  | { id: string; type: "custom-html"; props: CustomHtmlBlockProps }
-  | { id: string; type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
-  | { id: string; type: "product-showcase"; props: ProductShowcaseBlockProps }
-  | { id: string; type: "nav-header"; props: NavHeaderBlockProps }
-  | { id: string; type: "cta-button"; props: CtaButtonBlockProps };
+type BlockVariant =
+  | { type: "hero"; props: HeroBlockProps }
+  | { type: "trust-bar"; props: TrustBarBlockProps }
+  | { type: "pas-section"; props: PasSectionBlockProps }
+  | { type: "comparison"; props: ComparisonBlockProps }
+  | { type: "stat-callout"; props: StatCalloutBlockProps }
+  | { type: "benefits-grid"; props: BenefitsGridBlockProps }
+  | { type: "testimonial"; props: TestimonialBlockProps }
+  | { type: "how-it-works"; props: HowItWorksBlockProps }
+  | { type: "product-grid"; props: ProductGridBlockProps }
+  | { type: "photo-strip"; props: PhotoStripBlockProps }
+  | { type: "bottom-cta"; props: BottomCtaBlockProps }
+  | { type: "video-section"; props: VideoSectionBlockProps }
+  | { type: "case-studies"; props: CaseStudiesBlockProps }
+  | { type: "resources"; props: ResourcesBlockProps }
+  | { type: "rich-text"; props: RichTextBlockProps }
+  | { type: "custom-html"; props: CustomHtmlBlockProps }
+  | { type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
+  | { type: "product-showcase"; props: ProductShowcaseBlockProps }
+  | { type: "nav-header"; props: NavHeaderBlockProps }
+  | { type: "cta-button"; props: CtaButtonBlockProps };
+
+export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
 export type BlockType = PageBlock["type"];
 

@@ -38,14 +38,35 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
   const fillContainer = props.fillContainer ?? false;
 
   if (fillContainer && hasVideo) {
+    const hasOverlay = !!(props.overlayHeadline || props.overlaySubheadline || props.overlayCtaText);
+    const vAlign = props.overlayVAlign ?? "center";
+    const hAlign = props.overlayHAlign ?? "center";
+    const textLight = props.overlayTextLight ?? true;
+
+    const VALIGN_CLASS: Record<string, string> = {
+      top: "items-start",
+      center: "items-center",
+      bottom: "items-end",
+    };
+    const HALIGN_CLASS: Record<string, string> = {
+      left: "text-left",
+      center: "text-center",
+      right: "text-right",
+    };
+    const INNER_HALIGN: Record<string, string> = {
+      left: "items-start",
+      center: "items-center",
+      right: "items-end",
+    };
+
     return (
-      <div className={cn("w-full", bgClass)}>
+      <div className={cn("w-full relative", bgClass)}>
         {isNativeVideo ? (
           <video
             src={props.videoUrl}
             className="w-full block"
             style={{ display: "block" }}
-            controls
+            controls={!hasOverlay}
             preload="metadata"
           />
         ) : (
@@ -57,6 +78,44 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
+          </div>
+        )}
+        {hasOverlay && (
+          <div
+            className={cn(
+              "absolute inset-0 flex flex-col p-10 gap-4",
+              VALIGN_CLASS[vAlign],
+              INNER_HALIGN[hAlign]
+            )}
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.55) 100%)" }}
+          >
+            <div className={cn("max-w-3xl flex flex-col gap-3", INNER_HALIGN[hAlign], HALIGN_CLASS[hAlign])}>
+              {props.overlayHeadline && (
+                <h2
+                  className="text-4xl font-black leading-tight"
+                  style={{ color: textLight ? "#ffffff" : FOREST }}
+                >
+                  {props.overlayHeadline}
+                </h2>
+              )}
+              {props.overlaySubheadline && (
+                <p
+                  className="text-lg font-medium"
+                  style={{ color: textLight ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.7)" }}
+                >
+                  {props.overlaySubheadline}
+                </p>
+              )}
+              {props.overlayCtaText && (
+                <a
+                  href={props.overlayCtaUrl ?? "#"}
+                  className="inline-block mt-2 px-7 py-3 rounded-full font-bold text-sm"
+                  style={{ backgroundColor: LIME, color: FOREST }}
+                >
+                  {props.overlayCtaText}
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>
