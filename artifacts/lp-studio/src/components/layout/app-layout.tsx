@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, Wrench, ClipboardCheck, MapPin } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, Wrench, ClipboardCheck, MapPin, BookOpen } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -88,6 +88,14 @@ export function AppSidebar() {
                   <Link href="/brand" className="font-medium">
                     <Paintbrush className="w-4 h-4" />
                     <span>Brand Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/library"}>
+                  <Link href="/library" className="font-medium">
+                    <BookOpen className="w-4 h-4" />
+                    <span>Content Library</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

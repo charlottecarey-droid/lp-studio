@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { LibraryButtons } from "@/components/LibraryPicker";
 
 interface Props {
   props: CaseStudiesBlockProps;
@@ -31,8 +32,28 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
     onChange({ ...props, items: props.items.filter((_, i) => i !== idx) });
   };
 
+  const handleLoadDefaults = (items: Record<string, unknown>[]) => {
+    if (items.length === 0) return;
+    onChange({ ...props, items: items as unknown as CaseStudyItem[] });
+  };
+
+  const handleAddFromLibrary = (items: Record<string, unknown>[]) => {
+    onChange({ ...props, items: [...props.items, ...(items as unknown as CaseStudyItem[])] });
+  };
+
   return (
     <div className="space-y-5">
+      <LibraryButtons
+        type="case_study"
+        title="Case Studies Library"
+        renderPreview={item => {
+          const c = item.content as { categories?: string; title?: string };
+          return <p className="text-[11px] text-slate-500 truncate">{c.categories ?? ""}</p>;
+        }}
+        onLoadDefaults={handleLoadDefaults}
+        onAddFromLibrary={handleAddFromLibrary}
+      />
+
       <div>
         <Label className="text-xs text-slate-500 mb-1">Headline</Label>
         <Input

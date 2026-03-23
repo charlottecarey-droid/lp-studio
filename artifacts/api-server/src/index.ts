@@ -21,6 +21,18 @@ async function runMigrations() {
         country_code text,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS lp_library_items (
+        id serial PRIMARY KEY,
+        type text NOT NULL,
+        name text NOT NULL DEFAULT '',
+        content jsonb NOT NULL DEFAULT '{}',
+        is_default boolean NOT NULL DEFAULT false,
+        sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS lp_library_items_type_idx ON lp_library_items (type);
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
