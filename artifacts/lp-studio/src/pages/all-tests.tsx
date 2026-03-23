@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import {
   ExternalLink, BarChart3, Plus, Beaker, FileText, Radio,
-  FlaskConical, Search, SlidersHorizontal,
+  FlaskConical, Search, Edit2,
 } from "lucide-react";
 
 import { useListTests } from "@workspace/api-client-react";
@@ -14,26 +14,31 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-type StatusFilter = "all" | "running" | "draft" | "paused";
+type StatusFilter = "all" | "running" | "draft";
 
 const FILTER_TABS: { value: StatusFilter; label: string; icon: React.ReactNode }[] = [
   { value: "all",     label: "All",     icon: <Beaker className="w-3.5 h-3.5" /> },
   { value: "running", label: "Running", icon: <Radio className="w-3.5 h-3.5" /> },
   { value: "draft",   label: "Draft",   icon: <FileText className="w-3.5 h-3.5" /> },
-  { value: "paused",  label: "Paused",  icon: <SlidersHorizontal className="w-3.5 h-3.5" /> },
 ];
 
 export default function AllTests() {
   const rawSearch = useSearch();
-  const [, navigate] = useLocation();
-  const params = new URLSearchParams(rawSearch);
-  const initialStatus = (params.get("status") ?? "all") as StatusFilter;
+  const [location, navigate] = useLocation();
 
-  const [activeFilter, setActiveFilter] = useState<StatusFilter>(initialStatus);
+  const activeFilter = ((new URLSearchParams(rawSearch).get("status")) ?? "all") as StatusFilter;
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: tests, isLoading } = useListTests();
   const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  function setFilter(value: StatusFilter) {
+    if (value === "all") {
+      navigate(location.split("?")[0]);
+    } else {
+      navigate(`${location.split("?")[0]}?status=${value}`);
+    }
+  }
 
   const filtered = (tests ?? []).filter(t => {
     const matchesStatus = activeFilter === "all" || t.status === activeFilter;
@@ -49,7 +54,6 @@ export default function AllTests() {
     all:     tests?.length ?? 0,
     running: tests?.filter(t => t.status === "running").length ?? 0,
     draft:   tests?.filter(t => t.status === "draft").length ?? 0,
-    paused:  tests?.filter(t => t.status === "paused").length ?? 0,
   };
 
   return (
@@ -78,7 +82,7 @@ export default function AllTests() {
             {FILTER_TABS.map(tab => (
               <button
                 key={tab.value}
-                onClick={() => setActiveFilter(tab.value)}
+                onClick={() => setFilter(tab.value)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150",
                   activeFilter === tab.value
@@ -136,7 +140,7 @@ export default function AllTests() {
             </p>
             <div className="flex items-center gap-2">
               {activeFilter !== "all" && (
-                <Button variant="ghost" onClick={() => setActiveFilter("all")} className="rounded-xl">
+                <Button variant="ghost" onClick={() => setFilter("all")} className="rounded-xl">
                   View all
                 </Button>
               )}
@@ -199,10 +203,19 @@ export default function AllTests() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 rounded-lg hover:bg-muted"
-                      title="Analytics & settings"
+                      title="Analytics"
                       onClick={e => { e.stopPropagation(); navigate(`/tests/${test.id}`); }}
                     >
                       <BarChart3 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg hover:bg-muted hover:text-primary"
+                      title="Edit test"
+                      onClick={e => { e.stopPropagation(); navigate(`/tests/${test.id}`); }}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </motion.div>
