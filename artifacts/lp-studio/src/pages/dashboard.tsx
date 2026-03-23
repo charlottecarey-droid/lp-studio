@@ -130,7 +130,7 @@ export default function Dashboard() {
                 : `${running.length} page${running.length !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <Link href="/tests/new">
+          <Link href="/pages">
             <Button size="lg" className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0">
               <Plus className="w-4 h-4 mr-2" />
               New Landing Page

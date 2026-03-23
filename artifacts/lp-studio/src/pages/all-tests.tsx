@@ -3,10 +3,11 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import {
   ExternalLink, BarChart3, Plus, Beaker, FileText, Radio,
-  FlaskConical, Search, Edit2,
+  FlaskConical, Search, Edit2, Trash2, Loader2,
 } from "lucide-react";
 
-import { useListTests } from "@workspace/api-client-react";
+import { useListTests, useDeleteTest } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
@@ -30,7 +31,22 @@ export default function AllTests() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: tests, isLoading } = useListTests();
+  const queryClient = useQueryClient();
+  const deleteMutation = useDeleteTest();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleDelete = async (e: React.MouseEvent, testId: number, testName: string) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${testName}"? This will remove all variants and data and cannot be undone.`)) return;
+    setDeletingId(testId);
+    try {
+      await deleteMutation.mutateAsync({ testId });
+      queryClient.invalidateQueries({ queryKey: ["listTests"] });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   function setFilter(value: StatusFilter) {
     if (value === "all") {
@@ -216,6 +232,18 @@ export default function AllTests() {
                       onClick={e => { e.stopPropagation(); navigate(`/tests/${test.id}`); }}
                     >
                       <Edit2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+                      title="Delete test"
+                      disabled={deletingId === test.id}
+                      onClick={e => handleDelete(e, test.id, test.name)}
+                    >
+                      {deletingId === test.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />}
                     </Button>
                   </div>
                 </motion.div>
