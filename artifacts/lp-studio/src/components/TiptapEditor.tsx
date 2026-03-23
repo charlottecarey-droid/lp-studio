@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, type CommandProps } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
@@ -21,6 +21,15 @@ import {
 declare module "@tiptap/extension-text-style" {
   interface TextStyleAttributes {
     fontSize?: string | null;
+  }
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
   }
 }
 
@@ -49,11 +58,11 @@ const FontSize = Extension.create({
     return {
       setFontSize:
         (fontSize: string) =>
-        ({ commands }: { commands: Record<string, (...args: unknown[]) => boolean> }) =>
+        ({ commands }: CommandProps) =>
           commands.setMark("textStyle", { fontSize }),
       unsetFontSize:
         () =>
-        ({ commands }: { commands: Record<string, (...args: unknown[]) => boolean> }) =>
+        ({ commands }: CommandProps) =>
           commands.setMark("textStyle", { fontSize: null }),
     };
   },
@@ -67,7 +76,6 @@ const FONT_SIZES = [
   { label: "XL", value: "1.25rem" },
   { label: "2XL", value: "1.5rem" },
   { label: "3XL", value: "1.875rem" },
-  { label: "4XL", value: "2.25rem" },
 ];
 
 interface ToolbarButtonProps {
@@ -207,9 +215,30 @@ export function TiptapEditor({
 
   const insertVideo = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt("Paste a YouTube or Vimeo URL:", "https://www.youtube.com/watch?v=");
-    if (!url) return;
-    editor.chain().focus().setYoutubeVideo({ src: url }).run();
+    const url = window.prompt("Paste a YouTube or Vimeo URL:", "");
+    if (!url || !url.trim()) return;
+    const trimmed = url.trim();
+
+    const isYoutube = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)/.test(trimmed);
+    if (isYoutube) {
+      const ok = editor.chain().focus().setYoutubeVideo({ src: trimmed }).run();
+      if (!ok) alert("Could not embed video. Please check the YouTube URL.");
+      return;
+    }
+
+    const vimeoMatch = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vimeoMatch) {
+      const videoId = vimeoMatch[1];
+      const embedUrl = `https://player.vimeo.com/video/${videoId}`;
+      editor.chain().focus().insertContent(
+        `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:1rem 0;border-radius:8px">` +
+        `<iframe src="${embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" ` +
+        `allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe></div>`
+      ).run();
+      return;
+    }
+
+    alert("Please enter a valid YouTube or Vimeo URL.");
   }, [editor]);
 
   const insertImageByUrl = useCallback(() => {
@@ -328,7 +357,7 @@ export function TiptapEditor({
                   className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
                   onClick={(e) => {
                     e.preventDefault();
-                    editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
+                    editor.chain().focus().unsetFontSize().run();
                     setShowFontSizeMenu(false);
                   }}
                 >
@@ -344,7 +373,7 @@ export function TiptapEditor({
                     )}
                     onClick={(e) => {
                       e.preventDefault();
-                      editor.chain().focus().setMark("textStyle", { fontSize: size.value }).run();
+                      editor.chain().focus().setFontSize(size.value).run();
                       setShowFontSizeMenu(false);
                     }}
                   >

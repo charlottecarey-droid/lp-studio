@@ -449,6 +449,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.1.0)
+      '@tiptap/core':
+        specifier: ^3.20.4
+        version: 3.20.4(@tiptap/pm@3.20.4)
       '@tiptap/extension-color':
         specifier: ^3.20.4
         version: 3.20.4(@tiptap/extension-text-style@3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4)))
