@@ -19,12 +19,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft, Save, Globe, Copy, Monitor, Smartphone,
-  GripVertical, Trash2, Plus, CheckCircle
+  GripVertical, Trash2, Plus, CheckCircle, FlaskConical, Loader2
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
@@ -155,6 +157,11 @@ export default function BuilderEditor() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [abTestModalOpen, setAbTestModalOpen] = useState(false);
+  const [abTestName, setAbTestName] = useState("");
+  const [abTestSlug, setAbTestSlug] = useState("");
+  const [abTestCreating, setAbTestCreating] = useState(false);
+  const [abTestError, setAbTestError] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -171,6 +178,8 @@ export default function BuilderEditor() {
         setStatus(p.status === "published" ? "published" : "draft");
         setBlocks(p.blocks ?? []);
         setBrand(b);
+        setAbTestName(p.title);
+        setAbTestSlug(p.slug);
         setIsLoading(false);
       })
       .catch(err => {
@@ -178,6 +187,38 @@ export default function BuilderEditor() {
         setIsLoading(false);
       });
   }, [pageId]);
+
+  const handleCreateAbTest = async () => {
+    if (!abTestName.trim() || !abTestSlug.trim()) return;
+    setAbTestCreating(true);
+    setAbTestError(null);
+    try {
+      const testRes = await fetch(`${API_BASE}/lp/tests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: abTestName.trim(), slug: abTestSlug.trim(), testType: "ab" }),
+      });
+      if (!testRes.ok) {
+        const err = await testRes.json().catch(() => ({ error: "Failed to create test" })) as { error?: string };
+        throw new Error(err.error ?? "Failed to create test");
+      }
+      const test = await testRes.json() as { id: number };
+      const variantRes = await fetch(`${API_BASE}/lp/tests/${test.id}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Control", isControl: true, trafficWeight: 50, config: {}, builderPageId: parseInt(pageId, 10) }),
+      });
+      if (!variantRes.ok) {
+        const err = await variantRes.json().catch(() => ({ error: "Failed to create variant" })) as { error?: string };
+        throw new Error(err.error ?? "Failed to create variant");
+      }
+      navigate(`/tests/${test.id}`);
+    } catch (err) {
+      setAbTestError(err instanceof Error ? err.message : "Failed to create test");
+    } finally {
+      setAbTestCreating(false);
+    }
+  };
 
   const selectedBlock = blocks.find(b => b.id === selectedBlockId) ?? null;
 
@@ -356,6 +397,16 @@ export default function BuilderEditor() {
 
         <Button
           size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
+          onClick={() => setAbTestModalOpen(true)}
+        >
+          <FlaskConical className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">A/B Test</span>
+        </Button>
+
+        <Button
+          size="sm"
           className="gap-1.5 text-xs"
           onClick={handlePublish}
           disabled={isSaving}
@@ -365,6 +416,57 @@ export default function BuilderEditor() {
           <span className="hidden sm:inline">{status === "published" ? "Unpublish" : "Publish"}</span>
         </Button>
       </header>
+
+      <Dialog open={abTestModalOpen} onOpenChange={setAbTestModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-4 h-4 text-primary" />
+              Run A/B Test on this Page
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This page will become the <strong>Control</strong> variant. Add challenger variants from the test detail page to start testing.
+            </p>
+            <div>
+              <Label className="text-sm font-medium">Test Name</Label>
+              <Input
+                className="mt-1.5"
+                value={abTestName}
+                onChange={e => setAbTestName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">URL Slug</Label>
+              <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                <Input
+                  className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
+                  value={abTestSlug}
+                  onChange={e => setAbTestSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Using the same slug as your page routes live traffic through the test seamlessly.</p>
+            </div>
+            {abTestError && (
+              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{abTestError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAbTestModalOpen(false)} disabled={abTestCreating}>Cancel</Button>
+            <Button
+              onClick={handleCreateAbTest}
+              disabled={abTestCreating || !abTestName.trim() || !abTestSlug.trim()}
+              className="gap-2"
+            >
+              {abTestCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+              {abTestCreating ? "Creating..." : "Create Test"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">

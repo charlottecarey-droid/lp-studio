@@ -441,13 +441,35 @@ interface VariantEditorProps {
   onDelete: () => void;
 }
 
+interface LinkedPageInfo {
+  title: string;
+  slug: string;
+  blockCount: number;
+}
+
 function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorProps) {
   const updateMutation = useUpdateVariant();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [linkedPageInfo, setLinkedPageInfo] = useState<LinkedPageInfo | null>(null);
 
   const variantConfigAny = variant.config as Record<string, unknown>;
   const hasLinkedPage = variant.builderPageId != null;
+
+  useEffect(() => {
+    if (!variant.builderPageId) {
+      setLinkedPageInfo(null);
+      return;
+    }
+    fetch(`${API_BASE}/lp/pages/${variant.builderPageId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then((page: { title: string; slug: string; blocks?: unknown[] } | null) => {
+        if (page) {
+          setLinkedPageInfo({ title: page.title, slug: page.slug, blockCount: page.blocks?.length ?? 0 });
+        }
+      })
+      .catch(() => setLinkedPageInfo(null));
+  }, [variant.builderPageId]);
 
   const form = useForm<z.infer<typeof variantSchema>>({
     resolver: zodResolver(variantSchema),
@@ -509,7 +531,14 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
             {form.watch("isControl") && (
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 no-default-active-elevate">Control</Badge>
             )}
-            {hasLinkedPage && (
+            {hasLinkedPage && linkedPageInfo && (
+              <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5 max-w-[200px]">
+                <Link2 className="w-3 h-3 mr-1 shrink-0" />
+                <span className="truncate">{linkedPageInfo.title}</span>
+                <span className="ml-1 text-muted-foreground text-[10px] shrink-0">· {linkedPageInfo.blockCount}b</span>
+              </Badge>
+            )}
+            {hasLinkedPage && !linkedPageInfo && (
               <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5">
                 <Link2 className="w-3 h-3 mr-1" />
                 Builder Page
