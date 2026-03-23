@@ -40,7 +40,7 @@ function formatDate(dateStr: string) {
 }
 
 export function ReviewsTab({ testId, testName }: ReviewsTabProps) {
-  const { reviews, createReview } = useReviews(testId);
+  const { reviews, createReview, deleteReview } = useReviews(testId);
   const [shareOpen, setShareOpen] = useState(false);
 
   const latestReview = reviews[reviews.length - 1];
@@ -136,6 +136,7 @@ export function ReviewsTab({ testId, testName }: ReviewsTabProps) {
         pageName={testName}
         reviews={reviews}
         onCreateReview={createReview}
+        onDeleteReview={deleteReview}
       />
     </div>
   );

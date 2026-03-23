@@ -80,7 +80,7 @@ function getTemplateBlocks(templateId: string): PageBlock[] {
 }
 
 function ShareModalWrapper({ pageId, pageTitle, onClose }: { pageId: number; pageTitle: string; onClose: () => void }) {
-  const { reviews, createReview } = useReviews(pageId);
+  const { reviews, createReview, deleteReview } = useReviews(pageId);
   return (
     <ShareReviewModal
       open
@@ -89,6 +89,7 @@ function ShareModalWrapper({ pageId, pageTitle, onClose }: { pageId: number; pag
       pageName={pageTitle}
       reviews={reviews}
       onCreateReview={createReview}
+      onDeleteReview={deleteReview}
     />
   );
 }
