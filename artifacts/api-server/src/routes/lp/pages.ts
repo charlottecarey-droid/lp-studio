@@ -22,12 +22,15 @@ router.get("/lp/pages", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const { title, slug, blocks, status, customCss } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage } = req.body as {
     title?: unknown;
     slug?: unknown;
     blocks?: unknown;
     status?: unknown;
     customCss?: unknown;
+    metaTitle?: unknown;
+    metaDescription?: unknown;
+    ogImage?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -46,6 +49,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         blocks: Array.isArray(blocks) ? blocks : [],
         status: typeof status === "string" ? status : "draft",
         customCss: typeof customCss === "string" ? customCss : "",
+        metaTitle: typeof metaTitle === "string" ? metaTitle : "",
+        metaDescription: typeof metaDescription === "string" ? metaDescription : "",
+        ogImage: typeof ogImage === "string" ? ogImage : "",
       })
       .returning();
     res.status(201).json(page);
@@ -78,20 +84,26 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const { title, slug, blocks, status, customCss } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
     status?: string;
     customCss?: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    ogImage?: string;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) updates.slug = slug;
   if (blocks !== undefined) updates.blocks = blocks;
   if (status !== undefined) updates.status = status;
   if (customCss !== undefined) updates.customCss = customCss;
+  if (metaTitle !== undefined) updates.metaTitle = metaTitle;
+  if (metaDescription !== undefined) updates.metaDescription = metaDescription;
+  if (ogImage !== undefined) updates.ogImage = ogImage;
 
   try {
     const [page] = await db

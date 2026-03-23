@@ -45,6 +45,9 @@ interface FetchedPage {
   blocks: PageBlock[];
   status: string;
   customCss?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -59,6 +62,9 @@ interface SavePageData {
   blocks: PageBlock[];
   status: "draft" | "published";
   customCss?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
 }
 
 async function savePage(id: string, data: SavePageData) {
@@ -242,6 +248,9 @@ export default function BuilderEditor() {
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [customCss, setCustomCss] = useState("");
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
+  const [ogImage, setOgImage] = useState("");
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -277,6 +286,9 @@ export default function BuilderEditor() {
         setStatus(p.status === "published" ? "published" : "draft");
         setBlocks(p.blocks ?? []);
         setCustomCss(p.customCss ?? "");
+        setMetaTitle(p.metaTitle ?? "");
+        setMetaDescription(p.metaDescription ?? "");
+        setOgImage(p.ogImage ?? "");
         setBrand(b);
         setAbTestName(p.title);
         setAbTestSlug(p.slug);
@@ -445,10 +457,22 @@ export default function BuilderEditor() {
     }
   };
 
+  const getPageData = (overrides: Partial<SavePageData> = {}): SavePageData => ({
+    title,
+    slug,
+    blocks,
+    status,
+    customCss,
+    metaTitle,
+    metaDescription,
+    ogImage,
+    ...overrides,
+  });
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await savePage(pageId, { title, slug, blocks, status, customCss });
+      await savePage(pageId, getPageData());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
@@ -467,7 +491,7 @@ export default function BuilderEditor() {
     const newStatus: "draft" | "published" = isPublished ? "draft" : "published";
     setIsSaving(true);
     try {
-      await savePage(pageId, { title, slug, blocks, status: newStatus, customCss });
+      await savePage(pageId, getPageData({ status: newStatus }));
       setStatus(newStatus);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -718,15 +742,82 @@ export default function BuilderEditor() {
               onDelete={() => deleteBlock(selectedBlock.id)}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center flex-1 text-center p-6 gap-3">
-              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="p-4 border-b bg-muted/30 shrink-0">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Page</p>
+                <h3 className="font-semibold text-sm text-foreground mt-0.5">Page Settings</h3>
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Select a block to edit</p>
-                <p className="text-xs text-muted-foreground mt-1">Click any block in the canvas to open its property editor here.</p>
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                {/* Slug */}
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">URL Slug</Label>
+                  <div className="flex items-center gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                    <span className="px-2.5 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0 font-mono">/lp/</span>
+                    <input
+                      value={slug}
+                      onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      onBlur={handleSave}
+                      className="flex-1 min-w-0 px-2.5 py-2 text-xs font-mono bg-transparent outline-none"
+                      placeholder="my-page-slug"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Only lowercase letters, numbers, and hyphens. Changing the slug will update the live URL.</p>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border pt-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">SEO &amp; Metadata</p>
+                </div>
+
+                {/* Meta title */}
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Meta Title</Label>
+                  <Input
+                    value={metaTitle}
+                    onChange={e => setMetaTitle(e.target.value)}
+                    onBlur={handleSave}
+                    placeholder={title || "Page title for search engines"}
+                    className="text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">{metaTitle.length}/60 chars — ideal under 60</p>
+                </div>
+
+                {/* Meta description */}
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Meta Description</Label>
+                  <textarea
+                    value={metaDescription}
+                    onChange={e => setMetaDescription(e.target.value)}
+                    onBlur={handleSave}
+                    placeholder="Briefly describe this page for search engine results…"
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background resize-none outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">{metaDescription.length}/160 chars — ideal under 160</p>
+                </div>
+
+                {/* OG Image */}
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">OG Image URL</Label>
+                  <Input
+                    value={ogImage}
+                    onChange={e => setOgImage(e.target.value)}
+                    onBlur={handleSave}
+                    placeholder="https://..."
+                    className="text-sm font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Recommended 1200×630px.</p>
+                  {ogImage && (
+                    <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video bg-muted">
+                      <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[10px] text-muted-foreground text-center pt-2 pb-1">
+                  Click any block in the canvas to edit its properties.
+                </p>
               </div>
             </div>
           )}

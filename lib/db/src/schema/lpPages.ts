@@ -9,6 +9,9 @@ export const lpPagesTable = pgTable("lp_pages", {
   blocks: jsonb("blocks").notNull().default([]),
   status: text("status").notNull().default("draft"),
   customCss: text("custom_css").notNull().default(""),
+  metaTitle: text("meta_title").notNull().default(""),
+  metaDescription: text("meta_description").notNull().default(""),
+  ogImage: text("og_image").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
