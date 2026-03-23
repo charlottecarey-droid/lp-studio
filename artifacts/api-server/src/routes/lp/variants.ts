@@ -59,14 +59,17 @@ router.post("/lp/tests/:testId/variants", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const body = req.body as Record<string, unknown>;
   const builderPageId =
-    typeof req.body.builderPageId === "number" ? req.body.builderPageId : null;
-  // Use raw req.body.config to preserve extended JSONB fields (trustBar, benefits,
-  // testimonials, templateId, etc.) that the generated Zod schema strips on parse.
-  const rawConfig =
-    req.body.config !== undefined && typeof req.body.config === "object" && req.body.config !== null
-      ? req.body.config
-      : (parsed.data.config ?? {});
+    typeof body.builderPageId === "number" && Number.isFinite(body.builderPageId) && body.builderPageId > 0
+      ? Math.floor(body.builderPageId)
+      : null;
+  // Always read config from req.body to preserve extended JSONB fields
+  // (trustBar, benefits, testimonials, templateId, etc.) beyond the schema.
+  const rawConfig: Record<string, unknown> =
+    body.config !== undefined && typeof body.config === "object" && body.config !== null && !Array.isArray(body.config)
+      ? (body.config as Record<string, unknown>)
+      : {};
   const [variant] = await db.insert(lpVariantsTable).values({
     testId: params.data.testId,
     name: parsed.data.name,
