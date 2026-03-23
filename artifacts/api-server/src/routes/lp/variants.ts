@@ -11,17 +11,20 @@ import {
 
 const CreateVariantBodyLoose = {
   safeParse(body: unknown): { success: true; data: { name: string; isControl: boolean; trafficWeight: number } } | { success: false; error: { message: string } } {
-    const b = body as Record<string, unknown>;
-    if (typeof b.name !== "string" || b.name.length === 0) {
-      return { success: false, error: { message: "name is required" } };
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return { success: false, error: { message: "body must be an object" } };
     }
-    if (typeof b.trafficWeight !== "number") {
-      return { success: false, error: { message: "trafficWeight must be a number" } };
+    const b = body as Record<string, unknown>;
+    if (typeof b.name !== "string" || b.name.trim().length === 0) {
+      return { success: false, error: { message: "name is required and must be a non-empty string" } };
+    }
+    if (typeof b.trafficWeight !== "number" || isNaN(b.trafficWeight) || b.trafficWeight < 0 || b.trafficWeight > 100) {
+      return { success: false, error: { message: "trafficWeight must be a number between 0 and 100" } };
     }
     return {
       success: true,
       data: {
-        name: b.name,
+        name: b.name.trim(),
         isControl: typeof b.isControl === "boolean" ? b.isControl : false,
         trafficWeight: b.trafficWeight,
       },

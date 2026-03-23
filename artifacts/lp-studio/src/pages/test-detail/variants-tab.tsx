@@ -532,10 +532,11 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 no-default-active-elevate">Control</Badge>
             )}
             {hasLinkedPage && linkedPageInfo && (
-              <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5 max-w-[200px]">
+              <Badge variant="outline" className="text-primary font-normal ml-1 no-default-active-elevate border-primary/30 bg-primary/5 max-w-[260px]">
                 <Link2 className="w-3 h-3 mr-1 shrink-0" />
                 <span className="truncate">{linkedPageInfo.title}</span>
-                <span className="ml-1 text-muted-foreground text-[10px] shrink-0">· {linkedPageInfo.blockCount}b</span>
+                <span className="mx-1 text-muted-foreground text-[10px] shrink-0 font-mono">/{linkedPageInfo.slug}</span>
+                <span className="text-muted-foreground text-[10px] shrink-0">· {linkedPageInfo.blockCount}b</span>
               </Badge>
             )}
             {hasLinkedPage && !linkedPageInfo && (

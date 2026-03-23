@@ -341,11 +341,12 @@ export default function PagesGallery() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="px-2 hover:text-primary"
+                      className="px-2 gap-1 hover:text-primary text-xs"
                       title="A/B Test this page"
                       onClick={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
                     >
                       <FlaskConical className="w-3.5 h-3.5" />
+                      <span className="hidden lg:inline">A/B Test</span>
                     </Button>
                     <Button
                       variant="ghost"
