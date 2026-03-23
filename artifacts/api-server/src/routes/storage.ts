@@ -48,7 +48,7 @@ const PRELOADED_VIDEOS = [
   {
     id: "preloaded-dandy-digital-lab",
     title: "Dandy Digital Lab",
-    url: "/lp-studio/videos/dandy-digital-lab.mp4",
+    url: "/videos/dandy-digital-lab.mp4",
     mediaType: "video",
     mimeType: "video/mp4",
     isPreloaded: true,
@@ -58,7 +58,7 @@ const PRELOADED_VIDEOS = [
   {
     id: "preloaded-dandy-lab-video",
     title: "Dandy Lab Animation",
-    url: "/lp-studio/videos/dandy-lab-video.mp4",
+    url: "/videos/dandy-lab-video.mp4",
     mediaType: "video",
     mimeType: "video/mp4",
     isPreloaded: true,
@@ -68,7 +68,7 @@ const PRELOADED_VIDEOS = [
   {
     id: "preloaded-dandy-broll",
     title: "Dandy B-Roll (No Text)",
-    url: "/lp-studio/videos/dandy-broll.mp4",
+    url: "/videos/dandy-broll.mp4",
     mediaType: "video",
     mimeType: "video/mp4",
     isPreloaded: true,

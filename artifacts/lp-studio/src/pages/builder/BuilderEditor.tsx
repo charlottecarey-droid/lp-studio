@@ -479,7 +479,7 @@ export default function BuilderEditor() {
   };
 
   const copyPreviewLink = () => {
-    const url = `${window.location.origin}/lp-studio/lp/${slug}`;
+    const url = `${window.location.origin}/lp/${slug}`;
     navigator.clipboard.writeText(url);
   };
 

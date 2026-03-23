@@ -158,7 +158,7 @@ export default function BlockTestEditor() {
     );
   }
 
-  const previewUrl = `${window.location.origin}/lp-studio/lp/${page?.slug ?? ""}?previewVariantId=${variantId}`;
+  const previewUrl = `${window.location.origin}/lp/${page?.slug ?? ""}?previewVariantId=${variantId}`;
 
   return (
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">

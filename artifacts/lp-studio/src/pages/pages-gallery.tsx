@@ -358,7 +358,7 @@ export default function PagesGallery() {
                       <Share2 className="w-3.5 h-3.5" />
                     </Button>
                     <a
-                      href={`/lp-studio/lp/${page.slug}`}
+                      href={`/lp/${page.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

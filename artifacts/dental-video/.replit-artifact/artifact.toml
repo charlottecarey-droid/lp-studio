@@ -1,5 +1,5 @@
 kind = "video"
-previewPath = "/"
+previewPath = "/dental-video/"
 title = "Dental Clinic Video"
 version = "1.0.0"
 id = "artifacts/dental-video"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = [ "/dental-video/" ]
 localPort = 25332
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "25332"
-BASE_PATH = "/"
+BASE_PATH = "/dental-video/"

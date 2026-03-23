@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/lp-studio/"
+previewPath = "/"
 title = "Landing Page Studio"
 version = "1.0.0"
 id = "artifacts/lp-studio"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/lp-studio/" ]
+paths = [ "/" ]
 localPort = 24565
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "24565"
-BASE_PATH = "/lp-studio/"
+BASE_PATH = "/"
