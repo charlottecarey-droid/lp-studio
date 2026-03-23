@@ -10,9 +10,17 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
       <SidebarContent>
-        <div className="px-6 py-5 flex flex-col gap-1">
-          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto sidebar-logo" />
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-sidebar-foreground/40">LP Studio</span>
+        <div className="px-6 pt-7 pb-5 flex flex-col items-center gap-2.5">
+          <img src={dandyLogo} alt="Dandy" className="h-7 w-auto sidebar-logo" />
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <div className="h-px w-5 bg-gradient-to-r from-transparent to-[#C7E738]/60 rounded-full" />
+              <span className="text-[13px] font-bold tracking-[0.18em] uppercase bg-gradient-to-r from-[#C7E738] via-[#e2f87c] to-[#C7E738] bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(199,231,56,0.35)]">
+                LP Studio
+              </span>
+              <div className="h-px w-5 bg-gradient-to-l from-transparent to-[#C7E738]/60 rounded-full" />
+            </div>
+          </div>
         </div>
         
         <SidebarGroup>
