@@ -35,6 +35,33 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
   const hasVideo = props.videoUrl && props.videoUrl.trim() !== "";
   const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
   const isNativeVideo = hasVideo && VIDEO_EXTS.some(ext => props.videoUrl.toLowerCase().split("?")[0].endsWith(ext));
+  const fillContainer = props.fillContainer ?? false;
+
+  if (fillContainer && hasVideo) {
+    return (
+      <div className={cn("w-full", bgClass)}>
+        {isNativeVideo ? (
+          <video
+            src={props.videoUrl}
+            className="w-full block"
+            style={{ display: "block" }}
+            controls
+            preload="metadata"
+          />
+        ) : (
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={props.videoUrl}
+              className="absolute inset-0 w-full h-full border-0"
+              title="Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const videoElement = (
     <div className={cn("relative w-full rounded-xl overflow-hidden", aspectClass)}>

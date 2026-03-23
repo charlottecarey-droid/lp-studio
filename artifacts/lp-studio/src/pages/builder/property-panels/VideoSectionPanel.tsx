@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { VideoPicker } from "@/components/VideoPicker";
 
 interface Props {
@@ -38,6 +39,17 @@ export function VideoSectionPanel({ props, onChange }: Props) {
         value={props.videoUrl}
         onChange={url => set("videoUrl", url)}
       />
+
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Bleed</Label>
+        <Switch
+          checked={props.fillContainer ?? false}
+          onCheckedChange={v => set("fillContainer", v)}
+        />
+      </div>
+      {props.fillContainer && (
+        <p className="text-xs text-muted-foreground -mt-2">Video fills the full width with no padding or rounded corners.</p>
+      )}
 
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>

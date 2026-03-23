@@ -87,6 +87,7 @@ export interface VideoSectionBlockProps {
   videoUrl: string;
   aspectRatio: "16/9" | "4/3" | "1/1";
   backgroundStyle: "white" | "dark" | "light-gray";
+  fillContainer?: boolean;
 }
 
 export interface CaseStudyItem {
