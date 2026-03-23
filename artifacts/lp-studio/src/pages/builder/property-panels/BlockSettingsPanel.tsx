@@ -25,6 +25,14 @@ const PADDING_X_OPTIONS = [
   { value: "xl", label: "XL – 120px" },
 ];
 
+const MIN_HEIGHT_OPTIONS = [
+  { value: "none", label: "None (auto)" },
+  { value: "25", label: "25vh" },
+  { value: "50", label: "50vh" },
+  { value: "75", label: "75vh" },
+  { value: "100", label: "100vh (full screen)" },
+];
+
 const TEXT_SCALE_OPTIONS = [
   { value: "75", label: "75% (Smallest)" },
   { value: "85", label: "85%" },
@@ -86,6 +94,21 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
           <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             {PADDING_X_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Min Height</Label>
+        <Select
+          value={s.minHeight ?? "none"}
+          onValueChange={v => set("minHeight", v as BlockSettings["minHeight"])}
+        >
+          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {MIN_HEIGHT_OPTIONS.map(o => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
           </SelectContent>

@@ -58,6 +58,12 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings): ReactN
     style.paddingLeft = PADDING_X_PX[settings.paddingX];
     style.paddingRight = PADDING_X_PX[settings.paddingX];
   }
+  if (settings.minHeight && settings.minHeight !== "none") {
+    style.minHeight = `${settings.minHeight}vh`;
+    style.display = "flex";
+    style.flexDirection = "column";
+    style.justifyContent = "center";
+  }
   if (Object.keys(style).length === 0) return children;
   return <div style={style}>{children}</div>;
 }
