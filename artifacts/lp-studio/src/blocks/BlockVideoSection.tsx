@@ -67,7 +67,11 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
             src={props.videoUrl}
             className="w-full block"
             style={{ display: "block" }}
-            controls={!hasOverlay}
+            autoPlay={props.videoAutoplay ?? true}
+            muted={props.videoAutoplay ?? true}
+            loop={props.videoAutoplay ?? true}
+            playsInline
+            controls={!hasOverlay && !(props.videoAutoplay ?? true)}
             preload="metadata"
           />
         ) : (

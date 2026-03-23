@@ -107,6 +107,7 @@ export interface VideoSectionBlockProps {
   overlayHAlign?: "left" | "center" | "right";
   overlayTextLight?: boolean;
   fillContainer?: boolean;
+  videoAutoplay?: boolean;
 }
 
 export interface CaseStudyItem {
@@ -564,6 +565,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       videoUrl: "",
       aspectRatio: "16/9",
       backgroundStyle: "white",
+      videoAutoplay: true,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

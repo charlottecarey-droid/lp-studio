@@ -49,7 +49,16 @@ export function VideoSectionPanel({ props, onChange }: Props) {
         />
       </div>
       {props.fillContainer && (
-        <p className="text-xs text-muted-foreground -mt-2">Video fills the full width with no padding or rounded corners.</p>
+        <>
+          <p className="text-xs text-muted-foreground -mt-2">Video fills the full width with no padding or rounded corners.</p>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Autoplay Video</Label>
+            <Switch
+              checked={props.videoAutoplay ?? true}
+              onCheckedChange={v => set("videoAutoplay", v)}
+            />
+          </div>
+        </>
       )}
 
       <div>
