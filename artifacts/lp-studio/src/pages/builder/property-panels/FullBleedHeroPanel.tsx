@@ -134,13 +134,22 @@ export function FullBleedHeroPanel({ props, onChange }: Props) {
             placeholder="Leave empty for solid color"
           />
         ) : (
-          <div className="space-y-1.5">
-            <VideoPicker
-              label="Background Video"
-              value={props.backgroundVideoUrl ?? ""}
-              onChange={v => set("backgroundVideoUrl", v)}
-            />
-            <p className="text-xs text-muted-foreground">Upload an MP4 or WebM file. YouTube/Vimeo embed URLs do not work as backgrounds.</p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <VideoPicker
+                label="Background Video"
+                value={props.backgroundVideoUrl ?? ""}
+                onChange={v => set("backgroundVideoUrl", v)}
+              />
+              <p className="text-xs text-muted-foreground">Upload an MP4 or WebM file. YouTube/Vimeo embed URLs do not work as backgrounds.</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Autoplay Video</Label>
+              <Switch
+                checked={props.videoAutoplay ?? true}
+                onCheckedChange={v => set("videoAutoplay", v)}
+              />
+            </div>
           </div>
         )}
 

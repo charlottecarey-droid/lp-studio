@@ -154,7 +154,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
             key={props.backgroundVideoUrl}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             src={props.backgroundVideoUrl}
-            autoPlay
+            autoPlay={props.videoAutoplay ?? true}
             muted
             loop
             playsInline

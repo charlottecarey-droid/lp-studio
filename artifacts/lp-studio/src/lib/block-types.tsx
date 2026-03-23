@@ -215,6 +215,7 @@ export interface FullBleedHeroBlockProps {
   backgroundType: "image" | "video";
   backgroundImageUrl: string;
   backgroundVideoUrl?: string;
+  videoAutoplay?: boolean;
   overlayOpacity: number;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   minHeight: "full" | "large" | "medium";
@@ -812,6 +813,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       backgroundType: "image",
       backgroundImageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=1920&h=1080&fit=crop",
       backgroundVideoUrl: "",
+      videoAutoplay: true,
       overlayOpacity: 55,
       minHeight: "full",
       contentAlignment: "left",
