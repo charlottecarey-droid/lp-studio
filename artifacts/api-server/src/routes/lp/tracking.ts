@@ -1,9 +1,31 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { db } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
+import geoip from "geoip-lite";
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers["x-forwarded-for"];
+  if (fwd) {
+    return (typeof fwd === "string" ? fwd : fwd[0]).split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress ?? req.ip ?? "";
+}
+
+function lookupGeo(req: Request) {
+  const raw = getClientIp(req);
+  const ip = raw.replace(/^::ffff:/, "");
+  const geo = geoip.lookup(ip);
+  if (!geo) return { city: null, region: null, country: null, countryCode: null };
+  return {
+    city: geo.city || null,
+    region: geo.region || null,
+    country: geo.country || null,
+    countryCode: geo.country || null,
+  };
+}
 
 function applyBlockOverrides(blocks: unknown[], blockOverrides: Record<string, unknown>): unknown[] {
   if (!blockOverrides || Object.keys(blockOverrides).length === 0) return blocks;
@@ -109,6 +131,14 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       .where(eq(lpPagesTable.slug, params.data.slug));
 
     if (builderPage) {
+      // Record a geo-tagged visit for builder pages (fire-and-forget)
+      const geo = lookupGeo(req);
+      db.insert(lpPageVisitsTable).values({
+        pageId: builderPage.id,
+        sessionId,
+        ...geo,
+      }).onConflictDoNothing().catch(() => undefined);
+
       res.json({
         pageType: "builder",
         id: builderPage.id,
@@ -193,11 +223,13 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     // Fallback to first variant
     if (!assignedVariant) assignedVariant = variants[0];
 
-    // Store session assignment
+    // Store session assignment with geo
+    const geo = lookupGeo(req);
     await db.insert(lpSessionsTable).values({
       sessionId,
       testId: test.id,
       variantId: assignedVariant.id,
+      ...geo,
     }).onConflictDoNothing();
   }
 

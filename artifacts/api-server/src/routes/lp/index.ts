@@ -6,6 +6,7 @@ import resultsRouter from "./results";
 import brandRouter from "./brand";
 import pagesRouter from "./pages";
 import collaborationRouter from "./collaboration";
+import analyticsRouter from "./analytics";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use(resultsRouter);
 router.use(brandRouter);
 router.use(pagesRouter);
 router.use(collaborationRouter);
+router.use(analyticsRouter);
 
 export default router;

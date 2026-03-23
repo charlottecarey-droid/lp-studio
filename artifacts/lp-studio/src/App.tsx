@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import Analytics from "@/pages/analytics";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/tests/:testId" component={TestDetail} />
       <Route path="/tests" component={AllTests} />
       <Route path="/brand" component={BrandSettings} />
+      <Route path="/analytics" component={Analytics} />
       <Route path="/pages" component={PagesGallery} />
       
       {/* Builder Editor (no app layout — full screen) */}

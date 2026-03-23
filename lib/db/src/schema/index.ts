@@ -6,3 +6,4 @@ export * from "./lpBrandSettings";
 export * from "./lpPages";
 export * from "./lpCollaboration";
 export * from "./lpMedia";
+export * from "./lpPageVisits";
