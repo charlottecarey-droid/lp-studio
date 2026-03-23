@@ -219,7 +219,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* ── Quick Actions ────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
                 {
                   icon: <Plus className="w-4 h-4" />,
@@ -239,6 +239,12 @@ export default function Dashboard() {
                   label: "Builder",
                   sub: "Drag-and-drop page editor",
                   href: "/pages",
+                },
+                {
+                  icon: <ClipboardCheck className="w-4 h-4" />,
+                  label: "Reviews",
+                  sub: "Share & collect feedback",
+                  href: "/reviews",
                 },
                 {
                   icon: <Radio className="w-4 h-4" />,
