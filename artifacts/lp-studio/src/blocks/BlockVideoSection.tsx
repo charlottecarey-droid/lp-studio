@@ -127,6 +127,8 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
     );
   }
 
+  const autoplay = props.videoAutoplay ?? false;
+
   const videoElement = (
     <div className={cn("relative w-full rounded-xl overflow-hidden", aspectClass)}>
       {hasVideo ? (
@@ -134,7 +136,11 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
           <video
             src={props.videoUrl}
             className="w-full h-full object-cover"
-            controls
+            autoPlay={autoplay}
+            muted={autoplay}
+            loop={autoplay}
+            playsInline
+            controls={!autoplay}
             preload="metadata"
           />
         ) : (
