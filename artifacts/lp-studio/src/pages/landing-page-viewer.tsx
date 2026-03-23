@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
@@ -117,6 +117,79 @@ function scopeCustomCss(css: string, scope: string): string {
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
+const SCROLL_REVEAL_CSS = `
+  @keyframes lp-fade-up {
+    from { opacity: 0; transform: translateY(32px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lp-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .lp-reveal {
+    opacity: 0;
+  }
+  .lp-reveal.lp-visible {
+    animation: lp-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .lp-reveal-first.lp-visible {
+    animation: lp-fade-in 0.6s ease forwards;
+  }
+`;
+
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.unobserve(el); } },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function ScrollReveal({ children, delay = 0, first = false }: {
+  children: React.ReactNode;
+  delay?: number;
+  first?: boolean;
+}) {
+  const { ref, visible } = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      className={`lp-reveal${first ? " lp-reveal-first" : ""}${visible ? " lp-visible" : ""}`}
+      style={{ animationDelay: visible ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function useParallax(strength = 0.25) {
+  const ref = useRef<HTMLDivElement>(null);
+  const animRef = useRef<number>(0);
+  const handler = useCallback(() => {
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    animRef.current = requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const offset = (rect.top / window.innerHeight) * strength * 100;
+      el.style.transform = `translateY(${offset.toFixed(2)}px)`;
+    });
+  }, [strength]);
+  useEffect(() => {
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => { window.removeEventListener("scroll", handler); cancelAnimationFrame(animRef.current); };
+  }, [handler]);
+  return ref;
+}
+
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
   ScanLine,
@@ -212,10 +285,13 @@ export default function LandingPageViewer() {
           }
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
+          ${SCROLL_REVEAL_CSS}
         `}</style>
         {scopedCss && <style>{scopedCss}</style>}
         {blocks.map((block, i) => (
-          <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+          <ScrollReveal key={block.id ?? i} delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)} first={i === 0}>
+            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+          </ScrollReveal>
         ))}
         {blocks.length === 0 && (
           <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
@@ -273,6 +349,7 @@ export default function LandingPageViewer() {
           }
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
+          ${SCROLL_REVEAL_CSS}
         `}</style>
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
@@ -294,7 +371,9 @@ export default function LandingPageViewer() {
         )}
         {blocks.length > 0
           ? blocks.map((block, i) => (
-              <BlockRenderer key={block.id ?? i} block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+              <ScrollReveal key={block.id ?? i} delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)} first={i === 0}>
+                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+              </ScrollReveal>
             ))
           : (
             <div className="min-h-screen flex flex-col items-center justify-center text-slate-400 text-sm gap-4">
