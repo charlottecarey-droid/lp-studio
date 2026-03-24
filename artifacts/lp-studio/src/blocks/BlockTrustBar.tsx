@@ -1,8 +1,9 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { TrustBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
+import { useCountUp, useCountUpRef } from "@/hooks/use-count-up";
 
 interface Props {
   props: TrustBarBlockProps;
@@ -10,49 +11,22 @@ interface Props {
   animationsEnabled?: boolean;
 }
 
-function parseNumeric(value: string): number | null {
-  const match = value.match(/[\d,]+(\.\d+)?/);
+function parseNumeric(value: string): { num: number; prefix: string; suffix: string } | null {
+  const match = value.match(/^([^0-9]*)([0-9][0-9,]*(?:\.[0-9]+)?)(.*)$/);
   if (!match) return null;
-  return parseFloat(match[0].replace(/,/g, ""));
-}
-
-function formatWithSuffix(original: string, count: number): string {
-  return original.replace(/[\d,]+(\.\d+)?/, count.toLocaleString());
+  const num = parseFloat(match[2].replace(/,/g, ""));
+  return { num, prefix: match[1], suffix: match[3] };
 }
 
 function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [count, setCount] = useState<number | null>(null);
-  const triggered = useRef(false);
-  const numeric = parseNumeric(value);
+  const parsed = parseNumeric(value);
+  const ref = useCountUpRef();
+  const count = useCountUp(parsed?.num ?? 0, 1400, enabled && !!parsed);
 
-  useEffect(() => {
-    if (!enabled || numeric === null) return;
-    const el = ref.current;
-    if (!el) return;
+  if (!parsed) return <span>{value}</span>;
 
-    const obs = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || triggered.current) return;
-      triggered.current = true;
-      obs.disconnect();
-
-      const duration = 1400;
-      const start = performance.now();
-      const tick = (now: number) => {
-        const t = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - t, 3);
-        setCount(Math.round(eased * numeric));
-        if (t < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, { threshold: 0.3 });
-
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [enabled, numeric]);
-
-  const display = (enabled && count !== null && numeric !== null)
-    ? formatWithSuffix(value, count)
+  const display = enabled
+    ? `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`
     : value;
 
   return <span ref={ref}>{display}</span>;

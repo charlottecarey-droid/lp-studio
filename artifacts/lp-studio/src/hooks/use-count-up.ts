@@ -1,23 +1,19 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export function useCountUp(target: number, duration = 1400, enabled = true): [number, (el: HTMLElement | null) => void] {
+export function useCountUp(target: number, duration = 1400, enabled = true): number {
   const [count, setCount] = useState(0);
   const triggered = useRef(false);
-  const obsRef = useRef<IntersectionObserver | null>(null);
+  const elRef = useRef<HTMLSpanElement | null>(null);
 
-  const ref = useCallback((el: HTMLElement | null) => {
-    if (obsRef.current) {
-      obsRef.current.disconnect();
-      obsRef.current = null;
-    }
-    if (!el) return;
-
+  useEffect(() => {
     if (!enabled) {
       setCount(target);
       return;
     }
-
     if (triggered.current) return;
+
+    const el = elRef.current;
+    if (!el) return;
 
     const obs = new IntersectionObserver(
       ([entry]) => {
@@ -37,16 +33,12 @@ export function useCountUp(target: number, duration = 1400, enabled = true): [nu
       { threshold: 0.3 }
     );
     obs.observe(el);
-    obsRef.current = obs;
+    return () => obs.disconnect();
   }, [target, duration, enabled]);
 
-  useEffect(() => {
-    if (!enabled) setCount(target);
-  }, [enabled, target]);
+  return count;
+}
 
-  useEffect(() => {
-    return () => { obsRef.current?.disconnect(); };
-  }, []);
-
-  return [count, ref];
+export function useCountUpRef() {
+  return useRef<HTMLSpanElement | null>(null);
 }
