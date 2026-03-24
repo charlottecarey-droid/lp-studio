@@ -156,7 +156,8 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const { field, currentValue = "", siblingFields = {}, count = 3 } = body;
+  const { field, siblingFields = {}, count = 3 } = body;
+  const currentValue = typeof body.currentValue === "string" ? body.currentValue : "";
 
   if (!field || typeof field !== "string" || !KNOWN_FIELDS.has(field)) {
     res.status(400).json({ error: `field must be one of: ${[...KNOWN_FIELDS].join(", ")}` });
@@ -201,7 +202,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
       const parsed = JSON.parse(cleaned);
       if (Array.isArray(parsed)) {
         suggestions = parsed
-          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0 && s.trim().length <= 300)
           .map((s) => s.trim())
           .slice(0, safeCount);
       }

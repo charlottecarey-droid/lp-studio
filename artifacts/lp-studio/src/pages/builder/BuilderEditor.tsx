@@ -36,6 +36,7 @@ import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { refreshBlockCopy } from "@/lib/copy-api";
+import { useToast } from "@/hooks/use-toast";
 
 const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "hero": ["headline", "subheadline", "ctaText"],
@@ -1172,6 +1173,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     transition,
   };
 
+  const { toast } = useToast();
   const [refreshingCopy, setRefreshingCopy] = useState(false);
 
   const blockCopyFields = COPY_FIELDS[block.type];
@@ -1191,8 +1193,12 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
       if (Object.keys(updated).length > 0) {
         onBlockChange({ ...block, props: { ...block.props, ...updated } });
       }
-    } catch {
-      // silently ignore — popover feedback not needed for bulk refresh
+    } catch (err) {
+      toast({
+        title: "Couldn't refresh copy",
+        description: err instanceof Error ? err.message : "AI copy generation failed. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setRefreshingCopy(false);
     }
@@ -1231,6 +1237,13 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         >
           <GripVertical className="w-3.5 h-3.5" />
         </button>
+        <button
+          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
+          onClick={e => { e.stopPropagation(); onTestBlock(); }}
+          title="Test this block"
+        >
+          <TestTube2 className="w-3.5 h-3.5" />
+        </button>
         {hasCopyFields && (
           <button
             className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary disabled:opacity-50"
@@ -1243,13 +1256,6 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
               : <Sparkles className="w-3.5 h-3.5" />}
           </button>
         )}
-        <button
-          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
-          onClick={e => { e.stopPropagation(); onTestBlock(); }}
-          title="Test this block"
-        >
-          <TestTube2 className="w-3.5 h-3.5" />
-        </button>
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-red-500"
           onClick={e => { e.stopPropagation(); onDelete(); }}
