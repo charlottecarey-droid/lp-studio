@@ -6,9 +6,10 @@ import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, RotateCcw, Save, Settings2 } from "lucide-react";
+import { Check, RotateCcw, Save, Settings2, BookmarkPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 
 const API = "/api";
 
@@ -23,6 +24,7 @@ export default function BlockDefaultsPage() {
   const [currentBlock, setCurrentBlock] = useState<PageBlock | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveToLibraryOpen, setSaveToLibraryOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -172,6 +174,10 @@ export default function BlockDefaultsPage() {
                     Default Saved
                   </Badge>
                 )}
+                <Button variant="outline" size="sm" onClick={() => setSaveToLibraryOpen(true)} className="gap-1.5 h-8">
+                  <BookmarkPlus className="w-3 h-3" />
+                  Save to Library
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 h-8">
                   <RotateCcw className="w-3 h-3" />
                   Reset
@@ -217,6 +223,16 @@ export default function BlockDefaultsPage() {
           </div>
         )}
       </div>
+
+      <SaveToLibraryDialog
+        open={saveToLibraryOpen}
+        block={currentBlock}
+        onClose={() => setSaveToLibraryOpen(false)}
+        onSaved={() => {
+          setSaveToLibraryOpen(false);
+          toast({ title: "Saved to Library", description: "Block is now available in the Saved Blocks section of the page builder." });
+        }}
+      />
     </AppLayout>
   );
 }

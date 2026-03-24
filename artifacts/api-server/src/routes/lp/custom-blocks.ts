@@ -4,12 +4,10 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-const ALLOWED_BLOCK_TYPES = new Set(["rich-text", "custom-html"]);
-
 router.get("/lp/custom-blocks", async (_req, res): Promise<void> => {
   try {
     const rows = await db.execute(
-      sql`SELECT id, name, block_type, props, sort_order, created_at, updated_at
+      sql`SELECT id, name, block_type, props, block_settings, sort_order, created_at, updated_at
           FROM lp_custom_blocks
           ORDER BY sort_order ASC, id ASC`
     );
@@ -20,17 +18,23 @@ router.get("/lp/custom-blocks", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
-  const { name, block_type, props } = req.body as { name?: string; block_type?: string; props?: unknown };
-  const resolvedType = block_type ?? "rich-text";
-  if (!ALLOWED_BLOCK_TYPES.has(resolvedType)) {
-    res.status(400).json({ error: `block_type must be one of: ${[...ALLOWED_BLOCK_TYPES].join(", ")}` });
+  const { name, block_type, props, block_settings } = req.body as {
+    name?: string;
+    block_type?: string;
+    props?: unknown;
+    block_settings?: unknown;
+  };
+  const resolvedType = (block_type ?? "rich-text").trim();
+  if (!resolvedType) {
+    res.status(400).json({ error: "block_type is required" });
     return;
   }
   try {
     const result = await db.execute(
-      sql`INSERT INTO lp_custom_blocks (name, block_type, props, sort_order)
+      sql`INSERT INTO lp_custom_blocks (name, block_type, props, block_settings, sort_order)
           VALUES (${name ?? "Untitled Block"}, ${resolvedType},
-                  ${JSON.stringify(props ?? { html: "" })}::jsonb,
+                  ${JSON.stringify(props ?? {})}::jsonb,
+                  ${JSON.stringify(block_settings ?? {})}::jsonb,
                   COALESCE((SELECT MAX(sort_order) + 1 FROM lp_custom_blocks), 0))
           RETURNING *`
     );
@@ -42,10 +46,15 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
 
 router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
   const { id } = req.params;
-  const { name, block_type, props } = req.body as { name?: string; block_type?: string; props?: unknown };
-  const resolvedType = block_type ?? "rich-text";
-  if (!ALLOWED_BLOCK_TYPES.has(resolvedType)) {
-    res.status(400).json({ error: `block_type must be one of: ${[...ALLOWED_BLOCK_TYPES].join(", ")}` });
+  const { name, block_type, props, block_settings } = req.body as {
+    name?: string;
+    block_type?: string;
+    props?: unknown;
+    block_settings?: unknown;
+  };
+  const resolvedType = (block_type ?? "rich-text").trim();
+  if (!resolvedType) {
+    res.status(400).json({ error: "block_type is required" });
     return;
   }
   try {
@@ -53,7 +62,8 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
       sql`UPDATE lp_custom_blocks
           SET name = ${name ?? "Untitled Block"},
               block_type = ${resolvedType},
-              props = ${JSON.stringify(props ?? { html: "" })}::jsonb,
+              props = ${JSON.stringify(props ?? {})}::jsonb,
+              block_settings = ${JSON.stringify(block_settings ?? {})}::jsonb,
               updated_at = now()
           WHERE id = ${Number(id)}
           RETURNING *`

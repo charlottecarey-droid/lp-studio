@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,14 @@ import { TiptapEditor } from "@/components/TiptapEditor";
 import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { useToast } from "@/hooks/use-toast";
+import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 
 interface CustomBlock {
   id: number;
   name: string;
   block_type: string;
-  props: { html: string };
+  props: Record<string, unknown>;
+  block_settings?: Record<string, unknown>;
 }
 
 function genBlockId(type: string) {
@@ -92,12 +94,15 @@ async function savePage(id: string, data: SavePageData) {
 }
 
 function CustomBlockThumbnail({ blockType }: { blockType: string }) {
+  const def = getBlockDef(blockType as BlockType);
   return (
     <div className="w-full h-14 rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center">
       {blockType === "rich-text" ? (
         <Type className="w-5 h-5 text-muted-foreground" />
-      ) : (
+      ) : blockType === "custom-html" || !def ? (
         <Code2 className="w-5 h-5 text-muted-foreground" />
+      ) : (
+        <BookmarkPlus className="w-5 h-5 text-primary/60" />
       )}
     </div>
   );
@@ -526,6 +531,7 @@ export default function BuilderEditor() {
 
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
+  const [saveToLibraryBlock, setSaveToLibraryBlock] = useState<PageBlock | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -696,15 +702,29 @@ export default function BuilderEditor() {
       const customId = Number(type.slice(7));
       const customBlock = customBlocks.find(b => b.id === customId);
       if (!customBlock) return;
-      const bt = (customBlock.block_type === "custom-html" ? "custom-html" : "rich-text") as BlockType;
-      const newBlock = { id: genBlockId(bt), type: bt, props: { html: customBlock.props?.html ?? "" } } as PageBlock;
+      const bt = customBlock.block_type as BlockType;
+      const newBlock = {
+        id: genBlockId(bt),
+        type: bt,
+        props: customBlock.props ?? {},
+        ...(customBlock.block_settings && Object.keys(customBlock.block_settings).length > 0
+          ? { blockSettings: customBlock.block_settings }
+          : {}),
+      } as PageBlock;
       insertBlock(newBlock, atIndex);
       return;
     }
     if (!isBlockType(type)) return;
-    const savedProps = blockDefaults[type];
-    const newBlock: PageBlock = savedProps
-      ? ({ id: genBlockId(type), type, props: savedProps } as PageBlock)
+    const savedDefault = blockDefaults[type] as { props?: unknown; blockSettings?: unknown } | undefined;
+    const newBlock: PageBlock = savedDefault?.props
+      ? ({
+          id: genBlockId(type),
+          type,
+          props: savedDefault.props,
+          ...(savedDefault.blockSettings && Object.keys(savedDefault.blockSettings as object).length > 0
+            ? { blockSettings: savedDefault.blockSettings }
+            : {}),
+        } as PageBlock)
       : createBlock(type);
     insertBlock(newBlock, atIndex);
   };
@@ -962,6 +982,21 @@ export default function BuilderEditor() {
         customBlocks={customBlocks}
       />
 
+      {/* Save to Library Dialog */}
+      <SaveToLibraryDialog
+        open={saveToLibraryBlock !== null}
+        block={saveToLibraryBlock}
+        onClose={() => setSaveToLibraryBlock(null)}
+        onSaved={() => {
+          setSaveToLibraryBlock(null);
+          fetch(`${API_BASE}/lp/custom-blocks`)
+            .then(r => r.json() as Promise<CustomBlock[]>)
+            .then(setCustomBlocks)
+            .catch(() => {});
+          toast({ title: "Saved to Library", description: "Block is now available in the Saved Blocks section." });
+        }}
+      />
+
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
@@ -1040,6 +1075,7 @@ export default function BuilderEditor() {
                           onDelete={() => deleteBlock(block.id)}
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
+                          onSaveToLibrary={setSaveToLibraryBlock}
                         />
                         <InsertionBar onClick={() => openInsertAt(index + 1)} />
                       </div>
@@ -1155,9 +1191,10 @@ interface SortableCanvasBlockProps {
   onDelete: () => void;
   onTestBlock: () => void;
   onBlockChange: (updated: PageBlock) => void;
+  onSaveToLibrary: (block: PageBlock) => void;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1262,6 +1299,13 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
               : <Sparkles className="w-3.5 h-3.5" />}
           </button>
         )}
+        <button
+          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
+          onClick={e => { e.stopPropagation(); onSaveToLibrary(block); }}
+          title="Save to Library"
+        >
+          <BookmarkPlus className="w-3.5 h-3.5" />
+        </button>
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-red-500"
           onClick={e => { e.stopPropagation(); onDelete(); }}
