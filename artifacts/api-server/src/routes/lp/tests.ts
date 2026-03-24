@@ -23,11 +23,25 @@ router.get("/lp/tests", async (req, res): Promise<void> => {
       testType: lpTestsTable.testType,
       createdAt: lpTestsTable.createdAt,
       updatedAt: lpTestsTable.updatedAt,
-      variantCount: sql<number>`(select count(*) from lp_variants where test_id = ${lpTestsTable.id})::int`,
     })
     .from(lpTestsTable)
     .orderBy(lpTestsTable.createdAt);
-  res.json(tests);
+
+  // Fetch variant counts separately to avoid Drizzle correlated subquery issues
+  const testIds = tests.map(t => t.id);
+  const variantCounts: Record<number, number> = {};
+  if (testIds.length > 0) {
+    const rows = await db
+      .select({ testId: lpVariantsTable.testId, count: sql<number>`count(*)::int` })
+      .from(lpVariantsTable)
+      .where(inArray(lpVariantsTable.testId, testIds))
+      .groupBy(lpVariantsTable.testId);
+    for (const row of rows) {
+      variantCounts[row.testId] = row.count;
+    }
+  }
+
+  res.json(tests.map(t => ({ ...t, variantCount: variantCounts[t.id] ?? 0 })));
 });
 
 router.post("/lp/tests", async (req, res): Promise<void> => {
@@ -62,7 +76,6 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
       testType: lpTestsTable.testType,
       createdAt: lpTestsTable.createdAt,
       updatedAt: lpTestsTable.updatedAt,
-      variantCount: sql<number>`(select count(*) from lp_variants where test_id = ${lpTestsTable.id})::int`,
     })
     .from(lpTestsTable)
     .where(eq(lpTestsTable.id, params.data.testId));
