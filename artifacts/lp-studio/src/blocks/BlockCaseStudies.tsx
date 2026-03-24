@@ -4,6 +4,7 @@ import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBod
 import { getHeadlineSizeClass } from "../lib/typography";
 import { ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface Props {
   props: CaseStudiesBlockProps;
@@ -52,13 +53,13 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.6, ease: EASE } : undefined}
-              whileHover={animationsEnabled ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
+              whileHover={(props.hoverLift ?? true) ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {featured.image ? (
                 <img
                   src={featured.image}
                   alt={featured.title}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={cn("absolute inset-0 w-full h-full object-cover transition-transform duration-500", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
                 />
               ) : (
                 <Placeholder className="absolute inset-0 w-full h-full" />
@@ -93,13 +94,13 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: (i + 1) * 0.07 } : undefined}
-              whileHover={animationsEnabled ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
+              whileHover={(props.hoverLift ?? true) ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {item.image ? (
                 <img
                   src={item.image}
                   alt={item.title}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={cn("absolute inset-0 w-full h-full object-cover transition-transform duration-500", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
                 />
               ) : (
                 <Placeholder className="absolute inset-0 w-full h-full" />

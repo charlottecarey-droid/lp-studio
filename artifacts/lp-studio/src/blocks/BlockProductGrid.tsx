@@ -43,14 +43,14 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true }: Pro
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
-              whileHover={animationsEnabled ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
+              whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               <div className="w-full h-52 overflow-hidden bg-slate-50">
                 <img
                   src={item.image}
                   alt={item.title}
                   loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className={cn("w-full h-full object-cover transition-transform duration-300", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
                 />
               </div>
               <div className="p-6 flex-1 flex flex-col">

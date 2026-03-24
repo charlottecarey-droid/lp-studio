@@ -53,7 +53,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true }: Props)
               className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
               style={{ color: statColor }}
             >
-              <AnimatedStat value={item.value} enabled={animationsEnabled} />
+              <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
             </span>
             <span className="text-sm font-medium uppercase tracking-wider" style={{ color: labelColor }}>
               {item.label}

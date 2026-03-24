@@ -51,9 +51,9 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                 whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, amount: 0.12 }}
                 transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
-                whileHover={animationsEnabled ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
-                whileTap={animationsEnabled ? { scale: 0.99 } : undefined}
-                style={animationsEnabled ? undefined : { transition: "box-shadow 0.2s" }}
+                whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
+                whileTap={(props.hoverLift ?? true) ? { scale: 0.99 } : undefined}
+                style={(props.hoverLift ?? true) ? undefined : { transition: "box-shadow 0.2s" }}
               >
                 <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
                   <Icon className="w-7 h-7 text-[#003A30]" />

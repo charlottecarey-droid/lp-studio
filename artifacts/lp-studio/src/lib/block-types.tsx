@@ -27,6 +27,7 @@ export interface TrustBarBlockProps {
   statColor?: string;
   labelColor?: string;
   borderColor?: string;
+  countUpEnabled?: boolean;
 }
 
 export interface PasSectionBlockProps {
@@ -50,6 +51,7 @@ export interface StatCalloutBlockProps {
   stat: string;
   description: string;
   footnote: string;
+  countUpEnabled?: boolean;
 }
 
 export interface BenefitsGridBlockProps {
@@ -57,6 +59,7 @@ export interface BenefitsGridBlockProps {
   columns: 2 | 3 | 4 | 5;
   items: Array<{ icon: string; title: string; description: string }>;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  hoverLift?: boolean;
 }
 
 export interface TestimonialBlockProps {
@@ -77,6 +80,8 @@ export interface ProductGridBlockProps {
   subheadline: string;
   columns?: 2 | 3 | 4 | 5;
   items: Array<{ image: string; title: string; description: string }>;
+  hoverLift?: boolean;
+  hoverImageZoom?: boolean;
 }
 
 export interface PhotoStripBlockProps {
@@ -148,6 +153,8 @@ export interface CaseStudiesBlockProps {
   columns?: 2 | 3 | 4;
   items: CaseStudyItem[];
   backgroundStyle: "white" | "light-gray";
+  hoverLift?: boolean;
+  hoverImageZoom?: boolean;
 }
 
 export interface ResourceItem {
@@ -230,6 +237,8 @@ export interface ProductShowcaseBlockProps {
   columns: 2 | 3 | 4 | 5;
   cards: ProductShowcaseCard[];
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  hoverLift?: boolean;
+  hoverImageZoom?: boolean;
 }
 
 export interface NavHeaderLink {

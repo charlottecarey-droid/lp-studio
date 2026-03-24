@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
@@ -69,6 +70,16 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
               {col}
             </button>
           ))}
+        </div>
+      </div>
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Animations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Card lift on hover</Label>
+          <Switch
+            checked={props.hoverLift ?? true}
+            onCheckedChange={v => onChange({ ...props, hoverLift: v })}
+          />
         </div>
       </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Benefits</Label>

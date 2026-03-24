@@ -2,6 +2,7 @@ import type { StatCalloutBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   props: StatCalloutBlockProps;
@@ -22,6 +23,16 @@ export function StatCalloutPanel({ props, onChange }: Props) {
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Footnote</Label>
         <Input value={props.footnote} onChange={e => onChange({ ...props, footnote: e.target.value })} className="text-sm" placeholder="Source note (optional)" />
+      </div>
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Animations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Count-up number</Label>
+          <Switch
+            checked={props.countUpEnabled ?? true}
+            onCheckedChange={v => onChange({ ...props, countUpEnabled: v })}
+          />
+        </div>
       </div>
     </div>
   );

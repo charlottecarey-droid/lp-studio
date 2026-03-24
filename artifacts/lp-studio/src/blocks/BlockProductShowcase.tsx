@@ -60,13 +60,13 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
               transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
-              whileHover={animationsEnabled ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
+              whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               {card.image && (
                 <img
                   src={card.image}
                   alt={card.name}
-                  className="w-full h-48 object-cover"
+                  className={cn("w-full h-48 object-cover transition-transform duration-300", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
                 />
               )}
               <div className="p-6 flex flex-col gap-3 flex-1">

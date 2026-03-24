@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   props: ProductShowcaseBlockProps;
@@ -110,6 +111,17 @@ export function ProductShowcasePanel({ props, onChange }: Props) {
         </div>
       </div>
 
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Animations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Card lift on hover</Label>
+          <Switch checked={props.hoverLift ?? true} onCheckedChange={v => onChange({ ...props, hoverLift: v })} />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Image zoom on hover</Label>
+          <Switch checked={props.hoverImageZoom ?? true} onCheckedChange={v => onChange({ ...props, hoverImageZoom: v })} />
+        </div>
+      </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
         Product Cards
       </Label>

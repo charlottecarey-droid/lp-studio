@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePicker } from "@/components/ImagePicker";
 import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   props: ProductGridBlockProps;
@@ -68,6 +69,17 @@ export function ProductGridPanel({ props, onChange }: Props) {
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
         <Input value={props.subheadline} onChange={e => onChange({ ...props, subheadline: e.target.value })} className="text-sm" />
+      </div>
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Animations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Card lift on hover</Label>
+          <Switch checked={props.hoverLift ?? true} onCheckedChange={v => onChange({ ...props, hoverLift: v })} />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Image zoom on hover</Label>
+          <Switch checked={props.hoverImageZoom ?? true} onCheckedChange={v => onChange({ ...props, hoverImageZoom: v })} />
+        </div>
       </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Products</Label>
       {props.items.map((item, i) => (

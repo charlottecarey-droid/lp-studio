@@ -2,6 +2,7 @@ import type { TrustBarBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -69,6 +70,18 @@ export function TrustBarPanel({ props, onChange }: Props) {
           defaultValue="#e2e8f0"
           onChange={v => onChange({ ...props, borderColor: v })}
         />
+      </div>
+
+      {/* Animations */}
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Animations</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-slate-600 cursor-pointer">Count-up numbers</Label>
+          <Switch
+            checked={props.countUpEnabled ?? true}
+            onCheckedChange={v => onChange({ ...props, countUpEnabled: v })}
+          />
+        </div>
       </div>
 
       {/* Stats */}
