@@ -6,13 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: HowItWorksBlockProps;
   onChange: (props: HowItWorksBlockProps) => void;
 }
 
-export function HowItWorksPanel({ props, onChange }: Props) {
+export function HowItWorksPanel({ blockType, props, onChange }: Props) {
   const updateStep = (i: number, key: string, v: string) => {
     const steps = props.steps.map((s, idx) => idx === i ? { ...s, [key]: v } : s);
     onChange({ ...props, steps });
@@ -24,7 +27,15 @@ export function HowItWorksPanel({ props, onChange }: Props) {
     <div className="space-y-4">
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Section Headline</Label>
-        <Input value={props.headline} onChange={e => onChange({ ...props, headline: e.target.value })} className="text-sm" />
+        <AiTextField
+          type="input"
+          value={props.headline}
+          onChange={v => onChange({ ...props, headline: v })}
+          fieldLabel="Section Headline"
+          onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
+            description: props.steps.slice(0, 3).map(s => s.title).join(", "),
+          })}
+        />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Size</Label>
@@ -50,8 +61,31 @@ export function HowItWorksPanel({ props, onChange }: Props) {
             </Button>
           </div>
           <Input placeholder="Number (e.g. 01)" value={step.number} onChange={e => updateStep(i, "number", e.target.value)} className="text-xs h-7 font-mono w-20" />
-          <Input placeholder="Title" value={step.title} onChange={e => updateStep(i, "title", e.target.value)} className="text-xs h-7" />
-          <Textarea placeholder="Description" value={step.description} onChange={e => updateStep(i, "description", e.target.value)} rows={2} className="text-xs resize-none" />
+          <AiTextField
+            type="input"
+            value={step.title}
+            onChange={v => updateStep(i, "title", v)}
+            placeholder="Title"
+            fieldLabel={`Step ${i + 1} Title`}
+            className="text-xs h-7"
+            onSuggest={() => suggestCopy(blockType, "title", step.title, {
+              headline: props.headline,
+              description: step.description,
+            })}
+          />
+          <AiTextField
+            type="textarea"
+            value={step.description}
+            onChange={v => updateStep(i, "description", v)}
+            placeholder="Description"
+            rows={2}
+            fieldLabel={`Step ${i + 1} Description`}
+            className="text-xs resize-none"
+            onSuggest={() => suggestCopy(blockType, "description", step.description, {
+              headline: props.headline,
+              title: step.title,
+            })}
+          />
         </div>
       ))}
       <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStep}>

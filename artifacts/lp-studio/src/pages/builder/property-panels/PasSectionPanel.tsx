@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: PasSectionBlockProps;
   onChange: (props: PasSectionBlockProps) => void;
 }
 
-export function PasSectionPanel({ props, onChange }: Props) {
+export function PasSectionPanel({ blockType, props, onChange }: Props) {
   const updateBullet = (i: number, v: string) => {
     const bullets = props.bullets.map((b, idx) => idx === i ? v : b);
     onChange({ ...props, bullets });
@@ -24,7 +27,16 @@ export function PasSectionPanel({ props, onChange }: Props) {
     <div className="space-y-4">
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
-        <Textarea value={props.headline} onChange={e => onChange({ ...props, headline: e.target.value })} rows={2} className="text-sm resize-none" />
+        <AiTextField
+          type="textarea"
+          value={props.headline}
+          onChange={v => onChange({ ...props, headline: v })}
+          rows={2}
+          fieldLabel="Headline"
+          onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
+            body: props.body,
+          })}
+        />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Size</Label>
@@ -42,7 +54,16 @@ export function PasSectionPanel({ props, onChange }: Props) {
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Body</Label>
-        <Textarea value={props.body} onChange={e => onChange({ ...props, body: e.target.value })} rows={3} className="text-sm resize-none" />
+        <AiTextField
+          type="textarea"
+          value={props.body}
+          onChange={v => onChange({ ...props, body: v })}
+          rows={3}
+          fieldLabel="Body"
+          onSuggest={() => suggestCopy(blockType, "body", props.body, {
+            headline: props.headline,
+          })}
+        />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Pain Points</Label>

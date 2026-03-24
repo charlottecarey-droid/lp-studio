@@ -7,13 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: ZigzagFeaturesBlockProps;
   onChange: (props: ZigzagFeaturesBlockProps) => void;
 }
 
-export function ZigzagFeaturesPanel({ props, onChange }: Props) {
+export function ZigzagFeaturesPanel({ blockType, props, onChange }: Props) {
   const updateRow = (i: number, key: keyof ZigzagFeatureRow, value: string) => {
     const rows = props.rows.map((r, idx) => idx === i ? { ...r, [key]: value } : r);
     onChange({ ...props, rows });
@@ -76,19 +79,30 @@ export function ZigzagFeaturesPanel({ props, onChange }: Props) {
           </div>
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Headline</Label>
-            <Input
+            <AiTextField
+              type="input"
               value={row.headline}
-              onChange={e => updateRow(i, "headline", e.target.value)}
+              onChange={v => updateRow(i, "headline", v)}
+              placeholder="Feature headline"
+              fieldLabel={`Row ${i + 1} Headline`}
               className="text-xs h-7"
+              onSuggest={() => suggestCopy(blockType, "headline", row.headline, {
+                body: row.body,
+              })}
             />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Body</Label>
-            <Textarea
+            <AiTextField
+              type="textarea"
               value={row.body}
-              onChange={e => updateRow(i, "body", e.target.value)}
+              onChange={v => updateRow(i, "body", v)}
               rows={3}
+              fieldLabel={`Row ${i + 1} Body`}
               className="text-xs resize-none"
+              onSuggest={() => suggestCopy(blockType, "body", row.body, {
+                headline: row.headline,
+              })}
             />
           </div>
           <div>

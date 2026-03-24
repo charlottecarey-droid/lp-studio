@@ -1,0 +1,224 @@
+import { Router } from "express";
+import OpenAI from "openai";
+import { db } from "@workspace/db";
+import { lpBrandSettingsTable } from "@workspace/db";
+
+const router = Router();
+
+function getOpenAIClient(): OpenAI {
+  const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+  if (!baseURL || !apiKey) {
+    throw new Error("AI integration not configured.");
+  }
+  return new OpenAI({ baseURL, apiKey });
+}
+
+interface BrandConfig {
+  brandName?: string;
+  toneOfVoice?: string;
+  messagingPillars?: { label: string; description: string }[];
+  copyExamples?: string[];
+  toneKeywords?: string[];
+  avoidPhrases?: string[];
+  targetAudience?: string;
+}
+
+function buildBrandSystemPrompt(brand: BrandConfig): string {
+  const parts: string[] = [];
+  if (brand.brandName) parts.push(`You are writing copy for ${brand.brandName}.`);
+  if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}.`);
+  if (brand.messagingPillars?.length) {
+    const themes = brand.messagingPillars.map((p) => `${p.label}: ${p.description}`).join("; ");
+    parts.push(`Always reflect one of these themes: ${themes}.`);
+  }
+  if (brand.copyExamples?.length) {
+    parts.push(`Style reference headlines: ${brand.copyExamples.join(" | ")}.`);
+  }
+  if (brand.toneKeywords?.length) {
+    parts.push(`Style keywords: ${brand.toneKeywords.join(", ")}.`);
+  }
+  if (brand.avoidPhrases?.length) {
+    parts.push(`Never use: ${brand.avoidPhrases.join(", ")}.`);
+  }
+  if (brand.targetAudience) {
+    parts.push(`Audience: ${brand.targetAudience}.`);
+  }
+  return parts.join("\n");
+}
+
+async function fetchBrand(): Promise<BrandConfig> {
+  try {
+    const rows = await db.select().from(lpBrandSettingsTable).limit(1);
+    if (rows.length === 0) return {};
+    return (rows[0].config as BrandConfig) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+const KNOWN_FIELDS = new Set([
+  "headline", "subheadline", "ctaText", "body", "secondaryCtaText",
+  "title", "description", "bodyText", "tagline",
+]);
+
+router.post("/lp/copy-generate", async (req, res): Promise<void> => {
+  const body = req.body as {
+    blockType?: string;
+    action?: string;
+    field?: string;
+    currentValue?: string;
+    siblingFields?: Record<string, string>;
+    count?: number;
+    fields?: string[];
+    currentValues?: Record<string, string>;
+  };
+
+  const { blockType, action } = body;
+
+  if (!blockType || typeof blockType !== "string" || !blockType.trim()) {
+    res.status(400).json({ error: "blockType is required" });
+    return;
+  }
+
+  let openai: OpenAI;
+  try {
+    openai = getOpenAIClient();
+  } catch (e) {
+    res.status(503).json({ error: String(e) });
+    return;
+  }
+
+  const brand = await fetchBrand();
+  const brandPrompt = buildBrandSystemPrompt(brand);
+
+  if (action === "refresh") {
+    const { fields, currentValues = {} } = body;
+    if (!Array.isArray(fields) || fields.length === 0) {
+      res.status(400).json({ error: "fields array is required for refresh action" });
+      return;
+    }
+    const validFields = fields.filter((f) => typeof f === "string" && KNOWN_FIELDS.has(f));
+    if (validFields.length === 0) {
+      res.status(400).json({ error: "No valid fields provided" });
+      return;
+    }
+
+    const contextParts: string[] = [];
+    for (const f of validFields) {
+      if (currentValues[f]) contextParts.push(`${f}: "${currentValues[f]}"`);
+    }
+
+    const systemPrompt = [
+      brandPrompt,
+      `You are rewriting landing page copy for a "${blockType}" block.`,
+      `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
+      `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
+      `Keep each value under 200 characters unless it is a body/description field (max 400 chars).`,
+      `Do not include any explanation, markdown, or extra text — only the JSON object.`,
+    ].filter(Boolean).join("\n");
+
+    const userPrompt = contextParts.length > 0
+      ? `Current copy (use as context, not as a template):\n${contextParts.join("\n")}\n\nGenerate fresh alternatives that feel like natural rewrites.`
+      : `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}.`;
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_completion_tokens: 1024,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      let parsed: Record<string, unknown> = {};
+      try {
+        const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        parsed = JSON.parse(cleaned);
+      } catch {
+        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        return;
+      }
+
+      const updated: Record<string, string> = {};
+      for (const f of validFields) {
+        if (typeof parsed[f] === "string" && (parsed[f] as string).trim()) {
+          updated[f] = (parsed[f] as string).trim();
+        }
+      }
+
+      res.json({ updated });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+    return;
+  }
+
+  const { field, currentValue = "", siblingFields = {}, count = 3 } = body;
+
+  if (!field || typeof field !== "string" || !KNOWN_FIELDS.has(field)) {
+    res.status(400).json({ error: `field must be one of: ${[...KNOWN_FIELDS].join(", ")}` });
+    return;
+  }
+
+  const safeCount = Math.min(Math.max(1, Number(count) || 3), 5);
+
+  const siblingContext = Object.entries(siblingFields)
+    .filter(([, v]) => v && typeof v === "string" && v.trim())
+    .map(([k, v]) => `  ${k}: "${v}"`)
+    .join("\n");
+
+  const systemPrompt = [
+    brandPrompt,
+    `You are writing a "${field}" field for a landing page "${blockType}" block.`,
+    `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
+    `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
+    `Example format: ["Option 1", "Option 2", "Option 3"]`,
+  ].filter(Boolean).join("\n");
+
+  const userLines = [`Current "${field}": "${currentValue}"`];
+  if (siblingContext) {
+    userLines.push(`Other fields on this block for context:\n${siblingContext}`);
+  }
+  userLines.push(`\nGenerate ${safeCount} fresh, on-brand alternatives for the "${field}" field.`);
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_completion_tokens: 1024,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userLines.join("\n") },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    let suggestions: string[] = [];
+    try {
+      const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) {
+        suggestions = parsed
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .map((s) => s.trim())
+          .slice(0, safeCount);
+      }
+    } catch {
+      res.status(500).json({ error: "AI returned invalid JSON", raw });
+      return;
+    }
+
+    if (suggestions.length === 0) {
+      res.status(500).json({ error: "No valid suggestions generated" });
+      return;
+    }
+
+    res.json({ suggestions });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+export default router;

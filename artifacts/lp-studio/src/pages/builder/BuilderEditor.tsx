@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,18 @@ import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
+import { refreshBlockCopy } from "@/lib/copy-api";
+
+const COPY_FIELDS: Partial<Record<string, string[]>> = {
+  "hero": ["headline", "subheadline", "ctaText"],
+  "full-bleed-hero": ["headline", "subheadline", "ctaText"],
+  "video-section": ["headline", "subheadline", "ctaText"],
+  "benefits-grid": ["headline"],
+  "how-it-works": ["headline"],
+  "zigzag-features": ["headline"],
+  "pas-section": ["headline", "body"],
+  "bottom-cta": ["headline", "subheadline", "ctaText"],
+};
 
 interface CustomBlock {
   id: number;
@@ -1160,6 +1172,32 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     transition,
   };
 
+  const [refreshingCopy, setRefreshingCopy] = useState(false);
+
+  const blockCopyFields = COPY_FIELDS[block.type];
+  const hasCopyFields = Array.isArray(blockCopyFields) && blockCopyFields.length > 0;
+
+  const handleRefreshCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!hasCopyFields || refreshingCopy) return;
+    setRefreshingCopy(true);
+    try {
+      const currentValues: Record<string, string> = {};
+      for (const f of blockCopyFields!) {
+        const v = (block.props as Record<string, unknown>)[f];
+        if (typeof v === "string") currentValues[f] = v;
+      }
+      const updated = await refreshBlockCopy(block.type, blockCopyFields!, currentValues);
+      if (Object.keys(updated).length > 0) {
+        onBlockChange({ ...block, props: { ...block.props, ...updated } });
+      }
+    } catch {
+      // silently ignore — popover feedback not needed for bulk refresh
+    } finally {
+      setRefreshingCopy(false);
+    }
+  };
+
   const isRichTextBlock = block.type === "rich-text";
 
   return (
@@ -1193,6 +1231,18 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         >
           <GripVertical className="w-3.5 h-3.5" />
         </button>
+        {hasCopyFields && (
+          <button
+            className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary disabled:opacity-50"
+            onClick={handleRefreshCopy}
+            title="Refresh copy with AI"
+            disabled={refreshingCopy}
+          >
+            {refreshingCopy
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Sparkles className="w-3.5 h-3.5" />}
+          </button>
+        )}
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-primary"
           onClick={e => { e.stopPropagation(); onTestBlock(); }}

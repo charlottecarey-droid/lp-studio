@@ -12,6 +12,7 @@ import blockDefaultsRouter from "./block-defaults";
 import customBlocksRouter from "./custom-blocks";
 import brandPresetsRouter from "./brand-presets";
 import brandImportRouter from "./brand-import";
+import copyGenerateRouter from "./copy-generate";
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use(blockDefaultsRouter);
 router.use(customBlocksRouter);
 router.use(brandPresetsRouter);
 router.use(brandImportRouter);
+router.use(copyGenerateRouter);
 
 export default router;

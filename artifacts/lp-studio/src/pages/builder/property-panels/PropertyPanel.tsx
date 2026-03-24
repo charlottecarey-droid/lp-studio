@@ -41,6 +41,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "hero":
         return (
           <HeroPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -55,6 +56,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "pas-section":
         return (
           <PasSectionPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -76,6 +78,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "benefits-grid":
         return (
           <BenefitsGridPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -90,6 +93,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "how-it-works":
         return (
           <HowItWorksPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -111,6 +115,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "bottom-cta":
         return (
           <BottomCtaPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -118,6 +123,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "video-section":
         return (
           <VideoSectionPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -153,6 +159,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "zigzag-features":
         return (
           <ZigzagFeaturesPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
@@ -181,6 +188,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "full-bleed-hero":
         return (
           <FullBleedHeroPanel
+            blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

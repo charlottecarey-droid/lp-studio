@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: BenefitsGridBlockProps;
   onChange: (props: BenefitsGridBlockProps) => void;
 }
 
-export function BenefitsGridPanel({ props, onChange }: Props) {
+export function BenefitsGridPanel({ blockType, props, onChange }: Props) {
   const updateItem = (i: number, key: string, v: string) => {
     const items = props.items.map((item, idx) => idx === i ? { ...item, [key]: v } : item);
     onChange({ ...props, items });
@@ -24,7 +27,15 @@ export function BenefitsGridPanel({ props, onChange }: Props) {
     <div className="space-y-4">
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Section Headline</Label>
-        <Input value={props.headline} onChange={e => onChange({ ...props, headline: e.target.value })} className="text-sm" />
+        <AiTextField
+          type="input"
+          value={props.headline}
+          onChange={v => onChange({ ...props, headline: v })}
+          fieldLabel="Section Headline"
+          onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
+            description: props.items.slice(0, 3).map(i => i.title).join(", "),
+          })}
+        />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Size</Label>
@@ -67,8 +78,31 @@ export function BenefitsGridPanel({ props, onChange }: Props) {
               ))}
             </SelectContent>
           </Select>
-          <Input placeholder="Title" value={item.title} onChange={e => updateItem(i, "title", e.target.value)} className="text-xs h-7" />
-          <Textarea placeholder="Description" value={item.description} onChange={e => updateItem(i, "description", e.target.value)} rows={2} className="text-xs resize-none" />
+          <AiTextField
+            type="input"
+            value={item.title}
+            onChange={v => updateItem(i, "title", v)}
+            placeholder="Title"
+            fieldLabel={`Benefit ${i + 1} Title`}
+            className="text-xs h-7"
+            onSuggest={() => suggestCopy(blockType, "title", item.title, {
+              headline: props.headline,
+              description: item.description,
+            })}
+          />
+          <AiTextField
+            type="textarea"
+            value={item.description}
+            onChange={v => updateItem(i, "description", v)}
+            placeholder="Description"
+            rows={2}
+            fieldLabel={`Benefit ${i + 1} Description`}
+            className="text-xs resize-none"
+            onSuggest={() => suggestCopy(blockType, "description", item.description, {
+              headline: props.headline,
+              title: item.title,
+            })}
+          />
         </div>
       ))}
       <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addItem}>

@@ -1,18 +1,20 @@
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { VideoPicker } from "@/components/VideoPicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: VideoSectionBlockProps;
   onChange: (props: VideoSectionBlockProps) => void;
 }
 
-export function VideoSectionPanel({ props, onChange }: Props) {
+export function VideoSectionPanel({ blockType, props, onChange }: Props) {
   const set = <K extends keyof VideoSectionBlockProps>(k: K, v: VideoSectionBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -65,12 +67,17 @@ export function VideoSectionPanel({ props, onChange }: Props) {
 
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
-        <Textarea
+        <AiTextField
+          type="textarea"
           value={props.headline}
-          onChange={e => set("headline", e.target.value)}
+          onChange={v => set("headline", v)}
           rows={2}
-          className="text-sm resize-none"
           placeholder="Optional headline"
+          fieldLabel="Headline"
+          onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
+            subheadline: props.subheadline,
+            ctaText: props.ctaText,
+          })}
         />
       </div>
       <div>
@@ -89,21 +96,31 @@ export function VideoSectionPanel({ props, onChange }: Props) {
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
-        <Textarea
+        <AiTextField
+          type="textarea"
           value={props.subheadline}
-          onChange={e => set("subheadline", e.target.value)}
+          onChange={v => set("subheadline", v)}
           rows={2}
-          className="text-sm resize-none"
           placeholder="Optional subheadline"
+          fieldLabel="Subheadline"
+          onSuggest={() => suggestCopy(blockType, "subheadline", props.subheadline, {
+            headline: props.headline,
+            ctaText: props.ctaText,
+          })}
         />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Button Text</Label>
-        <Input
+        <AiTextField
+          type="input"
           value={props.ctaText}
-          onChange={e => set("ctaText", e.target.value)}
-          className="text-sm"
+          onChange={v => set("ctaText", v)}
           placeholder="Leave empty for no button"
+          fieldLabel="Button Text"
+          onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
+            headline: props.headline,
+            subheadline: props.subheadline,
+          })}
         />
       </div>
       {props.ctaText && (

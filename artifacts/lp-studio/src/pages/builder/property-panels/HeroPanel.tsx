@@ -3,16 +3,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
+  blockType: string;
   props: HeroBlockProps;
   onChange: (props: HeroBlockProps) => void;
 }
 
-export function HeroPanel({ props, onChange }: Props) {
+export function HeroPanel({ blockType, props, onChange }: Props) {
   const set = <K extends keyof HeroBlockProps>(k: K, v: HeroBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -22,11 +24,16 @@ export function HeroPanel({ props, onChange }: Props) {
     <div className="space-y-4">
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
-        <Textarea
+        <AiTextField
+          type="textarea"
           value={props.headline}
-          onChange={e => set("headline", e.target.value)}
+          onChange={v => set("headline", v)}
           rows={2}
-          className="text-sm resize-none"
+          fieldLabel="Headline"
+          onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
+            subheadline: props.subheadline,
+            ctaText: props.ctaText,
+          })}
         />
       </div>
       <div>
@@ -45,16 +52,30 @@ export function HeroPanel({ props, onChange }: Props) {
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
-        <Textarea
+        <AiTextField
+          type="textarea"
           value={props.subheadline}
-          onChange={e => set("subheadline", e.target.value)}
+          onChange={v => set("subheadline", v)}
           rows={2}
-          className="text-sm resize-none"
+          fieldLabel="Subheadline"
+          onSuggest={() => suggestCopy(blockType, "subheadline", props.subheadline, {
+            headline: props.headline,
+            ctaText: props.ctaText,
+          })}
         />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text</Label>
-        <Input value={props.ctaText} onChange={e => set("ctaText", e.target.value)} className="text-sm" />
+        <AiTextField
+          type="input"
+          value={props.ctaText}
+          onChange={v => set("ctaText", v)}
+          fieldLabel="CTA Text"
+          onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
+            headline: props.headline,
+            subheadline: props.subheadline,
+          })}
+        />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
