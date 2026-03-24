@@ -20,9 +20,13 @@ export function BlockTrustBar({ props, brand }: Props) {
       className="w-full py-12"
       style={{ backgroundColor: bg, borderTop: `1px solid ${borderColor}`, borderBottom: `1px solid ${borderColor}` }}
     >
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0">
         {items.map((item, i) => (
-          <div key={i} className="flex flex-col items-center text-center px-4">
+          <div
+            key={i}
+            className="flex flex-col items-center text-center px-8 py-2"
+            style={i > 0 ? { borderLeft: `1px solid ${borderColor}` } : undefined}
+          >
             <span
               className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
               style={{ color: statColor }}
