@@ -111,7 +111,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"] as const;
 
   return (
     <div className="p-4 space-y-6">
@@ -324,7 +324,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -1100,6 +1100,7 @@ export default function BuilderEditor() {
               onChange={updateBlock}
               onDelete={() => deleteBlock(selectedBlock.id)}
               brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
+              pageId={parseInt(pageId, 10) || undefined}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

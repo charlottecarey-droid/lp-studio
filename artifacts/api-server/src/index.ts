@@ -60,6 +60,28 @@ async function runMigrations() {
         config jsonb NOT NULL DEFAULT '{}',
         created_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS lp_leads (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        variant_id integer,
+        fields jsonb NOT NULL DEFAULT '{}',
+        ip text,
+        user_agent text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS lp_leads_page_id_idx ON lp_leads (page_id);
+      CREATE INDEX IF NOT EXISTS lp_leads_created_at_idx ON lp_leads (created_at);
+
+      CREATE TABLE IF NOT EXISTS lp_form_notifications (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL UNIQUE REFERENCES lp_pages(id) ON DELETE CASCADE,
+        email_recipients jsonb NOT NULL DEFAULT '[]',
+        webhook_url text,
+        marketo_config jsonb,
+        salesforce_config jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

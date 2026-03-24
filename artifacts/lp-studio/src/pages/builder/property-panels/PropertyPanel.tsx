@@ -24,6 +24,7 @@ import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
 import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
 import { FooterPanel } from "./FooterPanel";
+import { FormPanel } from "./FormPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -32,9 +33,10 @@ interface Props {
   onDelete?: () => void;
   hideBlockSettings?: boolean;
   brandVoiceSet?: boolean;
+  pageId?: number;
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, pageId }: Props) {
   const def = getBlockDef(block.type);
 
   const renderForm = () => {
@@ -207,6 +209,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <FooterPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "form":
+        return (
+          <FormPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            pageId={pageId}
           />
         );
       default: {

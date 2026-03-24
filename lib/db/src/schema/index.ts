@@ -7,3 +7,4 @@ export * from "./lpPages";
 export * from "./lpCollaboration";
 export * from "./lpMedia";
 export * from "./lpPageVisits";
+export * from "./lpLeads";

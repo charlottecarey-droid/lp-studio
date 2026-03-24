@@ -13,6 +13,8 @@ import customBlocksRouter from "./custom-blocks";
 import brandPresetsRouter from "./brand-presets";
 import brandImportRouter from "./brand-import";
 import copyGenerateRouter from "./copy-generate";
+import leadsRouter from "./leads";
+import formNotificationsRouter from "./form-notifications";
 
 const router = Router();
 
@@ -30,5 +32,7 @@ router.use(customBlocksRouter);
 router.use(brandPresetsRouter);
 router.use(brandImportRouter);
 router.use(copyGenerateRouter);
+router.use(leadsRouter);
+router.use(formNotificationsRouter);
 
 export default router;

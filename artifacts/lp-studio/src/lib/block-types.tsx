@@ -1,6 +1,6 @@
 import type React from "react";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture";
 
 export interface HeroBlockProps {
   headline: string;
@@ -168,6 +168,33 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox";
+
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+}
+
+export interface FormStep {
+  title: string;
+  fields: FormField[];
+}
+
+export interface FormBlockProps {
+  headline: string;
+  subheadline: string;
+  multiStep: boolean;
+  steps: FormStep[];
+  submitButtonText: string;
+  successMessage: string;
+  redirectUrl: string;
+  backgroundStyle: "white" | "light-gray" | "dark";
+}
+
 export interface ZigzagFeatureRow {
   tag: string;
   headline: string;
@@ -293,7 +320,8 @@ type BlockVariant =
   | { type: "nav-header"; props: NavHeaderBlockProps }
   | { type: "cta-button"; props: CtaButtonBlockProps }
   | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps }
-  | { type: "footer"; props: FooterBlockProps };
+  | { type: "footer"; props: FooterBlockProps }
+  | { type: "form"; props: FormBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -964,6 +992,41 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "form",
+    label: "Lead Capture Form",
+    category: "Lead Capture",
+    defaultProps: (): FormBlockProps => ({
+      headline: "Get in Touch",
+      subheadline: "Fill out the form below and we'll get back to you shortly.",
+      multiStep: false,
+      steps: [
+        {
+          title: "Your Information",
+          fields: [
+            { id: "field-name", type: "text", label: "Full Name", placeholder: "Jane Smith", required: true },
+            { id: "field-email", type: "email", label: "Email Address", placeholder: "jane@example.com", required: true },
+            { id: "field-phone", type: "phone", label: "Phone Number", placeholder: "(555) 000-0000", required: false },
+            { id: "field-message", type: "textarea", label: "Message", placeholder: "How can we help?", required: false },
+          ],
+        },
+      ],
+      submitButtonText: "Submit",
+      successMessage: "Thank you! We'll be in touch soon.",
+      redirectUrl: "",
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="10" y="8" width="60" height="6" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="10" y="18" width="100" height="7" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="10" y="28" width="100" height="7" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="10" y="38" width="100" height="12" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="10" y="54" width="36" height="10" rx="5" fill="#C7E738" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -996,6 +1059,7 @@ export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
 export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
 export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
+export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1025,6 +1089,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
     case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
     case "footer": return { id, type: "footer", props: props as FooterBlockProps };
+    case "form": return { id, type: "form", props: props as FormBlockProps };
   }
 }
 

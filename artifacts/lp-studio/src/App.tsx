@@ -20,6 +20,7 @@ import BlockTestEditor from "@/pages/builder/BlockTestEditor";
 import ReviewShell from "@/pages/review-shell";
 import ReviewsOverview from "@/pages/reviews-overview";
 import AllTests from "@/pages/all-tests";
+import LeadsPage from "@/pages/leads";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/block-defaults" component={BlockDefaultsPage} />
       <Route path="/custom-blocks" component={CustomBlocksPage} />
       <Route path="/pages" component={PagesGallery} />
+      <Route path="/leads" component={LeadsPage} />
       
       {/* Builder Editor (no app layout — full screen) */}
       <Route path="/builder/:pageId" component={BuilderEditor} />

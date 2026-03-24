@@ -97,7 +97,7 @@ export default function BlockDefaultsPage() {
     }
   };
 
-  const categories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA"];
+  const categories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"];
   const savedCount = Object.keys(blockDefaults).length;
 
   return (

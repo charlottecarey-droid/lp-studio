@@ -282,7 +282,7 @@ export default function LandingPageViewer() {
             style={block.blockSettings?.animationStyle ?? "fade-up"}
             enabled={animationsEnabled}
           >
-            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} />
+            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} />
           </ScrollReveal>
         ))}
         {blocks.length === 0 && (
@@ -369,7 +369,7 @@ export default function LandingPageViewer() {
                 style={block.blockSettings?.animationStyle ?? "fade-up"}
                 enabled={linkedAnimationsEnabled}
               >
-                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} />
+                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} />
               </ScrollReveal>
             ))
           : (

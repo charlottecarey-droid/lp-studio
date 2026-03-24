@@ -22,6 +22,7 @@ import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
 import { BlockFooter } from "./BlockFooter";
+import { BlockForm } from "./BlockForm";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -32,6 +33,9 @@ interface Props {
   onCtaClick?: (url: string) => void;
   onBlockChange?: (updated: PageBlock) => void;
   animationsEnabled?: boolean;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
 const SPACING_PX: Record<string, string> = {
@@ -113,7 +117,7 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
   return <div style={style}>{children}</div>;
 }
 
-export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true }: Props) {
+export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const inner = (() => {
     switch (block.type) {
       case "hero":
@@ -272,6 +276,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         );
       case "footer":
         return <BlockFooter props={block.props} brand={brand} />;
+      case "form":
+        return <BlockForm props={block.props} brand={brand} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
