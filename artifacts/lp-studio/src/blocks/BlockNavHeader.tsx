@@ -5,6 +5,9 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { motion } from "framer-motion";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: NavHeaderBlockProps;
@@ -61,30 +64,36 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
             </a>
           )}
           {props.cta1?.label && (
-            <a
+            <motion.a
               href={props.cta1.url || "#"}
               className={cn(
                 getButtonClasses(brand),
                 "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               )}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              transition={SPRING}
             >
               <InlineText
                 value={props.cta1.label}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, cta1: { ...props.cta1, label: v } }) : undefined}
               />
-            </a>
+            </motion.a>
           )}
           {props.cta2?.label && (
-            <a
+            <motion.a
               href={props.cta2.url || "#"}
               className={getButtonClasses(brand)}
               style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              transition={SPRING}
             >
               <InlineText
                 value={props.cta2.label}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, cta2: { ...props.cta2, label: v } }) : undefined}
               />
-            </a>
+            </motion.a>
           )}
         </div>
       </div>

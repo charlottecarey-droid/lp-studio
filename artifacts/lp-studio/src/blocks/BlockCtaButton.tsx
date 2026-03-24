@@ -3,6 +3,9 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import type { CtaButtonBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { motion } from "framer-motion";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: CtaButtonBlockProps;
@@ -60,21 +63,24 @@ export function BlockCtaButton({ props, brand, onFieldChange }: Props) {
   return (
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
       <div className={cn("max-w-7xl mx-auto px-6 flex", ALIGN_CLASSES[props.alignment] ?? "justify-center")}>
-        <a
+        <motion.a
           href={props.url || "#"}
           className={cn(
-            "inline-flex items-center font-semibold transition-transform hover:scale-105 active:scale-95",
+            "inline-flex items-center font-semibold transition-colors",
             radius,
             SIZE_CLASSES[props.size] ?? SIZE_CLASSES.medium,
             getStyleClasses()
           )}
           style={getInlineStyle()}
+          whileHover={{ scale: 1.04, y: -1 }}
+          whileTap={{ scale: 0.96 }}
+          transition={SPRING}
         >
           <InlineText
             value={props.label}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, label: v }) : undefined}
           />
-        </a>
+        </motion.a>
       </div>
     </section>
   );

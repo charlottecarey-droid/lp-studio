@@ -4,6 +4,9 @@ import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { motion } from "framer-motion";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: VideoSectionBlockProps;
@@ -112,13 +115,16 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
                 </p>
               )}
               {props.overlayCtaText && (
-                <a
+                <motion.a
                   href={props.overlayCtaUrl ?? "#"}
                   className="inline-block mt-2 px-5 sm:px-7 py-2.5 sm:py-3 rounded-full font-bold text-sm"
                   style={{ backgroundColor: LIME, color: FOREST }}
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={SPRING}
                 >
                   {props.overlayCtaText}
-                </a>
+                </motion.a>
               )}
             </div>
           </div>
@@ -189,14 +195,17 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
         </p>
       )}
       {props.ctaText && (
-        <button
+        <motion.button
           onClick={onCtaClick}
           className={getButtonClasses(brand, "inline-flex items-center justify-center")}
           style={{ backgroundColor: LIME, color: FOREST }}
+          whileHover={{ scale: 1.04, y: -1 }}
+          whileTap={{ scale: 0.96 }}
+          transition={SPRING}
         >
           {props.ctaText}
           <ArrowRight className="w-4 h-4 ml-2" />
-        </button>
+        </motion.button>
       )}
     </div>
   );
@@ -251,14 +260,17 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
         {videoElement}
         {props.ctaText && (
           <div className="text-center mt-8">
-            <button
+            <motion.button
               onClick={onCtaClick}
               className={getButtonClasses(brand, "inline-flex items-center justify-center")}
               style={{ backgroundColor: LIME, color: FOREST }}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              transition={SPRING}
             >
               {props.ctaText}
               <ArrowRight className="w-4 h-4 ml-2" />
-            </button>
+            </motion.button>
           </div>
         )}
       </div>
