@@ -2,10 +2,13 @@ import type { RefObject } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft, Save, Globe, Copy, Monitor, Smartphone, CheckCircle, FlaskConical,
+  MessageSquare, Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PresenceStrip } from "@/components/collaboration/presence-strip";
+import type { PresenceViewer } from "@/hooks/use-collaboration";
 
 interface BuilderTopBarProps {
   title: string;
@@ -14,6 +17,8 @@ interface BuilderTopBarProps {
   isMobile: boolean;
   isSaving: boolean;
   saveSuccess: boolean;
+  commentMode: boolean;
+  viewers: PresenceViewer[];
   onTitleChange: (title: string) => void;
   onTitleBlur: () => void;
   onSetMobile: (mobile: boolean) => void;
@@ -21,6 +26,8 @@ interface BuilderTopBarProps {
   onSave: () => void;
   onOpenAbTest: () => void;
   onPublish: () => void;
+  onToggleCommentMode: () => void;
+  onShareForReview: () => void;
 }
 
 export function BuilderTopBar({
@@ -30,6 +37,8 @@ export function BuilderTopBar({
   isMobile,
   isSaving,
   saveSuccess,
+  commentMode,
+  viewers,
   onTitleChange,
   onTitleBlur,
   onSetMobile,
@@ -37,6 +46,8 @@ export function BuilderTopBar({
   onSave,
   onOpenAbTest,
   onPublish,
+  onToggleCommentMode,
+  onShareForReview,
 }: BuilderTopBarProps) {
   return (
     <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
@@ -90,6 +101,23 @@ export function BuilderTopBar({
           <Smartphone className="w-4 h-4" />
         </button>
       </div>
+
+      <PresenceStrip viewers={viewers} />
+
+      <Button
+        variant={commentMode ? "default" : "outline"}
+        size="sm"
+        className={cn("gap-1.5 text-xs", commentMode && "bg-amber-500 hover:bg-amber-600 text-white")}
+        onClick={onToggleCommentMode}
+      >
+        <MessageSquare className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Comments</span>
+      </Button>
+
+      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onShareForReview}>
+        <Share2 className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Share</span>
+      </Button>
 
       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onCopyLink}>
         <Copy className="w-3.5 h-3.5" />

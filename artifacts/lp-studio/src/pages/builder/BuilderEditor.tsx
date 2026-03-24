@@ -39,6 +39,10 @@ import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
+import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
+import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 
 interface CustomBlock {
   id: number;
@@ -536,6 +540,16 @@ export default function BuilderEditor() {
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
   const [saveToLibraryBlock, setSaveToLibraryBlock] = useState<PageBlock | null>(null);
 
+  // Collaboration state
+  const [commentMode, setCommentMode] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const pageIdNum = parseInt(pageId, 10);
+  const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
+  const { reviews, createReview, deleteReview } = useReviews(pageIdNum);
+  const displayName = getAuthorName() || "Builder User";
+  const { viewers } = usePresence(pageIdNum, displayName);
+
   const titleRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -868,6 +882,8 @@ export default function BuilderEditor() {
         isMobile={isMobile}
         isSaving={isSaving}
         saveSuccess={saveSuccess}
+        commentMode={commentMode}
+        viewers={viewers}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         onSetMobile={setIsMobile}
@@ -875,6 +891,8 @@ export default function BuilderEditor() {
         onSave={handleSave}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onPublish={handlePublish}
+        onToggleCommentMode={() => setCommentMode(prev => !prev)}
+        onShareForReview={() => setShareModalOpen(true)}
       />
 
       <Dialog open={abTestModalOpen} onOpenChange={setAbTestModalOpen}>
@@ -987,6 +1005,17 @@ export default function BuilderEditor() {
         customBlocks={customBlocks}
       />
 
+      {/* Share for Review Modal */}
+      <ShareReviewModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        pageId={pageIdNum}
+        pageName={title}
+        reviews={reviews}
+        onCreateReview={createReview}
+        onDeleteReview={deleteReview}
+      />
+
       {/* Save to Library Dialog */}
       <SaveToLibraryDialog
         open={saveToLibraryBlock !== null}
@@ -1081,6 +1110,11 @@ export default function BuilderEditor() {
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
                           onSaveToLibrary={setSaveToLibraryBlock}
+                          commentMode={commentMode}
+                          blockIndex={index}
+                          blockComments={commentBlocks.find(cb => cb.blockIndex === index)}
+                          onAddComment={addComment}
+                          onResolveComment={resolveComment}
                         />
                         <InsertionBar onClick={() => openInsertAt(index + 1)} />
                       </div>
@@ -1226,9 +1260,14 @@ interface SortableCanvasBlockProps {
   onTestBlock: () => void;
   onBlockChange: (updated: PageBlock) => void;
   onSaveToLibrary: (block: PageBlock) => void;
+  commentMode: boolean;
+  blockIndex: number;
+  blockComments: BlockComments | undefined;
+  onAddComment: (params: { blockIndex: number; authorName: string; message: string; parentId?: number }) => Promise<void>;
+  onResolveComment: (commentId: number) => Promise<void>;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, commentMode, blockIndex, blockComments, onAddComment, onResolveComment }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1348,6 +1387,30 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Comment badge (visible when comment mode is on) */}
+      {commentMode && (
+        <div className="absolute -right-3 top-3 z-[80]">
+          <Popover>
+            <PopoverTrigger asChild>
+              <div>
+                <CommentBadge
+                  count={blockComments?.threads.filter(t => !t.comment.resolved).length ?? 0}
+                  onClick={() => {}}
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent side="right" className="w-auto p-0 border-0 shadow-none bg-transparent" align="start">
+              <CommentsPanel
+                blockComments={blockComments}
+                blockIndex={blockIndex}
+                onAddComment={onAddComment}
+                onResolve={onResolveComment}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
       {/* Rich-text: show Tiptap inline when selected */}
       {isRichTextBlock && isSelected ? (
