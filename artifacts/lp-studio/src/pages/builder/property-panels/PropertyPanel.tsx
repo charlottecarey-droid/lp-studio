@@ -30,9 +30,10 @@ interface Props {
   block: PageBlock;
   onChange: (block: PageBlock) => void;
   onDelete?: () => void;
+  hideBlockSettings?: boolean;
 }
 
-export function PropertyPanel({ block, onChange, onDelete }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false }: Props) {
   const def = getBlockDef(block.type);
 
   const renderForm = () => {
@@ -209,10 +210,12 @@ export function PropertyPanel({ block, onChange, onDelete }: Props) {
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         {renderForm()}
-        <BlockSettingsPanel
-          settings={block.blockSettings}
-          onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
-        />
+        {!hideBlockSettings && (
+          <BlockSettingsPanel
+            settings={block.blockSettings}
+            onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
+          />
+        )}
         {onDelete && (
           <div className="mt-6 pt-4 border-t border-border">
             <Button

@@ -4,6 +4,14 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+const KNOWN_BLOCK_TYPES = new Set([
+  "hero", "photo-strip", "nav-header", "footer", "full-bleed-hero",
+  "pas-section", "comparison", "benefits-grid", "how-it-works",
+  "product-grid", "video-section", "resources", "rich-text", "custom-html",
+  "zigzag-features", "product-showcase", "trust-bar", "testimonials",
+  "faq", "cta-banner", "cta-strip", "process-steps",
+]);
+
 router.get("/lp/block-defaults", async (_req, res): Promise<void> => {
   try {
     const rows = await db.execute(
@@ -21,6 +29,10 @@ router.get("/lp/block-defaults", async (_req, res): Promise<void> => {
 
 router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
   const { blockType } = req.params;
+  if (!KNOWN_BLOCK_TYPES.has(blockType)) {
+    res.status(400).json({ error: `Unknown block type: ${blockType}` });
+    return;
+  }
   const { props } = req.body as { props: unknown };
   try {
     await db.execute(
@@ -37,6 +49,10 @@ router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
 
 router.delete("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
   const { blockType } = req.params;
+  if (!KNOWN_BLOCK_TYPES.has(blockType)) {
+    res.status(400).json({ error: `Unknown block type: ${blockType}` });
+    return;
+  }
   try {
     await db.execute(
       sql`DELETE FROM lp_block_defaults WHERE block_type = ${blockType}`

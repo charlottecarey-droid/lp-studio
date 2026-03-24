@@ -169,6 +169,7 @@ export default function BlockDefaultsPage() {
                 <PropertyPanel
                   block={currentBlock}
                   onChange={setCurrentBlock}
+                  hideBlockSettings
                 />
               </div>
               {/* Live preview */}
