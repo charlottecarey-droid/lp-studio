@@ -1,9 +1,8 @@
-import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { TrustBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
-import { useCountUp, useCountUpRef } from "@/hooks/use-count-up";
+import { useCountUp } from "@/hooks/use-count-up";
 
 interface Props {
   props: TrustBarBlockProps;
@@ -20,8 +19,7 @@ function parseNumeric(value: string): { num: number; prefix: string; suffix: str
 
 function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
   const parsed = parseNumeric(value);
-  const ref = useCountUpRef();
-  const count = useCountUp(parsed?.num ?? 0, 1400, enabled && !!parsed);
+  const [count, countRef] = useCountUp(parsed?.num ?? 0, 1400, enabled && !!parsed);
 
   if (!parsed) return <span>{value}</span>;
 
@@ -29,7 +27,7 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
     ? `${parsed.prefix}${count.toLocaleString()}${parsed.suffix}`
     : value;
 
-  return <span ref={ref}>{display}</span>;
+  return <span ref={countRef}>{display}</span>;
 }
 
 export function BlockTrustBar({ props, brand, animationsEnabled = true }: Props) {
