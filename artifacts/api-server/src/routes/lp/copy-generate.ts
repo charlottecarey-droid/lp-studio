@@ -142,10 +142,13 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
         return;
       }
 
+      const BODY_FIELDS = new Set(["body", "bodyText", "description"]);
       const updated: Record<string, string> = {};
       for (const f of validFields) {
-        if (typeof parsed[f] === "string" && (parsed[f] as string).trim()) {
-          updated[f] = (parsed[f] as string).trim();
+        const maxLen = BODY_FIELDS.has(f) ? 400 : 200;
+        const val = typeof parsed[f] === "string" ? (parsed[f] as string).trim() : "";
+        if (val && val.length <= maxLen) {
+          updated[f] = val;
         }
       }
 
