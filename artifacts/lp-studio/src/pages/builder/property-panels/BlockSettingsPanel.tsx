@@ -1,7 +1,10 @@
 import type { BlockSettings } from "@/lib/block-types";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 interface Props {
   settings?: BlockSettings;
@@ -43,6 +46,56 @@ const TEXT_SCALE_OPTIONS = [
   { value: "150", label: "150% (Largest)" },
 ];
 
+function isValidHex(v: string) {
+  return /^#[0-9a-fA-F]{6}$/.test(v);
+}
+
+interface ColorFieldProps {
+  label: string;
+  value?: string;
+  onChange: (v: string | undefined) => void;
+}
+
+function ColorField({ label, value, onChange }: ColorFieldProps) {
+  const hex = value && isValidHex(value) ? value : "";
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
+      <div className="flex items-center gap-2">
+        <div className="relative shrink-0">
+          <input
+            type="color"
+            value={hex || "#ffffff"}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background"
+          />
+        </div>
+        <Input
+          value={value ?? ""}
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            onChange(v === "" ? undefined : v);
+          }}
+          placeholder="e.g. #1a1a1a"
+          className="h-8 text-xs font-mono flex-1"
+          maxLength={7}
+        />
+        {value && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+            onClick={() => onChange(undefined)}
+            title="Clear"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function BlockSettingsPanel({ settings, onChange }: Props) {
   const s = settings ?? {};
   const set = <K extends keyof BlockSettings>(k: K, v: BlockSettings[K]) =>
@@ -50,6 +103,43 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colors</p>
+
+      <ColorField
+        label="Background"
+        value={s.bgColor}
+        onChange={(v) => onChange({ ...s, bgColor: v })}
+      />
+      <ColorField
+        label="Text"
+        value={s.textColor}
+        onChange={(v) => onChange({ ...s, textColor: v })}
+      />
+      <ColorField
+        label="Card Background"
+        value={s.cardBgColor}
+        onChange={(v) => onChange({ ...s, cardBgColor: v })}
+      />
+
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Text Size</p>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Scale</Label>
+        <Select
+          value={s.textScale ?? "100"}
+          onValueChange={v => set("textScale", v as BlockSettings["textScale"])}
+        >
+          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {TEXT_SCALE_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Separator />
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Block Layout</p>
 
@@ -109,21 +199,6 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
           <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             {MIN_HEIGHT_OPTIONS.map(o => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 block">Text Scale</Label>
-        <Select
-          value={s.textScale ?? "100"}
-          onValueChange={v => set("textScale", v as BlockSettings["textScale"])}
-        >
-          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {TEXT_SCALE_OPTIONS.map(o => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
           </SelectContent>

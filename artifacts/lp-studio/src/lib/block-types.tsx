@@ -92,6 +92,9 @@ export interface BlockSettings {
   textScale?: "75" | "85" | "90" | "100" | "110" | "125" | "150";
   paddingX?: "none" | "sm" | "md" | "lg" | "xl";
   minHeight?: "none" | "25" | "50" | "75" | "100";
+  bgColor?: string;
+  textColor?: string;
+  cardBgColor?: string;
 }
 
 export interface VideoSectionBlockProps {

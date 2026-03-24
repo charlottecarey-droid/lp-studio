@@ -39,6 +39,7 @@ async function runMigrations() {
         props jsonb NOT NULL DEFAULT '{}',
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE lp_block_defaults ADD COLUMN IF NOT EXISTS block_settings jsonb NOT NULL DEFAULT '{}';
 
       CREATE TABLE IF NOT EXISTS lp_custom_blocks (
         id serial PRIMARY KEY,

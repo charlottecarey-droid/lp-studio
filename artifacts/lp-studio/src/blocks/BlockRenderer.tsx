@@ -64,6 +64,9 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings): ReactN
     style.flexDirection = "column";
     style.justifyContent = "center";
   }
+  if (settings.bgColor) style.backgroundColor = settings.bgColor;
+  if (settings.textColor) style.color = settings.textColor;
+  if (settings.cardBgColor) (style as Record<string, string>)["--card-bg"] = settings.cardBgColor;
   if (Object.keys(style).length === 0) return children;
   return <div style={style}>{children}</div>;
 }

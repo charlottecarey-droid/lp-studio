@@ -10,16 +10,17 @@ const KNOWN_BLOCK_TYPES = new Set([
   "product-grid", "video-section", "resources", "rich-text", "custom-html",
   "zigzag-features", "product-showcase", "trust-bar", "testimonials",
   "faq", "cta-banner", "cta-strip", "process-steps",
+  "stat-callout", "testimonial", "case-studies", "bottom-cta", "cta-button",
 ]);
 
 router.get("/lp/block-defaults", async (_req, res): Promise<void> => {
   try {
     const rows = await db.execute(
-      sql`SELECT block_type, props FROM lp_block_defaults ORDER BY block_type`
+      sql`SELECT block_type, props, block_settings FROM lp_block_defaults ORDER BY block_type`
     );
-    const result: Record<string, unknown> = {};
-    for (const row of rows.rows as { block_type: string; props: unknown }[]) {
-      result[row.block_type] = row.props;
+    const result: Record<string, { props: unknown; blockSettings: unknown }> = {};
+    for (const row of rows.rows as { block_type: string; props: unknown; block_settings: unknown }[]) {
+      result[row.block_type] = { props: row.props, blockSettings: row.block_settings ?? {} };
     }
     res.json(result);
   } catch {
@@ -33,13 +34,13 @@ router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
     res.status(400).json({ error: `Unknown block type: ${blockType}` });
     return;
   }
-  const { props } = req.body as { props: unknown };
+  const { props, blockSettings = {} } = req.body as { props: unknown; blockSettings?: unknown };
   try {
     await db.execute(
-      sql`INSERT INTO lp_block_defaults (block_type, props, updated_at)
-          VALUES (${blockType}, ${JSON.stringify(props)}::jsonb, now())
+      sql`INSERT INTO lp_block_defaults (block_type, props, block_settings, updated_at)
+          VALUES (${blockType}, ${JSON.stringify(props)}::jsonb, ${JSON.stringify(blockSettings)}::jsonb, now())
           ON CONFLICT (block_type)
-          DO UPDATE SET props = ${JSON.stringify(props)}::jsonb, updated_at = now()`
+          DO UPDATE SET props = ${JSON.stringify(props)}::jsonb, block_settings = ${JSON.stringify(blockSettings)}::jsonb, updated_at = now()`
     );
     res.json({ ok: true });
   } catch (err) {

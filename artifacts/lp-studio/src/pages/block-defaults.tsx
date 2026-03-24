@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
-import { BLOCK_REGISTRY, getBlockDef, type PageBlock, type BlockType, type BlockCategory } from "@/lib/block-types";
+import { BLOCK_REGISTRY, getBlockDef, type PageBlock, type BlockType, type BlockCategory, type BlockSettings } from "@/lib/block-types";
 import { PropertyPanel } from "@/pages/builder/property-panels/PropertyPanel";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
@@ -12,8 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const API = "/api";
 
+interface SavedDefault {
+  props: object;
+  blockSettings: BlockSettings;
+}
+
 export default function BlockDefaultsPage() {
-  const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
+  const [blockDefaults, setBlockDefaults] = useState<Record<string, SavedDefault>>({});
   const [selectedType, setSelectedType] = useState<BlockType | null>(null);
   const [currentBlock, setCurrentBlock] = useState<PageBlock | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
@@ -24,7 +29,16 @@ export default function BlockDefaultsPage() {
     Promise.all([
       fetch(`${API}/lp/block-defaults`).then(r => r.json() as Promise<Record<string, unknown>>),
       fetchBrandConfig(),
-    ]).then(([defaults, b]) => {
+    ]).then(([rawDefaults, b]) => {
+      const defaults: Record<string, SavedDefault> = {};
+      for (const [k, v] of Object.entries(rawDefaults)) {
+        if (v && typeof v === "object" && "props" in v) {
+          defaults[k] = {
+            props: (v as SavedDefault).props ?? {},
+            blockSettings: (v as SavedDefault).blockSettings ?? {},
+          };
+        }
+      }
       setBlockDefaults(defaults);
       setBrand(b);
     }).catch(() => {});
@@ -33,9 +47,10 @@ export default function BlockDefaultsPage() {
   const selectBlockType = (type: BlockType) => {
     setSelectedType(type);
     const def = getBlockDef(type)!;
-    const savedProps = blockDefaults[type] as object | undefined;
-    const props = savedProps ?? def.defaultProps();
-    setCurrentBlock({ id: "defaults-preview", type, props } as PageBlock);
+    const saved = blockDefaults[type];
+    const props = saved?.props ?? def.defaultProps();
+    const blockSettings = saved?.blockSettings ?? {};
+    setCurrentBlock({ id: "defaults-preview", type, props, blockSettings } as PageBlock);
   };
 
   const handleSave = async () => {
@@ -45,9 +60,15 @@ export default function BlockDefaultsPage() {
       await fetch(`${API}/lp/block-defaults/${currentBlock.type}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ props: currentBlock.props }),
+        body: JSON.stringify({ props: currentBlock.props, blockSettings: currentBlock.blockSettings ?? {} }),
       });
-      setBlockDefaults(prev => ({ ...prev, [currentBlock.type]: currentBlock.props }));
+      setBlockDefaults(prev => ({
+        ...prev,
+        [currentBlock.type]: {
+          props: currentBlock.props as object,
+          blockSettings: currentBlock.blockSettings ?? {},
+        },
+      }));
       toast({ title: "Default saved", description: `${getBlockDef(currentBlock.type)?.label} will now use this content when added to new pages.` });
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
@@ -67,7 +88,7 @@ export default function BlockDefaultsPage() {
         return next;
       });
       const def = getBlockDef(currentBlock.type)!;
-      setCurrentBlock({ ...currentBlock, props: def.defaultProps() });
+      setCurrentBlock({ ...currentBlock, props: def.defaultProps(), blockSettings: {} });
       toast({ title: "Reset to built-in defaults" });
     } catch {
       toast({ title: "Failed to reset", variant: "destructive" });
@@ -169,7 +190,6 @@ export default function BlockDefaultsPage() {
                 <PropertyPanel
                   block={currentBlock}
                   onChange={setCurrentBlock}
-                  hideBlockSettings
                 />
               </div>
               {/* Live preview */}
