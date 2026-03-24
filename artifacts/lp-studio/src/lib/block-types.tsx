@@ -23,6 +23,10 @@ export interface HeroBlockProps {
 
 export interface TrustBarBlockProps {
   items: Array<{ value: string; label: string }>;
+  bgColor?: string;
+  statColor?: string;
+  labelColor?: string;
+  borderColor?: string;
 }
 
 export interface PasSectionBlockProps {
