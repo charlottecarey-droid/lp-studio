@@ -685,6 +685,13 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+    optionalDependencies:
+      '@rollup/rollup-darwin-arm64':
+        specifier: '*'
+        version: 4.59.0
+      '@rollup/rollup-darwin-x64':
+        specifier: '*'
+        version: 4.59.0
 
   artifacts/mockup-sandbox:
     devDependencies:
