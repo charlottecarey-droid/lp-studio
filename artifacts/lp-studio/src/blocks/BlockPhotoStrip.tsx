@@ -44,7 +44,7 @@ export function BlockPhotoStrip({ props }: Props) {
       )}
       <div
         className="flex h-full animate-marquee w-max"
-        style={{ animationDuration: `${duration}s`, columnGap: gap > 0 ? `${gap}px` : undefined }}
+        style={{ animationDuration: `${duration}s` }}
       >
         {doubled.map((img, i) => (
           <img
@@ -57,6 +57,7 @@ export function BlockPhotoStrip({ props }: Props) {
               width: size === "xs" || size === "sm" ? "auto" : `${heightPx * 1.2}px`,
               flexShrink: 0,
               objectFit: fit,
+              marginRight: gap > 0 ? `${gap}px` : undefined,
             }}
           />
         ))}
