@@ -148,7 +148,7 @@ export function AiTextField({
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
                 >
                   <Sparkles className="w-3 h-3 shrink-0" />
-                  For better results, set up brand voice →
+                  For better results, set up your brand voice →
                 </a>
               </div>
             )}

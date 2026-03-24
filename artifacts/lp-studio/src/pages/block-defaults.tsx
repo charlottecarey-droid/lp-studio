@@ -196,7 +196,7 @@ export default function BlockDefaultsPage() {
                 <PropertyPanel
                   block={currentBlock}
                   onChange={setCurrentBlock}
-                  brandVoiceSet={!!(brand.brandName || brand.toneOfVoice || (brand.messagingPillars?.length ?? 0) > 0)}
+                  brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
                 />
               </div>
               {/* Live preview */}

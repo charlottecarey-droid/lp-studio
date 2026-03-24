@@ -1094,7 +1094,7 @@ export default function BuilderEditor() {
               block={selectedBlock}
               onChange={updateBlock}
               onDelete={() => deleteBlock(selectedBlock.id)}
-              brandVoiceSet={!!(brand.brandName || brand.toneOfVoice || (brand.messagingPillars?.length ?? 0) > 0)}
+              brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">
