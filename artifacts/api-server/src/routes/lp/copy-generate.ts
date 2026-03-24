@@ -239,13 +239,10 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
       }
 
       if (attempt === MAX_ATTEMPTS) {
-        if (parsed.length > 0) {
-          suggestions = parsed;
-        } else {
-          res.status(500).json({ error: "AI returned no valid suggestions after retry" });
-          return;
-        }
-        break;
+        res.status(500).json({
+          error: `Expected ${safeCount} suggestions but got ${parsed.length} valid items after ${MAX_ATTEMPTS} attempts`,
+        });
+        return;
       }
     }
 

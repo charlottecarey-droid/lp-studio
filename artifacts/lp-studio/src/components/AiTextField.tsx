@@ -116,22 +116,27 @@ export function AiTextField({
             )}
 
             {!loading && !error && suggestions.length > 0 && (
-              <div className="space-y-1.5">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => apply(s)}
-                    className="w-full text-left text-xs px-2.5 py-2 rounded-lg border border-border bg-background hover:bg-primary/5 hover:border-primary/40 transition-colors leading-snug"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {!loading && !error && suggestions.length === 0 && !open && (
-              <p className="text-xs text-muted-foreground">Click the wand to generate suggestions.</p>
+              <>
+                <div className="space-y-1.5">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => apply(s)}
+                      className="w-full text-left text-xs px-2.5 py-2 rounded-lg border border-border bg-background hover:bg-primary/5 hover:border-primary/40 transition-colors leading-snug"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="w-full text-xs text-center text-muted-foreground hover:text-foreground pt-1 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </>
             )}
           </PopoverContent>
         </Popover>

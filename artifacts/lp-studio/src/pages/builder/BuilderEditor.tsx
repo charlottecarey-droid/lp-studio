@@ -44,6 +44,7 @@ const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "video-section": ["headline", "subheadline", "ctaText"],
   "benefits-grid": ["headline"],
   "how-it-works": ["headline"],
+  "zigzag-features": ["headline", "body"],
   "pas-section": ["headline", "body"],
   "bottom-cta": ["headline", "subheadline", "ctaText"],
 };
@@ -1183,14 +1184,29 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     if (!hasCopyFields || refreshingCopy) return;
     setRefreshingCopy(true);
     try {
-      const currentValues: Record<string, string> = {};
-      for (const f of blockCopyFields!) {
-        const v = (block.props as Record<string, unknown>)[f];
-        if (typeof v === "string") currentValues[f] = v;
-      }
-      const updated = await refreshBlockCopy(block.type, blockCopyFields!, currentValues);
-      if (Object.keys(updated).length > 0) {
-        onBlockChange({ ...block, props: { ...block.props, ...updated } });
+      if (block.type === "zigzag-features") {
+        type ZigRow = { headline: string; body: string; [key: string]: unknown };
+        const rows = ((block.props as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
+        const updatedRows = await Promise.all(
+          rows.map(async (row) => {
+            const updated = await refreshBlockCopy("zigzag-features", ["headline", "body"], {
+              headline: typeof row.headline === "string" ? row.headline : "",
+              body: typeof row.body === "string" ? row.body : "",
+            });
+            return { ...row, ...updated };
+          }),
+        );
+        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } });
+      } else {
+        const currentValues: Record<string, string> = {};
+        for (const f of blockCopyFields!) {
+          const v = (block.props as Record<string, unknown>)[f];
+          if (typeof v === "string") currentValues[f] = v;
+        }
+        const updated = await refreshBlockCopy(block.type, blockCopyFields!, currentValues);
+        if (Object.keys(updated).length > 0) {
+          onBlockChange({ ...block, props: { ...block.props, ...updated } });
+        }
       }
     } catch (err) {
       toast({
