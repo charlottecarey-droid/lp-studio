@@ -53,7 +53,12 @@ interface FieldEditorProps {
 
 function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: FieldEditorProps) {
   const [open, setOpen] = useState(false);
+  const [optionsText, setOptionsText] = useState(() => (field.options ?? []).join("\n"));
   const set = <K extends keyof FormField>(k: K, v: FormField[K]) => onChange({ ...field, [k]: v });
+
+  useEffect(() => {
+    if (field.type !== "select") setOptionsText((field.options ?? []).join("\n"));
+  }, [field.type]);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-background">
@@ -115,8 +120,9 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: FieldE
             <div>
               <Label className={LABEL_CLS}>Options (one per line)</Label>
               <Textarea
-                value={(field.options ?? []).join("\n")}
-                onChange={e => set("options", e.target.value.split("\n").filter(Boolean))}
+                value={optionsText}
+                onChange={e => setOptionsText(e.target.value)}
+                onBlur={() => set("options", optionsText.split("\n").filter(Boolean))}
                 rows={4}
                 className="text-sm"
                 placeholder="Option A&#10;Option B&#10;Option C"

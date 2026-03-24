@@ -62,7 +62,12 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: {
   onMoveUp?: () => void; onMoveDown?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [optionsText, setOptionsText] = useState(() => (field.options ?? []).join("\n"));
   const set = <K extends keyof FormField>(k: K, v: FormField[K]) => onChange({ ...field, [k]: v });
+
+  useEffect(() => {
+    if (field.type !== "select") setOptionsText((field.options ?? []).join("\n"));
+  }, [field.type]);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-background">
@@ -98,7 +103,14 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: {
           {field.type === "select" && (
             <div>
               <Label className={LABEL_CLS}>Options (one per line)</Label>
-              <Textarea value={(field.options ?? []).join("\n")} onChange={e => set("options", e.target.value.split("\n").filter(Boolean))} rows={4} className="text-sm" placeholder={"Option A\nOption B\nOption C"} />
+              <Textarea
+                value={optionsText}
+                onChange={e => setOptionsText(e.target.value)}
+                onBlur={() => set("options", optionsText.split("\n").filter(Boolean))}
+                rows={4}
+                className="text-sm"
+                placeholder={"Option A\nOption B\nOption C"}
+              />
             </div>
           )}
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive w-full gap-1.5 mt-1" onClick={onDelete}>
