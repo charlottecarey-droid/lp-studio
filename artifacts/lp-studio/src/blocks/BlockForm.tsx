@@ -1,8 +1,17 @@
-import { useState, useRef } from "react";
-import type { FormBlockProps, FormField } from "@/lib/block-types";
+import { useState, useRef, useEffect } from "react";
+import type { FormBlockProps, FormField, FormStep } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 
 const API_BASE = "/api";
+
+interface GlobalFormConfig {
+  id: number;
+  steps: FormStep[];
+  multiStep: boolean;
+  submitButtonText: string;
+  successMessage: string | null;
+  redirectUrl: string | null;
+}
 
 interface Props {
   props: FormBlockProps;
@@ -112,9 +121,24 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [globalForm, setGlobalForm] = useState<GlobalFormConfig | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
-  const steps = props.steps ?? [];
+  useEffect(() => {
+    if (!props.formId) { setGlobalForm(null); return; }
+    fetch(`${API_BASE}/lp/forms/${props.formId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: GlobalFormConfig | null) => setGlobalForm(data))
+      .catch(() => {});
+  }, [props.formId]);
+
+  const activeSteps = globalForm?.steps ?? props.steps ?? [];
+  const activeMultiStep = globalForm?.multiStep ?? props.multiStep;
+  const activeSubmitText = globalForm?.submitButtonText ?? props.submitButtonText;
+  const activeSuccessMessage = globalForm?.successMessage ?? props.successMessage;
+  const activeRedirectUrl = globalForm?.redirectUrl ?? props.redirectUrl;
+
+  const steps = activeSteps;
   const totalSteps = steps.length;
   const step = steps[currentStep] ?? { title: "", fields: [] };
   const isLastStep = currentStep === totalSteps - 1;
@@ -156,6 +180,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
       };
       if (pageId != null) body.pageId = pageId;
       if (variantId != null) body.variantId = variantId;
+      if (props.formId != null) body.formId = props.formId;
 
       if (pageId != null) {
         const resp = await fetch(`${API_BASE}/lp/leads`, {
@@ -181,8 +206,8 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
       }
 
       setSubmitted(true);
-      if (props.redirectUrl) {
-        setTimeout(() => { window.location.href = props.redirectUrl; }, 1500);
+      if (activeRedirectUrl) {
+        setTimeout(() => { window.location.href = activeRedirectUrl; }, 1500);
       }
     } catch {
       setSubmitError("Something went wrong. Please try again.");
@@ -203,7 +228,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
             </svg>
           </div>
           <h3 className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-            {props.successMessage || "Thank you!"}
+            {activeSuccessMessage || "Thank you!"}
           </h3>
         </div>
       </section>
@@ -229,7 +254,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
         )}
 
         <div className={`rounded-xl shadow-sm border p-8 ${isDark ? "bg-white/10 border-white/20" : "bg-white border-gray-200"}`}>
-          {props.multiStep && totalSteps > 1 && (
+          {activeMultiStep && totalSteps > 1 && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <span className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-600"}`}>
@@ -282,7 +307,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
           )}
 
           <div className="mt-6 flex gap-3">
-            {props.multiStep && currentStep > 0 && (
+            {activeMultiStep && currentStep > 0 && (
               <button
                 type="button"
                 onClick={() => setCurrentStep(s => s - 1)}
@@ -298,7 +323,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               className="flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-60"
               style={{ background: accentColor, color: isDark ? "#003A30" : "#1a1a1a" }}
             >
-              {submitting ? "Submitting…" : isLastStep ? (props.submitButtonText || "Submit") : "Next"}
+              {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off } from "lucide-react";
 import type { FormBlockProps, FormField, FormFieldType, FormStep } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -431,6 +431,11 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
   );
 }
 
+interface GlobalFormSummary {
+  id: number;
+  name: string;
+}
+
 interface Props {
   props: FormBlockProps;
   onChange: (props: FormBlockProps) => void;
@@ -440,6 +445,13 @@ interface Props {
 export function FormPanel({ props, onChange, pageId }: Props) {
   const set = <K extends keyof FormBlockProps>(k: K, v: FormBlockProps[K]) =>
     onChange({ ...props, [k]: v });
+
+  const [globalForms, setGlobalForms] = useState<GlobalFormSummary[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/forms`).then(r => r.json()).then((data: GlobalFormSummary[]) => setGlobalForms(data)).catch(() => {});
+  }, []);
+
+  const linkedForm = globalForms.find(f => f.id === props.formId);
 
   const setStep = (i: number, step: FormStep) => {
     const steps = [...props.steps];
@@ -459,7 +471,43 @@ export function FormPanel({ props, onChange, pageId }: Props) {
   };
 
   return (
-    <Tabs defaultValue="fields">
+    <div className="space-y-4">
+      <div>
+        <Label className={LABEL_CLS}>Global Form</Label>
+        <p className="text-xs text-muted-foreground mb-2">
+          Link to a globally-managed form. Fields, steps, and integrations are defined in the Forms library.
+        </p>
+        <div className="flex gap-2">
+          <Select
+            value={props.formId != null ? String(props.formId) : "__local__"}
+            onValueChange={v => set("formId", v === "__local__" ? undefined : parseInt(v, 10))}
+          >
+            <SelectTrigger className="text-sm flex-1">
+              <SelectValue placeholder="Use local fields" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__local__">
+                <span className="flex items-center gap-1.5"><Link2Off className="w-3.5 h-3.5" />Use local fields</span>
+              </SelectItem>
+              {globalForms.map(f => (
+                <SelectItem key={f.id} value={String(f.id)}>
+                  <span className="flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5" />{f.name}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <a href="/forms" target="_blank" rel="noopener noreferrer" className="shrink-0">
+            <Button size="sm" variant="outline" type="button">Manage</Button>
+          </a>
+        </div>
+        {linkedForm && (
+          <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
+            <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}" — fields and notifications managed globally.
+          </p>
+        )}
+      </div>
+
+      <Tabs defaultValue="fields">
       <TabsList className="w-full mb-4">
         <TabsTrigger value="fields" className="flex-1 text-xs">Fields</TabsTrigger>
         <TabsTrigger value="settings" className="flex-1 text-xs">Settings</TabsTrigger>
@@ -467,6 +515,11 @@ export function FormPanel({ props, onChange, pageId }: Props) {
       </TabsList>
 
       <TabsContent value="fields" className="space-y-4 mt-0">
+      {linkedForm && (
+        <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+          Fields are managed in the <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a> under "{linkedForm.name}".
+        </div>
+      )}
         <div>
           <Label className={LABEL_CLS}>Headline</Label>
           <Input value={props.headline} onChange={e => set("headline", e.target.value)} className="text-sm" />
@@ -541,7 +594,11 @@ export function FormPanel({ props, onChange, pageId }: Props) {
       </TabsContent>
 
       <TabsContent value="notifications" className="mt-0">
-        {pageId != null ? (
+        {linkedForm ? (
+          <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+            Notifications are managed in the <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a> under "{linkedForm.name}".
+          </div>
+        ) : pageId != null ? (
           <NotificationsTab pageId={pageId} />
         ) : (
           <p className="text-sm text-muted-foreground py-4 text-center">
@@ -550,5 +607,6 @@ export function FormPanel({ props, onChange, pageId }: Props) {
         )}
       </TabsContent>
     </Tabs>
+    </div>
   );
 }

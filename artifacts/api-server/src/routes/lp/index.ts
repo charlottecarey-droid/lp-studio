@@ -15,6 +15,7 @@ import brandImportRouter from "./brand-import";
 import copyGenerateRouter from "./copy-generate";
 import leadsRouter from "./leads";
 import formNotificationsRouter from "./form-notifications";
+import formsRouter from "./forms";
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use(brandImportRouter);
 router.use(copyGenerateRouter);
 router.use(leadsRouter);
 router.use(formNotificationsRouter);
+router.use(formsRouter);
 
 export default router;

@@ -82,6 +82,24 @@ async function runMigrations() {
         salesforce_config jsonb,
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS lp_forms (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        description text,
+        steps jsonb NOT NULL DEFAULT '[]',
+        multi_step boolean NOT NULL DEFAULT false,
+        submit_button_text text DEFAULT 'Submit',
+        success_message text,
+        redirect_url text,
+        background_style text DEFAULT 'white',
+        email_recipients jsonb NOT NULL DEFAULT '[]',
+        webhook_url text,
+        marketo_config jsonb,
+        salesforce_config jsonb,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

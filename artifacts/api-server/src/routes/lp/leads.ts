@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { eq, desc, gte, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpLeadsTable, lpFormNotificationsTable, lpPagesTable, lpVariantsTable } from "@workspace/db";
+import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable } from "@workspace/db";
 import { z } from "zod";
 import {
   sendEmailNotification,
@@ -18,6 +18,7 @@ const router = Router();
 const SubmitLeadBody = z.object({
   pageId: z.number().int().positive(),
   variantId: z.number().int().positive().optional(),
+  formId: z.number().int().positive().optional(),
   fields: z.record(z.unknown()),
 });
 
@@ -34,7 +35,7 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
     return;
   }
 
-  const { pageId, variantId, fields } = parsed.data;
+  const { pageId, variantId, formId, fields } = parsed.data;
 
   const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
   if (!page) {
@@ -73,22 +74,40 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
         submittedAt: lead.createdAt.toISOString(),
       };
 
-      const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, pageId));
+      let emailRecipients: string[] = [];
+      let webhookUrl: string | null = null;
+      let marketoConfig: MarketoConfig | null = null;
+      let salesforceConfig: SalesforceConfig | null = null;
 
-      if (notif) {
-        const recipients = (notif.emailRecipients as string[]) ?? [];
-        if (recipients.length > 0) {
-          await sendEmailNotification(recipients, payload);
+      if (formId) {
+        const [globalForm] = await db.select().from(lpFormsTable).where(eq(lpFormsTable.id, formId));
+        if (globalForm) {
+          emailRecipients = (globalForm.emailRecipients as string[]) ?? [];
+          webhookUrl = globalForm.webhookUrl ?? null;
+          marketoConfig = globalForm.marketoConfig as MarketoConfig | null;
+          salesforceConfig = globalForm.salesforceConfig as SalesforceConfig | null;
         }
-        if (notif.webhookUrl) {
-          await deliverWebhook(notif.webhookUrl, payload);
+      } else {
+        const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, pageId));
+        if (notif) {
+          emailRecipients = (notif.emailRecipients as string[]) ?? [];
+          webhookUrl = notif.webhookUrl ?? null;
+          marketoConfig = notif.marketoConfig as MarketoConfig | null;
+          salesforceConfig = notif.salesforceConfig as SalesforceConfig | null;
         }
-        if (notif.marketoConfig) {
-          await syncToMarketo(notif.marketoConfig as MarketoConfig, payload);
-        }
-        if (notif.salesforceConfig) {
-          await syncToSalesforce(notif.salesforceConfig as SalesforceConfig, payload);
-        }
+      }
+
+      if (emailRecipients.length > 0) {
+        await sendEmailNotification(emailRecipients, payload);
+      }
+      if (webhookUrl) {
+        await deliverWebhook(webhookUrl, payload);
+      }
+      if (marketoConfig) {
+        await syncToMarketo(marketoConfig, payload);
+      }
+      if (salesforceConfig) {
+        await syncToSalesforce(salesforceConfig, payload);
       }
     } catch (err) {
       console.error("Error processing lead notifications:", err);

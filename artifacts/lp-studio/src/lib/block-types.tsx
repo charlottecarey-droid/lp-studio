@@ -193,6 +193,7 @@ export interface FormBlockProps {
   successMessage: string;
   redirectUrl: string;
   backgroundStyle: "white" | "light-gray" | "dark";
+  formId?: number;
 }
 
 export interface ZigzagFeatureRow {
