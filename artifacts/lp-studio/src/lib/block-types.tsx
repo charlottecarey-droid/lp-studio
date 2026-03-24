@@ -92,6 +92,7 @@ export interface BottomCtaBlockProps {
 }
 
 export interface BlockSettings {
+  anchorId?: string;
   spacingTop?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
   spacingBottom?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
   textScale?: "75" | "85" | "90" | "100" | "110" | "125" | "150";

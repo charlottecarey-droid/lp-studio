@@ -104,6 +104,25 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
   return (
     <div className="space-y-4">
       <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Navigation</p>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Anchor ID</Label>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground font-mono shrink-0">#</span>
+          <Input
+            value={s.anchorId ?? ""}
+            onChange={e => set("anchorId", e.target.value.replace(/[^a-z0-9-_]/gi, "").toLowerCase() || undefined)}
+            placeholder="contact-form"
+            className="h-8 text-xs font-mono flex-1"
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5">
+          Link nav buttons here using <span className="font-mono">#{s.anchorId || "your-id"}</span> as the URL.
+        </p>
+      </div>
+
+      <Separator />
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colors</p>
 
       <ColorField

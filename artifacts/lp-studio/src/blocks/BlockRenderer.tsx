@@ -98,12 +98,16 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
   if (settings.cardBgColor) (style as Record<string, string>)["--card-bg"] = settings.cardBgColor;
 
   const hasBgImage = !!settings.bgImageUrl;
+  const anchorId = settings.anchorId || undefined;
 
-  if (!hasBgImage && Object.keys(style).length === 0) return children;
+  if (!hasBgImage && Object.keys(style).length === 0) {
+    if (!anchorId) return children;
+    return <div id={anchorId}>{children}</div>;
+  }
 
   if (hasBgImage) {
     return (
-      <div style={{ ...style, position: "relative" }}>
+      <div id={anchorId} style={{ ...style, position: "relative" }}>
         <BgImageLayer
           url={settings.bgImageUrl!}
           opacity={settings.bgImageOpacity ?? 100}
@@ -114,7 +118,7 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
     );
   }
 
-  return <div style={style}>{children}</div>;
+  return <div id={anchorId} style={style}>{children}</div>;
 }
 
 export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
