@@ -44,7 +44,6 @@ const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "video-section": ["headline", "subheadline", "ctaText"],
   "benefits-grid": ["headline"],
   "how-it-works": ["headline"],
-  "zigzag-features": ["headline"],
   "pas-section": ["headline", "body"],
   "bottom-cta": ["headline", "subheadline", "ctaText"],
 };

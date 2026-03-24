@@ -157,7 +157,12 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   }
 
   const { field, siblingFields = {}, count = 3 } = body;
-  const currentValue = typeof body.currentValue === "string" ? body.currentValue : "";
+
+  if (body.currentValue !== undefined && typeof body.currentValue !== "string") {
+    res.status(400).json({ error: "currentValue must be a string" });
+    return;
+  }
+  const currentValue: string = typeof body.currentValue === "string" ? body.currentValue : "";
 
   if (!field || typeof field !== "string" || !KNOWN_FIELDS.has(field)) {
     res.status(400).json({ error: `field must be one of: ${[...KNOWN_FIELDS].join(", ")}` });
@@ -185,35 +190,63 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   }
   userLines.push(`\nGenerate ${safeCount} fresh, on-brand alternatives for the "${field}" field.`);
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_completion_tokens: 1024,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userLines.join("\n") },
-      ],
-    });
+  const callMessages: { role: "system" | "user"; content: string }[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userLines.join("\n") },
+  ];
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
-    let suggestions: string[] = [];
+  const parseSuggestions = (raw: string): string[] | null => {
     try {
       const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       const parsed = JSON.parse(cleaned);
       if (Array.isArray(parsed)) {
-        suggestions = parsed
+        return parsed
           .filter((s): s is string => typeof s === "string" && s.trim().length > 0 && s.trim().length <= 300)
           .map((s) => s.trim())
           .slice(0, safeCount);
       }
     } catch {
-      res.status(500).json({ error: "AI returned invalid JSON", raw });
-      return;
+      // fall through
     }
+    return null;
+  };
 
-    if (suggestions.length === 0) {
-      res.status(500).json({ error: "No valid suggestions generated" });
-      return;
+  const MAX_ATTEMPTS = 2;
+  let suggestions: string[] = [];
+
+  try {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_completion_tokens: 1024,
+        messages: callMessages,
+      });
+
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+      const parsed = parseSuggestions(raw);
+
+      if (parsed === null) {
+        if (attempt === MAX_ATTEMPTS) {
+          res.status(500).json({ error: "AI returned invalid JSON after retry" });
+          return;
+        }
+        continue;
+      }
+
+      if (parsed.length === safeCount) {
+        suggestions = parsed;
+        break;
+      }
+
+      if (attempt === MAX_ATTEMPTS) {
+        if (parsed.length > 0) {
+          suggestions = parsed;
+        } else {
+          res.status(500).json({ error: "AI returned no valid suggestions after retry" });
+          return;
+        }
+        break;
+      }
     }
 
     res.json({ suggestions });
