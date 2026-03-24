@@ -10,14 +10,13 @@ import {
   Paintbrush,
   ExternalLink,
   FileText,
-  Zap,
   Activity,
   ChevronRight,
   FlaskConical,
-  ClipboardCheck,
-  Share2,
   Edit2,
-  Wrench,
+  LayoutGrid,
+  Zap,
+  Share2,
 } from "lucide-react";
 
 import { useListTests } from "@workspace/api-client-react";
@@ -50,7 +49,7 @@ function useRecentPages() {
         const sorted = [...all].sort(
           (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
         );
-        setPages(sorted.slice(0, 3));
+        setPages(sorted);
       })
       .catch(() => setPages([]))
       .finally(() => setLoading(false));
@@ -66,15 +65,16 @@ function getGreeting() {
   return "Good evening";
 }
 
+type RecentWorkItem =
+  | { kind: "experiment"; id: number; name: string; status: string; testType: string; variantCount: number; slug: string; updatedAt: string }
+  | { kind: "page"; id: number; name: string; status: string; blocks: unknown[]; slug: string; updatedAt: string };
+
 export default function Dashboard() {
   const { data: tests, isLoading } = useListTests();
-  const { pages: recentPages, loading: pagesLoading } = useRecentPages();
+  const { pages: allPages, loading: pagesLoading } = useRecentPages();
 
   const running = tests?.filter(t => t.status === "running") ?? [];
   const drafts  = tests?.filter(t => t.status === "draft")   ?? [];
-  const recent  = [...(tests ?? [])].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  ).slice(0, 5);
 
   const base = getLpPublicBase();
   const today = format(new Date(), "EEEE, MMMM d");
@@ -86,44 +86,113 @@ export default function Dashboard() {
       label: "Live Pages",
       value: isLoading ? null : running.length,
       icon: <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />,
+      bigIcon: <Radio className="w-5 h-5 text-emerald-500/40" />,
       color: "text-emerald-600",
+      accent: true,
       href: "/live-pages",
     },
     {
-      label: "All Tests",
+      label: "All Experiments",
       value: isLoading ? null : (tests?.length ?? 0),
       icon: <FlaskConical className="w-3.5 h-3.5" />,
+      bigIcon: <FlaskConical className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
+      accent: false,
       href: "/tests",
     },
     {
       label: "Drafts",
       value: isLoading ? null : drafts.length,
       icon: <FileText className="w-3.5 h-3.5" />,
+      bigIcon: <FileText className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
+      accent: false,
       href: "/tests?status=draft",
     },
     {
       label: "A/B Tests",
       value: isLoading ? null : (tests?.filter(t => t.testType === "ab").length ?? 0),
       icon: <Activity className="w-3.5 h-3.5" />,
+      bigIcon: <Activity className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
+      accent: false,
       href: "/tests",
     },
   ];
+
+  const recentWork: RecentWorkItem[] = [
+    ...(tests ?? []).map(t => ({
+      kind: "experiment" as const,
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      testType: t.testType,
+      variantCount: t.variantCount ?? 0,
+      slug: t.slug,
+      updatedAt: t.updatedAt,
+    })),
+    ...allPages.map(p => ({
+      kind: "page" as const,
+      id: p.id,
+      name: p.title,
+      status: p.status,
+      blocks: p.blocks,
+      slug: p.slug,
+      updatedAt: p.updatedAt,
+    })),
+  ]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 6);
+
+  const recentWorkLoading = isLoading || pagesLoading;
+
+  function getContextualPrompt(): { message: string; href: string; cta: string } {
+    if (drafts.length > 0) {
+      return {
+        message: `You have ${drafts.length} draft${drafts.length !== 1 ? "s" : ""} — pick one to run`,
+        href: "/tests?status=draft",
+        cta: "View drafts",
+      };
+    }
+    if (running.length === 0 && (tests?.length ?? 0) > 0) {
+      return {
+        message: "No pages are live yet — set one running",
+        href: "/tests",
+        cta: "View experiments",
+      };
+    }
+    return {
+      message: "Share a page for stakeholder review",
+      href: "/reviews",
+      cta: "Go to Approvals",
+    };
+  }
+
+  const prompt = getContextualPrompt();
 
   return (
     <AppLayout>
       <div className="flex flex-col gap-8 pb-12">
 
-        {/* ── Header ─────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">{today}</p>
-            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground leading-tight">
+        {/* ── Hero Banner ──────────────────────────────────────── */}
+        <div
+          className="relative rounded-2xl overflow-hidden px-8 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+          style={{
+            background: "linear-gradient(135deg, #003A30 0%, #005244 50%, #003A30 100%)",
+          }}
+        >
+          <div
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: "radial-gradient(circle at 20% 50%, #C7E738 0%, transparent 50%), radial-gradient(circle at 80% 20%, #C7E738 0%, transparent 40%)",
+            }}
+          />
+          <div className="relative">
+            <p className="text-sm font-medium text-white/50 mb-1">{today}</p>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-white leading-tight">
               {getGreeting()}
             </h1>
-            <p className="text-muted-foreground mt-1.5 text-base">
+            <p className="text-white/60 mt-1.5 text-base">
               {isLoading
                 ? "Loading your workspace…"
                 : isEmpty
@@ -131,10 +200,14 @@ export default function Dashboard() {
                 : `${running.length} page${running.length !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <Link href="/pages">
-            <Button size="lg" className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0">
+          <Link href="/tests/new" className="relative shrink-0">
+            <Button
+              size="lg"
+              className="rounded-xl font-semibold px-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
+              style={{ backgroundColor: "#C7E738", color: "#003A30" }}
+            >
               <Plus className="w-4 h-4 mr-2" />
-              New Landing Page
+              New Experiment
             </Button>
           </Link>
         </div>
@@ -143,16 +216,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statTiles.map((stat) => (
             <Link href={stat.href} key={stat.label}>
-              <Card className="group p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer">
+              <Card className={`group relative p-5 rounded-2xl border cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 overflow-hidden ${stat.accent ? "border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 hover:border-emerald-500/50" : "border-border/60 bg-card hover:border-primary/30"}`}>
+                <div className="absolute top-3 right-3 opacity-60">
+                  {stat.bigIcon}
+                </div>
                 <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
                   {stat.icon}
                   {stat.label}
                 </div>
                 {stat.value === null ? (
-                  <Skeleton className="h-8 w-12 rounded-lg" />
+                  <Skeleton className="h-10 w-14 rounded-lg" />
                 ) : (
                   <div className="flex items-end justify-between">
-                    <p className={`text-3xl font-display font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className={`text-4xl font-display font-bold leading-none ${stat.color}`}>{stat.value}</p>
                     <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-colors mb-1" />
                   </div>
                 )}
@@ -181,9 +257,9 @@ export default function Dashboard() {
                 },
                 {
                   step: "02",
-                  title: "Create a test",
+                  title: "Create an experiment",
                   desc: "Pick a template or start from scratch. Run an A/B test or serve a single variant — track every impression automatically.",
-                  cta: "Create First Test",
+                  cta: "Create First Experiment",
                   href: "/tests/new",
                   icon: <Plus className="w-5 h-5" />,
                   primary: true,
@@ -191,7 +267,7 @@ export default function Dashboard() {
                 {
                   step: "03",
                   title: "Share & track",
-                  desc: "Set your test to Running and share the URL. Visitors are bucketed automatically and every impression is tracked.",
+                  desc: "Set your experiment to Running and share the URL. Visitors are bucketed automatically and every impression is tracked.",
                   cta: "View Live Pages",
                   href: "/live-pages",
                   icon: <Radio className="w-5 h-5" />,
@@ -219,112 +295,109 @@ export default function Dashboard() {
           </motion.div>
         ) : (
           <>
-            {/* ── Quick Actions ────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[
-                {
-                  icon: <Plus className="w-4 h-4" />,
-                  label: "New Test",
-                  sub: "Create a landing page & test",
-                  href: "/tests/new",
-                  primary: true,
-                },
-                {
-                  icon: <FileText className="w-4 h-4" />,
-                  label: "Drafts",
-                  sub: `${drafts.length} test${drafts.length !== 1 ? "s" : ""} in progress`,
-                  href: "/tests?status=draft",
-                },
-                {
-                  icon: <Wrench className="w-4 h-4" />,
-                  label: "Builder",
-                  sub: "Drag-and-drop page editor",
-                  href: "/pages",
-                },
-                {
-                  icon: <ClipboardCheck className="w-4 h-4" />,
-                  label: "Reviews",
-                  sub: "Share & collect feedback",
-                  href: "/reviews",
-                },
-                {
-                  icon: <Radio className="w-4 h-4" />,
-                  label: "Live Pages",
-                  sub: `${running.length} serving traffic`,
-                  href: "/live-pages",
-                },
-              ].map((action) => (
-                <Link href={action.href} key={action.label}>
-                  <Card className={`group flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 ${action.primary ? "border-primary/40 bg-primary/5 hover:border-primary/60" : "border-border/60 bg-card hover:border-primary/20"}`}>
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${action.primary ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors"}`}>
-                      {action.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground text-sm leading-tight">{action.label}</p>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{action.sub}</p>
-                    </div>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-                  </Card>
-                </Link>
-              ))}
-            </div>
-
-            {/* ── Recent Experiments ───────────────────────────── */}
+            {/* ── Recent Work ──────────────────────────────────── */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-display font-bold text-foreground">Recent Tests</h2>
-                <Link href="/tests">
-                  <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
-                    View all →
-                  </span>
-                </Link>
+                <h2 className="text-lg font-display font-bold text-foreground">Recent Work</h2>
+                <div className="flex items-center gap-4">
+                  <Link href="/tests">
+                    <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                      View all experiments →
+                    </span>
+                  </Link>
+                  <Link href="/pages">
+                    <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
+                      View all pages →
+                    </span>
+                  </Link>
+                </div>
               </div>
 
-              {isLoading ? (
+              {recentWorkLoading ? (
                 <div className="flex flex-col gap-3">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
+                  {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-[72px] rounded-2xl" />)}
                 </div>
+              ) : recentWork.length === 0 ? (
+                <Link href="/tests/new">
+                  <Card className="group flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border hover:border-primary/40 cursor-pointer transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Create your first experiment</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Build a landing page and run an A/B test</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary ml-auto transition-colors" />
+                  </Card>
+                </Link>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  {recent.map((test, i) => {
-                    const liveUrl = `${base}/lp/${test.slug}`;
+                  {recentWork.map((item, i) => {
+                    const isExperiment = item.kind === "experiment";
+                    const liveUrl = isExperiment ? `${base}/lp/${item.slug}` : null;
+                    const isRunning = item.status === "running" || item.status === "published";
+
                     return (
                       <motion.div
-                        key={test.id}
+                        key={`${item.kind}-${item.id}`}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.04 }}
                         className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150"
                       >
-                        <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${test.status === "running" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30"}`} />
+                        <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30"}`} />
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="font-semibold text-foreground text-sm">{test.name}</span>
-                            <StatusBadge status={test.status} />
-                            <span className="text-xs text-muted-foreground/60 hidden sm:inline capitalize">{test.testType}</span>
+                            <span className="font-semibold text-foreground text-sm">{item.name}</span>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExperiment ? "bg-primary/10 text-primary" : "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"}`}>
+                              {isExperiment ? (
+                                <><FlaskConical className="w-2.5 h-2.5" /> Experiment</>
+                              ) : (
+                                <><LayoutGrid className="w-2.5 h-2.5" /> Page</>
+                              )}
+                            </span>
+                            <StatusBadge status={item.status} />
                           </div>
-                          <code className="text-xs text-muted-foreground font-mono">/lp/{test.slug}</code>
+                          <div className="text-xs text-muted-foreground">
+                            {isExperiment ? (
+                              <code className="font-mono">/lp/{item.slug}</code>
+                            ) : (
+                              <code className="font-mono">/{item.slug}</code>
+                            )}
+                          </div>
                         </div>
 
                         <div className="hidden md:flex items-center gap-5 text-xs text-muted-foreground shrink-0">
-                          <span><strong className="text-foreground font-semibold">{test.variantCount ?? 0}</strong> variants</span>
-                          <span>{format(new Date(test.updatedAt), "MMM d")}</span>
+                          {isExperiment ? (
+                            <span><strong className="text-foreground font-semibold">{(item as Extract<RecentWorkItem, { kind: "experiment" }>).variantCount}</strong> variants</span>
+                          ) : (
+                            <span><strong className="text-foreground font-semibold">{(item as Extract<RecentWorkItem, { kind: "page" }>).blocks.length}</strong> blocks</span>
+                          )}
+                          <span>{format(new Date(item.updatedAt), "MMM d")}</span>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          {test.status === "running" && (
+                          {isExperiment && item.status === "running" && liveUrl && (
                             <a href={liveUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" title="Open live page">
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </Button>
                             </a>
                           )}
-                          <Link href={`/tests/${test.id}`}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="View & edit">
-                              <BarChart3 className="w-3.5 h-3.5" />
-                            </Button>
-                          </Link>
+                          {isExperiment ? (
+                            <Link href={`/tests/${item.id}`}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="View & edit">
+                                <BarChart3 className="w-3.5 h-3.5" />
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Link href={`/builder/${item.id}`}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="Edit page">
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </Link>
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -333,97 +406,26 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* ── Recent Custom Pages ──────────────────────────── */}
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-display font-bold text-foreground">Builder Pages</h2>
-                <Link href="/pages">
-                  <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer">
-                    All pages →
-                  </span>
-                </Link>
+            {/* ── Contextual Prompt ────────────────────────────── */}
+            <div className="flex items-start gap-4 p-5 bg-card border-l-4 border-l-primary border border-border/60 rounded-xl">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                {drafts.length > 0 ? (
+                  <FileText className="w-4 h-4 text-primary" />
+                ) : running.length === 0 ? (
+                  <Zap className="w-4 h-4 text-primary" />
+                ) : (
+                  <Share2 className="w-4 h-4 text-primary" />
+                )}
               </div>
-
-              {pagesLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-                </div>
-              ) : recentPages.length === 0 ? (
-                <Link href="/pages">
-                  <Card className="group flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border hover:border-primary/40 cursor-pointer transition-all">
-                    <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">Build your first custom page</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Drag-and-drop builder — no code needed</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary ml-auto transition-colors" />
-                  </Card>
-                </Link>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {recentPages.map((page, i) => (
-                    <motion.div
-                      key={page.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                    >
-                      <Card className="group flex flex-col gap-3 p-4 rounded-2xl border border-border/60 bg-card hover:border-primary/25 hover:shadow-md transition-all">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-foreground text-sm truncate">{page.title}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${page.status === "published" ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-                              <span className="text-xs text-muted-foreground capitalize">{page.status}</span>
-                              <span className="text-xs text-muted-foreground/50">·</span>
-                              <span className="text-xs text-muted-foreground">{(page.blocks as unknown[]).length} block{(page.blocks as unknown[]).length !== 1 ? "s" : ""}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 mt-auto">
-                          <Link href={`/builder/${page.id}`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full h-8 text-xs rounded-lg gap-1.5 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-colors">
-                              <Edit2 className="w-3 h-3" />
-                              Edit
-                            </Button>
-                          </Link>
-                          <span className="text-xs text-muted-foreground shrink-0 pl-1">
-                            {format(new Date(page.updatedAt), "MMM d")}
-                          </span>
-                        </div>
-                      </Card>
-                    </motion.div>
-                  ))}
-                  <Link href="/pages">
-                    <Card className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-border hover:border-primary/40 cursor-pointer transition-all min-h-[100px]">
-                      <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                        <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                      <p className="text-xs font-semibold text-muted-foreground group-hover:text-primary transition-colors">New page</p>
-                    </Card>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* ── Review tip ───────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/15 rounded-xl">
-                <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  <strong className="text-foreground font-semibold">Tip:</strong> Set a test to <em>Running</em> to start collecting visitor data. Visitors are automatically bucketed into variants and impressions are tracked.
-                </p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground mb-0.5">What's next?</p>
+                <p className="text-sm text-muted-foreground">{prompt.message}</p>
               </div>
-              <Link href="/reviews">
-                <div className="flex items-start gap-3 p-4 bg-card border border-border/60 rounded-xl cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all group">
-                  <Share2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 group-hover:text-primary transition-colors" />
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    <strong className="text-foreground font-semibold group-hover:text-primary transition-colors">Share for review →</strong><br />
-                    Send any experiment to stakeholders for approval. Reviewers can approve or request changes — no login needed.
-                  </p>
-                </div>
+              <Link href={prompt.href} className="shrink-0">
+                <Button variant="outline" size="sm" className="rounded-lg text-xs font-semibold hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-colors">
+                  {prompt.cta}
+                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
               </Link>
             </div>
           </>

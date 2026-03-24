@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, Wrench, ClipboardCheck, MapPin, BookOpen, Blocks, Settings2 } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, LayoutGrid, CheckCircle2, BarChart2, BookOpen, Blocks, Settings2 } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -47,31 +47,31 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild isActive={location === "/tests" || (location.startsWith("/tests/") && location !== "/tests/new")}>
                   <Link href="/tests" className="font-medium">
                     <FlaskConical className="w-4 h-4" />
-                    <span>Tests</span>
+                    <span>Experiments</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location === "/pages" || location.startsWith("/builder/")}>
                   <Link href="/pages" className="font-medium">
-                    <Wrench className="w-4 h-4" />
-                    <span>Builder</span>
+                    <LayoutGrid className="w-4 h-4" />
+                    <span>Pages</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location === "/reviews"}>
                   <Link href="/reviews" className="font-medium">
-                    <ClipboardCheck className="w-4 h-4" />
-                    <span>Reviews</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Approvals</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location === "/analytics"}>
                   <Link href="/analytics" className="font-medium">
-                    <MapPin className="w-4 h-4" />
-                    <span>Locations</span>
+                    <BarChart2 className="w-4 h-4" />
+                    <span>Analytics</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -123,7 +123,7 @@ export function AppSidebar() {
           <Link href="/tests/new">
             <Button className="w-full justify-start gap-2 shadow-sm hover:shadow-md transition-all duration-300 group" variant="default">
               <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-              Create New Test
+              New Experiment
             </Button>
           </Link>
         </div>
