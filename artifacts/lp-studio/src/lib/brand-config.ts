@@ -70,6 +70,7 @@ export interface BrandConfig {
   avoidPhrases: string[];
   targetAudience: string;
   copyExamples: string[];
+  copyInstructions: string;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
@@ -124,6 +125,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   avoidPhrases: [],
   targetAudience: "",
   copyExamples: [],
+  copyInstructions: "",
 };
 
 const BUTTON_RADIUS: Record<ButtonRadius, string> = {
@@ -263,6 +265,9 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
   }
   if (brand.targetAudience) {
     parts.push(`Audience: ${brand.targetAudience}.`);
+  }
+  if (brand.copyInstructions?.trim()) {
+    parts.push(brand.copyInstructions.trim());
   }
   return parts.join("\n");
 }

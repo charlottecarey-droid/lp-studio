@@ -902,6 +902,16 @@ export default function BrandSettings() {
                     placeholder='e.g. "revolutionize", "synergy"'
                   />
                 </div>
+                <div>
+                  <Label className="text-sm font-medium mb-1.5 block">Copy Instructions</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Additional rules the AI should always follow when writing copy for this brand.</p>
+                  <Textarea
+                    value={config.copyInstructions ?? ""}
+                    onChange={(e) => update("copyInstructions", e.target.value)}
+                    placeholder="e.g. Always end CTAs with an action verb. Never use passive voice."
+                    className="min-h-[80px] text-sm resize-none"
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-5">

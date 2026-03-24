@@ -22,6 +22,7 @@ interface BrandConfig {
   toneKeywords?: string[];
   avoidPhrases?: string[];
   targetAudience?: string;
+  copyInstructions?: string;
 }
 
 function buildBrandSystemPrompt(brand: BrandConfig): string {
@@ -43,6 +44,9 @@ function buildBrandSystemPrompt(brand: BrandConfig): string {
   }
   if (brand.targetAudience) {
     parts.push(`Audience: ${brand.targetAudience}.`);
+  }
+  if (brand.copyInstructions?.trim()) {
+    parts.push(brand.copyInstructions.trim());
   }
   return parts.join("\n");
 }
@@ -124,7 +128,8 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
+        temperature: 0.8,
         max_completion_tokens: 1024,
         messages: [
           { role: "system", content: systemPrompt },
@@ -220,7 +225,8 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   try {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
+        temperature: 0.8,
         max_completion_tokens: 1024,
         messages: callMessages,
       });
