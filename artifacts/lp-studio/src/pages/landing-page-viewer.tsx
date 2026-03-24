@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, type TargetAndTransition } from "framer-motion";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
@@ -120,7 +120,8 @@ const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
 type AnimationStyle = "fade-up" | "fade-in" | "slide-left" | "slide-right" | "scale-in" | "none";
 
-const ANIMATION_VARIANTS: Record<AnimationStyle, { initial: object; animate: object }> = {
+type AnimVariant = { initial: TargetAndTransition; animate: TargetAndTransition };
+const ANIMATION_VARIANTS: Record<AnimationStyle, AnimVariant> = {
   "fade-up":    { initial: { opacity: 0, y: 40 },   animate: { opacity: 1, y: 0 } },
   "fade-in":    { initial: { opacity: 0 },           animate: { opacity: 1 } },
   "slide-left": { initial: { opacity: 0, x: -60 },  animate: { opacity: 1, x: 0 } },
