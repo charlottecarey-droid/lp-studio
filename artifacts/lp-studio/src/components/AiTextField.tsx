@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Wand2, Loader2, AlertCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,6 @@ export function AiTextField({
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const handleSuggest = async () => {
     if (!onSuggest) return;
@@ -42,7 +41,8 @@ export function AiTextField({
       const results = await onSuggest();
       setSuggestions(results);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't generate suggestions");
+      void e;
+      setError("Couldn't generate suggestions. Check your brand settings or try again.");
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,6 @@ export function AiTextField({
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
-              ref={triggerRef}
               type="button"
               onClick={handleSuggest}
               title="Suggest with AI"
