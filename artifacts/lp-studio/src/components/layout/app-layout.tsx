@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, Wrench, ClipboardCheck, MapPin, BookOpen } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, Wrench, ClipboardCheck, MapPin, BookOpen, Blocks, Settings2 } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -96,6 +96,22 @@ export function AppSidebar() {
                   <Link href="/library" className="font-medium">
                     <BookOpen className="w-4 h-4" />
                     <span>Content Library</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/block-defaults"}>
+                  <Link href="/block-defaults" className="font-medium">
+                    <Settings2 className="w-4 h-4" />
+                    <span>Block Defaults</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/custom-blocks"}>
+                  <Link href="/custom-blocks" className="font-medium">
+                    <Blocks className="w-4 h-4" />
+                    <span>Custom Blocks</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

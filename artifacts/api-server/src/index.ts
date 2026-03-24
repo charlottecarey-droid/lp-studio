@@ -33,6 +33,22 @@ async function runMigrations() {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS lp_library_items_type_idx ON lp_library_items (type);
+
+      CREATE TABLE IF NOT EXISTS lp_block_defaults (
+        block_type text PRIMARY KEY,
+        props jsonb NOT NULL DEFAULT '{}',
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS lp_custom_blocks (
+        id serial PRIMARY KEY,
+        name text NOT NULL DEFAULT 'Untitled Block',
+        block_type text NOT NULL DEFAULT 'rich-text',
+        props jsonb NOT NULL DEFAULT '{}',
+        sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

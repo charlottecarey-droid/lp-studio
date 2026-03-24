@@ -8,6 +8,8 @@ import pagesRouter from "./pages";
 import collaborationRouter from "./collaboration";
 import analyticsRouter from "./analytics";
 import libraryRouter from "./library";
+import blockDefaultsRouter from "./block-defaults";
+import customBlocksRouter from "./custom-blocks";
 
 const router = Router();
 
@@ -20,5 +22,7 @@ router.use(pagesRouter);
 router.use(collaborationRouter);
 router.use(analyticsRouter);
 router.use(libraryRouter);
+router.use(blockDefaultsRouter);
+router.use(customBlocksRouter);
 
 export default router;

@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,17 @@ import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
+
+interface CustomBlock {
+  id: number;
+  name: string;
+  block_type: string;
+  props: { html: string };
+}
+
+function genBlockId(type: string) {
+  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
 
 const API_BASE = "/api";
 
@@ -77,7 +88,19 @@ async function savePage(id: string, data: SavePageData) {
   return res.json();
 }
 
-function BlockLibrary({ onAdd }: { onAdd: (type: string) => void }) {
+function CustomBlockThumbnail({ blockType }: { blockType: string }) {
+  return (
+    <div className="w-full h-14 rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center">
+      {blockType === "rich-text" ? (
+        <Type className="w-5 h-5 text-muted-foreground" />
+      ) : (
+        <Code2 className="w-5 h-5 text-muted-foreground" />
+      )}
+    </div>
+  );
+}
+
+function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
   const categories = ["Layout", "Content", "Social Proof", "CTA"] as const;
 
   return (
@@ -110,6 +133,30 @@ function BlockLibrary({ onAdd }: { onAdd: (type: string) => void }) {
           </div>
         );
       })}
+      {customBlocks.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Custom</p>
+          <div className="grid grid-cols-2 gap-2">
+            {customBlocks.map(block => (
+              <button
+                key={block.id}
+                onClick={() => onAdd(`custom:${block.id}`)}
+                className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
+              >
+                <CustomBlockThumbnail blockType={block.block_type} />
+                <span className="text-[11px] font-medium text-center leading-tight text-muted-foreground group-hover:text-foreground">
+                  {block.name}
+                </span>
+                <div className="absolute inset-0 flex items-center justify-center bg-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="bg-primary text-primary-foreground rounded-full p-1">
+                    <Plus className="w-3 h-3" />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -263,9 +310,10 @@ interface InsertBlockDialogProps {
   open: boolean;
   onClose: () => void;
   onInsert: (type: string) => void;
+  customBlocks: CustomBlock[];
 }
 
-function InsertBlockDialog({ open, onClose, onInsert }: InsertBlockDialogProps) {
+function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
   const categories = ["Layout", "Content", "Social Proof", "CTA"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -300,6 +348,29 @@ function InsertBlockDialog({ open, onClose, onInsert }: InsertBlockDialogProps) 
               </div>
             );
           })}
+          {customBlocks.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Custom</p>
+              <div className="grid grid-cols-3 gap-2">
+                {customBlocks.map(block => (
+                  <button
+                    key={block.id}
+                    onClick={() => onInsert(`custom:${block.id}`)}
+                    className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all text-center"
+                  >
+                    <div className="w-full h-10 rounded-md overflow-hidden bg-muted/50 flex items-center justify-center">
+                      {block.block_type === "rich-text" ? (
+                        <Type className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <Code2 className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium leading-tight text-muted-foreground">{block.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -429,6 +500,8 @@ export default function BuilderEditor() {
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
+  const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -459,8 +532,13 @@ export default function BuilderEditor() {
   );
 
   useEffect(() => {
-    Promise.all([fetchPage(pageId), fetchBrandConfig()])
-      .then(([p, b]) => {
+    Promise.all([
+      fetchPage(pageId),
+      fetchBrandConfig(),
+      fetch(`${API_BASE}/lp/block-defaults`).then(r => r.json() as Promise<Record<string, unknown>>).catch(() => ({})),
+      fetch(`${API_BASE}/lp/custom-blocks`).then(r => r.json() as Promise<CustomBlock[]>).catch(() => []),
+    ])
+      .then(([p, b, defaults, customs]) => {
         setTitle(p.title);
         setSlug(p.slug);
         setStatus(p.status === "published" ? "published" : "draft");
@@ -470,6 +548,8 @@ export default function BuilderEditor() {
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
         setBrand(b);
+        setBlockDefaults(defaults);
+        setCustomBlocks(customs);
         setAbTestName(p.title);
         setAbTestSlug(p.slug);
         setIsLoading(false);
@@ -596,9 +676,7 @@ export default function BuilderEditor() {
   const VALID_BLOCK_TYPES = new Set<string>(BLOCK_REGISTRY.map(b => b.type));
   const isBlockType = (t: string): t is BlockType => VALID_BLOCK_TYPES.has(t);
 
-  const addBlock = (type: string, atIndex?: number) => {
-    if (!isBlockType(type)) return;
-    const newBlock = createBlock(type);
+  const insertBlock = (newBlock: PageBlock, atIndex?: number) => {
     setBlocks(prev => {
       if (atIndex !== undefined) {
         const next = [...prev];
@@ -608,6 +686,24 @@ export default function BuilderEditor() {
       return [...prev, newBlock];
     });
     setSelectedBlockId(newBlock.id);
+  };
+
+  const addBlock = (type: string, atIndex?: number) => {
+    if (type.startsWith("custom:")) {
+      const customId = Number(type.slice(7));
+      const customBlock = customBlocks.find(b => b.id === customId);
+      if (!customBlock) return;
+      const bt = (customBlock.block_type === "custom-html" ? "custom-html" : "rich-text") as BlockType;
+      const newBlock = { id: genBlockId(bt), type: bt, props: { html: customBlock.props?.html ?? "" } } as PageBlock;
+      insertBlock(newBlock, atIndex);
+      return;
+    }
+    if (!isBlockType(type)) return;
+    const savedProps = blockDefaults[type];
+    const newBlock: PageBlock = savedProps
+      ? ({ id: genBlockId(type), type, props: savedProps } as PageBlock)
+      : createBlock(type);
+    insertBlock(newBlock, atIndex);
   };
 
   const openInsertAt = (index: number) => {
@@ -860,6 +956,7 @@ export default function BuilderEditor() {
         open={insertDialogOpen}
         onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); }}
         onInsert={handleInsertBlock}
+        customBlocks={customBlocks}
       />
 
       {/* Three-panel layout */}
@@ -876,7 +973,7 @@ export default function BuilderEditor() {
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
-              <BlockLibrary onAdd={addBlock} />
+              <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel
