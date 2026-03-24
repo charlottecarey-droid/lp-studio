@@ -234,6 +234,49 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   }
 
   const enrichedVariant = await enrichVariant(assignedVariant!);
+
+  // If the variant has no linked page, check if there's a builder page with this slug
+  // This covers the case where a test was created on a builder page without linking variants
+  const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
+  let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean } | null = null;
+  if (!enrichedHasPage) {
+    const [found] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.slug, params.data.slug));
+    if (found) basePage = found;
+  }
+
+  if (basePage && !enrichedHasPage) {
+    // Return as a builder page response with A/B tracking info embedded
+    const blockOverrides = (enrichedVariant as LpVariant).blockOverrides as Record<string, unknown> | null | undefined;
+    const hasOverrides = blockOverrides && Object.keys(blockOverrides).length > 0;
+    const blocks = hasOverrides
+      ? applyBlockOverrides(basePage.blocks as unknown[], blockOverrides as Record<string, unknown>)
+      : basePage.blocks as unknown[];
+
+    const geo = lookupGeo(req);
+    db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing().catch(() => undefined);
+
+    res.json({
+      pageType: "builder",
+      id: basePage.id,
+      title: basePage.title,
+      slug: basePage.slug,
+      blocks,
+      status: basePage.status,
+      customCss: basePage.customCss ?? "",
+      animationsEnabled: basePage.animationsEnabled !== false,
+      // Embed A/B test info for tracking
+      testId: test.id,
+      testName: test.name,
+      sessionId,
+      assignedVariant: enrichedVariant,
+      testStatus: test.status,
+    });
+    return;
+  }
+
   res.json({
     testId: test.id,
     slug: test.slug,
