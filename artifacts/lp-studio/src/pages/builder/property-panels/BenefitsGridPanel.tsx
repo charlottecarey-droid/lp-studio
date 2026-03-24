@@ -13,9 +13,10 @@ interface Props {
   blockType: string;
   props: BenefitsGridBlockProps;
   onChange: (props: BenefitsGridBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function BenefitsGridPanel({ blockType, props, onChange }: Props) {
+export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   const updateItem = (i: number, key: string, v: string) => {
     const items = props.items.map((item, idx) => idx === i ? { ...item, [key]: v } : item);
     onChange({ ...props, items });
@@ -32,6 +33,7 @@ export function BenefitsGridPanel({ blockType, props, onChange }: Props) {
           value={props.headline}
           onChange={v => onChange({ ...props, headline: v })}
           fieldLabel="Section Headline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
             description: props.items.slice(0, 3).map(i => i.title).join(", "),
           })}
@@ -62,49 +64,65 @@ export function BenefitsGridPanel({ blockType, props, onChange }: Props) {
         </Select>
       </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Benefits</Label>
-      {props.items.map((item, i) => (
-        <div key={i} className="border rounded-lg p-3 space-y-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-muted-foreground">Benefit {i + 1}</span>
-            <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
-              <Trash2 className="w-3 h-3" />
-            </Button>
+      {props.items.map((item, i) => {
+        const siblingTitles = props.items
+          .filter((_, idx) => idx !== i)
+          .slice(0, 4)
+          .map(x => x.title)
+          .join(" | ");
+        const siblingSnippets = props.items
+          .filter((_, idx) => idx !== i)
+          .slice(0, 3)
+          .map(x => `${x.title}: ${x.description.slice(0, 60)}`)
+          .join(" | ");
+        return (
+          <div key={i} className="border rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-muted-foreground">Benefit {i + 1}</span>
+              <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+            <Select value={item.icon} onValueChange={v => updateItem(i, "icon", v)}>
+              <SelectTrigger className="text-xs h-7"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["Zap", "ScanLine", "RefreshCcw", "HeadphonesIcon", "BarChart2", "DollarSign"].map(ic => (
+                  <SelectItem key={ic} value={ic}>{ic}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <AiTextField
+              type="input"
+              value={item.title}
+              onChange={v => updateItem(i, "title", v)}
+              placeholder="Title"
+              fieldLabel={`Benefit ${i + 1} Title`}
+              className="text-xs h-7"
+              brandVoiceSet={brandVoiceSet}
+              onSuggest={() => suggestCopy(blockType, "title", item.title, {
+                headline: props.headline,
+                description: item.description,
+                tagline: siblingTitles,
+              })}
+            />
+            <AiTextField
+              type="textarea"
+              value={item.description}
+              onChange={v => updateItem(i, "description", v)}
+              placeholder="Description"
+              rows={2}
+              fieldLabel={`Benefit ${i + 1} Description`}
+              className="text-xs resize-none"
+              brandVoiceSet={brandVoiceSet}
+              onSuggest={() => suggestCopy(blockType, "description", item.description, {
+                headline: props.headline,
+                title: item.title,
+                tagline: siblingSnippets,
+              })}
+            />
           </div>
-          <Select value={item.icon} onValueChange={v => updateItem(i, "icon", v)}>
-            <SelectTrigger className="text-xs h-7"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {["Zap", "ScanLine", "RefreshCcw", "HeadphonesIcon", "BarChart2", "DollarSign"].map(ic => (
-                <SelectItem key={ic} value={ic}>{ic}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <AiTextField
-            type="input"
-            value={item.title}
-            onChange={v => updateItem(i, "title", v)}
-            placeholder="Title"
-            fieldLabel={`Benefit ${i + 1} Title`}
-            className="text-xs h-7"
-            onSuggest={() => suggestCopy(blockType, "title", item.title, {
-              headline: props.headline,
-              description: item.description,
-            })}
-          />
-          <AiTextField
-            type="textarea"
-            value={item.description}
-            onChange={v => updateItem(i, "description", v)}
-            placeholder="Description"
-            rows={2}
-            fieldLabel={`Benefit ${i + 1} Description`}
-            className="text-xs resize-none"
-            onSuggest={() => suggestCopy(blockType, "description", item.description, {
-              headline: props.headline,
-              title: item.title,
-            })}
-          />
-        </div>
-      ))}
+        );
+      })}
       <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addItem}>
         <Plus className="w-3.5 h-3.5" /> Add Benefit
       </Button>

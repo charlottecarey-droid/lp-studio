@@ -12,9 +12,10 @@ interface Props {
   blockType: string;
   props: VideoSectionBlockProps;
   onChange: (props: VideoSectionBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function VideoSectionPanel({ blockType, props, onChange }: Props) {
+export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   const set = <K extends keyof VideoSectionBlockProps>(k: K, v: VideoSectionBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -74,6 +75,7 @@ export function VideoSectionPanel({ blockType, props, onChange }: Props) {
           rows={2}
           placeholder="Optional headline"
           fieldLabel="Headline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
             subheadline: props.subheadline,
             ctaText: props.ctaText,
@@ -103,6 +105,7 @@ export function VideoSectionPanel({ blockType, props, onChange }: Props) {
           rows={2}
           placeholder="Optional subheadline"
           fieldLabel="Subheadline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "subheadline", props.subheadline, {
             headline: props.headline,
             ctaText: props.ctaText,
@@ -117,6 +120,7 @@ export function VideoSectionPanel({ blockType, props, onChange }: Props) {
           onChange={v => set("ctaText", v)}
           placeholder="Leave empty for no button"
           fieldLabel="Button Text"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
             headline: props.headline,
             subheadline: props.subheadline,

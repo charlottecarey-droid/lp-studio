@@ -12,9 +12,10 @@ interface Props {
   blockType: string;
   props: HeroBlockProps;
   onChange: (props: HeroBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function HeroPanel({ blockType, props, onChange }: Props) {
+export function HeroPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   const set = <K extends keyof HeroBlockProps>(k: K, v: HeroBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -30,6 +31,7 @@ export function HeroPanel({ blockType, props, onChange }: Props) {
           onChange={v => set("headline", v)}
           rows={2}
           fieldLabel="Headline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
             subheadline: props.subheadline,
             ctaText: props.ctaText,
@@ -58,6 +60,7 @@ export function HeroPanel({ blockType, props, onChange }: Props) {
           onChange={v => set("subheadline", v)}
           rows={2}
           fieldLabel="Subheadline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "subheadline", props.subheadline, {
             headline: props.headline,
             ctaText: props.ctaText,
@@ -71,6 +74,7 @@ export function HeroPanel({ blockType, props, onChange }: Props) {
           value={props.ctaText}
           onChange={v => set("ctaText", v)}
           fieldLabel="CTA Text"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
             headline: props.headline,
             subheadline: props.subheadline,

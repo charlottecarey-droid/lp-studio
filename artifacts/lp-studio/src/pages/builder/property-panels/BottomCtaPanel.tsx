@@ -10,9 +10,10 @@ interface Props {
   blockType: string;
   props: BottomCtaBlockProps;
   onChange: (props: BottomCtaBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function BottomCtaPanel({ blockType, props, onChange }: Props) {
+export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   return (
     <div className="space-y-4">
       <div>
@@ -23,6 +24,7 @@ export function BottomCtaPanel({ blockType, props, onChange }: Props) {
           onChange={v => onChange({ ...props, headline: v })}
           rows={2}
           fieldLabel="Headline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
             subheadline: props.subheadline,
             ctaText: props.ctaText,
@@ -50,6 +52,7 @@ export function BottomCtaPanel({ blockType, props, onChange }: Props) {
           value={props.subheadline}
           onChange={v => onChange({ ...props, subheadline: v })}
           fieldLabel="Subheadline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "subheadline", props.subheadline, {
             headline: props.headline,
             ctaText: props.ctaText,
@@ -63,6 +66,7 @@ export function BottomCtaPanel({ blockType, props, onChange }: Props) {
           value={props.ctaText}
           onChange={v => onChange({ ...props, ctaText: v })}
           fieldLabel="CTA Text"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
             headline: props.headline,
             subheadline: props.subheadline,

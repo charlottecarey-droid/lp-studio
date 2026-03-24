@@ -36,18 +36,8 @@ import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { refreshBlockCopy } from "@/lib/copy-api";
+import { COPY_FIELDS } from "@/lib/copy-fields";
 import { useToast } from "@/hooks/use-toast";
-
-const COPY_FIELDS: Partial<Record<string, string[]>> = {
-  "hero": ["headline", "subheadline", "ctaText"],
-  "full-bleed-hero": ["headline", "subheadline", "ctaText"],
-  "video-section": ["headline", "subheadline", "ctaText"],
-  "benefits-grid": ["headline"],
-  "how-it-works": ["headline"],
-  "zigzag-features": ["headline", "body"],
-  "pas-section": ["headline", "body"],
-  "bottom-cta": ["headline", "subheadline", "ctaText"],
-};
 
 interface CustomBlock {
   id: number;
@@ -1068,6 +1058,7 @@ export default function BuilderEditor() {
               block={selectedBlock}
               onChange={updateBlock}
               onDelete={() => deleteBlock(selectedBlock.id)}
+              brandVoiceSet={!!(brand.brandName || brand.toneOfVoice || (brand.messagingPillars?.length ?? 0) > 0)}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

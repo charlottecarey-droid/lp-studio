@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wand2, Loader2, AlertCircle } from "lucide-react";
+import { Wand2, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,6 +14,7 @@ interface AiTextFieldProps {
   className?: string;
   onSuggest?: () => Promise<string[]>;
   fieldLabel?: string;
+  brandVoiceSet?: boolean;
 }
 
 export function AiTextField({
@@ -25,6 +26,7 @@ export function AiTextField({
   className,
   onSuggest,
   fieldLabel,
+  brandVoiceSet,
 }: AiTextFieldProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export function AiTextField({
   };
 
   const sharedClass = cn("text-sm resize-none pr-8", className);
+  const showBrandNudge = brandVoiceSet === false;
 
   return (
     <div className="relative">
@@ -136,6 +139,18 @@ export function AiTextField({
                   Dismiss
                 </button>
               </>
+            )}
+
+            {showBrandNudge && !loading && (
+              <div className="pt-1 border-t border-border/60 mt-1">
+                <a
+                  href="/brand"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Sparkles className="w-3 h-3 shrink-0" />
+                  For better results, set up brand voice →
+                </a>
+              </div>
             )}
           </PopoverContent>
         </Popover>

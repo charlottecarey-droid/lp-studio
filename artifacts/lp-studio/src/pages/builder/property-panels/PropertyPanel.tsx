@@ -31,9 +31,10 @@ interface Props {
   onChange: (block: PageBlock) => void;
   onDelete?: () => void;
   hideBlockSettings?: boolean;
+  brandVoiceSet?: boolean;
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet }: Props) {
   const def = getBlockDef(block.type);
 
   const renderForm = () => {
@@ -44,6 +45,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "trust-bar":
@@ -59,6 +61,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "comparison":
@@ -81,6 +84,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "testimonial":
@@ -96,6 +100,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "product-grid":
@@ -118,6 +123,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "video-section":
@@ -126,6 +132,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "case-studies":
@@ -162,6 +169,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "product-showcase":
@@ -191,6 +199,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             blockType={block.type}
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
           />
         );
       case "footer":

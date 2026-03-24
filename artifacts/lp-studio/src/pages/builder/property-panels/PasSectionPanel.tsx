@@ -13,9 +13,10 @@ interface Props {
   blockType: string;
   props: PasSectionBlockProps;
   onChange: (props: PasSectionBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function PasSectionPanel({ blockType, props, onChange }: Props) {
+export function PasSectionPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   const updateBullet = (i: number, v: string) => {
     const bullets = props.bullets.map((b, idx) => idx === i ? v : b);
     onChange({ ...props, bullets });
@@ -33,6 +34,7 @@ export function PasSectionPanel({ blockType, props, onChange }: Props) {
           onChange={v => onChange({ ...props, headline: v })}
           rows={2}
           fieldLabel="Headline"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "headline", props.headline, {
             body: props.body,
           })}
@@ -60,6 +62,7 @@ export function PasSectionPanel({ blockType, props, onChange }: Props) {
           onChange={v => onChange({ ...props, body: v })}
           rows={3}
           fieldLabel="Body"
+          brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "body", props.body, {
             headline: props.headline,
           })}
