@@ -81,6 +81,11 @@ export interface ProductGridBlockProps {
 
 export interface PhotoStripBlockProps {
   images: Array<{ src: string; alt: string }>;
+  imageSize?: "xs" | "sm" | "md" | "lg" | "xl";
+  gap?: number;
+  showGradient?: boolean;
+  objectFit?: "cover" | "contain";
+  speed?: "slow" | "normal" | "fast";
 }
 
 export interface BottomCtaBlockProps {
