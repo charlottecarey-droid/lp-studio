@@ -196,6 +196,7 @@ export interface FormBlockProps {
   multiStep: boolean;
   steps: FormStep[];
   submitButtonText: string;
+  submitButtonTextColor?: string;
   successMessage: string;
   redirectUrl: string;
   backgroundStyle: "white" | "light-gray" | "dark";

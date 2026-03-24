@@ -265,4 +265,14 @@
   .sidebar-logo {
     filter: brightness(0) invert(1);
   }
+
+  /* Block background override: the wrapper sets --blk-bg, the section reads it.
+     This lets block settings override blocks' hardcoded bg-white / bg-slate-50. */
+  [data-blk-bg] > section {
+    background-color: var(--blk-bg) !important;
+  }
+  /* bg-image case: inner content is wrapped in one extra div */
+  [data-blk-bg] > div > section {
+    background-color: var(--blk-bg) !important;
+  }
 }

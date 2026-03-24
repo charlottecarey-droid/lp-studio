@@ -100,14 +100,26 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
   const hasBgImage = !!settings.bgImageUrl;
   const anchorId = settings.anchorId || undefined;
 
-  if (!hasBgImage && Object.keys(style).length === 0) {
+  // CSS variable so the override rule in index.css can reach through blocks'
+  // hardcoded bg-white / bg-slate-50 classes.
+  const blkBgVar = settings.bgColor
+    ? settings.bgColor
+    : hasBgImage
+      ? "transparent"
+      : null;
+
+  const blkBgAttr = blkBgVar !== null
+    ? { "data-blk-bg": "", style: { ...style, "--blk-bg": blkBgVar } as React.CSSProperties }
+    : { style };
+
+  if (!hasBgImage && Object.keys(style).length === 0 && blkBgVar === null) {
     if (!anchorId) return children;
     return <div id={anchorId}>{children}</div>;
   }
 
   if (hasBgImage) {
     return (
-      <div id={anchorId} style={{ ...style, position: "relative" }}>
+      <div id={anchorId} {...blkBgAttr} style={{ ...(blkBgAttr.style as React.CSSProperties), position: "relative" }}>
         <BgImageLayer
           url={settings.bgImageUrl!}
           opacity={settings.bgImageOpacity ?? 100}
@@ -118,7 +130,7 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
     );
   }
 
-  return <div id={anchorId} style={style}>{children}</div>;
+  return <div id={anchorId} {...blkBgAttr}>{children}</div>;
 }
 
 export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {

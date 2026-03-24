@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off, X } from "lucide-react";
 import type { FormBlockProps, FormField, FormFieldType, FormStep } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -577,6 +577,30 @@ export function FormPanel({ props, onChange, pageId }: Props) {
         <div>
           <Label className={LABEL_CLS}>Submit Button Text</Label>
           <Input value={props.submitButtonText} onChange={e => set("submitButtonText", e.target.value)} className="text-sm" />
+        </div>
+        <div>
+          <Label className={LABEL_CLS}>Button Text Color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={props.submitButtonTextColor || "#003A30"}
+              onChange={e => set("submitButtonTextColor", e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
+            />
+            <Input
+              value={props.submitButtonTextColor ?? ""}
+              onChange={e => set("submitButtonTextColor", e.target.value || undefined)}
+              placeholder="e.g. #003A30"
+              className="h-8 text-xs font-mono flex-1"
+              maxLength={7}
+            />
+            {props.submitButtonTextColor && (
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => set("submitButtonTextColor", undefined)}>
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Defaults to dark green on light, dark on dark backgrounds.</p>
         </div>
         <div>
           <Label className={LABEL_CLS}>Success Message</Label>

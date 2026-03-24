@@ -321,7 +321,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               onClick={isLastStep ? handleSubmit : handleNext}
               disabled={submitting}
               className="flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-60"
-              style={{ background: accentColor, color: isDark ? "#003A30" : "#1a1a1a" }}
+              style={{ background: accentColor, color: props.submitButtonTextColor ?? (isDark ? "#003A30" : "#1a1a1a") }}
             >
               {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>
