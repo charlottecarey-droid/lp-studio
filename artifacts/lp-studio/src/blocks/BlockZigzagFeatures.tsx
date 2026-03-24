@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import type { ZigzagFeaturesBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
@@ -52,14 +52,14 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
                 as="h2"
                 value={row.headline}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "headline", v) : undefined}
-                className={cn(getHeadlineSizeClass(props.headlineSize, "md"), "font-bold leading-tight")}
+                className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), "leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
                 style={{ color: brand.primaryColor }}
               />
               <InlineText
                 as="p"
                 value={row.body}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "body", v) : undefined}
-                className="text-base lg:text-lg leading-relaxed text-slate-600"
+                className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-slate-600")}
                 multiline
               />
               {row.ctaText && (

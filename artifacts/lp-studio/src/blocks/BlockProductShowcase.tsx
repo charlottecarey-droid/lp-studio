@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import type { ProductShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
@@ -32,7 +32,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-            className={cn(getHeadlineSizeClass(props.headlineSize, "md"), "font-bold")}
+            className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
             style={{ color: brand.primaryColor }}
           />
           {props.subheadline && (
@@ -40,7 +40,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
               as="p"
               value={props.subheadline}
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined}
-              className="text-lg text-slate-500 max-w-2xl mx-auto"
+              className={cn(getBodySizeClass(brand), "text-slate-500 max-w-2xl mx-auto")}
               multiline
             />
           )}
@@ -64,7 +64,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
                 as="h3"
                 value={card.name}
                 onUpdate={onFieldChange ? (v) => updateCard(i, "name", v) : undefined}
-                className="text-lg font-bold"
+                className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), getHeadingWeightClass(brand))}
                 style={{ color: brand.primaryColor }}
               />
               <InlineText

@@ -102,7 +102,7 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - **Review shell** at `/lp-studio/review/:pageId?token=xxx` — standalone read-only review page with approve/request changes workflow (no auth required)
 - **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, stats, AND pages CRUD
 - **Collaboration API routes**: `/api/lp/pages/:pageId/comments`, `/api/lp/pages/:pageId/reviews`, `/api/lp/review/:token`, `/api/lp/pages/:pageId/presence`
-- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages`, `lp_page_comments`, `lp_page_reviews`, `lp_page_presence` tables
+- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages`, `lp_page_comments`, `lp_page_reviews`, `lp_page_presence`, `lp_brand_presets` tables
 - **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
 - **Block system**: 16 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources, rich-text, custom-html) with property panels
 - **Inline editing**: Click to select a block, then use the pencil icon or double-click to edit text inline on the canvas for hero, pas-section, stat-callout, testimonial, bottom-cta, comparison, how-it-works, benefits-grid blocks. Rich Text blocks render a Tiptap WYSIWYG editor inline when selected.
@@ -114,6 +114,14 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
 - Uses generated React Query hooks from `@workspace/api-client-react`
 - New collaboration hooks in `src/hooks/use-collaboration.ts` use direct `/api/...` fetch calls (not the generated client)
+
+#### Brand System
+- **BrandConfig** (`src/lib/brand-config.ts`) — comprehensive type with color roles (textColor, ctaBackground, ctaText, pageBackground, cardBackground, navText, borderColor, secondary1-5), typography (displayFont, bodyFont, h1/h2/h3Size, headingWeight, headingLetterSpacing, bodyTextSize, eyebrowStyle), button styling (shape, shadow, padding, weight, case, spacing, secondaryButtonStyle), and voice/messaging (brandName, taglines, messagingPillars, toneOfVoice, toneKeywords, avoidPhrases, targetAudience, copyExamples)
+- **Helper functions**: `getButtonClasses()`, `getSecondaryButtonClasses()`, `getHeadingWeightClass()`, `getHeadingLetterSpacingClass()`, `getBodySizeClass()`, `buildCopySystemPrompt()`, `isValidHex()`
+- **Brand Settings UI** (`src/pages/brand-settings.tsx`) — 6 sections: Colors (Core/Interactive/Palette), Typography (live preview + font family), Buttons & UI (primary + secondary preview), Voice & Messaging (tone, keywords, pillars, examples), AI Import (tabbed modal with per-section import + confidence-based diff table), Presets (save/load/delete/factory-reset)
+- **API routes**: `GET/POST/DELETE /api/lp/brand-presets`, `POST /api/lp/brand-presets/:id/load`, `POST /api/lp/brand-import` (accepts section parameter: colors/typography/buttons/voice/all)
+- **AI import** uses OpenAI via Replit AI Integrations (env vars AI_INTEGRATIONS_OPENAI_BASE_URL + AI_INTEGRATIONS_OPENAI_API_KEY)
+- **Block typography**: All 16 blocks use brand typography defaults (h1/h2/h3 sizes, heading weight/spacing, body text size) via helper functions from brand-config.ts
 
 #### Block System Files
 - `src/lib/block-types.ts` — `BLOCK_REGISTRY` with all block type definitions + default props

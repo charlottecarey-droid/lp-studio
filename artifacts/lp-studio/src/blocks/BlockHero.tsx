@@ -1,6 +1,6 @@
 import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { InlineText } from "@/components/InlineText";
@@ -62,14 +62,14 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
         as="h1"
         value={props.headline}
         onUpdate={field("headline")}
-        className={cn("font-display font-bold tracking-tight leading-[1.05]", getHeadlineSizeClass(props.headlineSize, "xl"), isDark ? "text-white" : "text-[#003A30]")}
+        className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[#003A30]")}
       />
       {props.subheadline && (
         <InlineText
           as="p"
           value={props.subheadline}
           onUpdate={field("subheadline")}
-          className={cn("text-lg md:text-xl leading-relaxed font-sans", isDark ? "text-white/80" : "text-[#003A30]/70", !isSplit && "max-w-2xl")}
+          className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[#003A30]/70", !isSplit && "max-w-2xl")}
           multiline
         />
       )}

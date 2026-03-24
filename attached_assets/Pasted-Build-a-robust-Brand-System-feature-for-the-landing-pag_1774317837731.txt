@@ -1,0 +1,234 @@
+Build a robust Brand System feature for the landing page builder that 
+handles the full brand configuration lifecycle: structured import, 
+color role mapping, typography, voice/messaging, validation, presets, 
+and live preview. This replaces and extends the current basic brand 
+settings.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The brand settings page should be organized into five distinct sections, 
+each with its own card and save behavior. All sections feed into a single 
+BrandConfig object. Changes are staged (shown in a live preview) before 
+the user explicitly saves.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — COLORS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Color roles (each is a named hex field in BrandConfig):
+
+  textColor          — replaces black, used for all body/heading text
+  ctaBackground      — primary button fill
+  ctaText            — text on primary buttons
+  pageBackground     — default section/page background
+  cardBackground     — card and panel surfaces
+  navBackground      — top nav background
+  navText            — top nav links and logo
+  borderColor        — dividers, input borders, card strokes
+  accentColor        — secondary buttons, hover states, highlights
+  
+  secondary1..5      — optional additional palette colors (named by user)
+
+UI: each role is a labeled row with a hex input + color picker. Rows are 
+grouped: "Core" (text, page bg, card bg, border) and "Interactive" 
+(ctaBackground, ctaText, accent, nav bg, nav text).
+
+Validation: reject any value that is not a valid 6-digit hex. Show an 
+inline error on the field, do not allow saving with invalid values.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — TYPOGRAPHY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fields in BrandConfig:
+
+  displayFont        — font family for H1/H2/H3 (string, free entry or 
+                       dropdown of loaded fonts)
+  bodyFont           — font family for body, UI, labels
+  h1Size             — HeadlineSize enum: sm/md/lg/xl/2xl
+  h2Size             — HeadlineSize enum
+  h3Size             — HeadlineSize enum
+  headingWeight      — semibold / bold / extrabold / black
+  headingLetterSpacing — tight / normal / wide
+  bodyTextSize       — sm / md / lg
+  eyebrowStyle       — uppercase / normal (eyebrows and captions)
+
+All blocks that render headings fall back to brand.h1Size / h2Size / 
+h3Size when no block-level override is explicitly set. Block-level 
+overrides still take precedence.
+
+IMPORTANT: on first rollout, existing blocks should be treated as having 
+no explicit override (not hardcoded), so brand defaults propagate 
+correctly to all existing content. Add a "Reset to brand defaults" option 
+per block in the block property panel.
+
+Live preview: a card showing sample text at each level (H1 / H2 / H3 / 
+body / eyebrow / CTA label) that updates in real time as settings change.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — BUTTONS & UI ELEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fields in BrandConfig:
+
+  buttonShape        — rounded / pill / square
+  buttonWeight       — medium / semibold / bold
+  buttonCase         — uppercase / normal
+  buttonPaddingX     — sm / md / lg
+  buttonPaddingY     — sm / md / lg
+  secondaryButtonStyle — outline / ghost / filled
+
+Live preview: shows primary and secondary button side by side with 
+current settings applied.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — VOICE & MESSAGING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+These fields are stored in BrandConfig and injected as context into 
+every AI copy generation call made anywhere in the builder. They are 
+NOT cosmetic — they directly control the output of AI-generated text.
+
+Fields:
+
+  brandName          — string
+  taglines           — string[] (up to 5, used as copy references)
+  messagingPillars   — { label: string, description: string }[] 
+                       (up to 8, injected into copy prompts as 
+                       "always reflect one of these themes")
+  toneOfVoice        — freetext string (1-3 sentences describing voice)
+  toneKeywords       — string[] (e.g. ["knowledgeable", "warm", 
+                       "uncomplicated"] — used as style constraints 
+                       in copy prompts)
+  avoidPhrases       — string[] (words/phrases to never use)
+  targetAudience     — string (who the copy speaks to)
+  copyExamples       — string[] (up to 6 sample headlines or CTAs 
+                       that represent the brand voice well — AI 
+                       uses these as style references)
+
+When the AI generates any copy (headlines, CTAs, body text, section 
+descriptions), prepend the following to its system prompt:
+
+  "You are writing copy for [brandName]. 
+   Tone: [toneOfVoice]. 
+   Always reflect one of these themes: [messagingPillars]. 
+   Style reference headlines: [copyExamples]. 
+   Never use: [avoidPhrases]. 
+   Audience: [targetAudience]."
+
+UI: each field has its own input (text, textarea, or tag-input for 
+arrays). Group under "Voice" and "Messaging" subheadings.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — AI BRAND IMPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Import from Guidelines" button (sparkle icon) opens a modal with 
+four labeled textareas — one per domain — so the AI gets clean, 
+scoped inputs rather than one large blob to interpret:
+
+  Tab 1 "Colors"      — paste hex values, color names, or descriptions
+  Tab 2 "Typography"  — paste font names, size scales, weight specs
+  Tab 3 "Buttons"     — paste button style descriptions
+  Tab 4 "Voice"       — paste tone of voice, pillars, taglines, 
+                         sample copy
+
+Each tab has an "Import this section" button. The user can import 
+one section at a time or use "Import all" to run all four.
+
+POST /api/lp/brand-import accepts:
+  { 
+    section: "colors" | "typography" | "buttons" | "voice" | "all",
+    content: string,
+    currentConfig: Partial<BrandConfig>   // so AI knows what's 
+                                           // already set
+  }
+
+Returns:
+  {
+    proposed: Partial<BrandConfig>,   // only fields confidently parsed
+    confidence: Record<string, "high" | "medium" | "low">,
+    unparsed: string[]                // field names AI couldn't determine
+  }
+
+The result is NOT auto-applied. It is shown as a diff table:
+
+  | Field            | Current value  | Proposed value  | Confidence |
+  |------------------|---------------|-----------------|------------|
+  | textColor        | #000000       | #003A30         | high       |
+  | headingWeight    | bold          | semibold        | medium     |
+  | toneOfVoice      | (empty)       | "Knowledgeable  | high       |
+  |                  |               |  but never..."  |            |
+
+Each row has a checkbox (checked by default for high confidence, 
+unchecked for low). User reviews, adjusts checkboxes, then clicks 
+"Apply selected." Only checked rows are merged into the form state.
+
+After apply, show a toast: "X fields updated — review and save 
+when ready."
+
+Validation: before merging any AI-returned value into form state, 
+validate against the field's type. Reject invalid hexes, enum values 
+outside the allowed set, strings over max length. Log rejected fields 
+with a warning in the diff table rather than silently dropping them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — PRESETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DB: lp_brand_presets table
+  id          serial primary key
+  name        varchar(100)
+  config      jsonb         — full BrandConfig snapshot
+  created_at  timestamp
+
+API:
+  GET    /api/lp/brand-presets          — list all
+  POST   /api/lp/brand-presets          — save current config as preset
+                                           { name: string }
+  DELETE /api/lp/brand-presets/:id      — delete preset
+  POST   /api/lp/brand-presets/:id/load — load preset into form state 
+                                           (does not save, just stages)
+
+UI: grid of preset cards showing name and a color swatch strip 
+(5 key colors as small circles). Each card has a "Load" button and 
+a "Delete" button. Loading a preset stages all fields into the form 
+with a banner: "Preset loaded — review and save when ready."
+
+"Save as Preset" button: prompts for a name, saves current live 
+config (not staged changes).
+
+"Factory Reset" button: confirmation dialog → resets all fields to 
+DEFAULT_BRAND.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATA MODEL SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add all new fields to BrandConfig interface and DEFAULT_BRAND in 
+brand-config.ts. Every new field needs a sensible default so existing 
+pages render correctly without any migration.
+
+New helper functions:
+  getHeadingWeightClass(brand: BrandConfig): string
+  getBodySizeClass(brand: BrandConfig): string
+  getButtonClasses(brand: BrandConfig): string
+  buildCopySystemPrompt(brand: BrandConfig): string  
+    — assembles the voice/messaging context string for AI copy calls
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. BrandConfig interface + DEFAULT_BRAND + helper functions
+2. DB migration for lp_brand_presets
+3. Presets API routes
+4. Brand import API endpoint + OpenAI prompt
+5. Apply typography and button helpers to all relevant blocks
+6. Brand settings UI — all five sections with live preview
+7. AI import modal with tabbed input + diff table
+8. Wire buildCopySystemPrompt into all existing AI copy generation calls
+
+Do not start the UI until steps 1-3 are complete and confirmed working.

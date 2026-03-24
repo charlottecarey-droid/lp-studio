@@ -1,6 +1,7 @@
 import type { CaseStudiesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
-import { SECTION_PY } from "../lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
+import { getHeadlineSizeClass } from "../lib/typography";
 import { ImageIcon } from "lucide-react";
 
 interface Props {
@@ -28,10 +29,10 @@ export default function BlockCaseStudies({ props, brand }: Props) {
     <section className={`${bg} ${sectionPy}`}>
       <div className="max-w-7xl mx-auto px-6">
         {headline && (
-          <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-2">{headline}</h2>
+          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>{headline}</h2>
         )}
         {subheadline && (
-          <p className="text-lg text-slate-500 mb-10">{subheadline}</p>
+          <p className={`${getBodySizeClass(brand)} text-slate-500 mb-10`}>{subheadline}</p>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -58,7 +59,7 @@ export default function BlockCaseStudies({ props, brand }: Props) {
                 />
               )}
               <div className="relative p-6 md:p-8">
-                <h3 className="text-xl md:text-2xl font-semibold text-white leading-snug mb-2">
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "md")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-2`}>
                   {featured.title}
                 </h3>
                 {featured.categories && (
@@ -94,7 +95,7 @@ export default function BlockCaseStudies({ props, brand }: Props) {
                 />
               )}
               <div className="relative p-5">
-                <h3 className="text-base md:text-lg font-semibold text-white leading-snug mb-1">
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-1`}>
                   {item.title}
                 </h3>
                 {item.categories && (

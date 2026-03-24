@@ -1,6 +1,7 @@
 import type { ResourcesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
-import { SECTION_PY } from "../lib/brand-config";
+import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
+import { getHeadlineSizeClass } from "../lib/typography";
 import { ImageIcon, ArrowRight } from "lucide-react";
 
 interface Props {
@@ -29,12 +30,12 @@ export default function BlockResources({ props, brand }: Props) {
     <section className={`${bgClass} ${sectionPy}`}>
       <div className="max-w-7xl mx-auto px-6">
         {headline && (
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-2">
+          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
             {headline}
           </h2>
         )}
         {subheadline && (
-          <p className={`text-lg mb-10 ${backgroundStyle === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+          <p className={`${getBodySizeClass(brand)} mb-10 ${backgroundStyle === "dark" ? "text-slate-400" : "text-slate-500"}`}>
             {subheadline}
           </p>
         )}
@@ -69,7 +70,7 @@ export default function BlockResources({ props, brand }: Props) {
                     {item.category}
                   </span>
                 )}
-                <h3 className={`text-lg font-semibold leading-snug mb-2 ${backgroundStyle === "dark" ? "text-white" : "text-slate-900"}`}>
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${backgroundStyle === "dark" ? "text-white" : "text-slate-900"}`}>
                   {item.title}
                 </h3>
                 {item.description && (

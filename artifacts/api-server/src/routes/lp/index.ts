@@ -10,6 +10,8 @@ import analyticsRouter from "./analytics";
 import libraryRouter from "./library";
 import blockDefaultsRouter from "./block-defaults";
 import customBlocksRouter from "./custom-blocks";
+import brandPresetsRouter from "./brand-presets";
+import brandImportRouter from "./brand-import";
 
 const router = Router();
 
@@ -24,5 +26,7 @@ router.use(analyticsRouter);
 router.use(libraryRouter);
 router.use(blockDefaultsRouter);
 router.use(customBlocksRouter);
+router.use(brandPresetsRouter);
+router.use(brandImportRouter);
 
 export default router;

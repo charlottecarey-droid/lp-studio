@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
-import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 
@@ -97,7 +97,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
             <div className={cn("max-w-3xl flex flex-col gap-3", INNER_HALIGN[hAlign], HALIGN_CLASS[hAlign])}>
               {props.overlayHeadline && (
                 <h2
-                  className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black leading-tight"
+                  className={cn("text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-tight", getHeadingWeightClass(brand))}
                   style={{ color: textLight ? "#ffffff" : FOREST }}
                 >
                   {props.overlayHeadline}
@@ -172,8 +172,9 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
     )}>
       {props.headline && (
         <h2 className={cn(
-          getHeadlineSizeClass(props.headlineSize),
-          "font-display font-bold mb-4 leading-tight",
+          getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
+          "font-display mb-4 leading-tight",
+          getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
           isDark ? "text-white" : "text-[#003A30]"
         )}>
           {props.headline}
@@ -181,7 +182,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
       )}
       {props.subheadline && (
         <p className={cn(
-          "text-lg md:text-xl leading-relaxed mb-6",
+          getBodySizeClass(brand), "leading-relaxed mb-6",
           isDark ? "text-white/70" : "text-[#003A30]/70"
         )}>
           {props.subheadline}
@@ -229,8 +230,9 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
           <div className="text-center max-w-3xl mx-auto mb-10">
             {props.headline && (
               <h2 className={cn(
-                getHeadlineSizeClass(props.headlineSize),
-                "font-display font-bold mb-4",
+                getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
+                "font-display mb-4",
+                getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
                 isDark ? "text-white" : "text-[#003A30]"
               )}>
                 {props.headline}
@@ -238,7 +240,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
             )}
             {props.subheadline && (
               <p className={cn(
-                "text-lg md:text-xl leading-relaxed",
+                getBodySizeClass(brand), "leading-relaxed",
                 isDark ? "text-white/70" : "text-[#003A30]/70"
               )}>
                 {props.subheadline}

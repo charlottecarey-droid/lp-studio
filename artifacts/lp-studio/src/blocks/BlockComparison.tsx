@@ -2,7 +2,8 @@ import { XCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ComparisonBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getButtonClasses } from "@/lib/brand-config";
+import { SECTION_PY, getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
@@ -31,13 +32,13 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange }: Pro
     <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
       <div className="max-w-6xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className="text-4xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16" />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-center text-[#003A30] mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
         )}
         <div className="grid md:grid-cols-2 gap-8 items-stretch mb-16">
           <div className="bg-slate-100 rounded-3xl p-8 md:p-12 opacity-80 flex flex-col">
             <div className="mb-8">
               <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">OLD WAY</span>
-              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className="text-2xl font-bold text-[#003A30]" />
+              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "md"), "text-[#003A30]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
             </div>
             <ul className="space-y-6 flex-1">
               {props.oldWayBullets.map((bullet, i) => (
@@ -52,7 +53,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange }: Pro
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#C7E738] opacity-[0.03] blur-3xl rounded-full" />
             <div className="mb-8 relative z-10">
               <span className="text-sm font-bold tracking-widest text-[#C7E738] uppercase mb-2 block">NEW WAY</span>
-              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className="text-2xl font-bold text-white" />
+              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "md"), "text-white", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
             </div>
             <ul className="space-y-6 flex-1 relative z-10">
               {props.newWayBullets.map((bullet, i) => (

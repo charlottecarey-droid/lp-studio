@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
@@ -181,7 +181,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
             as="h1"
             value={props.headline}
             onUpdate={field("headline")}
-            className={cn("font-display font-bold tracking-tight leading-[1.05] text-white max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, "xl"))}
+            className={cn("font-display leading-[1.05] text-white max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
           />
 
           {props.subheadline && (
@@ -189,7 +189,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
               as="p"
               value={props.subheadline}
               onUpdate={field("subheadline")}
-              className="text-white/80 text-lg md:text-xl max-w-2xl leading-relaxed"
+              className={cn(getBodySizeClass(brand), "text-white/80 max-w-2xl leading-relaxed")}
               multiline
             />
           )}

@@ -49,6 +49,13 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS lp_brand_presets (
+        id serial PRIMARY KEY,
+        name varchar(255) NOT NULL,
+        config jsonb NOT NULL DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
