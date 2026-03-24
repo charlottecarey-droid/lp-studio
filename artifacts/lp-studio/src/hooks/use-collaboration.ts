@@ -190,6 +190,12 @@ export function usePresence(pageId: number, displayName: string) {
     };
   }, [pageId, displayName, pingPresence]);
 
-  const otherViewers = viewers.filter(v => v.viewerId !== viewerId);
+  const seen = new Set<string>();
+  const otherViewers = viewers.filter(v => {
+    if (v.viewerId === viewerId) return false;
+    if (seen.has(v.viewerId)) return false;
+    seen.add(v.viewerId);
+    return true;
+  });
   return { viewers: otherViewers, viewerId };
 }
