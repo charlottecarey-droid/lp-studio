@@ -23,8 +23,13 @@ export default function BlockResources({ props, brand }: Props) {
   const cardBg =
     backgroundStyle === "dark" ? "bg-slate-800" : "bg-white";
 
-  const gridCols =
-    columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
+  const GRID_COLS: Record<number, string> = {
+    2: "grid-cols-1 sm:grid-cols-2",
+    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+    5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
+  };
+  const gridCols = GRID_COLS[columns] ?? GRID_COLS[3];
 
   return (
     <section className={`${bgClass} ${sectionPy}`}>
@@ -40,7 +45,7 @@ export default function BlockResources({ props, brand }: Props) {
           </p>
         )}
 
-        <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
+        <div className={`grid ${gridCols} gap-6`}>
           {items.map((item, i) => (
             <a
               key={i}

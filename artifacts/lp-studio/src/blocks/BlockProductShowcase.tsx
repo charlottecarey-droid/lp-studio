@@ -11,10 +11,11 @@ interface Props {
   onFieldChange?: (updated: ProductShowcaseBlockProps) => void;
 }
 
-const GRID_COLS: Record<2 | 3 | 4, string> = {
-  2: "sm:grid-cols-2",
-  3: "sm:grid-cols-2 lg:grid-cols-3",
-  4: "sm:grid-cols-2 lg:grid-cols-4",
+const GRID_COLS: Record<2 | 3 | 4 | 5, string> = {
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
 };
 
 export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
@@ -46,7 +47,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
           )}
         </div>
 
-        <div className={cn("grid grid-cols-1 gap-6", GRID_COLS[props.columns])}>
+        <div className={cn("grid gap-6", GRID_COLS[props.columns])}>
           {props.cards.map((card, i) => (
             <div
               key={i}

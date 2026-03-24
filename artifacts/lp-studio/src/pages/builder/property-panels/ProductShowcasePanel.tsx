@@ -93,20 +93,21 @@ export function ProductShowcasePanel({ props, onChange }: Props) {
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
           Columns
         </Label>
-        <Select
-          value={String(props.columns)}
-          onValueChange={v => {
-            const n = Number(v) as 2 | 3 | 4;
-            if (n === 2 || n === 3 || n === 4) onChange({ ...props, columns: n });
-          }}
-        >
-          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="2">2 Columns</SelectItem>
-            <SelectItem value="3">3 Columns</SelectItem>
-            <SelectItem value="4">4 Columns</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-1.5">
+          {([2, 3, 4, 5] as const).map(col => (
+            <button
+              key={col}
+              onClick={() => onChange({ ...props, columns: col })}
+              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                props.columns === col
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700 font-medium"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              {col}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">

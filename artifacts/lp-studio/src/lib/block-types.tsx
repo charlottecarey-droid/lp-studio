@@ -54,7 +54,7 @@ export interface StatCalloutBlockProps {
 
 export interface BenefitsGridBlockProps {
   headline: string;
-  columns: 2 | 3;
+  columns: 2 | 3 | 4 | 5;
   items: Array<{ icon: string; title: string; description: string }>;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
@@ -75,6 +75,7 @@ export interface HowItWorksBlockProps {
 export interface ProductGridBlockProps {
   headline: string;
   subheadline: string;
+  columns?: 2 | 3 | 4 | 5;
   items: Array<{ image: string; title: string; description: string }>;
 }
 
@@ -133,6 +134,7 @@ export interface CaseStudyItem {
 export interface CaseStudiesBlockProps {
   headline: string;
   subheadline: string;
+  columns?: 2 | 3 | 4;
   items: CaseStudyItem[];
   backgroundStyle: "white" | "light-gray";
 }
@@ -148,7 +150,7 @@ export interface ResourceItem {
 export interface ResourcesBlockProps {
   headline: string;
   subheadline: string;
-  columns: 2 | 3;
+  columns: 2 | 3 | 4 | 5;
   items: ResourceItem[];
   backgroundStyle: "white" | "light-gray" | "dark";
 }
@@ -185,7 +187,7 @@ export interface ProductShowcaseCard {
 export interface ProductShowcaseBlockProps {
   headline: string;
   subheadline: string;
-  columns: 2 | 3 | 4;
+  columns: 2 | 3 | 4 | 5;
   cards: ProductShowcaseCard[];
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
 }

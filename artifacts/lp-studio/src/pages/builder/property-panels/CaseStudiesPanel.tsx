@@ -71,6 +71,25 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
       </div>
 
       <div>
+        <Label className="text-xs text-slate-500 mb-1">Columns</Label>
+        <div className="flex gap-1.5">
+          {([2, 3, 4] as const).map((col) => (
+            <button
+              key={col}
+              onClick={() => onChange({ ...props, columns: col })}
+              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                (props.columns ?? 2) === col
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700 font-medium"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              {col}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <Label className="text-xs text-slate-500 mb-1">Background</Label>
         <div className="flex gap-2">
           {(["white", "light-gray"] as const).map((bg) => (

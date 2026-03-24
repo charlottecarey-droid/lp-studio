@@ -35,11 +35,15 @@ export default function BlockCaseStudies({ props, brand }: Props) {
           <p className={`${getBodySizeClass(brand)} text-slate-500 mb-10`}>{subheadline}</p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${{
+          2: "md:grid-cols-2",
+          3: "md:grid-cols-3",
+          4: "md:grid-cols-4",
+        }[props.columns ?? 2]}`}>
           {featured && (
             <a
               href={featured.url || "#"}
-              className="group relative row-span-2 rounded-xl overflow-hidden min-h-[400px] md:min-h-[520px] flex flex-col justify-end"
+              className={`group relative ${(props.columns ?? 2) === 2 ? "row-span-2" : ""} rounded-xl overflow-hidden min-h-[400px] md:min-h-[520px] flex flex-col justify-end`}
             >
               {featured.image ? (
                 <img

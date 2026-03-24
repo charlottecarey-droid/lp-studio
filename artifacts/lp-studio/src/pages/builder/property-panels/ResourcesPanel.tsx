@@ -73,18 +73,18 @@ export default function ResourcesPanel({ props, onChange }: Props) {
 
       <div>
         <Label className="text-xs text-slate-500 mb-1">Columns</Label>
-        <div className="flex gap-2">
-          {([2, 3] as const).map((col) => (
+        <div className="flex gap-1.5">
+          {([2, 3, 4, 5] as const).map((col) => (
             <button
               key={col}
               onClick={() => onChange({ ...props, columns: col })}
-              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
                 props.columns === col
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700 font-medium"
                   : "border-slate-200 text-slate-600 hover:border-slate-300"
               }`}
             >
-              {col} Columns
+              {col}
             </button>
           ))}
         </div>

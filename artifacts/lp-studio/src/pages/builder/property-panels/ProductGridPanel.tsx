@@ -31,6 +31,25 @@ export function ProductGridPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Columns</Label>
+        <div className="flex gap-1.5">
+          {([2, 3, 4, 5] as const).map(col => (
+            <button
+              key={col}
+              onClick={() => onChange({ ...props, columns: col })}
+              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                (props.columns ?? 3) === col
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700 font-medium"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              {col}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <LibraryButtons
         type="product_grid"
         title="Product Grid Library"

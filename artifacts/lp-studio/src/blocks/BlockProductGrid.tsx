@@ -9,8 +9,16 @@ interface Props {
   brand: BrandConfig;
 }
 
+const GRID_COLS: Record<number, string> = {
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
+};
+
 export function BlockProductGrid({ props, brand }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
+  const cols = props.columns ?? 3;
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
@@ -22,7 +30,7 @@ export function BlockProductGrid({ props, brand }: Props) {
             <p className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")}>{props.subheadline}</p>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className={cn("grid gap-8", GRID_COLS[cols] ?? GRID_COLS[3])}>
           {props.items.map((item, i) => (
             <div key={i} className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 bg-white flex flex-col">
               <div className="w-full h-52 overflow-hidden bg-slate-50">

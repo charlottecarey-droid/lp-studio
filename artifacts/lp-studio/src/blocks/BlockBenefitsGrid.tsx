@@ -30,7 +30,12 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange }: Props) {
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
         )}
-        <div className={cn("grid gap-8", props.columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3")}>
+        <div className={cn("grid gap-8", {
+          2: "grid-cols-1 sm:grid-cols-2",
+          3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+          4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+          5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
+        }[props.columns ?? 3])}>
           {props.items.map((benefit, i) => {
             const Icon = ICON_MAP[benefit.icon] || Zap;
             return (
