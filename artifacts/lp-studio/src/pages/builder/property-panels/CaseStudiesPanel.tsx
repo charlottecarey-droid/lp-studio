@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
-import { LibraryButtons } from "@/components/LibraryPicker";
+import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
 
 interface Props {
   props: CaseStudiesBlockProps;
@@ -127,11 +127,18 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
                   <GripVertical className="w-3 h-3 text-slate-400" />
                   {idx === 0 ? "Featured" : `Card ${idx}`}
                 </div>
-                {props.items.length > 1 && (
-                  <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-500">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1.5">
+                  <SaveItemToLibraryButton
+                    type="case_study"
+                    content={item as unknown as Record<string, unknown>}
+                    defaultName={item.title || `Case Study ${idx + 1}`}
+                  />
+                  {props.items.length > 1 && (
+                    <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-500">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>

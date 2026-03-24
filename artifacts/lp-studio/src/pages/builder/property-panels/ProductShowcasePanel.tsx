@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
-import { LibraryButtons } from "@/components/LibraryPicker";
+import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
 
 interface Props {
   props: ProductShowcaseBlockProps;
@@ -117,14 +117,21 @@ export function ProductShowcasePanel({ props, onChange }: Props) {
         <div key={i} className="border rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-muted-foreground">Card {i + 1}</span>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="w-6 h-6 text-muted-foreground hover:text-red-500"
-              onClick={() => removeCard(i)}
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <SaveItemToLibraryButton
+                type="product_showcase"
+                content={card as unknown as Record<string, unknown>}
+                defaultName={card.name || `Product ${i + 1}`}
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="w-6 h-6 text-muted-foreground hover:text-red-500"
+                onClick={() => removeCard(i)}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Name</Label>

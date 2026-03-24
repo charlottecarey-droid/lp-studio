@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePicker } from "@/components/ImagePicker";
-import { LibraryButtons } from "@/components/LibraryPicker";
+import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
 
 interface Props {
   props: ProductGridBlockProps;
@@ -74,9 +74,16 @@ export function ProductGridPanel({ props, onChange }: Props) {
         <div key={i} className="border rounded-lg p-3 space-y-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-muted-foreground">Product {i + 1}</span>
-            <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
-              <Trash2 className="w-3 h-3" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <SaveItemToLibraryButton
+                type="product_grid"
+                content={item as unknown as Record<string, unknown>}
+                defaultName={item.title || `Product ${i + 1}`}
+              />
+              <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
           <ImagePicker
             value={item.image}

@@ -3,7 +3,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Star, Loader2, BookOpen } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Star, Loader2, BookOpen, BookmarkPlus, Check } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -119,6 +121,88 @@ export function LibraryPicker({ open, onClose, type, onSelect, title, renderPrev
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+export type LibraryItemType = "product_showcase" | "product_grid" | "case_study" | "resource";
+
+interface SaveItemToLibraryButtonProps {
+  type: LibraryItemType;
+  content: Record<string, unknown>;
+  defaultName?: string;
+}
+
+export function SaveItemToLibraryButton({ type, content, defaultName = "" }: SaveItemToLibraryButtonProps) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(defaultName);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setName(defaultName);
+    setSaved(false);
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      await fetch(`${API_BASE}/lp/library/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), content, is_default: false }),
+      });
+      setSaved(true);
+      setOpen(false);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={handleOpen}
+          title="Save to Content Library"
+          className={`transition-colors ${
+            saved
+              ? "text-emerald-600"
+              : "text-slate-400 hover:text-[#003A30]"
+          }`}
+        >
+          {saved ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="left" className="w-56 p-3 space-y-2" onClick={e => e.stopPropagation()}>
+        <p className="text-xs font-semibold text-foreground">Save to Library</p>
+        <Input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Item name…"
+          className="h-7 text-xs"
+          autoFocus
+          onKeyDown={e => { if (e.key === "Enter") void handleSave(); if (e.key === "Escape") setOpen(false); }}
+        />
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            className="flex-1 h-7 text-xs"
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || saving}
+          >
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
