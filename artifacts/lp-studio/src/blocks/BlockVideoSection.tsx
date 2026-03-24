@@ -88,7 +88,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
         {hasOverlay && (
           <div
             className={cn(
-              "absolute inset-0 flex flex-col p-10 gap-4",
+              "absolute inset-0 flex flex-col p-5 sm:p-8 md:p-12 gap-4",
               VALIGN_CLASS[vAlign],
               INNER_HALIGN[hAlign]
             )}
@@ -97,7 +97,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
             <div className={cn("max-w-3xl flex flex-col gap-3", INNER_HALIGN[hAlign], HALIGN_CLASS[hAlign])}>
               {props.overlayHeadline && (
                 <h2
-                  className="text-4xl font-black leading-tight"
+                  className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black leading-tight"
                   style={{ color: textLight ? "#ffffff" : FOREST }}
                 >
                   {props.overlayHeadline}
@@ -105,7 +105,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
               )}
               {props.overlaySubheadline && (
                 <p
-                  className="text-lg font-medium"
+                  className="text-sm sm:text-base md:text-lg font-medium"
                   style={{ color: textLight ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.7)" }}
                 >
                   {props.overlaySubheadline}
@@ -114,7 +114,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
               {props.overlayCtaText && (
                 <a
                   href={props.overlayCtaUrl ?? "#"}
-                  className="inline-block mt-2 px-7 py-3 rounded-full font-bold text-sm"
+                  className="inline-block mt-2 px-5 sm:px-7 py-2.5 sm:py-3 rounded-full font-bold text-sm"
                   style={{ backgroundColor: LIME, color: FOREST }}
                 >
                   {props.overlayCtaText}
