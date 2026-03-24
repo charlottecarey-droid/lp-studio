@@ -118,6 +118,10 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
 }
 
 export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
+  const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
+    ? PADDING_X_PX[block.blockSettings.paddingX]
+    : undefined;
+
   const inner = (() => {
     switch (block.type) {
       case "hero":
@@ -130,6 +134,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
               ? (updated: HeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
             animationsEnabled={animationsEnabled}
+            contentPaddingX={heroContentPaddingX}
           />
         );
       case "trust-bar":
@@ -290,5 +295,9 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
     }
   })();
 
-  return <>{wrapWithSettings(inner, block.blockSettings, animationsEnabled)}</>;
+  const outerSettings = heroContentPaddingX && block.blockSettings
+    ? { ...block.blockSettings, paddingX: undefined }
+    : block.blockSettings;
+
+  return <>{wrapWithSettings(inner, outerSettings, animationsEnabled)}</>;
 }

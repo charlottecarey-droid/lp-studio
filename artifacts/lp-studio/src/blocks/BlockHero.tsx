@@ -16,9 +16,10 @@ interface Props {
   onCtaClick?: () => void;
   onFieldChange?: (updated: HeroBlockProps) => void;
   animationsEnabled?: boolean;
+  contentPaddingX?: string;
 }
 
-export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true }: Props) {
+export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, contentPaddingX }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
   const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
@@ -117,7 +118,10 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             {brand.navCtaText}
           </a>
         </nav>
-        <section className={cn("relative w-full px-6 flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[#003A30]" : "bg-white")}>
+        <section
+          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[#003A30]" : "bg-white")}
+          style={contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }}
+        >
           {isSplit ? (
             <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               {isSplitRight ? (
