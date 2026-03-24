@@ -1390,7 +1390,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
 
       {/* Comment badge (visible when comment mode is on) */}
       {commentMode && (
-        <div className="absolute -right-3 top-3 z-[80]">
+        <div className="absolute right-3 top-3 z-[80]">
           <Popover>
             <PopoverTrigger asChild>
               <div>
@@ -1400,7 +1400,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
                 />
               </div>
             </PopoverTrigger>
-            <PopoverContent side="right" className="w-auto p-0 border-0 shadow-none bg-transparent" align="start">
+            <PopoverContent side="left" className="w-auto p-0 border-0 shadow-none bg-transparent" align="start">
               <CommentsPanel
                 blockComments={blockComments}
                 blockIndex={blockIndex}
