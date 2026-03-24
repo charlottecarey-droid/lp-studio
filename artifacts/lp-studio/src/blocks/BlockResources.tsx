@@ -3,13 +3,17 @@ import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
 import { ImageIcon, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface Props {
   props: ResourcesBlockProps;
   brand: BrandConfig;
+  animationsEnabled?: boolean;
 }
 
-export default function BlockResources({ props, brand }: Props) {
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+export default function BlockResources({ props, brand, animationsEnabled = true }: Props) {
   const { headline, subheadline, columns, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
@@ -47,11 +51,16 @@ export default function BlockResources({ props, brand }: Props) {
 
         <div className={`grid ${gridCols} gap-6`}>
           {items.map((item, i) => (
-            <a
+            <motion.a
               key={i}
               href={item.url || "#"}
-              className={`group rounded-xl overflow-hidden ${cardBg} shadow-sm border border-slate-100 hover:shadow-md transition-shadow flex flex-col`}
-              style={backgroundStyle === "dark" ? { borderColor: "rgba(255,255,255,0.08)" } : undefined}
+              className={`group rounded-xl overflow-hidden ${cardBg} border flex flex-col`}
+              style={backgroundStyle === "dark" ? { borderColor: "rgba(255,255,255,0.08)" } : { borderColor: "rgb(241,245,249)" }}
+              initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
+              whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
+              whileHover={animationsEnabled ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               <div className="aspect-[16/10] bg-slate-100 relative overflow-hidden">
                 {item.image ? (
@@ -91,7 +100,7 @@ export default function BlockResources({ props, brand }: Props) {
                   <ArrowRight className="w-4 h-4" />
                 </div>
               </div>
-            </a>
+            </motion.a>
           ))}
         </div>
       </div>

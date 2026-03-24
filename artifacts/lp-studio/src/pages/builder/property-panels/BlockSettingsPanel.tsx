@@ -204,6 +204,94 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
           </SelectContent>
         </Select>
       </div>
+
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Block Animation</p>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Entrance Style</Label>
+        <Select
+          value={s.animationStyle ?? "fade-up"}
+          onValueChange={v => set("animationStyle", v as BlockSettings["animationStyle"])}
+        >
+          <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fade-up">Fade Up (default)</SelectItem>
+            <SelectItem value="fade-in">Fade In</SelectItem>
+            <SelectItem value="slide-left">Slide from Left</SelectItem>
+            <SelectItem value="slide-right">Slide from Right</SelectItem>
+            <SelectItem value="scale-in">Scale In</SelectItem>
+            <SelectItem value="none">None (instant)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">
+          Delay — {s.animationDelay ?? 0}ms
+        </Label>
+        <input
+          type="range"
+          min={0}
+          max={800}
+          step={50}
+          value={s.animationDelay ?? 0}
+          onChange={e => set("animationDelay", Number(e.target.value))}
+          className="w-full accent-[#003A30]"
+        />
+        <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+          <span>0ms</span>
+          <span>800ms</span>
+        </div>
+      </div>
+
+      <Separator />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background Image</p>
+
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Image URL</Label>
+        <Input
+          value={s.bgImageUrl ?? ""}
+          onChange={e => set("bgImageUrl", e.target.value || undefined)}
+          placeholder="https://..."
+          className="h-8 text-xs font-mono"
+        />
+      </div>
+
+      {s.bgImageUrl && (
+        <>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">
+              Opacity — {s.bgImageOpacity ?? 100}%
+            </Label>
+            <input
+              type="range"
+              min={5}
+              max={100}
+              step={5}
+              value={s.bgImageOpacity ?? 100}
+              onChange={e => set("bgImageOpacity", Number(e.target.value))}
+              className="w-full accent-[#003A30]"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-foreground">Parallax Scroll</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Subtle depth effect on scroll</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={s.bgImageParallax ?? false}
+              onClick={() => set("bgImageParallax", !(s.bgImageParallax ?? false))}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${s.bgImageParallax ? "bg-[#003A30]" : "bg-slate-200"}`}
+            >
+              <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${s.bgImageParallax ? "translate-x-4" : "translate-x-0"}`} />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

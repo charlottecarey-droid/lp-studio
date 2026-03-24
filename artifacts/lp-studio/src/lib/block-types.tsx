@@ -100,6 +100,11 @@ export interface BlockSettings {
   bgColor?: string;
   textColor?: string;
   cardBgColor?: string;
+  animationStyle?: "fade-up" | "fade-in" | "slide-left" | "slide-right" | "scale-in" | "none";
+  animationDelay?: number;
+  bgImageUrl?: string;
+  bgImageParallax?: boolean;
+  bgImageOpacity?: number;
 }
 
 export interface VideoSectionBlockProps {

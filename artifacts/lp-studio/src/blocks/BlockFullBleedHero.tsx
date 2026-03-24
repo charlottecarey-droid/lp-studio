@@ -6,12 +6,16 @@ import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { motion } from "framer-motion";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface Props {
   props: FullBleedHeroBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
   onFieldChange?: (updated: FullBleedHeroBlockProps) => void;
+  animationsEnabled?: boolean;
 }
 
 function hexToRgbParts(hex: string): string {
@@ -23,7 +27,7 @@ function hexToRgbParts(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const LIME = brand.accentColor;
@@ -194,25 +198,36 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange }: 
             />
           )}
 
-          <div className={cn("flex flex-col sm:flex-row gap-3 pt-2", props.contentAlignment === "center" && "justify-center", props.contentAlignment === "right" && "justify-end")}>
-            <button
+          <motion.div
+            className={cn("flex flex-col sm:flex-row gap-3 pt-2", props.contentAlignment === "center" && "justify-center", props.contentAlignment === "right" && "justify-end")}
+            initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
+            animate={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
+            transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: 0.22 } : undefined}
+          >
+            <motion.button
               onClick={onCtaClick}
               className={getButtonClasses(brand, "inline-flex items-center justify-center")}
               style={{ backgroundColor: LIME, color: FOREST }}
+              whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+              transition={{ type: "spring", stiffness: 400, damping: 18 }}
             >
               <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
               <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
-            </button>
+            </motion.button>
 
             {props.secondaryCtaText && (
-              <a
+              <motion.a
                 href={props.secondaryCtaUrl || "#"}
                 className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/40 text-white text-sm font-semibold hover:border-white/70 hover:bg-white/10 transition-colors"
+                whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+                whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+                transition={{ type: "spring", stiffness: 400, damping: 18 }}
               >
                 {props.secondaryCtaText}
-              </a>
+              </motion.a>
             )}
-          </div>
+          </motion.div>
 
           {props.showSocialProof && props.socialProofText && (
             <p className="text-white/60 text-sm font-medium mt-1">

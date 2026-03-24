@@ -23,12 +23,15 @@ import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
 import { BlockFooter } from "./BlockFooter";
 import type { ReactNode } from "react";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 
 interface Props {
   block: PageBlock;
   brand: BrandConfig;
   onCtaClick?: (url: string) => void;
   onBlockChange?: (updated: PageBlock) => void;
+  animationsEnabled?: boolean;
 }
 
 const SPACING_PX: Record<string, string> = {
@@ -48,7 +51,29 @@ const PADDING_X_PX: Record<string, string> = {
   xl: "120px",
 };
 
-function wrapWithSettings(children: ReactNode, settings?: BlockSettings): ReactNode {
+function BgImageLayer({ url, opacity, parallax }: { url: string; opacity: number; parallax: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], ["-15%", "15%"]);
+
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden pointer-events-none">
+      {parallax ? (
+        <motion.div
+          className="absolute inset-[-15%]"
+          style={{ y, backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center", opacity: opacity / 100 }}
+        />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center", opacity: opacity / 100 }}
+        />
+      )}
+    </div>
+  );
+}
+
+function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animationsEnabled = true): ReactNode {
   if (!settings) return children;
   const style: React.CSSProperties = {};
   if (settings.spacingTop && settings.spacingTop !== "md") style.paddingTop = SPACING_PX[settings.spacingTop];
@@ -67,11 +92,28 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings): ReactN
   if (settings.bgColor) style.backgroundColor = settings.bgColor;
   if (settings.textColor) style.color = settings.textColor;
   if (settings.cardBgColor) (style as Record<string, string>)["--card-bg"] = settings.cardBgColor;
-  if (Object.keys(style).length === 0) return children;
+
+  const hasBgImage = !!settings.bgImageUrl;
+
+  if (!hasBgImage && Object.keys(style).length === 0) return children;
+
+  if (hasBgImage) {
+    return (
+      <div style={{ ...style, position: "relative" }}>
+        <BgImageLayer
+          url={settings.bgImageUrl!}
+          opacity={settings.bgImageOpacity ?? 100}
+          parallax={!!(settings.bgImageParallax && animationsEnabled)}
+        />
+        <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+      </div>
+    );
+  }
+
   return <div style={style}>{children}</div>;
 }
 
-export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props) {
+export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true }: Props) {
   const inner = (() => {
     switch (block.type) {
       case "hero":
@@ -83,10 +125,11 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
             onFieldChange={onBlockChange
               ? (updated: HeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "trust-bar":
-        return <BlockTrustBar props={block.props} brand={brand} />;
+        return <BlockTrustBar props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
       case "pas-section":
         return (
           <BlockPasSection
@@ -126,6 +169,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
             onFieldChange={onBlockChange
               ? (updated: BenefitsGridBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "testimonial":
@@ -149,7 +193,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
           />
         );
       case "product-grid":
-        return <BlockProductGrid props={block.props} brand={brand} />;
+        return <BlockProductGrid props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
       case "photo-strip":
         return <BlockPhotoStrip props={block.props} brand={brand} />;
       case "bottom-cta":
@@ -166,9 +210,9 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
       case "video-section":
         return <BlockVideoSection props={block.props} brand={brand} onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined} />;
       case "case-studies":
-        return <BlockCaseStudies props={block.props} brand={brand} />;
+        return <BlockCaseStudies props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
       case "resources":
-        return <BlockResources props={block.props} brand={brand} />;
+        return <BlockResources props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
       case "rich-text":
         return <BlockRichText props={block.props} brand={brand} />;
       case "custom-html":
@@ -191,6 +235,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
             onFieldChange={onBlockChange
               ? (updated: ProductShowcaseBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "nav-header":
@@ -222,6 +267,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
             onFieldChange={onBlockChange
               ? (updated: FullBleedHeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "footer":
@@ -238,5 +284,5 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange }: Props
     }
   })();
 
-  return <>{wrapWithSettings(inner, block.blockSettings)}</>;
+  return <>{wrapWithSettings(inner, block.blockSettings, animationsEnabled)}</>;
 }

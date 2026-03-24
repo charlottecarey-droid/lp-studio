@@ -8,6 +8,7 @@ export interface BuilderPageResponse {
   blocks: PageBlock[];
   status: "draft" | "published";
   customCss?: string;
+  animationsEnabled?: boolean;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {

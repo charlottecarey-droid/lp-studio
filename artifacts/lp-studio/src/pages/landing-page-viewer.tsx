@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
@@ -117,56 +118,41 @@ function scopeCustomCss(css: string, scope: string): string {
 
 const DANDY_VIDEO_URL = window.location.origin + "/dandy-lab-video-2/";
 
-const SCROLL_REVEAL_CSS = `
-  @keyframes lp-fade-up {
-    from { opacity: 0; transform: translateY(32px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes lp-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  .lp-reveal {
-    opacity: 0;
-  }
-  .lp-reveal.lp-visible {
-    animation: lp-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  .lp-reveal-first.lp-visible {
-    animation: lp-fade-in 0.6s ease forwards;
-  }
-`;
+type AnimationStyle = "fade-up" | "fade-in" | "slide-left" | "slide-right" | "scale-in" | "none";
 
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.unobserve(el); } },
-      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return { ref, visible };
-}
+const ANIMATION_VARIANTS: Record<AnimationStyle, { initial: object; animate: object }> = {
+  "fade-up":    { initial: { opacity: 0, y: 40 },   animate: { opacity: 1, y: 0 } },
+  "fade-in":    { initial: { opacity: 0 },           animate: { opacity: 1 } },
+  "slide-left": { initial: { opacity: 0, x: -60 },  animate: { opacity: 1, x: 0 } },
+  "slide-right":{ initial: { opacity: 0, x: 60 },   animate: { opacity: 1, x: 0 } },
+  "scale-in":   { initial: { opacity: 0, scale: 0.92 }, animate: { opacity: 1, scale: 1 } },
+  "none":       { initial: {}, animate: {} },
+};
 
-function ScrollReveal({ children, delay = 0, first = false }: {
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+function ScrollReveal({
+  children,
+  delay = 0,
+  style = "fade-up",
+  enabled = true,
+}: {
   children: React.ReactNode;
   delay?: number;
-  first?: boolean;
+  style?: AnimationStyle;
+  enabled?: boolean;
 }) {
-  const { ref, visible } = useScrollReveal();
+  if (!enabled || style === "none") return <>{children}</>;
+  const { initial, animate } = ANIMATION_VARIANTS[style] ?? ANIMATION_VARIANTS["fade-up"];
   return (
-    <div
-      ref={ref}
-      className={`lp-reveal${first ? " lp-reveal-first" : ""}${visible ? " lp-visible" : ""}`}
-      style={{ animationDelay: visible ? `${delay}ms` : "0ms" }}
+    <motion.div
+      initial={initial}
+      whileInView={animate}
+      viewport={{ once: true, amount: 0.08 }}
+      transition={{ duration: 0.65, ease: EASE, delay: delay / 1000 }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -266,6 +252,7 @@ export default function LandingPageViewer() {
     const builderPage: BuilderPageResponse = config;
     const blocks = builderPage.blocks ?? [];
     const customCss = builderPage.customCss ?? "";
+    const animationsEnabled = builderPage.animationsEnabled !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
@@ -285,12 +272,16 @@ export default function LandingPageViewer() {
           }
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
-          ${SCROLL_REVEAL_CSS}
         `}</style>
         {scopedCss && <style>{scopedCss}</style>}
         {blocks.map((block, i) => (
-          <ScrollReveal key={block.id ?? i} delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)} first={i === 0}>
-            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+          <ScrollReveal
+            key={block.id ?? i}
+            delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+            style={block.blockSettings?.animationStyle ?? "fade-up"}
+            enabled={animationsEnabled}
+          >
+            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} />
           </ScrollReveal>
         ))}
         {blocks.length === 0 && (
@@ -321,6 +312,7 @@ export default function LandingPageViewer() {
     const blocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
     const linkedPageCss = linkedPage?.customCss ?? "";
     const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";
+    const linkedAnimationsEnabled = (linkedPage as { animationsEnabled?: boolean })?.animationsEnabled !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
@@ -349,7 +341,6 @@ export default function LandingPageViewer() {
           }
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
-          ${SCROLL_REVEAL_CSS}
         `}</style>
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
@@ -371,8 +362,13 @@ export default function LandingPageViewer() {
         )}
         {blocks.length > 0
           ? blocks.map((block, i) => (
-              <ScrollReveal key={block.id ?? i} delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)} first={i === 0}>
-                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} />
+              <ScrollReveal
+                key={block.id ?? i}
+                delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                style={block.blockSettings?.animationStyle ?? "fade-up"}
+                enabled={linkedAnimationsEnabled}
+              >
+                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} />
               </ScrollReveal>
             ))
           : (

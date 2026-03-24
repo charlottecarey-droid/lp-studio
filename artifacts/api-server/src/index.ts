@@ -52,6 +52,8 @@ async function runMigrations() {
       );
       ALTER TABLE lp_custom_blocks ADD COLUMN IF NOT EXISTS block_settings jsonb NOT NULL DEFAULT '{}';
 
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
+
       CREATE TABLE IF NOT EXISTS lp_brand_presets (
         id serial PRIMARY KEY,
         name varchar(255) NOT NULL,

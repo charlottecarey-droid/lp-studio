@@ -64,6 +64,7 @@ interface FetchedPage {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  animationsEnabled?: boolean;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -78,6 +79,7 @@ interface SavePageData {
   blocks: PageBlock[];
   status: "draft" | "published";
   customCss?: string;
+  animationsEnabled?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
@@ -504,6 +506,7 @@ export default function BuilderEditor() {
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [customCss, setCustomCss] = useState("");
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
@@ -553,6 +556,7 @@ export default function BuilderEditor() {
         setStatus(p.status === "published" ? "published" : "draft");
         setBlocks(p.blocks ?? []);
         setCustomCss(p.customCss ?? "");
+        setAnimationsEnabled(p.animationsEnabled !== false);
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
@@ -780,6 +784,7 @@ export default function BuilderEditor() {
     blocks,
     status,
     customCss,
+    animationsEnabled,
     metaTitle,
     metaDescription,
     ogImage,
@@ -1168,6 +1173,34 @@ export default function BuilderEditor() {
                       <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                   )}
+                </div>
+
+                {/* Animations toggle */}
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Animations</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Scroll Animations</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">Fade &amp; slide blocks as visitors scroll</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={animationsEnabled}
+                      onClick={() => { setAnimationsEnabled(v => !v); setTimeout(handleSave, 50); }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none",
+                        animationsEnabled ? "bg-[#003A30]" : "bg-slate-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
+                          animationsEnabled ? "translate-x-4" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 <p className="text-[10px] text-muted-foreground text-center pt-2 pb-1">

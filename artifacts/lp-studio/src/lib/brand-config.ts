@@ -208,7 +208,7 @@ export function getButtonClasses(brand: BrandConfig, extra = ""): string {
     BUTTON_WEIGHT[brand.buttonFontWeight],
     BUTTON_CASE[brand.buttonTextCase],
     BUTTON_SPACING[brand.buttonLetterSpacing],
-    "text-sm transition-transform hover:scale-105 active:scale-95",
+    "text-sm transition-all",
     extra,
   ].filter(Boolean).join(" ");
 }
@@ -221,7 +221,7 @@ export function getSecondaryButtonClasses(brand: BrandConfig): string {
     BUTTON_WEIGHT[brand.buttonFontWeight],
     BUTTON_CASE[brand.buttonTextCase],
     BUTTON_SPACING[brand.buttonLetterSpacing],
-    "text-sm transition-transform hover:scale-105 active:scale-95",
+    "text-sm transition-all",
   ].filter(Boolean).join(" ");
 
   const style = brand.secondaryButtonStyle ?? "outline";

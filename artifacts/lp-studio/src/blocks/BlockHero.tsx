@@ -5,23 +5,25 @@ import type { HeroBlockProps } from "@/lib/block-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { motion } from "framer-motion";
 
 const DEFAULT_IMAGE = "/dandy-platform.webp";
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface Props {
   props: HeroBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
   onFieldChange?: (updated: HeroBlockProps) => void;
+  animationsEnabled?: boolean;
 }
 
-export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
   const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
   const isFullWidth = props.buttonWidth === "full";
   const isDark = props.backgroundStyle === "dark";
-  const isMinimal = props.layout === "minimal";
   const isSplit = props.layout === "split" || props.layout === "split-right";
   const isSplitRight = props.layout === "split-right";
 
@@ -56,35 +58,53 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
     </div>
   );
 
+  const hAnim = animationsEnabled ? { initial: { opacity: 0, y: 28 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.65, ease: EASE, delay: 0 } } : {};
+  const sAnim = animationsEnabled ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.65, ease: EASE, delay: 0.12 } } : {};
+  const cAnim = animationsEnabled ? { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.55, ease: EASE, delay: 0.22 } } : {};
+  const mAnim = animationsEnabled ? { initial: { opacity: 0, scale: 0.96 }, animate: { opacity: 1, scale: 1 }, transition: { duration: 0.8, ease: EASE, delay: 0.1 } } : {};
+
   const textContent = (
     <div className={cn("space-y-8 z-10", !isSplit && "max-w-4xl mx-auto flex flex-col items-center", isSplitRight && "text-right flex flex-col items-end")}>
-      <InlineText
-        as="h1"
-        value={props.headline}
-        onUpdate={field("headline")}
-        className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[#003A30]")}
-      />
-      {props.subheadline && (
+      <motion.div {...hAnim}>
         <InlineText
-          as="p"
-          value={props.subheadline}
-          onUpdate={field("subheadline")}
-          className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[#003A30]/70", !isSplit && "max-w-2xl")}
-          multiline
+          as="h1"
+          value={props.headline}
+          onUpdate={field("headline")}
+          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[#003A30]")}
         />
+      </motion.div>
+      {props.subheadline && (
+        <motion.div {...sAnim}>
+          <InlineText
+            as="p"
+            value={props.subheadline}
+            onUpdate={field("subheadline")}
+            className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[#003A30]/70", !isSplit && "max-w-2xl")}
+            multiline
+          />
+        </motion.div>
       )}
-      <div className={cn("flex flex-col gap-4 pt-2", isFullWidth ? "w-full" : "w-fit", !isSplit && "items-center", isSplitRight && "items-end")}>
-        <button onClick={onCtaClick} className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))} style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}>
-          <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
-          <ArrowRight className="w-4 h-4 ml-2" />
-        </button>
-        {props.showSocialProof && (
-          <div className={cn("flex items-center gap-2 text-sm font-medium opacity-80", !isSplit && "justify-center")}>
-            <ShieldCheck className="w-4 h-4" />
-            <InlineText as="span" value={props.socialProofText || ""} onUpdate={field("socialProofText")} />
-          </div>
-        )}
-      </div>
+      <motion.div {...cAnim}>
+        <div className={cn("flex flex-col gap-4 pt-2", isFullWidth ? "w-full" : "w-fit", !isSplit && "items-center", isSplitRight && "items-end")}>
+          <motion.button
+            onClick={onCtaClick}
+            className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
+            style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+            whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+            whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
+          >
+            <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </motion.button>
+          {props.showSocialProof && (
+            <div className={cn("flex items-center gap-2 text-sm font-medium opacity-80", !isSplit && "justify-center")}>
+              <ShieldCheck className="w-4 h-4" />
+              <InlineText as="span" value={props.socialProofText || ""} onUpdate={field("socialProofText")} />
+            </div>
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 
@@ -100,7 +120,17 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange }: Props) {
         <section className={cn("relative w-full px-6 flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[#003A30]" : "bg-white")}>
           {isSplit ? (
             <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              {isSplitRight ? (<><div className="relative">{renderMedia()}</div>{textContent}</>) : (<>{textContent}<div className="relative">{renderMedia()}</div></>)}
+              {isSplitRight ? (
+                <>
+                  <motion.div {...mAnim} className="relative">{renderMedia()}</motion.div>
+                  {textContent}
+                </>
+              ) : (
+                <>
+                  {textContent}
+                  <motion.div {...mAnim} className="relative">{renderMedia()}</motion.div>
+                </>
+              )}
             </div>
           ) : (
             <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">{textContent}</div>

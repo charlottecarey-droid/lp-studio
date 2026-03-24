@@ -22,7 +22,7 @@ router.get("/lp/pages", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled } = req.body as {
     title?: unknown;
     slug?: unknown;
     blocks?: unknown;
@@ -31,6 +31,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     metaTitle?: unknown;
     metaDescription?: unknown;
     ogImage?: unknown;
+    animationsEnabled?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -52,6 +53,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         metaTitle: typeof metaTitle === "string" ? metaTitle : "",
         metaDescription: typeof metaDescription === "string" ? metaDescription : "",
         ogImage: typeof ogImage === "string" ? ogImage : "",
+      animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : true,
       })
       .returning();
     res.status(201).json(page);
@@ -84,7 +86,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -93,9 +95,10 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     metaTitle?: string;
     metaDescription?: string;
     ogImage?: string;
+    animationsEnabled?: boolean;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) updates.slug = slug;
   if (blocks !== undefined) updates.blocks = blocks;
@@ -104,6 +107,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (metaTitle !== undefined) updates.metaTitle = metaTitle;
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
   if (ogImage !== undefined) updates.ogImage = ogImage;
+  if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
 
   try {
     const [page] = await db

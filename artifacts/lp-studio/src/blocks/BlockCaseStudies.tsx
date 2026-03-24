@@ -3,10 +3,12 @@ import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
 import { ImageIcon } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface Props {
   props: CaseStudiesBlockProps;
   brand: BrandConfig;
+  animationsEnabled?: boolean;
 }
 
 function Placeholder({ className }: { className?: string }) {
@@ -17,7 +19,9 @@ function Placeholder({ className }: { className?: string }) {
   );
 }
 
-export default function BlockCaseStudies({ props, brand }: Props) {
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+export default function BlockCaseStudies({ props, brand, animationsEnabled = true }: Props) {
   const { headline, subheadline, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
@@ -41,9 +45,14 @@ export default function BlockCaseStudies({ props, brand }: Props) {
           4: "md:grid-cols-4",
         }[props.columns ?? 2]}`}>
           {featured && (
-            <a
+            <motion.a
               href={featured.url || "#"}
               className={`group relative ${(props.columns ?? 2) === 2 ? "row-span-2" : ""} rounded-xl overflow-hidden min-h-[400px] md:min-h-[520px] flex flex-col justify-end`}
+              initial={animationsEnabled ? { opacity: 0, y: 24 } : undefined}
+              whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={animationsEnabled ? { duration: 0.6, ease: EASE } : undefined}
+              whileHover={animationsEnabled ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {featured.image ? (
                 <img
@@ -72,14 +81,19 @@ export default function BlockCaseStudies({ props, brand }: Props) {
                   </p>
                 )}
               </div>
-            </a>
+            </motion.a>
           )}
 
           {rest.map((item, i) => (
-            <a
+            <motion.a
               key={i}
               href={item.url || "#"}
               className="group relative rounded-xl overflow-hidden min-h-[250px] flex flex-col justify-end"
+              initial={animationsEnabled ? { opacity: 0, y: 24 } : undefined}
+              whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: (i + 1) * 0.07 } : undefined}
+              whileHover={animationsEnabled ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {item.image ? (
                 <img
@@ -108,7 +122,7 @@ export default function BlockCaseStudies({ props, brand }: Props) {
                   </p>
                 )}
               </div>
-            </a>
+            </motion.a>
           ))}
         </div>
       </div>

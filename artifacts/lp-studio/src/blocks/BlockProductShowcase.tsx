@@ -4,11 +4,15 @@ import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBod
 import type { ProductShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { motion } from "framer-motion";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface Props {
   props: ProductShowcaseBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: ProductShowcaseBlockProps) => void;
+  animationsEnabled?: boolean;
 }
 
 const GRID_COLS: Record<2 | 3 | 4 | 5, string> = {
@@ -18,7 +22,7 @@ const GRID_COLS: Record<2 | 3 | 4 | 5, string> = {
   5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
 };
 
-export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
+export function BlockProductShowcase({ props, brand, onFieldChange, animationsEnabled = true }: Props) {
   const updateCard = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const cards = props.cards.map((c, idx) => idx === i ? { ...c, [key]: value } : c);
@@ -49,9 +53,14 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
 
         <div className={cn("grid gap-6", GRID_COLS[props.columns])}>
           {props.cards.map((card, i) => (
-            <div
+            <motion.div
               key={i}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col gap-3 shadow-sm"
+              initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
+              whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
+              whileHover={animationsEnabled ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               {card.image && (
                 <img
@@ -89,7 +98,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange }: Props) {
                 </div>
               )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
