@@ -14,6 +14,14 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
+interface ProductLine {
+  name: string;
+  description: string;
+  valueProps: string[];
+  claims: string[];
+  keywords: string[];
+}
+
 interface BrandConfig {
   brandName?: string;
   toneOfVoice?: string;
@@ -23,6 +31,7 @@ interface BrandConfig {
   avoidPhrases?: string[];
   targetAudience?: string;
   copyInstructions?: string;
+  productLines?: ProductLine[];
 }
 
 function buildBrandSystemPrompt(brand: BrandConfig): string {
@@ -47,6 +56,19 @@ function buildBrandSystemPrompt(brand: BrandConfig): string {
   }
   if (brand.copyInstructions?.trim()) {
     parts.push(brand.copyInstructions.trim());
+  }
+  if (brand.productLines?.length) {
+    const productInfo = brand.productLines
+      .filter((p) => p.name)
+      .map((p) => {
+        const bits = [`- ${p.name}`];
+        if (p.description) bits.push(`  Description: ${p.description}`);
+        if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
+        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
+        if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
+        return bits.join("\n");
+      }).join("\n");
+    parts.push(`Product lines:\n${productInfo}\nUse relevant product details when generating copy.`);
   }
   return parts.join("\n");
 }

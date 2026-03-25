@@ -14,6 +14,14 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
+interface ProductLine {
+  name: string;
+  description: string;
+  valueProps: string[];
+  claims: string[];
+  keywords: string[];
+}
+
 interface BrandConfig {
   brandName?: string;
   toneOfVoice?: string;
@@ -25,6 +33,7 @@ interface BrandConfig {
   copyInstructions?: string;
   primaryColor?: string;
   accentColor?: string;
+  productLines?: ProductLine[];
 }
 
 async function fetchBrand(): Promise<BrandConfig> {
@@ -49,6 +58,19 @@ function buildBrandContext(brand: BrandConfig): string {
   if (brand.targetAudience) parts.push(`Audience: ${brand.targetAudience}`);
   if (brand.copyExamples?.length) parts.push(`Example headlines: ${brand.copyExamples.join(" | ")}`);
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
+  if (brand.productLines?.length) {
+    const productInfo = brand.productLines
+      .filter((p) => p.name)
+      .map((p) => {
+        const bits = [`- ${p.name}`];
+        if (p.description) bits.push(`  ${p.description}`);
+        if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
+        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
+        if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
+        return bits.join("\n");
+      }).join("\n");
+    parts.push(`Product lines:\n${productInfo}\nUse these product details to make copy specific and credible.`);
+  }
   return parts.join("\n");
 }
 

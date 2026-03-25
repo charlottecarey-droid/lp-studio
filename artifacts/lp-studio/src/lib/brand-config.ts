@@ -18,6 +18,14 @@ export interface MessagingPillar {
   description: string;
 }
 
+export interface ProductLine {
+  name: string;
+  description: string;
+  valueProps: string[];
+  claims: string[];
+  keywords: string[];
+}
+
 export interface BrandConfig {
   primaryColor: string;
   accentColor: string;
@@ -71,6 +79,7 @@ export interface BrandConfig {
   targetAudience: string;
   copyExamples: string[];
   copyInstructions: string;
+  productLines: ProductLine[];
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
@@ -126,6 +135,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   targetAudience: "",
   copyExamples: [],
   copyInstructions: "",
+  productLines: [],
 };
 
 const BUTTON_RADIUS: Record<ButtonRadius, string> = {
@@ -268,6 +278,19 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
   }
   if (brand.copyInstructions?.trim()) {
     parts.push(brand.copyInstructions.trim());
+  }
+  if (brand.productLines?.length > 0) {
+    const productInfo = brand.productLines
+      .filter((p) => p.name)
+      .map((p) => {
+        const bits = [`- ${p.name}`];
+        if (p.description) bits.push(`  ${p.description}`);
+        if (p.valueProps?.length) bits.push(`  Value props: ${p.valueProps.join(", ")}`);
+        if (p.claims?.length) bits.push(`  Claims: ${p.claims.join(", ")}`);
+        if (p.keywords?.length) bits.push(`  Keywords: ${p.keywords.join(", ")}`);
+        return bits.join("\n");
+      }).join("\n");
+    parts.push(`Product lines:\n${productInfo}`);
   }
   return parts.join("\n");
 }

@@ -14,14 +14,22 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-async function fetchBrandName(): Promise<string> {
+interface BrandContext {
+  brandName: string;
+  productKeywords: string[];
+}
+
+async function fetchBrandContext(): Promise<BrandContext> {
   try {
     const rows = await db.select().from(lpBrandSettingsTable).limit(1);
-    if (rows.length === 0) return "";
+    if (rows.length === 0) return { brandName: "", productKeywords: [] };
     const config = rows[0].config as Record<string, unknown> | null;
-    return (config?.brandName as string) ?? "";
+    const brandName = (config?.brandName as string) ?? "";
+    const productLines = (config?.productLines as { keywords?: string[] }[]) ?? [];
+    const productKeywords = productLines.flatMap((p) => p.keywords ?? []);
+    return { brandName, productKeywords };
   } catch {
-    return "";
+    return { brandName: "", productKeywords: [] };
   }
 }
 
@@ -45,7 +53,7 @@ router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const brandName = await fetchBrandName();
+  const { brandName, productKeywords } = await fetchBrandContext();
 
   // Extract key text from blocks
   const texts: string[] = [];
@@ -67,7 +75,8 @@ RULES:
 - suggestedSlug: a short, keyword-rich URL slug (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug is already good, return it unchanged.
 - Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "...", "suggestedSlug": "..."}
 - No markdown, no explanation, just the JSON object
-${brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : ""}`;
+${brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : ""}
+${productKeywords.length ? `- Target keywords to work in naturally: ${productKeywords.join(", ")}` : ""}`;
 
   const userPrompt = [
     `Page title: ${title || "Untitled"}`,

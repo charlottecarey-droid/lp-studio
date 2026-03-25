@@ -132,7 +132,7 @@ export default function TestDetail() {
             </TabsTrigger>
             <TabsTrigger value="results" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <BarChart className="w-4 h-4 mr-2" />
-              Results & Stats
+              Performance
             </TabsTrigger>
           </TabsList>
           
@@ -142,7 +142,7 @@ export default function TestDetail() {
             </TabsContent>
             
             <TabsContent value="results" className="m-0 p-6 md:p-8 outline-none">
-              <ResultsTab test={test} results={results} />
+              <ResultsTab test={test} results={results as any} />
             </TabsContent>
           </div>
         </Tabs>

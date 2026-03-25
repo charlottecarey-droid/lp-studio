@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2,
-  RotateCcw, MessageSquare, X, Plus, AlertTriangle,
+  RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -25,7 +25,7 @@ import type {
   BrandConfig, ButtonRadius, ButtonShadow, ButtonPaddingX, ButtonPaddingY,
   ButtonFontWeight, ButtonTextCase, ButtonLetterSpacing, SectionPadding,
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
-  EyebrowStyle, SecondaryButtonStyle, MessagingPillar,
+  EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
 } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
@@ -141,6 +141,92 @@ function TagInput({ value, onChange, placeholder, max }: {
           <Plus className="w-3.5 h-3.5" />
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ProductLineCard({ product, onChange, onRemove }: {
+  product: ProductLine;
+  onChange: (key: keyof ProductLine, value: unknown) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-muted/30 cursor-pointer select-none"
+        onClick={() => setOpen(!open)}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />}
+          <span className="font-medium text-sm truncate">{product.name || "Untitled Product"}</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+      {open && (
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Product Name</Label>
+              <Input
+                value={product.name}
+                onChange={(e) => onChange("name", e.target.value)}
+                placeholder="e.g. Dandy Crowns"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Short Description</Label>
+              <Input
+                value={product.description}
+                onChange={(e) => onChange("description", e.target.value)}
+                placeholder="One-line product summary"
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Value Props</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Key benefits to highlight in copy</p>
+            <TagInput
+              value={product.valueProps}
+              onChange={(v) => onChange("valueProps", v)}
+              placeholder="Add a value prop and press Enter"
+              max={8}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Claims</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Provable statements AI can cite (e.g. "50% faster turnaround")</p>
+            <TagInput
+              value={product.claims}
+              onChange={(v) => onChange("claims", v)}
+              placeholder="Add a claim and press Enter"
+              max={8}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Keywords</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">SEO/GEO target keywords for this product</p>
+            <TagInput
+              value={product.keywords}
+              onChange={(v) => onChange("keywords", v)}
+              placeholder="Add a keyword and press Enter"
+              max={12}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -417,6 +503,22 @@ export default function BrandSettings() {
 
   const removePillar = (idx: number) => {
     update("messagingPillars", (config.messagingPillars || []).filter((_, i) => i !== idx));
+  };
+
+  // ── Product Lines ──────────────────────────────────────────────────
+  const addProductLine = () => {
+    if ((config.productLines?.length ?? 0) >= 12) return;
+    update("productLines", [...(config.productLines || []), { name: "", description: "", valueProps: [], claims: [], keywords: [] }]);
+  };
+
+  const updateProductLine = (idx: number, key: keyof ProductLine, value: unknown) => {
+    const lines = [...(config.productLines || [])];
+    lines[idx] = { ...lines[idx], [key]: value };
+    update("productLines", lines);
+  };
+
+  const removeProductLine = (idx: number) => {
+    update("productLines", (config.productLines || []).filter((_, i) => i !== idx));
   };
 
   return (
@@ -977,7 +1079,48 @@ export default function BrandSettings() {
             </div>
           </Card>
 
-          {/* SECTION 6 — PRESETS */}
+          {/* SECTION 6 — PRODUCT LINES */}
+          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" />
+                <div>
+                  <h2 className="font-display font-semibold text-lg">Product Lines</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Value props, claims, and keywords per product. AI uses these when generating copy for specific products.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={addProductLine}
+                disabled={(config.productLines?.length ?? 0) >= 12}
+                className="gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Product
+              </Button>
+            </div>
+            <Separator />
+
+            {(config.productLines ?? []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No product lines yet. Add products with their unique value props so AI can tailor copy per product.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(config.productLines ?? []).map((product, i) => (
+                  <ProductLineCard
+                    key={i}
+                    product={product}
+                    onChange={(key, value) => updateProductLine(i, key, value)}
+                    onRemove={() => removeProductLine(i)}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* SECTION 7 — PRESETS */}
           <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
