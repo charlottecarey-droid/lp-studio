@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,12 +69,6 @@ function useLibrary(type: LibraryType) {
   return { items, loading, reload, create, update, toggleDefault, remove };
 }
 
-const TABS: { type: LibraryType; label: string; description: string }[] = [
-  { type: "product_showcase", label: "Product Showcase", description: "Cards used in Product Showcase blocks" },
-  { type: "product_grid", label: "Product Grid", description: "Items used in Product Grid blocks" },
-  { type: "case_study", label: "Case Studies", description: "Case study cards across landing pages" },
-  { type: "resource", label: "Resources", description: "Articles, guides, and resources" },
-];
 
 function ProductShowcaseForm({
   value, onChange,
@@ -294,6 +288,256 @@ function AddItemForm({ type, onCreate }: { type: LibraryType; onCreate: (name: s
   );
 }
 
+interface MediaItem {
+  id: number;
+  title: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  tags: string[];
+  createdAt: string;
+}
+
+interface TagCount {
+  tag: string;
+  count: number;
+}
+
+function MediaTab() {
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeTag, setActiveTag] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [editingTags, setEditingTags] = useState<number | null>(null);
+  const [editTagValue, setEditTagValue] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchImages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set("q", query);
+      if (activeTag) params.set("tag", activeTag);
+      const res = await fetch(`/api/lp/media/images?${params}`);
+      if (!res.ok) throw new Error("Failed");
+      const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[] };
+      setItems(data.items);
+      setTagCounts(data.tagCounts);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [query, activeTag]);
+
+  useEffect(() => { fetchImages(); }, [fetchImages]);
+
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => fetchImages(), 300);
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setUploadProgress({ current: 0, total: files.length });
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setUploadProgress({ current: i + 1, total: files.length });
+      try {
+        const relativePath = (files[i] as File & { webkitRelativePath?: string }).webkitRelativePath ?? "";
+        const folderParts = relativePath.split("/").slice(0, -1).filter(Boolean);
+        const folderTags = folderParts.map(p => p.toLowerCase().replace(/[_-]+/g, " ").trim());
+        const formData = new FormData();
+        formData.append("file", files[i]);
+        if (folderTags.length > 0) formData.append("folderTags", folderTags.join(","));
+        const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+        if (!res.ok) failed++;
+      } catch { failed++; }
+    }
+    await fetchImages();
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
+    if (failed > 0) alert(`${failed} of ${files.length} files failed to upload.`);
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadFiles(Array.from(e.target.files ?? []).filter(f => f.type.startsWith("image/")));
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    uploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")));
+  };
+
+  const handleSaveTags = async (id: number) => {
+    const tags = editTagValue.split(",").map(t => t.trim()).filter(Boolean);
+    try {
+      await fetch(`/api/lp/media/${id}/tags`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      setEditingTags(null);
+      fetchImages();
+    } catch { /* silent */ }
+  };
+
+  const handleDelete = async (id: number, title: string) => {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    try {
+      await fetch(`/api/lp/media/${id}`, { method: "DELETE" });
+      fetchImages();
+    } catch { /* silent */ }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={e => handleSearchChange(e.target.value)}
+            placeholder="Search by name or tag…"
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
+        <Button
+          variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
+          disabled={!!uploadProgress}
+          onClick={() => fileInputRef.current?.click()}
+          title="Select individual images"
+        >
+          {uploadProgress
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
+            : <><Upload className="w-3.5 h-3.5" />Files</>}
+        </Button>
+        <Button
+          variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
+          disabled={!!uploadProgress}
+          onClick={() => folderInputRef.current?.click()}
+          title="Upload an entire folder — subfolders become tags"
+        >
+          <FolderOpen className="w-3.5 h-3.5" />Folder
+        </Button>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+        <input
+          ref={folderInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload}
+          {...{ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
+        />
+      </div>
+
+      {/* Tag filter chips */}
+      {tagCounts.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {activeTag && (
+            <Badge variant="default" className="cursor-pointer text-[11px] gap-1" onClick={() => setActiveTag("")}>
+              {activeTag}<X className="w-2.5 h-2.5" />
+            </Badge>
+          )}
+          {tagCounts.filter(tc => tc.tag !== activeTag).slice(0, 20).map(tc => (
+            <Badge key={tc.tag} variant="outline" className="cursor-pointer text-[11px] hover:bg-muted" onClick={() => setActiveTag(tc.tag)}>
+              {tc.tag} <span className="ml-1 text-muted-foreground">{tc.count}</span>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Upload progress bar */}
+      {uploadProgress && (
+        <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+          <span>Uploading {uploadProgress.current} of {uploadProgress.total}…</span>
+          <div className="flex-1 bg-muted rounded-full h-1.5 ml-1">
+            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Image grid */}
+      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /><span className="text-sm">Loading…</span>
+          </div>
+        ) : items.length === 0 ? (
+          <div
+            className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">{query || activeTag ? "No images match your search." : "Drop images here or click to upload"}</p>
+            {!query && !activeTag && <p className="text-xs mt-1 opacity-60">Supports JPG, PNG, WebP, GIF · Select multiple or upload a whole folder</p>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {items.map(item => (
+              <div key={item.id} className="group relative rounded-xl border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all">
+                <div className="aspect-video">
+                  <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                </div>
+                {/* Delete button */}
+                <button
+                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-600 text-white rounded-lg p-1"
+                  onClick={() => handleDelete(item.id, item.title)}
+                  title="Delete image"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+                <div className="p-2">
+                  <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
+                  {editingTags === item.id ? (
+                    <div className="mt-1.5 flex gap-1">
+                      <Input
+                        value={editTagValue}
+                        onChange={e => setEditTagValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); if (e.key === "Escape") setEditingTags(null); }}
+                        placeholder="tag1, tag2…"
+                        className="h-6 text-[10px] flex-1"
+                        autoFocus
+                      />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingTags(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {item.tags.length > 0
+                        ? item.tags.slice(0, 3).map(t => (
+                          <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
+                        ))
+                        : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
+                      }
+                      {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
+                      <button
+                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
+                        title="Edit tags"
+                      >
+                        <Tag className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LibraryTab({ type }: { type: LibraryType }) {
   const lib = useLibrary(type);
 
@@ -331,14 +575,24 @@ function LibraryTab({ type }: { type: LibraryType }) {
   );
 }
 
-export default function ContentLibrary() {
-  const [activeTab, setActiveTab] = useState<LibraryType>("product_showcase");
+type ActiveTab = LibraryType | "media";
 
-  const activeTabMeta = TABS.find(t => t.type === activeTab)!;
+const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: React.ReactNode }[] = [
+  { id: "product_showcase", label: "Product Showcase", description: "Cards used in Product Showcase blocks" },
+  { id: "product_grid", label: "Product Grid", description: "Items used in Product Grid blocks" },
+  { id: "case_study", label: "Case Studies", description: "Case study cards across landing pages" },
+  { id: "resource", label: "Resources", description: "Articles, guides, and resources" },
+  { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
+];
+
+export default function ContentLibrary() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("product_showcase");
+
+  const activeTabMeta = ALL_TABS.find(t => t.id === activeTab)!;
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-6 py-10">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -351,17 +605,17 @@ export default function ContentLibrary() {
           </div>
 
           <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl">
-            {TABS.map(tab => (
+            {ALL_TABS.map(tab => (
               <button
-                key={tab.type}
-                onClick={() => setActiveTab(tab.type)}
-                className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === tab.type
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === tab.id
                     ? "bg-white shadow-sm text-slate-900"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {tab.label}
+                {tab.icon}{tab.label}
               </button>
             ))}
           </div>
@@ -370,7 +624,10 @@ export default function ContentLibrary() {
             <p className="text-xs text-slate-500">{activeTabMeta.description}</p>
           </div>
 
-          <LibraryTab key={activeTab} type={activeTab} />
+          {activeTab === "media"
+            ? <MediaTab />
+            : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
+          }
         </motion.div>
       </div>
     </AppLayout>

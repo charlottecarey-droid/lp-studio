@@ -333,6 +333,18 @@ router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
   }
 });
 
+router.delete("/lp/media/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    await db.delete(lpMediaTable).where(eq(lpMediaTable.id, id));
+    res.json({ success: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Error deleting media");
+    res.status(500).json({ error: "Failed to delete media" });
+  }
+});
+
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
