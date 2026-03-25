@@ -322,6 +322,7 @@ function MediaTab() {
   const [deleting, setDeleting] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
   const [reclassifyMsg, setReclassifyMsg] = useState("");
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [modalImage, setModalImage] = useState<MediaItem | null>(null);
   const [modalTagEdit, setModalTagEdit] = useState(false);
   const [modalTagValue, setModalTagValue] = useState("");
@@ -548,18 +549,38 @@ function MediaTab() {
               <span className={`text-[11px] ml-1 shrink-0 ${!activeTag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{totalCount}</span>
             </button>
             {/* Each tag */}
-            {tagCounts.map(tc => (
-              <button
-                key={tc.tag}
-                onClick={() => handleTagClick(tc.tag === activeTag ? "" : tc.tag)}
-                className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
-                  activeTag === tc.tag ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
-                }`}
-              >
-                <span className="truncate capitalize">{tc.tag}</span>
-                <span className={`text-[11px] ml-1 shrink-0 ${activeTag === tc.tag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{tc.count}</span>
-              </button>
-            ))}
+            {(() => {
+              const SIDEBAR_LIMIT = 10;
+              const activeIdx = tagCounts.findIndex(tc => tc.tag === activeTag);
+              const mustExpand = activeIdx >= SIDEBAR_LIMIT;
+              const showAll = sidebarExpanded || mustExpand;
+              const visible = showAll ? tagCounts : tagCounts.slice(0, SIDEBAR_LIMIT);
+              const hidden = tagCounts.length - SIDEBAR_LIMIT;
+              return (
+                <>
+                  {visible.map(tc => (
+                    <button
+                      key={tc.tag}
+                      onClick={() => handleTagClick(tc.tag === activeTag ? "" : tc.tag)}
+                      className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                        activeTag === tc.tag ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <span className="truncate capitalize">{tc.tag}</span>
+                      <span className={`text-[11px] ml-1 shrink-0 ${activeTag === tc.tag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{tc.count}</span>
+                    </button>
+                  ))}
+                  {hidden > 0 && (
+                    <button
+                      onClick={() => setSidebarExpanded(v => !v)}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors mt-0.5"
+                    >
+                      {showAll ? "↑ Show less" : `+ ${hidden} more`}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Classify existing images */}
