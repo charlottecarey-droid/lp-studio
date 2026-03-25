@@ -126,7 +126,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement"] as const;
 
   return (
     <div className="p-4 space-y-6">
@@ -339,7 +339,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
