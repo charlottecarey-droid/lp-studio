@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useListTests } from "@workspace/api-client-react";
+import { getRecentEntries } from "@/hooks/use-recently-viewed";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -120,7 +121,10 @@ export default function Dashboard() {
     },
   ];
 
-  const recentWork: RecentWorkItem[] = [
+  const personalHistory = getRecentEntries();
+  const hasPersonalHistory = personalHistory.length > 0;
+
+  const allWorkItems: RecentWorkItem[] = [
     ...(tests ?? []).map(t => ({
       kind: "experiment" as const,
       id: t.id,
@@ -140,9 +144,16 @@ export default function Dashboard() {
       slug: p.slug,
       updatedAt: p.updatedAt,
     })),
-  ]
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 6);
+  ];
+
+  const recentWork: RecentWorkItem[] = hasPersonalHistory
+    ? personalHistory
+        .map(entry => allWorkItems.find(w => w.kind === entry.kind && w.id === entry.id))
+        .filter((w): w is RecentWorkItem => w !== undefined)
+        .slice(0, 6)
+    : allWorkItems
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 6);
 
   const recentWorkLoading = isLoading || pagesLoading;
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
+import { trackView } from "@/hooks/use-recently-viewed";
 import {
   DndContext,
   closestCenter,
@@ -557,6 +558,11 @@ export default function BuilderEditor() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const pageIdNum = parseInt(pageId, 10);
+
+  useEffect(() => {
+    if (!isNaN(pageIdNum)) trackView("page", pageIdNum);
+  }, [pageIdNum]);
+
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview } = useReviews(pageIdNum);
   const displayName = getAuthorName() || "Builder User";

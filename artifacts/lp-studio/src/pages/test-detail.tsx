@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { 
   useGetTest, 
@@ -7,6 +8,7 @@ import {
   getGetTestQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { trackView } from "@/hooks/use-recently-viewed";
 import { ArrowLeft, Play, Pause, SquareSquare, BarChart, Settings2 } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/app-layout";
@@ -29,6 +31,10 @@ export default function TestDetail() {
   const updateMutation = useUpdateTest();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (testId) trackView("experiment", testId);
+  }, [testId]);
 
   const handleStatusChange = (newStatus: "draft" | "running" | "paused" | "completed") => {
     updateMutation.mutate(
