@@ -6,3 +6,9 @@ id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
 type = "text"
 title = "LP Studio — Your Quick Reference Guide"
+
+[[outputs]]
+id = "p-i6AhOploK1NTZlMoM-U"
+uri = "file://attached_assets/New_Partners_FDP_1774452663277.pdf"
+type = "pdf"
+title = "Dandy Cleaning & Sterilization Guide PDF"
