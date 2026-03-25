@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -562,6 +562,8 @@ export default function BuilderEditor() {
   const { viewers } = usePresence(pageIdNum, displayName);
 
   const titleRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [capturingOg, setCapturingOg] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -854,6 +856,70 @@ export default function BuilderEditor() {
     navigator.clipboard.writeText(url);
   };
 
+  const captureOgScreenshot = async () => {
+    const el = canvasRef.current;
+    if (!el) return;
+    setCapturingOg(true);
+    try {
+      const { toBlob } = await import("html-to-image");
+      // Capture the canvas at current size
+      const blob = await toBlob(el, {
+        cacheBust: true,
+        pixelRatio: 1,
+        backgroundColor: "#ffffff",
+        filter: (node: HTMLElement) => {
+          // Filter out drag handles / selection outlines that shouldn't appear in OG
+          if (node.dataset?.noog === "true") return false;
+          return true;
+        },
+      });
+      if (!blob) throw new Error("Capture failed — blank result");
+
+      // Resize to 1200×630 using an offscreen canvas
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(blob);
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load captured image"));
+        img.src = objectUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = 1200;
+      canvas.height = 630;
+      const ctx = canvas.getContext("2d")!;
+      // Draw the top portion of the page scaled to fit 1200px wide, cropped to 630px tall
+      const scale = 1200 / img.width;
+      ctx.drawImage(img, 0, 0, img.width, Math.min(img.height, 630 / scale), 0, 0, 1200, Math.min(630, img.height * scale));
+      // If the page is shorter than 630px at scale, fill the rest white
+      if (img.height * scale < 630) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, img.height * scale, 1200, 630 - img.height * scale);
+      }
+      URL.revokeObjectURL(objectUrl);
+
+      const resizedBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Resize failed"))), "image/png");
+      });
+
+      // Upload via existing endpoint
+      const formData = new FormData();
+      formData.append("file", resizedBlob, "og-screenshot.png");
+      const res = await fetch(`${API_BASE}/lp/upload`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = (await res.json()) as { url: string };
+
+      // The upload returns a storage path — build the full serve URL
+      const ogUrl = url.startsWith("http") ? url : `${window.location.origin}/api/storage${url}`;
+      setOgImage(ogUrl);
+      setTimeout(handleSave, 100);
+    } catch (err) {
+      console.error("OG capture error:", err);
+      alert(err instanceof Error ? err.message : "Screenshot capture failed");
+    } finally {
+      setCapturingOg(false);
+    }
+  };
+
   const handleTitleBlur = () => {
     if (title.trim()) handleSave();
   };
@@ -1090,6 +1156,7 @@ export default function BuilderEditor() {
               </div>
             ) : (
               <div
+                ref={canvasRef}
                 className={cn(
                   "w-full bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300",
                   isMobile ? "max-w-[390px]" : "max-w-5xl"
@@ -1234,7 +1301,19 @@ export default function BuilderEditor() {
 
                 {/* OG Image */}
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">OG Image URL</Label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">OG Image</Label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] gap-1.5"
+                      disabled={capturingOg || blocks.length === 0}
+                      onClick={captureOgScreenshot}
+                    >
+                      {capturingOg ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
+                      {capturingOg ? "Capturing…" : "Capture Page"}
+                    </Button>
+                  </div>
                   <Input
                     value={ogImage}
                     onChange={e => setOgImage(e.target.value)}
@@ -1242,7 +1321,7 @@ export default function BuilderEditor() {
                     placeholder="https://..."
                     className="text-sm font-mono"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Recommended 1200×630px.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Captures at 1200×630px.</p>
                   {ogImage && (
                     <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video bg-muted">
                       <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />

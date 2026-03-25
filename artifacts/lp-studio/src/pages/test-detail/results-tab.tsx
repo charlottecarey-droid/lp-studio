@@ -67,9 +67,9 @@ export function ResultsTab({
   }
 
   // Ensure backward compat with old API that may not have these fields
-  const totalLeads = totalLeads ?? 0;
-  const overallLeadRate = overallLeadRate ?? 0;
-  const dailySeries = dailySeries ?? [];
+  const totalLeads = (results as any).totalLeads ?? 0;
+  const overallLeadRate = (results as any).overallLeadRate ?? 0;
+  const dailySeries = (results as any).dailySeries ?? [];
   const variants = results.variants.map((v) => ({
     ...v,
     leads: v.leads ?? 0,
