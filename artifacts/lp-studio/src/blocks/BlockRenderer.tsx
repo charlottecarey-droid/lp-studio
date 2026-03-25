@@ -308,6 +308,9 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
             brand={brand}
             blockId={block.id}
             isEditing={!!onBlockChange}
+            pageId={pageId}
+            variantId={variantId}
+            sessionId={sessionId}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
           />
         );

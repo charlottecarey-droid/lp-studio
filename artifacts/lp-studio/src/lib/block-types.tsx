@@ -344,6 +344,10 @@ export interface PopupBlockProps {
   overlayOpacity: number;
   position: "center" | "bottom-left" | "bottom-right";
   backgroundStyle: "white" | "dark";
+  // Chili Piper calendar CTA
+  ctaType: "url" | "chilipiper";
+  chilipiperUrl: string;
+  chilipiperCaptureName: boolean;
 }
 
 export interface StickyBarBlockProps {
@@ -1105,6 +1109,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       overlayOpacity: 50,
       position: "center",
       backgroundStyle: "white",
+      ctaType: "url",
+      chilipiperUrl: "",
+      chilipiperCaptureName: false,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

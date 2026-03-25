@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
-import { MousePointerClick, Clock, ArrowUpFromLine, LogOut } from "lucide-react";
+import { MousePointerClick, Clock, ArrowUpFromLine, LogOut, Link, Calendar } from "lucide-react";
 import type { PopupBlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -73,25 +73,86 @@ export function PopupPanel({ props: p, onChange }: Props) {
       <div className="border-t pt-4 space-y-3">
         <SectionHeading>Call to action</SectionHeading>
 
+        {/* CTA type toggle */}
+        <div>
+          <Label className="text-xs mb-2 block">CTA type</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { value: "url",        label: "Link",         icon: <Link className="w-3.5 h-3.5" />,     hint: "Opens a URL" },
+              { value: "chilipiper", label: "Chili Piper",  icon: <Calendar className="w-3.5 h-3.5" />, hint: "Calendar booking" },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => set("ctaType", opt.value)}
+                className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                  (p.ctaType ?? "url") === opt.value
+                    ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
+                    : "border-border text-slate-500 hover:border-slate-300 hover:bg-muted/50"
+                }`}
+              >
+                <span className={(p.ctaType ?? "url") === opt.value ? "text-[#003A30]" : "text-slate-400"}>{opt.icon}</span>
+                <span className="text-[11px] font-semibold">{opt.label}</span>
+                <span className="text-[10px] text-slate-400">{opt.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <Label className="text-xs">Button label</Label>
           <Input
             value={p.ctaText}
             onChange={e => set("ctaText", e.target.value)}
             className="mt-1.5 h-8 text-sm"
-            placeholder="e.g. Get the offer"
+            placeholder={(p.ctaType ?? "url") === "chilipiper" ? "e.g. Book a call" : "e.g. Get the offer"}
           />
         </div>
 
-        <div>
-          <Label className="text-xs">Button URL</Label>
-          <Input
-            value={p.ctaUrl}
-            onChange={e => set("ctaUrl", e.target.value)}
-            className="mt-1.5 h-8 text-sm font-mono"
-            placeholder="https://…"
-          />
-        </div>
+        {/* URL mode */}
+        {(p.ctaType ?? "url") === "url" && (
+          <div>
+            <Label className="text-xs">Button URL</Label>
+            <Input
+              value={p.ctaUrl}
+              onChange={e => set("ctaUrl", e.target.value)}
+              className="mt-1.5 h-8 text-sm font-mono"
+              placeholder="https://…"
+            />
+          </div>
+        )}
+
+        {/* Chili Piper mode */}
+        {p.ctaType === "chilipiper" && (
+          <div className="space-y-3 rounded-xl bg-blue-50/60 border border-blue-100 p-3">
+            <div>
+              <Label className="text-xs font-semibold text-blue-800">Chili Piper calendar URL</Label>
+              <Input
+                value={p.chilipiperUrl}
+                onChange={e => set("chilipiperUrl", e.target.value)}
+                className="mt-1.5 h-8 text-sm font-mono bg-white"
+                placeholder="https://yourcompany.chilipiper.com/book/…"
+              />
+              <p className="text-[10px] text-blue-600 mt-1">
+                Paste your Chili Piper Instant Booker or router URL.
+              </p>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-medium">Also capture name</Label>
+                <p className="text-[10px] text-slate-400 mt-0.5">Show a name field before the calendar</p>
+              </div>
+              <Switch
+                checked={p.chilipiperCaptureName ?? false}
+                onCheckedChange={v => set("chilipiperCaptureName", v)}
+              />
+            </div>
+            <div className="rounded-lg bg-blue-100/60 px-3 py-2 text-[11px] text-blue-700 space-y-0.5">
+              <p className="font-semibold">What happens on submit:</p>
+              <p>① Email (+ name if enabled) is captured and sent to Marketo / Salesforce via your page notification settings.</p>
+              <p>② The Chili Piper calendar loads inline so the visitor can book immediately.</p>
+            </div>
+          </div>
+        )}
 
         <div>
           <Label className="text-xs">Button colour</Label>
