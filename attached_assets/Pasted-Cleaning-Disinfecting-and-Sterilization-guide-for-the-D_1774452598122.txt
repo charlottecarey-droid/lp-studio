@@ -1,0 +1,30 @@
+Cleaning, Disinfecting, and Sterilization guide for the Dandy Vision scanner
+To minimize the risk of cross-contamination, you must perform these steps after each patient. Proper PPE must be worn for each cleaning, disinfecting and sterilization step.
+Cleaning and Disinfecting the Scanner Body 
+If visible blood or body fluid is on the scanner, you must clean it before disinfecting by wiping it with a lint-free cloth dampened with warm water (do not soak).
+Detach the Scanner Tip before disinfecting the wand.
+Disinfect the scanner using CaviWipes.
+Do not use disinfectants containing phenol or iodine-based substances, as they may damage the scanner's surface coating.
+Thoroughly wipe down all scanner surfaces, ensuring no liquid enters any gaps, air outlets, or pinholes.
+Do not rinse the scanner, do not place it in a pressure steam sterilizer, and do not immerse it in water or disinfectant solutions.
+Let the scanner air dry thoroughly.
+Once dry, use a clean, lint-free cloth dampened with water to remove any remaining disinfectant from the scanner's surface.
+Cleaning the Scanner Tip & Transportation of Tip
+Do not use an ultrasonic cleaner to clean the tip, and do not soak the tip with alcohol-based disinfectants or in any disinfectants for extended periods.
+Rinse the scanner tip under running water for approximately 2 minutes to remove excess debris.
+Brush all surfaces with an enzymatic detergent solution, like Metrex EmPower.
+Rinse thoroughly under fresh, running water for a full 2 minutes.
+Clean the mirror inside the Scanner Tip using a lint-free cloth or lens tissue to remove dust.
+Dry the scanner tip's mirror carefully with a lens tissue or lint-free cloth.
+Do not place the tip in the biohazard container with other instruments, the tips must be placed in their own separate container to keep the mirrors from getting scratched.
+Sterilizing the Scanner Tip
+Scanner Tips are shipped non-sterile and must be sterilized before their first use.
+Put the Scanner Tip into a sealed steam sterilization pouch and place it in a steam autoclave.
+Cycle Option 1: The exposure temperature should be set to 134℃. The exposure time should exceed 3 minutes but must not exceed 6 minutes.
+Cycle Option 2: The exposure temperature should be set to 132℃ with a strict exposure time of 4 minutes. Follow the autoclave manufacturer's recommendation for the drying time.
+If you limit the exposure times to the parameters above, you can autoclave the Scanner Tip for up to 180 cycles. Replace the scanner tip after 180 sterilization cycles.
+Ensure the scanner tip is completely dry before mounting it back onto the scanner.
+Computer 
+Do not wipe down the computer(s) with disinfectant wipes, this will cause damage to the computers.
+Use a plastic barrier such as a chair cover, bracket tray cover or blue wrap to prevent contamination if the computer must be touched during scanning/treatment.
+Consider the use of a third person that can “manage” the computer so that the operator/provider does not have to touch the computer during treatment.
