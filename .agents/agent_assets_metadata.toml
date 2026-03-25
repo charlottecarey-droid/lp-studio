@@ -12,3 +12,9 @@ id = "p-i6AhOploK1NTZlMoM-U"
 uri = "file://attached_assets/New_Partners_FDP_1774452663277.pdf"
 type = "pdf"
 title = "Dandy Cleaning & Sterilization Guide PDF"
+
+[[outputs]]
+id = "JK-DIJx3-H6ZrMq2an_7d"
+uri = "file://.local/lp-studio-guide.md"
+type = "text"
+title = "Dandy LP Studio — User Guide"
