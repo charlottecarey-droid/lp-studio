@@ -524,6 +524,7 @@ export default function BuilderEditor() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
@@ -1168,6 +1169,26 @@ export default function BuilderEditor() {
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Only lowercase letters, numbers, and hyphens. Changing the slug will update the live URL.</p>
+                  {suggestedSlug && suggestedSlug !== slug && (
+                    <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
+                      <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-blue-700 font-medium">AI suggests: <span className="font-mono">/{suggestedSlug}</span></p>
+                      </div>
+                      <button
+                        onClick={() => { setSlug(suggestedSlug); setSuggestedSlug(null); setTimeout(handleSave, 100); }}
+                        className="text-[9px] font-medium text-blue-600 hover:text-blue-800 px-1.5 py-0.5 rounded bg-blue-100 hover:bg-blue-200 transition-colors"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => setSuggestedSlug(null)}
+                        className="text-[9px] text-blue-400 hover:text-blue-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Divider */}
@@ -1177,7 +1198,7 @@ export default function BuilderEditor() {
                     <AutoMetaButton blocks={blocks} title={title} currentSlug={slug} onGenerated={(mt, md, sugSlug, og) => {
                       setMetaTitle(mt);
                       setMetaDescription(md);
-                      if (sugSlug && sugSlug !== slug) setSlug(sugSlug);
+                      if (sugSlug && sugSlug !== slug) setSuggestedSlug(sugSlug);
                       if (og) setOgImage(og);
                       setTimeout(handleSave, 100);
                     }} />
