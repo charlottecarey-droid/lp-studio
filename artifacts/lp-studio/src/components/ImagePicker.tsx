@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Loader2 } from "lucide-react";
+import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 
 interface ImagePickerProps {
   value: string;
@@ -32,6 +33,7 @@ export function ImagePicker({ value, onChange, label, placeholder, className }: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,13 +78,23 @@ export function ImagePicker({ value, onChange, label, placeholder, className }: 
           </button>
         </div>
       )}
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-1.5 items-center">
         <Input
           value={value}
           onChange={e => onChange(e.target.value)}
           className="text-sm flex-1"
           placeholder={placeholder ?? "Paste URL or upload"}
         />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="shrink-0 w-8 h-8"
+          title="Browse media library"
+          onClick={() => setLibraryOpen(true)}
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -109,6 +121,12 @@ export function ImagePicker({ value, onChange, label, placeholder, className }: 
       {error && (
         <p className="text-xs text-red-500 mt-1">{error}</p>
       )}
+
+      <MediaLibraryDrawer
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onSelect={(url) => onChange(url)}
+      />
     </div>
   );
 }

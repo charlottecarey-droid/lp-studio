@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
 export const lpMediaTable = pgTable("lp_media", {
   id: serial("id").primaryKey(),
@@ -7,6 +7,7 @@ export const lpMediaTable = pgTable("lp_media", {
   mediaType: text("media_type").notNull().default("video"),
   mimeType: text("mime_type").notNull().default(""),
   sizeBytes: integer("size_bytes"),
+  tags: jsonb("tags").notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

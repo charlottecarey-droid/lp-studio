@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import multer from "multer";
+import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { db, lpMediaTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { desc, eq, sql, ilike, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -87,6 +88,50 @@ const PRELOADED_VIDEOS = [
   },
 ];
 
+/** Auto-tag an image using GPT-4o vision (runs in background, never blocks upload) */
+async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: string) {
+  try {
+    const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+    const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+    if (!baseURL || !apiKey) return;
+
+    const openai = new OpenAI({ baseURL, apiKey });
+    const base64 = imageBuffer.toString("base64");
+    const dataUri = `data:${mimeType};base64,${base64}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_completion_tokens: 200,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an image tagger for a marketing asset library. Return ONLY a JSON array of 3-6 short descriptive tags (lowercase, 1-3 words each). Tags should describe the subject, style, mood, and use case. Example: [\"dental office\", \"team photo\", \"modern\", \"hero image\", \"professional\"]",
+        },
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: dataUri, detail: "low" } },
+            { type: "text", text: "Tag this image." },
+          ],
+        },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    const tags = JSON.parse(cleaned);
+    if (Array.isArray(tags) && tags.length > 0) {
+      await db
+        .update(lpMediaTable)
+        .set({ tags: tags.slice(0, 8) })
+        .where(eq(lpMediaTable.id, mediaId));
+    }
+  } catch {
+    // Auto-tagging is best-effort — never fail the upload
+  }
+}
+
 router.post("/lp/upload", (req: Request, res: Response) => {
   imageUpload.single("file")(req, res, async (err) => {
     if (err) {
@@ -105,7 +150,23 @@ router.post("/lp/upload", (req: Request, res: Response) => {
         req.file.buffer,
         req.file.mimetype,
       );
-      res.json({ url: servePath });
+      const serveUrl = `/api/storage${servePath}`;
+      const title = req.file.originalname?.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") ?? "Untitled";
+
+      // Save to media table so it appears in the library
+      const [record] = await db.insert(lpMediaTable).values({
+        title,
+        url: serveUrl,
+        mediaType: "image",
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        tags: [],
+      }).returning();
+
+      // Auto-tag in the background (non-blocking)
+      setImmediate(() => autoTagImage(record.id, req.file!.buffer, req.file!.mimetype));
+
+      res.json({ url: servePath, mediaId: record.id });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading LP image");
       res.status(500).json({ error: "Upload failed" });
@@ -186,6 +247,80 @@ router.get("/lp/media", async (req: Request, res: Response) => {
   } catch (error) {
     req.log.error({ err: error }, "Error listing media");
     res.status(500).json({ error: "Failed to list media" });
+  }
+});
+
+/** Browse image library with optional search query and tag filter */
+router.get("/lp/media/images", async (req: Request, res: Response) => {
+  try {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const tag = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
+
+    let query = db.select().from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"))
+      .orderBy(desc(lpMediaTable.createdAt))
+      .$dynamic();
+
+    const rows = await query;
+
+    let items = rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      url: r.url,
+      mimeType: r.mimeType,
+      sizeBytes: r.sizeBytes,
+      tags: (r.tags as string[]) ?? [],
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    // Filter by tag (case-insensitive)
+    if (tag) {
+      const tagLower = tag.toLowerCase();
+      items = items.filter(item => item.tags.some(t => t.toLowerCase() === tagLower));
+    }
+
+    // Filter by search query (match title or tags)
+    if (q) {
+      const qLower = q.toLowerCase();
+      items = items.filter(item =>
+        item.title.toLowerCase().includes(qLower) ||
+        item.tags.some(t => t.toLowerCase().includes(qLower))
+      );
+    }
+
+    // Collect all unique tags for the filter UI
+    const allTags = new Map<string, number>();
+    for (const row of rows) {
+      for (const t of (row.tags as string[]) ?? []) {
+        allTags.set(t, (allTags.get(t) ?? 0) + 1);
+      }
+    }
+    const tagCounts = [...allTags.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ tag, count }));
+
+    res.json({ items, tagCounts });
+  } catch (error) {
+    req.log.error({ err: error }, "Error listing images");
+    res.status(500).json({ error: "Failed to list images" });
+  }
+});
+
+/** Update tags for a media item */
+router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const { tags } = req.body as { tags?: string[] };
+    if (!Array.isArray(tags)) { res.status(400).json({ error: "tags must be an array" }); return; }
+
+    const cleaned = tags.filter(t => typeof t === "string" && t.trim()).map(t => t.trim().toLowerCase()).slice(0, 12);
+    await db.update(lpMediaTable).set({ tags: cleaned }).where(eq(lpMediaTable.id, id));
+    res.json({ tags: cleaned });
+  } catch (error) {
+    req.log.error({ err: error }, "Error updating tags");
+    res.status(500).json({ error: "Failed to update tags" });
   }
 });
 

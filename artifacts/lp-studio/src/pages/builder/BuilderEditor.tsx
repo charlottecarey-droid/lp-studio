@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { useToast } from "@/hooks/use-toast";
@@ -564,6 +565,7 @@ export default function BuilderEditor() {
   const titleRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [capturingOg, setCapturingOg] = useState(false);
+  const [ogLibraryOpen, setOgLibraryOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1314,19 +1316,36 @@ export default function BuilderEditor() {
                       {capturingOg ? "Capturing…" : "Capture Page"}
                     </Button>
                   </div>
-                  <Input
-                    value={ogImage}
-                    onChange={e => setOgImage(e.target.value)}
-                    onBlur={handleSave}
-                    placeholder="https://..."
-                    className="text-sm font-mono"
-                  />
+                  <div className="flex gap-1.5 items-center">
+                    <Input
+                      value={ogImage}
+                      onChange={e => setOgImage(e.target.value)}
+                      onBlur={handleSave}
+                      placeholder="https://..."
+                      className="text-sm font-mono flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 w-8 h-8"
+                      title="Browse media library"
+                      onClick={() => setOgLibraryOpen(true)}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                   <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Captures at 1200×630px.</p>
                   {ogImage && (
                     <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video bg-muted">
                       <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                   )}
+                  <MediaLibraryDrawer
+                    open={ogLibraryOpen}
+                    onOpenChange={setOgLibraryOpen}
+                    onSelect={(url) => { setOgImage(url); setTimeout(handleSave, 100); }}
+                  />
                 </div>
 
                 {/* Animations toggle */}
