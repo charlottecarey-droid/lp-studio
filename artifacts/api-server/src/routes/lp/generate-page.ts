@@ -1,7 +1,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -36,6 +37,184 @@ interface BrandConfig {
   ctaBackground?: string;
   ctaTextColor?: string;
   productLines?: ProductLine[];
+}
+
+// ── Media library helpers ────────────────────────────────────────────────
+
+interface MediaImage {
+  url: string;
+  title: string;
+  tags: string[];
+}
+
+/** Fetch all images from the media library grouped by tag for AI context */
+async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText: string }> {
+  try {
+    const rows = await db
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"))
+      .orderBy(desc(lpMediaTable.createdAt))
+      .limit(500);
+
+    const images: MediaImage[] = rows.map(r => ({
+      url: r.url,
+      title: r.title ?? "",
+      tags: (r.tags as string[]) ?? [],
+    }));
+
+    if (images.length === 0) return { images, catalogText: "" };
+
+    // Group by primary tag and pick representative images per tag
+    const tagGroups = new Map<string, MediaImage[]>();
+    for (const img of images) {
+      for (const tag of img.tags) {
+        const lowerTag = tag.toLowerCase();
+        // Skip generic tags
+        if (["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art"].includes(lowerTag)) continue;
+        if (!tagGroups.has(lowerTag)) tagGroups.set(lowerTag, []);
+        tagGroups.get(lowerTag)!.push(img);
+      }
+    }
+
+    // Build a concise catalog — up to 3 representative URLs per tag
+    const lines: string[] = [];
+    for (const [tag, imgs] of [...tagGroups.entries()].sort((a, b) => b[1].length - a[1].length)) {
+      const samples = imgs.slice(0, 3).map(i => i.url);
+      lines.push(`  "${tag}" (${imgs.length} images): ${samples.join(" , ")}`);
+    }
+
+    const catalogText = lines.length > 0
+      ? `\nIMAGE LIBRARY — Use these real image URLs in imageUrl, image, and src props:\n${lines.join("\n")}\n`
+      : "";
+
+    return { images, catalogText };
+  } catch {
+    return { images: [], catalogText: "" };
+  }
+}
+
+/** Find the best matching image from the library for a given context string */
+function findBestImage(context: string, images: MediaImage[], usedUrls: Set<string>): string {
+  if (images.length === 0) return "";
+  const contextLower = context.toLowerCase();
+  const contextWords = contextLower.split(/\s+/);
+
+  // Score each image by how many of its tags appear in the context
+  let best: MediaImage | null = null;
+  let bestScore = 0;
+
+  for (const img of images) {
+    if (usedUrls.has(img.url)) continue; // avoid duplicates
+    let score = 0;
+    for (const tag of img.tags) {
+      const tagLower = tag.toLowerCase();
+      // Skip generic tags
+      if (["untitled folder", "web res", "high res", "abstract", "modern", "professional"].includes(tagLower)) continue;
+      if (contextLower.includes(tagLower)) score += 3;
+      // Partial word matches
+      for (const word of tagLower.split(/\s+/)) {
+        if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
+      }
+    }
+    // Title match
+    const titleLower = (img.title ?? "").toLowerCase();
+    if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = img;
+    }
+  }
+
+  if (best && bestScore > 0) {
+    usedUrls.add(best.url);
+    return best.url;
+  }
+  return "";
+}
+
+/** Post-process blocks to fill in empty image URLs from the media library */
+function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
+  if (images.length === 0) return blocks;
+  const usedUrls = new Set<string>();
+
+  // First pass: collect already-used URLs
+  for (const block of blocks) {
+    const b = block as Record<string, unknown>;
+    const props = b.props as Record<string, unknown> | undefined;
+    if (!props) continue;
+    if (typeof props.imageUrl === "string" && props.imageUrl) usedUrls.add(props.imageUrl);
+    if (Array.isArray(props.images)) {
+      for (const img of props.images) {
+        const i = img as Record<string, unknown>;
+        if (typeof i.src === "string" && i.src) usedUrls.add(i.src);
+      }
+    }
+    if (Array.isArray(props.rows)) {
+      for (const row of props.rows) {
+        const r = row as Record<string, unknown>;
+        if (typeof r.imageUrl === "string" && r.imageUrl) usedUrls.add(r.imageUrl);
+      }
+    }
+    if (Array.isArray(props.items)) {
+      for (const item of props.items) {
+        const it = item as Record<string, unknown>;
+        if (typeof it.image === "string" && it.image) usedUrls.add(it.image);
+      }
+    }
+  }
+
+  // Second pass: fill empty URLs
+  return blocks.map((block) => {
+    const b = { ...(block as Record<string, unknown>) };
+    const props = { ...(b.props as Record<string, unknown>) };
+    const blockType = b.type as string;
+    const headline = (props.headline as string) ?? "";
+    const subheadline = (props.subheadline as string) ?? "";
+    const blockContext = `${blockType} ${headline} ${subheadline}`;
+
+    // Hero / product-showcase imageUrl
+    if (("imageUrl" in props) && !props.imageUrl) {
+      props.imageUrl = findBestImage(blockContext, images, usedUrls);
+    }
+
+    // zigzag-features rows
+    if (Array.isArray(props.rows)) {
+      props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
+        if (!row.imageUrl) {
+          const rowContext = `${row.tag ?? ""} ${row.headline ?? ""} ${row.body ?? ""}`;
+          return { ...row, imageUrl: findBestImage(rowContext, images, usedUrls) };
+        }
+        return row;
+      });
+    }
+
+    // photo-strip images
+    if (blockType === "photo-strip" && Array.isArray(props.images)) {
+      props.images = (props.images as Record<string, unknown>[]).map((img) => {
+        if (!img.src) {
+          const alt = (img.alt as string) ?? blockContext;
+          return { ...img, src: findBestImage(alt, images, usedUrls) };
+        }
+        return img;
+      });
+    }
+
+    // product-grid items
+    if (Array.isArray(props.items)) {
+      props.items = (props.items as Record<string, unknown>[]).map((item) => {
+        if ("image" in item && !item.image) {
+          const itemContext = `${item.title ?? ""} ${item.description ?? ""}`;
+          return { ...item, image: findBestImage(itemContext, images, usedUrls) };
+        }
+        return item;
+      });
+    }
+
+    b.props = props;
+    return b;
+  });
 }
 
 async function fetchBrand(): Promise<BrandConfig> {
@@ -105,8 +284,9 @@ RULES:
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
-9. For product images, use empty string "" for image URLs.
-10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.`;
+9. IMAGES: If an IMAGE LIBRARY section is provided, use the real image URLs from it for hero imageUrl, zigzag-features imageUrl, photo-strip src, and product-grid image props. Match images to content by choosing URLs from the most relevant tag category (e.g. use "crown & bridge" images for crown content, "full dentures" images for denture content, "doctors & staff" for people shots). Use heroType "static-image" when you have a hero image. If no library is provided or no relevant images exist, use empty string "".
+10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
+11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.`;
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const { prompt } = req.body as { prompt?: string };
@@ -124,12 +304,16 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     return;
   }
 
-  const brand = await fetchBrand();
+  const [brand, mediaCatalog] = await Promise.all([fetchBrand(), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
 
-  const userPrompt = brandContext
-    ? `BRAND CONTEXT:\n${brandContext}\n\nUSER REQUEST:\n${prompt.trim()}\n\nGenerate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging.`
-    : `USER REQUEST:\n${prompt.trim()}\n\nGenerate a complete landing page for this request.`;
+  let userPromptParts: string[] = [];
+  if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
+  if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
+  userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
+  userPromptParts.push("Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant.");
+
+  const userPrompt = userPromptParts.join("\n\n");
 
   try {
     const completion = await openai.chat.completions.create({
@@ -180,6 +364,9 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       }
       return b;
     });
+
+    // Fill in any remaining empty image URLs from the media library
+    parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images);
 
     res.json({
       title: parsed.title,
