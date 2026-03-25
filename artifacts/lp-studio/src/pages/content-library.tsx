@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -322,6 +322,10 @@ function MediaTab() {
   const [deleting, setDeleting] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
   const [reclassifyMsg, setReclassifyMsg] = useState("");
+  const [modalImage, setModalImage] = useState<MediaItem | null>(null);
+  const [modalTagEdit, setModalTagEdit] = useState(false);
+  const [modalTagValue, setModalTagValue] = useState("");
+  const [modalCopied, setModalCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -476,9 +480,56 @@ function MediaTab() {
     }
   };
 
+  const PURPOSES = ["lp-hero", "lp-feature", "product-detail"];
+
+  const formatBytes = (bytes: number | null) => {
+    if (!bytes) return "Unknown";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const openModal = (item: MediaItem) => {
+    setModalImage(item);
+    setModalTagEdit(false);
+    setModalTagValue(item.tags.join(", "));
+    setModalCopied(false);
+  };
+
+  const closeModal = () => { setModalImage(null); setModalTagEdit(false); };
+
+  const handleModalSaveTags = async () => {
+    if (!modalImage) return;
+    const newTags = modalTagValue.split(",").map(t => t.trim()).filter(Boolean);
+    await fetch(`/api/lp/media/images/${modalImage.id}/tags`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: newTags }),
+    });
+    const updated = { ...modalImage, tags: newTags };
+    setModalImage(updated);
+    setItems(prev => prev.map(i => i.id === modalImage.id ? updated : i));
+    setModalTagEdit(false);
+  };
+
+  const handleModalDelete = async () => {
+    if (!modalImage) return;
+    if (!confirm(`Delete "${modalImage.title}"? This cannot be undone.`)) return;
+    await handleDelete(modalImage.id, modalImage.title);
+    closeModal();
+  };
+
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setModalCopied(true);
+      setTimeout(() => setModalCopied(false), 2000);
+    });
+  };
+
   const totalCount = tagCounts.reduce((sum, tc) => sum + tc.count, 0);
 
   return (
+    <>
     <div className="flex gap-5 items-start min-h-0">
 
       {/* ── Category sidebar ── */}
@@ -642,11 +693,11 @@ function MediaTab() {
                 return (
                   <div
                     key={item.id}
-                    onClick={selectMode ? () => toggleSelect(item.id) : undefined}
-                    className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all ${
+                    onClick={selectMode ? () => toggleSelect(item.id) : () => openModal(item)}
+                    className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all cursor-pointer ${
                       selectMode
-                        ? `cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
-                        : "border-border hover:border-primary/50 hover:shadow-md"
+                        ? `${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
+                        : "border-border hover:border-primary/50 hover:shadow-md hover:scale-[1.01]"
                     }`}
                   >
                     <div className="aspect-video">
@@ -765,6 +816,164 @@ function MediaTab() {
         )}
       </div>
     </div>
+
+    {/* ── Image detail modal ── */}
+    {modalImage && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={closeModal}
+      >
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col sm:flex-row"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Close */}
+          <button
+            onClick={closeModal}
+            className="absolute top-3 right-3 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Image */}
+          <div className="sm:w-3/5 bg-slate-950 flex items-center justify-center min-h-48 max-h-[90vh]">
+            <img
+              src={modalImage.url}
+              alt={modalImage.title}
+              className="w-full h-full object-contain max-h-[60vh] sm:max-h-[90vh]"
+            />
+          </div>
+
+          {/* Info panel */}
+          <div className="sm:w-2/5 flex flex-col overflow-y-auto p-5 gap-4">
+            {/* Title */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Filename</p>
+              <p className="text-sm font-medium break-all leading-snug">{modalImage.title}</p>
+            </div>
+
+            {/* URL */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">URL</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs text-slate-500 truncate flex-1 font-mono bg-muted px-2 py-1 rounded-lg">{modalImage.url}</p>
+                <button
+                  onClick={() => handleCopyUrl(window.location.origin + modalImage.url)}
+                  className="shrink-0 p-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
+                  title="Copy URL"
+                >
+                  {modalCopied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                <a
+                  href={modalImage.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 p-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
+                  title="Open in new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Purpose */}
+            {PURPOSES.some(p => modalImage.tags.includes(p)) && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">AI Purpose</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {PURPOSES.map(p => (
+                    <span
+                      key={p}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                        modalImage.tags.includes(p)
+                          ? p === "lp-hero" ? "bg-violet-100 text-violet-700 border-violet-300"
+                            : p === "lp-feature" ? "bg-blue-100 text-blue-700 border-blue-300"
+                            : "bg-amber-100 text-amber-700 border-amber-300"
+                          : "bg-muted text-muted-foreground border-border opacity-40"
+                      }`}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tags</p>
+                {!modalTagEdit && (
+                  <button
+                    onClick={() => setModalTagEdit(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />Edit
+                  </button>
+                )}
+              </div>
+              {modalTagEdit ? (
+                <div className="space-y-2">
+                  <Input
+                    value={modalTagValue}
+                    onChange={e => setModalTagValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handleModalSaveTags(); if (e.key === "Escape") setModalTagEdit(false); }}
+                    placeholder="tag1, tag2, tag3…"
+                    className="h-8 text-xs"
+                    autoFocus
+                  />
+                  <div className="flex gap-1.5">
+                    <Button size="sm" className="h-7 text-xs flex-1" onClick={handleModalSaveTags}>Save</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setModalTagEdit(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {modalImage.tags.length > 0
+                    ? modalImage.tags.map(t => (
+                        <span key={t} className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                          PURPOSES.includes(t) ? "bg-muted/50 text-muted-foreground border-dashed border-border" : "bg-muted text-slate-700 border-border"
+                        }`}>{t}</span>
+                      ))
+                    : <span className="text-xs text-muted-foreground italic">No tags</span>
+                  }
+                </div>
+              )}
+            </div>
+
+            {/* Metadata */}
+            <div className="space-y-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-3.5 h-3.5 shrink-0" />
+                <span>{formatBytes(modalImage.sizeBytes)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <FileType2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{modalImage.mimeType || "Unknown type"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <span>{new Date(modalImage.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+              </div>
+            </div>
+
+            {/* Delete */}
+            <div className="mt-auto pt-3 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-400"
+                onClick={handleModalDelete}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete image
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
