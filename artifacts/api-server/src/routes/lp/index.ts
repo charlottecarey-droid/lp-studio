@@ -16,6 +16,7 @@ import copyGenerateRouter from "./copy-generate";
 import leadsRouter from "./leads";
 import formNotificationsRouter from "./form-notifications";
 import formsRouter from "./forms";
+import generatePageRouter from "./generate-page";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use(copyGenerateRouter);
 router.use(leadsRouter);
 router.use(formNotificationsRouter);
 router.use(formsRouter);
+router.use(generatePageRouter);
 
 export default router;

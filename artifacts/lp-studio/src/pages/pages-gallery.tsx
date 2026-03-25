@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2 } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
@@ -205,6 +205,7 @@ export default function PagesGallery() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createMode, setCreateMode] = useState<"template" | "ai">("template");
   const [newTitle, setNewTitle] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("blank");
@@ -212,6 +213,8 @@ export default function PagesGallery() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [abTestPage, setAbTestPage] = useState<{ id: number; title: string; slug: string } | null>(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [, navigate] = useLocation();
 
   const load = () => {
@@ -245,6 +248,40 @@ export default function PagesGallery() {
       setCreateError(err instanceof Error ? err.message : "Failed to create page");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setCreateError(null);
+    try {
+      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt.trim() }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error((err as { error?: string }).error ?? "Generation failed");
+      }
+      const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
+
+      // Create the page with the AI-generated content
+      const page = await createPage({
+        title: generated.title,
+        slug: generated.slug,
+        blocks: generated.blocks,
+        status: "draft",
+      });
+      setShowCreateModal(false);
+      setAiPrompt("");
+      setCreateMode("template");
+      navigate(`/builder/${page.id}`);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to generate page");
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -399,68 +436,151 @@ export default function PagesGallery() {
       )}
 
       {/* Create Page Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCreateError(null); setCreateMode("template"); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Page</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 py-2">
-            <div>
-              <Label className="text-sm font-medium">Page Name</Label>
-              <Input
-                className="mt-1.5"
-                placeholder="e.g. Summer Promotion"
-                value={newTitle}
-                onChange={e => handleTitleChange(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div>
-              <Label className="text-sm font-medium">URL Slug</Label>
-              <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+
+          {/* Mode tabs */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <button
+              onClick={() => { setCreateMode("template"); setCreateError(null); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                createMode === "template" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              From Template
+            </button>
+            <button
+              onClick={() => { setCreateMode("ai"); setCreateError(null); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                createMode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate with AI
+            </button>
+          </div>
+
+          {createMode === "template" ? (
+            <div className="space-y-5 py-2">
+              <div>
+                <Label className="text-sm font-medium">Page Name</Label>
                 <Input
-                  className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
-                  placeholder="page-slug"
-                  value={newSlug}
-                  onChange={e => setNewSlug(slugify(e.target.value))}
+                  className="mt-1.5"
+                  placeholder="e.g. Summer Promotion"
+                  value={newTitle}
+                  onChange={e => handleTitleChange(e.target.value)}
+                  autoFocus
                 />
               </div>
-            </div>
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Starting Template</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                {TEMPLATE_OPTIONS.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTemplate(t.id)}
-                    className={cn(
-                      "text-left p-3 rounded-xl border text-sm transition-all",
-                      selectedTemplate === t.id
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "border-border hover:border-primary/30 hover:bg-muted/50"
-                    )}
-                  >
-                    <p className="font-medium text-xs text-foreground">{t.name}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
-                  </button>
-                ))}
+              <div>
+                <Label className="text-sm font-medium">URL Slug</Label>
+                <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                  <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                  <Input
+                    className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
+                    placeholder="page-slug"
+                    value={newSlug}
+                    onChange={e => setNewSlug(slugify(e.target.value))}
+                  />
+                </div>
               </div>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Starting Template</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {TEMPLATE_OPTIONS.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplate(t.id)}
+                      className={cn(
+                        "text-left p-3 rounded-xl border text-sm transition-all",
+                        selectedTemplate === t.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:border-primary/30 hover:bg-muted/50"
+                      )}
+                    >
+                      <p className="font-medium text-xs text-foreground">{t.name}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {createError && (
+                <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={isCreating || !newTitle.trim() || !newSlug.trim()}
+                  className="gap-2"
+                >
+                  {isCreating ? "Creating..." : "Create & Edit"}
+                </Button>
+              </DialogFooter>
             </div>
-            {createError && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-            <Button
-              onClick={handleCreate}
-              disabled={isCreating || !newTitle.trim() || !newSlug.trim()}
-              className="gap-2"
-            >
-              {isCreating ? "Creating..." : "Create & Edit"}
-            </Button>
-          </DialogFooter>
+          ) : (
+            <div className="space-y-5 py-2">
+              <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Wand2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Describe your landing page</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Tell us what you're promoting, who it's for, and the tone you want. AI will generate a complete page with all sections, copy, and a lead capture form.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Your Prompt</Label>
+                <textarea
+                  className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  rows={4}
+                  placeholder={"e.g. A landing page for our new dental crown service targeting general dentists. Emphasize 5-day turnaround, digital workflow, and free remakes. Include a lead capture form asking for practice name, email, and number of chairs."}
+                  value={aiPrompt}
+                  onChange={e => setAiPrompt(e.target.value)}
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Tip: The more detail you provide, the better the result. Mention your product, audience, key benefits, and desired tone.
+                </p>
+              </div>
+
+              {createError && (
+                <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)} disabled={aiGenerating}>Cancel</Button>
+                <Button
+                  onClick={handleAiGenerate}
+                  disabled={aiGenerating || !aiPrompt.trim()}
+                  className="gap-2"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Page
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>
