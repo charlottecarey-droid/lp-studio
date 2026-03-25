@@ -1,8 +1,21 @@
-import { useState, useRef, useEffect } from "react";
-import type { FormBlockProps, FormField, FormStep } from "@/lib/block-types";
+import { useState, useRef, useEffect, useMemo } from "react";
+import type { FormBlockProps, FormField, FormStep, StepCondition } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 
 const API_BASE = "/api";
+
+/** Evaluate a StepCondition against the current field values */
+function evalCondition(cond: StepCondition, values: Record<string, string>): boolean {
+  const actual = (values[cond.fieldId] ?? "").trim().toLowerCase();
+  const expected = cond.value.trim().toLowerCase();
+  switch (cond.operator) {
+    case "equals": return actual === expected;
+    case "not_equals": return actual !== expected;
+    case "contains": return actual.includes(expected);
+    case "any_of": return expected.split("|").map(s => s.trim().toLowerCase()).includes(actual);
+    default: return true;
+  }
+}
 
 interface GlobalFormConfig {
   id: number;
@@ -132,21 +145,37 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
       .catch(() => {});
   }, [props.formId]);
 
-  const activeSteps = globalForm?.steps ?? props.steps ?? [];
+  const allSteps = globalForm?.steps ?? props.steps ?? [];
   const activeMultiStep = globalForm?.multiStep ?? props.multiStep;
   const activeSubmitText = globalForm?.submitButtonText ?? props.submitButtonText;
   const activeSuccessMessage = globalForm?.successMessage ?? props.successMessage;
   const activeRedirectUrl = globalForm?.redirectUrl ?? props.redirectUrl;
 
-  const steps = activeSteps;
+  // Filter steps by their conditions — only show steps whose condition is met (or have no condition)
+  const visibleSteps = useMemo(() =>
+    allSteps.filter(s => !s.condition || evalCondition(s.condition, fieldValues)),
+    [allSteps, fieldValues]
+  );
+
+  const steps = visibleSteps;
   const totalSteps = steps.length;
-  const step = steps[currentStep] ?? { title: "", fields: [] };
-  const isLastStep = currentStep === totalSteps - 1;
+  // Clamp currentStep if a previously-visible step became hidden
+  const clampedStep = Math.min(currentStep, Math.max(totalSteps - 1, 0));
+  if (clampedStep !== currentStep) setCurrentStep(clampedStep);
+  const step = steps[clampedStep] ?? { title: "", fields: [] };
+  const isLastStep = clampedStep === totalSteps - 1;
+
+  // Filter fields within the current step by their visibility conditions
+  const visibleFields = useMemo(() =>
+    step.fields.filter(f => !f.visibilityCondition || evalCondition(f.visibilityCondition, fieldValues)),
+    [step.fields, fieldValues]
+  );
 
   const validateStep = () => {
     const errors: Record<string, string | null> = {};
     let hasError = false;
-    for (const field of step.fields) {
+    // Only validate visible fields
+    for (const field of visibleFields) {
       const val = fieldValues[field.id] ?? "";
       const err = validateField(field, val);
       errors[field.id] = err;
@@ -167,9 +196,12 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     setSubmitting(true);
     setSubmitError(null);
 
+    // Only submit values from visible steps + visible fields
     const allFields: Record<string, string> = {};
-    for (const s of steps) {
+    for (const s of visibleSteps) {
       for (const field of s.fields) {
+        // Skip fields hidden by their own visibility condition
+        if (field.visibilityCondition && !evalCondition(field.visibilityCondition, fieldValues)) continue;
         allFields[field.label] = fieldValues[field.id] ?? "";
       }
     }
@@ -258,7 +290,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <span className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-600"}`}>
-                  Step {currentStep + 1} of {totalSteps}
+                  Step {clampedStep + 1} of {totalSteps}
                 </span>
                 {step.title && (
                   <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -269,14 +301,14 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${((currentStep + 1) / totalSteps) * 100}%`, background: accentColor }}
+                  style={{ width: `${((clampedStep + 1) / totalSteps) * 100}%`, background: accentColor }}
                 />
               </div>
             </div>
           )}
 
           <div className="space-y-4">
-            {step.fields.map(field => (
+            {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
                   <label className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
@@ -307,7 +339,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
           )}
 
           <div className="mt-6 flex gap-3">
-            {activeMultiStep && currentStep > 0 && (
+            {activeMultiStep && clampedStep > 0 && (
               <button
                 type="button"
                 onClick={() => setCurrentStep(s => s - 1)}

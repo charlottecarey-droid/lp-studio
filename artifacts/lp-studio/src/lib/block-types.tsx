@@ -183,6 +183,16 @@ export interface CustomHtmlBlockProps {
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox";
 
+/** Condition that controls whether a step or field is shown */
+export interface StepCondition {
+  /** The field ID whose value we check */
+  fieldId: string;
+  /** How to compare */
+  operator: "equals" | "not_equals" | "contains" | "any_of";
+  /** The value(s) to compare against. For "any_of", pipe-separated: "A|B|C" */
+  value: string;
+}
+
 export interface FormField {
   id: string;
   type: FormFieldType;
@@ -190,11 +200,15 @@ export interface FormField {
   placeholder?: string;
   required: boolean;
   options?: string[];
+  /** If set, this field is only visible when the condition is met */
+  visibilityCondition?: StepCondition;
 }
 
 export interface FormStep {
   title: string;
   fields: FormField[];
+  /** If set, this entire step is only shown when the condition is met */
+  condition?: StepCondition;
 }
 
 export interface FormBlockProps {

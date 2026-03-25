@@ -8,8 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check } from "lucide-react";
-import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowLeft, ClipboardCopy, Check, GitBranch } from "lucide-react";
+import type { FormStep, FormField, FormFieldType, StepCondition } from "@/lib/block-types";
 
 const API_BASE = "/api";
 
@@ -57,9 +57,76 @@ function uid() { return `field-${Date.now()}-${Math.random().toString(36).slice(
 
 const LABEL_CLS = "text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block";
 
-function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: {
+const OPERATORS: { value: StepCondition["operator"]; label: string }[] = [
+  { value: "equals", label: "equals" },
+  { value: "not_equals", label: "does not equal" },
+  { value: "contains", label: "contains" },
+  { value: "any_of", label: "is any of" },
+];
+
+/** Collects all fields from all steps in the form for use in condition dropdowns */
+function allFieldsFromSteps(steps: FormStep[]): { id: string; label: string }[] {
+  return steps.flatMap(s => s.fields.map(f => ({ id: f.id, label: f.label })));
+}
+
+function ConditionEditor({ condition, onUpdate, onRemove, availableFields }: {
+  condition: StepCondition | undefined;
+  onUpdate: (c: StepCondition) => void;
+  onRemove: () => void;
+  availableFields: { id: string; label: string }[];
+}) {
+  if (!condition) {
+    return (
+      <button
+        onClick={() => onUpdate({ fieldId: availableFields[0]?.id ?? "", operator: "equals", value: "" })}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <GitBranch className="w-3 h-3" /> Add condition
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-dashed border-blue-300 bg-blue-50/50 p-2.5 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-blue-700 flex items-center gap-1"><GitBranch className="w-3 h-3" /> Show when</span>
+        <button onClick={onRemove} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
+      </div>
+      <div className="flex gap-1.5 items-center flex-wrap">
+        <select
+          value={condition.fieldId}
+          onChange={e => onUpdate({ ...condition, fieldId: e.target.value })}
+          className="text-xs border rounded px-1.5 py-1 bg-white max-w-[140px] truncate"
+        >
+          <option value="">Select field…</option>
+          {availableFields.map(f => (
+            <option key={f.id} value={f.id}>{f.label}</option>
+          ))}
+        </select>
+        <select
+          value={condition.operator}
+          onChange={e => onUpdate({ ...condition, operator: e.target.value as StepCondition["operator"] })}
+          className="text-xs border rounded px-1.5 py-1 bg-white"
+        >
+          {OPERATORS.map(op => (
+            <option key={op.value} value={op.value}>{op.label}</option>
+          ))}
+        </select>
+        <input
+          value={condition.value}
+          onChange={e => onUpdate({ ...condition, value: e.target.value })}
+          placeholder={condition.operator === "any_of" ? "A | B | C" : "value"}
+          className="text-xs border rounded px-1.5 py-1 bg-white flex-1 min-w-[80px]"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allFields }: {
   field: FormField; onChange: (f: FormField) => void; onDelete: () => void;
   onMoveUp?: () => void; onMoveDown?: () => void;
+  allFields: { id: string; label: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [optionsText, setOptionsText] = useState(() => (field.options ?? []).join("\n"));
@@ -113,6 +180,12 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: {
               />
             </div>
           )}
+          <ConditionEditor
+            condition={field.visibilityCondition}
+            onUpdate={c => onChange({ ...field, visibilityCondition: c })}
+            onRemove={() => { const { visibilityCondition: _, ...rest } = field; onChange(rest as FormField); }}
+            availableFields={allFields.filter(f => f.id !== field.id)}
+          />
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive w-full gap-1.5 mt-1" onClick={onDelete}>
             <Trash2 className="w-3.5 h-3.5" /> Remove Field
           </Button>
@@ -122,9 +195,10 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown }: {
   );
 }
 
-function StepEditor({ step, stepIndex, onChange, onDelete, canDelete }: {
+function StepEditor({ step, stepIndex, onChange, onDelete, canDelete, allFields }: {
   step: FormStep; stepIndex: number; onChange: (s: FormStep) => void;
   onDelete: () => void; canDelete: boolean;
+  allFields: { id: string; label: string }[];
 }) {
   const setField = (i: number, f: FormField) => { const fs = [...step.fields]; fs[i] = f; onChange({ ...step, fields: fs }); };
   const removeField = (i: number) => onChange({ ...step, fields: step.fields.filter((_, idx) => idx !== i) });
@@ -144,11 +218,23 @@ function StepEditor({ step, stepIndex, onChange, onDelete, canDelete }: {
         </div>
         {canDelete && <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={onDelete}><Trash2 className="w-3.5 h-3.5" /></Button>}
       </div>
+      {/* Step-level condition: only show this step when a prior field matches */}
+      {stepIndex > 0 && (
+        <div className="px-3 pt-2">
+          <ConditionEditor
+            condition={step.condition}
+            onUpdate={c => onChange({ ...step, condition: c })}
+            onRemove={() => { const { condition: _, ...rest } = step; onChange(rest as FormStep); }}
+            availableFields={allFields}
+          />
+        </div>
+      )}
       <div className="p-3 space-y-2">
         {step.fields.map((field, i) => (
           <FieldEditor key={field.id} field={field} onChange={f => setField(i, f)} onDelete={() => removeField(i)}
             onMoveUp={i > 0 ? () => moveField(i, -1) : undefined}
             onMoveDown={i < step.fields.length - 1 ? () => moveField(i, 1) : undefined}
+            allFields={allFields}
           />
         ))}
         <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addField}><Plus className="w-3.5 h-3.5" /> Add Field</Button>
@@ -241,14 +327,15 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
             <div className="flex items-center justify-between">
               <div>
                 <Label className={LABEL_CLS + " !mb-0"}>Multi-step Form</Label>
-                <p className="text-xs text-muted-foreground">Split fields across multiple steps</p>
+                <p className="text-xs text-muted-foreground">Split fields across multiple steps. Add conditions to create quiz-style branching.</p>
               </div>
               <Switch checked={local.multiStep} onCheckedChange={v => set("multiStep", v)} />
             </div>
             <div className="space-y-3">
               {local.steps.map((step, i) => (
                 <StepEditor key={i} step={step} stepIndex={i} onChange={s => setStep(i, s)}
-                  onDelete={() => removeStep(i)} canDelete={local.steps.length > 1} />
+                  onDelete={() => removeStep(i)} canDelete={local.steps.length > 1}
+                  allFields={allFieldsFromSteps(local.steps)} />
               ))}
               {local.multiStep && (
                 <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStep}><Plus className="w-3.5 h-3.5" /> Add Step</Button>
