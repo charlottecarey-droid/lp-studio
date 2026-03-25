@@ -5,7 +5,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Upload, Loader2, X, Tag, Check, Pencil } from "lucide-react";
+import { Search, Upload, Loader2, X, Tag, Check, Pencil, FolderOpen } from "lucide-react";
 
 interface MediaItem {
   id: number;
@@ -38,6 +38,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
   const [editingTags, setEditingTags] = useState<number | null>(null);
   const [editTagValue, setEditTagValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const fetchImages = useCallback(async () => {
@@ -77,8 +78,14 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
     for (let i = 0; i < files.length; i++) {
       setUploadProgress({ current: i + 1, total: files.length });
       try {
+        // Extract folder names from webkitRelativePath (e.g. "campaigns/social/img.jpg" → ["campaigns", "social"])
+        const relativePath = (files[i] as File & { webkitRelativePath?: string }).webkitRelativePath ?? "";
+        const folderParts = relativePath.split("/").slice(0, -1).filter(Boolean);
+        const folderTags = folderParts.map(p => p.toLowerCase().replace(/[_-]+/g, " ").trim());
+
         const formData = new FormData();
         formData.append("file", files[i]);
+        if (folderTags.length > 0) formData.append("folderTags", folderTags.join(","));
         const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
         if (!res.ok) failed++;
       } catch {
@@ -88,11 +95,12 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
     await fetchImages();
     setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
     if (failed > 0) alert(`${failed} of ${files.length} files failed to upload.`);
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    const files = Array.from(e.target.files ?? []).filter(f => f.type.startsWith("image/"));
     uploadFiles(files);
   };
 
@@ -152,11 +160,23 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
             className="h-9 gap-1.5 shrink-0"
             disabled={!!uploadProgress}
             onClick={() => fileInputRef.current?.click()}
+            title="Select individual images"
           >
             {uploadProgress
               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
-              : <><Upload className="w-3.5 h-3.5" />Upload</>
+              : <><Upload className="w-3.5 h-3.5" />Files</>
             }
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 shrink-0"
+            disabled={!!uploadProgress}
+            onClick={() => folderInputRef.current?.click()}
+            title="Upload an entire folder — subfolders become tags"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            Folder
           </Button>
           <input
             ref={fileInputRef}
@@ -165,6 +185,14 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
             multiple
             className="hidden"
             onChange={handleUpload}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleUpload}
+            {...{ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
           />
         </div>
 

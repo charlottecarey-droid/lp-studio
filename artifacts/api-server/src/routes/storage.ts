@@ -89,7 +89,7 @@ const PRELOADED_VIDEOS = [
 ];
 
 /** Auto-tag an image using GPT-4o vision (runs in background, never blocks upload) */
-async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: string) {
+async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[] = []) {
   try {
     const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
     const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
@@ -120,11 +120,13 @@ async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: stri
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
     const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    const tags = JSON.parse(cleaned);
-    if (Array.isArray(tags) && tags.length > 0) {
+    const aiTags = JSON.parse(cleaned);
+    if (Array.isArray(aiTags) && aiTags.length > 0) {
+      // Merge folder tags + AI tags, deduplicated, capped at 10
+      const merged = [...new Set([...existingTags, ...aiTags])].slice(0, 10);
       await db
         .update(lpMediaTable)
-        .set({ tags: tags.slice(0, 8) })
+        .set({ tags: merged })
         .where(eq(lpMediaTable.id, mediaId));
     }
   } catch {
@@ -153,6 +155,13 @@ router.post("/lp/upload", (req: Request, res: Response) => {
       const serveUrl = `/api/storage${servePath}`;
       const title = req.file.originalname?.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") ?? "Untitled";
 
+      // Parse any folder-derived tags sent by the client
+      let folderTags: string[] = [];
+      const rawFolderTags = req.body?.folderTags;
+      if (typeof rawFolderTags === "string" && rawFolderTags.length > 0) {
+        folderTags = rawFolderTags.split(",").map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+      }
+
       // Save to media table so it appears in the library
       const [record] = await db.insert(lpMediaTable).values({
         title,
@@ -160,11 +169,11 @@ router.post("/lp/upload", (req: Request, res: Response) => {
         mediaType: "image",
         mimeType: req.file.mimetype,
         sizeBytes: req.file.size,
-        tags: [],
+        tags: folderTags,
       }).returning();
 
-      // Auto-tag in the background (non-blocking)
-      setImmediate(() => autoTagImage(record.id, req.file!.buffer, req.file!.mimetype));
+      // Auto-tag in the background — merges AI tags with existing folder tags
+      setImmediate(() => autoTagImage(record.id, req.file!.buffer, req.file!.mimetype, folderTags));
 
       res.json({ url: servePath, mediaId: record.id });
     } catch (error) {
