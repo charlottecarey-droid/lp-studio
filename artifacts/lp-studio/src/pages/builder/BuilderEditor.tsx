@@ -18,7 +18,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
+import {
+  scorePageSeoGeo,
+  gradeColor,
+  gradeBgColor,
+  scoreColor,
+  scoreRingColor,
+  type ScoreResult,
+  type AiSuggestion,
+} from "@/lib/seo-scoring";
 
 interface CustomBlock {
   id: number;
@@ -1238,6 +1248,9 @@ export default function BuilderEditor() {
                   </div>
                 </div>
 
+                {/* SEO & GEO Score Panel */}
+                <SeoGeoPanel blocks={blocks} metaTitle={metaTitle} metaDescription={metaDescription} ogImage={ogImage} slug={slug} />
+
                 <p className="text-[10px] text-muted-foreground text-center pt-2 pb-1">
                   Click any block in the canvas to edit its properties.
                 </p>
@@ -1250,6 +1263,226 @@ export default function BuilderEditor() {
     </div>
   );
 }
+
+// ── SEO & GEO Scoring Panel ──────────────────────────────────────────────
+
+function ScoreRing({ score, size = 48, strokeWidth = 4 }: { score: number; size?: number; strokeWidth?: number }) {
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - score / 100);
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-border" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={strokeWidth} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className={scoreRingColor(score)} />
+    </svg>
+  );
+}
+
+function SeoGeoPanel({
+  blocks,
+  metaTitle,
+  metaDescription,
+  ogImage,
+  slug,
+}: {
+  blocks: PageBlock[];
+  metaTitle: string;
+  metaDescription: string;
+  ogImage: string;
+  slug: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const score = scorePageSeoGeo(blocks, { metaTitle, metaDescription, ogImage, slug });
+
+  const handleDeepAnalysis = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/lp/seo-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks, metaTitle, metaDescription, slug }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Analysis failed" }));
+        throw new Error((err as { error?: string }).error ?? "Analysis failed");
+      }
+      const data = await res.json() as { suggestions: AiSuggestion[] };
+      setAiSuggestions(data.suggestions);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Failed to analyze");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const failedChecks = score.checks.filter((c) => !c.passed);
+  const passedChecks = score.checks.filter((c) => c.passed);
+
+  return (
+    <div className="border-t border-border pt-4">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center justify-between w-full text-left group"
+      >
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO & GEO Score</p>
+        {expanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+      </button>
+
+      {/* Collapsed: score summary */}
+      {!expanded && (
+        <div className="flex items-center gap-3 mt-3">
+          <div className="relative w-12 h-12">
+            <ScoreRing score={score.overallScore} />
+            <span className={cn("absolute inset-0 flex items-center justify-center text-xs font-bold", scoreColor(score.overallScore))}>
+              {score.overallScore}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Badge className={cn("text-[10px] px-1.5 py-0 font-bold border", gradeBgColor(score.grade))}>{score.grade}</Badge>
+              <span className="text-[10px] text-muted-foreground">
+                SEO {score.seoScore} · GEO {score.geoScore}
+              </span>
+            </div>
+            {failedChecks.length > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {failedChecks.length} improvement{failedChecks.length !== 1 ? "s" : ""} found
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded: full breakdown */}
+      {expanded && (
+        <div className="mt-3 space-y-4">
+          {/* Score rings row */}
+          <div className="flex items-center justify-around">
+            {[
+              { label: "Overall", value: score.overallScore, grade: score.grade },
+              { label: "SEO", value: score.seoScore },
+              { label: "GEO", value: score.geoScore },
+            ].map((s) => (
+              <div key={s.label} className="flex flex-col items-center gap-1">
+                <div className="relative w-11 h-11">
+                  <ScoreRing score={s.value} size={44} strokeWidth={3.5} />
+                  <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-bold", scoreColor(s.value))}>
+                    {s.value}
+                  </span>
+                </div>
+                <span className="text-[9px] text-muted-foreground font-medium">{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Issues */}
+          {failedChecks.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Issues</p>
+              <div className="space-y-1.5">
+                {failedChecks.map((c) => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100">
+                    <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-medium text-foreground leading-tight">{c.label}</p>
+                      <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{c.tip}</p>
+                    </div>
+                    <Badge className="ml-auto text-[8px] px-1 py-0 border shrink-0" variant="outline">{c.category.toUpperCase()}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Passed */}
+          {passedChecks.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Passed ({passedChecks.length})</p>
+              <div className="space-y-1">
+                {passedChecks.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground">{c.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Deep Analysis */}
+          <div className="border-t border-border pt-3">
+            <button
+              onClick={handleDeepAnalysis}
+              disabled={aiLoading}
+              className={cn(
+                "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all",
+                "bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-200 text-violet-700 hover:from-violet-500/20 hover:to-blue-500/20",
+                aiLoading && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {aiLoading ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analyzing…</>
+              ) : (
+                <><Wand2 className="w-3.5 h-3.5" />AI Deep Analysis</>
+              )}
+            </button>
+
+            {aiError && (
+              <p className="text-[10px] text-red-500 mt-2">{aiError}</p>
+            )}
+
+            {aiSuggestions.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {aiSuggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "p-2 rounded-lg border",
+                      s.priority === "high" ? "bg-red-50/50 border-red-100" :
+                      s.priority === "medium" ? "bg-yellow-50/50 border-yellow-100" :
+                      "bg-blue-50/50 border-blue-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        className={cn(
+                          "text-[8px] px-1 py-0 border font-medium",
+                          s.category === "seo" ? "text-blue-600 border-blue-200 bg-blue-50" :
+                          s.category === "geo" ? "text-violet-600 border-violet-200 bg-violet-50" :
+                          "text-green-600 border-green-200 bg-green-50"
+                        )}
+                      >
+                        {s.category.toUpperCase()}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[8px] px-1 py-0",
+                          s.priority === "high" ? "text-red-500" : s.priority === "medium" ? "text-yellow-600" : "text-blue-500"
+                        )}
+                      >
+                        {s.priority}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] font-medium text-foreground mt-1 leading-tight">{s.title}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{s.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Canvas Block ─────────────────────────────────────────────────────────
 
 interface SortableCanvasBlockProps {
   block: PageBlock;

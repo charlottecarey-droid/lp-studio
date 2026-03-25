@@ -17,6 +17,7 @@ import leadsRouter from "./leads";
 import formNotificationsRouter from "./form-notifications";
 import formsRouter from "./forms";
 import generatePageRouter from "./generate-page";
+import seoAnalyzeRouter from "./seo-analyze";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use(leadsRouter);
 router.use(formNotificationsRouter);
 router.use(formsRouter);
 router.use(generatePageRouter);
+router.use(seoAnalyzeRouter);
 
 export default router;

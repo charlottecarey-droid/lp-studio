@@ -18,6 +18,7 @@ import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import { useReviews } from "@/hooks/use-collaboration";
+import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 
 const API_BASE = "/api";
 
@@ -25,8 +26,11 @@ interface Page {
   id: number;
   title: string;
   slug: string;
-  blocks: unknown[];
+  blocks: PageBlock[];
   status: "draft" | "published";
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -354,6 +358,17 @@ export default function PagesGallery() {
                   <div className="absolute bottom-2 left-3">
                     <span className="text-[10px] text-[#003A30]/50 font-mono">{page.blocks?.length ?? 0} block{page.blocks?.length !== 1 ? "s" : ""}</span>
                   </div>
+                  {/* SEO/GEO score badge */}
+                  {page.blocks?.length > 0 && (() => {
+                    const score = scorePageSeoGeo(page.blocks ?? [], { metaTitle: page.metaTitle, metaDescription: page.metaDescription, ogImage: page.ogImage, slug: page.slug });
+                    return (
+                      <div className="absolute bottom-2 right-3">
+                        <Badge className={cn("text-[10px] px-1.5 py-0.5 font-bold border", gradeBgColor(score.grade))}>
+                          {score.grade} · {score.overallScore}
+                        </Badge>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Page info */}
