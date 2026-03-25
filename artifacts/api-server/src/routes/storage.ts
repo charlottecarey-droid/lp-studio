@@ -100,7 +100,7 @@ async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: stri
     const dataUri = `data:${mimeType};base64,${base64}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       max_completion_tokens: 200,
       messages: [
         {

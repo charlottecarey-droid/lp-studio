@@ -86,7 +86,7 @@ ${productKeywords.length ? `- Target keywords to work in naturally: ${productKey
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       temperature: 0.6,
       max_completion_tokens: 256,
       messages: [
