@@ -33,6 +33,8 @@ interface BrandConfig {
   copyInstructions?: string;
   primaryColor?: string;
   accentColor?: string;
+  ctaBackground?: string;
+  ctaTextColor?: string;
   productLines?: ProductLine[];
 }
 
@@ -50,6 +52,8 @@ function buildBrandContext(brand: BrandConfig): string {
   const parts: string[] = [];
   if (brand.brandName) parts.push(`Brand: ${brand.brandName}`);
   if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}`);
+  const ctaHex = brand.ctaBackground || brand.accentColor || brand.primaryColor;
+  if (ctaHex) parts.push(`CTA button color: "${ctaHex}" — use this exact hex for ALL ctaColor props`);
   if (brand.messagingPillars?.length) {
     parts.push(`Key themes: ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
   }
@@ -101,7 +105,8 @@ RULES:
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
-9. For product images, use empty string "" for image URLs.`;
+9. For product images, use empty string "" for image URLs.
+10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.`;
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const { prompt } = req.body as { prompt?: string };
@@ -159,10 +164,20 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    // Make sure every block has an id
+    // Force brand CTA color onto all blocks (safety net)
+    const brandCtaColor = brand.ctaBackground || brand.accentColor || brand.primaryColor;
+
     parsed.blocks = parsed.blocks.map((block: unknown, i: number) => {
       const b = block as Record<string, unknown>;
       if (!b.id) b.id = `block-${b.type ?? "unknown"}-${i}`;
+
+      // Inject brand CTA color into any block that has a ctaColor prop
+      if (brandCtaColor && b.props && typeof b.props === "object") {
+        const props = b.props as Record<string, unknown>;
+        if ("ctaColor" in props || b.type === "hero") {
+          props.ctaColor = brandCtaColor;
+        }
+      }
       return b;
     });
 
