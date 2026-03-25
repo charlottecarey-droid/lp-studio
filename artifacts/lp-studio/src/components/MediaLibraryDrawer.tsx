@@ -34,10 +34,11 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [editingTags, setEditingTags] = useState<number | null>(null);
   const [editTagValue, setEditTagValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const fetchImages = useCallback(async () => {
     setLoading(true);
@@ -69,23 +70,36 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
     searchTimeout.current = setTimeout(() => fetchImages(), 300);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
-      // Refresh the list to show the new image
-      await fetchImages();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+  const uploadFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setUploadProgress({ current: 0, total: files.length });
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setUploadProgress({ current: i + 1, total: files.length });
+      try {
+        const formData = new FormData();
+        formData.append("file", files[i]);
+        const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
     }
+    await fetchImages();
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (failed > 0) alert(`${failed} of ${files.length} files failed to upload.`);
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    uploadFiles(files);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    uploadFiles(files);
   };
 
   const handleSelect = (item: MediaItem) => {
@@ -136,16 +150,19 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
             variant="outline"
             size="sm"
             className="h-9 gap-1.5 shrink-0"
-            disabled={uploading}
+            disabled={!!uploadProgress}
             onClick={() => fileInputRef.current?.click()}
           >
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            Upload
+            {uploadProgress
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
+              : <><Upload className="w-3.5 h-3.5" />Upload</>
+            }
           </Button>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleUpload}
           />
@@ -182,17 +199,38 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
         )}
 
         {/* Image grid */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div
+          ref={dropZoneRef}
+          className="flex-1 overflow-y-auto px-4 py-4 relative"
+          onDrop={handleDrop}
+          onDragOver={e => e.preventDefault()}
+        >
+          {uploadProgress && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span>Uploading {uploadProgress.current} of {uploadProgress.total}…</span>
+              <div className="flex-1 bg-muted rounded-full h-1.5 ml-1">
+                <div
+                  className="bg-primary h-1.5 rounded-full transition-all"
+                  style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div
+              className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="w-8 h-8 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                {query || activeTag ? "No images match your search." : "No images yet. Upload your first one!"}
+              <p className="text-sm font-medium">
+                {query || activeTag ? "No images match your search." : "Drop images here or click to upload"}
               </p>
+              {!query && !activeTag && <p className="text-xs mt-1 opacity-60">Supports JPG, PNG, WebP, GIF — select multiple at once</p>}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
