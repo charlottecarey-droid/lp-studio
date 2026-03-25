@@ -22,6 +22,7 @@ import ReviewsOverview from "@/pages/reviews-overview";
 import AllTests from "@/pages/all-tests";
 import LeadsPage from "@/pages/leads";
 import FormsPage from "@/pages/forms";
+import IntegrationsPage from "@/pages/integrations";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/pages" component={PagesGallery} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/forms" component={FormsPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
       
       {/* Builder Editor (no app layout — full screen) */}
       <Route path="/builder/:pageId" component={BuilderEditor} />

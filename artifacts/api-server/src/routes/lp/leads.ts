@@ -12,6 +12,7 @@ import {
   type MarketoConfig,
   type SalesforceConfig,
 } from "../../lib/notifications";
+import { syncLeadToSheets } from "./integrations";
 
 const router = Router();
 
@@ -109,6 +110,13 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
       if (salesforceConfig) {
         await syncToSalesforce(salesforceConfig, payload);
       }
+      await syncLeadToSheets({
+        submittedAt: payload.submittedAt,
+        pageTitle: payload.pageTitle,
+        pageSlug: payload.pageSlug,
+        variantName: payload.variantName,
+        fields: payload.fields,
+      });
     } catch (err) {
       console.error("Error processing lead notifications:", err);
     }

@@ -19,6 +19,7 @@ import formsRouter from "./forms";
 import generatePageRouter from "./generate-page";
 import seoAnalyzeRouter from "./seo-analyze";
 import seoMetaGenerateRouter from "./seo-meta-generate";
+import integrationsRouter from "./integrations";
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use(formsRouter);
 router.use(generatePageRouter);
 router.use(seoAnalyzeRouter);
 router.use(seoMetaGenerateRouter);
+router.use(integrationsRouter);
 
 export default router;

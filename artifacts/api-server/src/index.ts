@@ -107,6 +107,15 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS lp_integrations (
+        id serial PRIMARY KEY,
+        provider text NOT NULL UNIQUE,
+        config jsonb NOT NULL DEFAULT '{}',
+        enabled boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

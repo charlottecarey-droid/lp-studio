@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, LayoutGrid, CheckCircle2, BarChart2, BookOpen, Blocks, Settings2, Users, FormInput } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, LayoutGrid, CheckCircle2, BarChart2, BookOpen, Blocks, Settings2, Users, FormInput, Plug2 } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import dandyLogo from "@/assets/dandy-logo.svg";
@@ -128,6 +128,14 @@ export function AppSidebar() {
                   <Link href="/custom-blocks" className="font-medium">
                     <Blocks className="w-4 h-4" />
                     <span>Custom Blocks</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/integrations"}>
+                  <Link href="/integrations" className="font-medium">
+                    <Plug2 className="w-4 h-4" />
+                    <span>Integrations</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
