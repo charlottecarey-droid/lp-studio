@@ -59,6 +59,8 @@ async function runMigrations() {
 
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
 
+      ALTER TABLE lp_media ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]';
+
       CREATE TABLE IF NOT EXISTS lp_brand_presets (
         id serial PRIMARY KEY,
         name varchar(255) NOT NULL,
