@@ -26,6 +26,8 @@ import { CtaButtonPanel } from "./CtaButtonPanel";
 import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
 import { FooterPanel } from "./FooterPanel";
 import { FormPanel } from "./FormPanel";
+import { PopupPanel } from "./PopupPanel";
+import { StickyBarPanel } from "./StickyBarPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -218,6 +220,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             pageId={pageId}
+          />
+        );
+      case "popup":
+        return (
+          <PopupPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "sticky-bar":
+        return (
+          <StickyBarPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       default: {

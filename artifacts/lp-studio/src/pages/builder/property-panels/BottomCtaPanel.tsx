@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
+import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 
 interface Props {
   blockType: string;
@@ -17,7 +18,10 @@ export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Pr
   return (
     <div className="space-y-4">
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>
+          <DtrTokenInserter onInsert={(token) => onChange({ ...props, headline: props.headline + token })} />
+        </div>
         <AiTextField
           type="textarea"
           value={props.headline}
@@ -46,7 +50,10 @@ export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Pr
         </Select>
       </div>
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline</Label>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subheadline</Label>
+          <DtrTokenInserter onInsert={(token) => onChange({ ...props, subheadline: props.subheadline + token })} />
+        </div>
         <AiTextField
           type="input"
           value={props.subheadline}
@@ -60,7 +67,10 @@ export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Pr
         />
       </div>
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text</Label>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA Text</Label>
+          <DtrTokenInserter onInsert={(token) => onChange({ ...props, ctaText: props.ctaText + token })} />
+        </div>
         <AiTextField
           type="input"
           value={props.ctaText}

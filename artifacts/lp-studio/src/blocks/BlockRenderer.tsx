@@ -1,4 +1,4 @@
-import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -23,6 +23,8 @@ import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
 import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
+import { BlockPopup } from "./BlockPopup";
+import { BlockStickyBar } from "./BlockStickyBar";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -299,6 +301,23 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockFooter props={block.props} brand={brand} />;
       case "form":
         return <BlockForm props={block.props} brand={brand} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
+      case "popup":
+        return (
+          <BlockPopup
+            props={block.props}
+            brand={brand}
+            blockId={block.id}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
+      case "sticky-bar":
+        return (
+          <BlockStickyBar
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

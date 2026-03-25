@@ -1,6 +1,6 @@
 import type React from "react";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement";
 
 export interface HeroBlockProps {
   headline: string;
@@ -329,6 +329,34 @@ export interface FullBleedHeroBlockProps {
   socialProofText?: string;
 }
 
+export type PopupTrigger = "exit-intent" | "scroll-percent" | "time-delay" | "click";
+
+export interface PopupBlockProps {
+  headline: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+  ctaColor: string;
+  imageUrl: string;
+  trigger: PopupTrigger;
+  triggerValue: number;
+  showOnce: boolean;
+  overlayOpacity: number;
+  position: "center" | "bottom-left" | "bottom-right";
+  backgroundStyle: "white" | "dark";
+}
+
+export interface StickyBarBlockProps {
+  text: string;
+  ctaText: string;
+  ctaUrl: string;
+  ctaColor: string;
+  position: "top" | "bottom";
+  backgroundStyle: "white" | "dark" | "brand";
+  showAfterScroll: number;
+  dismissible: boolean;
+}
+
 type BlockVariant =
   | { type: "hero"; props: HeroBlockProps }
   | { type: "trust-bar"; props: TrustBarBlockProps }
@@ -352,7 +380,9 @@ type BlockVariant =
   | { type: "cta-button"; props: CtaButtonBlockProps }
   | { type: "full-bleed-hero"; props: FullBleedHeroBlockProps }
   | { type: "footer"; props: FooterBlockProps }
-  | { type: "form"; props: FormBlockProps };
+  | { type: "form"; props: FormBlockProps }
+  | { type: "popup"; props: PopupBlockProps }
+  | { type: "sticky-bar"; props: StickyBarBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1058,6 +1088,64 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "popup",
+    label: "Popup",
+    category: "Engagement",
+    defaultProps: (): PopupBlockProps => ({
+      headline: "Special Offer Inside",
+      body: "Get 20% off your first order when you sign up today.",
+      ctaText: "Claim Offer",
+      ctaUrl: "#",
+      ctaColor: "#C7E738",
+      imageUrl: "",
+      trigger: "time-delay",
+      triggerValue: 5,
+      showOnce: true,
+      overlayOpacity: 50,
+      position: "center",
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="20" y="10" width="80" height="50" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="30" y="18" width="60" height="6" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="30" y="28" width="60" height="4" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="30" y="35" width="60" height="4" rx="1" fill="#94a3b8" opacity="0.3" />
+        <rect x="40" y="45" width="40" height="8" rx="4" fill="#C7E738" />
+        <rect x="15" y="5" width="4" height="60" fill="#000000" opacity="0.2" />
+        <rect x="15" y="5" width="90" height="4" fill="#000000" opacity="0.2" />
+      </svg>
+    ),
+  },
+  {
+    type: "sticky-bar",
+    label: "Sticky Bar",
+    category: "Engagement",
+    defaultProps: (): StickyBarBlockProps => ({
+      text: "Limited time: Get 20% off your first purchase",
+      ctaText: "Shop Now",
+      ctaUrl: "#",
+      ctaColor: "#C7E738",
+      position: "top",
+      backgroundStyle: "dark",
+      showAfterScroll: 0,
+      dismissible: true,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="10" y="15" width="100" height="10" rx="2" fill="#003A30" />
+        <rect x="15" y="19" width="60" height="3" rx="1" fill="white" opacity="0.7" />
+        <rect x="80" y="17" width="25" height="6" rx="3" fill="#C7E738" />
+        <circle cx="110" cy="20" r="2" fill="white" opacity="0.7" />
+        <rect x="10" y="32" width="100" height="25" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="20" y="40" width="60" height="3" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="20" y="47" width="50" height="3" rx="1" fill="#94a3b8" opacity="0.3" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1091,6 +1179,8 @@ export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta
 export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
 export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
+export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
+export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1121,6 +1211,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
     case "footer": return { id, type: "footer", props: props as FooterBlockProps };
     case "form": return { id, type: "form", props: props as FormBlockProps };
+    case "popup": return { id, type: "popup", props: props as PopupBlockProps };
+    case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
   }
 }
 

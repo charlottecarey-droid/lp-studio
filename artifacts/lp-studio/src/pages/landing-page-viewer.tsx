@@ -25,6 +25,7 @@ import { isBuilderPageResponse } from "@/lib/page-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { getDtrParams, applyDtr } from "@/lib/dtr";
 
 /**
  * Scope all selectors in a CSS string with a prefix attribute selector.
@@ -213,6 +214,7 @@ export default function LandingPageViewer() {
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  const [dtrParams] = useState(() => getDtrParams());
 
   useEffect(() => {
     fetchBrandConfig().then(setBrand);
@@ -275,16 +277,21 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {scopedCss && <style>{scopedCss}</style>}
-        {blocks.map((block, i) => (
-          <ScrollReveal
-            key={block.id ?? i}
-            delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-            style={block.blockSettings?.animationStyle ?? "fade-up"}
-            enabled={animationsEnabled}
-          >
-            <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} />
-          </ScrollReveal>
-        ))}
+        {blocks.map((block, i) => {
+          const dtrBlock = Object.keys(dtrParams).length > 0
+            ? { ...block, props: applyDtr(block.props, dtrParams) }
+            : block;
+          return (
+            <ScrollReveal
+              key={block.id ?? i}
+              delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+              style={block.blockSettings?.animationStyle ?? "fade-up"}
+              enabled={animationsEnabled}
+            >
+              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} />
+            </ScrollReveal>
+          );
+        })}
         {blocks.length === 0 && (
           <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
             This page has no blocks yet.
@@ -362,16 +369,21 @@ export default function LandingPageViewer() {
           </div>
         )}
         {blocks.length > 0
-          ? blocks.map((block, i) => (
-              <ScrollReveal
-                key={block.id ?? i}
-                delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-                style={block.blockSettings?.animationStyle ?? "fade-up"}
-                enabled={linkedAnimationsEnabled}
-              >
-                <BlockRenderer block={block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} />
-              </ScrollReveal>
-            ))
+          ? blocks.map((block, i) => {
+              const dtrBlock = Object.keys(dtrParams).length > 0
+                ? { ...block, props: applyDtr(block.props, dtrParams) }
+                : block;
+              return (
+                <ScrollReveal
+                  key={block.id ?? i}
+                  delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                  style={block.blockSettings?.animationStyle ?? "fade-up"}
+                  enabled={linkedAnimationsEnabled}
+                >
+                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} />
+                </ScrollReveal>
+              );
+            })
           : (
             <div className="min-h-screen flex flex-col items-center justify-center text-slate-400 text-sm gap-4">
               <div className="text-4xl">🧱</div>
@@ -387,9 +399,10 @@ export default function LandingPageViewer() {
   }
 
   const variantConf = config.assignedVariant.config as unknown as ExtendedVariantConfig;
+  const dtrConf = applyDtr(variantConf, dtrParams);
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
-  const ctaColor = variantConf.ctaColor || LIME;
+  const ctaColor = dtrConf.ctaColor || LIME;
 
   const handleCtaClick = () => {
     trackEvent.mutate({
@@ -402,8 +415,8 @@ export default function LandingPageViewer() {
       }
     });
 
-    const dest = variantConf.ctaUrl && variantConf.ctaUrl !== "#"
-      ? variantConf.ctaUrl
+    const dest = dtrConf.ctaUrl && dtrConf.ctaUrl !== "#"
+      ? dtrConf.ctaUrl
       : brand.defaultCtaUrl;
     if (dest) {
       window.location.href = dest;
@@ -412,9 +425,9 @@ export default function LandingPageViewer() {
     }
   };
 
-  const isDark = variantConf.backgroundStyle === "dark";
-  const isMinimal = variantConf.layout === "minimal";
-  const isSplit = variantConf.layout === "split";
+  const isDark = dtrConf.backgroundStyle === "dark";
+  const isMinimal = dtrConf.layout === "minimal";
+  const isSplit = dtrConf.layout === "split";
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
   return (
@@ -497,16 +510,16 @@ export default function LandingPageViewer() {
               isMinimal ? "text-5xl md:text-6xl lg:text-7xl" : "text-4xl md:text-6xl lg:text-7xl",
               isDark ? "text-white" : "text-[#003A30]"
             )}>
-              {variantConf.headline}
+              {dtrConf.headline}
             </h1>
             
-            {variantConf.subheadline && (
+            {dtrConf.subheadline && (
               <p className={cn(
                 "text-lg md:text-xl leading-relaxed font-sans",
                 isDark ? "text-white/80" : "text-[#003A30]/70",
                 !isSplit && "max-w-2xl"
               )}>
-                {variantConf.subheadline}
+                {dtrConf.subheadline}
               </p>
             )}
 
@@ -516,26 +529,26 @@ export default function LandingPageViewer() {
                 className={getButtonClasses(brand, "inline-flex items-center justify-center")}
                 style={{ backgroundColor: ctaColor, color: FOREST }}
               >
-                {variantConf.ctaText}
+                {dtrConf.ctaText}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </button>
 
-              {variantConf.showSocialProof && (
+              {dtrConf.showSocialProof && (
                 <div className={cn(
                   "flex items-center gap-2 text-sm font-medium opacity-80",
                   !isSplit && "justify-center"
                 )}>
                   <ShieldCheck className="w-4 h-4" />
-                  <span>{variantConf.socialProofText}</span>
+                  <span>{dtrConf.socialProofText}</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* 4. Full-bleed Video (Split Mode) */}
-          {isSplit && variantConf.heroType !== "none" && (
+          {isSplit && dtrConf.heroType !== "none" && (
             <div className="relative w-full aspect-[16/9] z-10 bg-black">
-              {variantConf.heroType === "dandy-video" ? (
+              {dtrConf.heroType === "dandy-video" ? (
                 <iframe 
                   src={DANDY_VIDEO_URL} 
                   className="w-full h-full border-0"
@@ -568,11 +581,11 @@ export default function LandingPageViewer() {
       </div>{/* end min-h-screen above-fold wrapper */}
 
       {/* 4. Video (Centered Mode — contained with white padding) */}
-      {!isSplit && variantConf.heroType !== "none" && (
+      {!isSplit && dtrConf.heroType !== "none" && (
         <section className="w-full bg-white py-8 px-6 md:px-10">
           <div className="max-w-5xl mx-auto">
             <div className="relative w-full aspect-video rounded-xl overflow-hidden">
-              {variantConf.heroType === "dandy-video" ? (
+              {dtrConf.heroType === "dandy-video" ? (
                 <iframe 
                   src={DANDY_VIDEO_URL} 
                   className="w-full h-full border-0"
@@ -592,10 +605,10 @@ export default function LandingPageViewer() {
       )}
 
       {/* 5. Trust Bar */}
-      {variantConf.trustBar?.enabled && (
+      {dtrConf.trustBar?.enabled && (
         <section className="w-full bg-[#F8FAF9] py-12 border-y border-slate-100">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 divide-x-0 md:divide-x divide-slate-200">
-            {variantConf.trustBar.items.map((item, i) => (
+            {dtrConf.trustBar.items.map((item, i) => (
               <div key={i} className="flex flex-col items-center text-center px-4">
                 <span className="text-3xl md:text-4xl font-display font-bold text-[#003A30] mb-1">{item.value}</span>
                 <span className="text-sm text-[#4A6358] font-medium uppercase tracking-wider">{item.label}</span>
@@ -606,14 +619,14 @@ export default function LandingPageViewer() {
       )}
 
       {/* 6. Photo Strip */}
-      {variantConf.photoStrip?.enabled && (
+      {dtrConf.photoStrip?.enabled && (
         <section className="w-full h-64 md:h-80 overflow-hidden relative bg-white">
           <div className="absolute inset-y-0 left-0 w-16 md:w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none" />
           <div className="absolute inset-y-0 right-0 w-16 md:w-32 bg-gradient-to-l from-white via-white/80 to-transparent z-10 pointer-events-none" />
           
           <div className="flex h-full animate-marquee w-max">
             {/* Render array twice for seamless loop */}
-            {[...variantConf.photoStrip.images, ...variantConf.photoStrip.images].map((img, i) => (
+            {[...dtrConf.photoStrip.images, ...dtrConf.photoStrip.images].map((img, i) => (
               <img
                 key={i}
                 src={img.src}
@@ -627,20 +640,20 @@ export default function LandingPageViewer() {
       )}
 
       {/* 7. Pain Section (PAS) */}
-      {variantConf.painSection?.enabled && (
+      {dtrConf.painSection?.enabled && (
         <section className={cn("w-full bg-[#003A30] text-white px-6", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
             <div className="md:w-1/2 space-y-6">
               <h2 className="text-3xl md:text-5xl font-display font-bold leading-tight">
-                {variantConf.painSection.headline}
+                {dtrConf.painSection.headline}
               </h2>
               <p className="text-lg text-white/80 leading-relaxed">
-                {variantConf.painSection.body}
+                {dtrConf.painSection.body}
               </p>
             </div>
             <div className="md:w-1/2">
               <ul className="space-y-4">
-                {variantConf.painSection.bullets?.map((bullet, i) => (
+                {dtrConf.painSection.bullets?.map((bullet, i) => (
                   <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
                     <AlertTriangle className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
                     <span className="text-white/90 font-medium leading-relaxed">{bullet}</span>
@@ -653,12 +666,12 @@ export default function LandingPageViewer() {
       )}
 
       {/* 8. Comparison Section */}
-      {variantConf.comparisonSection?.enabled && (
+      {dtrConf.comparisonSection?.enabled && (
         <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
-            {variantConf.comparisonSection.headline && (
+            {dtrConf.comparisonSection.headline && (
               <h2 className="text-4xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16">
-                {variantConf.comparisonSection.headline}
+                {dtrConf.comparisonSection.headline}
               </h2>
             )}
             
@@ -667,14 +680,14 @@ export default function LandingPageViewer() {
               <div className="bg-slate-100 rounded-3xl p-8 md:p-12 opacity-80 flex flex-col">
                 <div className="mb-8">
                   <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">
-                    {variantConf.comparisonSection.oldWay.sublabel || "OLD WAY"}
+                    {dtrConf.comparisonSection.oldWay.sublabel || "OLD WAY"}
                   </span>
                   <h3 className="text-2xl font-bold text-[#003A30]">
-                    {variantConf.comparisonSection.oldWay.label}
+                    {dtrConf.comparisonSection.oldWay.label}
                   </h3>
                 </div>
                 <ul className="space-y-6 flex-1">
-                  {variantConf.comparisonSection.oldWay.bullets.map((bullet, i) => (
+                  {dtrConf.comparisonSection.oldWay.bullets.map((bullet, i) => (
                     <li key={i} className="flex items-start gap-4">
                       <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
                       <span className="text-[#4A6358] font-medium leading-relaxed">{bullet}</span>
@@ -690,14 +703,14 @@ export default function LandingPageViewer() {
                 
                 <div className="mb-8 relative z-10">
                   <span className="text-sm font-bold tracking-widest text-[#C7E738] uppercase mb-2 block">
-                    {variantConf.comparisonSection.newWay.sublabel || "NEW WAY"}
+                    {dtrConf.comparisonSection.newWay.sublabel || "NEW WAY"}
                   </span>
                   <h3 className="text-2xl font-bold text-white">
-                    {variantConf.comparisonSection.newWay.label}
+                    {dtrConf.comparisonSection.newWay.label}
                   </h3>
                 </div>
                 <ul className="space-y-6 flex-1 relative z-10">
-                  {variantConf.comparisonSection.newWay.bullets.map((bullet, i) => (
+                  {dtrConf.comparisonSection.newWay.bullets.map((bullet, i) => (
                     <li key={i} className="flex items-start gap-4">
                       <CheckCircle2 className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
                       <span className="text-white/90 font-medium leading-relaxed">{bullet}</span>
@@ -713,7 +726,7 @@ export default function LandingPageViewer() {
                 className={getButtonClasses(brand, "inline-flex items-center")}
                 style={{ backgroundColor: ctaColor, color: FOREST }}
               >
-                {variantConf.comparisonSection.ctaText || variantConf.ctaText}
+                {dtrConf.comparisonSection.ctaText || dtrConf.ctaText}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </button>
             </div>
@@ -722,18 +735,18 @@ export default function LandingPageViewer() {
       )}
 
       {/* 9. Stat Callout */}
-      {variantConf.statCallout?.enabled && (
+      {dtrConf.statCallout?.enabled && (
         <section className={cn("w-full bg-[#003A30] px-6 text-center", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col items-center">
             <div className="text-8xl md:text-[10rem] font-display font-bold leading-none mb-6" style={{ color: LIME }}>
-              {variantConf.statCallout.stat}
+              {dtrConf.statCallout.stat}
             </div>
             <p className="text-xl md:text-2xl text-white font-medium max-w-xl mx-auto mb-8 leading-relaxed">
-              {variantConf.statCallout.description}
+              {dtrConf.statCallout.description}
             </p>
-            {variantConf.statCallout.footnote && (
+            {dtrConf.statCallout.footnote && (
               <p className="text-sm text-white/50 max-w-lg mx-auto">
-                {variantConf.statCallout.footnote}
+                {dtrConf.statCallout.footnote}
               </p>
             )}
           </div>
@@ -741,19 +754,19 @@ export default function LandingPageViewer() {
       )}
 
       {/* 10. Benefits Grid */}
-      {variantConf.benefits?.enabled && (
+      {dtrConf.benefits?.enabled && (
         <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
-            {variantConf.benefits.headline && (
+            {dtrConf.benefits.headline && (
               <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight">
-                {variantConf.benefits.headline}
+                {dtrConf.benefits.headline}
               </h2>
             )}
             <div className={cn(
               "grid gap-8",
-              variantConf.benefits.columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3"
+              dtrConf.benefits.columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3"
             )}>
-              {variantConf.benefits.items.map((benefit, i) => {
+              {dtrConf.benefits.items.map((benefit, i) => {
                 const Icon = ICON_MAP[benefit.icon] || Zap;
                 return (
                   <div key={i} className="flex flex-col p-8 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
@@ -771,18 +784,18 @@ export default function LandingPageViewer() {
       )}
 
       {/* 11. Testimonial */}
-      {variantConf.testimonial?.enabled && (
+      {dtrConf.testimonial?.enabled && (
         <section className={cn("w-full bg-[#F0F7F4] px-6 relative overflow-hidden", sectionPy)}>
           <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center text-center">
             <Quote className="w-16 h-16 text-[#C7E738] mb-8 opacity-50" />
             <blockquote className="text-2xl md:text-4xl font-display font-medium text-[#003A30] leading-snug mb-10">
-              "{variantConf.testimonial.quote}"
+              "{dtrConf.testimonial.quote}"
             </blockquote>
             <div className="flex flex-col items-center">
-              <strong className="text-lg text-[#003A30]">{variantConf.testimonial.author}</strong>
-              <span className="text-[#4A6358]">{variantConf.testimonial.role}</span>
-              {variantConf.testimonial.practiceName && (
-                <span className="text-sm text-[#4A6358] mt-1 opacity-80">{variantConf.testimonial.practiceName}</span>
+              <strong className="text-lg text-[#003A30]">{dtrConf.testimonial.author}</strong>
+              <span className="text-[#4A6358]">{dtrConf.testimonial.role}</span>
+              {dtrConf.testimonial.practiceName && (
+                <span className="text-sm text-[#4A6358] mt-1 opacity-80">{dtrConf.testimonial.practiceName}</span>
               )}
             </div>
           </div>
@@ -790,17 +803,17 @@ export default function LandingPageViewer() {
       )}
 
       {/* 12. How It Works */}
-      {variantConf.howItWorks?.enabled && (
+      {dtrConf.howItWorks?.enabled && (
         <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
-            {variantConf.howItWorks.headline && (
+            {dtrConf.howItWorks.headline && (
               <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-20">
-                {variantConf.howItWorks.headline}
+                {dtrConf.howItWorks.headline}
               </h2>
             )}
             <div className="grid md:grid-cols-3 gap-12 relative">
               <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />
-              {variantConf.howItWorks.steps.map((step, i) => (
+              {dtrConf.howItWorks.steps.map((step, i) => (
                 <div key={i} className="relative z-10 flex flex-col items-center text-center">
                   <div className="w-16 h-16 rounded-full bg-[#003A30] text-[#C7E738] font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white">
                     {step.number}
@@ -815,24 +828,24 @@ export default function LandingPageViewer() {
       )}
 
       {/* 13. Product Grid */}
-      {variantConf.productGrid?.enabled && (
+      {dtrConf.productGrid?.enabled && (
         <section className={cn("w-full bg-white px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              {variantConf.productGrid.headline && (
+              {dtrConf.productGrid.headline && (
                 <h2 className="text-3xl md:text-5xl font-display font-bold text-[#003A30] mb-6">
-                  {variantConf.productGrid.headline}
+                  {dtrConf.productGrid.headline}
                 </h2>
               )}
-              {variantConf.productGrid.subheadline && (
+              {dtrConf.productGrid.subheadline && (
                 <p className="text-lg md:text-xl text-[#4A6358] leading-relaxed">
-                  {variantConf.productGrid.subheadline}
+                  {dtrConf.productGrid.subheadline}
                 </p>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {variantConf.productGrid.items.map((item, i) => (
+              {dtrConf.productGrid.items.map((item, i) => (
                 <div key={i} className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 bg-white flex flex-col">
                   <div className="w-full h-52 overflow-hidden bg-slate-50">
                     <img 
@@ -854,15 +867,15 @@ export default function LandingPageViewer() {
       )}
 
       {/* 14. Bottom CTA Band */}
-      {variantConf.bottomCta?.enabled && (
+      {dtrConf.bottomCta?.enabled && (
         <section className={cn("w-full bg-[#003A30] text-white px-6 text-center", sectionPy)}>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">
-              {variantConf.bottomCta.headline}
+              {dtrConf.bottomCta.headline}
             </h2>
-            {variantConf.bottomCta.subheadline && (
+            {dtrConf.bottomCta.subheadline && (
               <p className="text-xl text-white/80 mb-10">
-                {variantConf.bottomCta.subheadline}
+                {dtrConf.bottomCta.subheadline}
               </p>
             )}
             <button
@@ -870,7 +883,7 @@ export default function LandingPageViewer() {
               className={getButtonClasses(brand, "inline-flex items-center")}
               style={{ backgroundColor: ctaColor, color: FOREST }}
             >
-              {variantConf.bottomCta.ctaText || variantConf.ctaText}
+              {dtrConf.bottomCta.ctaText || dtrConf.ctaText}
               <ArrowRight className="w-4 h-4 ml-2" />
             </button>
           </div>
@@ -878,9 +891,9 @@ export default function LandingPageViewer() {
       )}
 
       {/* 15. Guarantee Bar */}
-      {variantConf.guaranteeBar?.enabled && (
+      {dtrConf.guaranteeBar?.enabled && (
         <div className="w-full py-4 px-6 text-center text-sm font-bold tracking-wide" style={{ backgroundColor: LIME, color: FOREST }}>
-          {variantConf.guaranteeBar.text}
+          {dtrConf.guaranteeBar.text}
         </div>
       )}
 
