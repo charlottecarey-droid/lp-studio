@@ -1174,7 +1174,13 @@ export default function BuilderEditor() {
                 <div className="border-t border-border pt-1">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO &amp; Metadata</p>
-                    <AutoMetaButton blocks={blocks} title={title} onGenerated={(mt, md) => { setMetaTitle(mt); setMetaDescription(md); setTimeout(handleSave, 100); }} />
+                    <AutoMetaButton blocks={blocks} title={title} currentSlug={slug} onGenerated={(mt, md, sugSlug, og) => {
+                      setMetaTitle(mt);
+                      setMetaDescription(md);
+                      if (sugSlug && sugSlug !== slug) setSlug(sugSlug);
+                      if (og) setOgImage(og);
+                      setTimeout(handleSave, 100);
+                    }} />
                   </div>
                 </div>
 
@@ -1272,11 +1278,13 @@ export default function BuilderEditor() {
 function AutoMetaButton({
   blocks,
   title,
+  currentSlug,
   onGenerated,
 }: {
   blocks: PageBlock[];
   title: string;
-  onGenerated: (metaTitle: string, metaDescription: string) => void;
+  currentSlug: string;
+  onGenerated: (metaTitle: string, metaDescription: string, suggestedSlug: string, ogImage: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -1286,11 +1294,17 @@ function AutoMetaButton({
       const res = await fetch("/api/lp/seo-meta-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks, title }),
+        body: JSON.stringify({ blocks, title, currentSlug }),
       });
       if (!res.ok) throw new Error("Failed to generate");
-      const data = await res.json() as { metaTitle: string; metaDescription: string };
-      onGenerated(data.metaTitle, data.metaDescription);
+      const data = await res.json() as { metaTitle: string; metaDescription: string; suggestedSlug: string };
+
+      // Generate OG screenshot URL from the live page
+      const pageSlug = data.suggestedSlug || currentSlug;
+      const pageUrl = `${window.location.origin}/lp/${pageSlug}`;
+      const ogScreenshot = `https://image.thum.io/get/width/1200/crop/630/noanimate/${pageUrl}`;
+
+      onGenerated(data.metaTitle, data.metaDescription, data.suggestedSlug, ogScreenshot);
     } catch {
       // Silent fail — button just stops loading
     } finally {
@@ -1309,7 +1323,7 @@ function AutoMetaButton({
       )}
     >
       {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-      Auto-fill
+      Auto-fill all
     </button>
   );
 }

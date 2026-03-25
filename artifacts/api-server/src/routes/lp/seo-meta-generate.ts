@@ -26,7 +26,11 @@ async function fetchBrandName(): Promise<string> {
 }
 
 router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
-  const { blocks, title } = req.body as { blocks?: unknown[]; title?: string };
+  const { blocks, title, currentSlug } = req.body as {
+    blocks?: unknown[];
+    title?: string;
+    currentSlug?: string;
+  };
 
   if (!Array.isArray(blocks) || blocks.length === 0) {
     res.status(400).json({ error: "blocks array is required" });
@@ -55,16 +59,21 @@ router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
   }
   const pageContent = texts.slice(0, 10).join("\n");
 
-  const systemPrompt = `Generate SEO-optimized meta title and meta description for a landing page.
+  const systemPrompt = `Generate SEO-optimized metadata for a landing page.
 
 RULES:
-- Meta title: 30-60 characters, include the primary keyword, be compelling for clicks
-- Meta description: 120-155 characters, summarize the page value prop, include a soft CTA
-- Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "..."}
+- metaTitle: 30-60 characters, include the primary keyword, be compelling for clicks
+- metaDescription: 120-155 characters, summarize the page value prop, include a soft CTA
+- suggestedSlug: a short, keyword-rich URL slug (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug is already good, return it unchanged.
+- Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "...", "suggestedSlug": "..."}
 - No markdown, no explanation, just the JSON object
 ${brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : ""}`;
 
-  const userPrompt = `Page title: ${title || "Untitled"}\n\nPage content:\n${pageContent}`;
+  const userPrompt = [
+    `Page title: ${title || "Untitled"}`,
+    currentSlug ? `Current slug: ${currentSlug}` : "",
+    `\nPage content:\n${pageContent}`,
+  ].filter(Boolean).join("\n");
 
   try {
     const completion = await openai.chat.completions.create({
@@ -78,7 +87,7 @@ ${brandName ? `- Brand name: ${brandName} — include it naturally in the meta t
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
-    let parsed: { metaTitle?: string; metaDescription?: string };
+    let parsed: { metaTitle?: string; metaDescription?: string; suggestedSlug?: string };
     try {
       const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       parsed = JSON.parse(cleaned);
@@ -87,9 +96,14 @@ ${brandName ? `- Brand name: ${brandName} — include it naturally in the meta t
       return;
     }
 
+    // Sanitize slug
+    let slug = typeof parsed.suggestedSlug === "string" ? parsed.suggestedSlug : "";
+    slug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
     res.json({
       metaTitle: typeof parsed.metaTitle === "string" ? parsed.metaTitle.slice(0, 70) : "",
       metaDescription: typeof parsed.metaDescription === "string" ? parsed.metaDescription.slice(0, 170) : "",
+      suggestedSlug: slug || currentSlug || "",
     });
   } catch (err) {
     res.status(500).json({ error: String(err) });
