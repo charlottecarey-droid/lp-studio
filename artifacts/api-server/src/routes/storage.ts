@@ -4,7 +4,7 @@ import multer from "multer";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { db, lpMediaTable } from "@workspace/db";
-import { desc, eq, sql, ilike, or } from "drizzle-orm";
+import { desc, eq, sql, ilike, and, count } from "drizzle-orm";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -264,15 +264,47 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
   try {
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const tag = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
+    const pageNum = Math.max(1, parseInt(typeof req.query.page === "string" ? req.query.page : "1") || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(typeof req.query.limit === "string" ? req.query.limit : "48") || 48));
 
-    let query = db.select().from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"))
+    // Build SQL conditions
+    const conditions = [eq(lpMediaTable.mediaType, "image")];
+    if (q) conditions.push(ilike(lpMediaTable.title, `%${q}%`));
+    if (tag) conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([tag])}::jsonb`);
+    const where = and(...conditions);
+
+    // Paginated items
+    const rows = await db
+      .select()
+      .from(lpMediaTable)
+      .where(where)
       .orderBy(desc(lpMediaTable.createdAt))
-      .$dynamic();
+      .limit(limitNum)
+      .offset((pageNum - 1) * limitNum);
 
-    const rows = await query;
+    // Total count (for pagination)
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(lpMediaTable)
+      .where(where);
 
-    let items = rows.map(r => ({
+    // All tags for the category sidebar — unfiltered so every category always shows
+    const allTagRows = await db
+      .select({ tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"));
+
+    const tagMap = new Map<string, number>();
+    for (const row of allTagRows) {
+      for (const t of (row.tags as string[]) ?? []) {
+        tagMap.set(t, (tagMap.get(t) ?? 0) + 1);
+      }
+    }
+    const tagCounts = [...tagMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ tag, count }));
+
+    const items = rows.map(r => ({
       id: r.id,
       title: r.title,
       url: r.url,
@@ -282,33 +314,14 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
       createdAt: r.createdAt.toISOString(),
     }));
 
-    // Filter by tag (case-insensitive)
-    if (tag) {
-      const tagLower = tag.toLowerCase();
-      items = items.filter(item => item.tags.some(t => t.toLowerCase() === tagLower));
-    }
-
-    // Filter by search query (match title or tags)
-    if (q) {
-      const qLower = q.toLowerCase();
-      items = items.filter(item =>
-        item.title.toLowerCase().includes(qLower) ||
-        item.tags.some(t => t.toLowerCase().includes(qLower))
-      );
-    }
-
-    // Collect all unique tags for the filter UI
-    const allTags = new Map<string, number>();
-    for (const row of rows) {
-      for (const t of (row.tags as string[]) ?? []) {
-        allTags.set(t, (allTags.get(t) ?? 0) + 1);
-      }
-    }
-    const tagCounts = [...allTags.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([tag, count]) => ({ tag, count }));
-
-    res.json({ items, tagCounts });
+    const totalNum = Number(total);
+    res.json({
+      items,
+      tagCounts,
+      total: totalNum,
+      page: pageNum,
+      totalPages: Math.max(1, Math.ceil(totalNum / limitNum)),
+    });
   } catch (error) {
     req.log.error({ err: error }, "Error listing images");
     res.status(500).json({ error: "Failed to list images" });

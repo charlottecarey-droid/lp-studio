@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -303,9 +303,14 @@ interface TagCount {
   count: number;
 }
 
+const MEDIA_PAGE_SIZE = 48;
+
 function MediaTab() {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("");
@@ -318,31 +323,50 @@ function MediaTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (pg = page) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (activeTag) params.set("tag", activeTag);
+      params.set("page", String(pg));
+      params.set("limit", String(MEDIA_PAGE_SIZE));
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed");
-      const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[] };
+      const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[]; total: number; page: number; totalPages: number };
       setItems(data.items);
       setTagCounts(data.tagCounts);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+      setPage(data.page);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [query, activeTag]);
+  }, [query, activeTag, page]);
 
   useEffect(() => { fetchImages(); }, [fetchImages]);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = (value: string) => {
     setQuery(value);
+    setPage(1);
     clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => fetchImages(), 300);
+    searchTimeout.current = setTimeout(() => fetchImages(1), 300);
+  };
+
+  const handleTagClick = (tag: string) => {
+    setActiveTag(tag);
+    setPage(1);
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const handlePageChange = (pg: number) => {
+    setPage(pg);
+    fetchImages(pg);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const uploadFiles = async (files: File[]) => {
@@ -433,190 +457,271 @@ function MediaTab() {
     setSelected(new Set());
   };
 
+  const totalCount = tagCounts.reduce((sum, tc) => sum + tc.count, 0);
+
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex gap-2 items-center flex-wrap">
-        {!selectMode ? (
-          <>
-            <div className="relative flex-1 min-w-40">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={e => handleSearchChange(e.target.value)}
-                placeholder="Search by name or tag…"
-                className="pl-8 h-9 text-sm"
-              />
-            </div>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => fileInputRef.current?.click()} title="Select individual images">
-              {uploadProgress
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
-                : <><Upload className="w-3.5 h-3.5" />Files</>}
-            </Button>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => folderInputRef.current?.click()} title="Upload an entire folder — subfolders become tags">
-              <FolderOpen className="w-3.5 h-3.5" />Folder
-            </Button>
-            {items.length > 0 && (
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" onClick={() => setSelectMode(true)}>
-                <Check className="w-3.5 h-3.5" />Select
-              </Button>
-            )}
-          </>
-        ) : (
-          <>
-            <button
-              onClick={toggleSelectAll}
-              className={`flex items-center gap-2 px-3 h-9 rounded-lg border text-sm font-medium transition-colors shrink-0 ${allSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-slate-600 hover:bg-muted"}`}
-            >
-              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${allSelected ? "bg-primary border-primary" : "border-slate-400"}`}>
-                {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
-              </div>
-              {allSelected ? "Deselect all" : `Select all (${items.length})`}
-            </button>
-            <span className="text-sm text-slate-500 shrink-0">{selected.size} selected</span>
-            <div className="flex-1" />
-            {selected.size > 0 && (
-              <Button
-                size="sm" className="h-9 gap-1.5 shrink-0 bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleBulkDelete}
-                disabled={deleting}
-              >
-                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                Delete {selected.size}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" className="h-9 shrink-0" onClick={exitSelectMode}>
-              <X className="w-3.5 h-3.5 mr-1" />Cancel
-            </Button>
-          </>
-        )}
-        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-        <input ref={folderInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload}
-          {...{ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
-        />
-      </div>
+    <div className="flex gap-5 items-start min-h-0">
 
-      {/* Tag filter chips (hidden in select mode) */}
+      {/* ── Category sidebar ── */}
       {!selectMode && tagCounts.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap">
-          {activeTag && (
-            <Badge variant="default" className="cursor-pointer text-[11px] gap-1" onClick={() => setActiveTag("")}>
-              {activeTag}<X className="w-2.5 h-2.5" />
-            </Badge>
-          )}
-          {tagCounts.filter(tc => tc.tag !== activeTag).slice(0, 20).map(tc => (
-            <Badge key={tc.tag} variant="outline" className="cursor-pointer text-[11px] hover:bg-muted" onClick={() => setActiveTag(tc.tag)}>
-              {tc.tag} <span className="ml-1 text-muted-foreground">{tc.count}</span>
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Upload progress bar */}
-      {uploadProgress && (
-        <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-          <span>Uploading {uploadProgress.current} of {uploadProgress.total}…</span>
-          <div className="flex-1 bg-muted rounded-full h-1.5 ml-1">
-            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
+        <div className="w-44 shrink-0 sticky top-0 self-start">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 px-2">Categories</p>
+          <div className="space-y-0.5">
+            {/* All */}
+            <button
+              onClick={() => { if (activeTag) handleTagClick(""); }}
+              className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                !activeTag ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+              }`}
+            >
+              <span className="truncate">All images</span>
+              <span className={`text-[11px] ml-1 shrink-0 ${!activeTag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{totalCount}</span>
+            </button>
+            {/* Each tag */}
+            {tagCounts.map(tc => (
+              <button
+                key={tc.tag}
+                onClick={() => handleTagClick(tc.tag === activeTag ? "" : tc.tag)}
+                className={`w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                  activeTag === tc.tag ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted text-foreground"
+                }`}
+              >
+                <span className="truncate capitalize">{tc.tag}</span>
+                <span className={`text-[11px] ml-1 shrink-0 ${activeTag === tc.tag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{tc.count}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Image grid */}
-      <div onDrop={!selectMode ? handleDrop : undefined} onDragOver={!selectMode ? e => e.preventDefault() : undefined}>
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /><span className="text-sm">Loading…</span>
-          </div>
-        ) : items.length === 0 ? (
-          <div
-            className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-medium">{query || activeTag ? "No images match your search." : "Drop images here or click to upload"}</p>
-            {!query && !activeTag && <p className="text-xs mt-1 opacity-60">Supports JPG, PNG, WebP, GIF · Select multiple or upload a whole folder</p>}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {items.map(item => {
-              const isSelected = selected.has(item.id);
-              return (
-                <div
-                  key={item.id}
-                  onClick={selectMode ? () => toggleSelect(item.id) : undefined}
-                  className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all ${
-                    selectMode
-                      ? `cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
-                      : "border-border hover:border-primary/50 hover:shadow-md"
-                  }`}
-                >
-                  <div className="aspect-video">
-                    <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  </div>
+      {/* ── Main area ── */}
+      <div className="flex-1 min-w-0 space-y-4">
 
-                  {/* Checkbox overlay (select mode) */}
-                  {selectMode && (
-                    <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${isSelected ? "bg-primary border-primary" : "bg-white/90 border-slate-400"}`}>
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                  )}
-
-                  {/* Delete button (normal mode only) */}
-                  {!selectMode && (
-                    <button
-                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-600 text-white rounded-lg p-1"
-                      onClick={e => { e.stopPropagation(); handleDelete(item.id, item.title); }}
-                      title="Delete image"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
-                    {!selectMode && (
-                      editingTags === item.id ? (
-                        <div className="mt-1.5 flex gap-1">
-                          <Input
-                            value={editTagValue}
-                            onChange={e => setEditTagValue(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); if (e.key === "Escape") setEditingTags(null); }}
-                            placeholder="tag1, tag2…"
-                            className="h-6 text-[10px] flex-1"
-                            autoFocus
-                          />
-                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}>
-                            <Check className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingTags(null)}>
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="mt-1 flex items-center gap-1 flex-wrap">
-                          {item.tags.length > 0
-                            ? item.tags.slice(0, 3).map(t => (
-                              <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
-                            ))
-                            : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
-                          }
-                          {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
-                          <button
-                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                            onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
-                            title="Edit tags"
-                          >
-                            <Tag className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
+        {/* Toolbar */}
+        <div className="flex gap-2 items-center flex-wrap">
+          {!selectMode ? (
+            <>
+              <div className="relative flex-1 min-w-40">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={e => handleSearchChange(e.target.value)}
+                  placeholder="Search by name or tag…"
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => fileInputRef.current?.click()} title="Select individual images">
+                {uploadProgress
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
+                  : <><Upload className="w-3.5 h-3.5" />Files</>}
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => folderInputRef.current?.click()} title="Upload an entire folder — subfolders become tags">
+                <FolderOpen className="w-3.5 h-3.5" />Folder
+              </Button>
+              {items.length > 0 && (
+                <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" onClick={() => setSelectMode(true)}>
+                  <Check className="w-3.5 h-3.5" />Select
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={toggleSelectAll}
+                className={`flex items-center gap-2 px-3 h-9 rounded-lg border text-sm font-medium transition-colors shrink-0 ${allSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-slate-600 hover:bg-muted"}`}
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${allSelected ? "bg-primary border-primary" : "border-slate-400"}`}>
+                  {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
                 </div>
-              );
-            })}
+                {allSelected ? "Deselect all" : `Select all (${items.length})`}
+              </button>
+              <span className="text-sm text-slate-500 shrink-0">{selected.size} selected</span>
+              <div className="flex-1" />
+              {selected.size > 0 && (
+                <Button
+                  size="sm" className="h-9 gap-1.5 shrink-0 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleBulkDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Delete {selected.size}
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="h-9 shrink-0" onClick={exitSelectMode}>
+                <X className="w-3.5 h-3.5 mr-1" />Cancel
+              </Button>
+            </>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+          <input ref={folderInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload}
+            {...{ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
+          />
+        </div>
+
+        {/* Active filter + count pill */}
+        {(activeTag || query) && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {activeTag && (
+              <Badge variant="default" className="gap-1 cursor-pointer text-[11px]" onClick={() => handleTagClick("")}>
+                {activeTag}<X className="w-2.5 h-2.5" />
+              </Badge>
+            )}
+            <span>{total} image{total !== 1 ? "s" : ""} found</span>
+          </div>
+        )}
+
+        {/* Upload progress bar */}
+        {uploadProgress && (
+          <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+            <span>Uploading {uploadProgress.current} of {uploadProgress.total}…</span>
+            <div className="flex-1 bg-muted rounded-full h-1.5 ml-1">
+              <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Image grid */}
+        <div onDrop={!selectMode ? handleDrop : undefined} onDragOver={!selectMode ? e => e.preventDefault() : undefined}>
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /><span className="text-sm">Loading…</span>
+            </div>
+          ) : items.length === 0 ? (
+            <div
+              className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">{query || activeTag ? "No images match your search." : "Drop images here or click to upload"}</p>
+              {!query && !activeTag && <p className="text-xs mt-1 opacity-60">Supports JPG, PNG, WebP, GIF · Select multiple or upload a whole folder</p>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {items.map(item => {
+                const isSelected = selected.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    onClick={selectMode ? () => toggleSelect(item.id) : undefined}
+                    className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all ${
+                      selectMode
+                        ? `cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
+                        : "border-border hover:border-primary/50 hover:shadow-md"
+                    }`}
+                  >
+                    <div className="aspect-video">
+                      <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+
+                    {selectMode && (
+                      <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${isSelected ? "bg-primary border-primary" : "bg-white/90 border-slate-400"}`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    )}
+
+                    {!selectMode && (
+                      <button
+                        className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-600 text-white rounded-lg p-1"
+                        onClick={e => { e.stopPropagation(); handleDelete(item.id, item.title); }}
+                        title="Delete image"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+
+                    <div className="p-2">
+                      <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
+                      {!selectMode && (
+                        editingTags === item.id ? (
+                          <div className="mt-1.5 flex gap-1">
+                            <Input
+                              value={editTagValue}
+                              onChange={e => setEditTagValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); if (e.key === "Escape") setEditingTags(null); }}
+                              placeholder="tag1, tag2…"
+                              className="h-6 text-[10px] flex-1"
+                              autoFocus
+                            />
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}>
+                              <Check className="w-3 h-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingTags(null)}>
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="mt-1 flex items-center gap-1 flex-wrap">
+                            {item.tags.length > 0
+                              ? item.tags.slice(0, 3).map(t => (
+                                <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
+                              ))
+                              : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
+                            }
+                            {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
+                            <button
+                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
+                              title="Edit tags"
+                            >
+                              <Tag className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Page {page} of {totalPages} &middot; {total} image{total !== 1 ? "s" : ""}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline" size="sm" className="h-8 w-8 p-0"
+                disabled={page <= 1}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              {/* Page number pills — show up to 7 */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={p === page ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 w-8 p-0 text-xs"
+                      onClick={() => handlePageChange(p as number)}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+              <Button
+                variant="outline" size="sm" className="h-8 w-8 p-0"
+                disabled={page >= totalPages}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>

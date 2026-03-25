@@ -5,7 +5,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Upload, Loader2, X, Tag, Check, Pencil, FolderOpen } from "lucide-react";
+import { Search, Upload, Loader2, X, Tag, Check, Pencil, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MediaItem {
   id: number;
@@ -28,9 +28,14 @@ interface MediaLibraryDrawerProps {
   onSelect: (url: string) => void;
 }
 
+const DRAWER_PAGE_SIZE = 24;
+
 export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibraryDrawerProps) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("");
@@ -41,34 +46,52 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (pg = page) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (activeTag) params.set("tag", activeTag);
+      params.set("page", String(pg));
+      params.set("limit", String(DRAWER_PAGE_SIZE));
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed to load");
-      const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[] };
+      const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[]; total: number; page: number; totalPages: number };
       setItems(data.items);
       setTagCounts(data.tagCounts);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+      setPage(data.page);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [query, activeTag]);
+  }, [query, activeTag, page]);
 
   useEffect(() => {
     if (open) fetchImages();
   }, [open, fetchImages]);
 
-  // Debounced search
+  // Debounced search — reset to page 1
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = (value: string) => {
     setQuery(value);
+    setPage(1);
     clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => fetchImages(), 300);
+    searchTimeout.current = setTimeout(() => fetchImages(1), 300);
+  };
+
+  const handleTagClick = (tag: string) => {
+    setActiveTag(tag);
+    setPage(1);
+    // fetchImages will re-run from the useEffect when activeTag changes
+  };
+
+  const handlePageChange = (pg: number) => {
+    setPage(pg);
+    fetchImages(pg);
+    if (dropZoneRef.current) dropZoneRef.current.scrollTop = 0;
   };
 
   const uploadFiles = async (files: File[]) => {
@@ -203,7 +226,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
               <Badge
                 variant="default"
                 className="cursor-pointer text-[11px] gap-1"
-                onClick={() => { setActiveTag(""); fetchImages(); }}
+                onClick={() => handleTagClick("")}
               >
                 {activeTag}
                 <X className="w-2.5 h-2.5" />
@@ -217,7 +240,7 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
                   key={tc.tag}
                   variant="outline"
                   className="cursor-pointer text-[11px] hover:bg-muted"
-                  onClick={() => { setActiveTag(tc.tag); }}
+                  onClick={() => handleTagClick(tc.tag)}
                 >
                   {tc.tag}
                   <span className="ml-1 text-muted-foreground">{tc.count}</span>
@@ -338,6 +361,54 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {total} image{total !== 1 ? "s" : ""} &middot; p.{page}/{totalPages}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline" size="sm" className="h-7 w-7 p-0"
+                  disabled={page <= 1 || loading}
+                  onClick={() => handlePageChange(page - 1)}
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "…" ? (
+                      <span key={`e${i}`} className="text-xs text-muted-foreground px-0.5">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === page ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 w-7 p-0 text-xs"
+                        onClick={() => handlePageChange(p as number)}
+                        disabled={loading}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline" size="sm" className="h-7 w-7 p-0"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => handlePageChange(page + 1)}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           )}
         </div>
