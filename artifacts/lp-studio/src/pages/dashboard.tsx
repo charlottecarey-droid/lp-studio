@@ -84,7 +84,7 @@ export default function Dashboard() {
   const statTiles = [
     {
       label: "Live Pages",
-      value: isLoading ? null : running.length,
+      value: (isLoading || pagesLoading) ? null : running.length + allPages.filter(p => p.status === "published").length,
       icon: <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />,
       bigIcon: <Radio className="w-5 h-5 text-emerald-500/40" />,
       color: "text-emerald-600",
@@ -197,7 +197,7 @@ export default function Dashboard() {
                 ? "Loading your workspace…"
                 : isEmpty
                 ? "Set up your first landing page to get started."
-                : `${running.length} page${running.length !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`}
+                : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`; })()}
             </p>
           </div>
           <Link href="/tests/new" className="relative shrink-0">
