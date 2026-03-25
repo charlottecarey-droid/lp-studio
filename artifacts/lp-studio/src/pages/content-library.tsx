@@ -312,6 +312,9 @@ function MediaTab() {
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [editingTags, setEditingTags] = useState<number | null>(null);
   const [editTagValue, setEditTagValue] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -396,46 +399,105 @@ function MediaTab() {
     } catch { /* silent */ }
   };
 
+  const toggleSelect = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = items.length > 0 && items.every(i => selected.has(i.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(items.map(i => i.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Permanently delete ${selected.size} image${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setDeleting(true);
+    await Promise.all([...selected].map(id => fetch(`/api/lp/media/${id}`, { method: "DELETE" }).catch(() => {})));
+    setSelected(new Set());
+    setSelectMode(false);
+    setDeleting(false);
+    await fetchImages();
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex gap-2 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Search by name or tag…"
-            className="pl-8 h-9 text-sm"
-          />
-        </div>
-        <Button
-          variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
-          disabled={!!uploadProgress}
-          onClick={() => fileInputRef.current?.click()}
-          title="Select individual images"
-        >
-          {uploadProgress
-            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
-            : <><Upload className="w-3.5 h-3.5" />Files</>}
-        </Button>
-        <Button
-          variant="outline" size="sm" className="h-9 gap-1.5 shrink-0"
-          disabled={!!uploadProgress}
-          onClick={() => folderInputRef.current?.click()}
-          title="Upload an entire folder — subfolders become tags"
-        >
-          <FolderOpen className="w-3.5 h-3.5" />Folder
-        </Button>
+      <div className="flex gap-2 items-center flex-wrap">
+        {!selectMode ? (
+          <>
+            <div className="relative flex-1 min-w-40">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={e => handleSearchChange(e.target.value)}
+                placeholder="Search by name or tag…"
+                className="pl-8 h-9 text-sm"
+              />
+            </div>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => fileInputRef.current?.click()} title="Select individual images">
+              {uploadProgress
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
+                : <><Upload className="w-3.5 h-3.5" />Files</>}
+            </Button>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => folderInputRef.current?.click()} title="Upload an entire folder — subfolders become tags">
+              <FolderOpen className="w-3.5 h-3.5" />Folder
+            </Button>
+            {items.length > 0 && (
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" onClick={() => setSelectMode(true)}>
+                <Check className="w-3.5 h-3.5" />Select
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <button
+              onClick={toggleSelectAll}
+              className={`flex items-center gap-2 px-3 h-9 rounded-lg border text-sm font-medium transition-colors shrink-0 ${allSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-slate-600 hover:bg-muted"}`}
+            >
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${allSelected ? "bg-primary border-primary" : "border-slate-400"}`}>
+                {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
+              </div>
+              {allSelected ? "Deselect all" : `Select all (${items.length})`}
+            </button>
+            <span className="text-sm text-slate-500 shrink-0">{selected.size} selected</span>
+            <div className="flex-1" />
+            {selected.size > 0 && (
+              <Button
+                size="sm" className="h-9 gap-1.5 shrink-0 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleBulkDelete}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Delete {selected.size}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-9 shrink-0" onClick={exitSelectMode}>
+              <X className="w-3.5 h-3.5 mr-1" />Cancel
+            </Button>
+          </>
+        )}
         <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-        <input
-          ref={folderInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload}
+        <input ref={folderInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload}
           {...{ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
         />
       </div>
 
-      {/* Tag filter chips */}
-      {tagCounts.length > 0 && (
+      {/* Tag filter chips (hidden in select mode) */}
+      {!selectMode && tagCounts.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {activeTag && (
             <Badge variant="default" className="cursor-pointer text-[11px] gap-1" onClick={() => setActiveTag("")}>
@@ -462,7 +524,7 @@ function MediaTab() {
       )}
 
       {/* Image grid */}
-      <div onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+      <div onDrop={!selectMode ? handleDrop : undefined} onDragOver={!selectMode ? e => e.preventDefault() : undefined}>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin mr-2" /><span className="text-sm">Loading…</span>
@@ -478,59 +540,83 @@ function MediaTab() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {items.map(item => (
-              <div key={item.id} className="group relative rounded-xl border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all">
-                <div className="aspect-video">
-                  <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                </div>
-                {/* Delete button */}
-                <button
-                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-600 text-white rounded-lg p-1"
-                  onClick={() => handleDelete(item.id, item.title)}
-                  title="Delete image"
+            {items.map(item => {
+              const isSelected = selected.has(item.id);
+              return (
+                <div
+                  key={item.id}
+                  onClick={selectMode ? () => toggleSelect(item.id) : undefined}
+                  className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all ${
+                    selectMode
+                      ? `cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
+                      : "border-border hover:border-primary/50 hover:shadow-md"
+                  }`}
                 >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-                <div className="p-2">
-                  <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
-                  {editingTags === item.id ? (
-                    <div className="mt-1.5 flex gap-1">
-                      <Input
-                        value={editTagValue}
-                        onChange={e => setEditTagValue(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); if (e.key === "Escape") setEditingTags(null); }}
-                        placeholder="tag1, tag2…"
-                        className="h-6 text-[10px] flex-1"
-                        autoFocus
-                      />
-                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}>
-                        <Check className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingTags(null)}>
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      {item.tags.length > 0
-                        ? item.tags.slice(0, 3).map(t => (
-                          <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
-                        ))
-                        : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
-                      }
-                      {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
-                      <button
-                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                        onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
-                        title="Edit tags"
-                      >
-                        <Tag className="w-3 h-3" />
-                      </button>
+                  <div className="aspect-video">
+                    <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  </div>
+
+                  {/* Checkbox overlay (select mode) */}
+                  {selectMode && (
+                    <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${isSelected ? "bg-primary border-primary" : "bg-white/90 border-slate-400"}`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
                     </div>
                   )}
+
+                  {/* Delete button (normal mode only) */}
+                  {!selectMode && (
+                    <button
+                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-600 text-white rounded-lg p-1"
+                      onClick={e => { e.stopPropagation(); handleDelete(item.id, item.title); }}
+                      title="Delete image"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
+                    {!selectMode && (
+                      editingTags === item.id ? (
+                        <div className="mt-1.5 flex gap-1">
+                          <Input
+                            value={editTagValue}
+                            onChange={e => setEditTagValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); if (e.key === "Escape") setEditingTags(null); }}
+                            placeholder="tag1, tag2…"
+                            className="h-6 text-[10px] flex-1"
+                            autoFocus
+                          />
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}>
+                            <Check className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingTags(null)}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex items-center gap-1 flex-wrap">
+                          {item.tags.length > 0
+                            ? item.tags.slice(0, 3).map(t => (
+                              <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">{t}</span>
+                            ))
+                            : <span className="text-[10px] text-muted-foreground italic">Tagging…</span>
+                          }
+                          {item.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>}
+                          <button
+                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                            onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }}
+                            title="Edit tags"
+                          >
+                            <Tag className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
