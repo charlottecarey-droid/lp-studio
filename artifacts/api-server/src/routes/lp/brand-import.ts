@@ -12,7 +12,7 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-type ImportSection = "colors" | "typography" | "buttons" | "voice" | "all";
+type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "all";
 
 const COLOR_FIELDS = [
   "primaryColor", "accentColor", "navBgColor", "textColor",
@@ -38,13 +38,18 @@ const VOICE_FIELDS = [
   "copyrightName", "defaultCtaText", "navCtaText",
 ];
 
+const PRODUCT_FIELDS = [
+  "productLines",
+];
+
 function getFieldsForSection(section: ImportSection): string[] {
   switch (section) {
     case "colors": return COLOR_FIELDS;
     case "typography": return TYPOGRAPHY_FIELDS;
     case "buttons": return BUTTON_FIELDS;
     case "voice": return VOICE_FIELDS;
-    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS];
+    case "products": return PRODUCT_FIELDS;
+    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS, ...PRODUCT_FIELDS];
   }
 }
 
@@ -93,6 +98,7 @@ function buildPromptForSection(section: ImportSection): string {
     avoidPhrases: "string[] — words/phrases to never use",
     targetAudience: "string — who the copy speaks to",
     copyExamples: "string[] — up to 6 sample headlines or CTAs representing brand voice",
+    productLines: '{ name: string, description: string, valueProps: string[], claims: string[], keywords: string[] }[] — up to 12 product lines. name = product name, description = one-line summary, valueProps = key benefits, claims = provable statements (e.g. "50% faster"), keywords = SEO target keywords',
   };
 
   const fields = getFieldsForSection(section);
@@ -162,6 +168,22 @@ function sanitizeField(field: string, value: unknown): { valid: boolean; sanitiz
     }
     return { valid: false, sanitized: null };
   }
+  if (field === "productLines") {
+    if (Array.isArray(value)) {
+      const filtered = value.filter(
+        (v): v is { name: string; description: string; valueProps: string[]; claims: string[]; keywords: string[] } =>
+          typeof v === "object" && v !== null && typeof v.name === "string" && v.name.trim().length > 0
+      ).map((v) => ({
+        name: v.name.trim(),
+        description: typeof v.description === "string" ? v.description.trim() : "",
+        valueProps: Array.isArray(v.valueProps) ? v.valueProps.filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()).slice(0, 8) : [],
+        claims: Array.isArray(v.claims) ? v.claims.filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()).slice(0, 8) : [],
+        keywords: Array.isArray(v.keywords) ? v.keywords.filter((s: unknown): s is string => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()).slice(0, 12) : [],
+      }));
+      if (filtered.length > 0) return { valid: true, sanitized: filtered.slice(0, 12) };
+    }
+    return { valid: false, sanitized: null };
+  }
   if (field === "messagingPillars") {
     if (Array.isArray(value)) {
       const filtered = value.filter(
@@ -189,9 +211,9 @@ router.post("/lp/brand-import", async (req, res): Promise<void> => {
     return;
   }
 
-  const validSections = new Set<ImportSection>(["colors", "typography", "buttons", "voice", "all"]);
+  const validSections = new Set<ImportSection>(["colors", "typography", "buttons", "voice", "products", "all"]);
   if (!validSections.has(section)) {
-    res.status(400).json({ error: "section must be one of: colors, typography, buttons, voice, all" });
+    res.status(400).json({ error: "section must be one of: colors, typography, buttons, voice, products, all" });
     return;
   }
 

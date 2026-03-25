@@ -39,7 +39,7 @@ interface BrandPreset {
   created_at: string;
 }
 
-type ImportSection = "colors" | "typography" | "buttons" | "voice";
+type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products";
 
 interface ImportResult {
   proposed: Record<string, unknown>;
@@ -276,7 +276,7 @@ export default function BrandSettings() {
   const [importOpen, setImportOpen] = useState(false);
   const [importTab, setImportTab] = useState<ImportSection>("colors");
   const [importTexts, setImportTexts] = useState<Record<ImportSection, string>>({
-    colors: "", typography: "", buttons: "", voice: "",
+    colors: "", typography: "", buttons: "", voice: "", products: "",
   });
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -467,7 +467,7 @@ export default function BrandSettings() {
     setImportResult(null);
     setImportChecked({});
     setImportApplied(false);
-    setImportTexts({ colors: "", typography: "", buttons: "", voice: "" });
+    setImportTexts({ colors: "", typography: "", buttons: "", voice: "", products: "" });
     setImportTab("colors");
   };
 
@@ -1328,7 +1328,7 @@ export default function BrandSettings() {
           ) : (
             <div className="flex flex-col gap-4 py-2">
               <div className="flex border-b border-border">
-                {(["colors", "typography", "buttons", "voice"] as ImportSection[]).map((tab) => (
+                {(["colors", "typography", "buttons", "voice", "products"] as ImportSection[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setImportTab(tab)}
@@ -1351,6 +1351,7 @@ export default function BrandSettings() {
                   importTab === "colors" ? "Paste hex values, color names, or descriptions..." :
                   importTab === "typography" ? "Paste font names, size scales, weight specs..." :
                   importTab === "buttons" ? "Paste button style descriptions..." :
+                  importTab === "products" ? "Paste product names, descriptions, value props, claims, keywords..." :
                   "Paste tone of voice, pillars, taglines, sample copy..."
                 }
                 className="min-h-[160px] text-sm resize-none"
