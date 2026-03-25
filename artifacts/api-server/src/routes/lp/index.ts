@@ -18,6 +18,7 @@ import formNotificationsRouter from "./form-notifications";
 import formsRouter from "./forms";
 import generatePageRouter from "./generate-page";
 import seoAnalyzeRouter from "./seo-analyze";
+import seoMetaGenerateRouter from "./seo-meta-generate";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use(formNotificationsRouter);
 router.use(formsRouter);
 router.use(generatePageRouter);
 router.use(seoAnalyzeRouter);
+router.use(seoMetaGenerateRouter);
 
 export default router;

@@ -1172,7 +1172,10 @@ export default function BuilderEditor() {
 
                 {/* Divider */}
                 <div className="border-t border-border pt-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">SEO &amp; Metadata</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO &amp; Metadata</p>
+                    <AutoMetaButton blocks={blocks} title={title} onGenerated={(mt, md) => { setMetaTitle(mt); setMetaDescription(md); setTimeout(handleSave, 100); }} />
+                  </div>
                 </div>
 
                 {/* Meta title */}
@@ -1261,6 +1264,53 @@ export default function BuilderEditor() {
         </aside>
       </div>
     </div>
+  );
+}
+
+// ── Auto-fill Meta Tags ──────────────────────────────────────────────────
+
+function AutoMetaButton({
+  blocks,
+  title,
+  onGenerated,
+}: {
+  blocks: PageBlock[];
+  title: string;
+  onGenerated: (metaTitle: string, metaDescription: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleAutoFill = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/lp/seo-meta-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks, title }),
+      });
+      if (!res.ok) throw new Error("Failed to generate");
+      const data = await res.json() as { metaTitle: string; metaDescription: string };
+      onGenerated(data.metaTitle, data.metaDescription);
+    } catch {
+      // Silent fail — button just stops loading
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleAutoFill}
+      disabled={loading || blocks.length === 0}
+      className={cn(
+        "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+        "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20",
+        (loading || blocks.length === 0) && "opacity-50 cursor-not-allowed"
+      )}
+    >
+      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+      Auto-fill
+    </button>
   );
 }
 
