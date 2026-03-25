@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -320,6 +320,8 @@ function MediaTab() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [reclassifyMsg, setReclassifyMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -457,6 +459,23 @@ function MediaTab() {
     setSelected(new Set());
   };
 
+  const handleReclassify = async () => {
+    if (reclassifying) return;
+    setReclassifying(true);
+    setReclassifyMsg("Starting…");
+    try {
+      const res = await fetch("/api/lp/media/reclassify", { method: "POST" });
+      const data = await res.json() as { total: number; message?: string };
+      setReclassifyMsg(data.total === 0
+        ? "All images already classified!"
+        : `Classifying ${data.total} images in the background — refresh in a moment.`);
+      setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 5000);
+    } catch {
+      setReclassifyMsg("Failed to start.");
+      setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 3000);
+    }
+  };
+
   const totalCount = tagCounts.reduce((sum, tc) => sum + tc.count, 0);
 
   return (
@@ -490,6 +509,26 @@ function MediaTab() {
                 <span className={`text-[11px] ml-1 shrink-0 ${activeTag === tc.tag ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{tc.count}</span>
               </button>
             ))}
+          </div>
+
+          {/* Classify existing images */}
+          <div className="mt-4 pt-3 border-t border-border">
+            <button
+              onClick={handleReclassify}
+              disabled={reclassifying}
+              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              title="Classify your existing images so the AI page generator uses hero/lifestyle images in hero sections and product shots in product sections"
+            >
+              {reclassifying
+                ? <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                : <Sparkles className="w-3 h-3 shrink-0" />}
+              <span className="text-left leading-tight">
+                {reclassifying ? "Classifying…" : "Classify for AI"}
+              </span>
+            </button>
+            {reclassifyMsg && (
+              <p className="mt-1.5 px-2.5 text-[10px] text-muted-foreground leading-tight">{reclassifyMsg}</p>
+            )}
           </div>
         </div>
       )}

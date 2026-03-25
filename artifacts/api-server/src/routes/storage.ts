@@ -88,7 +88,15 @@ const PRELOADED_VIDEOS = [
   },
 ];
 
-/** Auto-tag an image using GPT-4o vision (runs in background, never blocks upload) */
+const VALID_PURPOSES = ["lp-hero", "lp-feature", "product-detail"] as const;
+type ImagePurpose = typeof VALID_PURPOSES[number];
+
+/** Auto-tag an image using GPT-4o vision (runs in background, never blocks upload).
+ *  Also assigns a landing-page purpose tag:
+ *   "lp-hero"        — lifestyle, people, environments, smiles, clinic shots (hero sections)
+ *   "lp-feature"     — clean product/procedure shots, moderate close-ups (feature rows)
+ *   "product-detail" — very close-up product, diagrams, spec/guide illustrations
+ */
 async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[] = []) {
   try {
     const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
@@ -106,24 +114,55 @@ async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: stri
         {
           role: "system",
           content:
-            "You are an image tagger for a marketing asset library. Return ONLY a JSON array of 3-6 short descriptive tags (lowercase, 1-3 words each). Tags should describe the subject, style, mood, and use case. Example: [\"dental office\", \"team photo\", \"modern\", \"hero image\", \"professional\"]",
+            `You are an image tagger for a dental/medical marketing asset library. Return ONLY a valid JSON object (no markdown, no explanation):
+{
+  "tags": ["tag1", "tag2"],
+  "purpose": "lp-hero"
+}
+Rules:
+- "tags": 3–6 short lowercase descriptive tags (1–3 words each) describing subject, style, and mood.
+- "purpose": exactly one of:
+    "lp-hero"        → lifestyle shot, people smiling, team/clinic environment, before-after results, patient story — suitable as a landing page hero
+    "lp-feature"     → clean product/procedure angle, moderate close-up of a device or service, good for a feature row
+    "product-detail" → extreme close-up, technical diagram, spec illustration, guide graphic, not suitable as a hero`,
         },
         {
           role: "user",
           content: [
             { type: "image_url", image_url: { url: dataUri, detail: "low" } },
-            { type: "text", text: "Tag this image." },
+            { type: "text", text: "Tag this image and classify its landing page purpose." },
           ],
         },
       ],
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
     const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    const aiTags = JSON.parse(cleaned);
-    if (Array.isArray(aiTags) && aiTags.length > 0) {
-      // Merge folder tags + AI tags, deduplicated, capped at 10
-      const merged = [...new Set([...existingTags, ...aiTags])].slice(0, 10);
+
+    let aiTags: string[] = [];
+    let purpose: ImagePurpose | "" = "";
+
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) {
+        // Graceful fallback: old plain-array format
+        aiTags = parsed;
+      } else if (parsed && typeof parsed === "object") {
+        if (Array.isArray(parsed.tags)) aiTags = parsed.tags;
+        if (typeof parsed.purpose === "string" && VALID_PURPOSES.includes(parsed.purpose as ImagePurpose)) {
+          purpose = parsed.purpose as ImagePurpose;
+        }
+      }
+    } catch {
+      // JSON parse failed — skip tagging
+    }
+
+    if (aiTags.length > 0 || purpose) {
+      // Purpose tag goes first (guaranteed slot outside the 10-tag cap for regular tags)
+      const purposeArr: string[] = purpose ? [purpose] : [];
+      // Remove any stale purpose tags from existing tags before merging
+      const cleanedExisting = existingTags.filter(t => !VALID_PURPOSES.includes(t as ImagePurpose));
+      const merged = [...new Set([...purposeArr, ...cleanedExisting, ...aiTags])].slice(0, 11);
       await db
         .update(lpMediaTable)
         .set({ tags: merged })
@@ -133,6 +172,89 @@ async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: stri
     // Auto-tagging is best-effort — never fail the upload
   }
 }
+
+/** Re-classify just the purpose (lp-hero/lp-feature/product-detail) for an image that already has content tags.
+ *  Much lighter than full autoTagImage — only updates the purpose prefix tag.
+ */
+async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[]): Promise<void> {
+  try {
+    const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+    const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+    if (!baseURL || !apiKey) return;
+
+    const openai = new OpenAI({ baseURL, apiKey });
+    const base64 = imageBuffer.toString("base64");
+    const dataUri = `data:${mimeType};base64,${base64}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_completion_tokens: 20,
+      messages: [
+        {
+          role: "system",
+          content:
+            `Classify this image's landing page purpose. Reply with ONLY one of these exact strings:
+lp-hero       → lifestyle, people, smiles, clinic/team environment, before-after results — good as a landing page hero
+lp-feature    → clean product/procedure angle, moderate close-up, good for a feature section
+product-detail → extreme close-up, technical diagram, spec illustration, guide graphic — not suitable as a hero`,
+        },
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: dataUri, detail: "low" } },
+            { type: "text", text: "Reply with only the purpose string." },
+          ],
+        },
+      ],
+    });
+
+    const raw = (completion.choices[0]?.message?.content?.trim() ?? "").toLowerCase();
+    const purpose = VALID_PURPOSES.find(p => raw.includes(p));
+    if (!purpose) return;
+
+    // Remove any stale purpose tags, prepend new one
+    const cleanedTags = existingTags.filter(t => !VALID_PURPOSES.includes(t as typeof VALID_PURPOSES[number]));
+    const merged = [purpose, ...cleanedTags].slice(0, 11);
+    await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
+  } catch {
+    // best-effort
+  }
+}
+
+/** Reclassify all images that don't yet have a purpose tag */
+router.post("/lp/media/reclassify", async (req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({ id: lpMediaTable.id, url: lpMediaTable.url, mimeType: lpMediaTable.mimeType, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"));
+
+    const unclassified = rows.filter(r => {
+      const tags = (r.tags as string[]) ?? [];
+      return !tags.some(t => VALID_PURPOSES.includes(t as typeof VALID_PURPOSES[number]));
+    });
+
+    res.json({ total: unclassified.length, message: `Reclassifying ${unclassified.length} images in the background…` });
+
+    // Process in background — fetch each image buffer from local serve URL
+    setImmediate(async () => {
+      const port = process.env.PORT ?? "8080";
+      for (const row of unclassified) {
+        try {
+          const fullUrl = `http://localhost:${port}${row.url}`;
+          const resp = await fetch(fullUrl);
+          if (!resp.ok) continue;
+          const buffer = Buffer.from(await resp.arrayBuffer());
+          const mimeType = row.mimeType ?? "image/jpeg";
+          await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
+        } catch { /* skip on error */ }
+      }
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Error starting reclassification");
+    res.status(500).json({ error: "Failed to start reclassification" });
+  }
+});
 
 router.post("/lp/upload", (req: Request, res: Response) => {
   imageUpload.single("file")(req, res, async (err) => {

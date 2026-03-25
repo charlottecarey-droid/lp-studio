@@ -47,7 +47,18 @@ interface MediaImage {
   tags: string[];
 }
 
-/** Fetch all images from the media library grouped by tag for AI context */
+const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
+const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail"]);
+
+/** Get the landing-page purpose of an image (first purpose tag found, or "" for unclassified) */
+function getImagePurpose(img: MediaImage): string {
+  for (const t of img.tags) {
+    if (PURPOSE_TAGS.includes(t as typeof PURPOSE_TAGS[number])) return t;
+  }
+  return "";
+}
+
+/** Fetch all images from the media library, separated by purpose for AI context */
 async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText: string }> {
   try {
     const rows = await db
@@ -65,27 +76,46 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
 
     if (images.length === 0) return { images, catalogText: "" };
 
-    // Group by primary tag and pick representative images per tag
-    const tagGroups = new Map<string, MediaImage[]>();
-    for (const img of images) {
-      for (const tag of img.tags) {
-        const lowerTag = tag.toLowerCase();
-        // Skip generic tags
-        if (["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art"].includes(lowerTag)) continue;
-        if (!tagGroups.has(lowerTag)) tagGroups.set(lowerTag, []);
-        tagGroups.get(lowerTag)!.push(img);
+    // Separate into purpose buckets
+    const heroImages = images.filter(i => getImagePurpose(i) === "lp-hero");
+    const featureImages = images.filter(i => getImagePurpose(i) === "lp-feature");
+    const detailImages = images.filter(i => getImagePurpose(i) === "product-detail");
+    const unclassified = images.filter(i => getImagePurpose(i) === "");
+
+    const buildSection = (imgs: MediaImage[], label: string): string => {
+      const tagGroups = new Map<string, MediaImage[]>();
+      for (const img of imgs) {
+        for (const tag of img.tags) {
+          const t = tag.toLowerCase();
+          if (SKIP_TAGS.has(t)) continue;
+          if (!tagGroups.has(t)) tagGroups.set(t, []);
+          tagGroups.get(t)!.push(img);
+        }
       }
-    }
+      if (tagGroups.size === 0 && imgs.length > 0) {
+        // No content tags — just list raw URLs
+        const samples = imgs.slice(0, 6).map(i => i.url);
+        return `[${label}]\n  (untagged, ${imgs.length} images): ${samples.join(" , ")}`;
+      }
+      if (tagGroups.size === 0) return "";
+      const lines = [...tagGroups.entries()]
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([tag, grpImgs]) => `  "${tag}" (${grpImgs.length}): ${grpImgs.slice(0, 3).map(i => i.url).join(" , ")}`);
+      return `[${label}]\n${lines.join("\n")}`;
+    };
 
-    // Build a concise catalog — up to 3 representative URLs per tag
-    const lines: string[] = [];
-    for (const [tag, imgs] of [...tagGroups.entries()].sort((a, b) => b[1].length - a[1].length)) {
-      const samples = imgs.slice(0, 3).map(i => i.url);
-      lines.push(`  "${tag}" (${imgs.length} images): ${samples.join(" , ")}`);
-    }
+    const sections: string[] = [];
+    const heroSection = buildSection(heroImages, "HERO & LIFESTYLE — use these for hero imageUrl; lifestyle, people, clinic, results");
+    const featureSection = buildSection(featureImages, "FEATURE IMAGES — use these for zigzag-features rows and photo-strip");
+    const detailSection = buildSection(detailImages, "PRODUCT DETAIL — use ONLY for product-grid items, never for hero");
+    const unclassifiedSection = buildSection(unclassified, "OTHER — unclassified images, use judiciously");
+    if (heroSection) sections.push(heroSection);
+    if (featureSection) sections.push(featureSection);
+    if (detailSection) sections.push(detailSection);
+    if (unclassifiedSection) sections.push(unclassifiedSection);
 
-    const catalogText = lines.length > 0
-      ? `\nIMAGE LIBRARY — Use these real image URLs in imageUrl, image, and src props:\n${lines.join("\n")}\n`
+    const catalogText = sections.length > 0
+      ? `\nIMAGE LIBRARY — Pick URLs from the correct section for each block type:\n${sections.join("\n\n")}\n`
       : "";
 
     return { images, catalogText };
@@ -94,29 +124,54 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
   }
 }
 
-/** Find the best matching image from the library for a given context string */
-function findBestImage(context: string, images: MediaImage[], usedUrls: Set<string>): string {
+/**
+ * Find the best matching image for a given context string.
+ * preferredPurpose: "lp-hero" | "lp-feature" | "product-detail" | undefined
+ *   — images matching the preferred purpose get a large score boost
+ *   — images explicitly mismatched (e.g. product-detail requested for hero) get penalised
+ */
+function findBestImage(
+  context: string,
+  images: MediaImage[],
+  usedUrls: Set<string>,
+  preferredPurpose?: string,
+): string {
   if (images.length === 0) return "";
   const contextLower = context.toLowerCase();
   const contextWords = contextLower.split(/\s+/);
 
-  // Score each image by how many of its tags appear in the context
   let best: MediaImage | null = null;
-  let bestScore = 0;
+  let bestScore = -Infinity;
 
   for (const img of images) {
-    if (usedUrls.has(img.url)) continue; // avoid duplicates
+    if (usedUrls.has(img.url)) continue;
     let score = 0;
+
+    const imgPurpose = getImagePurpose(img);
+
+    // Purpose scoring
+    if (preferredPurpose) {
+      if (imgPurpose === preferredPurpose) {
+        score += 8; // strong boost for matching purpose
+      } else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
+        // penalise mismatches — especially keep product-detail out of hero slots
+        if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
+        else if (preferredPurpose === "lp-feature" && imgPurpose === "product-detail") score -= 4;
+        else score -= 2;
+      }
+      // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
+    }
+
+    // Content tag matching
     for (const tag of img.tags) {
       const tagLower = tag.toLowerCase();
-      // Skip generic tags
-      if (["untitled folder", "web res", "high res", "abstract", "modern", "professional"].includes(tagLower)) continue;
+      if (SKIP_TAGS.has(tagLower)) continue;
       if (contextLower.includes(tagLower)) score += 3;
-      // Partial word matches
       for (const word of tagLower.split(/\s+/)) {
         if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
       }
     }
+
     // Title match
     const titleLower = (img.title ?? "").toLowerCase();
     if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
@@ -127,14 +182,21 @@ function findBestImage(context: string, images: MediaImage[], usedUrls: Set<stri
     }
   }
 
-  if (best && bestScore > 0) {
+  // Only use images with a non-negative score (avoids forcing a product-detail into hero)
+  if (best && bestScore >= 0) {
     usedUrls.add(best.url);
     return best.url;
   }
   return "";
 }
 
-/** Post-process blocks to fill in empty image URLs from the media library */
+/** Post-process blocks to fill in empty image URLs from the media library.
+ *  Each block type requests images with the appropriate landing-page purpose:
+ *    hero           → "lp-hero"   (lifestyle, people, clinic shots)
+ *    zigzag-features → "lp-feature" (clean product/procedure angles)
+ *    photo-strip    → "lp-feature"
+ *    product-grid   → "product-detail" (close-ups OK here)
+ */
 function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
   if (images.length === 0) return blocks;
   const usedUrls = new Set<string>();
@@ -165,7 +227,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     }
   }
 
-  // Second pass: fill empty URLs
+  // Second pass: fill empty URLs with purpose-aware selection
   return blocks.map((block) => {
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown>) };
@@ -174,39 +236,42 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     const subheadline = (props.subheadline as string) ?? "";
     const blockContext = `${blockType} ${headline} ${subheadline}`;
 
-    // Hero / product-showcase imageUrl
-    if (("imageUrl" in props) && !props.imageUrl) {
-      props.imageUrl = findBestImage(blockContext, images, usedUrls);
+    // Hero imageUrl → prefer lifestyle/people shots
+    if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
+      props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+    } else if ("imageUrl" in props && !props.imageUrl) {
+      // Other blocks with imageUrl (e.g. product-showcase) → feature images
+      props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-feature");
     }
 
-    // zigzag-features rows
+    // zigzag-features rows → feature images
     if (Array.isArray(props.rows)) {
       props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
         if (!row.imageUrl) {
           const rowContext = `${row.tag ?? ""} ${row.headline ?? ""} ${row.body ?? ""}`;
-          return { ...row, imageUrl: findBestImage(rowContext, images, usedUrls) };
+          return { ...row, imageUrl: findBestImage(rowContext, images, usedUrls, "lp-feature") };
         }
         return row;
       });
     }
 
-    // photo-strip images
+    // photo-strip → feature images (lifestyle/environment variety)
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
       props.images = (props.images as Record<string, unknown>[]).map((img) => {
         if (!img.src) {
           const alt = (img.alt as string) ?? blockContext;
-          return { ...img, src: findBestImage(alt, images, usedUrls) };
+          return { ...img, src: findBestImage(alt, images, usedUrls, "lp-feature") };
         }
         return img;
       });
     }
 
-    // product-grid items
+    // product-grid items → product-detail is fine here
     if (Array.isArray(props.items)) {
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: findBestImage(itemContext, images, usedUrls) };
+          return { ...item, image: findBestImage(itemContext, images, usedUrls, "product-detail") };
         }
         return item;
       });
@@ -284,7 +349,12 @@ RULES:
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
-9. IMAGES: If an IMAGE LIBRARY section is provided, use the real image URLs from it for hero imageUrl, zigzag-features imageUrl, photo-strip src, and product-grid image props. Match images to content by choosing URLs from the most relevant tag category (e.g. use "crown & bridge" images for crown content, "full dentures" images for denture content, "doctors & staff" for people shots). Use heroType "static-image" when you have a hero image. If no library is provided or no relevant images exist, use empty string "".
+9. IMAGES: The IMAGE LIBRARY is divided into sections — you MUST follow these rules strictly:
+   - hero imageUrl → use ONLY images from the "HERO & LIFESTYLE" section (lifestyle, people, clinic, results shots). NEVER use product-detail or close-up images in a hero.
+   - zigzag-features imageUrl and photo-strip src → use images from "FEATURE IMAGES" section. "HERO & LIFESTYLE" is also acceptable here.
+   - product-grid image → use images from "PRODUCT DETAIL" section. "FEATURE IMAGES" is also acceptable.
+   - Match images to the specific content topic (e.g. crown images for crown content, team photos for people-focused sections).
+   - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.`;
 
