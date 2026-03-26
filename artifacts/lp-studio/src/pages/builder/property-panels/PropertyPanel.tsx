@@ -28,6 +28,7 @@ import { FooterPanel } from "./FooterPanel";
 import { FormPanel } from "./FormPanel";
 import { PopupPanel } from "./PopupPanel";
 import { StickyBarPanel } from "./StickyBarPanel";
+import { SpacerPanel } from "./SpacerPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -243,6 +244,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             onApplyCtaToAll={onApplyCtaToAll}
+          />
+        );
+      case "spacer":
+        return (
+          <SpacerPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       default: {

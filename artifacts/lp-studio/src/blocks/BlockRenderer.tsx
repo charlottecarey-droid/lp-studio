@@ -329,6 +329,15 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
           />
         );
+      case "spacer":
+        return (
+          <div
+            style={{
+              height: `${block.props.height}px`,
+              backgroundColor: block.props.backgroundColor === "transparent" ? undefined : block.props.backgroundColor,
+            }}
+          />
+        );
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

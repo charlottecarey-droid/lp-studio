@@ -185,6 +185,11 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+export interface SpacerBlockProps {
+  height: number;
+  backgroundColor: string;
+}
+
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
 
 /** Condition that controls whether a step or field is shown */
@@ -394,7 +399,8 @@ type BlockVariant =
   | { type: "footer"; props: FooterBlockProps }
   | { type: "form"; props: FormBlockProps }
   | { type: "popup"; props: PopupBlockProps }
-  | { type: "sticky-bar"; props: StickyBarBlockProps };
+  | { type: "sticky-bar"; props: StickyBarBlockProps }
+  | { type: "spacer"; props: SpacerBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -799,6 +805,22 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "spacer",
+    label: "Spacer",
+    category: "Layout",
+    defaultProps: (): SpacerBlockProps => ({ height: 64, backgroundColor: "transparent" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <line x1="10" y1="20" x2="110" y2="20" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 3" />
+        <line x1="10" y1="50" x2="110" y2="50" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 3" />
+        <text x="60" y="38" textAnchor="middle" fill="#94a3b8" fontSize="8" fontFamily="sans-serif">Spacer</text>
+        <path d="M60 24 L60 28 M57 26 L60 23 L63 26" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" />
+        <path d="M60 46 L60 42 M57 44 L60 47 L63 44" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     type: "custom-html",
     label: "Custom HTML",
     category: "Content",
@@ -1196,6 +1218,7 @@ export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer"
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
 export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
+export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1228,6 +1251,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "form": return { id, type: "form", props: props as FormBlockProps };
     case "popup": return { id, type: "popup", props: props as PopupBlockProps };
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
+    case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
   }
 }
 
