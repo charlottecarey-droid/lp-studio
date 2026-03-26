@@ -361,7 +361,9 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
     return res.json({ email });
   }
 
-  return res.status(500).json({ error: "No AI API key configured. Set GEMINI_API_KEY or OPENAI_API_KEY." });
+  // No AI key — return a placeholder so the editor still opens
+  const email = `Subject: Transforming Lab Operations at ${(prompt.match(/company[:\s]+([^\n,]+)/i) || [])[1] || "your organization"}\n\nHi [First Name],\n\n[Configure GEMINI_API_KEY or OPENAI_API_KEY to generate AI-written emails.]\n\nBest,\n[Your Name]`;
+  return res.json({ email });
 }
 
 // ─── Handler: account-briefing ────────────────────────────────────────────────
@@ -414,47 +416,42 @@ async function handleAccountBriefing(req: Request, res: Response, body: any) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-  if (!PERPLEXITY_API_KEY) {
-    return res.status(500).json({ success: false, error: "PERPLEXITY_API_KEY not configured" });
-  }
-  if (!GEMINI_API_KEY && !OPENAI_API_KEY) {
-    return res.status(500).json({ success: false, error: "No AI synthesis key configured (GEMINI_API_KEY or OPENAI_API_KEY)" });
-  }
-
   try {
     const { company_name, company_url, additional_context, tier } = body;
     if (!company_name) return res.status(400).json({ success: false, error: "Missing company_name" });
 
     const allSources: string[] = [];
 
-    // Step 1: Perplexity research
-    const perplexityPrompt = `Research this dental DSO company for a B2B sales team at Dandy (a dental lab platform): "${company_name}"${company_url ? ` (website: ${company_url})` : ""}.
+    // Step 1: Perplexity research (optional — skipped if key not configured)
+    let researchText = "";
+    if (PERPLEXITY_API_KEY) {
+      const perplexityPrompt = `Research this dental DSO company for a B2B sales team at Dandy (a dental lab platform): "${company_name}"${company_url ? ` (website: ${company_url})` : ""}.
 
 Find: executive leadership team, practice count, states/locations, PE backing or ownership structure, recent news, current lab/scanning technology, revenue estimates, and any info relevant to a dental lab partnership conversation.
 
 Be specific and cite sources.`;
 
-    const perplexityRes = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [{ role: "user", content: perplexityPrompt }],
-        return_citations: true,
-      }),
-    });
+      const perplexityRes = await fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [{ role: "user", content: perplexityPrompt }],
+          return_citations: true,
+        }),
+      });
 
-    let researchText = "";
-    if (perplexityRes.ok) {
-      const perplexityData = await perplexityRes.json() as any;
-      researchText = perplexityData.choices?.[0]?.message?.content ?? "";
-      const citations = perplexityData.citations ?? [];
-      allSources.push(...citations);
-    } else {
-      console.warn("Perplexity error:", await perplexityRes.text());
+      if (perplexityRes.ok) {
+        const perplexityData = await perplexityRes.json() as any;
+        researchText = perplexityData.choices?.[0]?.message?.content ?? "";
+        const citations = perplexityData.citations ?? [];
+        allSources.push(...citations);
+      } else {
+        console.warn("Perplexity error:", await perplexityRes.text());
+      }
     }
 
     // Step 2: Firecrawl website scrape (optional)
@@ -575,13 +572,38 @@ Based on the research data above, create a detailed, actionable briefing. Return
       }
     }
 
-    // Parse JSON response
+    // Parse JSON response — or return a minimal static briefing if no AI key configured
     let briefing: any;
-    try {
-      const cleaned = briefingJson.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
-      briefing = JSON.parse(cleaned);
-    } catch {
-      return res.status(500).json({ success: false, error: "Failed to parse AI response as JSON" });
+    if (!briefingJson && !GEMINI_API_KEY && !OPENAI_API_KEY) {
+      briefing = {
+        companyName: company_name,
+        overview: `${company_name} is a dental DSO. Configure GEMINI_API_KEY or OPENAI_API_KEY to generate a full AI briefing.`,
+        tier: tier || "Unknown",
+        tierRationale: "AI synthesis not configured.",
+        organizationalModel: "Unknown",
+        leadership: [],
+        sizeAndLocations: { practiceCount: "Unknown", states: [], headquarters: "Unknown", estimatedRevenue: null, peBackerOrOwnership: "Unknown" },
+        recentNews: [],
+        currentLabSetup: "Not available without AI synthesis.",
+        buyingCommittee: [],
+        dandyFitAnalysis: {
+          primaryValueProp: "Add an AI API key to generate personalized value props.",
+          keyPainPoints: [],
+          relevantProofPoints: [],
+          potentialObjections: [],
+          recommendedPilotApproach: "Configure an AI key to generate pilot recommendations.",
+        },
+        micrositeRecommendations: { heroHeadline: company_name, contentFocus: "General Dandy value props", ctaStrategy: "Book a demo" },
+        _note: researchText ? `Research was gathered via Perplexity. Add GEMINI_API_KEY or OPENAI_API_KEY to synthesize it into a structured briefing.` : "No AI keys configured. Add PERPLEXITY_API_KEY and GEMINI_API_KEY (or OPENAI_API_KEY) to enable full AI briefings.",
+        _rawResearch: researchText || null,
+      };
+    } else {
+      try {
+        const cleaned = briefingJson.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+        briefing = JSON.parse(cleaned);
+      } catch {
+        return res.status(500).json({ success: false, error: "Failed to parse AI response as JSON" });
+      }
     }
 
     // Validate source URLs against trusted domains
