@@ -148,6 +148,300 @@ async function runMigrations() {
         device text,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+
+      -- ─── DSO tables (dso_ prefix to avoid collisions) ─────────────────────
+
+      CREATE TABLE IF NOT EXISTS dso_microsites (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        slug text UNIQUE NOT NULL,
+        company_name text NOT NULL,
+        briefing_data jsonb NOT NULL DEFAULT '{}',
+        tier text,
+        skin text NOT NULL DEFAULT 'executive',
+        salesforce_id text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_practice_signups (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_slug text NOT NULL,
+        company_name text NOT NULL,
+        practice_name text NOT NULL,
+        contact_name text NOT NULL,
+        contact_email text NOT NULL,
+        contact_phone text,
+        practice_address text,
+        num_operatories integer,
+        notes text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_views (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid NOT NULL REFERENCES dso_microsites(id) ON DELETE CASCADE,
+        slug text NOT NULL,
+        viewed_at timestamptz NOT NULL DEFAULT now(),
+        referrer text,
+        user_agent text
+      );
+      CREATE INDEX IF NOT EXISTS idx_dso_microsite_views_slug ON dso_microsite_views(slug);
+      CREATE INDEX IF NOT EXISTS idx_dso_microsite_views_microsite_id ON dso_microsite_views(microsite_id);
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_hotlinks (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid NOT NULL REFERENCES dso_microsites(id) ON DELETE CASCADE,
+        recipient_name text NOT NULL,
+        token text NOT NULL UNIQUE,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      ALTER TABLE dso_microsite_views
+        ADD COLUMN IF NOT EXISTS hotlink_id uuid REFERENCES dso_microsite_hotlinks(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid NOT NULL REFERENCES dso_microsites(id) ON DELETE CASCADE,
+        slug text NOT NULL,
+        event_type text NOT NULL,
+        event_data jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dso_microsite_events_microsite_id ON dso_microsite_events(microsite_id);
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_alerts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid NOT NULL REFERENCES dso_microsites(id) ON DELETE CASCADE,
+        alert_type text NOT NULL,
+        title text NOT NULL,
+        detail jsonb DEFAULT '{}',
+        is_read boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_alert_emails (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid NOT NULL REFERENCES dso_microsites(id) ON DELETE CASCADE,
+        email text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(microsite_id, email)
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_ab_tests (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        skin_key text NOT NULL,
+        test_name text NOT NULL,
+        content_block text NOT NULL,
+        variant_a_label text NOT NULL,
+        variant_a_value text NOT NULL,
+        variant_b_label text NOT NULL,
+        variant_b_value text NOT NULL,
+        success_metric text NOT NULL DEFAULT 'views',
+        status text NOT NULL DEFAULT 'draft',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        started_at timestamptz
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_microsite_ab_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        test_id uuid NOT NULL REFERENCES dso_microsite_ab_tests(id) ON DELETE CASCADE,
+        variant text NOT NULL,
+        event_type text NOT NULL,
+        time_on_page_seconds numeric,
+        visitor_id text,
+        microsite_id uuid,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_target_contacts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        salesforce_id text,
+        parent_company text NOT NULL DEFAULT '',
+        first_name text,
+        last_name text,
+        title text,
+        title_level text,
+        department text,
+        contact_role text,
+        email text,
+        phone text,
+        linkedin_url text,
+        gender text,
+        dso_size text,
+        pe_firm text,
+        created_at timestamptz DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_dso_target_contacts_email ON dso_target_contacts (LOWER(email)) WHERE email IS NOT NULL AND email != '';
+
+      CREATE TABLE IF NOT EXISTS dso_email_lists (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        description text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_email_list_members (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        list_id uuid NOT NULL REFERENCES dso_email_lists(id) ON DELETE CASCADE,
+        contact_id uuid NOT NULL REFERENCES dso_target_contacts(id) ON DELETE CASCADE,
+        added_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (list_id, contact_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_marketing_templates (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        subject text NOT NULL,
+        html_body text,
+        plain_body text,
+        format text NOT NULL DEFAULT 'plain',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_email_campaigns (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        list_id uuid REFERENCES dso_email_lists(id),
+        template_id uuid REFERENCES dso_marketing_templates(id),
+        template_b_id uuid REFERENCES dso_marketing_templates(id),
+        status text NOT NULL DEFAULT 'draft',
+        utm_source text DEFAULT 'dandy_dso',
+        utm_medium text DEFAULT 'email',
+        utm_campaign text,
+        utm_content text,
+        sender_name text NOT NULL DEFAULT 'Dandy DSO Partnerships',
+        sender_email text NOT NULL DEFAULT 'partnerships',
+        reply_to_email text NOT NULL DEFAULT 'sales@meetdandy.com',
+        ab_test_enabled boolean NOT NULL DEFAULT false,
+        scheduled_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_email_campaign_sends (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id uuid NOT NULL REFERENCES dso_email_campaigns(id) ON DELETE CASCADE,
+        contact_id uuid REFERENCES dso_target_contacts(id),
+        recipient_email text NOT NULL,
+        status text NOT NULL DEFAULT 'pending',
+        sent_at timestamptz,
+        opened_at timestamptz,
+        clicked_at timestamptz,
+        variant text
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_email_outreach_log (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        microsite_id uuid REFERENCES dso_microsites(id) ON DELETE SET NULL,
+        hotlink_id uuid REFERENCES dso_microsite_hotlinks(id) ON DELETE SET NULL,
+        contact_id uuid REFERENCES dso_target_contacts(id) ON DELETE SET NULL,
+        recipient_email text NOT NULL,
+        recipient_name text NOT NULL,
+        subject text,
+        sent_at timestamptz NOT NULL DEFAULT now(),
+        opened_at timestamptz,
+        clicked_at timestamptz
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_email_unsubscribes (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL UNIQUE,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_suppressed_emails (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL UNIQUE,
+        reason text NOT NULL DEFAULT 'bounce',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_layout_defaults (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        template_key text NOT NULL UNIQUE,
+        config jsonb NOT NULL DEFAULT '{}',
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_custom_templates (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text NOT NULL,
+        background_url text NOT NULL DEFAULT '',
+        orientation text NOT NULL DEFAULT 'portrait',
+        fields jsonb NOT NULL DEFAULT '[]',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS dso_pdf_submissions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        dso_name text NOT NULL,
+        practice_count integer NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE OR REPLACE FUNCTION fn_dso_alert_on_view()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      DECLARE
+        site_name text;
+        hl_name text;
+      BEGIN
+        SELECT company_name INTO site_name FROM dso_microsites WHERE id = NEW.microsite_id;
+        IF NEW.hotlink_id IS NOT NULL THEN
+          SELECT recipient_name INTO hl_name FROM dso_microsite_hotlinks WHERE id = NEW.hotlink_id;
+        END IF;
+        INSERT INTO dso_microsite_alerts (microsite_id, alert_type, title, detail)
+        VALUES (
+          NEW.microsite_id,
+          CASE WHEN NEW.hotlink_id IS NOT NULL THEN 'hotlink_visit' ELSE 'page_visit' END,
+          CASE WHEN hl_name IS NOT NULL THEN hl_name || ' visited ' || COALESCE(site_name, 'a microsite')
+               ELSE 'New visit on ' || COALESCE(site_name, 'a microsite') END,
+          jsonb_build_object('slug', NEW.slug, 'recipient_name', hl_name, 'referrer', NEW.referrer)
+        );
+        RETURN NEW;
+      END;
+      $$;
+
+      DROP TRIGGER IF EXISTS trg_dso_alert_on_view ON dso_microsite_views;
+      CREATE TRIGGER trg_dso_alert_on_view AFTER INSERT ON dso_microsite_views
+      FOR EACH ROW EXECUTE FUNCTION fn_dso_alert_on_view();
+
+      CREATE OR REPLACE FUNCTION fn_dso_alert_on_event()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      DECLARE
+        site_name text;
+      BEGIN
+        IF NEW.event_type <> 'cta_click' THEN RETURN NEW; END IF;
+        SELECT company_name INTO site_name FROM dso_microsites WHERE id = NEW.microsite_id;
+        INSERT INTO dso_microsite_alerts (microsite_id, alert_type, title, detail)
+        VALUES (
+          NEW.microsite_id, 'cta_click',
+          'CTA clicked on ' || COALESCE(site_name, 'a microsite'),
+          COALESCE(NEW.event_data, '{}')
+        );
+        RETURN NEW;
+      END;
+      $$;
+
+      DROP TRIGGER IF EXISTS trg_dso_alert_on_event ON dso_microsite_events;
+      CREATE TRIGGER trg_dso_alert_on_event AFTER INSERT ON dso_microsite_events
+      FOR EACH ROW EXECUTE FUNCTION fn_dso_alert_on_event();
+
+      CREATE OR REPLACE FUNCTION fn_dso_alert_on_signup()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        INSERT INTO dso_microsite_alerts (microsite_id, alert_type, title, detail)
+        SELECT m.id, 'practice_signup',
+          NEW.contact_name || ' signed up from ' || NEW.company_name,
+          jsonb_build_object('practice_name', NEW.practice_name, 'contact_email', NEW.contact_email, 'contact_name', NEW.contact_name)
+        FROM dso_microsites m WHERE m.slug = NEW.microsite_slug
+        LIMIT 1;
+        RETURN NEW;
+      END;
+      $$;
+
+      DROP TRIGGER IF EXISTS trg_dso_alert_on_signup ON dso_practice_signups;
+      CREATE TRIGGER trg_dso_alert_on_signup AFTER INSERT ON dso_practice_signups
+      FOR EACH ROW EXECUTE FUNCTION fn_dso_alert_on_signup();
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

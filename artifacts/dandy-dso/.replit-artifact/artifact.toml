@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/dso/"
+title = "Dandy DSO"
+version = "1.0.0"
+id = "artifacts/dandy-dso"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/dso/" ]
+localPort = 18539
+
+[services.development]
+run = "pnpm --filter @workspace/dandy-dso run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dandy-dso", "run", "build" ]
+publicDir = "artifacts/dandy-dso/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18539"
+BASE_PATH = "/dso/"
