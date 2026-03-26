@@ -47,6 +47,7 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "textarea", label: "Textarea" },
   { value: "select", label: "Dropdown" },
   { value: "checkbox", label: "Checkbox" },
+  { value: "hidden", label: "Hidden" },
 ];
 
 function uid() { return `field-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
@@ -158,11 +159,32 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allField
               <SelectContent>{FIELD_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          {field.type !== "checkbox" && <div><Label className={LABEL_CLS}>Placeholder</Label><Input value={field.placeholder ?? ""} onChange={e => set("placeholder", e.target.value)} className="text-sm" /></div>}
-          <div className="flex items-center justify-between">
-            <Label className={LABEL_CLS + " !mb-0"}>Required</Label>
-            <Switch checked={field.required} onCheckedChange={v => set("required", v)} />
-          </div>
+          {field.type === "hidden" ? (
+            <>
+              <div>
+                <Label className={LABEL_CLS}>Value</Label>
+                <Input value={field.defaultValue ?? ""} onChange={e => set("defaultValue", e.target.value)} className="text-sm font-mono" placeholder="Website" />
+                <p className="text-[11px] text-muted-foreground mt-1">Static text or a template variable. Click a variable to insert it.</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {["{{utm_source}}", "{{utm_medium}}", "{{utm_campaign}}", "{{utm_content}}", "{{utm_term}}", "{{page_url}}", "{{page_title}}", "{{referrer}}"].map(v => (
+                  <button key={v} type="button"
+                    className="text-[11px] font-mono bg-muted hover:bg-muted/70 border border-border rounded px-2 py-0.5 transition-colors"
+                    onClick={() => set("defaultValue", (field.defaultValue ?? "") + v)}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              {field.type !== "checkbox" && <div><Label className={LABEL_CLS}>Placeholder</Label><Input value={field.placeholder ?? ""} onChange={e => set("placeholder", e.target.value)} className="text-sm" /></div>}
+              <div className="flex items-center justify-between">
+                <Label className={LABEL_CLS + " !mb-0"}>Required</Label>
+                <Switch checked={field.required} onCheckedChange={v => set("required", v)} />
+              </div>
+            </>
+          )}
           {field.type === "select" && (
             <div>
               <Label className={LABEL_CLS}>Options (one per line)</Label>
@@ -176,12 +198,14 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allField
               />
             </div>
           )}
-          <ConditionEditor
-            condition={field.visibilityCondition}
-            onUpdate={c => onChange({ ...field, visibilityCondition: c })}
-            onRemove={() => { const { visibilityCondition: _, ...rest } = field; onChange(rest as FormField); }}
-            availableFields={allFields.filter(f => f.id !== field.id)}
-          />
+          {field.type !== "hidden" && (
+            <ConditionEditor
+              condition={field.visibilityCondition}
+              onUpdate={c => onChange({ ...field, visibilityCondition: c })}
+              onRemove={() => { const { visibilityCondition: _, ...rest } = field; onChange(rest as FormField); }}
+              availableFields={allFields.filter(f => f.id !== field.id)}
+            />
+          )}
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive w-full gap-1.5 mt-1" onClick={onDelete}>
             <Trash2 className="w-3.5 h-3.5" /> Remove Field
           </Button>

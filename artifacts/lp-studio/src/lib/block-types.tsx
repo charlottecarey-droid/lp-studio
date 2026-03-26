@@ -181,7 +181,7 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
-export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox";
+export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
 
 /** Condition that controls whether a step or field is shown */
 export interface StepCondition {
@@ -200,6 +200,8 @@ export interface FormField {
   placeholder?: string;
   required: boolean;
   options?: string[];
+  /** Static value or template variable for hidden fields (e.g. "{{utm_source}}", "Website") */
+  defaultValue?: string;
   /** If set, this field is only visible when the condition is met */
   visibilityCondition?: StepCondition;
 }

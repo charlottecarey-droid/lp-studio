@@ -120,6 +120,27 @@ function FieldInput({
   );
 }
 
+const UTM_VARS: Record<string, string> = {
+  "{{utm_source}}": "utm_source",
+  "{{utm_medium}}": "utm_medium",
+  "{{utm_campaign}}": "utm_campaign",
+  "{{utm_content}}": "utm_content",
+  "{{utm_term}}": "utm_term",
+};
+
+function resolveHiddenValue(template: string): string {
+  if (!template) return "";
+  const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  let result = template;
+  for (const [token, param] of Object.entries(UTM_VARS)) {
+    result = result.replaceAll(token, params.get(param) ?? "");
+  }
+  result = result.replaceAll("{{page_url}}", typeof window !== "undefined" ? window.location.href : "");
+  result = result.replaceAll("{{page_title}}", typeof document !== "undefined" ? document.title : "");
+  result = result.replaceAll("{{referrer}}", typeof document !== "undefined" ? document.referrer : "");
+  return result;
+}
+
 export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props) {
   const bgStyles: Record<string, string> = {
     "white": "bg-white",
@@ -165,9 +186,9 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   const step = steps[clampedStep] ?? { title: "", fields: [] };
   const isLastStep = clampedStep === totalSteps - 1;
 
-  // Filter fields within the current step by their visibility conditions
+  // Filter fields within the current step by their visibility conditions; never render hidden fields
   const visibleFields = useMemo(() =>
-    step.fields.filter(f => !f.visibilityCondition || evalCondition(f.visibilityCondition, fieldValues)),
+    step.fields.filter(f => f.type !== "hidden" && (!f.visibilityCondition || evalCondition(f.visibilityCondition, fieldValues))),
     [step.fields, fieldValues]
   );
 
@@ -196,11 +217,16 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     setSubmitting(true);
     setSubmitError(null);
 
-    // Only submit values from visible steps + visible fields
+    // Submit visible fields + always include hidden fields with resolved values
     const allFields: Record<string, string> = {};
-    for (const s of visibleSteps) {
+    for (const s of allSteps) {
       for (const field of s.fields) {
-        // Skip fields hidden by their own visibility condition
+        if (field.type === "hidden") {
+          allFields[field.label] = resolveHiddenValue(field.defaultValue ?? "");
+          continue;
+        }
+        // Skip steps/fields hidden by conditions
+        if (s.condition && !evalCondition(s.condition, fieldValues)) continue;
         if (field.visibilityCondition && !evalCondition(field.visibilityCondition, fieldValues)) continue;
         allFields[field.label] = fieldValues[field.id] ?? "";
       }
