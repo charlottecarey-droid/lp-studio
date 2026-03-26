@@ -19,6 +19,8 @@ export interface HeroBlockProps {
   imageShadow?: boolean;
   ctaTextColor?: string;
   buttonWidth?: "auto" | "full";
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
 }
 
 export interface TrustBarBlockProps {
@@ -99,6 +101,8 @@ export interface BottomCtaBlockProps {
   ctaText: string;
   ctaUrl: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
 }
 
 export interface BlockSettings {
@@ -283,6 +287,8 @@ export interface CtaButtonBlockProps {
   size: "small" | "medium" | "large";
   alignment: "left" | "center" | "right";
   bgColor: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
 }
 
 export interface FooterLink {
