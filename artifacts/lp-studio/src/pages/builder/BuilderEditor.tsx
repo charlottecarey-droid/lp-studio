@@ -1233,7 +1233,8 @@ export default function BuilderEditor() {
         </main>
 
         {/* Right panel: Property Editor */}
-        <aside className="w-72 border-l border-border bg-background/60 overflow-y-auto shrink-0 flex flex-col">
+        <aside className="w-72 border-l border-border bg-background/60 shrink-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
           {selectedBlock ? (
             <PropertyPanel
               block={selectedBlock}
@@ -1412,6 +1413,7 @@ export default function BuilderEditor() {
               </div>
             </div>
           )}
+          </div>
           <CustomCssPanel value={customCss} onChange={setCustomCss} />
         </aside>
       </div>
