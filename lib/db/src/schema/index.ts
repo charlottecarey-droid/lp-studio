@@ -10,3 +10,4 @@ export * from "./lpPageVisits";
 export * from "./lpLeads";
 export * from "./lpForms";
 export * from "./lpSmartTraffic";
+export * from "./lpHeatmapEvents";

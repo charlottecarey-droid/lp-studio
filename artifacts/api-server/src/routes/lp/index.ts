@@ -21,6 +21,8 @@ import seoAnalyzeRouter from "./seo-analyze";
 import seoMetaGenerateRouter from "./seo-meta-generate";
 import integrationsRouter from "./integrations";
 import smartTrafficRouter from "./smart-traffic";
+import heatmapRouter from "./heatmap";
+import performanceRouter from "./performance";
 
 const router = Router();
 
@@ -29,6 +31,7 @@ router.use(variantsRouter);
 router.use(trackingRouter);
 router.use(resultsRouter);
 router.use(brandRouter);
+router.use(performanceRouter); // Must come before pagesRouter to avoid /lp/pages/:pageId catching /lp/pages/performance/batch
 router.use(pagesRouter);
 router.use(collaborationRouter);
 router.use(analyticsRouter);
@@ -46,5 +49,6 @@ router.use(seoAnalyzeRouter);
 router.use(seoMetaGenerateRouter);
 router.use(integrationsRouter);
 router.use(smartTrafficRouter);
+router.use(heatmapRouter);
 
 export default router;

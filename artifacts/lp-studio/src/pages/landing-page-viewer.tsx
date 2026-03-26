@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-types";
 import { isBuilderPageResponse } from "@/lib/page-types";
+import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
@@ -217,6 +218,16 @@ export default function LandingPageViewer() {
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [dtrParams] = useState(() => getDtrParams());
   const [chilipiperUrl, setChilipiperUrl] = useState<string | null>(null);
+
+  // Derive pageId for heatmap tracking across all render paths
+  const heatmapPageId = (() => {
+    if (!config) return undefined;
+    if (isBuilderPageResponse(config)) return (config as BuilderPageResponse).id;
+    const av = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: { id?: number } | null };
+    if (av?.linkedPage?.id) return av.linkedPage.id;
+    return undefined;
+  })();
+  useHeatmapTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
 
   useEffect(() => {
     fetchBrandConfig().then(setBrand);

@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,8 @@ import {
   type ScoreResult,
   type AiSuggestion,
 } from "@/lib/seo-scoring";
+import { HeatmapOverlay } from "@/components/heatmap/HeatmapOverlay";
+import { PerformanceScorePanel } from "@/components/heatmap/PerformanceScorePanel";
 
 interface CustomBlock {
   id: number;
@@ -1404,8 +1406,24 @@ export default function BuilderEditor() {
                   </div>
                 </div>
 
+                {/* Performance Score Panel */}
+                {!isNaN(pageIdNum) && (
+                  <PerformanceScorePanel pageId={pageIdNum} blocks={blocks} meta={{ metaTitle, metaDescription, ogImage, slug }} />
+                )}
+
                 {/* SEO & GEO Score Panel */}
                 <SeoGeoPanel blocks={blocks} metaTitle={metaTitle} metaDescription={metaDescription} ogImage={ogImage} slug={slug} />
+
+                {/* Heatmap Panel */}
+                {!isNaN(pageIdNum) && (
+                  <div className="border rounded-lg p-3 mt-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Heatmap</p>
+                    </div>
+                    <HeatmapOverlay pageId={pageIdNum} />
+                  </div>
+                )}
 
                 <p className="text-[10px] text-muted-foreground text-center pt-2 pb-1">
                   Click any block in the canvas to edit its properties.

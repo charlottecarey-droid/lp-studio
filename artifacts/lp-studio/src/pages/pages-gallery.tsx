@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
@@ -221,6 +221,8 @@ export default function PagesGallery() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [, navigate] = useLocation();
 
+  const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
+
   const load = () => {
     setIsLoading(true);
     fetchPages()
@@ -230,6 +232,24 @@ export default function PagesGallery() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Fetch performance scores once pages load
+  useEffect(() => {
+    if (pages.length === 0) return;
+    const ids = pages.map(p => p.id).join(",");
+    fetch(`${API_BASE}/lp/pages/performance/batch?ids=${ids}`)
+      .then(r => r.json())
+      .then((data: { pageId: number; metrics: { totalVisits: number }; scores: { cvr: number; scroll: number; engagement: number } }[]) => {
+        const map: typeof perfScores = {};
+        for (const d of data) {
+          // Compute composite: behavioral scores only (SEO is shown separately)
+          const composite = Math.round(d.scores.cvr * 0.45 + d.scores.scroll * 0.275 + d.scores.engagement * 0.275);
+          map[d.pageId] = { ...d.scores, composite, visits: d.metrics.totalVisits };
+        }
+        setPerfScores(map);
+      })
+      .catch(() => {});
+  }, [pages]);
 
   const handleTitleChange = (v: string) => {
     setNewTitle(v);
@@ -378,9 +398,28 @@ export default function PagesGallery() {
                     <p className="text-xs text-muted-foreground mt-0.5 font-mono">/lp/{page.slug}</p>
                   </div>
 
-                  <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                    <Clock className="w-3 h-3 mr-0.5" />
-                    Updated {formatDate(page.updatedAt)}
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="w-3 h-3" />
+                      {formatDate(page.updatedAt)}
+                    </span>
+                    {perfScores[page.id] && perfScores[page.id].visits > 0 && (
+                      <>
+                        <span className="flex items-center gap-0.5">
+                          <Eye className="w-3 h-3" />
+                          {perfScores[page.id].visits} visits
+                        </span>
+                        <span className={cn(
+                          "flex items-center gap-0.5 font-medium",
+                          perfScores[page.id].composite >= 70 ? "text-green-600" :
+                          perfScores[page.id].composite >= 40 ? "text-yellow-600" :
+                          "text-red-500"
+                        )}>
+                          <TrendingUp className="w-3 h-3" />
+                          {perfScores[page.id].composite}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 mt-auto">
