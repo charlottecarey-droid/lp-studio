@@ -93,20 +93,23 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
       );
 
     // Scroll depth distribution: histogram of max scroll depths per session
-    const scrollData = type === "click" ? [] : await db
-      .select({
-        depthBucket: sql<number>`(floor(max(${lpHeatmapEventsTable.scrollDepthPct}) / 10) * 10)::int`,
-        sessions: sql<number>`count(distinct ${lpHeatmapEventsTable.sessionId})::int`,
-      })
-      .from(lpHeatmapEventsTable)
-      .where(and(
-        eq(lpHeatmapEventsTable.pageId, pageId),
-        eq(lpHeatmapEventsTable.eventType, "scroll"),
-        sql`${lpHeatmapEventsTable.createdAt} > now() - interval '${sql.raw(String(days))} days'`,
-        ...(device !== "all" ? [eq(lpHeatmapEventsTable.device, device)] : []),
-      ))
-      .groupBy(sql`floor(max(${lpHeatmapEventsTable.scrollDepthPct}) / 10) * 10`)
-      .having(sql`max(${lpHeatmapEventsTable.scrollDepthPct}) is not null`);
+    // Must use a subquery — aggregate functions are not allowed inside GROUP BY
+    const deviceClause = device !== "all" ? `AND device = '${device.replace(/'/g, "''")}'` : "";
+    const scrollData: { depthBucket: number; sessions: number }[] = type === "click" ? [] : await db.execute(sql.raw(`
+      SELECT (floor(max_depth / 10) * 10)::int AS "depthBucket", count(*)::int AS sessions
+      FROM (
+        SELECT session_id, max(scroll_depth_pct) AS max_depth
+        FROM lp_heatmap_events
+        WHERE page_id = ${pageId}
+          AND event_type = 'scroll'
+          AND created_at > now() - interval '${days} days'
+          ${deviceClause}
+        GROUP BY session_id
+        HAVING max(scroll_depth_pct) IS NOT NULL
+      ) sub
+      GROUP BY floor(max_depth / 10) * 10
+      ORDER BY 1
+    `)).then(r => r.rows as { depthBucket: number; sessions: number }[]);
 
     // Block-level click breakdown
     const blockClicks = type === "scroll" ? [] : await db
