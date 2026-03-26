@@ -135,6 +135,13 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
   return <div id={anchorId} {...blkBgAttr}>{children}</div>;
 }
 
+function resolveCtaUrl(props: { ctaUrl?: string; ctaAction?: string; chilipiperUrl?: string }): string {
+  if (props.ctaAction === "chilipiper" && props.chilipiperUrl) {
+    return `chilipiper:${props.chilipiperUrl}`;
+  }
+  return props.ctaUrl ?? "#";
+}
+
 export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
     ? PADDING_X_PX[block.blockSettings.paddingX]
@@ -147,7 +154,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
           <BlockHero
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated: HeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -228,7 +235,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
           <BlockBottomCta
             props={block.props}
             brand={brand}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated: BottomCtaBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}

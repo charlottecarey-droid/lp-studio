@@ -25,6 +25,7 @@ import { isBuilderPageResponse } from "@/lib/page-types";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
 
 /**
@@ -215,6 +216,7 @@ export default function LandingPageViewer() {
   const [scrolled, setScrolled] = useState(false);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [dtrParams] = useState(() => getDtrParams());
+  const [chilipiperUrl, setChilipiperUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBrandConfig().then(setBrand);
@@ -258,6 +260,10 @@ export default function LandingPageViewer() {
     const animationsEnabled = builderPage.animationsEnabled !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
+      if (ctaUrl.startsWith("chilipiper:")) {
+        setChilipiperUrl(ctaUrl.slice("chilipiper:".length));
+        return;
+      }
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
       if (dest) {
         window.open(dest, "_blank", "noopener,noreferrer");
@@ -297,6 +303,13 @@ export default function LandingPageViewer() {
             This page has no blocks yet.
           </div>
         )}
+        {chilipiperUrl && (
+          <ChiliPiperModal
+            url={chilipiperUrl}
+            pageId={builderPage.id}
+            onClose={() => setChilipiperUrl(null)}
+          />
+        )}
       </div>
     );
   }
@@ -323,6 +336,10 @@ export default function LandingPageViewer() {
     const linkedAnimationsEnabled = (linkedPage as { animationsEnabled?: boolean })?.animationsEnabled !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
+      if (ctaUrl.startsWith("chilipiper:")) {
+        setChilipiperUrl(ctaUrl.slice("chilipiper:".length));
+        return;
+      }
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
       if (dest) {
         if (!isPreviewMode) {
@@ -394,6 +411,15 @@ export default function LandingPageViewer() {
             </div>
           )
         }
+        {chilipiperUrl && (
+          <ChiliPiperModal
+            url={chilipiperUrl}
+            pageId={linkedPage?.id}
+            variantId={config.assignedVariant.id}
+            sessionId={sessionId}
+            onClose={() => setChilipiperUrl(null)}
+          />
+        )}
       </div>
     );
   }

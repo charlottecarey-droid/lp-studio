@@ -84,9 +84,30 @@ export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Pr
         />
       </div>
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
-        <Input value={props.ctaUrl} onChange={e => onChange({ ...props, ctaUrl: e.target.value })} className="text-sm" placeholder="#" />
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
+        <Select
+          value={props.ctaAction ?? "url"}
+          onValueChange={v => onChange({ ...props, ctaAction: v as "url" | "chilipiper" })}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="url">Open URL</SelectItem>
+            <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+      {(props.ctaAction ?? "url") === "url" ? (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
+          <Input value={props.ctaUrl} onChange={e => onChange({ ...props, ctaUrl: e.target.value })} className="text-sm" placeholder="#" />
+        </div>
+      ) : (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
+          <Input value={props.chilipiperUrl ?? ""} onChange={e => onChange({ ...props, chilipiperUrl: e.target.value })} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
+        </div>
+      )}
     </div>
   );
 }
