@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -71,6 +71,7 @@ type RecentWorkItem =
   | { kind: "page"; id: number; name: string; status: string; blocks: unknown[]; slug: string; updatedAt: string };
 
 export default function Dashboard() {
+  const [, navigate] = useLocation();
   const { data: tests, isLoading } = useListTests();
   const { pages: allPages, loading: pagesLoading } = useRecentPages();
 
@@ -348,13 +349,15 @@ export default function Dashboard() {
                     const liveUrl = isExperiment ? `${base}/lp/${item.slug}` : null;
                     const isRunning = item.status === "running" || item.status === "published";
 
+                    const rowHref = isExperiment ? `/tests/${item.id}` : `/builder/${item.id}`;
                     return (
                       <motion.div
                         key={`${item.kind}-${item.id}`}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.04 }}
-                        className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150"
+                        onClick={() => navigate(rowHref)}
+                        className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150 cursor-pointer"
                       >
                         <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30"}`} />
 
@@ -397,17 +400,13 @@ export default function Dashboard() {
                             </a>
                           )}
                           {isExperiment ? (
-                            <Link href={`/tests/${item.id}`}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="View & edit">
-                                <BarChart3 className="w-3.5 h-3.5" />
-                              </Button>
-                            </Link>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="View & edit" onClick={e => { e.stopPropagation(); navigate(`/tests/${item.id}`); }}>
+                              <BarChart3 className="w-3.5 h-3.5" />
+                            </Button>
                           ) : (
-                            <Link href={`/builder/${item.id}`}>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="Edit page">
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </Link>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" title="Edit page" onClick={e => { e.stopPropagation(); navigate(`/builder/${item.id}`); }}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
                           )}
                         </div>
                       </motion.div>
