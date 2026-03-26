@@ -37,9 +37,10 @@ interface Props {
   hideBlockSettings?: boolean;
   brandVoiceSet?: boolean;
   pageId?: number;
+  onApplyCtaToAll?: () => void;
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, pageId }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, pageId, onApplyCtaToAll }: Props) {
   const def = getBlockDef(block.type);
 
   const renderForm = () => {
@@ -51,6 +52,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "trust-bar":
@@ -129,6 +131,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "video-section":
@@ -196,6 +199,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <CtaButtonPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "full-bleed-hero":

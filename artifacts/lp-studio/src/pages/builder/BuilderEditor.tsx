@@ -802,6 +802,24 @@ export default function BuilderEditor() {
     setBlocks(prev => prev.map(b => b.id === updated.id ? updated : b));
   };
 
+  const applyCtaToAll = () => {
+    if (!selectedBlock) return;
+    const p = selectedBlock.props as Record<string, unknown>;
+    const ctaUrl = (p.ctaUrl ?? p.url ?? "") as string;
+    const ctaAction = (p.ctaAction ?? "url") as string;
+    const chilipiperUrl = (p.chilipiperUrl ?? "") as string;
+    setBlocks(prev => prev.map(b => {
+      if (b.id === selectedBlock.id) return b;
+      const bp = b.props as Record<string, unknown>;
+      const hasCta = "ctaUrl" in bp || "url" in bp;
+      if (!hasCta) return b;
+      const updates: Record<string, unknown> = { ctaAction, chilipiperUrl };
+      if ("ctaUrl" in bp) updates.ctaUrl = ctaUrl;
+      else if ("url" in bp) updates.url = ctaUrl;
+      return { ...b, props: { ...bp, ...updates } };
+    }));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -1221,6 +1239,7 @@ export default function BuilderEditor() {
               onDelete={() => deleteBlock(selectedBlock.id)}
               brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
               pageId={parseInt(pageId, 10) || undefined}
+              onApplyCtaToAll={applyCtaToAll}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

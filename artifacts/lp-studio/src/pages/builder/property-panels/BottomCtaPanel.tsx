@@ -12,9 +12,10 @@ interface Props {
   props: BottomCtaBlockProps;
   onChange: (props: BottomCtaBlockProps) => void;
   brandVoiceSet?: boolean;
+  onApplyCtaToAll?: () => void;
 }
 
-export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
+export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll }: Props) {
   return (
     <div className="space-y-4">
       <div>
@@ -107,6 +108,16 @@ export function BottomCtaPanel({ blockType, props, onChange, brandVoiceSet }: Pr
           <Input value={props.chilipiperUrl ?? ""} onChange={e => onChange({ ...props, chilipiperUrl: e.target.value })} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
           <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
         </div>
+      )}
+      {onApplyCtaToAll && (
+        <button
+          type="button"
+          onClick={onApplyCtaToAll}
+          className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-md py-1.5 px-2 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          Apply CTA to all blocks
+        </button>
       )}
     </div>
   );

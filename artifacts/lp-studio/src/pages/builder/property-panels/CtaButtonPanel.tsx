@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface Props {
   props: CtaButtonBlockProps;
   onChange: (props: CtaButtonBlockProps) => void;
+  onApplyCtaToAll?: () => void;
 }
 
-export function CtaButtonPanel({ props, onChange }: Props) {
+export function CtaButtonPanel({ props, onChange, onApplyCtaToAll }: Props) {
   const set = <K extends keyof CtaButtonBlockProps>(k: K, v: CtaButtonBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -54,6 +55,16 @@ export function CtaButtonPanel({ props, onChange }: Props) {
           <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
           <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
         </div>
+      )}
+      {onApplyCtaToAll && (
+        <button
+          type="button"
+          onClick={onApplyCtaToAll}
+          className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-md py-1.5 px-2 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          Apply CTA to all blocks
+        </button>
       )}
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
