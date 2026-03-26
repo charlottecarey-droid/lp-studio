@@ -1,0 +1,424 @@
+# LP Studio → LPstudio.ai Multi-Tenant SaaS Plan (v2)
+
+**Created**: March 26, 2026
+**Updated**: March 26, 2026
+**Author**: Charlotte Carey + Claude
+**Goal**: Transform LP Studio from a Dandy-internal tool into a multi-tenant SaaS at lpstudio.ai, with Dandy as the first tenant. Absorb the generalizable DSO capabilities (AI briefs, email export, personalized links) into LP Studio+ as platform features. Keep Dandy-specific CRM logic separate.
+
+---
+
+## Current State
+
+- **Frontend**: React 19 + Vite + Wouter, deployed on Replit at `meetdandy-lp.com`
+- **Backend**: Express 5 API server, all routes under `/api/lp/`
+- **Database**: Neon PostgreSQL via Drizzle ORM, ~19 tables all prefixed `lp_`
+- **Auth**: None. Zero authentication, zero user model, zero tenancy.
+- **Storage**: Google Cloud Storage for media
+- **Code**: GitHub at `charlottecarey-droid/lp-studio`, monorepo with pnpm workspaces
+- **Key features**: 27+ block types, visual DnD builder, A/B testing with smart traffic (Thompson sampling), heatmaps, lead capture + routing (Marketo, Salesforce, Sheets), AI copy generation, analytics, brand management
+- **DSO app**: Separate Lovable/Supabase app (`dandy-ent`) with microsites, email campaigns, account briefings — currently on Supabase, planned for migration
+
+## Target State
+
+- **Domain**: `app.lpstudio.ai` (main SaaS app), `lpstudio.ai` (marketing site)
+- **Tenant domains**: Custom domains for published pages (e.g., `pages.meetdandy.com`)
+- **First tenant**: Dandy — all existing data migrated under a Dandy organization
+- **LP Studio+ features**: AI Brief, Email Export, Personalized Links — available to all tenants
+- **DSO standalone**: Dandy-specific CRM logic (campaign lists, crown economics, practice signups) stays in a separate lightweight app
+- **Sellable**: Other companies can sign up, get their own workspace, use all platform features
+
+---
+
+## What Merges vs. What Stays Separate
+
+### Merges into LP Studio+ (platform features for all tenants)
+
+| DSO Feature | LP Studio+ Feature | Why it's platform-worthy |
+|-------------|-------------------|-------------------------|
+| Account briefing (Perplexity research) | **AI Brief** — research any target account/audience before generating copy | Every B2B company needs audience research. Makes AI copy generation smarter. |
+| AI email generation (Gemini) | **Email Export** — "Email this page" generates a send-ready email linking to any landing page | Natural workflow completion: build page → generate email to drive traffic to it. |
+| Microsite builder (personalized pages) | **Personalized Links** — page template + contact list = unique URLs with dynamic content per recipient | This is the killer feature. Any company doing ABM wants personalized landing pages. |
+
+### Stays in DSO Standalone (Dandy-only)
+
+| DSO Feature | Why it doesn't belong in LP Studio core |
+|-------------|---------------------------------------|
+| Full email campaign system (lists, segments, send, open/click tracking) | That's a mini Mailchimp — separate product category |
+| Dandy-specific AI context ($780 crown economics, 4 pillars, practice objections) | Too specific to Dandy's sales process to sell to others |
+| Practice signup flows, DSO hotlinks | Pure Dandy CRM logic |
+| Campaign analytics (open rates, click rates per campaign) | Belongs with the campaign system, not the page builder |
+
+**The principle**: LP Studio+ contains the *pattern* (research → build → personalize → send) that any company can apply. Dandy's specific *content and CRM workflows* stay in the DSO standalone app.
+
+---
+
+## Architecture Plan
+
+### Phase 1: Auth & Tenancy Foundation (Sprint 1-2)
+
+**This is the critical blocker. Nothing else can happen until this exists.**
+
+#### 1.1 New Database Tables
+
+```sql
+-- Organizations / Tenants
+CREATE TABLE lp_organizations (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          text NOT NULL,
+  slug          text UNIQUE NOT NULL,           -- "dandy", "acme-corp"
+  custom_domain text UNIQUE,                    -- "pages.meetdandy.com"
+  logo_url      text,
+  plan          text DEFAULT 'free',            -- free, pro, enterprise
+  settings      jsonb DEFAULT '{}',             -- org-level config
+  created_at    timestamptz DEFAULT now(),
+  updated_at    timestamptz DEFAULT now()
+);
+
+-- Users
+CREATE TABLE lp_users (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         text UNIQUE NOT NULL,
+  password_hash text,                           -- bcrypt, nullable for SSO
+  name          text,
+  avatar_url    text,
+  auth_provider text DEFAULT 'email',           -- email, google, saml
+  created_at    timestamptz DEFAULT now(),
+  updated_at    timestamptz DEFAULT now()
+);
+
+-- Org membership + roles
+CREATE TABLE lp_org_members (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  user_id       text NOT NULL REFERENCES lp_users(id),
+  role          text NOT NULL DEFAULT 'editor',  -- owner, admin, editor, viewer
+  invited_at    timestamptz DEFAULT now(),
+  accepted_at   timestamptz,
+  UNIQUE(org_id, user_id)
+);
+```
+
+#### 1.2 Add `org_id` to ALL Existing Tables
+
+```sql
+ALTER TABLE lp_pages ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_tests ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_variants ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_sessions ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_events ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_leads ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_forms ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_form_notifications ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_pages_comments ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_page_reviews ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_page_presence ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_media ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_brand_settings ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_page_visits ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_smart_traffic_stats ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_heatmap_events ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_library_items ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_block_defaults ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_custom_blocks ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_brand_presets ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_integrations ADD COLUMN org_id text REFERENCES lp_organizations(id);
+```
+
+**Migration strategy**:
+1. Create "dandy" organization record
+2. Backfill ALL existing rows with Dandy's org_id
+3. Add NOT NULL constraint after backfill
+4. Add index on `org_id` for every table
+
+#### 1.3 Auth System
+
+JWT-based auth with refresh tokens:
+
+- `POST /api/auth/signup` — create user + org (or join via invite)
+- `POST /api/auth/login` → JWT access token (15min) + refresh token (7d)
+- `POST /api/auth/refresh` — rotate refresh token
+- `POST /api/auth/logout` — invalidate refresh token
+- `POST /api/auth/forgot-password` → reset email
+- `POST /api/auth/reset-password` — reset with token
+
+**Alternative**: Clerk or Auth.js for faster implementation. Tradeoff: vendor dependency vs. speed.
+
+#### 1.4 Tenant Scoping Middleware
+
+`requireAuth` middleware on all `/api/lp/*` routes:
+1. Extract JWT from `Authorization: Bearer <token>`
+2. Validate token, extract userId
+3. Look up user's org membership
+4. Attach `req.user` and `req.org` to request
+5. All DB queries scoped by `req.org.id`
+
+```typescript
+// Before (current — no scoping)
+const pages = await db.select().from(lpPagesTable);
+
+// After (multi-tenant)
+const pages = await db.select().from(lpPagesTable)
+  .where(eq(lpPagesTable.orgId, req.org.id));
+```
+
+Touches all ~26 route files. Systematic but straightforward.
+
+#### 1.5 New Files
+- `lib/db/src/schema/organizations.ts`
+- `lib/db/src/schema/users.ts`
+- `lib/db/src/schema/org-members.ts`
+- `artifacts/api-server/src/routes/auth.ts`
+- `artifacts/api-server/src/middleware/requireAuth.ts`
+- `artifacts/lp-studio/src/pages/login.tsx`
+- `artifacts/lp-studio/src/pages/signup.tsx`
+- `artifacts/lp-studio/src/lib/auth-context.tsx`
+
+#### 1.6 Modified Files
+- ALL 26 route files in `artifacts/api-server/src/routes/lp/` (add org scoping)
+- ALL schema files in `lib/db/src/schema/` (add orgId column)
+- `artifacts/lp-studio/src/App.tsx` (add auth guard, redirect to login)
+- `lib/api-spec/openapi.yaml` (add auth headers)
+- Regenerate `lib/api-zod` and `lib/api-client-react`
+
+---
+
+### Phase 2: LP Studio+ Features (Sprint 3-4)
+
+These are the 3 generalizable DSO capabilities, rebuilt as platform features.
+
+#### 2.1 AI Brief (from DSO Account Briefing)
+
+**What it does**: Before generating copy for a landing page, research the target audience/account using AI (Perplexity Sonar Pro for web research, Gemini for synthesis).
+
+**Implementation**:
+- New page: `/ai-brief` — enter a company name or URL, get a structured brief
+- New API route: `POST /api/lp/ai-brief` — calls Perplexity + Gemini
+- Brief output: company overview, key pain points, decision makers, industry context
+- Stored in new table: `lp_ai_briefs` (id, org_id, company_name, company_url, brief_data jsonb, created_at)
+- Integrates with existing copy generation: when generating page copy, optionally attach a brief for context
+- Secrets: `PERPLEXITY_API_KEY` (tenant-level or platform-level, TBD)
+
+**What's different from DSO**: No Dandy-specific context (crown economics, 4 pillars). The brief is generic company research that any B2B team can use.
+
+#### 2.2 Email Export (from DSO Email Generation)
+
+**What it does**: For any landing page, generate a send-ready email that drives traffic to it. One-click "Email this page."
+
+**Implementation**:
+- New button on page detail/builder: "Generate Email"
+- New API route: `POST /api/lp/email-generate` — takes page content + optional AI brief, generates email copy via Gemini/OpenAI
+- Output: subject line, preview text, HTML email body with CTA linking to the page
+- Stored in new table: `lp_email_drafts` (id, org_id, page_id, subject, preview_text, html_body, created_at)
+- Export options: copy HTML, download .html file, or send via connected integration (Marketo, etc.)
+- NO campaign management, NO send tracking, NO list management — that stays in DSO
+
+**What's different from DSO**: No campaign system. This is a copy generation tool, not an email marketing platform. It generates the email; the user sends it through their own ESP.
+
+#### 2.3 Personalized Links (from DSO Microsites)
+
+**What it does**: Take any landing page template and generate unique personalized URLs for a list of contacts. Each visitor sees content tailored to them (company name, logo, custom messaging).
+
+**Implementation**:
+- New page: `/personalize/:pageId` — upload a contact list (CSV), map fields to page variables
+- New tables:
+  ```sql
+  lp_contact_lists (id, org_id, name, field_mapping jsonb, created_at)
+  lp_contacts (id, org_id, list_id FK, fields jsonb, created_at)
+  lp_personalized_links (id, org_id, page_id FK, contact_id FK, token text UNIQUE, custom_data jsonb, views int DEFAULT 0, created_at)
+  ```
+- New API routes:
+  - `POST /api/lp/contacts/import` — bulk CSV import
+  - `GET /api/lp/personalized-links/:pageId` — list all generated links
+  - `POST /api/lp/personalized-links/generate` — create unique links for a contact list
+  - `GET /api/public/p/:token` — public personalized page view (resolves contact data, renders page with substitutions)
+- Page builder gets "personalization tokens" — `{{company_name}}`, `{{first_name}}`, `{{custom_field}}` — that resolve per-contact at render time
+- Analytics: track views per personalized link, see which contacts engaged
+
+**What's different from DSO**: No email sending, no campaign tracking. This is about personalized *pages*, not personalized *emails*. The user generates links and distributes them however they want (email, LinkedIn, sales outreach tools).
+
+---
+
+### Phase 3: Multi-Tenant UX (Sprint 5)
+
+#### 3.1 Org Settings Page
+New page `/settings` with tabs:
+- **General**: Org name, slug, logo
+- **Domain**: Custom domain setup + DNS verification
+- **Team**: Invite/manage members + roles
+- **Billing**: Plan selection (future — start free)
+- **Integrations**: Existing integrations page, now org-scoped
+- **Brand**: Existing brand settings, now org-scoped
+
+#### 3.2 Signup & Onboarding Flow
+1. Visit `lpstudio.ai` → "Get Started"
+2. Create account (email + password)
+3. Create organization (name, slug)
+4. Land in empty workspace dashboard
+5. Guided setup: import brand, create first page
+
+#### 3.3 Org Switcher
+For users in multiple orgs (e.g., agencies): org switcher in top nav.
+
+---
+
+### Phase 4: Custom Domains & Migration (Sprint 6-7)
+
+#### 4.1 Custom Domain Support
+- `lp_organizations.custom_domain` stores the mapped domain
+- Tenant adds CNAME pointing to `pages.lpstudio.ai`
+- DNS verification via API
+- Reverse proxy resolves hostname → org_id
+- SSL via Let's Encrypt / Caddy
+
+#### 4.2 Domain Migration
+- Point `app.lpstudio.ai` → Replit (or new host)
+- Set up `pages.meetdandy.com` as Dandy's custom domain
+- Marketing site at `lpstudio.ai`
+- Keep `meetdandy-lp.com` as redirect
+
+#### 4.3 Hosting Decision
+- **Now**: Stay on Replit
+- **3+ tenants**: Consider Railway or Fly.io for better custom domain automation
+- **Scale**: AWS/GCP/Vercel when needed
+
+---
+
+### Phase 5: DSO Standalone (Sprint 6-7, parallel)
+
+Migrate only the Dandy-specific CRM pieces from the Lovable/Supabase app. This is a slimmed-down version of ticket #27.
+
+**What stays in DSO standalone**:
+- Email campaign management (lists, segments, send, open/click tracking)
+- Dandy-specific AI context (crown economics, 4 pillars, practice objections)
+- Practice signup flows, DSO hotlinks
+- Campaign analytics
+
+**What's removed from DSO** (now in LP Studio+):
+- Account briefing → replaced by LP Studio+ AI Brief
+- Email generation → replaced by LP Studio+ Email Export
+- Microsite builder → replaced by LP Studio+ Personalized Links
+
+**Result**: DSO becomes a thin Dandy-specific layer that consumes LP Studio+ APIs for the heavy lifting and adds campaign/CRM logic on top.
+
+---
+
+### Phase 6: Billing & Plans (Future)
+
+Not needed for launch. Start free, add billing when there's demand:
+- **Free**: 5 pages, 1000 visits/mo, 1 team member
+- **Pro** ($49/mo): Unlimited pages, 50k visits/mo, 5 team members, custom domain, AI Brief, Personalized Links
+- **Enterprise** (custom): Unlimited everything, SSO, priority support
+
+---
+
+## Sprint Sequence
+
+| Sprint | What | Duration | Dependencies |
+|--------|------|----------|-------------|
+| **1** | Auth foundation (users, orgs, JWT, login/signup) | 1-2 weeks | Blocker for everything |
+| **2** | Tenant scoping (org_id on all tables, scope all routes) | 1-2 weeks | Sprint 1 |
+| **3** | AI Brief feature (Perplexity + Gemini research) | 1 week | Sprint 2 |
+| **4** | Email Export + Personalized Links features | 1-2 weeks | Sprint 2 |
+| **5** | Multi-tenant UX (settings, invites, onboarding) | 1 week | Sprint 2 |
+| **6** | Custom domains + domain migration to lpstudio.ai | 1-2 weeks | Sprint 5 |
+| **7** | DSO standalone (slim migration of Dandy CRM only) | 1-2 weeks | Sprints 3-4 (uses LP Studio+ APIs) |
+
+**Total to LP Studio+ multi-tenant MVP**: ~7-10 weeks
+**Sprints 3-5 can run in parallel** after Sprint 2 completes
+
+---
+
+## Key Decisions Still to Make
+
+1. **Auth provider**: Roll your own JWT vs. Clerk vs. Auth.js?
+2. **AI Brief API keys**: Platform-level (you pay, included in plan) or tenant-level (BYOK)?
+3. **Personalization token syntax**: `{{field_name}}` vs. Handlebars vs. custom?
+4. **Hosting timeline**: When to move off Replit?
+5. **Pricing model**: What's in free vs. pro vs. enterprise?
+6. **DSO standalone hosting**: Same Replit monorepo or separate deployment?
+
+---
+
+## New Database Tables Summary (LP Studio+ features)
+
+```sql
+-- AI Brief
+CREATE TABLE lp_ai_briefs (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  company_name  text NOT NULL,
+  company_url   text,
+  brief_data    jsonb NOT NULL,             -- structured research output
+  model_used    text,                       -- "perplexity-sonar-pro", "gemini-2.5-flash"
+  created_at    timestamptz DEFAULT now()
+);
+
+-- Email Drafts
+CREATE TABLE lp_email_drafts (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  page_id       text REFERENCES lp_pages(id),
+  brief_id      text REFERENCES lp_ai_briefs(id),
+  subject       text NOT NULL,
+  preview_text  text,
+  html_body     text NOT NULL,
+  created_at    timestamptz DEFAULT now()
+);
+
+-- Contact Lists (for personalized links)
+CREATE TABLE lp_contact_lists (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  name          text NOT NULL,
+  field_mapping jsonb,                      -- maps CSV columns to token names
+  contact_count int DEFAULT 0,
+  created_at    timestamptz DEFAULT now()
+);
+
+-- Contacts
+CREATE TABLE lp_contacts (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  list_id       text NOT NULL REFERENCES lp_contact_lists(id),
+  fields        jsonb NOT NULL,             -- {"first_name": "John", "company": "Acme", ...}
+  created_at    timestamptz DEFAULT now()
+);
+
+-- Personalized Links
+CREATE TABLE lp_personalized_links (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id        text NOT NULL REFERENCES lp_organizations(id),
+  page_id       text NOT NULL REFERENCES lp_pages(id),
+  contact_id    text NOT NULL REFERENCES lp_contacts(id),
+  token         text UNIQUE NOT NULL,       -- short unique token for the URL
+  custom_data   jsonb,                      -- override data beyond contact fields
+  views         int DEFAULT 0,
+  last_viewed   timestamptz,
+  created_at    timestamptz DEFAULT now()
+);
+```
+
+---
+
+## New API Routes Summary (LP Studio+ features)
+
+```
+POST   /api/lp/ai-brief                    — Generate AI research brief
+GET    /api/lp/ai-briefs                    — List briefs for org
+GET    /api/lp/ai-briefs/:id               — Get single brief
+DELETE /api/lp/ai-briefs/:id               — Delete brief
+
+POST   /api/lp/email-generate              — Generate email for a page
+GET    /api/lp/email-drafts                 — List email drafts
+GET    /api/lp/email-drafts/:id            — Get single draft
+DELETE /api/lp/email-drafts/:id            — Delete draft
+
+POST   /api/lp/contacts/import             — Bulk CSV import
+GET    /api/lp/contact-lists               — List contact lists
+GET    /api/lp/contact-lists/:id/contacts  — List contacts in a list
+DELETE /api/lp/contact-lists/:id           — Delete list + contacts
+
+POST   /api/lp/personalized-links/generate — Generate links for page + contact list
+GET    /api/lp/personalized-links/:pageId  — List links for a page
+GET    /api/public/p/:token                — Public personalized page view (no auth)
+```
