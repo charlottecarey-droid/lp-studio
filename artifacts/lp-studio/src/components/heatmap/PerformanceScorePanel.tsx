@@ -89,8 +89,8 @@ export function PerformanceScorePanel({
   useEffect(() => {
     setLoading(true);
     fetch(`${API_BASE}/lp/pages/${pageId}/performance`)
-      .then(r => r.json())
-      .then(d => { setPerfData(d); setLoading(false); })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setPerfData(d ?? null); setLoading(false); })
       .catch(() => setLoading(false));
   }, [pageId]);
 

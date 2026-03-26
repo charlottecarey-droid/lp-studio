@@ -153,8 +153,8 @@ export function HeatmapOverlay({ pageId }: { pageId: number }) {
   useEffect(() => {
     setLoading(true);
     fetch(`${API_BASE}/lp/pages/${pageId}/heatmap?type=${viewMode}&device=${device}&days=${days}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setData(d ?? null); setLoading(false); })
       .catch(() => setLoading(false));
   }, [pageId, viewMode, device, days]);
 

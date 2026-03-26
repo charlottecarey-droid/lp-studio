@@ -132,6 +132,22 @@ async function runMigrations() {
         updated_at timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT smart_traffic_stats_unique UNIQUE (test_id, variant_id, feature_bucket)
       );
+
+      CREATE TABLE IF NOT EXISTS lp_heatmap_events (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        session_id text NOT NULL,
+        event_type text NOT NULL,
+        x_pct real,
+        y_pct real,
+        block_id text,
+        element_tag text,
+        scroll_depth_pct real,
+        viewport_width integer,
+        viewport_height integer,
+        device text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
