@@ -116,6 +116,22 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      -- Smart Traffic
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS features jsonb NOT NULL DEFAULT '{}';
+      ALTER TABLE lp_tests ADD COLUMN IF NOT EXISTS smart_traffic_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE lp_tests ADD COLUMN IF NOT EXISTS smart_traffic_min_samples integer NOT NULL DEFAULT 100;
+
+      CREATE TABLE IF NOT EXISTS lp_smart_traffic_stats (
+        id serial PRIMARY KEY,
+        test_id integer NOT NULL REFERENCES lp_tests(id) ON DELETE CASCADE,
+        variant_id integer NOT NULL REFERENCES lp_variants(id) ON DELETE CASCADE,
+        feature_bucket text NOT NULL DEFAULT 'global',
+        successes integer NOT NULL DEFAULT 0,
+        failures integer NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT smart_traffic_stats_unique UNIQUE (test_id, variant_id, feature_bucket)
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
