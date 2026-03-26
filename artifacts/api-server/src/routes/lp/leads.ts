@@ -6,13 +6,11 @@ import { z } from "zod";
 import {
   sendEmailNotification,
   deliverWebhook,
-  syncToMarketo,
-  syncToSalesforce,
   type LeadPayload,
   type MarketoConfig,
   type SalesforceConfig,
 } from "../../lib/notifications";
-import { syncLeadToSheets } from "./integrations";
+import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
 
 const router = Router();
 
@@ -104,12 +102,10 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
       if (webhookUrl) {
         await deliverWebhook(webhookUrl, payload);
       }
-      if (marketoConfig) {
-        await syncToMarketo(marketoConfig, payload);
-      }
-      if (salesforceConfig) {
-        await syncToSalesforce(salesforceConfig, payload);
-      }
+      const perFormMarketo = marketoConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
+      const perFormSalesforce = salesforceConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
+      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled);
+      await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled);
       await syncLeadToSheets({
         submittedAt: payload.submittedAt,
         pageTitle: payload.pageTitle,

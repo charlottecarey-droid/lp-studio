@@ -31,16 +31,12 @@ interface GlobalForm {
 }
 
 interface MarketoConfig {
-  munchkinId: string;
-  clientId: string;
-  clientSecret: string;
+  enabled?: boolean;
   fieldMappings: Record<string, string>;
 }
 
 interface SalesforceConfig {
-  clientId: string;
-  clientSecret: string;
-  instanceUrl: string;
+  enabled?: boolean;
   fieldMappings: Record<string, string>;
 }
 
@@ -260,10 +256,14 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const addStep = () => set("steps", [...local.steps, { title: `Step ${local.steps.length + 1}`, fields: [{ id: uid(), type: "text", label: "New Field", required: false }] }]);
   const removeStep = (i: number) => set("steps", local.steps.filter((_, idx) => idx !== i));
 
-  const setMarketo = (key: string, val: string | Record<string, string>) =>
-    set("marketoConfig", { munchkinId: "", clientId: "", clientSecret: "", fieldMappings: {}, ...(local.marketoConfig ?? {}), [key]: val } as MarketoConfig);
-  const setSalesforce = (key: string, val: string | Record<string, string>) =>
-    set("salesforceConfig", { clientId: "", clientSecret: "", instanceUrl: "", fieldMappings: {}, ...(local.salesforceConfig ?? {}), [key]: val } as SalesforceConfig);
+  const setMarketoMappings = (m: Record<string, string>) =>
+    set("marketoConfig", { ...(local.marketoConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m });
+  const setSalesforceMappings = (m: Record<string, string>) =>
+    set("salesforceConfig", { ...(local.salesforceConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m });
+  const toggleMarketo = (on: boolean) =>
+    set("marketoConfig", on ? { enabled: true, fieldMappings: local.marketoConfig?.fieldMappings ?? {} } : null);
+  const toggleSalesforce = (on: boolean) =>
+    set("salesforceConfig", on ? { enabled: true, fieldMappings: local.salesforceConfig?.fieldMappings ?? {} } : null);
 
   const addEmail = () => {
     const t = emailInput.trim();
@@ -386,48 +386,60 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               <Input value={local.webhookUrl ?? ""} onChange={e => set("webhookUrl", e.target.value || null)} placeholder="https://hooks.example.com/lead" className="text-sm" />
             </div>
 
+            {/* Marketo */}
             <div className="border rounded-lg overflow-hidden">
-              <button className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
-                onClick={() => { setShowMarketo(s => { if (s && local.marketoConfig) set("marketoConfig", null); return !s; }); }}>
-                <span>Marketo Integration</span>
-                {showMarketo ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowMarketo(s => !s)}>
+                  {showMarketo ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                  Marketo
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{local.marketoConfig ? "Sync on" : "Sync off"}</span>
+                  <Switch checked={!!local.marketoConfig} onCheckedChange={toggleMarketo} />
+                </div>
+              </div>
               {showMarketo && (
                 <div className="p-3 space-y-3">
-                  <div><Label className={LABEL_CLS}>Munchkin ID</Label><Input value={local.marketoConfig?.munchkinId ?? ""} onChange={e => setMarketo("munchkinId", e.target.value)} className="text-sm" placeholder="123-ABC-456" /></div>
-                  <div><Label className={LABEL_CLS}>Client ID</Label><Input value={local.marketoConfig?.clientId ?? ""} onChange={e => setMarketo("clientId", e.target.value)} className="text-sm" /></div>
-                  <div><Label className={LABEL_CLS}>Client Secret</Label><Input type="password" value={local.marketoConfig?.clientSecret ?? ""} onChange={e => setMarketo("clientSecret", e.target.value)} className="text-sm" /></div>
+                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+                    Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+                  </p>
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>
-                    <p className="text-xs text-muted-foreground mb-2">Format: "Form Label:marketoFieldName" — one per line</p>
+                    <p className="text-xs text-muted-foreground mb-2">Map form field labels to Marketo field names — one per line (Label:marketoFieldName)</p>
                     <Textarea rows={4} className="text-sm font-mono"
                       placeholder={"Full Name:firstName\nEmail Address:email\nPhone Number:phone"}
                       value={Object.entries(local.marketoConfig?.fieldMappings ?? {}).map(([k, v]) => `${k}:${v}`).join("\n")}
-                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setMarketo("fieldMappings", m); }}
+                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setMarketoMappings(m); }}
                     />
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Salesforce */}
             <div className="border rounded-lg overflow-hidden">
-              <button className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
-                onClick={() => { setShowSalesforce(s => { if (s && local.salesforceConfig) set("salesforceConfig", null); return !s; }); }}>
-                <span>Salesforce Integration</span>
-                {showSalesforce ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowSalesforce(s => !s)}>
+                  {showSalesforce ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                  Salesforce
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{local.salesforceConfig ? "Sync on" : "Sync off"}</span>
+                  <Switch checked={!!local.salesforceConfig} onCheckedChange={toggleSalesforce} />
+                </div>
+              </div>
               {showSalesforce && (
                 <div className="p-3 space-y-3">
-                  <div><Label className={LABEL_CLS}>Instance URL</Label><Input value={local.salesforceConfig?.instanceUrl ?? ""} onChange={e => setSalesforce("instanceUrl", e.target.value)} className="text-sm" placeholder="https://yourorg.my.salesforce.com" /></div>
-                  <div><Label className={LABEL_CLS}>Client ID</Label><Input value={local.salesforceConfig?.clientId ?? ""} onChange={e => setSalesforce("clientId", e.target.value)} className="text-sm" /></div>
-                  <div><Label className={LABEL_CLS}>Client Secret</Label><Input type="password" value={local.salesforceConfig?.clientSecret ?? ""} onChange={e => setSalesforce("clientSecret", e.target.value)} className="text-sm" /></div>
+                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+                    Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+                  </p>
                   <div>
                     <Label className={LABEL_CLS}>Field Mappings</Label>
-                    <p className="text-xs text-muted-foreground mb-2">Format: "Form Label:SalesforceField" — one per line</p>
+                    <p className="text-xs text-muted-foreground mb-2">Map form field labels to Salesforce field names — one per line (Label:SalesforceField)</p>
                     <Textarea rows={4} className="text-sm font-mono"
                       placeholder={"Full Name:LastName\nEmail Address:Email\nPhone Number:Phone"}
                       value={Object.entries(local.salesforceConfig?.fieldMappings ?? {}).map(([k, v]) => `${k}:${v}`).join("\n")}
-                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setSalesforce("fieldMappings", m); }}
+                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setSalesforceMappings(m); }}
                     />
                   </div>
                 </div>

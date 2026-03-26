@@ -15,15 +15,11 @@ interface NotificationConfig {
   emailRecipients: string[];
   webhookUrl: string | null;
   marketoConfig: {
-    munchkinId: string;
-    clientId: string;
-    clientSecret: string;
+    enabled?: boolean;
     fieldMappings: Record<string, string>;
   } | null;
   salesforceConfig: {
-    clientId: string;
-    clientSecret: string;
-    instanceUrl: string;
+    enabled?: boolean;
     fieldMappings: Record<string, string>;
   } | null;
 }
@@ -266,32 +262,19 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
     setConfig(c => ({ ...c, emailRecipients: c.emailRecipients.filter((_, idx) => idx !== i) }));
   };
 
-  const setMarketo = (key: string, val: string | Record<string, string>) => {
-    setConfig(c => ({
-      ...c,
-      marketoConfig: {
-        munchkinId: "",
-        clientId: "",
-        clientSecret: "",
-        fieldMappings: {},
-        ...(c.marketoConfig ?? {}),
-        [key]: val,
-      },
-    }));
+  const setMarketoMappings = (m: Record<string, string>) => {
+    setConfig(c => ({ ...c, marketoConfig: { ...(c.marketoConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m } }));
   };
-
-  const setSalesforce = (key: string, val: string | Record<string, string>) => {
-    setConfig(c => ({
-      ...c,
-      salesforceConfig: {
-        clientId: "",
-        clientSecret: "",
-        instanceUrl: "",
-        fieldMappings: {},
-        ...(c.salesforceConfig ?? {}),
-        [key]: val,
-      },
-    }));
+  const setSalesforceMappings = (m: Record<string, string>) => {
+    setConfig(c => ({ ...c, salesforceConfig: { ...(c.salesforceConfig ?? { enabled: true, fieldMappings: {} }), fieldMappings: m } }));
+  };
+  const toggleMarketo = (on: boolean) => {
+    setConfig(c => ({ ...c, marketoConfig: on ? { enabled: true, fieldMappings: c.marketoConfig?.fieldMappings ?? {} } : null }));
+    if (on) setShowMarketo(true);
+  };
+  const toggleSalesforce = (on: boolean) => {
+    setConfig(c => ({ ...c, salesforceConfig: on ? { enabled: true, fieldMappings: c.salesforceConfig?.fieldMappings ?? {} } : null }));
+    if (on) setShowSalesforce(true);
   };
 
   return (
@@ -332,36 +315,26 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         />
       </div>
 
+      {/* Marketo */}
       <div className="border rounded-lg overflow-hidden">
-        <button
-          className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
-          onClick={() => {
-            setShowMarketo(s => {
-              if (s && config.marketoConfig) setConfig(c => ({ ...c, marketoConfig: null }));
-              return !s;
-            });
-          }}
-        >
-          <span>Marketo Integration</span>
-          {showMarketo ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+          <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowMarketo(s => !s)}>
+            {showMarketo ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+            Marketo
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{config.marketoConfig ? "On" : "Off"}</span>
+            <Switch checked={!!config.marketoConfig} onCheckedChange={toggleMarketo} />
+          </div>
+        </div>
         {showMarketo && (
           <div className="p-3 space-y-3">
-            <div>
-              <Label className={LABEL_CLS}>Munchkin ID</Label>
-              <Input value={config.marketoConfig?.munchkinId ?? ""} onChange={e => setMarketo("munchkinId", e.target.value)} className="text-sm" placeholder="123-ABC-456" />
-            </div>
-            <div>
-              <Label className={LABEL_CLS}>Client ID</Label>
-              <Input value={config.marketoConfig?.clientId ?? ""} onChange={e => setMarketo("clientId", e.target.value)} className="text-sm" />
-            </div>
-            <div>
-              <Label className={LABEL_CLS}>Client Secret</Label>
-              <Input type="password" value={config.marketoConfig?.clientSecret ?? ""} onChange={e => setMarketo("clientSecret", e.target.value)} className="text-sm" />
-            </div>
+            <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+              Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+            </p>
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Marketo field)</Label>
-              <p className="text-xs text-muted-foreground mb-2">Format: "Form Label:marketoFieldName" — one per line</p>
+              <p className="text-xs text-muted-foreground mb-2">One per line: Label:marketoFieldName</p>
               <Textarea
                 rows={4}
                 className="text-sm font-mono"
@@ -373,7 +346,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
                     const [k, ...rest] = line.split(":");
                     if (k && rest.length) mappings[k.trim()] = rest.join(":").trim();
                   });
-                  setMarketo("fieldMappings", mappings);
+                  setMarketoMappings(mappings);
                 }}
               />
             </div>
@@ -381,36 +354,26 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         )}
       </div>
 
+      {/* Salesforce */}
       <div className="border rounded-lg overflow-hidden">
-        <button
-          className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 text-sm font-medium hover:bg-muted/50 transition-colors"
-          onClick={() => {
-            setShowSalesforce(s => {
-              if (s && config.salesforceConfig) setConfig(c => ({ ...c, salesforceConfig: null }));
-              return !s;
-            });
-          }}
-        >
-          <span>Salesforce Integration</span>
-          {showSalesforce ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+          <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowSalesforce(s => !s)}>
+            {showSalesforce ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+            Salesforce
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{config.salesforceConfig ? "On" : "Off"}</span>
+            <Switch checked={!!config.salesforceConfig} onCheckedChange={toggleSalesforce} />
+          </div>
+        </div>
         {showSalesforce && (
           <div className="p-3 space-y-3">
-            <div>
-              <Label className={LABEL_CLS}>Instance URL</Label>
-              <Input value={config.salesforceConfig?.instanceUrl ?? ""} onChange={e => setSalesforce("instanceUrl", e.target.value)} className="text-sm" placeholder="https://yourorg.my.salesforce.com" />
-            </div>
-            <div>
-              <Label className={LABEL_CLS}>Client ID</Label>
-              <Input value={config.salesforceConfig?.clientId ?? ""} onChange={e => setSalesforce("clientId", e.target.value)} className="text-sm" />
-            </div>
-            <div>
-              <Label className={LABEL_CLS}>Client Secret</Label>
-              <Input type="password" value={config.salesforceConfig?.clientSecret ?? ""} onChange={e => setSalesforce("clientSecret", e.target.value)} className="text-sm" />
-            </div>
+            <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+              Credentials are configured in <a href="/integrations" className="underline font-medium text-foreground">Settings → Integrations</a>.
+            </p>
             <div>
               <Label className={LABEL_CLS}>Field Mappings (form field → Salesforce field)</Label>
-              <p className="text-xs text-muted-foreground mb-2">Format: "Form Label:SalesforceField" — one per line</p>
+              <p className="text-xs text-muted-foreground mb-2">One per line: Label:SalesforceField</p>
               <Textarea
                 rows={4}
                 className="text-sm font-mono"
@@ -422,7 +385,7 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
                     const [k, ...rest] = line.split(":");
                     if (k && rest.length) mappings[k.trim()] = rest.join(":").trim();
                   });
-                  setSalesforce("fieldMappings", mappings);
+                  setSalesforceMappings(mappings);
                 }}
               />
             </div>
