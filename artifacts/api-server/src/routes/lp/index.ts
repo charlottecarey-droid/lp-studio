@@ -20,6 +20,7 @@ import generatePageRouter from "./generate-page";
 import seoAnalyzeRouter from "./seo-analyze";
 import seoMetaGenerateRouter from "./seo-meta-generate";
 import integrationsRouter from "./integrations";
+import smartTrafficRouter from "./smart-traffic";
 
 const router = Router();
 
@@ -44,5 +45,6 @@ router.use(generatePageRouter);
 router.use(seoAnalyzeRouter);
 router.use(seoMetaGenerateRouter);
 router.use(integrationsRouter);
+router.use(smartTrafficRouter);
 
 export default router;

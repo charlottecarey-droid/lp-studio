@@ -9,7 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackView } from "@/hooks/use-recently-viewed";
-import { ArrowLeft, Play, Pause, SquareSquare, BarChart, Settings2 } from "lucide-react";
+import { ArrowLeft, Play, Pause, SquareSquare, BarChart, Settings2, Brain } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/app-layout";
 import { StatusBadge } from "@/components/status-badge";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { VariantsTab } from "./test-detail/variants-tab";
 import { ResultsTab } from "./test-detail/results-tab";
+import { SmartTrafficTab } from "./test-detail/smart-traffic-tab";
 
 export default function TestDetail() {
   const [, params] = useRoute("/tests/:testId");
@@ -131,24 +132,37 @@ export default function TestDetail() {
 
         {/* Tabs */}
         <Tabs defaultValue="variants" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 p-1 bg-muted/50 rounded-xl mb-8">
+          <TabsList className="grid w-full max-w-xl grid-cols-3 p-1 bg-muted/50 rounded-xl mb-8">
             <TabsTrigger value="variants" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Settings2 className="w-4 h-4 mr-2" />
-              Variants Builder
+              Variants
             </TabsTrigger>
             <TabsTrigger value="results" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <BarChart className="w-4 h-4 mr-2" />
               Performance
             </TabsTrigger>
+            <TabsTrigger value="smart-traffic" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Brain className="w-4 h-4 mr-2" />
+              Smart Traffic
+            </TabsTrigger>
           </TabsList>
-          
+
           <div className="mt-4 bg-card border border-border/50 rounded-3xl shadow-sm p-1">
             <TabsContent value="variants" className="m-0 p-6 md:p-8 outline-none">
               <VariantsTab test={test} commentMode={false} />
             </TabsContent>
-            
+
             <TabsContent value="results" className="m-0 p-6 md:p-8 outline-none">
               <ResultsTab test={test} results={results as any} />
+            </TabsContent>
+
+            <TabsContent value="smart-traffic" className="m-0 p-6 md:p-8 outline-none">
+              <SmartTrafficTab
+                testId={testId}
+                variantNames={new Map(
+                  (test.variants ?? []).map((v: any) => [v.id, v.name])
+                )}
+              />
             </TabsContent>
           </div>
         </Tabs>

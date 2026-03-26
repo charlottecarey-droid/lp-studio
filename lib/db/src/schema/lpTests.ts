@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,8 @@ export const lpTestsTable = pgTable("lp_tests", {
   description: text("description"),
   status: text("status").notNull().default("draft"),
   testType: text("test_type").notNull().default("ab"),
+  smartTrafficEnabled: boolean("smart_traffic_enabled").notNull().default(false),
+  smartTrafficMinSamples: integer("smart_traffic_min_samples").notNull().default(100),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

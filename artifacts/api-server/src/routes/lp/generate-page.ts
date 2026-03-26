@@ -357,7 +357,7 @@ RULES:
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
-12. CAPITALIZATION: All headlines MUST use Title Case or Sentence case — NEVER all-lowercase. CTA button text must be properly capitalized (e.g. "Get Started Free", not "get started free"). This is critical for professional appearance.
+12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.`;
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {

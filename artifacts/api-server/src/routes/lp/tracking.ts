@@ -5,6 +5,13 @@ import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
 import geoip from "geoip-lite";
+import {
+  collectFeatures,
+  pickVariantThompson,
+  recordImpression,
+  recordConversion,
+  type VisitorFeatures,
+} from "../../lib/smart-traffic";
 
 function getClientIp(req: Request): string {
   const fwd = req.headers["x-forwarded-for"];
@@ -99,6 +106,32 @@ router.post("/lp/track", async (req, res): Promise<void> => {
     eventType: parsed.data.eventType,
     conversionType: parsed.data.conversionType ?? null,
   }).returning();
+
+  // Update smart traffic stats on conversion events (fire-and-forget)
+  if (parsed.data.eventType === "conversion" && parsed.data.testId) {
+    (async () => {
+      try {
+        // Look up the session to get features
+        const [session] = await db
+          .select()
+          .from(lpSessionsTable)
+          .where(and(
+            eq(lpSessionsTable.sessionId, parsed.data.sessionId),
+            eq(lpSessionsTable.testId, parsed.data.testId),
+          ));
+        if (session) {
+          const features = (session.features ?? {}) as VisitorFeatures;
+          // Only record if features exist (session was created with smart traffic)
+          if (features.device) {
+            await recordConversion(parsed.data.testId, parsed.data.variantId, features);
+          }
+        }
+      } catch {
+        // Silently ignore — smart traffic stats are best-effort
+      }
+    })();
+  }
+
   res.json({ success: true, eventId: event.id });
 });
 
@@ -210,27 +243,50 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   }
 
   if (!assignedVariant) {
-    // Weighted random assignment based on trafficWeight
-    const totalWeight = variants.reduce((sum, v) => sum + v.trafficWeight, 0);
-    let rand = Math.random() * totalWeight;
-    for (const variant of variants) {
-      rand -= variant.trafficWeight;
-      if (rand <= 0) {
-        assignedVariant = variant;
-        break;
+    const geo = lookupGeo(req);
+    const features = collectFeatures(req, geo.countryCode);
+
+    // Smart Traffic: use Thompson Sampling when enabled
+    if (test.smartTrafficEnabled) {
+      const variantIds = variants.map(v => v.id);
+      const smartPick = await pickVariantThompson(
+        test.id,
+        variantIds,
+        features,
+        test.smartTrafficMinSamples,
+      );
+      if (smartPick !== null) {
+        assignedVariant = variants.find(v => v.id === smartPick);
       }
     }
-    // Fallback to first variant
-    if (!assignedVariant) assignedVariant = variants[0];
 
-    // Store session assignment with geo
-    const geo = lookupGeo(req);
+    // Fallback: weighted random assignment based on trafficWeight
+    if (!assignedVariant) {
+      const totalWeight = variants.reduce((sum, v) => sum + v.trafficWeight, 0);
+      let rand = Math.random() * totalWeight;
+      for (const variant of variants) {
+        rand -= variant.trafficWeight;
+        if (rand <= 0) {
+          assignedVariant = variant;
+          break;
+        }
+      }
+      if (!assignedVariant) assignedVariant = variants[0];
+    }
+
+    // Store session assignment with geo + features
     await db.insert(lpSessionsTable).values({
       sessionId,
       testId: test.id,
       variantId: assignedVariant.id,
       ...geo,
+      features,
     }).onConflictDoNothing();
+
+    // Record impression for smart traffic stats (fire-and-forget)
+    if (test.smartTrafficEnabled) {
+      recordImpression(test.id, assignedVariant.id, features).catch(() => {});
+    }
   }
 
   const enrichedVariant = await enrichVariant(assignedVariant!);

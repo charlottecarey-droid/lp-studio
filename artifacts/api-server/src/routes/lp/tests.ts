@@ -74,6 +74,8 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
       description: lpTestsTable.description,
       status: lpTestsTable.status,
       testType: lpTestsTable.testType,
+      smartTrafficEnabled: lpTestsTable.smartTrafficEnabled,
+      smartTrafficMinSamples: lpTestsTable.smartTrafficMinSamples,
       createdAt: lpTestsTable.createdAt,
       updatedAt: lpTestsTable.updatedAt,
     })
