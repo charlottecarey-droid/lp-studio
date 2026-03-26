@@ -1,0 +1,307 @@
+LP Studio → LPstudio.ai Multi-Tenant SaaS Plan
+Created: March 26, 2026
+Author: Charlotte Carey + Claude
+Goal: Transform LP Studio from a Dandy-internal tool into a multi-tenant SaaS at lpstudio.ai, with Dandy as the first tenant. Each tenant gets a custom domain. The product can be sold to other companies.
+
+Current State
+
+Frontend: React 19 + Vite + Wouter, deployed on Replit at meetdandy-lp.com
+Backend: Express 5 API server, all routes under /api/lp/
+Database: Neon PostgreSQL via Drizzle ORM, ~19 tables all prefixed lp_
+Auth: None. Zero authentication, zero user model, zero tenancy.
+Storage: Google Cloud Storage for media
+Code: GitHub at charlottecarey-droid/lp-studio, monorepo with pnpm workspaces
+Key features: 27+ block types, visual DnD builder, A/B testing with smart traffic (Thompson sampling), heatmaps, lead capture + routing (Marketo, Salesforce, Sheets), AI copy generation, analytics, brand management
+
+Target State
+
+Domain: lpstudio.ai (main app + marketing site)
+Tenant domains: Each tenant gets their own custom domain for published landing pages (e.g., pages.meetdandy.com for Dandy's public pages)
+Admin app: app.lpstudio.ai — multi-tenant admin where users log in, manage their org's pages/tests/leads
+First tenant: Dandy — all existing data migrated under a Dandy organization
+Sellable: Other companies can sign up, get their own workspace, connect their own integrations
+
+
+Architecture Plan
+Phase 1: Auth & Tenancy Foundation
+This is the critical blocker. Nothing else can happen until this exists.
+1.1 New Database Tables
+lp_organizations
+  id            text PK (gen_random_uuid)
+  name          text NOT NULL
+  slug          text UNIQUE NOT NULL        -- "dandy", "acme-corp"
+  custom_domain text UNIQUE                 -- "pages.meetdandy.com"
+  logo_url      text
+  plan          text DEFAULT 'free'         -- free, pro, enterprise
+  settings      jsonb DEFAULT '{}'          -- org-level config
+  created_at    timestamptz DEFAULT now()
+  updated_at    timestamptz DEFAULT now()
+
+lp_users
+  id            text PK (gen_random_uuid)
+  email         text UNIQUE NOT NULL
+  password_hash text                        -- bcrypt, nullable for SSO
+  name          text
+  avatar_url    text
+  auth_provider text DEFAULT 'email'        -- email, google, saml
+  created_at    timestamptz DEFAULT now()
+  updated_at    timestamptz DEFAULT now()
+
+lp_org_members
+  id            text PK (gen_random_uuid)
+  org_id        text FK → lp_organizations NOT NULL
+  user_id       text FK → lp_users NOT NULL
+  role          text NOT NULL DEFAULT 'editor'  -- owner, admin, editor, viewer
+  invited_at    timestamptz DEFAULT now()
+  accepted_at   timestamptz
+  UNIQUE(org_id, user_id)
+1.2 Add org_id to ALL Existing Tables
+Every existing table gets:
+sqlALTER TABLE lp_pages ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_tests ADD COLUMN org_id text REFERENCES lp_organizations(id);
+ALTER TABLE lp_variants ADD COLUMN org_id text REFERENCES lp_organizations(id);
+-- ... repeat for all 19 tables
+Migration strategy:
+
+Create a "dandy" organization record
+Backfill all existing rows with Dandy's org_id
+Add NOT NULL constraint after backfill
+Add indexes on org_id for every table
+
+1.3 Auth System
+Approach: JWT-based auth with refresh tokens (keep it simple, avoid third-party auth services for now)
+
+POST /api/auth/signup — create user + org (or join existing via invite)
+POST /api/auth/login — email + password → JWT access token (15min) + refresh token (7d)
+POST /api/auth/refresh — rotate refresh token
+POST /api/auth/logout — invalidate refresh token
+POST /api/auth/forgot-password — send reset email
+POST /api/auth/reset-password — reset with token
+
+Middleware: requireAuth middleware on all /api/lp/* routes that:
+
+Extracts JWT from Authorization: Bearer <token>
+Validates token, extracts userId
+Looks up user's org memberships
+Attaches req.user and req.org to the request
+All DB queries automatically scoped by org_id
+
+Alternative: If you want to move faster, use Clerk or Auth.js. Tradeoff is vendor dependency vs. speed.
+1.4 Tenant Scoping Middleware
+Create a withOrgScope helper that wraps all DB queries:
+typescript// Before (current)
+const pages = await db.select().from(lpPagesTable);
+
+// After (multi-tenant)
+const pages = await db.select().from(lpPagesTable)
+  .where(eq(lpPagesTable.orgId, req.org.id));
+This touches every single route handler (~26 route files). Systematic but straightforward.
+
+Phase 2: Domain & Routing
+2.1 Domain Structure
+DomainPurposelpstudio.aiMarketing site (already exists as artifacts/lpstudio-site)app.lpstudio.aiMain SaaS app (the builder, dashboard, etc.)*.lpstudio.aiTenant subdomains for published pages (optional)Custom domainsTenant-owned domains for published pages (e.g., pages.meetdandy.com)
+2.2 Published Page Routing
+Currently: pages published at meetdandy-lp.com/lp/:slug
+Multi-tenant approach:
+
+Each org gets a subdomain: dandy.lpstudio.ai/lp/:slug
+OR each org maps a custom domain: pages.meetdandy.com/:slug
+The public page viewer (landing-page-viewer.tsx) needs to resolve tenant from the request hostname
+API: GET /api/public/lp/:slug — looks up page by slug + resolved org_id from hostname
+
+Custom domain implementation:
+
+lp_organizations.custom_domain stores the mapped domain
+Tenant adds a CNAME record pointing to pages.lpstudio.ai
+Reverse proxy (Caddy, nginx, or Replit's routing) matches incoming hostname → org_id
+SSL: Use Let's Encrypt with DNS-01 or HTTP-01 challenge (Caddy handles this automatically)
+
+2.3 Hosting Decision
+Option A: Stay on Replit (easiest short-term)
+
+Custom domains are limited on Replit
+Scaling control is limited
+Good for MVP/early tenants
+
+Option B: Move to Railway / Render / Fly.io (recommended mid-term)
+
+Better custom domain support
+More control over scaling and regions
+Still managed, not as complex as raw AWS/GCP
+Railway has good monorepo support
+
+Option C: AWS/GCP/Vercel (long-term for scale)
+
+Full control
+More ops overhead
+Vercel for frontend + separate API server
+
+Recommendation: Stay on Replit for Phase 1-2. Move to Railway or Fly.io when you have 3+ tenants and need custom domain automation.
+
+Phase 3: Tenant Onboarding & Settings
+3.1 Signup Flow
+
+User visits lpstudio.ai → clicks "Get Started"
+Creates account (email + password)
+Creates organization (name, slug)
+Lands in empty workspace dashboard
+Can invite team members (editor, viewer roles)
+
+3.2 Org Settings Page
+New page: /settings with tabs:
+
+General: Org name, slug, logo
+Domain: Custom domain setup + DNS verification
+Team: Invite/manage members + roles
+Billing: Plan selection (future — start free)
+Integrations: Existing integrations page, now org-scoped
+Brand: Existing brand settings, now org-scoped
+
+3.3 Org Switcher
+If a user belongs to multiple orgs (e.g., an agency), add an org switcher in the top nav. Store activeOrgId in localStorage + cookie.
+
+Phase 4: Isolate Dandy-Specific Features
+4.1 What's Dandy-Specific vs. Platform
+FeaturePlatform (all tenants)Dandy-specificLanding page builder✅A/B testing + smart traffic✅Lead capture + forms✅Analytics + heatmaps✅AI copy generation✅Brand management✅Content library✅Marketo/Salesforce/Sheets integrations✅DSO microsite builder (#27)✅DSO email campaigns✅DSO account briefings✅
+4.2 DSO App Decision
+Option A: Keep DSO as a separate app on Replit, not part of LP Studio core
+
+Pro: Clean separation, doesn't pollute the product
+Con: Separate codebase to maintain
+
+Option B: Make DSO a "plugin" or "add-on" within LP Studio
+
+Pro: Single platform, Dandy uses it, other tenants don't see it
+Con: Adds complexity to the platform, feature flags needed
+
+Option C: Build DSO features as LP Studio features available to all tenants
+
+The microsite builder IS a landing page builder (LP Studio already does this)
+Email campaigns could become a platform feature
+Account briefings could become a lead enrichment feature
+
+Recommendation: Option A for now (ticket #27 as-is). Revisit after multi-tenancy is live. Some DSO features may naturally become platform features later.
+
+Phase 5: Billing & Plans (Future)
+Not needed for launch. Start with:
+
+Free tier: 5 pages, 1000 visits/mo, 1 team member
+Pro ($49/mo): Unlimited pages, 50k visits/mo, 5 team members, custom domain
+Enterprise (custom): Unlimited everything, SSO, priority support
+
+Implement with Stripe when ready. Add lp_subscriptions and lp_invoices tables.
+
+Migration Sequence (Recommended Order)
+Sprint 1: Auth Foundation (1-2 weeks)
+
+ Add lp_organizations, lp_users, lp_org_members tables
+ Build auth routes (signup, login, refresh, logout)
+ Build requireAuth middleware
+ Add login/signup pages to frontend
+ Create "dandy" org, create your user, link them
+
+Sprint 2: Tenant Scoping (1-2 weeks)
+
+ Add org_id column to all existing tables
+ Backfill existing data with Dandy org_id
+ Add NOT NULL + indexes
+ Update ALL 26 route files to scope by org_id
+ Update OpenAPI spec + regenerate client
+ Update frontend queries to pass auth headers
+
+Sprint 3: Multi-Tenant UX (1 week)
+
+ Org settings page (general, team, domain)
+ Invite flow (email invites with accept link)
+ Org switcher (if supporting multi-org users)
+ Update nav/header to show org name/logo
+
+Sprint 4: Custom Domains (1-2 weeks)
+
+ DNS verification flow (add CNAME, verify via API)
+ Reverse proxy config for custom domains → org resolution
+ SSL provisioning (Caddy or Let's Encrypt)
+ Update public page viewer to resolve org from hostname
+
+Sprint 5: Domain Migration (1 week)
+
+ Point app.lpstudio.ai → Replit (or new host)
+ Set up pages.meetdandy.com as Dandy's custom domain
+ Migrate marketing site to lpstudio.ai
+ Keep meetdandy-lp.com as redirect for backwards compat
+
+Sprint 6: DSO App (ticket #27) — Parallel Track
+
+ Migrate DSO to Replit as standalone artifact (per ticket #27)
+ Keep it at meetdandy-lp.com/dso or its own domain
+ Does NOT go into LP Studio core
+
+
+Key Decisions to Make
+
+Auth provider: Roll your own JWT vs. Clerk vs. Auth.js?
+Hosting: Stay on Replit vs. move to Railway/Fly.io?
+Custom domains: Day-1 requirement or can it wait?
+DSO app: Separate from LP Studio or eventually merge features?
+Pricing model: Free tier limits? When to add billing?
+Data isolation: Shared DB with org_id scoping (simpler) vs. schema-per-tenant (stricter)?
+
+
+Files That Need Changes (Auth + Tenancy)
+New Files
+
+lib/db/src/schema/organizations.ts
+lib/db/src/schema/users.ts
+lib/db/src/schema/org-members.ts
+artifacts/api-server/src/routes/auth.ts
+artifacts/api-server/src/middleware/requireAuth.ts
+artifacts/api-server/src/middleware/orgScope.ts
+artifacts/lp-studio/src/pages/login.tsx
+artifacts/lp-studio/src/pages/signup.tsx
+artifacts/lp-studio/src/pages/org-settings.tsx
+artifacts/lp-studio/src/lib/auth-context.tsx
+
+Modified Files (every route file gets org scoping)
+
+artifacts/api-server/src/routes/lp/pages.ts
+artifacts/api-server/src/routes/lp/tests.ts
+artifacts/api-server/src/routes/lp/variants.ts
+artifacts/api-server/src/routes/lp/tracking.ts
+artifacts/api-server/src/routes/lp/results.ts
+artifacts/api-server/src/routes/lp/leads.ts
+artifacts/api-server/src/routes/lp/analytics.ts
+artifacts/api-server/src/routes/lp/brand.ts
+artifacts/api-server/src/routes/lp/collaboration.ts
+artifacts/api-server/src/routes/lp/forms.ts
+artifacts/api-server/src/routes/lp/form-notifications.ts
+artifacts/api-server/src/routes/lp/copy-generate.ts
+artifacts/api-server/src/routes/lp/generate-page.ts
+artifacts/api-server/src/routes/lp/library.ts
+artifacts/api-server/src/routes/lp/block-defaults.ts
+artifacts/api-server/src/routes/lp/custom-blocks.ts
+artifacts/api-server/src/routes/lp/seo-analyze.ts
+artifacts/api-server/src/routes/lp/seo-meta-generate.ts
+artifacts/api-server/src/routes/lp/integrations.ts
+artifacts/api-server/src/routes/lp/smart-traffic.ts
+artifacts/api-server/src/routes/lp/heatmap.ts
+artifacts/api-server/src/routes/lp/performance.ts
+artifacts/api-server/src/routes/lp/brand-import.ts
+artifacts/api-server/src/routes/lp/brand-presets.ts
+lib/db/src/schema/*.ts (add org_id to all table definitions)
+artifacts/lp-studio/src/App.tsx (add auth guard, login redirect)
+artifacts/lp-studio/src/components/layout/ (add org switcher, user menu)
+
+
+Impact on Ticket #27 (DSO Migration)
+Go ahead with ticket #27 as-is. The architecture (separate artifact, dso_ table prefix, /api/dso/ routes) keeps it cleanly isolated. When multi-tenancy lands, the DSO app either:
+
+Stays separate and untouched
+Gets its own org_id scoping if it ever becomes a platform feature
+Moves to its own hosting entirely
+
+The dso_ prefix was a smart call — it prevents any table name conflicts and makes extraction easy.
+
+Timeline Estimate
+PhaseEffortCan parallelize withSprint 1: Auth1-2 weeksNothing (blocker)Sprint 2: Tenant scoping1-2 weeksSprint 6 (DSO)Sprint 3: Multi-tenant UX1 weekSprint 6 (DSO)Sprint 4: Custom domains1-2 weeks—Sprint 5: Domain migration1 week—Sprint 6: DSO (#27)2-3 weeksSprints 2-3
+Total to MVP multi-tenant: ~5-8 weeks
+DSO can run in parallel: starts anytime, doesn't block or get blocked
