@@ -13,9 +13,10 @@ interface Props {
   props: VideoSectionBlockProps;
   onChange: (props: VideoSectionBlockProps) => void;
   brandVoiceSet?: boolean;
+  onApplyCtaToAll?: () => void;
 }
 
-export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
+export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll }: Props) {
   const set = <K extends keyof VideoSectionBlockProps>(k: K, v: VideoSectionBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -137,6 +138,16 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet }:
             placeholder="#"
           />
         </div>
+      )}
+      {onApplyCtaToAll && (
+        <button
+          type="button"
+          onClick={onApplyCtaToAll}
+          className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-md py-1.5 px-2 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          Apply CTA to all blocks
+        </button>
       )}
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Aspect Ratio</Label>

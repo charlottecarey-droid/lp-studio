@@ -76,6 +76,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <ComparisonPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "stat-callout":
@@ -141,6 +142,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "case-studies":
@@ -209,6 +211,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "footer":
@@ -231,6 +234,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <PopupPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       case "sticky-bar":
@@ -238,6 +242,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <StickyBarPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            onApplyCtaToAll={onApplyCtaToAll}
           />
         );
       default: {

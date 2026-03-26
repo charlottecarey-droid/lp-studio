@@ -806,14 +806,16 @@ export default function BuilderEditor() {
     if (!selectedBlock) return;
     const p = selectedBlock.props as Record<string, unknown>;
     const ctaUrl = (p.ctaUrl ?? p.url ?? "") as string;
-    const ctaAction = (p.ctaAction ?? "url") as string;
+    const ctaAction = (p.ctaAction ?? p.ctaType ?? "url") as string;
     const chilipiperUrl = (p.chilipiperUrl ?? "") as string;
     setBlocks(prev => prev.map(b => {
       if (b.id === selectedBlock.id) return b;
       const bp = b.props as Record<string, unknown>;
       const hasCta = "ctaUrl" in bp || "url" in bp;
       if (!hasCta) return b;
-      const updates: Record<string, unknown> = { ctaAction, chilipiperUrl };
+      const updates: Record<string, unknown> = { chilipiperUrl };
+      if ("ctaType" in bp) updates.ctaType = ctaAction;
+      else updates.ctaAction = ctaAction;
       if ("ctaUrl" in bp) updates.ctaUrl = ctaUrl;
       else if ("url" in bp) updates.url = ctaUrl;
       return { ...b, props: { ...bp, ...updates } };

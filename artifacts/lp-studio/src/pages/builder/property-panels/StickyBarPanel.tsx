@@ -8,9 +8,10 @@ import type { StickyBarBlockProps } from "@/lib/block-types";
 interface Props {
   props: StickyBarBlockProps;
   onChange: (props: StickyBarBlockProps) => void;
+  onApplyCtaToAll?: () => void;
 }
 
-export function StickyBarPanel({ props: p, onChange }: Props) {
+export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
   const set = <K extends keyof StickyBarBlockProps>(key: K, val: StickyBarBlockProps[K]) =>
     onChange({ ...p, [key]: val });
 
@@ -43,6 +44,17 @@ export function StickyBarPanel({ props: p, onChange }: Props) {
           />
         </div>
       </div>
+
+      {onApplyCtaToAll && (
+        <button
+          type="button"
+          onClick={onApplyCtaToAll}
+          className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-md py-1.5 px-2 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          Apply CTA to all blocks
+        </button>
+      )}
 
       <div>
         <Label>CTA Color</Label>
