@@ -212,14 +212,14 @@ export default function Dashboard() {
                 : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`; })()}
             </p>
           </div>
-          <Link href="/tests/new" className="relative shrink-0">
+          <Link href="/pages/new" className="relative shrink-0">
             <Button
               size="lg"
               className="rounded-xl font-semibold px-6 shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
               style={{ backgroundColor: "#C7E738", color: "#003A30" }}
             >
               <Plus className="w-4 h-4 mr-2" />
-              New Experiment
+              New Page
             </Button>
           </Link>
         </div>

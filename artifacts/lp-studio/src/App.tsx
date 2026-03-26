@@ -23,6 +23,7 @@ import AllTests from "@/pages/all-tests";
 import LeadsPage from "@/pages/leads";
 import FormsPage from "@/pages/forms";
 import IntegrationsPage from "@/pages/integrations";
+import NewPage from "@/pages/new-page";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/library" component={ContentLibrary} />
       <Route path="/block-defaults" component={BlockDefaultsPage} />
       <Route path="/custom-blocks" component={CustomBlocksPage} />
+      <Route path="/pages/new" component={NewPage} />
       <Route path="/pages" component={PagesGallery} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/forms" component={FormsPage} />
