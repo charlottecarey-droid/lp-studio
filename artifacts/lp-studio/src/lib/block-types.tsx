@@ -257,6 +257,18 @@ export interface DsoChallengesBlockProps {
   challenges: { title: string; desc: string }[];
 }
 
+export type DsoProblemPanelIcon =
+  | "alert-triangle" | "bar-chart" | "users" | "trending-down"
+  | "clock" | "shield" | "microscope" | "layers" | "zap" | "target"
+  | "dollar" | "network" | "activity" | "scale";
+
+export interface DsoProblemBlockProps {
+  eyebrow: string;
+  headline: string;
+  body: string;
+  panels: { icon: DsoProblemPanelIcon; title: string; desc: string }[];
+}
+
 export interface DsoPilotStep {
   title: string;
   subtitle: string;
