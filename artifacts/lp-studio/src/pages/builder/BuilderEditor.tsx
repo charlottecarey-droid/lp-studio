@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,8 @@ import {
 } from "@/lib/seo-scoring";
 import { HeatmapOverlay } from "@/components/heatmap/HeatmapOverlay";
 import { PerformanceScorePanel } from "@/components/heatmap/PerformanceScorePanel";
+import { ContentBriefModal, type ContentBrief } from "@/components/ContentBriefModal";
+import { setBriefContext } from "@/lib/brief-context";
 
 interface CustomBlock {
   id: number;
@@ -554,6 +556,25 @@ export default function BuilderEditor() {
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
   const [saveToLibraryBlock, setSaveToLibraryBlock] = useState<PageBlock | null>(null);
+
+  // Content Brief state
+  const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
+
+  useEffect(() => {
+    if (appliedBrief) {
+      setBriefContext({
+        company: appliedBrief.company,
+        objective: appliedBrief.objective,
+        valueProps: appliedBrief.brief.valueProps,
+        toneGuidance: appliedBrief.brief.toneGuidance,
+        suggestedHeadline: appliedBrief.brief.suggestedHeadline,
+      });
+    } else {
+      setBriefContext(null);
+    }
+    return () => { setBriefContext(null); };
+  }, [appliedBrief]);
 
   // Collaboration state
   const [commentMode, setCommentMode] = useState(false);
@@ -1138,6 +1159,16 @@ export default function BuilderEditor() {
         }}
       />
 
+      {/* Content Brief Modal */}
+      <ContentBriefModal
+        open={briefModalOpen}
+        onClose={() => setBriefModalOpen(false)}
+        onApply={(brief, company, objective) => {
+          setAppliedBrief({ brief, company, objective });
+          toast({ title: "Brief Applied", description: `Campaign context from "${company}" is now active for AI copy generation.` });
+        }}
+      />
+
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
@@ -1253,7 +1284,49 @@ export default function BuilderEditor() {
                 <h3 className="font-semibold text-sm text-foreground mt-0.5">Page Settings</h3>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                {/* Slug */}
+                {/* AI Content Brief */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Content Brief</p>
+                  </div>
+                  {appliedBrief ? (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-primary truncate">{appliedBrief.company}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{appliedBrief.objective}</p>
+                        </div>
+                        <button
+                          onClick={() => setAppliedBrief(null)}
+                          className="text-[9px] text-muted-foreground hover:text-destructive px-1 shrink-0"
+                          title="Remove brief context"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-foreground leading-relaxed line-clamp-2">{appliedBrief.brief.suggestedHeadline}</p>
+                      <button
+                        onClick={() => setBriefModalOpen(true)}
+                        className="text-[10px] text-primary hover:underline"
+                      >
+                        View / update brief →
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setBriefModalOpen(true)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Generate AI Brief</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Target audience, value props &amp; copy guidance</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
+              {/* Slug */}
                 <div>
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">URL Slug</Label>
                   <div className="flex items-center gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">

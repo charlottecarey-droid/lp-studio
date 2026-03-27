@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2 } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
@@ -20,6 +20,7 @@ import { ShareReviewModal } from "@/components/collaboration/share-review-modal"
 import { useReviews } from "@/hooks/use-collaboration";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
+import { ContentBriefModal, type ContentBrief } from "@/components/ContentBriefModal";
 
 const API_BASE = "/api";
 
@@ -210,7 +211,7 @@ export default function PagesGallery() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createMode, setCreateMode] = useState<"template" | "ai">("template");
+  const [createMode, setCreateMode] = useState<"template" | "ai" | "brief">("template");
   const [newTitle, setNewTitle] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("blank");
@@ -221,6 +222,7 @@ export default function PagesGallery() {
   const [personalizedLinksPage, setPersonalizedLinksPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [, navigate] = useLocation();
 
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
@@ -325,10 +327,16 @@ export default function PagesGallery() {
             <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Pages</h1>
             <p className="text-muted-foreground mt-1">Build and publish landing pages with the drag-and-drop editor.</p>
           </div>
-          <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4" />
-            New Page
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setBriefModalOpen(true)}>
+              <BookOpen className="w-4 h-4" />
+              Generate Brief
+            </Button>
+            <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
+              <Plus className="w-4 h-4" />
+              New Page
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -509,6 +517,12 @@ export default function PagesGallery() {
         />
       )}
 
+      {/* Content Brief Modal */}
+      <ContentBriefModal
+        open={briefModalOpen}
+        onClose={() => setBriefModalOpen(false)}
+      />
+
       {/* Create Page Modal */}
       <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCreateError(null); setCreateMode("template"); } }}>
         <DialogContent className="max-w-lg">
@@ -526,7 +540,7 @@ export default function PagesGallery() {
               )}
             >
               <FileText className="w-3.5 h-3.5" />
-              From Template
+              Template
             </button>
             <button
               onClick={() => { setCreateMode("ai"); setCreateError(null); }}
@@ -536,7 +550,17 @@ export default function PagesGallery() {
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Generate with AI
+              AI Generate
+            </button>
+            <button
+              onClick={() => { setCreateMode("brief"); setCreateError(null); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                createMode === "brief" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Start with Brief
             </button>
           </div>
 
@@ -598,7 +622,7 @@ export default function PagesGallery() {
                 </Button>
               </DialogFooter>
             </div>
-          ) : (
+          ) : createMode === "ai" ? (
             <div className="space-y-5 py-2">
               <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
                 <div className="flex items-start gap-3">
@@ -651,6 +675,33 @@ export default function PagesGallery() {
                       Generate Page
                     </>
                   )}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Start with a content brief</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Enter your target company or audience and campaign goal. AI will generate a content strategy brief with personas, value props, and messaging guidance — then you can create a page informed by the brief.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                <Button
+                  onClick={() => { setShowCreateModal(false); setBriefModalOpen(true); }}
+                  className="gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Open Brief Generator
                 </Button>
               </DialogFooter>
             </div>

@@ -1,5 +1,13 @@
 const API = "/api/lp/copy-generate";
 
+export interface BriefContext {
+  company: string;
+  objective: string;
+  valueProps: string[];
+  toneGuidance: string;
+  suggestedHeadline: string;
+}
+
 export async function suggestCopy(
   blockType: string,
   field: string,
@@ -7,10 +15,12 @@ export async function suggestCopy(
   siblingFields: Record<string, string> = {},
   count = 3,
 ): Promise<string[]> {
+  const { getBriefContext } = await import("./brief-context");
+  const briefContext = getBriefContext() ?? undefined;
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blockType, field, currentValue, siblingFields, count }),
+    body: JSON.stringify({ blockType, field, currentValue, siblingFields, count, briefContext }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -25,10 +35,12 @@ export async function refreshBlockCopy(
   fields: string[],
   currentValues: Record<string, string>,
 ): Promise<Record<string, string>> {
+  const { getBriefContext } = await import("./brief-context");
+  const briefContext = getBriefContext() ?? undefined;
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blockType, action: "refresh", fields, currentValues }),
+    body: JSON.stringify({ blockType, action: "refresh", fields, currentValues, briefContext }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

@@ -115,6 +115,13 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - Uses generated React Query hooks from `@workspace/api-client-react`
 - New collaboration hooks in `src/hooks/use-collaboration.ts` use direct `/api/...` fetch calls (not the generated client)
 
+#### AI Content Brief
+- **Content Brief Modal** (`src/components/ContentBriefModal.tsx`) — modal dialog for generating AI content briefs; accessible from pages gallery ("Generate Brief" button, "Start with Brief" tab in New Page dialog) and builder editor (right panel under "AI Content Brief" section)
+- **Brief API** (`POST /api/lp/content-brief`) — accepts `company` + `objective` + optional `brandContext`, calls OpenAI to generate structured brief with company overview, buyer personas, suggested headline, value props, tone guidance, recommended blocks, and CTA suggestions
+- **Brand-aware briefs** — automatically fetches brand config (brand name, taglines, tone of voice, tone keywords, avoid phrases, messaging pillars, product lines with value props/claims/keywords, copy examples, copy instructions) and injects it into the brief generation prompt so briefs reflect the company's actual value props, messaging, and voice
+- **Apply to Page** — in the builder, clicking "Apply" sets a module-level brief context (`src/lib/brief-context.ts`) that is automatically injected into all AI copy generation calls (`suggestCopy`, `refreshBlockCopy`), enriching the system prompt with campaign-specific context
+- **Brief context lifecycle** — context is scoped to the builder session; cleared on component unmount to prevent stale context leaking across pages
+
 #### Brand System
 - **BrandConfig** (`src/lib/brand-config.ts`) — comprehensive type with color roles (textColor, ctaBackground, ctaText, pageBackground, cardBackground, navText, borderColor, secondary1-5), typography (displayFont, bodyFont, h1/h2/h3Size, headingWeight, headingLetterSpacing, bodyTextSize, eyebrowStyle), button styling (shape, shadow, padding, weight, case, spacing, secondaryButtonStyle), and voice/messaging (brandName, taglines, messagingPillars, toneOfVoice, toneKeywords, avoidPhrases, targetAudience, copyExamples)
 - **Helper functions**: `getButtonClasses()`, `getSecondaryButtonClasses()`, `getHeadingWeightClass()`, `getHeadingLetterSpacingClass()`, `getBodySizeClass()`, `buildCopySystemPrompt()`, `isValidHex()`

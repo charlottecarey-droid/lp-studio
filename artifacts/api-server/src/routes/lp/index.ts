@@ -25,6 +25,7 @@ import heatmapRouter from "./heatmap";
 import performanceRouter from "./performance";
 import personalizedLinksRouter from "./personalized-links";
 import tokenResolveRouter from "./token-resolve";
+import contentBriefRouter from "./content-brief";
 
 const router = Router();
 
@@ -54,5 +55,6 @@ router.use(smartTrafficRouter);
 router.use(heatmapRouter);
 router.use(personalizedLinksRouter);
 router.use(tokenResolveRouter);
+router.use(contentBriefRouter);
 
 export default router;

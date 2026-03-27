@@ -88,6 +88,25 @@ const KNOWN_FIELDS = new Set([
   "title", "description", "bodyText", "tagline",
 ]);
 
+interface BriefContext {
+  company?: string;
+  objective?: string;
+  valueProps?: string[];
+  toneGuidance?: string;
+  suggestedHeadline?: string;
+}
+
+function buildBriefContextPrompt(brief: BriefContext): string {
+  const parts: string[] = [];
+  if (brief.company) parts.push(`Target company/audience: ${brief.company}`);
+  if (brief.objective) parts.push(`Campaign objective: ${brief.objective}`);
+  if (brief.suggestedHeadline) parts.push(`Suggested headline direction: "${brief.suggestedHeadline}"`);
+  if (brief.valueProps?.length) parts.push(`Key value props to emphasize: ${brief.valueProps.join("; ")}`);
+  if (brief.toneGuidance) parts.push(`Tone guidance: ${brief.toneGuidance}`);
+  if (parts.length === 0) return "";
+  return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted.`;
+}
+
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const body = req.body as {
     blockType?: string;
@@ -98,6 +117,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
     count?: number;
     fields?: string[];
     currentValues?: Record<string, string>;
+    briefContext?: BriefContext;
   };
 
   const { blockType, action } = body;
@@ -117,6 +137,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 
   const brand = await fetchBrand();
   const brandPrompt = buildBrandSystemPrompt(brand);
+  const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
 
   if (action === "refresh") {
     const { fields, currentValues = {} } = body;
@@ -137,6 +158,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 
     const systemPrompt = [
       brandPrompt,
+      briefPrompt,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
@@ -208,6 +230,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 
   const systemPrompt = [
     brandPrompt,
+    briefPrompt,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
     `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
     `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
