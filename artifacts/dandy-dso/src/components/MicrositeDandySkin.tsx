@@ -368,18 +368,18 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                   return (
                     <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                       transition={{ delay: i * 0.1, duration: 0.6 }}
-                      className="w-[300px] md:w-[360px] shrink-0 rounded-xl overflow-hidden"
-                      style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-                      <div className="px-8 pt-8 pb-4" style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)" }}>
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
-                          <Icon className="w-5 h-5 text-primary" />
+                      className="w-[280px] md:w-[340px] shrink-0 rounded-2xl p-7 flex flex-col gap-4"
+                      style={{
+                        background: "rgba(255,255,255,0.88)",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.06)",
+                      }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+                          <Icon className="w-4 h-4 text-primary" />
                         </div>
-                        <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
+                        <h3 className="text-sm font-semibold text-foreground leading-snug">{c.title}</h3>
                       </div>
-                      <div style={{ height: "1px" }} />
-                      <div className="px-8 pt-4 pb-8" style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)" }}>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
-                      </div>
+                      <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
                     </motion.div>
                   );
                 })}
