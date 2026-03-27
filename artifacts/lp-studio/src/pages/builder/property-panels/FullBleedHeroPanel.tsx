@@ -130,29 +130,49 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA Text</Label>
-            <DtrTokenInserter onInsert={(token) => set("ctaText", props.ctaText + token)} />
-          </div>
-          <AiTextField
-            type="input"
-            value={props.ctaText}
-            onChange={v => set("ctaText", v)}
-            fieldLabel="CTA Text"
-            brandVoiceSet={brandVoiceSet}
-            onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
-              headline: props.headline,
-              subheadline: props.subheadline,
-            })}
-          />
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA Text</Label>
+          <DtrTokenInserter onInsert={(token) => set("ctaText", props.ctaText + token)} />
         </div>
+        <AiTextField
+          type="input"
+          value={props.ctaText}
+          onChange={v => set("ctaText", v)}
+          fieldLabel="CTA Text"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "ctaText", props.ctaText, {
+            headline: props.headline,
+            subheadline: props.subheadline,
+          })}
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
+        <Select
+          value={props.ctaAction ?? "url"}
+          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="url">Open URL</SelectItem>
+            <SelectItem value="chilipiper">Open Chili Piper (iframe)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {(props.ctaAction ?? "url") === "url" ? (
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
           <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
         </div>
-      </div>
+      ) : (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
+          <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
+        </div>
+      )}
 
       {onApplyCtaToAll && (
         <button

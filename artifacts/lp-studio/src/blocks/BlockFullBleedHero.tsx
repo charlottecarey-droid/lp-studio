@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { ChiliPiperModal } from "./ChiliPiperModal";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -16,6 +17,9 @@ interface Props {
   onCtaClick?: () => void;
   onFieldChange?: (updated: FullBleedHeroBlockProps) => void;
   animationsEnabled?: boolean;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
 function hexToRgbParts(hex: string): string {
@@ -27,12 +31,20 @@ function hexToRgbParts(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true }: Props) {
+export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const [scrolled, setScrolled] = useState(false);
+  const [cpOpen, setCpOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
+  const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+
+  const handleCtaClick = () => {
+    if (onCtaClick) { onCtaClick(); return; }
+    if (isChiliPiper) { setCpOpen(true); return; }
+    if (props.ctaUrl && props.ctaUrl !== "#") window.open(props.ctaUrl, "_blank");
+  };
 
   // React does not reliably pass `muted` as a DOM attribute on <video>.
   // Setting it imperatively via ref ensures autoplay works in all browsers.
@@ -91,6 +103,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
   const headerRgb = hexToRgbParts(headerBg);
 
   return (
+    <>
     <div ref={containerRef} className="relative w-full font-sans">
       {/* Sticky transparent → opaque header */}
       <header
@@ -220,7 +233,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: 0.22 } : undefined}
           >
             <motion.button
-              onClick={onCtaClick}
+              onClick={handleCtaClick}
               className={getButtonClasses(brand, "inline-flex items-center justify-center")}
               style={{ backgroundColor: LIME, color: FOREST }}
               whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
@@ -252,5 +265,15 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         </div>
       </div>
     </div>
+    {cpOpen && props.chilipiperUrl && (
+      <ChiliPiperModal
+        url={props.chilipiperUrl}
+        pageId={pageId}
+        variantId={variantId}
+        sessionId={sessionId}
+        onClose={() => setCpOpen(false)}
+      />
+    )}
+    </>
   );
 }

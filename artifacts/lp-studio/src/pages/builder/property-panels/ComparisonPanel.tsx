@@ -2,6 +2,7 @@ import type { ComparisonBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -40,9 +41,30 @@ export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
         <Input value={props.ctaText} onChange={e => onChange({ ...props, ctaText: e.target.value })} className="text-sm" />
       </div>
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
-        <Input value={props.ctaUrl} onChange={e => onChange({ ...props, ctaUrl: e.target.value })} className="text-sm" placeholder="#" />
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
+        <Select
+          value={props.ctaAction ?? "url"}
+          onValueChange={v => onChange({ ...props, ctaAction: v as "url" | "chilipiper" })}
+        >
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="url">Open URL</SelectItem>
+            <SelectItem value="chilipiper">Open Chili Piper (iframe)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+      {(props.ctaAction ?? "url") === "url" ? (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA URL</Label>
+          <Input value={props.ctaUrl} onChange={e => onChange({ ...props, ctaUrl: e.target.value })} className="text-sm" placeholder="#" />
+        </div>
+      ) : (
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
+          <Input value={props.chilipiperUrl ?? ""} onChange={e => onChange({ ...props, chilipiperUrl: e.target.value })} className="text-sm font-mono" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
+        </div>
+      )}
       {onApplyCtaToAll && (
         <button
           type="button"
@@ -53,6 +75,25 @@ export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
           Apply CTA to all blocks
         </button>
       )}
+      <div className="border-t pt-4 space-y-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Card Colors</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Old Card BG</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={props.oldCardBg ?? "#f1f5f9"} onChange={e => onChange({ ...props, oldCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.oldCardBg ?? "#f1f5f9"} onChange={e => onChange({ ...props, oldCardBg: e.target.value })} className="text-xs font-mono" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">New Card BG</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={props.newCardBg ?? "#003A30"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.newCardBg ?? "#003A30"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="text-xs font-mono" />
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="border-t pt-4">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Old Way Label</Label>
         <Input value={props.oldWayLabel} onChange={e => onChange({ ...props, oldWayLabel: e.target.value })} className="text-sm mb-2" />

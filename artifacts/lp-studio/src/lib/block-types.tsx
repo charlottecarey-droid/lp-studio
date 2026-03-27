@@ -43,10 +43,14 @@ export interface ComparisonBlockProps {
   headline: string;
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
   oldWayLabel: string;
   oldWayBullets: string[];
   newWayLabel: string;
   newWayBullets: string[];
+  oldCardBg?: string;
+  newCardBg?: string;
 }
 
 export interface StatCalloutBlockProps {
@@ -75,6 +79,8 @@ export interface HowItWorksBlockProps {
   headline: string;
   steps: Array<{ number: string; title: string; description: string }>;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  circleBg?: string;
+  circleText?: string;
 }
 
 export interface ProductGridBlockProps {
@@ -322,6 +328,8 @@ export interface FullBleedHeroBlockProps {
   subheadline: string;
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
   backgroundType: "image" | "video";

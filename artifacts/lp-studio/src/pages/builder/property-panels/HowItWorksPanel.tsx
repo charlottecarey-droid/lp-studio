@@ -53,6 +53,25 @@ export function HowItWorksPanel({ blockType, props, onChange, brandVoiceSet }: P
           </SelectContent>
         </Select>
       </div>
+      <div className="border-t pt-3 space-y-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Circle Colors</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle BG</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={props.circleBg ?? "#003A30"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.circleBg ?? "#003A30"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="text-xs font-mono" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle Text</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={props.circleText ?? "#C7E738"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.circleText ?? "#C7E738"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="text-xs font-mono" />
+            </div>
+          </div>
+        </div>
+      </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Steps</Label>
       {props.steps.map((step, i) => {
         const siblingTitles = props.steps
