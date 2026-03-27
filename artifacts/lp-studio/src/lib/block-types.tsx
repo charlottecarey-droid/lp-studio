@@ -241,11 +241,19 @@ export interface DsoChallengesBlockProps {
   challenges: { title: string; desc: string }[];
 }
 
+export interface DsoPilotStep {
+  title: string;
+  subtitle: string;
+  desc: string;
+  details: string[];
+}
+
 export interface DsoPilotStepsBlockProps {
   eyebrow: string;
   headline: string;
   subheadline: string;
   backgroundStyle: BackgroundStyle;
+  steps?: DsoPilotStep[];
 }
 
 export interface DsoFinalCtaBlockProps {
@@ -1532,6 +1540,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "Start small. Prove it out. Then scale.",
       subheadline: "Growth should be proven before it's scaled. Dandy helps validate impact with a small number of locations and then scale with confidence.",
       backgroundStyle: "muted",
+      steps: [
+        {
+          title: "Launch a Pilot",
+          subtitle: "Start with 5–10 offices",
+          desc: "Dandy deploys premium scanners, onboards doctors with hands-on training, and integrates into existing workflows — no CAPEX, no disruption.",
+          details: [
+            "Premium hardware included for every operatory",
+            "Dedicated field team manages change management",
+            "Doctors trained and scanning within days",
+          ],
+        },
+        {
+          title: "Validate Impact",
+          subtitle: "Measure results in 60–90 days",
+          desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time — proving ROI before you scale.",
+          details: [
+            "Live dashboard tracks pilot KPIs",
+            "Compare pilot offices vs. control group",
+            "Executive-ready reporting for leadership review",
+          ],
+        },
+        {
+          title: "Scale With Confidence",
+          subtitle: "Roll out across the network",
+          desc: "Expand across your entire network with the same standard, same playbook, and same results — predictable execution at enterprise scale.",
+          details: [
+            "Consistent onboarding across all locations",
+            "One standard across every office and brand",
+            "MSA ensures network-wide alignment at scale",
+          ],
+        },
+      ],
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

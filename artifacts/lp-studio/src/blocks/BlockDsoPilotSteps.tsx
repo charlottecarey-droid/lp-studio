@@ -1,8 +1,10 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Rocket, BarChart3, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+
+const STEP_ICONS = [Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers];
 
 interface Props {
   props: DsoPilotStepsBlockProps;
@@ -144,8 +146,8 @@ export function BlockDsoPilotSteps({ props }: Props) {
           />
 
           <div style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}>
-            {DEFAULT_STEPS.map((step, i) => {
-              const Icon = step.icon;
+            {(props.steps && props.steps.length > 0 ? props.steps : DEFAULT_STEPS).map((step, i) => {
+              const Icon = STEP_ICONS[i % STEP_ICONS.length];
               return (
                 <motion.div
                   key={step.title}
