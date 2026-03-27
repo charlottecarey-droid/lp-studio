@@ -26,24 +26,35 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>CTA Text</Label>
-          <Input
-            value={p.ctaText}
-            onChange={e => set("ctaText", e.target.value)}
-            className="mt-2"
-          />
-        </div>
+      <div>
+        <Label>CTA Text</Label>
+        <Input value={p.ctaText} onChange={e => set("ctaText", e.target.value)} className="mt-2" />
+      </div>
+      <div>
+        <Label>CTA Action</Label>
+        <Select
+          value={p.ctaAction ?? "url"}
+          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
+        >
+          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="url">Open URL</SelectItem>
+            <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {(p.ctaAction ?? "url") === "url" ? (
         <div>
           <Label>CTA URL</Label>
-          <Input
-            value={p.ctaUrl}
-            onChange={e => set("ctaUrl", e.target.value)}
-            className="mt-2"
-          />
+          <Input value={p.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="mt-2" />
         </div>
-      </div>
+      ) : (
+        <div>
+          <Label>Chili Piper URL</Label>
+          <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="mt-2 font-mono text-xs" placeholder="https://meetdandy.chilipiper.com/round-robin/..." />
+          <p className="text-xs text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
+        </div>
+      )}
 
       {onApplyCtaToAll && (
         <button

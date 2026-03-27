@@ -3,14 +3,20 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { ChiliPiperModal } from "./ChiliPiperModal";
 
 interface Props {
   props: StickyBarBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
-export function BlockStickyBar({ props: p, brand, onCtaClick }: Props) {
+export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
+  const [cpOpen, setCpOpen] = useState(false);
+  const isChiliPiper = p.ctaAction === "chilipiper" && !!p.chilipiperUrl;
   const [visible, setVisible] = useState(p.showAfterScroll <= 0);
   const [dismissed, setDismissed] = useState(false);
 
@@ -35,6 +41,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick }: Props) {
   const textColor = (isDark || isBrand) ? "#ffffff" : "#1e293b";
 
   return (
+    <>
     <div
       className={cn(
         "fixed left-0 right-0 z-[9998] flex items-center justify-center gap-4 px-4 py-3 shadow-lg transition-transform duration-300",
@@ -47,7 +54,11 @@ export function BlockStickyBar({ props: p, brand, onCtaClick }: Props) {
         <button
           onClick={() => {
             onCtaClick?.();
-            if (p.ctaUrl) window.open(p.ctaUrl, "_blank", "noopener,noreferrer");
+            if (isChiliPiper) {
+              setCpOpen(true);
+            } else if (p.ctaUrl) {
+              window.open(p.ctaUrl, "_blank", "noopener,noreferrer");
+            }
           }}
           className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-transform hover:scale-105 active:scale-95"
           style={{
@@ -68,5 +79,15 @@ export function BlockStickyBar({ props: p, brand, onCtaClick }: Props) {
         </button>
       )}
     </div>
+    {cpOpen && p.chilipiperUrl && (
+      <ChiliPiperModal
+        url={p.chilipiperUrl}
+        pageId={pageId}
+        variantId={variantId}
+        sessionId={sessionId}
+        onClose={() => setCpOpen(false)}
+      />
+    )}
+    </>
   );
 }

@@ -135,6 +135,8 @@ export interface VideoSectionBlockProps {
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
   videoUrl: string;
   aspectRatio: "16/9" | "4/3" | "1/1";
   backgroundStyle: "white" | "dark" | "light-gray";
@@ -247,6 +249,8 @@ export interface ZigzagFeatureRow {
   body: string;
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
   imageUrl: string;
 }
 
@@ -377,6 +381,8 @@ export interface StickyBarBlockProps {
   text: string;
   ctaText: string;
   ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
   ctaColor: string;
   position: "top" | "bottom";
   backgroundStyle: "white" | "dark" | "brand";

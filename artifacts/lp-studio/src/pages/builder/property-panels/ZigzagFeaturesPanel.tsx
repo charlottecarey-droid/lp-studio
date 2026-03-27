@@ -130,14 +130,39 @@ export function ZigzagFeaturesPanel({ blockType, props, onChange, brandVoiceSet 
               />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">CTA URL</Label>
-              <Input
-                value={row.ctaUrl}
-                onChange={e => updateRow(i, "ctaUrl", e.target.value)}
-                className="text-xs h-7"
-                placeholder="#"
-              />
+              <Label className="text-xs text-muted-foreground mb-1 block">CTA Action</Label>
+              <Select
+                value={row.ctaAction ?? "url"}
+                onValueChange={v => updateRow(i, "ctaAction", v)}
+              >
+                <SelectTrigger className="text-xs h-7"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="url">Open URL</SelectItem>
+                  <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            {(row.ctaAction ?? "url") === "url" ? (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">CTA URL</Label>
+                <Input
+                  value={row.ctaUrl}
+                  onChange={e => updateRow(i, "ctaUrl", e.target.value)}
+                  className="text-xs h-7"
+                  placeholder="#"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Chili Piper URL</Label>
+                <Input
+                  value={row.chilipiperUrl ?? ""}
+                  onChange={e => updateRow(i, "chilipiperUrl", e.target.value)}
+                  className="text-xs h-7 font-mono"
+                  placeholder="https://meetdandy.chilipiper.com/..."
+                />
+              </div>
+            )}
             <ImagePicker
               label="Image"
               value={row.imageUrl}

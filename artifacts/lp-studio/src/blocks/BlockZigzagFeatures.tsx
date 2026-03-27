@@ -5,6 +5,8 @@ import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBod
 import type { ZigzagFeaturesBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { useState } from "react";
+import { ChiliPiperModal } from "./ChiliPiperModal";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop";
 
@@ -12,9 +14,14 @@ interface Props {
   props: ZigzagFeaturesBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: ZigzagFeaturesBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
-export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
+export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, variantId, sessionId }: Props) {
+  const [cpRow, setCpRow] = useState<number | null>(null);
+
   const updateRow = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const rows = props.rows.map((r, idx) => idx === i ? { ...r, [key]: value } : r);
@@ -22,6 +29,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
   };
 
   return (
+    <>
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
       <div className="max-w-7xl mx-auto px-6 space-y-20 lg:space-y-28">
         {props.rows.map((row, i) => {
@@ -63,9 +71,15 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
                 multiline
               />
               {row.ctaText && (
-                <a
-                  href={row.ctaUrl || "#"}
-                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all"
+                <button
+                  onClick={() => {
+                    if (row.ctaAction === "chilipiper" && row.chilipiperUrl) {
+                      setCpRow(i);
+                    } else if (row.ctaUrl) {
+                      window.open(row.ctaUrl, "_blank", "noopener,noreferrer");
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all bg-transparent border-none p-0 cursor-pointer"
                   style={{ color: brand.primaryColor }}
                 >
                   <InlineText
@@ -73,7 +87,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
                     onUpdate={onFieldChange ? (v) => updateRow(i, "ctaText", v) : undefined}
                   />
                   <ArrowRight className="w-4 h-4 shrink-0" />
-                </a>
+                </button>
               )}
             </div>
           );
@@ -90,5 +104,15 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange }: Props) {
         })}
       </div>
     </section>
+    {cpRow !== null && props.rows[cpRow]?.chilipiperUrl && (
+      <ChiliPiperModal
+        url={props.rows[cpRow].chilipiperUrl!}
+        pageId={pageId}
+        variantId={variantId}
+        sessionId={sessionId}
+        onClose={() => setCpRow(null)}
+      />
+    )}
+    </>
   );
 }

@@ -5,6 +5,8 @@ import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, 
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { ChiliPiperModal } from "./ChiliPiperModal";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -12,6 +14,9 @@ interface Props {
   props: VideoSectionBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
 }
 
 const ASPECT_CLASSES: Record<string, string> = {
@@ -26,7 +31,18 @@ const BG_CLASSES: Record<string, string> = {
   "light-gray": "bg-slate-50 text-slate-900",
 };
 
-export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
+export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
+  const [cpOpen, setCpOpen] = useState(false);
+  const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
+
+  const handleCtaClick = () => {
+    onCtaClick?.();
+    if (isChiliPiper) {
+      setCpOpen(true);
+    } else if (props.ctaUrl) {
+      window.open(props.ctaUrl, "_blank", "noopener,noreferrer");
+    }
+  };
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const bgClass = BG_CLASSES[props.backgroundStyle] ?? BG_CLASSES.white;
   const aspectClass = ASPECT_CLASSES[props.aspectRatio] ?? ASPECT_CLASSES["16/9"];
@@ -196,7 +212,7 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
       )}
       {props.ctaText && (
         <motion.button
-          onClick={onCtaClick}
+          onClick={handleCtaClick}
           className={getButtonClasses(brand, "inline-flex items-center justify-center")}
           style={{ backgroundColor: LIME, color: FOREST }}
           whileHover={{ scale: 1.04, y: -1 }}
@@ -210,70 +226,86 @@ export function BlockVideoSection({ props, brand, onCtaClick }: Props) {
     </div>
   );
 
+  const modal = cpOpen && props.chilipiperUrl ? (
+    <ChiliPiperModal
+      url={props.chilipiperUrl}
+      pageId={pageId}
+      variantId={variantId}
+      sessionId={sessionId}
+      onClose={() => setCpOpen(false)}
+    />
+  ) : null;
+
   if (isSplit) {
     return (
-      <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {layout === "split-left" ? (
-              <>
-                {videoElement}
-                {textElement}
-              </>
-            ) : (
-              <>
-                {textElement}
-                {videoElement}
-              </>
-            )}
+      <>
+        <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              {layout === "split-left" ? (
+                <>
+                  {videoElement}
+                  {textElement}
+                </>
+              ) : (
+                <>
+                  {textElement}
+                  {videoElement}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+        {modal}
+      </>
     );
   }
 
   return (
-    <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
-      <div className="max-w-5xl mx-auto">
-        {(props.headline || props.subheadline) && (
-          <div className="text-center max-w-3xl mx-auto mb-10">
-            {props.headline && (
-              <h2 className={cn(
-                getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
-                "font-display mb-4",
-                getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
-                isDark ? "text-white" : "text-[#003A30]"
-              )}>
-                {props.headline}
-              </h2>
-            )}
-            {props.subheadline && (
-              <p className={cn(
-                getBodySizeClass(brand), "leading-relaxed",
-                isDark ? "text-white/70" : "text-[#003A30]/70"
-              )}>
-                {props.subheadline}
-              </p>
-            )}
-          </div>
-        )}
-        {videoElement}
-        {props.ctaText && (
-          <div className="text-center mt-8">
-            <motion.button
-              onClick={onCtaClick}
-              className={getButtonClasses(brand, "inline-flex items-center justify-center")}
-              style={{ backgroundColor: LIME, color: FOREST }}
-              whileHover={{ scale: 1.04, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              transition={SPRING}
-            >
-              {props.ctaText}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </motion.button>
-          </div>
-        )}
-      </div>
-    </section>
+    <>
+      <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
+        <div className="max-w-5xl mx-auto">
+          {(props.headline || props.subheadline) && (
+            <div className="text-center max-w-3xl mx-auto mb-10">
+              {props.headline && (
+                <h2 className={cn(
+                  getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
+                  "font-display mb-4",
+                  getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
+                  isDark ? "text-white" : "text-[#003A30]"
+                )}>
+                  {props.headline}
+                </h2>
+              )}
+              {props.subheadline && (
+                <p className={cn(
+                  getBodySizeClass(brand), "leading-relaxed",
+                  isDark ? "text-white/70" : "text-[#003A30]/70"
+                )}>
+                  {props.subheadline}
+                </p>
+              )}
+            </div>
+          )}
+          {videoElement}
+          {props.ctaText && (
+            <div className="text-center mt-8">
+              <motion.button
+                onClick={handleCtaClick}
+                className={getButtonClasses(brand, "inline-flex items-center justify-center")}
+                style={{ backgroundColor: LIME, color: FOREST }}
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING}
+              >
+                {props.ctaText}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </motion.button>
+            </div>
+          )}
+        </div>
+      </section>
+      {modal}
+    </>
   );
 }
