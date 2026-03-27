@@ -308,6 +308,7 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
   if (name === "import-contacts") return handleImportContacts(req, res, body);
   if (name === "send-marketing-campaign") return handleSendCampaign(req, res, body);
   if (name === "send-test-email") return handleSendTestEmail(req, res, body);
+  if (name === "accounts-list") return handleAccountsList(req, res, body);
 
   return res.status(404).json({ error: `Unknown function: ${name}` });
 });
@@ -762,6 +763,41 @@ Based on the research data above, create a detailed, actionable briefing. Return
   } catch (err: any) {
     console.error("account-briefing error:", err);
     return res.status(500).json({ success: false, error: err.message || "Unknown error" });
+  }
+}
+
+// ─── Handler: accounts-list ───────────────────────────────────────────────────
+async function handleAccountsList(_req: Request, res: Response, _body: any) {
+  try {
+    const result = await query(`
+      SELECT
+        t.parent_company,
+        t.city,
+        t.state,
+        t.country,
+        t.dso_size,
+        t.segment,
+        t.abm_stage,
+        t.website,
+        c.contact_count
+      FROM (
+        SELECT DISTINCT ON (LOWER(TRIM(parent_company)))
+          parent_company, city, state, country, dso_size, segment, abm_stage, website
+        FROM "dso_target_contacts"
+        WHERE parent_company IS NOT NULL AND TRIM(parent_company) != ''
+        ORDER BY LOWER(TRIM(parent_company)) ASC
+      ) t
+      JOIN (
+        SELECT LOWER(TRIM(parent_company)) AS key, COUNT(*) AS contact_count
+        FROM "dso_target_contacts"
+        WHERE parent_company IS NOT NULL AND TRIM(parent_company) != ''
+        GROUP BY LOWER(TRIM(parent_company))
+      ) c ON LOWER(TRIM(t.parent_company)) = c.key
+      ORDER BY t.parent_company ASC
+    `);
+    return res.json({ success: true, accounts: result.rows });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 }
 

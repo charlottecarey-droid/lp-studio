@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Building2, Users, MapPin, Newspaper, Lightbulb, ExternalLink,
@@ -213,17 +214,73 @@ const DSOAccountBriefing = () => {
   const [briefingExpanded, setBriefingExpanded] = useState(false);
   const [accountSfdcId, setAccountSfdcId] = useState<string | null>(null);
 
-  const matchedTarget = useMemo(() => query.trim() ? findTargetAccount(query.trim()) : null, [query]);
+  // ── Load accounts from DB, merge with hardcoded metadata ────────────────────
+  const { data: dbAccountRows = [] } = useQuery({
+    queryKey: ["accounts_list"],
+    queryFn: async () => {
+      const resp = await supabase.functions.invoke("accounts-list", { body: {} });
+      return (resp.data as any)?.accounts || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allAccounts = useMemo<TargetAccount[]>(() => {
+    const hardcodedMap = new Map(TARGET_ACCOUNTS.map(a => [a.company.toLowerCase().trim(), a]));
+    const seen = new Set<string>();
+    const result: TargetAccount[] = [];
+
+    // DB accounts enriched with hardcoded metadata
+    for (const row of dbAccountRows) {
+      const key = (row.parent_company as string).toLowerCase().trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const hc = hardcodedMap.get(key);
+      result.push({
+        company: row.parent_company,
+        website: hc?.website || row.website || "",
+        city: hc?.city || row.city || "",
+        state: hc?.state || row.state || "",
+        country: hc?.country || row.country || "United States",
+        tier: hc?.tier || "",
+        stage: hc?.stage || row.abm_stage || "",
+        segment: hc?.segment || row.segment || row.dso_size || "",
+        practiceCount: hc?.practiceCount ?? null,
+        locationsOnContract: hc?.locationsOnContract ?? null,
+        msaSigned: hc?.msaSigned ?? false,
+        pilot: hc?.pilot ?? false,
+        accountOwner: hc?.accountOwner || "",
+      });
+    }
+
+    // Add hardcoded accounts not in DB
+    for (const hc of TARGET_ACCOUNTS) {
+      const key = hc.company.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(hc);
+      }
+    }
+
+    return result.sort((a, b) => a.company.localeCompare(b.company));
+  }, [dbAccountRows]);
+
+  const matchedTarget = useMemo(() => {
+    if (!query.trim()) return null;
+    const q = query.toLowerCase();
+    return allAccounts.find(a =>
+      a.company.toLowerCase() === q || a.company.toLowerCase().includes(q)
+    ) || null;
+  }, [query, allAccounts]);
   const engagementSignal = useEngagementSignal(briefing?.companyName || "", accountSfdcId);
 
-  const uniqueTiers = useMemo(() => [...new Set(TARGET_ACCOUNTS.map(a => a.tier).filter(Boolean))].sort(), []);
-  const uniqueOwners = useMemo(() => [...new Set(TARGET_ACCOUNTS.map(a => a.accountOwner).filter(Boolean))].sort(), []);
+  const uniqueTiers = useMemo(() => [...new Set(allAccounts.map(a => a.tier).filter(Boolean))].sort(), [allAccounts]);
+  const uniqueOwners = useMemo(() => [...new Set(allAccounts.map(a => a.accountOwner).filter(Boolean))].sort(), [allAccounts]);
   const filteredAccounts = useMemo(() => {
-    let list = TARGET_ACCOUNTS;
+    let list = allAccounts;
     if (filterTier) list = list.filter(a => a.tier === filterTier);
     if (filterOwner) list = list.filter(a => a.accountOwner === filterOwner);
     return list;
-  }, [filterTier, filterOwner]);
+  }, [allAccounts, filterTier, filterOwner]);
 
   useEffect(() => {
     if (!briefing?.companyName) { setDbContacts([]); setAccountSfdcId(null); return; }
@@ -250,10 +307,10 @@ const DSOAccountBriefing = () => {
   const suggestions = useMemo(() => {
     if (!query.trim() || query.trim().length < 2) return [];
     const q = query.toLowerCase();
-    return TARGET_ACCOUNTS.filter((a) =>
-      a.company.toLowerCase().includes(q) || a.website.toLowerCase().includes(q)
+    return allAccounts.filter((a) =>
+      a.company.toLowerCase().includes(q) || (a.website || "").toLowerCase().includes(q)
     ).slice(0, 8);
-  }, [query]);
+  }, [query, allAccounts]);
 
   const selectAccount = (account: TargetAccount) => {
     setQuery(account.company);
@@ -450,7 +507,7 @@ const DSOAccountBriefing = () => {
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
             >
               <ListFilter className="w-3.5 h-3.5" />
-              {showFullList ? "Hide" : "Browse"} all {TARGET_ACCOUNTS.length} target accounts
+              {showFullList ? "Hide" : "Browse"} all {allAccounts.length} target accounts
             </button>
           </div>
         </motion.div>
