@@ -351,9 +351,13 @@ const MicrositeSolutionsSkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, 
   ];
   const displayStats = (filterByPracticeCount(rawStats, parsedPracticeCount) as typeof rawStats).slice(0, 4);
   const footerText = cfg?.footerText || "Trusted by 2,000+ dental offices · 96% first-time right · U.S.-based manufacturing";
+  const resolveFontFamily = (name?: string) => {
+    if (!name || name === "system-ui") return "'Bagoss Standard', system-ui, sans-serif";
+    return `'${name}', sans-serif`;
+  };
   const fontFamily = (data as any).fontOverride
-    ? `'${(data as any).fontOverride}', sans-serif`
-    : cfg?.typography?.headingFont || "'Arimo', sans-serif";
+    ? resolveFontFamily((data as any).fontOverride)
+    : resolveFontFamily(cfg?.typography?.headingFont);
   const bodyFontFamily = (data as any).bodyFontOverride
     ? `'${(data as any).bodyFontOverride}', sans-serif`
     : "'Inter', sans-serif";

@@ -362,7 +362,7 @@ const MicrositeSkinEditor = () => {
                         onChange={(e) => update("typography", { ...config.typography, headingFont: e.target.value })}
                         className="h-7 rounded-md bg-white/5 border border-white/10 text-white text-[11px] px-2 w-full"
                       >
-                        {["system-ui", "Georgia", "Inter", "Playfair Display", "DM Sans", "Sora", "Space Grotesk"].map((f) => (
+                        {["Bagoss Standard", "system-ui", "Georgia", "Inter", "Playfair Display", "DM Sans", "Sora", "Space Grotesk"].map((f) => (
                           <option key={f} value={f} className="bg-[#0a0f0d]">{f}</option>
                         ))}
                       </select>
