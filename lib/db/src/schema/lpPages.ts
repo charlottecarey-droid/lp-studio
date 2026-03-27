@@ -13,6 +13,7 @@ export const lpPagesTable = pgTable("lp_pages", {
   metaDescription: text("meta_description").notNull().default(""),
   ogImage: text("og_image").notNull().default(""),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
+  pageVariables: jsonb("page_variables").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

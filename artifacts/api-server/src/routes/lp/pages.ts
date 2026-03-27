@@ -14,15 +14,21 @@ function isDbError(err: unknown): err is DbError {
 }
 
 router.get("/lp/pages", async (_req, res): Promise<void> => {
-  const pages = await db
-    .select()
-    .from(lpPagesTable)
-    .orderBy(lpPagesTable.createdAt);
-  res.json(pages);
+  try {
+    const pages = await db
+      .select()
+      .from(lpPagesTable)
+      .orderBy(lpPagesTable.createdAt);
+    res.json(pages);
+  } catch (err) {
+    const cause = (err as { cause?: Error })?.cause;
+    console.error("GET /lp/pages error:", cause?.message ?? String(err));
+    res.status(500).json({ error: "Failed to load pages", detail: cause?.message ?? String(err) });
+  }
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables } = req.body as {
     title?: unknown;
     slug?: unknown;
     blocks?: unknown;
@@ -32,6 +38,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     metaDescription?: unknown;
     ogImage?: unknown;
     animationsEnabled?: unknown;
+    pageVariables?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -53,7 +60,8 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         metaTitle: typeof metaTitle === "string" ? metaTitle : "",
         metaDescription: typeof metaDescription === "string" ? metaDescription : "",
         ogImage: typeof ogImage === "string" ? ogImage : "",
-      animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : true,
+        animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : true,
+        pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables)) ? pageVariables as Record<string, string> : {},
       })
       .returning();
     res.status(201).json(page);
@@ -86,7 +94,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -96,9 +104,10 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     metaDescription?: string;
     ogImage?: string;
     animationsEnabled?: boolean;
+    pageVariables?: Record<string, string>;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string> }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) updates.slug = slug;
   if (blocks !== undefined) updates.blocks = blocks;
@@ -108,6 +117,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
   if (ogImage !== undefined) updates.ogImage = ogImage;
   if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
+  if (pageVariables !== undefined) updates.pageVariables = pageVariables;
 
   try {
     const [page] = await db

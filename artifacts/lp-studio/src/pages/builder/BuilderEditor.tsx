@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,7 @@ interface FetchedPage {
   metaDescription?: string;
   ogImage?: string;
   animationsEnabled?: boolean;
+  pageVariables?: Record<string, string>;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -103,6 +104,7 @@ interface SavePageData {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  pageVariables?: Record<string, string>;
 }
 
 async function savePage(id: string, data: SavePageData) {
@@ -530,6 +532,7 @@ export default function BuilderEditor() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  const [pageVariables, setPageVariables] = useState<Record<string, string>>({});
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
@@ -618,6 +621,7 @@ export default function BuilderEditor() {
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
+        setPageVariables(p.pageVariables ?? {});
         setBrand(b);
         setBlockDefaults(defaults);
         setCustomBlocks(customs);
@@ -866,6 +870,7 @@ export default function BuilderEditor() {
     metaTitle,
     metaDescription,
     ogImage,
+    pageVariables: Object.keys(pageVariables).length > 0 ? pageVariables : undefined,
     ...overrides,
   });
 
@@ -1505,9 +1510,106 @@ export default function BuilderEditor() {
             </div>
           )}
           </div>
+          <VariablesPanel
+            blocks={blocks}
+            variables={pageVariables}
+            onChange={vars => { setPageVariables(vars); }}
+          />
           <CustomCssPanel value={customCss} onChange={setCustomCss} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+// ── Variables Panel ──────────────────────────────────────────────────────────
+
+function extractVariableTokens(blocks: PageBlock[]): string[] {
+  const found = new Set<string>();
+  const TOKEN_RE = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+  const scan = (val: unknown) => {
+    if (typeof val === "string") {
+      let m;
+      while ((m = TOKEN_RE.exec(val)) !== null) {
+        found.add(m[1]);
+      }
+    } else if (Array.isArray(val)) {
+      val.forEach(scan);
+    } else if (val && typeof val === "object") {
+      Object.values(val as Record<string, unknown>).forEach(scan);
+    }
+  };
+  blocks.forEach(b => scan(b.props));
+  return Array.from(found).sort();
+}
+
+const KNOWN_MICROSITE_VARS: Record<string, string> = {
+  company_name: "Company Name",
+  practice_count: "Practice Count",
+};
+
+function VariablesPanel({
+  blocks,
+  variables,
+  onChange,
+}: {
+  blocks: PageBlock[];
+  variables: Record<string, string>;
+  onChange: (vars: Record<string, string>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const tokens = extractVariableTokens(blocks);
+
+  if (tokens.length === 0) return null;
+
+  return (
+    <div className="border-t border-border">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Variable className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Page Variables</span>
+          {tokens.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {tokens.length}
+            </span>
+          )}
+        </div>
+        <svg
+          className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", open && "rotate-180")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            These tokens appear in your block copy. Set values here to resolve them at render and publish time.
+          </p>
+          {tokens.map(token => (
+            <div key={token}>
+              <label className="text-[10px] font-mono text-muted-foreground block mb-1">
+                {`{${token}}`}
+                {KNOWN_MICROSITE_VARS[token] && (
+                  <span className="ml-1 text-[9px] text-primary/70 non-mono">{KNOWN_MICROSITE_VARS[token]}</span>
+                )}
+              </label>
+              <Input
+                value={variables[token] ?? ""}
+                onChange={e => onChange({ ...variables, [token]: e.target.value })}
+                placeholder={KNOWN_MICROSITE_VARS[token] ?? token}
+                className="text-xs h-8 font-mono"
+              />
+            </div>
+          ))}
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Variable values are saved with the page and applied when the page is served or previewed.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

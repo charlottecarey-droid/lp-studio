@@ -12,9 +12,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
+import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import { useReviews } from "@/hooks/use-collaboration";
@@ -82,6 +83,10 @@ const TEMPLATE_OPTIONS = [
 
 function getTemplateBlocks(templateId: string): PageBlock[] {
   if (templateId === "blank") return [];
+  if (templateId.startsWith("microsite-")) {
+    const tpl = MICROSITE_TEMPLATES.find(t => t.id === templateId);
+    return tpl ? tpl.buildBlocks() : [];
+  }
   return templateToBlocks(templateId);
 }
 
@@ -590,22 +595,67 @@ export default function PagesGallery() {
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Starting Template</Label>
-                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                  {TEMPLATE_OPTIONS.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTemplate(t.id)}
-                      className={cn(
-                        "text-left p-3 rounded-xl border text-sm transition-all",
-                        selectedTemplate === t.id
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border hover:border-primary/30 hover:bg-muted/50"
-                      )}
-                    >
-                      <p className="font-medium text-xs text-foreground">{t.name}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
-                    </button>
-                  ))}
+                <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                  {/* General templates */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">General</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {TEMPLATE_OPTIONS.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedTemplate(t.id)}
+                          className={cn(
+                            "text-left p-3 rounded-xl border text-sm transition-all",
+                            selectedTemplate === t.id
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-border hover:border-primary/30 hover:bg-muted/50"
+                          )}
+                        >
+                          <p className="font-medium text-xs text-foreground">{t.name}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Sales Microsites category */}
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Building2 className="w-3 h-3 text-primary" />
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Sales Microsites</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {MICROSITE_TEMPLATES.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedTemplate(t.id)}
+                          className={cn(
+                            "text-left p-3 rounded-xl border text-sm transition-all relative overflow-hidden",
+                            selectedTemplate === t.id
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-border hover:border-primary/30 hover:bg-muted/50"
+                          )}
+                        >
+                          <div
+                            className="absolute top-0 right-0 w-8 h-8 rounded-bl-xl opacity-60"
+                            style={{ background: t.accentColor }}
+                          />
+                          <div className="flex items-start gap-1.5 pr-6">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium text-xs text-foreground">{t.name}</p>
+                                {t.badge && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: t.accentColor, color: t.bgColor }}>
+                                    {t.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               {createError && (

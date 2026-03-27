@@ -489,6 +489,9 @@ async function runMigrations() {
         UNIQUE(page_id, email)
       );
       CREATE INDEX IF NOT EXISTS idx_lp_page_alert_emails_page ON lp_page_alert_emails(page_id);
+
+      -- LP Studio page variables (personalization tokens)
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS page_variables jsonb DEFAULT '{}';
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
