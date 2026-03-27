@@ -394,7 +394,7 @@ const DSOSiteManager = () => {
                         >
                           <BarChart3 className="w-4 h-4" />
                         </button>
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => openHotlinkPanel(site.id)}
                             className={`p-2 rounded-lg transition-colors ${hotlinkOpenId === site.id ? "bg-primary/10 text-primary" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"}`}
