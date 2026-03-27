@@ -240,17 +240,17 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   <span
                     style={{
                       position: "absolute",
-                      top: -20,
-                      left: 10,
+                      top: -16,
+                      left: 12,
                       fontFamily: "Georgia, serif",
-                      fontSize: "5rem",
+                      fontSize: "4.5rem",
                       lineHeight: 1,
-                      color: dark ? `${AW}20` : `${P}14`,
+                      color: dark ? "rgba(154,184,54,0.18)" : "rgba(22,51,34,0.10)",
                       userSelect: "none",
                       pointerEvents: "none",
                     }}
                   >
-                    "
+                    {"\u201C"}
                   </span>
                   <p
                     style={{
