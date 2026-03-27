@@ -102,9 +102,9 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
             className="absolute inset-0"
             style={{
               background: `
-                radial-gradient(ellipse 90% 60% at 50% 0%, hsl(192 25% 12% / 0.7), transparent),
-                radial-gradient(ellipse 55% 40% at 80% 30%, hsl(72 40% 20% / 0.12), transparent),
-                ${BG}
+                radial-gradient(ellipse 80% 55% at 50% 50%, hsl(152 35% 7% / 0.85), transparent),
+                radial-gradient(ellipse 45% 35% at 25% 70%, hsl(72 45% 10% / 0.25), transparent),
+                #000000
               `,
             }}
           />
