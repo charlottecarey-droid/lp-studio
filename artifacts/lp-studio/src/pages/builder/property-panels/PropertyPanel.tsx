@@ -981,6 +981,97 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-ai-feature": {
+        const p = block.props;
+        const bullets = p.bullets ?? [];
+        const stats   = p.stats   ?? [];
+        const updateBullet = (i: number, val: string) => {
+          const next = bullets.map((b, idx) => idx === i ? val : b);
+          onChange({ ...block, props: { ...p, bullets: next } });
+        };
+        const addBullet = () => onChange({ ...block, props: { ...p, bullets: [...bullets, ""] } });
+        const removeBullet = (i: number) => onChange({ ...block, props: { ...p, bullets: bullets.filter((_, idx) => idx !== i) } });
+        const updateStat = (i: number, patch: Partial<{ value: string; label: string }>) => {
+          const next = stats.map((s, idx) => idx === i ? { ...s, ...patch } : s);
+          onChange({ ...block, props: { ...p, stats: next } });
+        };
+        const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "" }] } });
+        const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Waste Prevention" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image URL</Label>
+              <Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="/dso-ai-scan.png" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bullet Points</Label>
+                <Button variant="ghost" size="sm" onClick={addBullet} className="h-7 text-xs gap-1">
+                  <Plus className="w-3 h-3" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {bullets.map((b, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input value={b} onChange={e => updateBullet(i, e.target.value)} placeholder="AI reviews every scan…" className="h-8 text-xs flex-1" />
+                    <button onClick={() => removeBullet(i)} className="text-slate-400 hover:text-red-500 flex-shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {bullets.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No bullets yet.</p>
+                )}
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats Row</Label>
+                <Button variant="ghost" size="sm" onClick={addStat} className="h-7 text-xs gap-1">
+                  <Plus className="w-3 h-3" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {stats.map((s, i) => (
+                  <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">Stat {i + 1}</span>
+                      <button onClick={() => removeStat(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <Label className="text-[11px] text-slate-400">Value</Label>
+                        <Input value={s.value} onChange={e => updateStat(i, { value: e.target.value })} placeholder="96%" className="h-7 text-xs mt-0.5" />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-slate-400">Label</Label>
+                        <Input value={s.label} onChange={e => updateStat(i, { label: e.target.value })} placeholder="First-Time Right" className="h-7 text-xs mt-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {stats.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No stats yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
