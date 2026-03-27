@@ -9,6 +9,7 @@ import { BlockDsoPilotSteps } from "./BlockDsoPilotSteps";
 import { BlockDsoFinalCta } from "./BlockDsoFinalCta";
 import { BlockDsoComparison } from "./BlockDsoComparison";
 import { BlockDsoHeartlandHero } from "./BlockDsoHeartlandHero";
+import { BlockDsoProblem } from "./BlockDsoProblem";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -407,6 +408,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl) : undefined}
           />
         );
+      case "dso-problem":
+        return <BlockDsoProblem props={block.props} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

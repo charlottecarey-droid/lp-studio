@@ -894,6 +894,93 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-problem": {
+        const p = block.props;
+        const panels = p.panels ?? [];
+        const PANEL_ICONS = [
+          { value: "alert-triangle", label: "Alert Triangle" },
+          { value: "bar-chart",      label: "Bar Chart" },
+          { value: "users",          label: "Users" },
+          { value: "trending-down",  label: "Trending Down" },
+          { value: "clock",          label: "Clock" },
+          { value: "shield",         label: "Shield" },
+          { value: "microscope",     label: "Microscope" },
+          { value: "layers",         label: "Layers" },
+          { value: "zap",            label: "Zap" },
+          { value: "target",         label: "Target" },
+          { value: "dollar",         label: "Dollar" },
+          { value: "network",        label: "Network" },
+          { value: "activity",       label: "Activity" },
+          { value: "scale",          label: "Scale" },
+        ];
+        const updatePanel = (i: number, patch: Partial<typeof panels[0]>) => {
+          const next = panels.map((c, idx) => idx === i ? { ...c, ...patch } : c);
+          onChange({ ...block, props: { ...p, panels: next } });
+        };
+        const addPanel = () => {
+          if (panels.length >= 4) return;
+          onChange({ ...block, props: { ...p, panels: [...panels, { icon: "alert-triangle" as const, title: "", desc: "" }] } });
+        };
+        const removePanel = (i: number) => onChange({ ...block, props: { ...p, panels: panels.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Problem" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body (optional)</Label>
+              <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} placeholder="Supporting paragraph beneath the headline…" className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Panels (max 4)</Label>
+                {panels.length < 4 && (
+                  <Button variant="ghost" size="sm" onClick={addPanel} className="h-7 text-xs gap-1">
+                    <Plus className="w-3 h-3" /> Add
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-3">
+                {panels.map((c, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">Panel {i + 1}</span>
+                      <button onClick={() => removePanel(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Icon</Label>
+                      <Select value={c.icon} onValueChange={v => updatePanel(i, { icon: v as typeof c.icon })}>
+                        <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {PANEL_ICONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Title</Label>
+                      <Input value={c.title} onChange={e => updatePanel(i, { title: e.target.value })} placeholder="Fragmented Networks" className="h-8 text-xs mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Description</Label>
+                      <Textarea value={c.desc} onChange={e => updatePanel(i, { desc: e.target.value })} rows={2} placeholder="No centralized visibility…" className="text-xs mt-1 resize-none" />
+                    </div>
+                  </div>
+                ))}
+                {panels.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No panels yet. Click Add to get started.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

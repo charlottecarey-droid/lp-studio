@@ -575,7 +575,8 @@ type BlockVariant =
   | { type: "dso-pilot-steps"; props: DsoPilotStepsBlockProps }
   | { type: "dso-final-cta"; props: DsoFinalCtaBlockProps }
   | { type: "dso-comparison"; props: DsoComparisonBlockProps }
-  | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps };
+  | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps }
+  | { type: "dso-problem"; props: DsoProblemBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1721,6 +1722,43 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-problem" as const,
+    label: "DSO Problem (4-panel grid)",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoProblemBlockProps => ({
+      eyebrow: "The Problem",
+      headline: "Lab consolidation shouldn't mean compromise.",
+      body: "",
+      panels: [
+        { icon: "alert-triangle", title: "Fragmented Networks",  desc: "No centralized visibility or control across your lab relationships." },
+        { icon: "bar-chart",      title: "Scattered Data",       desc: "Performance tracking impossible across disconnected systems." },
+        { icon: "users",          title: "Provider Resistance",  desc: "Inconsistent quality erodes provider confidence and slows adoption." },
+        { icon: "trending-down",  title: "Revenue Leakage",      desc: "Remakes, wasted chair time, and inefficiency drain profitability silently." },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="hsl(0,0%,98%)" rx="4" />
+        <rect x="30" y="8" width="60" height="4" rx="2" fill="hsl(192,30%,10%)" opacity="0.7" />
+        <rect x="40" y="14" width="40" height="2" rx="1" fill="hsl(192,10%,55%)" opacity="0.5" />
+        {[0, 1, 2, 3].map(i => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const x = 8 + col * 57;
+          const y = 22 + row * 23;
+          return (
+            <g key={i}>
+              <rect x={x} y={y} width="52" height="19" rx="3" fill="white" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
+              <rect x={x + 4} y={y + 4} width="6" height="6" rx="1.5" fill="hsl(72,55%,48%)" opacity="0.15" />
+              <rect x={x + 4} y={y + 12} width="22" height="2" rx="1" fill="hsl(192,30%,10%)" opacity="0.5" />
+              <rect x={x + 4} y={y + 15} width="38" height="1.5" rx="0.75" fill="hsl(192,10%,55%)" opacity="0.35" />
+            </g>
+          );
+        })}
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1767,6 +1805,7 @@ export function createBlock(type: "dso-pilot-steps"): Extract<PageBlock, { type:
 export function createBlock(type: "dso-final-cta"): Extract<PageBlock, { type: "dso-final-cta" }>;
 export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: "dso-comparison" }>;
 export function createBlock(type: "dso-heartland-hero"): Extract<PageBlock, { type: "dso-heartland-hero" }>;
+export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "dso-problem" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1810,6 +1849,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-final-cta": return { id, type: "dso-final-cta", props: props as DsoFinalCtaBlockProps };
     case "dso-comparison": return { id, type: "dso-comparison", props: props as DsoComparisonBlockProps };
     case "dso-heartland-hero": return { id, type: "dso-heartland-hero", props: props as DsoHeartlandHeroBlockProps };
+    case "dso-problem": return { id, type: "dso-problem", props: props as DsoProblemBlockProps };
   }
 }
 
