@@ -1,11 +1,23 @@
 const API = "/api/lp/copy-generate";
 
+export interface SegmentContext {
+  id: string;
+  name: string;
+  description?: string;
+  messagingAngle?: string;
+  uniqueContext?: string;
+  valueProps?: string[];
+  personas?: { role: string; painPoints: string[] }[];
+  challenges?: { title: string; desc: string }[];
+}
+
 export interface BriefContext {
   company: string;
   objective: string;
   valueProps: string[];
   toneGuidance: string;
   suggestedHeadline: string;
+  segmentContext?: SegmentContext;
 }
 
 export async function suggestCopy(

@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2 } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -22,6 +22,8 @@ import { useReviews } from "@/hooks/use-collaboration";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
 import { ContentBriefModal, type ContentBrief } from "@/components/ContentBriefModal";
+import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
+import { setBriefContext } from "@/lib/brief-context";
 
 const API_BASE = "/api";
 
@@ -228,9 +230,13 @@ export default function PagesGallery() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [segments, setSegments] = useState<AudienceSegment[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
 
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
+
+  const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
 
   const load = () => {
     setIsLoading(true);
@@ -241,6 +247,12 @@ export default function PagesGallery() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (showCreateModal && segments.length === 0) {
+      fetchBrandConfig().then(b => setSegments(b.segments ?? [])).catch(() => {});
+    }
+  }, [showCreateModal]);
 
   // Fetch performance scores once pages load
   useEffect(() => {
@@ -276,6 +288,25 @@ export default function PagesGallery() {
       setNewTitle("");
       setNewSlug("");
       setSelectedTemplate("blank");
+      if (selectedSegment) {
+        setBriefContext({
+          company: newTitle.trim(),
+          objective: "",
+          valueProps: selectedSegment.valueProps ?? [],
+          toneGuidance: selectedSegment.messagingAngle ?? "",
+          suggestedHeadline: "",
+          segmentContext: {
+            id: selectedSegment.id,
+            name: selectedSegment.name,
+            description: selectedSegment.description,
+            messagingAngle: selectedSegment.messagingAngle,
+            uniqueContext: selectedSegment.uniqueContext,
+            valueProps: selectedSegment.valueProps,
+            personas: selectedSegment.personas.map(p => ({ role: p.role, painPoints: p.painPoints })),
+            challenges: selectedSegment.challenges.map(c => ({ title: c.title, desc: c.desc })),
+          },
+        });
+      }
       navigate(`/builder/${page.id}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create page");
@@ -310,6 +341,25 @@ export default function PagesGallery() {
       setShowCreateModal(false);
       setAiPrompt("");
       setCreateMode("template");
+      if (selectedSegment) {
+        setBriefContext({
+          company: generated.title,
+          objective: aiPrompt.trim(),
+          valueProps: selectedSegment.valueProps ?? [],
+          toneGuidance: selectedSegment.messagingAngle ?? "",
+          suggestedHeadline: "",
+          segmentContext: {
+            id: selectedSegment.id,
+            name: selectedSegment.name,
+            description: selectedSegment.description,
+            messagingAngle: selectedSegment.messagingAngle,
+            uniqueContext: selectedSegment.uniqueContext,
+            valueProps: selectedSegment.valueProps,
+            personas: selectedSegment.personas.map(p => ({ role: p.role, painPoints: p.painPoints })),
+            challenges: selectedSegment.challenges.map(c => ({ title: c.title, desc: c.desc })),
+          },
+        });
+      }
       navigate(`/builder/${page.id}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to generate page");
@@ -529,11 +579,38 @@ export default function PagesGallery() {
       />
 
       {/* Create Page Modal */}
-      <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCreateError(null); setCreateMode("template"); } }}>
+      <Dialog open={showCreateModal} onOpenChange={(open) => { setShowCreateModal(open); if (!open) { setCreateError(null); setCreateMode("template"); setSelectedSegmentId(""); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Page</DialogTitle>
           </DialogHeader>
+
+          {/* Segment picker — shown when segments exist */}
+          {segments.length > 0 && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="w-3 h-3 text-primary" />
+                </div>
+                <Label className="text-sm font-semibold text-foreground">Who is this page for?</Label>
+              </div>
+              <select
+                className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                value={selectedSegmentId}
+                onChange={e => setSelectedSegmentId(e.target.value)}
+              >
+                <option value="">— No specific segment —</option>
+                {segments.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {selectedSegment && (
+                <p className="text-[11px] text-muted-foreground leading-snug pl-0.5">
+                  {selectedSegment.messagingAngle || selectedSegment.description}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Mode tabs */}
           <div className="flex gap-1 p-1 bg-muted rounded-lg">

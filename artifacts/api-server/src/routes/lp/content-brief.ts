@@ -83,11 +83,40 @@ function buildBrandSection(brand: BrandContext): string {
   return parts.join("\n");
 }
 
+interface SegmentContext {
+  name?: string;
+  description?: string;
+  messagingAngle?: string;
+  uniqueContext?: string;
+  valueProps?: string[];
+  personas?: { role: string; painPoints: string[] }[];
+  challenges?: { title: string; desc: string }[];
+}
+
+function buildSegmentSection(seg: SegmentContext): string {
+  const parts: string[] = [];
+  if (seg.name) parts.push(`Audience Segment: ${seg.name}`);
+  if (seg.description) parts.push(`Segment Description: ${seg.description}`);
+  if (seg.messagingAngle) parts.push(`Messaging Angle: ${seg.messagingAngle}`);
+  if (seg.uniqueContext) parts.push(`Unique Context: ${seg.uniqueContext}`);
+  if (seg.valueProps?.length) parts.push(`Segment Value Props: ${seg.valueProps.join("; ")}`);
+  if (seg.personas?.length) {
+    const ps = seg.personas.map((p) => `${p.role} (pain points: ${p.painPoints.join(", ")})`).join("; ");
+    parts.push(`Known Personas: ${ps}`);
+  }
+  if (seg.challenges?.length) {
+    const cs = seg.challenges.map((c) => `${c.title}: ${c.desc}`).join("; ");
+    parts.push(`Key Challenges: ${cs}`);
+  }
+  return parts.join("\n");
+}
+
 router.post("/lp/content-brief", async (req, res): Promise<void> => {
-  const { company, objective, brandContext } = req.body as {
+  const { company, objective, brandContext, segmentContext } = req.body as {
     company?: string;
     objective?: string;
     brandContext?: BrandContext;
+    segmentContext?: SegmentContext;
   };
 
   if (!company || typeof company !== "string" || !company.trim()) {
@@ -129,6 +158,27 @@ When generating the brief:
 - If product lines are provided, anchor value props and messaging around the specific products relevant to the campaign objective.`
     : "";
 
+  const segmentSection =
+    segmentContext && typeof segmentContext === "object"
+      ? buildSegmentSection(segmentContext)
+      : "";
+
+  const segmentInstructions = segmentSection
+    ? `
+
+IMPORTANT — Target Audience Segment:
+This brief is for a specific audience segment. You MUST tailor every aspect of the brief to this segment:
+${segmentSection}
+
+When generating the brief for this segment:
+- The companyOverview MUST focus on this segment's specific context and business reality.
+- The personas MUST match this segment's known roles and pain points.
+- The valueProps MUST directly address this segment's specific challenges and the segment's established value props.
+- The suggestedHeadline MUST speak to this segment's primary pain point or desire using the messaging angle.
+- The toneGuidance MUST align with how this segment prefers to be spoken to.
+- The recommendedBlocks should include blocks best suited to convert this segment.`
+    : "";
+
   const systemPrompt = `You are an expert B2B content strategist and landing page copywriter. 
 Your task is to generate a structured content brief for a landing page campaign targeting a specific company or audience segment.
 Return ONLY a valid JSON object — no markdown fences, no explanation, no extra text.
@@ -153,7 +203,7 @@ For recommendedBlocks, choose from: hero, trust-bar, stat-callout, benefits-grid
 Include 4-6 blocks in a logical order.
 For personas, include exactly 2-3 personas with exactly 3 pain points each.
 For valueProps, include exactly 4 value props.
-For ctaSuggestions, include exactly 3 CTA options.${brandInstructions}`;
+For ctaSuggestions, include exactly 3 CTA options.${brandInstructions}${segmentInstructions}`;
 
   const userPrompt = `Target Company / Audience: ${company.trim()}
 Campaign Objective: ${objective.trim()}

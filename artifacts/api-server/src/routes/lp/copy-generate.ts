@@ -88,12 +88,24 @@ const KNOWN_FIELDS = new Set([
   "title", "description", "bodyText", "tagline",
 ]);
 
+interface SegmentContext {
+  id?: string;
+  name?: string;
+  description?: string;
+  messagingAngle?: string;
+  uniqueContext?: string;
+  valueProps?: string[];
+  personas?: { role: string; painPoints: string[] }[];
+  challenges?: { title: string; desc: string }[];
+}
+
 interface BriefContext {
   company?: string;
   objective?: string;
   valueProps?: string[];
   toneGuidance?: string;
   suggestedHeadline?: string;
+  segmentContext?: SegmentContext;
 }
 
 function buildBriefContextPrompt(brief: BriefContext): string {
@@ -103,8 +115,27 @@ function buildBriefContextPrompt(brief: BriefContext): string {
   if (brief.suggestedHeadline) parts.push(`Suggested headline direction: "${brief.suggestedHeadline}"`);
   if (brief.valueProps?.length) parts.push(`Key value props to emphasize: ${brief.valueProps.join("; ")}`);
   if (brief.toneGuidance) parts.push(`Tone guidance: ${brief.toneGuidance}`);
+
+  const seg = brief.segmentContext;
+  if (seg?.name) {
+    const segParts: string[] = [`Target audience segment: ${seg.name}`];
+    if (seg.description) segParts.push(`Segment description: ${seg.description}`);
+    if (seg.messagingAngle) segParts.push(`Messaging angle: ${seg.messagingAngle}`);
+    if (seg.uniqueContext) segParts.push(`Unique context: ${seg.uniqueContext}`);
+    if (seg.valueProps?.length) segParts.push(`Segment value props: ${seg.valueProps.join("; ")}`);
+    if (seg.personas?.length) {
+      const ps = seg.personas.map((p) => `${p.role} (pain points: ${p.painPoints.join(", ")})`).join("; ");
+      segParts.push(`Key personas: ${ps}`);
+    }
+    if (seg.challenges?.length) {
+      const cs = seg.challenges.map((c) => `${c.title}: ${c.desc}`).join("; ");
+      segParts.push(`Challenges to address: ${cs}`);
+    }
+    parts.push(segParts.join("\n"));
+  }
+
   if (parts.length === 0) return "";
-  return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted.`;
+  return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted to this specific audience.`;
 }
 
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {

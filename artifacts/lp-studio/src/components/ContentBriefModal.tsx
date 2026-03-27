@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Copy, Check, User, Target, Layout, Wand2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Sparkles, Copy, Check, User, Target, Layout, Wand2, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, type BrandConfig, type AudienceSegment } from "@/lib/brand-config";
 
 const API_BASE = "/api";
 
@@ -32,7 +32,8 @@ export interface ContentBrief {
 interface ContentBriefModalProps {
   open: boolean;
   onClose: () => void;
-  onApply?: (brief: ContentBrief, company: string, objective: string) => void;
+  onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
+  initialSegmentId?: string;
 }
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -67,7 +68,7 @@ function buildBrandContext(brand: BrandConfig | null) {
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
-export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalProps) {
+export function ContentBriefModal({ open, onClose, onApply, initialSegmentId }: ContentBriefModalProps) {
   const [company, setCompany] = useState("");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
@@ -78,12 +79,20 @@ export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalP
   const [copied, setCopied] = useState(false);
   const [expandedPersona, setExpandedPersona] = useState<number | null>(0);
   const [brand, setBrand] = useState<BrandConfig | null>(null);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string>(initialSegmentId ?? "");
+
+  const segments: AudienceSegment[] = brand?.segments ?? [];
+  const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
 
   useEffect(() => {
     if (open && !brand) {
       fetchBrandConfig().then(setBrand).catch(() => {});
     }
   }, [open, brand]);
+
+  useEffect(() => {
+    if (initialSegmentId !== undefined) setSelectedSegmentId(initialSegmentId);
+  }, [initialSegmentId]);
 
   const handleGenerate = async () => {
     if (!company.trim() || !objective.trim()) return;
@@ -92,6 +101,15 @@ export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalP
     setBrief(null);
 
     const brandContext = buildBrandContext(brand);
+    const segmentContext = selectedSegment ? {
+      name: selectedSegment.name,
+      description: selectedSegment.description,
+      messagingAngle: selectedSegment.messagingAngle,
+      uniqueContext: selectedSegment.uniqueContext,
+      valueProps: selectedSegment.valueProps,
+      personas: selectedSegment.personas.map(p => ({ role: p.role, painPoints: p.painPoints })),
+      challenges: selectedSegment.challenges.map(c => ({ title: c.title, desc: c.desc })),
+    } : undefined;
 
     try {
       const res = await fetch(`${API_BASE}/lp/content-brief`, {
@@ -101,6 +119,7 @@ export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalP
           company: company.trim(),
           objective: objective.trim(),
           ...(brandContext ? { brandContext } : {}),
+          ...(segmentContext ? { segmentContext } : {}),
         }),
       });
       if (!res.ok) {
@@ -159,7 +178,7 @@ export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalP
 
   const handleApply = () => {
     if (!brief || !onApply) return;
-    onApply(brief, briefCompany, briefObjective);
+    onApply(brief, briefCompany, briefObjective, selectedSegment ?? undefined);
     onClose();
   };
 
@@ -187,6 +206,30 @@ export function ContentBriefModal({ open, onClose, onApply }: ContentBriefModalP
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
           {/* Input form */}
           <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
+            {segments.length > 0 && (
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3 h-3" />
+                  Target Audience Segment
+                </Label>
+                <select
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={selectedSegmentId}
+                  onChange={e => setSelectedSegmentId(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">— No specific segment —</option>
+                  {segments.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                {selectedSegment && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                    {selectedSegment.messagingAngle || selectedSegment.description}
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Target Company or Audience

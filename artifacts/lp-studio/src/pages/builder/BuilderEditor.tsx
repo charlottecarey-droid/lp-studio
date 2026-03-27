@@ -58,7 +58,8 @@ import {
 import { HeatmapOverlay } from "@/components/heatmap/HeatmapOverlay";
 import { PerformanceScorePanel } from "@/components/heatmap/PerformanceScorePanel";
 import { ContentBriefModal, type ContentBrief } from "@/components/ContentBriefModal";
-import { setBriefContext } from "@/lib/brief-context";
+import { setBriefContext, getBriefContext } from "@/lib/brief-context";
+import type { AudienceSegment } from "@/lib/brand-config";
 
 interface CustomBlock {
   id: number;
@@ -563,8 +564,26 @@ export default function BuilderEditor() {
   // Content Brief state
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
+  const [appliedSegment, setAppliedSegment] = useState<AudienceSegment | null>(() => {
+    const ctx = getBriefContext();
+    if (ctx?.segmentContext) {
+      return ctx.segmentContext as unknown as AudienceSegment;
+    }
+    return null;
+  });
 
   useEffect(() => {
+    const segCtx = appliedSegment ? {
+      id: appliedSegment.id,
+      name: appliedSegment.name,
+      description: appliedSegment.description,
+      messagingAngle: appliedSegment.messagingAngle,
+      uniqueContext: appliedSegment.uniqueContext,
+      valueProps: appliedSegment.valueProps,
+      personas: appliedSegment.personas?.map(p => ({ role: p.role, painPoints: p.painPoints })),
+      challenges: appliedSegment.challenges?.map(c => ({ title: c.title, desc: c.desc })),
+    } : undefined;
+
     if (appliedBrief) {
       setBriefContext({
         company: appliedBrief.company,
@@ -572,12 +591,22 @@ export default function BuilderEditor() {
         valueProps: appliedBrief.brief.valueProps,
         toneGuidance: appliedBrief.brief.toneGuidance,
         suggestedHeadline: appliedBrief.brief.suggestedHeadline,
+        segmentContext: segCtx,
+      });
+    } else if (appliedSegment) {
+      setBriefContext({
+        company: "",
+        objective: "",
+        valueProps: appliedSegment.valueProps ?? [],
+        toneGuidance: appliedSegment.messagingAngle ?? "",
+        suggestedHeadline: "",
+        segmentContext: segCtx,
       });
     } else {
       setBriefContext(null);
     }
     return () => { setBriefContext(null); };
-  }, [appliedBrief]);
+  }, [appliedBrief, appliedSegment]);
 
   // Collaboration state
   const [commentMode, setCommentMode] = useState(false);
@@ -1168,9 +1197,12 @@ export default function BuilderEditor() {
       <ContentBriefModal
         open={briefModalOpen}
         onClose={() => setBriefModalOpen(false)}
-        onApply={(brief, company, objective) => {
+        initialSegmentId={appliedSegment?.id ?? ""}
+        onApply={(brief, company, objective, segment) => {
           setAppliedBrief({ brief, company, objective });
-          toast({ title: "Brief Applied", description: `Campaign context from "${company}" is now active for AI copy generation.` });
+          if (segment) setAppliedSegment(segment);
+          const segLabel = segment ? ` (${segment.name} segment)` : "";
+          toast({ title: "Brief Applied", description: `Campaign context from "${company}"${segLabel} is now active for AI copy generation.` });
         }}
       />
 
