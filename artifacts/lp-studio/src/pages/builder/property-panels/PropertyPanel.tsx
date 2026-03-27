@@ -1184,6 +1184,230 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-stat-showcase": {
+        const p = block.props;
+        const stats = p.stats ?? [];
+        const updateStat = (i: number, patch: Partial<{ value: string; label: string; desc: string }>) => {
+          const next = stats.map((s, idx) => idx === i ? { ...s, ...patch } : s);
+          onChange({ ...block, props: { ...p, stats: next } });
+        };
+        const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "", desc: "" }] } });
+        const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="By the Numbers" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats (up to 6)</Label>
+                <Button variant="ghost" size="sm" onClick={addStat} className="h-7 text-xs gap-1">
+                  <Plus className="w-3 h-3" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {stats.map((s, i) => (
+                  <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">Stat {i + 1}</span>
+                      <button onClick={() => removeStat(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <Label className="text-[11px] text-slate-400">Value</Label>
+                        <Input value={s.value} onChange={e => updateStat(i, { value: e.target.value })} placeholder="96%" className="h-7 text-xs mt-0.5" />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-slate-400">Label</Label>
+                        <Input value={s.label} onChange={e => updateStat(i, { label: e.target.value })} placeholder="First-time right rate" className="h-7 text-xs mt-0.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Description</Label>
+                      <Input value={s.desc ?? ""} onChange={e => updateStat(i, { desc: e.target.value })} placeholder="Short supporting text…" className="h-7 text-xs mt-0.5" />
+                    </div>
+                  </div>
+                ))}
+                {stats.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No stats yet — uses defaults.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-scroll-story": {
+        const p = block.props;
+        const chapters = p.chapters ?? [];
+        const updateChapter = (i: number, patch: Partial<{ headline: string; body: string; imageUrl: string }>) => {
+          const next = chapters.map((c, idx) => idx === i ? { ...c, ...patch } : c);
+          onChange({ ...block, props: { ...p, chapters: next } });
+        };
+        const addChapter = () => onChange({ ...block, props: { ...p, chapters: [...chapters, { headline: "", body: "", imageUrl: "" }] } });
+        const removeChapter = (i: number) => onChange({ ...block, props: { ...p, chapters: chapters.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Advantage" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chapters (2–4)</Label>
+                <Button variant="ghost" size="sm" onClick={addChapter} className="h-7 text-xs gap-1">
+                  <Plus className="w-3 h-3" /> Add
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {chapters.map((c, i) => (
+                  <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">Chapter {i + 1}</span>
+                      <button onClick={() => removeChapter(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Headline</Label>
+                      <Input value={c.headline} onChange={e => updateChapter(i, { headline: e.target.value })} placeholder="One lab for every location." className="h-7 text-xs mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Body</Label>
+                      <Textarea rows={2} value={c.body} onChange={e => updateChapter(i, { body: e.target.value })} placeholder="Supporting paragraph…" className="resize-none text-xs mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Image URL</Label>
+                      <Input value={c.imageUrl} onChange={e => updateChapter(i, { imageUrl: e.target.value })} placeholder="https://images.unsplash.com/…" className="h-7 text-xs mt-0.5" />
+                    </div>
+                  </div>
+                ))}
+                {chapters.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No chapters yet — uses defaults.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-bento-outcomes": {
+        const p = block.props;
+        const tiles = p.tiles ?? [];
+        const updateTile = (i: number, patch: Partial<Record<string, unknown>>) => {
+          const next = tiles.map((t, idx) => idx === i ? { ...t, ...patch } : t);
+          onChange({ ...block, props: { ...p, tiles: next as typeof tiles } });
+        };
+        const removeTile = (i: number) => onChange({ ...block, props: { ...p, tiles: tiles.filter((_, idx) => idx !== i) } });
+        const addTile = (type: string) => {
+          const base = type === "stat"
+            ? { type: "stat", value: "", label: "", description: "" }
+            : type === "photo"
+            ? { type: "photo", imageUrl: "", caption: "" }
+            : type === "feature"
+            ? { type: "feature", headline: "", body: "" }
+            : { type: "quote", quote: "", author: "" };
+          onChange({ ...block, props: { ...p, tiles: [...tiles, base as typeof tiles[number]] } });
+        };
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Why Dandy" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tiles</Label>
+                <div className="flex gap-1">
+                  {(["stat","photo","feature","quote"] as const).map(t => (
+                    <Button key={t} variant="ghost" size="sm" onClick={() => addTile(t)} className="h-6 text-[10px] px-1.5 capitalize">
+                      +{t}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {tiles.map((tile, i) => (
+                  <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500 capitalize">{tile.type} tile {i + 1}</span>
+                      <button onClick={() => removeTile(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {tile.type === "stat" && (
+                      <>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div>
+                            <Label className="text-[11px] text-slate-400">Value</Label>
+                            <Input value={tile.value} onChange={e => updateTile(i, { value: e.target.value })} placeholder="96%" className="h-7 text-xs mt-0.5" />
+                          </div>
+                          <div>
+                            <Label className="text-[11px] text-slate-400">Label</Label>
+                            <Input value={tile.label} onChange={e => updateTile(i, { label: e.target.value })} placeholder="FTR Rate" className="h-7 text-xs mt-0.5" />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Description</Label>
+                          <Input value={tile.description ?? ""} onChange={e => updateTile(i, { description: e.target.value })} placeholder="Short description" className="h-7 text-xs mt-0.5" />
+                        </div>
+                      </>
+                    )}
+                    {tile.type === "photo" && (
+                      <>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Image URL</Label>
+                          <Input value={tile.imageUrl} onChange={e => updateTile(i, { imageUrl: e.target.value })} placeholder="https://…" className="h-7 text-xs mt-0.5" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Caption</Label>
+                          <Input value={tile.caption} onChange={e => updateTile(i, { caption: e.target.value })} placeholder="U.S. manufacturing" className="h-7 text-xs mt-0.5" />
+                        </div>
+                      </>
+                    )}
+                    {tile.type === "feature" && (
+                      <>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Headline</Label>
+                          <Input value={tile.headline} onChange={e => updateTile(i, { headline: e.target.value })} placeholder="Feature headline" className="h-7 text-xs mt-0.5" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Body</Label>
+                          <Textarea rows={2} value={tile.body} onChange={e => updateTile(i, { body: e.target.value })} placeholder="Supporting copy…" className="resize-none text-xs mt-0.5" />
+                        </div>
+                      </>
+                    )}
+                    {tile.type === "quote" && (
+                      <>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Quote</Label>
+                          <Textarea rows={2} value={tile.quote} onChange={e => updateTile(i, { quote: e.target.value })} placeholder="The results were immediate…" className="resize-none text-xs mt-0.5" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-slate-400">Author</Label>
+                          <Input value={tile.author} onChange={e => updateTile(i, { author: e.target.value })} placeholder="VP of Ops, Smile Brands" className="h-7 text-xs mt-0.5" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {tiles.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No tiles yet — uses defaults.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

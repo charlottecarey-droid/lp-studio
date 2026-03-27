@@ -285,6 +285,35 @@ export interface DsoAiFeatureBlockProps {
   imageUrl: string;
 }
 
+export interface DsoStatShowcaseBlockProps {
+  eyebrow: string;
+  headline: string;
+  stats: { value: string; label: string; desc?: string }[];
+}
+
+export interface DsoScrollStoryChapter {
+  headline: string;
+  body: string;
+  imageUrl: string;
+}
+
+export interface DsoScrollStoryBlockProps {
+  eyebrow: string;
+  chapters: DsoScrollStoryChapter[];
+}
+
+export type DsoBentoTile =
+  | { type: "stat"; value: string; label: string; description?: string }
+  | { type: "photo"; imageUrl: string; caption: string }
+  | { type: "feature"; headline: string; body: string }
+  | { type: "quote"; quote: string; author: string };
+
+export interface DsoBentoOutcomesBlockProps {
+  eyebrow: string;
+  headline: string;
+  tiles: DsoBentoTile[];
+}
+
 export interface DsoPilotStep {
   title: string;
   subtitle: string;
@@ -599,7 +628,10 @@ type BlockVariant =
   | { type: "dso-comparison"; props: DsoComparisonBlockProps }
   | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps }
   | { type: "dso-problem"; props: DsoProblemBlockProps }
-  | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps };
+  | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps }
+  | { type: "dso-stat-showcase"; props: DsoStatShowcaseBlockProps }
+  | { type: "dso-scroll-story"; props: DsoScrollStoryBlockProps }
+  | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1829,6 +1861,96 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-stat-showcase" as const,
+    label: "DSO Stat Showcase",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoStatShowcaseBlockProps => ({
+      eyebrow: "By the Numbers",
+      headline: "Results that compound at scale.",
+      stats: [
+        { value: "96%",     label: "First-time right rate",  desc: "Industry-leading precision at enterprise scale" },
+        { value: "12,000+", label: "Dental practices",       desc: "Trust Dandy for their lab work" },
+        { value: "4.2 days", label: "Average turnaround",   desc: "Including AI review and quality control" },
+        { value: "$0",      label: "CAPEX to start",         desc: "All hardware included at no upfront cost" },
+        { value: "30%",     label: "Case acceptance lift",   desc: "On average across DSO partner networks" },
+        { value: "100%",    label: "AI quality screened",    desc: "Every scan reviewed before it leaves the chair" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="hsl(152,42%,12%)" rx="4" />
+        <rect x="30" y="8" width="60" height="4" rx="2" fill="hsl(68,60%,52%)" opacity="0.7" />
+        <rect x="35" y="16" width="50" height="3" rx="1.5" fill="white" opacity="0.35" />
+        {[0,1,2,3,4,5].map(i => (
+          <g key={i}>
+            <rect x={8 + (i%3)*38} y={26 + Math.floor(i/3)*22} width="32" height="3" rx="1.5" fill="white" opacity="0.8" />
+            <rect x={8 + (i%3)*38} y={31 + Math.floor(i/3)*22} width="16" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+            <rect x={8 + (i%3)*38} y={35 + Math.floor(i/3)*22} width="28" height="1.5" rx="0.75" fill="white" opacity="0.25" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-scroll-story" as const,
+    label: "DSO Scroll Story",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoScrollStoryBlockProps => ({
+      eyebrow: "The Dandy Advantage",
+      chapters: [
+        { headline: "One lab relationship across every location.", body: "Fragmented lab networks create inconsistency, data silos, and zero negotiating leverage. Dandy becomes your single lab partner — standardizing quality, pricing, and reporting across every practice in your network.", imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=700&fit=crop" },
+        { headline: "AI that catches problems before they become remakes.", body: "Dandy's AI Scan Review validates every case in real time — before it ever leaves the chair. The result: a 96% first-time right rate and dramatically fewer costly remakes across your entire footprint.", imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=900&h=700&fit=crop" },
+        { headline: "Executive visibility into every practice, instantly.", body: "The Dandy Insights dashboard gives DSO leadership a real-time view of remake rates, case volumes, and turnaround times — by location, by region, by brand. Manage by exception, not by spreadsheet.", imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&h=700&fit=crop" },
+        { headline: "Prove ROI at 10 offices. Scale to 500.", body: "Dandy's Pilot Program validates impact at a small number of locations first — measuring same-store revenue lift, remake reduction, and chair time recovered — before you commit to a full rollout.", imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=900&h=700&fit=crop" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="46" height="54" rx="3" fill="#e2e8f0" />
+        <rect x="8" y="8" width="46" height="54" rx="3" fill="#003A30" opacity="0.15" />
+        <rect x="62" y="8" width="22" height="2.5" rx="1.25" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="62" y="14" width="50" height="4" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="62" y="22" width="44" height="2.5" rx="1.25" fill="#94a3b8" opacity="0.4" />
+        <rect x="62" y="27" width="44" height="2.5" rx="1.25" fill="#94a3b8" opacity="0.3" />
+        <rect x="62" y="32" width="36" height="2.5" rx="1.25" fill="#94a3b8" opacity="0.2" />
+        {[0,1,2,3].map(i => (
+          <rect key={i} x={62 + i*11} y="43" width={i===0?14:8} height="2" rx="1" fill={i===0?"hsl(68,60%,52%)":"#e2e8f0"} />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-bento-outcomes" as const,
+    label: "DSO Bento Outcomes",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoBentoOutcomesBlockProps => ({
+      eyebrow: "Why Dandy",
+      headline: "Every metric that matters. All in one platform.",
+      tiles: [],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="40" height="4" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="8" y="18" width="22" height="22" rx="3" fill="#003A30" />
+        <rect x="11" y="24" width="12" height="4" rx="1.5" fill="#C7E738" opacity="0.9" />
+        <rect x="11" y="30" width="16" height="2" rx="1" fill="white" opacity="0.5" />
+        <rect x="33" y="18" width="38" height="22" rx="3" fill="#e2e8f0" />
+        <rect x="75" y="18" width="37" height="22" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="0.8" />
+        <rect x="78" y="26" width="18" height="3" rx="1.5" fill="#003A30" opacity="0.7" />
+        <rect x="78" y="32" width="24" height="2" rx="1" fill="#94a3b8" opacity="0.4" />
+        <rect x="8" y="44" width="36" height="18" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="0.8" />
+        <rect x="8" y="44" width="36" height="2" rx="0" fill="#C7E738" opacity="0.6" />
+        <rect x="11" y="50" width="26" height="2" rx="1" fill="#94a3b8" opacity="0.4" />
+        <rect x="11" y="55" width="22" height="2" rx="1" fill="#94a3b8" opacity="0.3" />
+        <rect x="48" y="44" width="22" height="18" rx="3" fill="#003A30" />
+        <rect x="51" y="51" width="10" height="3" rx="1.5" fill="#C7E738" opacity="0.9" />
+        <rect x="74" y="44" width="38" height="18" rx="3" fill="#e2e8f0" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1877,6 +1999,9 @@ export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: 
 export function createBlock(type: "dso-heartland-hero"): Extract<PageBlock, { type: "dso-heartland-hero" }>;
 export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "dso-problem" }>;
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
+export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
+export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
+export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1922,6 +2047,9 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-heartland-hero": return { id, type: "dso-heartland-hero", props: props as DsoHeartlandHeroBlockProps };
     case "dso-problem": return { id, type: "dso-problem", props: props as DsoProblemBlockProps };
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
+    case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
+    case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
+    case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
   }
 }
 
