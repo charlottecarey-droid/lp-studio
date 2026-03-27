@@ -54,7 +54,7 @@ router.post("/db/:table", async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Unknown table: ${sourceTable}` });
     }
 
-    const { method, data, filters = [], columns = "*", limit, single, order, range, onConflict } = req.body;
+    const { method, data, filters = [], columns = "*", limit, single, order, range, onConflict, count: countOpt, head } = req.body;
     const quotedTable = quoteIdentifier(dsoTable);
 
     // Build WHERE clause
@@ -65,20 +65,24 @@ router.post("/db/:table", async (req: Request, res: Response) => {
         if (!isValidIdentifier(f.field)) throw new Error(`Invalid field: ${f.field}`);
         const col = quoteIdentifier(f.field);
         const idx = params.length + 1;
+        const negate = f.negate ? "NOT " : "";
 
         switch (f.op) {
-          case "eq": params.push(f.value); return `${col} = $${idx}`;
-          case "neq": params.push(f.value); return `${col} != $${idx}`;
-          case "ilike": params.push(f.value); return `${col} ILIKE $${idx}`;
-          case "is": return f.value === null ? `${col} IS NULL` : `${col} IS NOT NULL`;
-          case "in": {
-            const placeholders = (f.value as any[]).map((v, i) => { params.push(v); return `$${params.length}`; }).join(", ");
-            return `${col} IN (${placeholders})`;
+          case "eq": params.push(f.value); return f.negate ? `${col} != $${idx}` : `${col} = $${idx}`;
+          case "neq": params.push(f.value); return f.negate ? `${col} = $${idx}` : `${col} != $${idx}`;
+          case "ilike": params.push(f.value); return `${negate}${col} ILIKE $${idx}`;
+          case "is": {
+            if (f.value === null) return f.negate ? `${col} IS NOT NULL` : `${col} IS NULL`;
+            return f.negate ? `${col} IS NULL` : `${col} IS NOT NULL`;
           }
-          case "gt": params.push(f.value); return `${col} > $${idx}`;
-          case "gte": params.push(f.value); return `${col} >= $${idx}`;
-          case "lt": params.push(f.value); return `${col} < $${idx}`;
-          case "lte": params.push(f.value); return `${col} <= $${idx}`;
+          case "in": {
+            const placeholders = (f.value as any[]).map((v) => { params.push(v); return `$${params.length}`; }).join(", ");
+            return f.negate ? `${col} NOT IN (${placeholders})` : `${col} IN (${placeholders})`;
+          }
+          case "gt": params.push(f.value); return f.negate ? `${col} <= $${idx}` : `${col} > $${idx}`;
+          case "gte": params.push(f.value); return f.negate ? `${col} < $${idx}` : `${col} >= $${idx}`;
+          case "lt": params.push(f.value); return f.negate ? `${col} >= $${idx}` : `${col} < $${idx}`;
+          case "lte": params.push(f.value); return f.negate ? `${col} > $${idx}` : `${col} <= $${idx}`;
           default: throw new Error(`Unknown operator: ${f.op}`);
         }
       });
@@ -86,6 +90,19 @@ router.post("/db/:table", async (req: Request, res: Response) => {
     }
 
     if (method === "select") {
+      // COUNT query (head: true means don't return rows, just the count)
+      if (countOpt === "exact") {
+        const countResult = await query(`SELECT COUNT(*) FROM ${quotedTable} ${whereClause}`, params);
+        const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
+        if (head) return res.json({ data: null, count: total });
+        // Also return rows alongside count
+        const safeColumns = columns === "*" ? "*" : columns.split(",").map((c: string) => {
+          const col = c.trim(); if (!isValidIdentifier(col)) throw new Error(`Invalid column: ${col}`); return quoteIdentifier(col);
+        }).join(", ");
+        const dataResult = await query(`SELECT ${safeColumns} FROM ${quotedTable} ${whereClause}`, params);
+        return res.json({ data: dataResult.rows, count: total });
+      }
+
       const safeColumns = columns === "*" ? "*" :
         columns.split(",").map((c: string) => {
           const col = c.trim();
@@ -110,7 +127,7 @@ router.post("/db/:table", async (req: Request, res: Response) => {
       }
 
       const queryStr = `SELECT ${safeColumns} FROM ${quotedTable} ${whereClause} ${orderClause} ${limitClause}`.trim();
-      const result = await query(queryStr, params)
+      const result = await query(queryStr, params);
       const rows = result.rows as any[];
 
       if (single) {

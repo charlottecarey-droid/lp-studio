@@ -1,6 +1,6 @@
 const API = "/api/dso";
 
-type Filter = { field: string; op: string; value: any };
+type Filter = { field: string; op: string; value: any; negate?: boolean };
 type OrderSpec = { column: string; ascending: boolean };
 type RangeSpec = { from: number; to: number };
 
@@ -14,11 +14,15 @@ function buildQueryBuilder(table: string) {
   let _order: OrderSpec | null = null;
   let _onConflict: string | null = null;
   let _range: RangeSpec | null = null;
+  let _count: string | null = null;
+  let _head = false;
 
   const self = {
-    select(columns = "*") {
+    select(columns = "*", opts?: { count?: string; head?: boolean }) {
       _method = "select";
       _columns = columns;
+      if (opts?.count) _count = opts.count;
+      if (opts?.head) _head = true;
       return self;
     },
     insert(data: any) {
@@ -57,6 +61,10 @@ function buildQueryBuilder(table: string) {
       _filters.push({ field, op: "is", value });
       return self;
     },
+    not(field: string, op: string, value: any) {
+      _filters.push({ field, op, value, negate: true });
+      return self;
+    },
     in(field: string, value: any[]) {
       _filters.push({ field, op: "in", value });
       return self;
@@ -93,7 +101,7 @@ function buildQueryBuilder(table: string) {
       _single = true;
       return self;
     },
-    then(resolve: (v: { data: any; error: any }) => any, reject?: any) {
+    then(resolve: (v: { data: any; error: any; count?: number | null }) => any, reject?: any) {
       return execute().then(resolve, reject);
     },
     catch(onRejected: any) {
@@ -104,7 +112,7 @@ function buildQueryBuilder(table: string) {
     },
   };
 
-  async function execute(): Promise<{ data: any; error: any }> {
+  async function execute(): Promise<{ data: any; error: any; count?: number | null }> {
     try {
       const res = await fetch(`${API}/db/${table}`, {
         method: "POST",
@@ -119,13 +127,15 @@ function buildQueryBuilder(table: string) {
           order: _order,
           onConflict: _onConflict,
           range: _range,
+          count: _count,
+          head: _head,
         }),
       });
       const json = await res.json();
-      if (!res.ok) return { data: null, error: { message: json.error || "Request failed" } };
-      return { data: json.data, error: null };
+      if (!res.ok) return { data: null, error: { message: json.error || "Request failed" }, count: null };
+      return { data: json.data, error: null, count: json.count ?? null };
     } catch (e: any) {
-      return { data: null, error: { message: e.message } };
+      return { data: null, error: { message: e.message }, count: null };
     }
   }
 
@@ -134,11 +144,11 @@ function buildQueryBuilder(table: string) {
 
 const storageProxy = {
   from: (bucket: string) => ({
-    upload: async (path: string, file: File) => {
+    upload: async (filePath: string, file: File) => {
       const form = new FormData();
       form.append("file", file);
       form.append("bucket", bucket);
-      form.append("path", path);
+      form.append("path", filePath);
       const res = await fetch(`${API}/storage/upload`, { method: "POST", body: form });
       const json = await res.json();
       return res.ok ? { data: json, error: null } : { data: null, error: json };
@@ -177,8 +187,23 @@ const functionsProxy = {
   },
 };
 
+type RealtimeChannel = {
+  on: (...args: any[]) => RealtimeChannel;
+  subscribe: () => RealtimeChannel;
+};
+
+function makeNoopChannel(): RealtimeChannel {
+  const ch: RealtimeChannel = {
+    on: () => ch,
+    subscribe: () => ch,
+  };
+  return ch;
+}
+
 export const supabase = {
   from: buildQueryBuilder,
   storage: storageProxy,
   functions: functionsProxy,
+  channel: (_name: string) => makeNoopChannel(),
+  removeChannel: (_ch: any) => {},
 };
