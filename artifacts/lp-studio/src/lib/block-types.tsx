@@ -269,6 +269,15 @@ export interface DsoProblemBlockProps {
   panels: { icon: DsoProblemPanelIcon; title: string; desc: string }[];
 }
 
+export interface DsoAiFeatureBlockProps {
+  eyebrow: string;
+  headline: string;
+  body: string;
+  bullets: string[];
+  stats: { value: string; label: string }[];
+  imageUrl: string;
+}
+
 export interface DsoPilotStep {
   title: string;
   subtitle: string;
@@ -576,7 +585,8 @@ type BlockVariant =
   | { type: "dso-final-cta"; props: DsoFinalCtaBlockProps }
   | { type: "dso-comparison"; props: DsoComparisonBlockProps }
   | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps }
-  | { type: "dso-problem"; props: DsoProblemBlockProps };
+  | { type: "dso-problem"; props: DsoProblemBlockProps }
+  | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1723,6 +1733,44 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-ai-feature" as const,
+    label: "DSO AI Feature (Scan Review)",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoAiFeatureBlockProps => ({
+      eyebrow: "Waste Prevention",
+      headline: "Remakes are a tax. AI eliminates them.",
+      body: "AI Scan Review catches issues in real time — avoiding costly rework and maximizing revenue potential before a case ever reaches the bench.",
+      bullets: [
+        "AI reviews every scan for clinical accuracy",
+        "Real-time feedback before case submission",
+        "Eliminates remakes at the source",
+      ],
+      stats: [
+        { value: "96%",  label: "First-Time Right" },
+        { value: "<30s", label: "Scan Review" },
+        { value: "100%", label: "AI-Screened" },
+      ],
+      imageUrl: "/dso-ai-scan.png",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="hsl(152,32%,7%)" rx="4" />
+        <rect x="6" y="10" width="28" height="3" rx="1.5" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="6" y="16" width="44" height="5" rx="2" fill="white" opacity="0.9" />
+        <rect x="6" y="23" width="44" height="2" rx="1" fill="white" opacity="0.4" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <circle cx="11" cy={30 + i*7} r="3" fill="hsl(68,60%,52%)" opacity="0.25" />
+            <rect x="17" cy={30 + i*7} width="28" height="2" rx="1" fill="white" opacity="0.4" y={29 + i*7} />
+          </g>
+        ))}
+        <rect x="62" y="8" width="52" height="54" rx="6" fill="hsl(152,30%,12%)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+        <ellipse cx="88" cy="35" rx="18" ry="22" fill="hsl(152,40%,22%)" opacity="0.7" />
+        <circle cx="88" cy="30" r="5" fill="hsl(290,70%,55%)" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-problem" as const,
     label: "DSO Problem (4-panel grid)",
     category: "DSO" as BlockCategory,
@@ -1806,6 +1854,7 @@ export function createBlock(type: "dso-final-cta"): Extract<PageBlock, { type: "
 export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: "dso-comparison" }>;
 export function createBlock(type: "dso-heartland-hero"): Extract<PageBlock, { type: "dso-heartland-hero" }>;
 export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "dso-problem" }>;
+export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1850,6 +1899,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-comparison": return { id, type: "dso-comparison", props: props as DsoComparisonBlockProps };
     case "dso-heartland-hero": return { id, type: "dso-heartland-hero", props: props as DsoHeartlandHeroBlockProps };
     case "dso-problem": return { id, type: "dso-problem", props: props as DsoProblemBlockProps };
+    case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
   }
 }
 

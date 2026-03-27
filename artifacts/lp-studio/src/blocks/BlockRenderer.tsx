@@ -10,6 +10,7 @@ import { BlockDsoFinalCta } from "./BlockDsoFinalCta";
 import { BlockDsoComparison } from "./BlockDsoComparison";
 import { BlockDsoHeartlandHero } from "./BlockDsoHeartlandHero";
 import { BlockDsoProblem } from "./BlockDsoProblem";
+import { BlockDsoAiFeature } from "./BlockDsoAiFeature";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -411,6 +412,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         );
       case "dso-problem":
         return <BlockDsoProblem props={block.props} />;
+      case "dso-ai-feature":
+        return <BlockDsoAiFeature props={block.props} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
