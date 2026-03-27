@@ -52,28 +52,10 @@ export function BlockDsoProblem({ props }: Props) {
 
   return (
     <section
-      style={{ background: "hsl(0,0%,99%)", color: TEAL, position: "relative", overflow: "hidden" }}
+      style={{ background: "hsl(0,0%,99%)", color: TEAL }}
       className="py-24 md:py-32"
     >
-      {/* Decorative background orbs */}
-      <div
-        style={{
-          position: "absolute", top: -160, right: -100, width: 480, height: 480,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, hsl(152,28%,93%) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute", bottom: -120, left: -80, width: 360, height: 360,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, hsl(72,40%,94%) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10 relative z-10">
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10">
         <div className="text-center mb-16">
           {eyebrow && (
             <motion.p
@@ -131,6 +113,7 @@ export function BlockDsoProblem({ props }: Props) {
                   background: "white",
                   boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.06)",
                   border: "1px solid rgba(0,0,0,0.05)",
+                  borderBottom: `3px solid ${LIME}`,
                   transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease",
                   cursor: "default",
                 }}
