@@ -4,6 +4,20 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { GoogleGenAI } from "@google/genai";
+
+function getGeminiClient(): GoogleGenAI | null {
+  const integrationBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const integrationKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  if (integrationBase && integrationKey) {
+    return new GoogleGenAI({ apiKey: integrationKey, httpOptions: { apiVersion: "", baseUrl: integrationBase } });
+  }
+  const directKey = process.env.GEMINI_API_KEY;
+  if (directKey) {
+    return new GoogleGenAI({ apiKey: directKey });
+  }
+  return null;
+}
 
 async function query(text: string, params?: any[]) {
   return pool.query(text, params);
@@ -332,31 +346,22 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
   const { prompt } = body;
   if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-
-  if (geminiKey) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            { role: "user", parts: [{ text: `You are a sales email copywriter. Output only the email as requested. Nothing else.\n\n${prompt}` }] }
-          ]
-        }),
-      }
-    );
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(500).json({ error: `Gemini error: ${err}` });
+  const gemini = getGeminiClient();
+  if (gemini) {
+    try {
+      const response = await gemini.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: `You are a sales email copywriter. Output only the email as requested. Nothing else.\n\n${prompt}` }] }],
+        config: { maxOutputTokens: 8192 },
+      });
+      const email = response.text ?? "Could not generate email.";
+      return res.json({ email });
+    } catch (err: any) {
+      return res.status(500).json({ error: `Gemini error: ${err.message}` });
     }
-    const data = await response.json() as any;
-    const email = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "Could not generate email.";
-    return res.json({ email });
   }
 
+  const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -378,8 +383,7 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
     return res.json({ email });
   }
 
-  // No AI key — return a placeholder so the editor still opens
-  const email = `Subject: Transforming Lab Operations at ${(prompt.match(/company[:\s]+([^\n,]+)/i) || [])[1] || "your organization"}\n\nHi [First Name],\n\n[Configure GEMINI_API_KEY or OPENAI_API_KEY to generate AI-written emails.]\n\nBest,\n[Your Name]`;
+  const email = `Subject: Transforming Lab Operations at ${(prompt.match(/company[:\s]+([^\n,]+)/i) || [])[1] || "your organization"}\n\nHi [First Name],\n\n[No AI provider configured — this is a placeholder.]\n\nBest,\n[Your Name]`;
   return res.json({ email });
 }
 
@@ -556,21 +560,17 @@ Based on the research data above, create a detailed, actionable briefing. Return
 
     let briefingJson = "";
 
-    if (GEMINI_API_KEY) {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: synthPrompt }] }],
-            generationConfig: { temperature: 0.3 },
-          }),
-        }
-      );
-      if (geminiRes.ok) {
-        const gd = await geminiRes.json() as any;
-        briefingJson = gd.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const gemini = getGeminiClient();
+    if (gemini) {
+      try {
+        const geminiRes = await gemini.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: synthPrompt }] }],
+          config: { temperature: 0.3, maxOutputTokens: 8192 },
+        });
+        briefingJson = geminiRes.text ?? "";
+      } catch (e) {
+        // fall through to OpenAI
       }
     } else if (OPENAI_API_KEY) {
       const oaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -589,12 +589,13 @@ Based on the research data above, create a detailed, actionable briefing. Return
       }
     }
 
-    // Parse JSON response — or return a minimal static briefing if no AI key configured
+    // Parse JSON response — or return a minimal static briefing if no AI configured
+    const hasAI = !!(getGeminiClient() || OPENAI_API_KEY);
     let briefing: any;
-    if (!briefingJson && !GEMINI_API_KEY && !OPENAI_API_KEY) {
+    if (!briefingJson && !hasAI) {
       briefing = {
         companyName: company_name,
-        overview: `${company_name} is a dental DSO. Configure GEMINI_API_KEY or OPENAI_API_KEY to generate a full AI briefing.`,
+        overview: `${company_name} is a dental DSO. AI synthesis is not yet configured.`,
         tier: tier || "Unknown",
         tierRationale: "AI synthesis not configured.",
         organizationalModel: "Unknown",
@@ -604,14 +605,14 @@ Based on the research data above, create a detailed, actionable briefing. Return
         currentLabSetup: "Not available without AI synthesis.",
         buyingCommittee: [],
         dandyFitAnalysis: {
-          primaryValueProp: "Add an AI API key to generate personalized value props.",
+          primaryValueProp: "AI synthesis not configured.",
           keyPainPoints: [],
           relevantProofPoints: [],
           potentialObjections: [],
-          recommendedPilotApproach: "Configure an AI key to generate pilot recommendations.",
+          recommendedPilotApproach: "AI synthesis not configured.",
         },
         micrositeRecommendations: { heroHeadline: company_name, contentFocus: "General Dandy value props", ctaStrategy: "Book a demo" },
-        _note: researchText ? `Research was gathered via Perplexity. Add GEMINI_API_KEY or OPENAI_API_KEY to synthesize it into a structured briefing.` : "No AI keys configured. Add PERPLEXITY_API_KEY and GEMINI_API_KEY (or OPENAI_API_KEY) to enable full AI briefings.",
+        _note: researchText ? "Research gathered via Perplexity. AI synthesis is not configured." : "No AI configured. Add PERPLEXITY_API_KEY to enable research.",
         _rawResearch: researchText || null,
       };
     } else {
