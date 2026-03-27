@@ -343,7 +343,7 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                   transition={{ delay: i * 0.08, duration: 0.6 }}
                   className="rounded-2xl flex flex-col px-7 py-10"
                   style={{
-                    background: "linear-gradient(150deg, #ffffff 40%, hsl(152, 50%, 88%) 100%)",
+                    background: "linear-gradient(150deg, #ffffff 50%, hsl(152, 42%, 96%) 100%)",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
                     borderTop: "2px solid hsl(152, 42%, 12%)",
                   }}>
@@ -383,7 +383,7 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
               transition={{ delay: i * 0.08 }}
               className="rounded-2xl flex flex-col px-8 py-10"
               style={{
-                background: "linear-gradient(150deg, #ffffff 40%, hsl(152, 50%, 88%) 100%)",
+                background: "linear-gradient(150deg, #ffffff 50%, hsl(152, 42%, 96%) 100%)",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
                 borderBottom: "2px solid hsl(152, 42%, 12%)",
               }}>
