@@ -915,7 +915,7 @@ const TemplateEditor = () => {
             {format === "styled" ? (
               <div className="bg-muted/40 rounded-lg p-4 min-h-[400px] overflow-auto max-h-[700px]">
                 <div className={`mx-auto transition-all duration-300 ${previewMode === "mobile" ? "max-w-[375px]" : "max-w-[600px]"}`}>
-                  <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                  <div className="bg-card rounded-lg overflow-hidden shadow-lg">
                     <div className="bg-muted/60 px-5 py-3 border-b border-border space-y-1">
                       <p className="text-[11px] text-muted-foreground"><span className="font-medium text-foreground">From:</span> Dandy DSO Partnerships &lt;partnerships@dso.meetdandy.com&gt;</p>
                       <p className="text-[11px] text-muted-foreground"><span className="font-medium text-foreground">To:</span> sarah.johnson@heartlanddental.com</p>
@@ -929,7 +929,7 @@ const TemplateEditor = () => {
               </div>
             ) : (
               <div className={`mx-auto transition-all duration-300 ${previewMode === "mobile" ? "max-w-[375px]" : "max-w-none"}`}>
-                <div className="border border-border rounded-lg overflow-hidden shadow-lg bg-white">
+                <div className="border border-border rounded-lg overflow-hidden shadow-lg bg-card">
                   <div className="bg-muted/60 px-5 py-3 border-b border-border space-y-1">
                     <p className="text-[11px] text-muted-foreground"><span className="font-medium text-foreground">From:</span> Dandy DSO Partnerships &lt;partnerships@dso.meetdandy.com&gt;</p>
                     <p className="text-[11px] text-muted-foreground"><span className="font-medium text-foreground">To:</span> sarah.johnson@heartlanddental.com</p>
@@ -1225,7 +1225,7 @@ const CampaignBuilder = () => {
                     onClick={() => { setAbTestEnabled((v) => !v); setSelectedTemplateBId(""); }}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${abTestEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${abTestEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-foreground transition-transform ${abTestEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
                   </button>
                 </div>
                 {abTestEnabled && (

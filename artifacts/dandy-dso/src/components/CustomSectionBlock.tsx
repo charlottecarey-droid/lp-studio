@@ -19,7 +19,7 @@ const CustomSectionBlock = ({ sec, index, primaryColor, accentColor, headlineWei
   const isDark = theme === "dark";
   const textColor = isDark ? "#ffffff" : primaryColor;
   const subtextColor = isDark ? "rgba(255,255,255,0.5)" : "#6b7280";
-  const borderClass = isDark ? "border-white/[0.06]" : "border-gray-100";
+  const borderClass = isDark ? "border-white/[0.06]" : "border-border";
   const bg = isDark ? primaryColor : (index % 2 === 0 ? "#f9fafb" : "#ffffff");
 
   const handleButtonClick = () => {

@@ -40,12 +40,12 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
         <span className="text-[10px] font-semibold text-white/60 uppercase tracking-wider px-2 select-none">
           {sectionLabel || sectionId}
         </span>
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-card/10" />
 
         {/* Colors */}
         <button
           onClick={() => togglePanel("colors")}
-          className={`p-1.5 rounded-full transition-colors ${activePanel === "colors" ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-white/5"}`}
+          className={`p-1.5 rounded-full transition-colors ${activePanel === "colors" ? "bg-card/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-card/5"}`}
           title="Colors"
         >
           <Palette className="w-3.5 h-3.5" />
@@ -54,7 +54,7 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
         {/* Typography */}
         <button
           onClick={() => togglePanel("type")}
-          className={`p-1.5 rounded-full transition-colors ${activePanel === "type" ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-white/5"}`}
+          className={`p-1.5 rounded-full transition-colors ${activePanel === "type" ? "bg-card/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-card/5"}`}
           title="Typography"
         >
           <Type className="w-3.5 h-3.5" />
@@ -63,7 +63,7 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
         {/* Spacing */}
         <button
           onClick={() => togglePanel("spacing")}
-          className={`p-1.5 rounded-full transition-colors ${activePanel === "spacing" ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-white/5"}`}
+          className={`p-1.5 rounded-full transition-colors ${activePanel === "spacing" ? "bg-card/15 text-white" : "text-white/50 hover:text-white/80 hover:bg-card/5"}`}
           title="Spacing"
         >
           <ArrowsUpFromLine className="w-3.5 h-3.5" />
@@ -72,7 +72,7 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
         {/* Reset */}
         {hasOverrides && (
           <>
-            <div className="w-px h-4 bg-white/10" />
+            <div className="w-px h-4 bg-card/10" />
             <button
               onClick={onReset}
               className="p-1.5 rounded-full text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
@@ -118,8 +118,8 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
                     onClick={() => onUpdate({ headlineSize: opt.value })}
                     className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
                       (styles?.headlineSize || "medium") === opt.value
-                        ? "bg-white/20 text-white"
-                        : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                        ? "bg-card/20 text-white"
+                        : "text-white/40 hover:text-white/70 hover:bg-card/5"
                     }`}
                   >
                     {opt.label}
@@ -127,25 +127,25 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
                 ))}
               </div>
             </div>
-            <div className="w-px h-8 bg-white/10" />
+            <div className="w-px h-8 bg-card/10" />
             <div className="flex flex-col gap-1">
               <span className="text-[9px] text-white/40 uppercase tracking-wider">Bold</span>
               <button
                 onClick={() => onUpdate({ headlineBold: !styles?.headlineBold })}
                 className={`p-1 rounded transition-colors ${
-                  styles?.headlineBold ? "bg-white/20 text-white" : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                  styles?.headlineBold ? "bg-card/20 text-white" : "text-white/40 hover:text-white/70 hover:bg-card/5"
                 }`}
               >
                 <Bold className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="w-px h-8 bg-white/10" />
+            <div className="w-px h-8 bg-card/10" />
             <div className="flex flex-col gap-1">
               <span className="text-[9px] text-white/40 uppercase tracking-wider">Font</span>
               <select
                 value={styles?.fontFamily || ""}
                 onChange={(e) => onUpdate({ fontFamily: e.target.value || undefined })}
-                className="bg-white/5 border border-white/10 rounded text-[10px] text-white/70 px-1.5 py-0.5 outline-none"
+                className="bg-card/5 border border-white/10 rounded text-[10px] text-white/70 px-1.5 py-0.5 outline-none"
               >
                 <option value="">Default</option>
                 <option value="'Inter', sans-serif">Inter</option>
@@ -177,7 +177,7 @@ const InlineSectionToolbar = ({ sectionId, sectionLabel, styles, onUpdate, onRes
                 step={0.5}
                 value={styles?.paddingY ?? 5}
                 onChange={(e) => onUpdate({ paddingY: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white/80"
+                className="w-full h-1 bg-card/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-card/80"
               />
             </div>
           </motion.div>
@@ -200,7 +200,7 @@ const ColorField = ({ label, value, onChange }: { label: string; value: string; 
           className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
         />
         <div className="w-full h-full" style={{ background: value || "transparent" }}>
-          {!value && <div className="w-full h-full bg-white/5 flex items-center justify-center text-white/30 text-[8px]">—</div>}
+          {!value && <div className="w-full h-full bg-card/5 flex items-center justify-center text-white/30 text-[8px]">—</div>}
         </div>
       </div>
       <input
@@ -208,7 +208,7 @@ const ColorField = ({ label, value, onChange }: { label: string; value: string; 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="#hex"
-        className="w-[56px] bg-white/5 border border-white/10 rounded text-[10px] text-white/70 px-1.5 py-0.5 outline-none placeholder:text-white/20 font-mono"
+        className="w-[56px] bg-card/5 border border-white/10 rounded text-[10px] text-white/70 px-1.5 py-0.5 outline-none placeholder:text-white/20 font-mono"
       />
     </div>
   </div>

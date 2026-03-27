@@ -52,7 +52,7 @@ const DSOFinalCTA = () => {
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded-full border border-primary-foreground/15 bg-white px-6 py-4 text-sm text-primary placeholder:text-primary/40 focus:outline-none focus:ring-2 focus:ring-accent-warm/40 transition-all" />
+              className="flex-1 rounded-full border border-primary-foreground/15 bg-card px-6 py-4 text-sm text-primary placeholder:text-primary/40 focus:outline-none focus:ring-2 focus:ring-accent-warm/40 transition-all" />
 
             <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-full bg-accent-warm px-7 py-4 text-[14px] font-semibold uppercase tracking-wider text-accent-warm-foreground hover:brightness-110 transition-all duration-300 whitespace-nowrap">
               Get Started

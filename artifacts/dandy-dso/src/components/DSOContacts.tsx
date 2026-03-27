@@ -223,14 +223,14 @@ export default function DSOContacts() {
   // ABM stage badge colour
   const abmStageStyle = (stage: string): string => {
     switch (stage) {
-      case "Target":            return "bg-gray-100 text-gray-500";
+      case "Target":            return "bg-muted/50 text-muted-foreground";
       case "Researching":       return "bg-blue-50 text-blue-500";
       case "Prospecting":       return "bg-indigo-50 text-indigo-600";
       case "Active Outreach":   return "bg-violet-50 text-violet-600";
       case "Engaged":           return "bg-yellow-50 text-yellow-600";
       case "Meeting Scheduled": return "bg-orange-50 text-orange-600";
       case "Opportunity Created": return "bg-green-50 text-green-700";
-      case "Nurture":           return "bg-slate-100 text-slate-500";
+      case "Nurture":           return "bg-muted/50 text-slate-500";
       case "Closed Won":        return "bg-green-100 text-green-700";
       case "Closed Lost":       return "bg-red-50 text-red-500";
       default:                  return "bg-muted text-muted-foreground";
@@ -417,14 +417,14 @@ export default function DSOContacts() {
               URL.revokeObjectURL(url);
               toast.success(`Exported ${filtered.length} contacts`);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-white text-sm font-semibold rounded-lg hover:bg-muted/50 transition-colors text-foreground"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-sm font-semibold rounded-lg hover:bg-muted/50 transition-colors text-foreground"
           >
             <Download className="w-3.5 h-3.5" />
             Export CSV
           </button>
           <button
             onClick={() => navigate("/import-contacts")}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-white text-sm font-semibold rounded-lg hover:bg-muted/50 transition-colors text-foreground"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-sm font-semibold rounded-lg hover:bg-muted/50 transition-colors text-foreground"
           >
             <Upload className="w-3.5 h-3.5" />
             Import Contacts
@@ -442,7 +442,7 @@ export default function DSOContacts() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             placeholder="Search by name, company, title, email…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
           />
         </div>
 
@@ -451,7 +451,7 @@ export default function DSOContacts() {
           <select
             value={companyFilter}
             onChange={(e) => { setCompanyFilter(e.target.value); setCurrentPage(1); }}
-            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
           >
             <option value="all">All companies</option>
             {companies.map((c) => (
@@ -467,7 +467,7 @@ export default function DSOContacts() {
             <select
               value={levelFilter}
               onChange={(e) => { setLevelFilter(e.target.value); setCurrentPage(1); }}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
+              className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
             >
               <option value="all">All levels</option>
               {levels.map((l) => (
@@ -484,7 +484,7 @@ export default function DSOContacts() {
             <select
               value={stageFilter}
               onChange={(e) => { setStageFilter(e.target.value); setCurrentPage(1); }}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
+              className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
             >
               <option value="all">All stages</option>
               {stages.map((s) => (
@@ -500,7 +500,7 @@ export default function DSOContacts() {
           <select
             value={perPage}
             onChange={(e) => { setPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-foreground"
           >
             <option value={50}>50 per page</option>
             <option value={100}>100 per page</option>
@@ -524,7 +524,7 @@ export default function DSOContacts() {
                 key={company}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-border rounded-2xl overflow-hidden"
+                className="bg-card border border-border rounded-2xl overflow-hidden"
               >
                 {/* Company header */}
                 <div className="flex items-center justify-between px-5 py-3.5 bg-muted/30 border-b border-border">
@@ -690,7 +690,7 @@ export default function DSOContacts() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 text-[12px] font-medium border border-border rounded-lg bg-white hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-[12px] font-medium border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               ← Prev
             </button>
@@ -713,7 +713,7 @@ export default function DSOContacts() {
                   className={`w-8 h-8 text-[12px] font-medium rounded-lg transition-colors ${
                     currentPage === page
                       ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-white hover:bg-muted/50 text-foreground"
+                      : "border border-border bg-card hover:bg-muted/50 text-foreground"
                   }`}
                 >
                   {page}
@@ -723,7 +723,7 @@ export default function DSOContacts() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 text-[12px] font-medium border border-border rounded-lg bg-white hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-[12px] font-medium border border-border rounded-lg bg-card hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next →
             </button>
@@ -745,7 +745,7 @@ export default function DSOContacts() {
               initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+              className="bg-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
             >
               {/* Modal header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -823,7 +823,7 @@ export default function DSOContacts() {
                       : (textarea?.value ?? emailBody);
                     handleCopyEmail(fullText);
                   }}
-                  className="flex items-center gap-2 px-4 py-2 border border-border bg-white text-foreground text-[12px] font-semibold rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-40"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground text-[12px] font-semibold rounded-lg hover:bg-muted/50 transition-colors disabled:opacity-40"
                 >
                   {copiedEmail ? (
                     <>

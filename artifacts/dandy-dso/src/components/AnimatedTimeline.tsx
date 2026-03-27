@@ -45,9 +45,9 @@ const AnimatedTimeline = ({ steps, accentColor, bgColor, theme }: Props) => {
   }, []);
 
   const textPrimary = theme === "dark" ? "text-white" : "";
-  const textSecondary = theme === "dark" ? "text-white/40" : "text-gray-500";
-  const textTertiary = theme === "dark" ? "text-white/50" : "text-gray-500";
-  const textBullet = theme === "dark" ? "text-white/60" : "text-gray-600";
+  const textSecondary = theme === "dark" ? "text-white/40" : "text-muted-foreground";
+  const textTertiary = theme === "dark" ? "text-white/50" : "text-muted-foreground";
+  const textBullet = theme === "dark" ? "text-white/60" : "text-muted-foreground";
   const titleStyle = theme === "dark" ? { color: "white" } : {};
 
   return (

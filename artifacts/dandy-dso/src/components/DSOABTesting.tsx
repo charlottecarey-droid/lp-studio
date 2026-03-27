@@ -288,7 +288,7 @@ export default function DSOABTesting() {
           <select
             value={skinFilter}
             onChange={e => setSkinFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
           >
             <option value="all">All skins</option>
             {SKINS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -299,7 +299,7 @@ export default function DSOABTesting() {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
           >
             <option value="all">All statuses</option>
             <option value="draft">Draft</option>
@@ -348,7 +348,7 @@ export default function DSOABTesting() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => setSelectedTest(selectedTest?.id === test.id ? null : test)}
-                  className={`bg-white border rounded-xl px-5 py-4 cursor-pointer transition-all hover:shadow-sm ${
+                  className={`bg-card border rounded-xl px-5 py-4 cursor-pointer transition-all hover:shadow-sm ${
                     selectedTest?.id === test.id ? "border-primary/40 ring-2 ring-primary/10" : "border-border"
                   }`}
                 >
@@ -431,7 +431,7 @@ export default function DSOABTesting() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="w-80 shrink-0 bg-white border border-border rounded-2xl overflow-hidden self-start sticky top-6"
+              className="w-80 shrink-0 bg-card border border-border rounded-2xl overflow-hidden self-start sticky top-6"
             >
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <div>
@@ -548,7 +548,7 @@ export default function DSOABTesting() {
               initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              className="bg-card rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <h2 className="text-[14px] font-bold text-foreground">New A/B Test</h2>
@@ -615,7 +615,7 @@ export default function DSOABTesting() {
                       <input
                         value={v === "A" ? form.variant_a_label : form.variant_b_label}
                         onChange={e => setForm(f => v === "A" ? { ...f, variant_a_label: e.target.value } : { ...f, variant_b_label: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 bg-card"
                       />
                     </div>
                     <div>
@@ -627,7 +627,7 @@ export default function DSOABTesting() {
                         onChange={e => setForm(f => v === "A" ? { ...f, variant_a_value: e.target.value } : { ...f, variant_b_value: e.target.value })}
                         placeholder={v === "A" ? "Loading current copy…" : "New copy to test"}
                         rows={3}
-                        className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none bg-card"
                       />
                     </div>
                   </div>

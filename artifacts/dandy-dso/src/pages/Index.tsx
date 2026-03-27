@@ -275,7 +275,7 @@ const Index = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: i * 0.06 }}
                         onClick={() => setActiveTab(card.id)}
-                        className="group relative bg-white border border-border rounded-2xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+                        className="group relative bg-card border border-border rounded-2xl p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
                       >
                         {/* Icon */}
                         <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-5">
@@ -318,7 +318,7 @@ const Index = () => {
               transition={{ duration: 0.2 }}
             >
               {/* Breadcrumb bar */}
-              <div className="border-b border-border bg-white">
+              <div className="border-b border-border bg-card">
                 <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-10 flex items-center gap-2">
                   <button
                     onClick={() => setActiveTab("home")}

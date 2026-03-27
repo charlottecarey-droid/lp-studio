@@ -175,14 +175,14 @@ const getTheme = (variant: "dark" | "light") => {
       gridStroke: "rgba(255,255,255,0.06)",
       tickFill: "rgba(255,255,255,0.35)",
       pieFills: ["hsl(80, 70%, 55%)", "hsl(80, 50%, 40%)", "hsl(80, 30%, 30%)", "rgba(255,255,255,0.15)"],
-      cardBg: "bg-white/[0.03]",
+      cardBg: "bg-card/[0.03]",
       cardBorder: "border-white/[0.06]",
       textPrimary: "text-white",
       textSecondary: "text-white/50",
       textMuted: "text-white/30",
       textAccent: "text-[hsl(80,70%,55%)]",
       textDanger: "text-red-400",
-      tabActiveBg: "bg-white/10",
+      tabActiveBg: "bg-card/10",
       tabActiveText: "text-white",
       tabInactiveText: "text-white/40",
       tabHoverText: "hover:text-white",
@@ -190,22 +190,22 @@ const getTheme = (variant: "dark" | "light") => {
       tooltipBorder: "border-white/10",
       tooltipText: "text-white",
       tooltipMuted: "text-white/60",
-      browserChromeBg: "bg-white/[0.03]",
+      browserChromeBg: "bg-card/[0.03]",
       browserChromeBorder: "border-white/[0.06]",
-      browserDots: "bg-white/10",
-      browserUrlBg: "bg-white/[0.06]",
+      browserDots: "bg-card/10",
+      browserUrlBg: "bg-card/[0.06]",
       browserUrlText: "text-white/30",
       contentBg: "",
-      dateBtn: "border-white/10 bg-white/[0.04] text-white/40 hover:text-white hover:border-white/20",
+      dateBtn: "border-white/10 bg-card/[0.04] text-white/40 hover:text-white hover:border-white/20",
       dateBtnActive: "text-[hsl(80,70%,55%)] bg-[hsl(80,70%,55%)]/10",
-      dateBtnInactive: "text-white/40 hover:text-white hover:bg-white/5",
-      scoreBarBg: "bg-white/10",
+      dateBtnInactive: "text-white/40 hover:text-white hover:bg-card/5",
+      scoreBarBg: "bg-card/10",
       scoreBarFill: "bg-[hsl(80,70%,55%)]",
-      scoreBarDefault: "bg-white/30",
+      scoreBarDefault: "bg-card/30",
       hoverBorder: "hover:border-white/20",
       providerAvatarBg: "bg-[hsl(80,70%,55%)]/10",
       providerAvatarText: "text-[hsl(80,70%,55%)]",
-      progressBarBg: "bg-white/10",
+      progressBarBg: "bg-card/10",
       cursorFill: "rgba(255,255,255,0.04)",
     };
   }
@@ -779,7 +779,7 @@ const MicrositeInteractiveDashboard = ({ variant = "dark" }: MicrositeInteractiv
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className={`absolute right-0 top-full mt-1 z-20 rounded-lg border ${t.cardBorder} ${variant === "dark" ? "bg-[#1a1f1c]" : "bg-white"} shadow-lg py-1 min-w-[140px]`}
+                  className={`absolute right-0 top-full mt-1 z-20 rounded-lg border ${t.cardBorder} ${variant === "dark" ? "bg-[#1a1f1c]" : "bg-card"} shadow-lg py-1 min-w-[140px]`}
                 >
                   {DATE_RANGES.map((range) => (
                     <button

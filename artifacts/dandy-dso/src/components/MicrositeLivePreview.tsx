@@ -176,7 +176,7 @@ const EditableButton = ({
               onChange={(e) => onLinkChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") setShowLink(false); }}
               placeholder="https://..."
-              className="mt-1 w-56 h-6 px-2 text-[10px] rounded bg-white/5 border border-white/10 text-white outline-none focus:ring-1 focus:ring-[#2ecc71]/50"
+              className="mt-1 w-56 h-6 px-2 text-[10px] rounded bg-card/5 border border-white/10 text-white outline-none focus:ring-1 focus:ring-[#2ecc71]/50"
               autoFocus
             />
           </div>
@@ -189,7 +189,7 @@ const EditableButton = ({
                 onChange={(e) => onVideoChange(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") setShowLink(false); }}
                 placeholder="https://youtube.com/watch?v=..."
-                className="mt-1 w-56 h-6 px-2 text-[10px] rounded bg-white/5 border border-white/10 text-white outline-none focus:ring-1 focus:ring-[#2ecc71]/50"
+                className="mt-1 w-56 h-6 px-2 text-[10px] rounded bg-card/5 border border-white/10 text-white outline-none focus:ring-1 focus:ring-[#2ecc71]/50"
               />
               <p className="text-[8px] text-white/30 mt-0.5">If set, button opens a video modal instead of linking.</p>
             </div>
@@ -238,9 +238,9 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
   const bg = isExecutive ? primaryColor : isExpansion ? "#ffffff" : "#ffffff";
   const textColor = isExecutive ? "#ffffff" : isExpansion ? "#0a3d2d" : primaryColor;
   const subtextColor = isExecutive ? "rgba(255,255,255,0.5)" : isExpansion ? "#5a6b62" : "#6b7280";
-  const sectionBorder = isExecutive ? "border-white/[0.06]" : isExpansion ? "border-[#e8e0d8]" : "border-gray-100";
-  const cardBg = isExecutive ? "bg-white/[0.03]" : "bg-white";
-  const cardBorder = isExecutive ? "border-white/[0.06]" : isExpansion ? "border-[#e8e0d8]" : "border-gray-100";
+  const sectionBorder = isExecutive ? "border-white/[0.06]" : isExpansion ? "border-[#e8e0d8]" : "border-border";
+  const cardBg = isExecutive ? "bg-card/[0.03]" : "bg-card";
+  const cardBorder = isExecutive ? "border-white/[0.06]" : isExpansion ? "border-[#e8e0d8]" : "border-border";
 
   return (
     <div
@@ -258,7 +258,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
         <img src={isExecutive ? dandyLogoWhite : dandyLogo} alt="Dandy" className="h-3" />
         <div className="flex items-center gap-2">
           {isExpansion && (
-            <span className="px-2 py-0.5 rounded text-[9px] font-medium border text-gray-500 border-gray-200">GET PRICING</span>
+            <span className="px-2 py-0.5 rounded text-[9px] font-medium border text-muted-foreground border-border">GET PRICING</span>
           )}
           <EditableButton
             text={cfg.navCTAText}
@@ -373,7 +373,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
               </div>
               <div className="absolute inset-0 bg-gradient-to-b from-[#0a3d2d]/40 via-transparent to-[#0a3d2d]/60" />
               <div className="relative z-10 text-center px-6 pt-12 pb-8 max-w-xl mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-[8px] font-semibold text-white/80 mb-4 border border-white/10 uppercase tracking-wider">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card/10 text-[8px] font-semibold text-white/80 mb-4 border border-white/10 uppercase tracking-wider">
                   <Sparkles className="w-2.5 h-2.5" style={{ color: LIME }} /> {MOCK_COMPANY.toUpperCase()} PARTNER PORTAL
                 </div>
                 <EditableText
@@ -423,12 +423,12 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 2. Stats Bar */}
             {visibleSections.has("statsBar") && (
-              <section className="border-y border-gray-100 bg-gray-50/50 py-4">
+              <section className="border-y border-border bg-muted/40 py-4">
                 <div className="max-w-xl mx-auto px-6 grid grid-cols-3 gap-4 text-center">
                   {expansionStats.map((s: { value: string; label: string }, i: number) => (
                     <div key={i}>
                       <p className="text-sm font-bold" style={{ color: BRAND }}>{s.value}</p>
-                      <p className="text-[7px] text-gray-500 uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[7px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -444,13 +444,13 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                     <h2 className="text-base font-bold" style={{ color: BRAND }}>{expCfg.paradigmShiftHeadline || "Traditional labs weren't built for today's dentistry."}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-lg bg-white border border-gray-200">
-                      <div className="px-1.5 py-0.5 rounded-full bg-gray-100 text-[7px] font-bold text-gray-500 uppercase tracking-wider inline-block mb-2">Old Way</div>
+                    <div className="p-3 rounded-lg bg-card border border-border">
+                      <div className="px-1.5 py-0.5 rounded-full bg-muted/50 text-[7px] font-bold text-muted-foreground uppercase tracking-wider inline-block mb-2">Old Way</div>
                       <ul className="space-y-1.5">
                         {oldWayItems.slice(0, 3).map((item: string, i: number) => (
                           <li key={i} className="flex items-start gap-1.5">
                             <X className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
-                            <span className="text-[8px] text-gray-600">{item}</span>
+                            <span className="text-[8px] text-muted-foreground">{item}</span>
                           </li>
                         ))}
                       </ul>
@@ -473,11 +473,11 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 4. Why Dandy feature blocks */}
             {visibleSections.has("features") && (
-              <section className="py-8 bg-white">
+              <section className="py-8 bg-card">
                 <div className="max-w-xl mx-auto px-6 text-center mb-6">
                   <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: BRAND }}>WHY DANDY</p>
                   <h2 className="text-base font-bold" style={{ color: BRAND }}>{expCfg.whyDandyHeadline || "Better outcomes. Less chair time."}</h2>
-                  <p className="text-[8px] text-gray-500 mt-1">{expCfg.whyDandySubheadline || ""}</p>
+                  <p className="text-[8px] text-muted-foreground mt-1">{expCfg.whyDandySubheadline || ""}</p>
                 </div>
                 <div className="max-w-xl mx-auto px-6 space-y-4">
                   {featureBlocks.map((block: any, i: number) => {
@@ -489,7 +489,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                             <div>
                               <p className="text-[7px] font-bold uppercase tracking-wider mb-0.5" style={{ color: BRAND }}>{block.label}</p>
                               <h3 className="text-xs font-bold mb-0.5" style={{ color: BRAND }}>{block.title}</h3>
-                              <p className="text-[9px] text-gray-500">{block.desc}</p>
+                              <p className="text-[9px] text-muted-foreground">{block.desc}</p>
                             </div>
                             <img src={imgSrc} alt={block.title} className="rounded-lg h-16 w-full object-cover" />
                           </>
@@ -499,7 +499,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                             <div>
                               <p className="text-[7px] font-bold uppercase tracking-wider mb-0.5" style={{ color: BRAND }}>{block.label}</p>
                               <h3 className="text-xs font-bold mb-0.5" style={{ color: BRAND }}>{block.title}</h3>
-                              <p className="text-[9px] text-gray-500">{block.desc}</p>
+                              <p className="text-[9px] text-muted-foreground">{block.desc}</p>
                             </div>
                           </>
                         )}
@@ -512,20 +512,20 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 5. Products */}
             {visibleSections.has("products") && (
-              <section className="py-8 bg-white">
+              <section className="py-8 bg-card">
                 <div className="max-w-xl mx-auto px-6 text-center mb-4">
                   <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: BRAND }}>PRODUCTS</p>
                   <h2 className="text-base font-bold" style={{ color: BRAND }}>{expCfg.productsHeadline || "One lab for everything your practice needs."}</h2>
                 </div>
                 <div className="max-w-xl mx-auto px-6 grid grid-cols-4 gap-2">
                   {products.slice(0, 4).map((product: ExpansionProduct, i: number) => (
-                    <div key={i} className="rounded-lg bg-gray-50 border border-gray-100 overflow-hidden">
-                      <div className="aspect-[4/3] w-full flex items-center justify-center bg-gray-100">
+                    <div key={i} className="rounded-lg bg-muted/30 border border-border overflow-hidden">
+                      <div className="aspect-[4/3] w-full flex items-center justify-center bg-muted/50">
                         <Crown className="w-4 h-4 text-gray-300" />
                       </div>
                       <div className="p-2">
                         <h3 className="text-[8px] font-bold" style={{ color: BRAND }}>{product.name}</h3>
-                        <p className="text-[7px] text-gray-500">{product.detail}</p>
+                        <p className="text-[7px] text-muted-foreground">{product.detail}</p>
                       </div>
                     </div>
                   ))}
@@ -544,12 +544,12 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                   {promises.map((promise: ExpansionPromise, i: number) => {
                     const PromiseIcon = PROMISE_ICONS[promise.icon] || Ban;
                     return (
-                      <div key={i} className="text-center p-3 rounded-lg bg-white border border-gray-100">
+                      <div key={i} className="text-center p-3 rounded-lg bg-card border border-border">
                         <div className="w-6 h-6 rounded-lg flex items-center justify-center mx-auto mb-1.5" style={{ backgroundColor: `${BRAND}10` }}>
                           <PromiseIcon className="w-3 h-3" style={{ color: BRAND }} />
                         </div>
                         <h3 className="text-[9px] font-bold mb-0.5" style={{ color: BRAND }}>{promise.title}</h3>
-                        <p className="text-[7px] text-gray-500">{promise.desc}</p>
+                        <p className="text-[7px] text-muted-foreground">{promise.desc}</p>
                       </div>
                     );
                   })}
@@ -566,7 +566,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                 </div>
                 <div className="max-w-xl mx-auto px-6 grid grid-cols-3 gap-2">
                   {testimonials.map((t: ExpansionTestimonial, i: number) => (
-                    <div key={i} className="p-3 rounded-lg bg-white/[0.05] border border-white/[0.08]">
+                    <div key={i} className="p-3 rounded-lg bg-card/[0.05] border border-white/[0.08]">
                       <Quote className="w-3 h-3 mb-1.5 opacity-30" style={{ color: LIME }} />
                       <p className="text-[8px] text-white/70 leading-relaxed italic">"{t.quote}"</p>
                       <div className="mt-2 pt-1.5 border-t border-white/[0.08]">
@@ -581,15 +581,15 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 8. Team */}
             {visibleSections.has("team") && teamMembers.length > 0 && (
-              <section className="py-8 bg-white">
+              <section className="py-8 bg-card">
                 <div className="max-w-xl mx-auto px-6 text-center mb-4">
                   <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: BRAND }}>YOUR DEDICATED TEAM</p>
                   <h2 className="text-base font-bold" style={{ color: BRAND }}>Meet the team behind your partnership</h2>
-                  <p className="text-[8px] text-gray-500 mt-1">Here to ensure every practice in {MOCK_COMPANY} has an exceptional experience.</p>
+                  <p className="text-[8px] text-muted-foreground mt-1">Here to ensure every practice in {MOCK_COMPANY} has an exceptional experience.</p>
                 </div>
                 <div className="max-w-xl mx-auto px-6 flex flex-wrap justify-center gap-3">
                   {teamMembers.map((m, i) => (
-                    <div key={i} className="w-[140px] p-3 rounded-lg bg-gray-50 border border-gray-100 text-center">
+                    <div key={i} className="w-[140px] p-3 rounded-lg bg-muted/30 border border-border text-center">
                       {m.photo ? (
                         <img src={m.photo} alt={m.name} className="w-10 h-10 rounded-full mx-auto mb-2 object-cover ring-1 ring-gray-200" />
                       ) : (
@@ -598,20 +598,20 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                         </div>
                       )}
                       <h3 className="text-[10px] font-bold" style={{ color: BRAND }}>{m.name}</h3>
-                      <p className="text-[8px] text-gray-500">{m.role}</p>
+                      <p className="text-[8px] text-muted-foreground">{m.role}</p>
                       <div className="flex items-center justify-center gap-1 mt-1.5">
-                        {m.email && <div className="p-1 rounded bg-gray-100 border border-gray-200"><Mail className="w-2.5 h-2.5 text-gray-400" /></div>}
-                        {m.calendlyUrl && <div className="p-1 rounded bg-gray-100 border border-gray-200"><Calendar className="w-2.5 h-2.5 text-gray-400" /></div>}
+                        {m.email && <div className="p-1 rounded bg-muted/50 border border-border"><Mail className="w-2.5 h-2.5 text-muted-foreground/70" /></div>}
+                        {m.calendlyUrl && <div className="p-1 rounded bg-muted/50 border border-border"><Calendar className="w-2.5 h-2.5 text-muted-foreground/70" /></div>}
                       </div>
                     </div>
                   ))}
                 </div>
                 {/* Rep contact banner */}
                 <div className="max-w-xl mx-auto px-6 mt-4">
-                  <div className="p-3 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-[10px] font-bold" style={{ color: BRAND }}>Need to reach {expCfg.repName || "Your Rep"}?</h3>
-                      <p className="text-[8px] text-gray-500">{expCfg.repTitle || "Enterprise Account Executive"}</p>
+                      <p className="text-[8px] text-muted-foreground">{expCfg.repTitle || "Enterprise Account Executive"}</p>
                     </div>
                     <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold shrink-0 text-white" style={{ backgroundColor: BRAND }}>
                       <Phone className="w-2.5 h-2.5" /> Book a Call
@@ -632,12 +632,12 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                   {perks.slice(0, 3).map((perk, i) => {
                     const Icon = PERK_ICONS_MAP[perk.icon] || Star;
                     return (
-                      <div key={i} className="w-[140px] p-3 rounded-lg bg-white border border-gray-100">
+                      <div key={i} className="w-[140px] p-3 rounded-lg bg-card border border-border">
                         <div className="w-6 h-6 rounded-lg flex items-center justify-center mb-1.5" style={{ backgroundColor: `${BRAND}10` }}>
                           <Icon className="w-3 h-3" style={{ color: BRAND }} />
                         </div>
                         <h3 className="text-[10px] font-bold mb-0.5" style={{ color: BRAND }}>{perk.title}</h3>
-                        <p className="text-[8px] text-gray-500 leading-relaxed">{perk.desc.slice(0, 60)}…</p>
+                        <p className="text-[8px] text-muted-foreground leading-relaxed">{perk.desc.slice(0, 60)}…</p>
                       </div>
                     );
                   })}
@@ -647,20 +647,20 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 10. Promos */}
             {visibleSections.has("promos") && promos.length > 0 && (
-              <section className="py-8 bg-white">
+              <section className="py-8 bg-card">
                 <div className="max-w-xl mx-auto px-6 text-center mb-4">
                   <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: BRAND }}>EXCLUSIVE OFFERS</p>
                   <h2 className="text-base font-bold" style={{ color: BRAND }}>Promotions for {MOCK_COMPANY}</h2>
                 </div>
                 <div className="max-w-xl mx-auto px-6 flex flex-wrap justify-center gap-2">
                   {promos.slice(0, 2).map((promo, i) => (
-                    <div key={i} className="relative w-[180px] p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <div key={i} className="relative w-[180px] p-3 rounded-lg bg-muted/30 border border-border">
                       {promo.badge && (
                         <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[6px] font-bold uppercase text-white" style={{ backgroundColor: BRAND }}>{promo.badge}</span>
                       )}
                       <Gift className="w-3.5 h-3.5 mb-1.5" style={{ color: BRAND }} />
                       <h3 className="text-[10px] font-bold mb-0.5" style={{ color: BRAND }}>{promo.title}</h3>
-                      <p className="text-[8px] text-gray-500">{promo.desc.slice(0, 60)}…</p>
+                      <p className="text-[8px] text-muted-foreground">{promo.desc.slice(0, 60)}…</p>
                       {promo.ctaText && (
                         <p className="text-[8px] font-semibold mt-1.5 flex items-center gap-0.5" style={{ color: BRAND }}>
                           {promo.ctaText} <ArrowRight className="w-2.5 h-2.5" />
@@ -681,10 +681,10 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                 </div>
                 <div className="max-w-xl mx-auto px-6 flex flex-wrap justify-center gap-2">
                   {activationSteps.map((step: any, i: number) => (
-                    <div key={i} className="w-[100px] p-3 rounded-lg bg-white border border-gray-100">
+                    <div key={i} className="w-[100px] p-3 rounded-lg bg-card border border-border">
                       <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white mb-2" style={{ backgroundColor: BRAND }}>{step.step}</div>
                       <h3 className="text-[10px] font-bold mb-0.5" style={{ color: BRAND }}>{step.title}</h3>
-                      <p className="text-[8px] text-gray-500">{step.desc}</p>
+                      <p className="text-[8px] text-muted-foreground">{step.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -693,7 +693,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
             {/* 12. Resources */}
             {visibleSections.has("resources") && contentLinks.length > 0 && (
-              <section className="py-8 bg-white">
+              <section className="py-8 bg-card">
                 <div className="max-w-xl mx-auto px-6 text-center mb-4">
                   <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: BRAND }}>RESOURCES</p>
                   <h2 className="text-base font-bold" style={{ color: BRAND }}>Everything your team needs</h2>
@@ -702,13 +702,13 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                   {contentLinks.slice(0, 4).map((link, i) => {
                     const Icon = CONTENT_ICONS[link.type] || FileText;
                     return (
-                      <div key={i} className="rounded-lg bg-gray-50 border border-gray-100 overflow-hidden">
+                      <div key={i} className="rounded-lg bg-muted/30 border border-border overflow-hidden">
                         {link.imageUrl ? (
                           <div className="aspect-[4/3] w-full overflow-hidden">
                             <img src={link.imageUrl} alt={link.title} className="w-full h-full object-cover object-center" />
                           </div>
                         ) : (
-                          <div className="aspect-[4/3] w-full flex items-center justify-center bg-gray-100">
+                          <div className="aspect-[4/3] w-full flex items-center justify-center bg-muted/50">
                             <Icon className="w-5 h-5 text-gray-300" />
                           </div>
                         )}
@@ -732,14 +732,14 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                     <h2 className="text-sm font-bold text-white mb-2">{expCfg.signupHeadline || "Get Started With Dandy"}</h2>
                     <p className="text-[9px] text-white/50">{expCfg.signupSubheadline || "Enter your email and book a time with your dedicated team."}</p>
                   </div>
-                  <div className="bg-white rounded-xl p-3 shadow-xl space-y-1.5">
+                  <div className="bg-card rounded-xl p-3 shadow-xl space-y-1.5">
                     <div className="text-center mb-1">
                       <h3 className="text-[10px] font-bold" style={{ color: BRAND }}>{expCfg.signupFormTitle || "Book a Meeting"}</h3>
-                      <p className="text-[7px] text-gray-500">{expCfg.signupFormSubtitle || "Enter your email to get started"}</p>
+                      <p className="text-[7px] text-muted-foreground">{expCfg.signupFormSubtitle || "Enter your email to get started"}</p>
                     </div>
                     <div>
-                      <label className="text-[8px] font-medium text-gray-500 block mb-0.5">Work Email</label>
-                      <div className="h-5 rounded border border-gray-200 bg-gray-50" />
+                      <label className="text-[8px] font-medium text-muted-foreground block mb-0.5">Work Email</label>
+                      <div className="h-5 rounded border border-border bg-muted/30" />
                     </div>
                     <button className="w-full mt-1 px-3 py-1.5 rounded-full text-[9px] font-semibold text-white flex items-center justify-center gap-1" style={{ backgroundColor: BRAND }}>
                       <ArrowRight className="w-2.5 h-2.5" /> {expCfg.signupButtonText || "Activate My Practice"}
@@ -782,13 +782,13 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
             )}
 
             {/* Footer */}
-            <footer className="border-t border-gray-100 py-4 bg-white">
+            <footer className="border-t border-border py-4 bg-card">
               <div className="max-w-xl mx-auto px-6 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <img src={dandyLogo} alt="Dandy" className="h-2.5 opacity-40" />
-                  <span className="text-[7px] text-gray-400">{MOCK_COMPANY} Partner Portal</span>
+                  <span className="text-[7px] text-muted-foreground/70">{MOCK_COMPANY} Partner Portal</span>
                 </div>
-                <p className="text-[7px] text-gray-400">{cfg.footerText}</p>
+                <p className="text-[7px] text-muted-foreground/70">{cfg.footerText}</p>
               </div>
             </footer>
           </>
@@ -797,12 +797,12 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
 
       {/* STATS BAR (solutions only) */}
       {visibleSections.has("statsBar") && !isExecutive && !isExpansion && (
-        <section className="bg-white border-b border-gray-100 py-6">
+        <section className="bg-card border-b border-border py-6">
           <div className="max-w-2xl mx-auto px-4 grid grid-cols-4 gap-4">
             {cfg.statsBar.slice(0, 4).map((stat, i) => (
               <div key={i} className="text-center">
                 <p className="text-lg font-bold" style={{ color: primaryColor }}>{stat.value}</p>
-                <p className="text-[9px] text-gray-400">{stat.label}</p>
+                <p className="text-[9px] text-muted-foreground/70">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -869,7 +869,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                 <div className="px-3 py-2 text-[9px] font-semibold" style={{ color: isExecutive ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.4)" }}>Traditional</div>
               </div>
               {displayComparison.map((row, i) => (
-                <div key={i} className={`grid grid-cols-3 border-t ${isExecutive ? "border-white/[0.06]" : "border-gray-100"}`}>
+                <div key={i} className={`grid grid-cols-3 border-t ${isExecutive ? "border-white/[0.06]" : "border-border"}`}>
                   <div className="px-3 py-2 text-[10px] font-medium">{row.need}</div>
                   <div className="px-3 py-2 text-[10px]" style={{ color: subtextColor }}>{row.dandy}</div>
                   <div className="px-3 py-2 text-[10px]" style={{ color: isExecutive ? "rgba(255,255,255,0.3)" : "#9ca3af" }}>{row.traditional}</div>
@@ -939,7 +939,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
               const defaultImg = [dentalCrowns, dandyDoctor, scannerSpeed][i % 3];
               const img = caseImages[i] || defaultImg;
               return (
-                <div key={i} className={`rounded-xl border ${cardBorder} overflow-hidden ${isExecutive ? "bg-white/[0.02]" : "bg-white"}`}>
+                <div key={i} className={`rounded-xl border ${cardBorder} overflow-hidden ${isExecutive ? "bg-card/[0.02]" : "bg-card"}`}>
                   <div className="relative h-20 overflow-hidden">
                     <img src={img} alt={study.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${primaryColor}, transparent)` }} />
@@ -1020,7 +1020,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
                   { icon: Users, label: "U.S. Techs" },
                   { icon: MapPin, label: "Multi-site" },
                 ].map((item, i) => (
-                  <div key={i} className="p-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-center">
+                  <div key={i} className="p-2 rounded-lg bg-card/[0.05] border border-white/[0.08] text-center">
                     <item.icon className="w-3 h-3 mx-auto mb-1" style={{ color: accentColor }} />
                     <p className="text-[8px] text-white/60">{item.label}</p>
                   </div>
@@ -1045,7 +1045,7 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
               <p className="text-[10px]" style={{ color: subtextColor }}>Interactive ROI Calculator preview</p>
               <div className="grid grid-cols-3 gap-3 mt-4">
                 {["$2.1M", "60%", "4,200 hrs"].map((v, i) => (
-                  <div key={i} className={`p-3 rounded-lg ${isExecutive ? "bg-white/[0.03]" : "bg-gray-50"} border ${cardBorder} text-center`}>
+                  <div key={i} className={`p-3 rounded-lg ${isExecutive ? "bg-card/[0.03]" : "bg-muted/30"} border ${cardBorder} text-center`}>
                     <p className="text-sm font-bold" style={{ color: accentColor }}>{v}</p>
                   </div>
                 ))}
@@ -1064,11 +1064,11 @@ const MicrositeLivePreview = ({ config, skin, onUpdateHeadline, onUpdateSubheadl
               <h2 className="text-sm font-bold text-white mb-2">Get Started With Dandy</h2>
               <p className="text-[9px] text-white/50">Behind every great dentist, is a great lab.</p>
             </div>
-            <div className="bg-white rounded-xl p-3 shadow-xl space-y-1.5">
+            <div className="bg-card rounded-xl p-3 shadow-xl space-y-1.5">
               {["Practice Name", "Your Name", "Email"].map((label) => (
                 <div key={label}>
-                  <label className="text-[8px] font-medium text-gray-500 block mb-0.5">{label}</label>
-                  <div className="h-5 rounded border border-gray-200 bg-gray-50" />
+                  <label className="text-[8px] font-medium text-muted-foreground block mb-0.5">{label}</label>
+                  <div className="h-5 rounded border border-border bg-muted/30" />
                 </div>
               ))}
               <button className="w-full mt-1 px-3 py-1.5 rounded-lg text-[9px] font-semibold text-white" style={{ backgroundColor: accentColor }}>
