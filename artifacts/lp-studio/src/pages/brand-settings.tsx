@@ -323,19 +323,41 @@ function SegmentCard({ segment, onChange, onRemove }: {
             </div>
           </div>
           <div className="space-y-1.5">
+            <Label className="text-xs">What Makes This Segment Unique</Label>
+            <Textarea
+              value={segment.uniqueContext}
+              onChange={(e) => set("uniqueContext", e.target.value)}
+              placeholder="Describe what's different about this audience vs. your core audience — their context, scale, buying process, org structure, etc."
+              className="text-sm min-h-[70px] resize-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs">Description</Label>
             <Textarea
               value={segment.description}
               onChange={(e) => set("description", e.target.value)}
-              placeholder="Brief description of this audience segment and what matters to them"
-              className="text-sm min-h-[70px] resize-none"
+              placeholder="Brief overview of this segment for internal reference"
+              className="text-sm min-h-[60px] resize-none"
+            />
+          </div>
+
+          {/* Segment-specific Products */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Segment-Specific Products</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Products or features especially relevant to this segment (e.g. Dandy Hub, Dandy Insights)</p>
+            <TagInput
+              value={segment.segmentProducts ?? []}
+              onChange={(v) => set("segmentProducts", v)}
+              placeholder="Add a product name and press Enter"
+              max={8}
             />
           </div>
 
           {/* Value Props */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Value Props for This Segment</Label>
-            <p className="text-[11px] text-muted-foreground -mt-0.5">Key reasons this audience chooses you over alternatives</p>
+            <Label className="text-xs">Segment-Specific Value Props</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">What you offer this segment that's distinct from your core pitch</p>
             <TagInput
               value={segment.valueProps}
               onChange={(v) => set("valueProps", v)}
@@ -859,8 +881,8 @@ export default function BrandSettings() {
     if ((config.segments?.length ?? 0) >= 10) return;
     const id = `seg_${Date.now()}`;
     update("segments", [...(config.segments || []), {
-      id, name: "", description: "", messagingAngle: "",
-      valueProps: [], personas: [], challenges: [], stats: [], comparisonRows: [],
+      id, name: "", description: "", messagingAngle: "", uniqueContext: "",
+      valueProps: [], segmentProducts: [], personas: [], challenges: [], stats: [], comparisonRows: [],
     }]);
   };
 
@@ -1473,14 +1495,14 @@ export default function BrandSettings() {
             )}
           </Card>
 
-          {/* SECTION 7 — AUDIENCE SEGMENTS */}
+          {/* SECTION 7 — ADDITIONAL SEGMENTS */}
           <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
                 <div>
-                  <h2 className="font-display font-semibold text-lg">Audience Segments</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Define audience profiles with personas, challenges, stats, and comparison data. AI uses these to personalize copy per segment.</p>
+                  <h2 className="font-display font-semibold text-lg">Additional Segments</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Your core audience (e.g. dentists) is already defined above. Add supplemental segments — like DSOs or group practices — with their own unique angle, products, personas, and proof points. AI uses these to personalize copy per audience.</p>
                 </div>
               </div>
               <Button
@@ -1498,7 +1520,7 @@ export default function BrandSettings() {
             {(config.segments ?? []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No segments yet. Add audience segments to enable personalized landing pages and AI copy tailored to each buyer group.</p>
+                <p className="text-sm">No additional segments yet. Add a segment like "DSO" or "Group Practice" to enable personalized landing pages and AI copy beyond your core audience.</p>
               </div>
             ) : (
               <div className="space-y-4">

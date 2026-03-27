@@ -1,5 +1,7 @@
 import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps } from "@/lib/block-types";
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
+import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
+import { BlockDsoLabTour } from "./BlockDsoLabTour";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -350,6 +352,22 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
               height: `${block.props.height}px`,
               backgroundColor: block.props.backgroundColor === "transparent" ? undefined : block.props.backgroundColor,
             }}
+          />
+        );
+      case "dso-insights-dashboard":
+        return (
+          <BlockDsoInsightsDashboard
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick("") : undefined}
+          />
+        );
+      case "dso-lab-tour":
+        return (
+          <BlockDsoLabTour
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
           />
         );
       default: {

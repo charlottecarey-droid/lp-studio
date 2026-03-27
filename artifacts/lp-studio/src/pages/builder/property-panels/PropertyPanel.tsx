@@ -31,6 +31,10 @@ import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { getBlockDef } from "@/lib/block-types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   block: PageBlock;
@@ -261,6 +265,89 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
           />
         );
+      case "dso-insights-dashboard": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "light" | "muted" | "dark" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light (white)</SelectItem>
+                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                  <SelectItem value="dark">Dark (forest green)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Dashboard theme</Label>
+              <Select value={p.dashboardVariant} onValueChange={v => onChange({ ...block, props: { ...p, dashboardVariant: v as "light" | "dark" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light (white cards)</SelectItem>
+                  <SelectItem value="dark">Dark (dark cards)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
+      case "dso-lab-tour": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body text</Label>
+              <Textarea rows={3} value={p.body} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quote</Label>
+              <Textarea rows={2} value={p.quote} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quote attribution</Label>
+              <Input value={p.quoteAttribution} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image URL</Label>
+              <Input value={p.imageUrl} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Video URL (YouTube embed)</Label>
+              <Input value={p.videoUrl} onChange={e => onChange({ ...block, props: { ...p, videoUrl: e.target.value } })} placeholder="https://www.youtube.com/embed/..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA text</Label>
+              <Input value={p.ctaText} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA URL</Label>
+              <Input value={p.ctaUrl} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="#" />
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

@@ -149,6 +149,33 @@ function dandyBlocks(): PageBlock[] {
       },
     },
     {
+      id: makeId("dso-insights-dashboard"),
+      type: "dso-insights-dashboard",
+      props: {
+        eyebrow: "Dandy Hub & Insights",
+        headline: "One dashboard for every location.",
+        subheadline: "Dandy Insights gives {company_name} leaders actionable data — not just reports. Know where to intervene before problems scale, manage by exception, and maintain control as complexity increases.",
+        practiceLabel: "practices",
+        backgroundStyle: "muted",
+        dashboardVariant: "light",
+      },
+    },
+    {
+      id: makeId("dso-lab-tour"),
+      type: "dso-lab-tour",
+      props: {
+        eyebrow: "Built in the USA",
+        headline: "See vertical integration in action.",
+        body: "Unlike traditional labs, Dandy owns the entire manufacturing process — from scan to delivery. U.S.-based facilities, AI quality control, and expert technicians deliver a 96% first-time right rate at enterprise scale.",
+        quote: "Dandy is a true partner, not just a vendor. They value education, technology, and people — that's what makes the difference.",
+        quoteAttribution: "DSO Clinical Operations Officer",
+        imageUrl: "https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=1400&fit=crop",
+        videoUrl: "https://www.youtube.com/embed/SjXFjvWW9o0",
+        ctaText: "Request a Lab Tour",
+        ctaUrl: DANDY_CTA_URL,
+      },
+    },
+    {
       id: makeId("bottom-cta"),
       type: "bottom-cta",
       props: {

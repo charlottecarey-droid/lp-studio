@@ -1,6 +1,6 @@
 import type React from "react";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO";
 
 export interface HeroBlockProps {
   headline: string;
@@ -196,6 +196,27 @@ export interface CustomHtmlBlockProps {
 export interface SpacerBlockProps {
   height: number;
   backgroundColor: string;
+}
+
+export interface DsoInsightsDashboardBlockProps {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  practiceLabel: string;
+  backgroundStyle: "light" | "muted" | "dark";
+  dashboardVariant: "light" | "dark";
+}
+
+export interface DsoLabTourBlockProps {
+  eyebrow: string;
+  headline: string;
+  body: string;
+  quote: string;
+  quoteAttribution: string;
+  imageUrl: string;
+  videoUrl: string;
+  ctaText: string;
+  ctaUrl: string;
 }
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
@@ -454,7 +475,9 @@ type BlockVariant =
   | { type: "popup"; props: PopupBlockProps }
   | { type: "sticky-bar"; props: StickyBarBlockProps }
   | { type: "roi-calculator"; props: RoiCalculatorBlockProps }
-  | { type: "spacer"; props: SpacerBlockProps };
+  | { type: "spacer"; props: SpacerBlockProps }
+  | { type: "dso-insights-dashboard"; props: DsoInsightsDashboardBlockProps }
+  | { type: "dso-lab-tour"; props: DsoLabTourBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1292,6 +1315,75 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-insights-dashboard" as const,
+    label: "DSO Insights Dashboard",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoInsightsDashboardBlockProps => ({
+      eyebrow: "Dandy Hub & Insights",
+      headline: "One dashboard for every location.",
+      subheadline: "Dandy Insights gives {company_name} leaders actionable data — not just reports. Know where to intervene before problems scale, manage by exception, and maintain control as complexity increases.",
+      practiceLabel: "practices",
+      backgroundStyle: "muted",
+      dashboardVariant: "light",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f0faf4" rx="4" />
+        <rect x="8" y="8" width="50" height="4" rx="2" fill="#003A30" opacity="0.8" />
+        <rect x="8" y="16" width="80" height="3" rx="1.5" fill="#94a3b8" opacity="0.5" />
+        <rect x="8" y="24" width="104" height="38" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="10" y="26" width="20" height="6" rx="1.5" fill="#003A30" opacity="0.1" />
+        <rect x="32" y="26" width="20" height="6" rx="1.5" fill="transparent" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="54" y="26" width="20" height="6" rx="1.5" fill="transparent" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="10" y="36" width="22" height="12" rx="2" fill="#f0faf4" />
+        <rect x="12" y="38" width="10" height="3" rx="1" fill="#003A30" opacity="0.5" />
+        <rect x="12" y="43" width="8" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="36" y="36" width="22" height="12" rx="2" fill="#f0faf4" />
+        <rect x="38" y="38" width="10" height="3" rx="1" fill="#003A30" opacity="0.5" />
+        <rect x="38" y="43" width="8" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="62" y="36" width="22" height="12" rx="2" fill="#f0faf4" />
+        <rect x="64" y="38" width="10" height="3" rx="1" fill="#003A30" opacity="0.5" />
+        <rect x="64" y="43" width="8" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+        <rect x="88" y="36" width="22" height="12" rx="2" fill="#f0faf4" />
+        <rect x="90" y="38" width="10" height="3" rx="1" fill="#C7E738" opacity="0.8" />
+        <rect x="10" y="52" width="100" height="8" rx="2" fill="#e2e8f0" opacity="0.5" />
+        <rect x="10" y="52" width="40" height="8" rx="2" fill="#C7E738" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-lab-tour" as const,
+    label: "DSO Lab Tour",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoLabTourBlockProps => ({
+      eyebrow: "Built in the USA",
+      headline: "See vertical integration in action.",
+      body: "Unlike traditional labs, Dandy owns the entire manufacturing process — from scan to delivery. U.S.-based facilities, AI quality control, and expert technicians deliver a 96% first-time right rate at enterprise scale.",
+      quote: "Dandy is a true partner, not just a vendor. They value education, technology, and people — that's what makes the difference.",
+      quoteAttribution: "DSO Clinical Operations Officer",
+      imageUrl: "https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=1400&fit=crop",
+      videoUrl: "",
+      ctaText: "Request a Lab Tour",
+      ctaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="52" height="38" rx="3" fill="#e2e8f0" />
+        <rect x="8" y="8" width="52" height="38" rx="3" fill="#003A30" opacity="0.15" />
+        <circle cx="34" cy="27" r="8" fill="white" opacity="0.6" />
+        <polygon points="32,24 38,27 32,30" fill="#003A30" opacity="0.7" />
+        <rect x="68" y="8" width="44" height="5" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="68" y="17" width="44" height="3" rx="1.5" fill="#94a3b8" opacity="0.5" />
+        <rect x="68" y="22" width="36" height="3" rx="1.5" fill="#94a3b8" opacity="0.3" />
+        <rect x="68" y="31" width="44" height="8" rx="2" fill="#f0faf4" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="71" y="34" width="30" height="2" rx="1" fill="#94a3b8" opacity="0.4" />
+        <rect x="68" y="44" width="30" height="6" rx="3" fill="#003A30" />
+        <rect x="8" y="52" width="52" height="4" rx="2" fill="#94a3b8" opacity="0.2" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1329,6 +1421,8 @@ export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
 export function createBlock(type: "roi-calculator"): Extract<PageBlock, { type: "roi-calculator" }>;
 export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
+export function createBlock(type: "dso-insights-dashboard"): Extract<PageBlock, { type: "dso-insights-dashboard" }>;
+export function createBlock(type: "dso-lab-tour"): Extract<PageBlock, { type: "dso-lab-tour" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1363,6 +1457,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
     case "roi-calculator": return { id, type: "roi-calculator", props: props as RoiCalculatorBlockProps };
     case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
+    case "dso-insights-dashboard": return { id, type: "dso-insights-dashboard", props: props as DsoInsightsDashboardBlockProps };
+    case "dso-lab-tour": return { id, type: "dso-lab-tour", props: props as DsoLabTourBlockProps };
   }
 }
 

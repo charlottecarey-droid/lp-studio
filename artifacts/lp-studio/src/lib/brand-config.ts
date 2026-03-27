@@ -52,7 +52,9 @@ export interface AudienceSegment {
   name: string;
   description: string;
   messagingAngle: string;
+  uniqueContext: string;
   valueProps: string[];
+  segmentProducts: string[];
   personas: SegmentPersona[];
   challenges: SegmentChallenge[];
   stats: SegmentStat[];
