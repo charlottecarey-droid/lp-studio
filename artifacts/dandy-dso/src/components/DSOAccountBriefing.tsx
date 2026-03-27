@@ -834,7 +834,7 @@ const DSOAccountBriefing = () => {
                               <div>
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Key Pain Points</p>
                                 <ul className="space-y-1.5">
-                                  {briefing.dandyFitAnalysis.keyPainPoints.map((p, i) => (
+                                  {(briefing.dandyFitAnalysis.keyPainPoints ?? []).map((p, i) => (
                                     <li key={i} className="flex items-start gap-2 text-sm text-foreground/80"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-amber-400 shrink-0" />{p}</li>
                                   ))}
                                 </ul>
@@ -842,17 +842,17 @@ const DSOAccountBriefing = () => {
                               <div>
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Proof Points</p>
                                 <ul className="space-y-1.5">
-                                  {briefing.dandyFitAnalysis.relevantProofPoints.map((p, i) => (
+                                  {(briefing.dandyFitAnalysis.relevantProofPoints ?? []).map((p, i) => (
                                     <li key={i} className="flex items-start gap-2 text-sm text-foreground/80"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-400 shrink-0" />{p}</li>
                                   ))}
                                 </ul>
                               </div>
                             </div>
-                            {briefing.dandyFitAnalysis.potentialObjections.length > 0 && (
+                            {(briefing.dandyFitAnalysis.potentialObjections?.length ?? 0) > 0 && (
                               <div>
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Potential Objections</p>
                                 <ul className="space-y-1.5">
-                                  {briefing.dandyFitAnalysis.potentialObjections.map((o, i) => (
+                                  {(briefing.dandyFitAnalysis.potentialObjections ?? []).map((o, i) => (
                                     <li key={i} className="flex items-start gap-2 text-sm text-foreground/80"><Shield className="w-3.5 h-3.5 mt-0.5 text-blue-400 shrink-0" />{o}</li>
                                   ))}
                                 </ul>

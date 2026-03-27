@@ -702,9 +702,44 @@ Based on the research data above, create a detailed, actionable briefing. Return
       };
     }
 
+    // ── Normalize all array/object fields so the frontend never crashes ──────────
+    const ensureArr = (v: any): any[] => Array.isArray(v) ? v : [];
+    briefing.leadership       = ensureArr(briefing.leadership);
+    briefing.recentNews       = ensureArr(briefing.recentNews);
+    briefing.buyingCommittee  = ensureArr(briefing.buyingCommittee);
+    briefing.talkingPoints    = ensureArr(briefing.talkingPoints);
+    briefing.sources          = ensureArr(briefing.sources);
+
+    if (!briefing.sizeAndLocations || typeof briefing.sizeAndLocations !== "object") {
+      briefing.sizeAndLocations = {};
+    }
+    briefing.sizeAndLocations.states = ensureArr(briefing.sizeAndLocations.states);
+    briefing.sizeAndLocations.practiceCount    = briefing.sizeAndLocations.practiceCount    ?? "Unknown";
+    briefing.sizeAndLocations.headquarters     = briefing.sizeAndLocations.headquarters     ?? "Unknown";
+    briefing.sizeAndLocations.estimatedRevenue = briefing.sizeAndLocations.estimatedRevenue ?? null;
+    briefing.sizeAndLocations.peBackerOrOwnership = briefing.sizeAndLocations.peBackerOrOwnership ?? "Unknown";
+
+    if (!briefing.dandyFitAnalysis || typeof briefing.dandyFitAnalysis !== "object") {
+      briefing.dandyFitAnalysis = {};
+    }
+    briefing.dandyFitAnalysis.keyPainPoints          = ensureArr(briefing.dandyFitAnalysis.keyPainPoints);
+    briefing.dandyFitAnalysis.relevantProofPoints    = ensureArr(briefing.dandyFitAnalysis.relevantProofPoints);
+    briefing.dandyFitAnalysis.potentialObjections    = ensureArr(briefing.dandyFitAnalysis.potentialObjections);
+    briefing.dandyFitAnalysis.primaryValueProp       = briefing.dandyFitAnalysis.primaryValueProp       ?? "";
+    briefing.dandyFitAnalysis.recommendedPilotApproach = briefing.dandyFitAnalysis.recommendedPilotApproach ?? "";
+
+    if (!briefing.micrositeRecommendations || typeof briefing.micrositeRecommendations !== "object") {
+      briefing.micrositeRecommendations = {};
+    }
+    briefing.companyName      = briefing.companyName      || company_name;
+    briefing.overview         = briefing.overview         || "";
+    briefing.currentLabSetup  = briefing.currentLabSetup  || "";
+    briefing.organizationalModel = briefing.organizationalModel || "";
+    briefing.tier             = briefing.tier             || tier || "Unknown";
+
     // Validate source URLs against trusted domains
     const trustedHosts = new Set<string>();
-    for (const src of allSources) {
+    for (const src of briefing.sources) {
       try { trustedHosts.add(new URL(src).hostname); } catch {}
     }
     if (company_url) {
@@ -716,16 +751,12 @@ Based on the research data above, create a detailed, actionable briefing. Return
       try { return trustedHosts.has(new URL(url).hostname); } catch { return false; }
     };
 
-    if (Array.isArray(briefing.leadership)) {
-      briefing.leadership = briefing.leadership.map((l: any) => ({
-        ...l, sourceUrl: isUrlTrusted(l.sourceUrl) ? l.sourceUrl : "",
-      }));
-    }
-    if (Array.isArray(briefing.recentNews)) {
-      briefing.recentNews = briefing.recentNews.map((n: any) => ({
-        ...n, sourceUrl: isUrlTrusted(n.sourceUrl) ? n.sourceUrl : "",
-      }));
-    }
+    briefing.leadership = briefing.leadership.map((l: any) => ({
+      ...l, sourceUrl: isUrlTrusted(l.sourceUrl) ? l.sourceUrl : "",
+    }));
+    briefing.recentNews = briefing.recentNews.map((n: any) => ({
+      ...n, sourceUrl: isUrlTrusted(n.sourceUrl) ? n.sourceUrl : "",
+    }));
 
     return res.json({ success: true, briefing });
   } catch (err: any) {
