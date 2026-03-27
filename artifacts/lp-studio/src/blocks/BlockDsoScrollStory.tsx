@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { motion, useScroll, useMotionValueEvent, useInView } from "framer-motion";
 import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -40,6 +40,10 @@ export function BlockDsoScrollStory({ props }: Props) {
   const { eyebrow = "The Dandy Advantage", chapters } = props;
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  const sectionInView = useInView(sectionRef, { margin: "-20%" });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -55,8 +59,17 @@ export function BlockDsoScrollStory({ props }: Props) {
     setActive(Math.max(0, idx));
   });
 
+  // Autoplay: advance chapter every 4 s while section is on-screen and not paused
+  useEffect(() => {
+    if (!sectionInView || paused) return;
+    const id = setInterval(() => {
+      setActive(prev => (prev + 1) % displayChapters.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [sectionInView, paused, displayChapters.length]);
+
   return (
-    <section style={{ background: LIGHT_BG }}>
+    <section ref={sectionRef} style={{ background: LIGHT_BG }}>
       {/* Section header */}
       <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: 1200, margin: "0 auto" }}>
         {eyebrow && (
@@ -120,19 +133,40 @@ export function BlockDsoScrollStory({ props }: Props) {
             >
               {/* Left: Text */}
               <div style={{ position: "relative" }}>
-                {/* Progress dots */}
+                {/* Progress dots — clickable, animate active */}
                 <div style={{ display: "flex", gap: 8, marginBottom: "2.5rem" }}>
                   {displayChapters.map((_, i) => (
-                    <div
+                    <button
                       key={i}
+                      onClick={() => { setActive(i); setPaused(false); }}
                       style={{
+                        position: "relative",
                         height: 3,
-                        width: active === i ? 28 : 10,
+                        width: active === i ? 36 : 10,
                         borderRadius: 2,
-                        background: active === i ? AW : "rgba(0,58,48,0.15)",
-                        transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                        background: active === i ? "rgba(0,58,48,0.12)" : "rgba(0,58,48,0.12)",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
+                        flexShrink: 0,
                       }}
-                    />
+                      aria-label={`Go to chapter ${i + 1}`}
+                    >
+                      {/* Animated fill for active dot */}
+                      {active === i && !paused ? (
+                        <motion.div
+                          key={`fill-${i}-${active}`}
+                          style={{ position: "absolute", inset: 0, borderRadius: 2, background: AW, originX: 0 }}
+                          initial={{ scaleX: 0 }}
+                          animate={{ scaleX: 1 }}
+                          transition={{ duration: 4, ease: "linear" }}
+                        />
+                      ) : (
+                        <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: active === i ? AW : "rgba(0,58,48,0.20)" }} />
+                      )}
+                    </button>
                   ))}
                 </div>
 
