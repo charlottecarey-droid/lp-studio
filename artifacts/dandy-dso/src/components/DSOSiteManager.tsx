@@ -190,17 +190,6 @@ const DSOSiteManager = () => {
 
   useEffect(() => { fetchSites(); fetchUnreadCount(); }, []);
 
-  // Realtime unread count updates
-  useEffect(() => {
-    const channel = supabase
-      .channel("alerts-unread-count")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "microsite_alerts" }, () => {
-        setUnreadAlertCount(prev => prev + 1);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
   const copyLink = (slug: string, id: string) => {
     const url = `${window.location.origin}/dso/${slug}`;
     navigator.clipboard.writeText(url);

@@ -59,20 +59,6 @@ export default function DSOAlertsPanel({
     fetchAlerts();
   }, [open]);
 
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("alerts-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "microsite_alerts" },
-        (payload) => {
-          setAlerts((prev) => [payload.new as Alert, ...prev]);
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
 
   const markAllRead = async () => {
     const unreadIds = alerts.filter((a) => !a.is_read).map((a) => a.id);
