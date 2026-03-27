@@ -288,7 +288,7 @@ export interface DsoAiFeatureBlockProps {
 export interface DsoStatShowcaseBlockProps {
   eyebrow: string;
   headline: string;
-  stats: { value: string; label: string; desc?: string }[];
+  stats: { value: string; label: string; description?: string }[];
 }
 
 export interface DsoScrollStoryChapter {
@@ -1869,12 +1869,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       eyebrow: "By the Numbers",
       headline: "Results that compound at scale.",
       stats: [
-        { value: "96%",     label: "First-time right rate",  desc: "Industry-leading precision at enterprise scale" },
-        { value: "12,000+", label: "Dental practices",       desc: "Trust Dandy for their lab work" },
-        { value: "4.2 days", label: "Average turnaround",   desc: "Including AI review and quality control" },
-        { value: "$0",      label: "CAPEX to start",         desc: "All hardware included at no upfront cost" },
-        { value: "30%",     label: "Case acceptance lift",   desc: "On average across DSO partner networks" },
-        { value: "100%",    label: "AI quality screened",    desc: "Every scan reviewed before it leaves the chair" },
+        { value: "96%",     label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },
+        { value: "12,000+", label: "Dental practices",       description: "Trust Dandy for their lab work" },
+        { value: "4.2 days", label: "Average turnaround",   description: "Including AI review and quality control" },
+        { value: "$0",      label: "CAPEX to start",         description: "All hardware included at no upfront cost" },
+        { value: "30%",     label: "Case acceptance lift",   description: "On average across DSO partner networks" },
+        { value: "100%",    label: "AI quality screened",    description: "Every scan reviewed before it leaves the chair" },
       ],
     }),
     thumbnail: () => (

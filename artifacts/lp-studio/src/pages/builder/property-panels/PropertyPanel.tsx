@@ -1187,11 +1187,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "dso-stat-showcase": {
         const p = block.props;
         const stats = p.stats ?? [];
-        const updateStat = (i: number, patch: Partial<{ value: string; label: string; desc: string }>) => {
+        const updateStat = (i: number, patch: Partial<{ value: string; label: string; description: string }>) => {
           const next = stats.map((s, idx) => idx === i ? { ...s, ...patch } : s);
           onChange({ ...block, props: { ...p, stats: next } });
         };
-        const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "", desc: "" }] } });
+        const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "", description: "" }] } });
         const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
@@ -1231,7 +1231,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Description</Label>
-                      <Input value={s.desc ?? ""} onChange={e => updateStat(i, { desc: e.target.value })} placeholder="Short supporting text…" className="h-7 text-xs mt-0.5" />
+                      <Input value={s.description ?? ""} onChange={e => updateStat(i, { description: e.target.value })} placeholder="Short supporting text…" className="h-7 text-xs mt-0.5" />
                     </div>
                   </div>
                 ))}

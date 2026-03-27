@@ -10,12 +10,12 @@ const AW  = "hsl(68,60%,52%)";
 const MU  = "rgba(255,255,255,0.46)";
 
 const DEFAULT_STATS: DsoStatShowcaseBlockProps["stats"] = [
-  { value: "96%",     label: "First-time right rate",  desc: "Industry-leading precision at enterprise scale" },
-  { value: "12,000+", label: "Dental practices",       desc: "Trust Dandy for their lab work" },
-  { value: "4.2 days", label: "Average turnaround",   desc: "Including AI review and quality control" },
-  { value: "$0",      label: "CAPEX to start",         desc: "All hardware included at no upfront cost" },
-  { value: "30%",     label: "Case acceptance lift",   desc: "On average across DSO partner networks" },
-  { value: "100%",    label: "AI quality screened",    desc: "Every scan reviewed before it leaves the chair" },
+  { value: "96%",     label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },
+  { value: "12,000+", label: "Dental practices",       description: "Trust Dandy for their lab work" },
+  { value: "4.2 days", label: "Average turnaround",   description: "Including AI review and quality control" },
+  { value: "$0",      label: "CAPEX to start",         description: "All hardware included at no upfront cost" },
+  { value: "30%",     label: "Case acceptance lift",   description: "On average across DSO partner networks" },
+  { value: "100%",    label: "AI quality screened",    description: "Every scan reviewed before it leaves the chair" },
 ];
 
 function parseValue(raw: string): { prefix: string; num: number; suffix: string; isDecimal: boolean } {
@@ -95,9 +95,9 @@ function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][nu
       </p>
 
       {/* Description */}
-      {stat.desc && (
+      {stat.description && (
         <p style={{ fontSize: "0.8125rem", color: MU, lineHeight: 1.55 }}>
-          {stat.desc}
+          {stat.description}
         </p>
       )}
 
