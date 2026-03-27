@@ -442,6 +442,18 @@ async function runMigrations() {
       DROP TRIGGER IF EXISTS trg_dso_alert_on_signup ON dso_practice_signups;
       CREATE TRIGGER trg_dso_alert_on_signup AFTER INSERT ON dso_practice_signups
       FOR EACH ROW EXECUTE FUNCTION fn_dso_alert_on_signup();
+
+      -- Additional columns added post-initial migration
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS abm_stage text;
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS website text;
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS city text;
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS state text;
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS country text DEFAULT 'United States';
+      ALTER TABLE dso_target_contacts ADD COLUMN IF NOT EXISTS segment text;
+      ALTER TABLE dso_email_outreach_log ADD COLUMN IF NOT EXISTS salesforce_id text;
+      CREATE INDEX IF NOT EXISTS idx_dso_email_outreach_log_sfdc ON dso_email_outreach_log(salesforce_id) WHERE salesforce_id IS NOT NULL;
+      ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS abm_stage text;
+      ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

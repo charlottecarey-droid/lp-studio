@@ -445,19 +445,34 @@ DSO BUYING COMMITTEE PERSONAS:
 - IT/Procurement: Security, complexity, vendor sprawl.
 `;
 
+// Helper: fetch with timeout
+async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function handleAccountBriefing(req: Request, res: Response, body: any) {
   const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
   const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+  // Accept both { company_name, company_url } and the frontend's { query, knownWebsite, knownHQ } shapes
+  const company_name: string = (body?.company_name || body?.query || "").trim();
+  const company_url: string | undefined = body?.company_url ?? body?.knownWebsite;
+  const additional_context: string | undefined = body?.additional_context ?? body?.knownHQ;
+  const tier: string | undefined = body?.tier;
+
+  console.log("[account-briefing] received body keys:", Object.keys(body || {}), "→ company_name:", company_name);
+
+  if (!company_name) {
+    return res.status(400).json({ success: false, error: "Missing company_name" });
+  }
 
   try {
-    // Accept both { company_name, company_url } and the frontend's { query, knownWebsite, knownHQ } shapes
-    const company_name: string = body.company_name ?? body.query;
-    const company_url: string | undefined = body.company_url ?? body.knownWebsite;
-    const additional_context: string | undefined = body.additional_context ?? body.knownHQ;
-    const tier: string | undefined = body.tier;
-    if (!company_name) return res.status(400).json({ success: false, error: "Missing company_name" });
 
     const allSources: string[] = [];
 
@@ -470,26 +485,35 @@ Find: executive leadership team, practice count, states/locations, PE backing or
 
 Be specific and cite sources.`;
 
-      const perplexityRes = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "sonar-pro",
-          messages: [{ role: "user", content: perplexityPrompt }],
-          return_citations: true,
-        }),
-      });
+      try {
+        const perplexityRes = await fetchWithTimeout(
+          "https://api.perplexity.ai/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "sonar-pro",
+              messages: [{ role: "user", content: perplexityPrompt }],
+              return_citations: true,
+            }),
+          },
+          12000 // 12-second timeout
+        );
 
-      if (perplexityRes.ok) {
-        const perplexityData = await perplexityRes.json() as any;
-        researchText = perplexityData.choices?.[0]?.message?.content ?? "";
-        const citations = perplexityData.citations ?? [];
-        allSources.push(...citations);
-      } else {
-        console.warn("Perplexity error:", await perplexityRes.text());
+        if (perplexityRes.ok) {
+          const perplexityData = await perplexityRes.json() as any;
+          researchText = perplexityData.choices?.[0]?.message?.content ?? "";
+          const citations = perplexityData.citations ?? [];
+          allSources.push(...citations);
+          console.log("[account-briefing] Perplexity research done, chars:", researchText.length);
+        } else {
+          console.warn("[account-briefing] Perplexity error:", await perplexityRes.text());
+        }
+      } catch (e: any) {
+        console.warn("[account-briefing] Perplexity timeout/error:", e.message);
       }
     }
 
@@ -498,26 +522,34 @@ Be specific and cite sources.`;
     let teamContent = "";
     if (FIRECRAWL_API_KEY && company_url) {
       try {
-        const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ url: company_url, formats: ["markdown"], onlyMainContent: true }),
-        });
+        const scrapeRes = await fetchWithTimeout(
+          "https://api.firecrawl.dev/v1/scrape",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ url: company_url, formats: ["markdown"], onlyMainContent: true }),
+          },
+          8000 // 8-second timeout
+        );
         if (scrapeRes.ok) {
           const scrapeData = await scrapeRes.json() as any;
           const md = scrapeData.data?.markdown || scrapeData.markdown || "";
           websiteContent = md.length > 8000 ? md.substring(0, 8000) + "\n...[truncated]" : md;
         }
 
-        // Try team/about pages
+        // Try team/about pages (one attempt, 6s timeout)
         const baseUrl = new URL(company_url).origin;
-        for (const path of ["/about", "/team", "/leadership", "/about-us", "/our-team"]) {
+        for (const p of ["/about", "/team", "/leadership", "/about-us", "/our-team"]) {
           try {
-            const teamRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ url: `${baseUrl}${path}`, formats: ["markdown"], onlyMainContent: true }),
-            });
+            const teamRes = await fetchWithTimeout(
+              "https://api.firecrawl.dev/v1/scrape",
+              {
+                method: "POST",
+                headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ url: `${baseUrl}${p}`, formats: ["markdown"], onlyMainContent: true }),
+              },
+              6000
+            );
             if (teamRes.ok) {
               const td = await teamRes.json() as any;
               const md = td.data?.markdown || td.markdown || "";
@@ -528,8 +560,8 @@ Be specific and cite sources.`;
             }
           } catch {}
         }
-      } catch (err) {
-        console.warn("Firecrawl error:", err);
+      } catch (err: any) {
+        console.warn("[account-briefing] Firecrawl error:", err.message);
       }
     }
 
@@ -577,38 +609,46 @@ Based on the research data above, create a detailed, actionable briefing. Return
 }`;
 
     let briefingJson = "";
+    const oai = getOpenAIClient();
 
-    const gemini = getGeminiClient();
-    if (gemini) {
+    // Primary: Replit OpenAI integration (or direct key)
+    if (oai) {
       try {
-        const geminiRes = await gemini.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: synthPrompt }] }],
-          config: { temperature: 0.3, maxOutputTokens: 8192 },
-        });
-        briefingJson = geminiRes.text ?? "";
-      } catch (e) {
-        // fall through to OpenAI
-      }
-    } else if (OPENAI_API_KEY) {
-      const oaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-        body: JSON.stringify({
-          model: "gpt-4o",
+        console.log("[account-briefing] Starting OpenAI synthesis...");
+        const oaiRes = await oai.chat.completions.create({
+          model: "gpt-4.1",
           messages: [{ role: "user", content: synthPrompt }],
-          temperature: 0.3,
           response_format: { type: "json_object" },
-        }),
-      });
-      if (oaiRes.ok) {
-        const od = await oaiRes.json() as any;
-        briefingJson = od.choices?.[0]?.message?.content ?? "";
+          max_completion_tokens: 4096,
+        });
+        briefingJson = oaiRes.choices?.[0]?.message?.content ?? "";
+        console.log("[account-briefing] OpenAI synthesis done, chars:", briefingJson.length);
+      } catch (e: any) {
+        console.warn("[account-briefing] OpenAI synthesis failed:", e.message);
+      }
+    }
+
+    // Fallback: Gemini
+    if (!briefingJson) {
+      const gemini = getGeminiClient();
+      if (gemini) {
+        try {
+          console.log("[account-briefing] Falling back to Gemini...");
+          const geminiRes = await gemini.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [{ role: "user", parts: [{ text: synthPrompt }] }],
+            config: { temperature: 0.3, maxOutputTokens: 8192 },
+          });
+          briefingJson = geminiRes.text ?? "";
+          console.log("[account-briefing] Gemini synthesis done, chars:", briefingJson.length);
+        } catch (e: any) {
+          console.warn("[account-briefing] Gemini synthesis failed:", e.message);
+        }
       }
     }
 
     // Parse JSON response — or return a minimal static briefing if no AI configured
-    const hasAI = !!(getGeminiClient() || OPENAI_API_KEY);
+    const hasAI = !!(oai || getGeminiClient());
     let briefing: any;
     if (!briefingJson && !hasAI) {
       briefing = {
@@ -633,13 +673,33 @@ Based on the research data above, create a detailed, actionable briefing. Return
         _note: researchText ? "Research gathered via Perplexity. AI synthesis is not configured." : "No AI configured. Add PERPLEXITY_API_KEY to enable research.",
         _rawResearch: researchText || null,
       };
-    } else {
+    } else if (briefingJson) {
       try {
         const cleaned = briefingJson.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
         briefing = JSON.parse(cleaned);
       } catch {
         return res.status(500).json({ success: false, error: "Failed to parse AI response as JSON" });
       }
+    } else {
+      // AI configured but returned empty — use research-backed fallback
+      briefing = {
+        companyName: company_name,
+        overview: researchText
+          ? `${company_name} is a dental DSO. Research was gathered but AI synthesis timed out.`
+          : `${company_name} is a dental DSO.`,
+        tier: tier || "Unknown",
+        tierRationale: "AI synthesis timed out — please retry.",
+        organizationalModel: "Unknown",
+        leadership: [],
+        sizeAndLocations: { practiceCount: "Unknown", states: [], headquarters: "Unknown", estimatedRevenue: null, peBackerOrOwnership: "Unknown" },
+        recentNews: [],
+        currentLabSetup: "Not found.",
+        buyingCommittee: [],
+        dandyFitAnalysis: { primaryValueProp: "See raw research below.", keyPainPoints: [], relevantProofPoints: [], potentialObjections: [], recommendedPilotApproach: "Book a demo." },
+        micrositeRecommendations: { heroHeadline: company_name, contentFocus: "General Dandy value props", ctaStrategy: "Book a demo" },
+        _note: "AI synthesis returned empty — please retry.",
+        _rawResearch: researchText || null,
+      };
     }
 
     // Validate source URLs against trusted domains
@@ -708,6 +768,12 @@ async function handleImportContacts(req: Request, res: Response, body: any) {
         gender: c.gender || null,
         dso_size: c.dsoSize || c.dso_size || null,
         pe_firm: c.peFirm || c.pe_firm || null,
+        abm_stage: c.abmStage || c.abm_stage || null,
+        website: c.website || null,
+        city: c.city || null,
+        state: c.state || null,
+        country: c.country || "United States",
+        segment: c.segment || null,
       };
 
       try {

@@ -20,6 +20,12 @@ type ParsedContact = {
   dsoSize?: string;
   peFirm?: string;
   salesforceId?: string;
+  abmStage?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  segment?: string;
 };
 
 const FIELD_ALIASES: Record<keyof ParsedContact, string[]> = {
@@ -34,9 +40,15 @@ const FIELD_ALIASES: Record<keyof ParsedContact, string[]> = {
   phone: ["phone", "phone number", "mobile phone", "mobile"],
   linkedinUrl: ["linkedin url", "linkedin", "linkedin profile"],
   gender: ["gender"],
-  dsoSize: ["dso size"],
-  peFirm: ["pe firm", "private equity firm"],
-  salesforceId: ["salesforce id", "account id", "sfdc id"],
+  dsoSize: ["dso size", "dso size group"],
+  peFirm: ["pe firm", "private equity firm", "pe backer"],
+  salesforceId: ["salesforce id", "account id", "sfdc id", "sf id", "id"],
+  abmStage: ["abm stage", "abm", "stage", "account stage"],
+  website: ["website", "website url", "url", "company website", "account website"],
+  city: ["city", "billing city", "mailing city"],
+  state: ["state", "billing state", "mailing state", "state province"],
+  country: ["country", "billing country", "mailing country"],
+  segment: ["segment", "account segment", "tier segment"],
 };
 
 const EXACT_HEADER_MAP = Object.entries(FIELD_ALIASES).reduce((acc, [field, aliases]) => {
