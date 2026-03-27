@@ -452,7 +452,11 @@ async function handleAccountBriefing(req: Request, res: Response, body: any) {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
   try {
-    const { company_name, company_url, additional_context, tier } = body;
+    // Accept both { company_name, company_url } and the frontend's { query, knownWebsite, knownHQ } shapes
+    const company_name: string = body.company_name ?? body.query;
+    const company_url: string | undefined = body.company_url ?? body.knownWebsite;
+    const additional_context: string | undefined = body.additional_context ?? body.knownHQ;
+    const tier: string | undefined = body.tier;
     if (!company_name) return res.status(400).json({ success: false, error: "Missing company_name" });
 
     const allSources: string[] = [];
