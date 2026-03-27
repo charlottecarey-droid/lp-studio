@@ -1,4 +1,5 @@
 import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps } from "@/lib/block-types";
+import { BlockRoiCalculator } from "./BlockRoiCalculator";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -327,6 +328,19 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
+      case "roi-calculator":
+        return (
+          <BlockRoiCalculator
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => {
+              const url = block.props.ctaAction === "chilipiper" && block.props.chilipiperUrl
+                ? `chilipiper:${block.props.chilipiperUrl}`
+                : block.props.ctaUrl;
+              onCtaClick(url);
+            } : undefined}
           />
         );
       case "spacer":

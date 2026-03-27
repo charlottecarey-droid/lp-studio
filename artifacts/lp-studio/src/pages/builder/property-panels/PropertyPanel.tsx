@@ -29,6 +29,7 @@ import { FormPanel } from "./FormPanel";
 import { PopupPanel } from "./PopupPanel";
 import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
+import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { getBlockDef } from "@/lib/block-types";
 
 interface Props {
@@ -249,6 +250,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "spacer":
         return (
           <SpacerPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "roi-calculator":
+        return (
+          <RoiCalculatorPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

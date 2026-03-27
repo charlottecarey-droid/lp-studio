@@ -1,6 +1,6 @@
 import type React from "react";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive";
 
 export interface HeroBlockProps {
   headline: string;
@@ -390,6 +390,43 @@ export interface StickyBarBlockProps {
   dismissible: boolean;
 }
 
+export interface RoiInputField {
+  id: string;
+  label: string;
+  defaultValue: number;
+  min: number;
+  max: number;
+  step: number;
+  prefix?: string;
+  suffix?: string;
+  inputType: "number" | "slider";
+}
+
+export interface RoiOutputField {
+  id: string;
+  label: string;
+  formula: string;
+  format: "currency" | "number" | "percent";
+  decimals: number;
+  highlight?: boolean;
+}
+
+export interface RoiCalculatorBlockProps {
+  headline: string;
+  subheadline: string;
+  inputFields: RoiInputField[];
+  outputFields: RoiOutputField[];
+  ctaText: string;
+  ctaUrl: string;
+  ctaAction?: "url" | "chilipiper";
+  chilipiperUrl?: string;
+  ctaEnabled: boolean;
+  backgroundStyle: "white" | "dark" | "light-gray";
+  accentColor?: string;
+  resultsPanelLabel?: string;
+  disclaimer?: string;
+}
+
 type BlockVariant =
   | { type: "hero"; props: HeroBlockProps }
   | { type: "trust-bar"; props: TrustBarBlockProps }
@@ -416,6 +453,7 @@ type BlockVariant =
   | { type: "form"; props: FormBlockProps }
   | { type: "popup"; props: PopupBlockProps }
   | { type: "sticky-bar"; props: StickyBarBlockProps }
+  | { type: "roi-calculator"; props: RoiCalculatorBlockProps }
   | { type: "spacer"; props: SpacerBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
@@ -1199,6 +1237,61 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "roi-calculator",
+    label: "ROI Calculator",
+    category: "Interactive",
+    defaultProps: (): RoiCalculatorBlockProps => ({
+      headline: "Calculate Your Hidden Cost of Inaction",
+      subheadline: "Estimate the cost of remakes and lost chair time across your practice.",
+      backgroundStyle: "white",
+      resultsPanelLabel: "Your Results",
+      disclaimer: "Calculations based on per-practice estimates. Actual results may vary.",
+      ctaEnabled: true,
+      ctaText: "Book a Demo",
+      ctaUrl: "#",
+      ctaAction: "url",
+      chilipiperUrl: "",
+      inputFields: [
+        { id: "practices", label: "Number of Practices", defaultValue: 1, min: 1, max: 2000, step: 1, inputType: "number" },
+        { id: "restoCases", label: "Fixed Resto Cases / Month", defaultValue: 250, min: 1, max: 9999, step: 1, inputType: "number" },
+        { id: "avgCaseValue", label: "Average Case Value", defaultValue: 1500, min: 100, max: 10000, step: 50, prefix: "$", inputType: "number" },
+        { id: "currentRemakeRate", label: "Current Remake Rate (%)", defaultValue: 5, min: 0.5, max: 20, step: 0.5, suffix: "%", inputType: "slider" },
+        { id: "improvedRemakeRate", label: "Improved Remake Rate (%)", defaultValue: 2, min: 0, max: 20, step: 0.5, suffix: "%", inputType: "slider" },
+        { id: "prodPerHour", label: "Avg Production / Hour", defaultValue: 500, min: 50, max: 5000, step: 50, prefix: "$", inputType: "number" },
+        { id: "dentureCases", label: "Denture Cases / Month", defaultValue: 150, min: 0, max: 9999, step: 1, inputType: "number" },
+        { id: "apptsSaved", label: "Appointments Saved per Case", defaultValue: 1.5, min: 0.5, max: 5, step: 0.5, inputType: "slider" },
+        { id: "avgMinPerAppt", label: "Avg Minutes / Appointment", defaultValue: 30, min: 5, max: 120, step: 5, inputType: "number" },
+        { id: "workingDays", label: "Working Days / Month", defaultValue: 20, min: 1, max: 31, step: 1, inputType: "number" },
+      ],
+      outputFields: [
+        { id: "remakesAvoided", label: "Remakes Avoided / Month", formula: "restoCases * (currentRemakeRate / 100) - restoCases * (improvedRemakeRate / 100)", format: "number", decimals: 1 },
+        { id: "recoveredProdYear", label: "Recovered Production / Year", formula: "(restoCases * (currentRemakeRate / 100) - restoCases * (improvedRemakeRate / 100)) * avgCaseValue * 12", format: "currency", decimals: 0 },
+        { id: "dentureChairHrs", label: "Chair Hours Freed / Month", formula: "dentureCases * apptsSaved * avgMinPerAppt / 60", format: "number", decimals: 1 },
+        { id: "dentureProdYear", label: "Denture Production Gain / Year", formula: "dentureCases * apptsSaved * avgMinPerAppt / 60 * prodPerHour * 12", format: "currency", decimals: 0 },
+        { id: "totalAnnualUpside", label: "Total Annual Upside", formula: "((restoCases * (currentRemakeRate / 100) - restoCases * (improvedRemakeRate / 100)) * avgCaseValue * 12 + dentureCases * apptsSaved * avgMinPerAppt / 60 * prodPerHour * 12) * practices", format: "currency", decimals: 0, highlight: true },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="65" height="5" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="8" y="17" width="60" height="4" rx="1.5" fill="#e2e8f0" />
+        <rect x="8" y="17" width="36" height="4" rx="1.5" fill="#003A30" opacity="0.5" />
+        <rect x="8" y="25" width="60" height="4" rx="1.5" fill="#e2e8f0" />
+        <rect x="8" y="25" width="50" height="4" rx="1.5" fill="#003A30" opacity="0.4" />
+        <rect x="8" y="33" width="60" height="4" rx="1.5" fill="#e2e8f0" />
+        <rect x="8" y="33" width="20" height="4" rx="1.5" fill="#003A30" opacity="0.4" />
+        <rect x="78" y="8" width="34" height="54" rx="4" fill="#003A30" />
+        <rect x="82" y="14" width="26" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="82" y="21" width="26" height="5" rx="1.5" fill="white" opacity="0.15" />
+        <rect x="82" y="30" width="26" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="82" y="37" width="26" height="5" rx="1.5" fill="white" opacity="0.15" />
+        <rect x="82" y="48" width="26" height="7" rx="3.5" fill="#C7E738" />
+        <rect x="8" y="52" width="48" height="6" rx="3" fill="#C7E738" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1234,6 +1327,7 @@ export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer"
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
 export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
+export function createBlock(type: "roi-calculator"): Extract<PageBlock, { type: "roi-calculator" }>;
 export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
@@ -1267,6 +1361,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "form": return { id, type: "form", props: props as FormBlockProps };
     case "popup": return { id, type: "popup", props: props as PopupBlockProps };
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
+    case "roi-calculator": return { id, type: "roi-calculator", props: props as RoiCalculatorBlockProps };
     case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
   }
 }
