@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoComparisonBlockProps;
@@ -39,8 +39,11 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
     tableDandyColor,
     tableTraditionalColor,
     headerDandyColor,
+    backgroundImage,
+    backgroundOverlay,
   } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const anim = animationsEnabled;
   const eyebrowAnim = anim ? { initial: { opacity: 0, y: 10 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } } : {};
@@ -59,8 +62,9 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
   const headlineParts = headline.includes("\n") ? headline.split("\n") : [headline];
 
   return (
-    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
+    <section style={sectionBgStyle} className="py-24 md:py-32">
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (

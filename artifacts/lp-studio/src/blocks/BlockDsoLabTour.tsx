@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoLabTourBlockProps;
@@ -30,8 +30,11 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
     imageUrl, videoUrl,
     ctaText, ctaUrl,
     backgroundStyle = "white",
+    backgroundImage,
+    backgroundOverlay,
   } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const [videoOpen, setVideoOpen] = useState(false);
 
@@ -60,8 +63,9 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
 
   return (
     <>
-      <section ref={sectionRef} style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
+      <section ref={sectionRef} style={sectionBgStyle} className="py-24 md:py-32">
+        {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
           <div className="grid md:grid-cols-2 gap-14 lg:gap-24 items-center">
 
             {/* ── Image / Video ── */}

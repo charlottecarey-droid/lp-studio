@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 
 const STEP_ICONS = [Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers];
 
@@ -53,8 +53,9 @@ const DEFAULT_STEPS = [
 ];
 
 export function BlockDsoPilotSteps({ props }: Props) {
-  const { eyebrow, headline, subheadline, backgroundStyle = "muted" } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay } = props;
+  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const pilotRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -77,8 +78,9 @@ export function BlockDsoPilotSteps({ props }: Props) {
   const stepCardShadow = dark ? "none" : "0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.05)";
 
   return (
-    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
+    <section style={sectionBgStyle} className="py-24 md:py-32">
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
             <motion.p

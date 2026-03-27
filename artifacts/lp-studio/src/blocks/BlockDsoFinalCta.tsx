@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoFinalCtaBlockProps;
@@ -24,8 +24,11 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
     secondaryCtaText = "Calculate ROI",
     secondaryCtaUrl = "#",
     backgroundStyle = "dandy-green",
+    backgroundImage,
+    backgroundOverlay,
   } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const sectionBgStyle = backgroundImage ? { ...getImageBgSectionStyle(backgroundImage), overflow: "hidden" as const } : { position: "relative" as const, overflow: "hidden" as const, ...getBgStyle(backgroundStyle) };
 
   const ctaRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ctaRef, offset: ["start end", "end start"] });
@@ -50,9 +53,10 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
   return (
     <section
       ref={ctaRef}
-      style={{ position: "relative", overflow: "hidden", ...getBgStyle(backgroundStyle) }}
+      style={sectionBgStyle}
       className="py-28 md:py-36"
     >
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
       {/* Orb 1 — top center */}
       <motion.div
         style={{

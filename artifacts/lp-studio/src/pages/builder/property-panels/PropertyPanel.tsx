@@ -353,6 +353,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
           </div>
         );
       }
@@ -413,11 +423,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "dso-success-stories": {
         const p = block.props;
         const cases = p.cases ?? [];
-        const updateCase = (i: number, patch: Partial<{name: string; stat: string; label: string; quote: string; author: string}>) => {
+        const updateCase = (i: number, patch: Partial<{name: string; stat: string; label: string; quote: string; author: string; image: string}>) => {
           const next = cases.map((c, idx) => idx === i ? { ...c, ...patch } : c);
           onChange({ ...block, props: { ...p, cases: next } });
         };
-        const addCase = () => onChange({ ...block, props: { ...p, cases: [...cases, { name: "", stat: "", label: "", quote: "", author: "" }] } });
+        const addCase = () => onChange({ ...block, props: { ...p, cases: [...cases, { name: "", stat: "", label: "", quote: "", author: "", image: "" }] } });
         const removeCase = (i: number) => onChange({ ...block, props: { ...p, cases: cases.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
@@ -438,6 +448,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Success Stories</Label>
@@ -457,6 +477,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <div>
                       <Label className="text-[11px] text-slate-400">DSO Name</Label>
                       <Input value={c.name} onChange={e => updateCase(i, { name: e.target.value })} placeholder="Acme Dental Group" className="h-8 text-xs mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Card Image URL (optional)</Label>
+                      <Input value={c.image ?? ""} onChange={e => updateCase(i, { image: e.target.value || undefined })} placeholder="https://images.unsplash.com/…" className="h-8 text-xs mt-1" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -479,7 +503,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </div>
                 ))}
                 {cases.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-2">No stories yet. Click Add to get started.</p>
+                  <div className="text-center py-3 space-y-2">
+                    <p className="text-xs text-slate-400">No stories yet.</p>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...p, cases: [
+                      { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=800&h=480&fit=crop" },
+                      { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
+                      { name: "Tend", stat: "40%", label: "faster lab turnaround", quote: "Dandy keeps pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
+                    ] } })}>
+                      Load defaults
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -514,6 +547,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs">Layout</Label>
               <Select value={p.layout} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "4-col" | "2-col" } })}>
@@ -617,6 +660,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Steps</Label>
@@ -714,6 +767,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
           </div>
         );
       }
@@ -761,6 +824,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image URL (optional)</Label>
+              <Input value={p.backgroundImage ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImage: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" />
+            </div>
+            {p.backgroundImage && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
+              </div>
+            )}
             <div className="border-t pt-3 space-y-3">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Table Text Colors</Label>
               <ColorField

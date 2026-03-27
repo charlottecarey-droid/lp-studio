@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingDown, BarChart3, Scale, Wallet } from "lucide-react";
 import type { DsoChallengesBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoChallengesBlockProps;
@@ -35,8 +35,9 @@ const DEFAULT_CHALLENGES = [
 ];
 
 export function BlockDsoChallenges({ props }: Props) {
-  const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges, backgroundImage, backgroundOverlay } = props;
+  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayChallenges = (challenges && challenges.length > 0) ? challenges : DEFAULT_CHALLENGES;
   const gridCols = layout === "2-col" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 md:grid-cols-4";
 
@@ -56,8 +57,9 @@ export function BlockDsoChallenges({ props }: Props) {
   const iconColor = dark ? AW : P;
 
   return (
-    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
+    <section style={sectionBgStyle} className="py-24 md:py-32">
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 768, marginBottom: "3.5rem" }}>
           {eyebrow && (
             <motion.p

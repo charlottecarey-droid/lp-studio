@@ -27,6 +27,17 @@ export function isDarkBg(style: string | undefined): boolean {
   return ["dark", "dandy-green", "black", "gradient"].includes(style ?? "");
 }
 
+/** Returns section inline styles when an image background is used. */
+export function getImageBgSectionStyle(imageUrl: string): React.CSSProperties {
+  return {
+    backgroundImage: `url(${imageUrl})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    position: "relative",
+  };
+}
+
 export const BG_OPTIONS: { value: BackgroundStyle; label: string }[] = [
   { value: "white",        label: "White" },
   { value: "light-gray",   label: "Light gray" },

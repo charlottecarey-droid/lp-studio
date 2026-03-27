@@ -221,6 +221,8 @@ export interface DsoLabTourBlockProps {
   ctaText: string;
   ctaUrl: string;
   backgroundStyle: BackgroundStyle;
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export interface DsoStatBarBlockProps {
@@ -245,8 +247,10 @@ export interface DsoHeartlandHeroBlockProps {
 export interface DsoSuccessStoriesBlockProps {
   eyebrow: string;
   headline: string;
-  cases: { name: string; stat: string; label: string; quote: string; author: string }[];
+  cases: { name: string; stat: string; label: string; quote: string; author: string; image?: string }[];
   backgroundStyle: BackgroundStyle;
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export interface DsoChallengesBlockProps {
@@ -255,6 +259,8 @@ export interface DsoChallengesBlockProps {
   backgroundStyle: BackgroundStyle;
   layout: "4-col" | "2-col";
   challenges: { title: string; desc: string }[];
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export type DsoProblemPanelIcon =
@@ -291,6 +297,8 @@ export interface DsoPilotStepsBlockProps {
   subheadline: string;
   backgroundStyle: BackgroundStyle;
   steps?: DsoPilotStep[];
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export interface DsoFinalCtaBlockProps {
@@ -302,6 +310,8 @@ export interface DsoFinalCtaBlockProps {
   secondaryCtaText: string;
   secondaryCtaUrl: string;
   backgroundStyle: BackgroundStyle;
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export interface DsoComparisonBlockProps {
@@ -317,6 +327,8 @@ export interface DsoComparisonBlockProps {
   tableDandyColor?: string;
   tableTraditionalColor?: string;
   headerDandyColor?: string;
+  backgroundImage?: string;
+  backgroundOverlay?: number;
 }
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
@@ -1526,8 +1538,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultProps: (): DsoSuccessStoriesBlockProps => ({
       eyebrow: "Proven Results",
       headline: "DSOs that switched and never looked back.",
-      cases: [],
       backgroundStyle: "dandy-green",
+      cases: [
+        { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=800&h=480&fit=crop" },
+        { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
+        { name: "Tend", stat: "40%", label: "faster lab turnaround", quote: "Speed matters when you're growing fast. Dandy keeps pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
+      ],
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
