@@ -732,6 +732,7 @@ Based on the research data above, create a detailed, actionable briefing. Return
     if (!briefing.micrositeRecommendations || typeof briefing.micrositeRecommendations !== "object") {
       briefing.micrositeRecommendations = {};
     }
+    briefing.micrositeRecommendations.keyMetrics = ensureArr(briefing.micrositeRecommendations.keyMetrics);
     briefing.companyName      = briefing.companyName      || company_name;
     briefing.overview         = briefing.overview         || "";
     briefing.currentLabSetup  = briefing.currentLabSetup  || "";

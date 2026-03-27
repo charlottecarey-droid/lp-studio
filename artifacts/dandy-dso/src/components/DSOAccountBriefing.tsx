@@ -975,7 +975,7 @@ const DSOAccountBriefing = () => {
                               <div>
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Key Metrics</p>
                                 <div className="flex flex-wrap gap-2">
-                                  {briefing.micrositeRecommendations.keyMetrics.map((m, i) => (
+                                  {(briefing.micrositeRecommendations.keyMetrics ?? []).map((m, i) => (
                                     <span key={i} className="px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">{m}</span>
                                   ))}
                                 </div>
