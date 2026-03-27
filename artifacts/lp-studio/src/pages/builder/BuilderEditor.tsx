@@ -1174,7 +1174,7 @@ export default function BuilderEditor() {
         </aside>
 
         {/* Center: Canvas */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/50">
+        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/50" onClick={() => setSelectedBlockId(null)}>
           <div className="min-h-full flex flex-col items-center py-6 px-4">
             {blocks.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
@@ -1213,7 +1213,7 @@ export default function BuilderEditor() {
                           block={block}
                           brand={brand}
                           isSelected={selectedBlockId === block.id}
-                          onSelect={() => setSelectedBlockId(block.id === selectedBlockId ? null : block.id)}
+                          onSelect={() => setSelectedBlockId(block.id)}
                           onDelete={() => deleteBlock(block.id)}
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
@@ -1891,7 +1891,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
           </div>
         </div>
       ) : (
-        <div className="cursor-pointer" onClick={onSelect}>
+        <div className="cursor-pointer" onClick={e => { e.stopPropagation(); onSelect(); }}>
           <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} />
         </div>
       )}

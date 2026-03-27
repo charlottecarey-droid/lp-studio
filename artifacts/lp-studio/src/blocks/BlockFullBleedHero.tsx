@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
@@ -30,8 +30,20 @@ function hexToRgbParts(hex: string): string {
 export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
+
+  // React does not reliably pass `muted` as a DOM attribute on <video>.
+  // Setting it imperatively via ref ensures autoplay works in all browsers.
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    if (!el) return;
+    el.muted = true;
+    if (props.videoAutoplay ?? true) {
+      el.play().catch(() => {});
+    }
+  }, [props.backgroundVideoUrl, props.videoAutoplay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = containerRef.current;
@@ -152,10 +164,11 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             : { backgroundColor: FOREST }
         }
       >
-        {/* Video background */}
+        {/* Video background — ref callback sets muted imperatively (React JSX muted prop is unreliable) */}
         {props.backgroundType === "video" && props.backgroundVideoUrl && (
           <video
             key={props.backgroundVideoUrl}
+            ref={attachVideo}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             src={props.backgroundVideoUrl}
             autoPlay={props.videoAutoplay ?? true}
@@ -185,7 +198,8 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             as="h1"
             value={props.headline}
             onUpdate={field("headline")}
-            className={cn("font-display leading-[1.05] text-white max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+            className={cn("font-display leading-[1.05] max-w-4xl drop-shadow-sm", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+            style={{ color: props.headlineColor || "#ffffff" }}
           />
 
           {props.subheadline && (
@@ -193,7 +207,8 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
               as="p"
               value={props.subheadline}
               onUpdate={field("subheadline")}
-              className={cn(getBodySizeClass(brand), "text-white/80 max-w-2xl leading-relaxed")}
+              className={cn(getBodySizeClass(brand), "max-w-2xl leading-relaxed")}
+              style={{ color: props.subheadlineColor || "rgba(255,255,255,0.8)" }}
               multiline
             />
           )}

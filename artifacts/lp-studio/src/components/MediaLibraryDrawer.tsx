@@ -219,33 +219,34 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
           />
         </div>
 
-        {/* Tag filter chips */}
+        {/* Tag filter chips — scrollable so they don't push content off-screen */}
         {tagCounts.length > 0 && (
-          <div className="px-4 py-2 border-b border-border flex gap-1.5 flex-wrap shrink-0">
-            {activeTag && (
-              <Badge
-                variant="default"
-                className="cursor-pointer text-[11px] gap-1"
-                onClick={() => handleTagClick("")}
-              >
-                {activeTag}
-                <X className="w-2.5 h-2.5" />
-              </Badge>
-            )}
-            {tagCounts
-              .filter((tc) => tc.tag !== activeTag)
-              .slice(0, 12)
-              .map((tc) => (
+          <div className="border-b border-border shrink-0">
+            <div className="px-4 py-2 max-h-28 overflow-y-auto flex gap-1.5 flex-wrap">
+              {activeTag && (
                 <Badge
-                  key={tc.tag}
-                  variant="outline"
-                  className="cursor-pointer text-[11px] hover:bg-muted"
-                  onClick={() => handleTagClick(tc.tag)}
+                  variant="default"
+                  className="cursor-pointer text-[11px] gap-1 shrink-0"
+                  onClick={() => handleTagClick("")}
                 >
-                  {tc.tag}
-                  <span className="ml-1 text-muted-foreground">{tc.count}</span>
+                  {activeTag}
+                  <X className="w-2.5 h-2.5" />
                 </Badge>
-              ))}
+              )}
+              {tagCounts
+                .filter((tc) => tc.tag !== activeTag)
+                .map((tc) => (
+                  <Badge
+                    key={tc.tag}
+                    variant="outline"
+                    className="cursor-pointer text-[11px] hover:bg-muted shrink-0"
+                    onClick={() => handleTagClick(tc.tag)}
+                  >
+                    {tc.tag}
+                    <span className="ml-1 text-muted-foreground">{tc.count}</span>
+                  </Badge>
+                ))}
+            </div>
           </div>
         )}
 

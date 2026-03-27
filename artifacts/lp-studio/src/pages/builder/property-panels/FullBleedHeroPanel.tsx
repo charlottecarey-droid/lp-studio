@@ -74,6 +74,43 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
         </Select>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline Color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={props.headlineColor || "#ffffff"}
+              onChange={e => set("headlineColor", e.target.value)}
+              className="w-9 h-9 rounded border cursor-pointer"
+            />
+            <Input
+              value={props.headlineColor || "#ffffff"}
+              onChange={e => set("headlineColor", e.target.value)}
+              className="text-sm font-mono"
+              placeholder="#ffffff"
+            />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline Color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={props.subheadlineColor || "#ffffff"}
+              onChange={e => set("subheadlineColor", e.target.value)}
+              className="w-9 h-9 rounded border cursor-pointer"
+            />
+            <Input
+              value={props.subheadlineColor || "#ffffff"}
+              onChange={e => set("subheadlineColor", e.target.value)}
+              className="text-sm font-mono"
+              placeholder="#ffffff"
+            />
+          </div>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subheadline</Label>

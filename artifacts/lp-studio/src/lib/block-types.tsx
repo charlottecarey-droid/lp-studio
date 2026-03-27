@@ -330,6 +330,8 @@ export interface FullBleedHeroBlockProps {
   videoAutoplay?: boolean;
   overlayOpacity: number;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  headlineColor?: string;
+  subheadlineColor?: string;
   minHeight: "full" | "large" | "medium";
   contentAlignment: "left" | "center" | "right";
   logoImageUrl?: string;

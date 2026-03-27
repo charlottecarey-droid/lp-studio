@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, Extension, Node as TiptapNode, type CommandProps } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, Node as TiptapNode, type CommandProps, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
@@ -15,8 +15,9 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Link as LinkIcon,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight,
   Heading1, Heading2, Heading3, Minus, Undo, Redo,
-  ImageIcon, Video, Columns2, Highlighter, ChevronDown,
+  ImageIcon, Video, Columns2, Highlighter, ChevronDown, Library,
 } from "lucide-react";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 
 declare module "@tiptap/extension-text-style" {
   interface TextStyleAttributes {
@@ -132,6 +133,102 @@ const VideoEmbed = TiptapNode.create({
   },
 });
 
+// ─── Resizable Image ────────────────────────────────────────────────────────
+
+function ResizableImageView({ node, updateAttributes, selected }: {
+  node: { attrs: { src: string; alt?: string; width?: string; align?: string } };
+  updateAttributes: (attrs: Record<string, string | null>) => void;
+  selected: boolean;
+  deleteNode: () => void;
+}) {
+  const widths = ["25%", "50%", "75%", "100%"];
+  const aligns = [
+    { value: "left", label: "⬅" },
+    { value: "center", label: "⬛" },
+    { value: "right", label: "➡" },
+  ];
+  const wrapAlign = node.attrs.align === "center" ? "mx-auto" : node.attrs.align === "right" ? "ml-auto" : "";
+
+  return (
+    <NodeViewWrapper className="relative inline-block w-full my-2">
+      <div
+        className={cn(
+          "relative group inline-block",
+          wrapAlign,
+          selected ? "ring-2 ring-primary ring-offset-1 rounded" : ""
+        )}
+        style={{ width: node.attrs.width || "100%", maxWidth: "100%" }}
+      >
+        <img
+          src={node.attrs.src}
+          alt={node.attrs.alt || ""}
+          className="block w-full h-auto rounded"
+          draggable={false}
+        />
+        {selected && (
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-1 p-1 bg-black/70 rounded-b">
+            {widths.map(w => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => updateAttributes({ width: w })}
+                className={cn(
+                  "px-2 py-0.5 text-[10px] rounded font-medium transition-colors",
+                  (node.attrs.width || "100%") === w
+                    ? "bg-primary text-white"
+                    : "bg-white/20 text-white hover:bg-white/40"
+                )}
+              >
+                {w}
+              </button>
+            ))}
+            <div className="w-px h-3 bg-white/30 mx-0.5" />
+            {aligns.map(a => (
+              <button
+                key={a.value}
+                type="button"
+                onClick={() => updateAttributes({ align: a.value })}
+                className={cn(
+                  "px-1.5 py-0.5 text-[10px] rounded font-medium transition-colors",
+                  (node.attrs.align || "left") === a.value
+                    ? "bg-primary text-white"
+                    : "bg-white/20 text-white hover:bg-white/40"
+                )}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: "100%", parseHTML: el => el.style.width || el.getAttribute("width") || "100%" },
+      align: { default: "left", parseHTML: el => el.getAttribute("data-align") || "left" },
+    };
+  },
+  renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, unknown> }) {
+    const { width, align, ...rest } = HTMLAttributes;
+    return [
+      "img",
+      {
+        ...rest,
+        style: `width:${width as string};max-width:100%;display:block;${align === "center" ? "margin:0 auto;" : align === "right" ? "margin-left:auto;" : ""}`,
+        "data-align": align,
+      },
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageView as Parameters<typeof ReactNodeViewRenderer>[0]);
+  },
+});
+
 const FONT_SIZES = [
   { label: "XS", value: "0.75rem" },
   { label: "SM", value: "0.875rem" },
@@ -190,6 +287,7 @@ export function TiptapEditor({
   onBlur,
 }: TiptapEditorProps) {
   const [showImagePanel, setShowImagePanel] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
@@ -207,8 +305,8 @@ export function TiptapEditor({
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder }),
-      Image.configure({
-        HTMLAttributes: { class: "max-w-full h-auto rounded my-2" },
+      ResizableImage.configure({
+        HTMLAttributes: { class: "max-w-full h-auto rounded" },
       }),
       Youtube.configure({ width: 640, height: 360 }),
       TextStyle,
@@ -499,9 +597,17 @@ export function TiptapEditor({
                     Insert
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowImagePanel(false); setShowMediaLibrary(true); }}
+                  className="w-full text-xs border border-input rounded py-2 flex items-center justify-center gap-1.5 text-primary hover:bg-primary/5 transition-colors mb-2"
+                >
+                  <Library className="w-3 h-3" />
+                  Browse Media Library
+                </button>
                 <div className="flex items-center gap-2 my-2">
                   <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground">or</span>
+                  <span className="text-xs text-muted-foreground">or upload</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 <button
@@ -553,6 +659,15 @@ export function TiptapEditor({
         </div>
       )}
       <EditorContent editor={editor} />
+
+      {/* Media Library Drawer — opened from image insert panel */}
+      <MediaLibraryDrawer
+        open={showMediaLibrary}
+        onOpenChange={setShowMediaLibrary}
+        onSelect={url => {
+          editor.chain().focus().setImage({ src: url }).run();
+        }}
+      />
     </div>
   );
 }
