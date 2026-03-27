@@ -228,6 +228,20 @@ export interface DsoStatBarBlockProps {
   backgroundStyle: BackgroundStyle;
 }
 
+export interface DsoHeartlandHeroBlockProps {
+  headline: string;
+  companyName: string;
+  eyebrow?: string;
+  subheadline: string;
+  primaryCtaText: string;
+  primaryCtaUrl: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  backgroundImageUrl?: string;
+  stats: { value: string; label: string }[];
+  showScrollIndicator?: boolean;
+}
+
 export interface DsoSuccessStoriesBlockProps {
   eyebrow: string;
   headline: string;
@@ -548,7 +562,8 @@ type BlockVariant =
   | { type: "dso-challenges"; props: DsoChallengesBlockProps }
   | { type: "dso-pilot-steps"; props: DsoPilotStepsBlockProps }
   | { type: "dso-final-cta"; props: DsoFinalCtaBlockProps }
-  | { type: "dso-comparison"; props: DsoComparisonBlockProps };
+  | { type: "dso-comparison"; props: DsoComparisonBlockProps }
+  | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1654,6 +1669,46 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-heartland-hero" as const,
+    label: "DSO Heartland Hero",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoHeartlandHeroBlockProps => ({
+      headline: "Built for {company}.",
+      companyName: "{company}",
+      eyebrow: "The Dandy Difference",
+      subheadline: "The lab partner built to match your DSO's scale — precision manufacturing, AI quality control, and network-wide visibility.",
+      primaryCtaText: "Schedule a Conversation",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "See the ROI",
+      secondaryCtaUrl: "#calculator",
+      backgroundImageUrl: "",
+      stats: [
+        { value: "30%", label: "Avg case acceptance lift" },
+        { value: "96%", label: "First-time right rate" },
+        { value: "4.2 days", label: "Avg turnaround" },
+        { value: "$0", label: "CAPEX to start" },
+      ],
+      showScrollIndicator: true,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="hsl(192,30%,5%)" rx="4" />
+        <rect x="20" y="10" width="80" height="6" rx="3" fill="white" opacity="0.8" />
+        <rect x="35" y="10" width="50" height="6" rx="3" fill="hsl(72,55%,48%)" opacity="0.5" />
+        <rect x="30" y="20" width="60" height="3" rx="1.5" fill="white" opacity="0.3" />
+        <rect x="38" y="27" width="20" height="5" rx="2.5" fill="hsl(72,55%,48%)" />
+        <rect x="62" y="27" width="20" height="5" rx="2.5" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.8" />
+        <rect x="0" y="55" width="120" height="15" rx="0" fill="hsl(192,28%,4%)" />
+        {[0, 1, 2, 3].map(i => (
+          <g key={i}>
+            <rect x={8 + i * 28} y="57" width="14" height="3" rx="1.5" fill="hsl(72,55%,48%)" opacity="0.8" />
+            <rect x={6 + i * 28} y="62" width="18" height="2" rx="1" fill="white" opacity="0.2" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1699,6 +1754,7 @@ export function createBlock(type: "dso-challenges"): Extract<PageBlock, { type: 
 export function createBlock(type: "dso-pilot-steps"): Extract<PageBlock, { type: "dso-pilot-steps" }>;
 export function createBlock(type: "dso-final-cta"): Extract<PageBlock, { type: "dso-final-cta" }>;
 export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: "dso-comparison" }>;
+export function createBlock(type: "dso-heartland-hero"): Extract<PageBlock, { type: "dso-heartland-hero" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1741,6 +1797,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-pilot-steps": return { id, type: "dso-pilot-steps", props: props as DsoPilotStepsBlockProps };
     case "dso-final-cta": return { id, type: "dso-final-cta", props: props as DsoFinalCtaBlockProps };
     case "dso-comparison": return { id, type: "dso-comparison", props: props as DsoComparisonBlockProps };
+    case "dso-heartland-hero": return { id, type: "dso-heartland-hero", props: props as DsoHeartlandHeroBlockProps };
   }
 }
 

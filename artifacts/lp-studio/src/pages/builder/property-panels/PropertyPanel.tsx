@@ -812,6 +812,88 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-heartland-hero": {
+        const p = block.props;
+        const stats = p.stats ?? [];
+        const updateStat = (i: number, field: "value" | "label", val: string) => {
+          const next = stats.map((s, idx) => idx === i ? { ...s, [field]: val } : s);
+          onChange({ ...block, props: { ...p, stats: next } });
+        };
+        const addStat = () => onChange({ ...block, props: { ...p, stats: [...stats, { value: "", label: "" }] } });
+        const removeStat = (i: number) => onChange({ ...block, props: { ...p, stats: stats.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow (optional)</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Difference" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} placeholder="Built for {company}." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Company name to highlight (in lime)</Label>
+              <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="{company}" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Primary CTA text</Label>
+              <Input value={p.primaryCtaText} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Primary CTA URL</Label>
+              <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="#" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secondary CTA text (optional)</Label>
+              <Input value={p.secondaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secondary CTA URL</Label>
+              <Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background image URL (optional)</Label>
+              <Input value={p.backgroundImageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImageUrl: e.target.value } })} placeholder="https://..." />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Stats bar items (up to 4)</Label>
+                {stats.length < 4 && (
+                  <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 px-2" onClick={addStat}>
+                    <Plus className="w-3 h-3" /> Add
+                  </Button>
+                )}
+              </div>
+              {stats.map((s, i) => (
+                <div key={i} className="flex gap-2 items-start bg-muted/40 rounded-lg p-2">
+                  <GripVertical className="w-3.5 h-3.5 mt-2.5 text-muted-foreground/40 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder="Value (e.g. 30%)"
+                      value={s.value}
+                      onChange={e => updateStat(i, "value", e.target.value)}
+                    />
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder="Label"
+                      value={s.label}
+                      onChange={e => updateStat(i, "label", e.target.value)}
+                    />
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 mt-1 text-muted-foreground hover:text-destructive" onClick={() => removeStat(i)}>
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
