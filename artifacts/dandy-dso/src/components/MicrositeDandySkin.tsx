@@ -362,25 +362,21 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                   strokeDasharray="3500" strokeDashoffset={3500 - 3500 * pathLen} style={{ transition: "stroke-dashoffset 0.05s linear" }} />
               </svg>
 
-              <motion.div style={{ x: challengeX }} className="flex will-change-transform relative z-10">
+              <motion.div style={{ x: challengeX }} className="flex gap-5 will-change-transform relative z-10">
                 {displayChallenges.map((c, i) => {
                   const Icon = challengeIcons[i % 4];
                   return (
-                    <div key={c.title} className="flex items-stretch shrink-0">
-                      {i > 0 && (
-                        <div className="w-px self-stretch shrink-0" style={{ background: "rgba(0,0,0,0.07)" }} />
-                      )}
-                      <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                        transition={{ delay: i * 0.1, duration: 0.6 }}
-                        className="w-[300px] md:w-[360px] p-8"
-                        style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)" }}>
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
-                          <Icon className="w-5 h-5 text-primary" />
-                        </div>
-                        <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
-                        <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
-                      </motion.div>
-                    </div>
+                    <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                      transition={{ delay: i * 0.1, duration: 0.6 }}
+                      className="w-[300px] md:w-[360px] p-8 shrink-0 rounded-xl"
+                      style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,0,0,0.07)" }}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
+                      <div className="my-3" style={{ height: "1px", background: "rgba(0,0,0,0.07)" }} />
+                      <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
+                    </motion.div>
                   );
                 })}
               </motion.div>
