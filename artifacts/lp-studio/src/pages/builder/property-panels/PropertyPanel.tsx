@@ -1019,6 +1019,35 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Body (optional)</Label>
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} placeholder="Supporting paragraph beneath the headline…" className="resize-none text-xs" />
             </div>
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Photos</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-slate-400">Primary image URL</Label>
+                <Input
+                  value={(p.imageUrls ?? [])[0] ?? ""}
+                  onChange={e => {
+                    const urls = [...(p.imageUrls ?? [])];
+                    urls[0] = e.target.value;
+                    onChange({ ...block, props: { ...p, imageUrls: urls } });
+                  }}
+                  placeholder="https://images.unsplash.com/…"
+                  className="text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-slate-400">Secondary image URL</Label>
+                <Input
+                  value={(p.imageUrls ?? [])[1] ?? ""}
+                  onChange={e => {
+                    const urls = [...(p.imageUrls ?? [])];
+                    urls[1] = e.target.value;
+                    onChange({ ...block, props: { ...p, imageUrls: urls } });
+                  }}
+                  placeholder="https://images.unsplash.com/…"
+                  className="text-xs"
+                />
+              </div>
+            </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Panels (max 4)</Label>

@@ -273,6 +273,7 @@ export interface DsoProblemBlockProps {
   headline: string;
   body: string;
   panels: { icon: DsoProblemPanelIcon; title: string; desc: string }[];
+  imageUrls?: string[];
 }
 
 export interface DsoAiFeatureBlockProps {
