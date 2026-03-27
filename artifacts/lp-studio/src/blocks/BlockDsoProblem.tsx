@@ -52,11 +52,28 @@ export function BlockDsoProblem({ props }: Props) {
 
   return (
     <section
-      style={{ background: "hsl(0,0%,98%)", color: TEAL }}
-      className="py-24 md:py-32 relative overflow-hidden"
+      style={{ background: "hsl(0,0%,99%)", color: TEAL, position: "relative", overflow: "hidden" }}
+      className="py-24 md:py-32"
     >
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10 relative z-10">
+      {/* Decorative background orbs */}
+      <div
+        style={{
+          position: "absolute", top: -160, right: -100, width: 480, height: 480,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, hsl(152,28%,93%) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute", bottom: -120, left: -80, width: 360, height: 360,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, hsl(72,40%,94%) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
 
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10 relative z-10">
         <div className="text-center mb-16">
           {eyebrow && (
             <motion.p
@@ -79,7 +96,7 @@ export function BlockDsoProblem({ props }: Props) {
               lineHeight: 1.1,
               fontWeight: 600,
               color: TEAL,
-              letterSpacing: 0,
+              letterSpacing: "-0.015em",
               maxWidth: 800,
               margin: "0 auto",
             }}
@@ -105,48 +122,62 @@ export function BlockDsoProblem({ props }: Props) {
             return (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
+                transition={{ delay: i * 0.08, duration: 0.65 }}
                 className="group rounded-2xl p-8"
                 style={{
                   background: "white",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.06)",
+                  border: "1px solid rgba(0,0,0,0.05)",
+                  transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease",
+                  cursor: "default",
+                }}
+                whileHover={{ y: -4 }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.boxShadow =
+                    "0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08), 0 32px 64px rgba(0,0,0,0.10)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.boxShadow =
+                    "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.06)";
                 }}
               >
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "0.75rem",
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: `${LIME}14`,
-                    marginBottom: "1.5rem",
+                    background: `${LIME}15`,
+                    border: `1px solid ${LIME}25`,
+                    marginBottom: "1.75rem",
+                    transition: "background 0.3s",
                   }}
-                  className="group-hover:opacity-80 transition-opacity"
+                  className="group-hover:bg-[hsl(72,55%,48%)]/20 transition-colors"
                 >
                   <Icon style={{ width: 20, height: 20, color: LIME }} />
                 </div>
                 <h3
                   style={{
+                    fontFamily: DISPLAY_FONT,
                     fontSize: "1.0625rem",
-                    fontWeight: 500,
-                    letterSpacing: "-0.01em",
+                    fontWeight: 600,
+                    letterSpacing: "-0.015em",
                     color: TEAL,
-                    marginBottom: "0.75rem",
+                    marginBottom: "0.875rem",
                   }}
                 >
                   {panel.title}
                 </h3>
-                <p style={{ fontSize: "0.9375rem", lineHeight: 1.65, color: MUTED }}>{panel.desc}</p>
+                <p style={{ fontSize: "0.9375rem", lineHeight: 1.7, color: MUTED }}>{panel.desc}</p>
               </motion.div>
             );
           })}
         </div>
-
       </div>
     </section>
   );

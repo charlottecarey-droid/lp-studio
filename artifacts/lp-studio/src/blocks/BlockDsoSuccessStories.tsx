@@ -44,19 +44,19 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
 
   const eyebrowColor  = dark ? AW : P;
-  const headlineColor = dark ? PFG : P;
+  const headlineColor = dark ? PFG : FG;
 
-  const cardBg     = dark ? "rgba(255,255,255,0.06)" : "#fff";
-  const cardBorder = dark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.08)";
-  const cardShadow = dark ? "none" : "0 4px 20px rgba(0,0,0,0.06)";
-  const hoverBg    = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.02)";
+  const cardBg       = dark ? "rgba(255,255,255,0.05)" : "#fff";
+  const cardBorder   = dark ? "1px solid rgba(255,255,255,0.09)" : "1px solid rgba(0,0,0,0.06)";
+  const cardShadow   = dark ? "none" : "0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 32px 64px rgba(0,0,0,0.07)";
+  const hoverBg      = dark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.01)";
 
-  const companyColor = dark ? "rgba(255,255,255,0.50)" : MU;
-  const statColor    = dark ? PFG : FG;
-  const labelColor   = dark ? "rgba(255,255,255,0.60)" : MU;
-  const dividerColor = dark ? `${AW}66` : `${P}33`;
-  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `${FG}b3`;
+  const companyColor = dark ? "rgba(255,255,255,0.40)" : MU;
+  const statColor    = dark ? "#fff" : FG;
+  const labelColor   = dark ? "rgba(255,255,255,0.55)" : MU;
+  const quoteColor   = dark ? "rgba(255,255,255,0.65)" : `${FG}b3`;
   const authorColor  = dark ? AW : P;
+  const dividerColor = dark ? `${AW}55` : `${P}28`;
 
   return (
     <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
@@ -90,7 +90,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               lineHeight: 1.1,
               fontWeight: 600,
               color: headlineColor,
-              letterSpacing: 0,
+              letterSpacing: "-0.015em",
             }}
           >
             {headline || "DSOs that switched\nand never looked back."}
@@ -105,46 +105,71 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.7 }}
+              whileHover={{ y: -6 }}
               style={{
-                borderRadius: "1rem",
+                borderRadius: "1.25rem",
                 background: cardBg,
-                backdropFilter: dark ? "blur(8px)" : "none",
+                backdropFilter: dark ? "blur(16px)" : "none",
                 border: cardBorder,
                 boxShadow: cardShadow,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
-                transition: "background 0.3s",
+                transition: "background 0.3s, box-shadow 0.35s ease",
+                cursor: "default",
+                position: "relative",
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = hoverBg;
+                if (!dark) (e.currentTarget as HTMLElement).style.boxShadow =
+                  "0 4px 8px rgba(0,0,0,0.05), 0 16px 40px rgba(0,0,0,0.09), 0 48px 96px rgba(0,0,0,0.10)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = cardBg;
+                (e.currentTarget as HTMLElement).style.boxShadow = cardShadow;
+              }}
             >
+              {/* Decorative top accent line */}
               <div
                 style={{
-                  padding: "2rem 2.25rem",
+                  height: 2,
+                  background: dark
+                    ? `linear-gradient(90deg, ${AW}00, ${AW}80, ${AW}00)`
+                    : `linear-gradient(90deg, ${P}00, ${P}50, ${P}00)`,
+                }}
+              />
+
+              <div
+                style={{
+                  padding: "2.25rem 2.25rem 2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   flex: 1,
+                  position: "relative",
                 }}
               >
+                {/* Company name */}
                 <p
                   style={{
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 600,
                     textTransform: "uppercase",
-                    letterSpacing: "0.15em",
+                    letterSpacing: "0.18em",
                     color: companyColor,
                     marginBottom: "1.5rem",
                   }}
                 >
-                  {s.name.toUpperCase()}
+                  {s.name}
                 </p>
+
+                {/* Stat */}
                 <p
                   style={{
-                    fontSize: "clamp(2.5rem,4vw,3rem)",
-                    fontWeight: 500,
+                    fontFamily: DISPLAY_FONT,
+                    fontSize: "clamp(2.75rem,5vw,3.5rem)",
+                    fontWeight: 600,
                     color: statColor,
-                    letterSpacing: "-0.035em",
+                    letterSpacing: "-0.04em",
                     lineHeight: 1,
                   }}
                 >
@@ -154,37 +179,61 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                   style={{
                     fontSize: "0.875rem",
                     color: labelColor,
-                    marginTop: "0.5rem",
+                    marginTop: "0.625rem",
                     marginBottom: "2rem",
+                    lineHeight: 1.5,
                   }}
                 >
                   {s.label}
                 </p>
+
+                {/* Divider */}
                 <div
                   style={{
-                    width: 32,
                     height: 1,
                     background: dividerColor,
-                    marginBottom: "1.5rem",
+                    marginBottom: "1.75rem",
                   }}
                 />
-                <blockquote
-                  style={{
-                    fontSize: "0.875rem",
-                    color: quoteColor,
-                    lineHeight: 1.6,
-                    fontStyle: "italic",
-                    flex: 1,
-                  }}
-                >
-                  "{s.quote}"
-                </blockquote>
+
+                {/* Quote with decorative mark */}
+                <div style={{ position: "relative", flex: 1 }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -28,
+                      left: -6,
+                      fontFamily: "Georgia, serif",
+                      fontSize: "5rem",
+                      lineHeight: 1,
+                      color: dark ? `${AW}18` : `${P}12`,
+                      userSelect: "none",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    "
+                  </span>
+                  <blockquote
+                    style={{
+                      fontSize: "0.9375rem",
+                      color: quoteColor,
+                      lineHeight: 1.65,
+                      fontStyle: "italic",
+                      position: "relative",
+                    }}
+                  >
+                    {s.quote}
+                  </blockquote>
+                </div>
+
+                {/* Author */}
                 <p
                   style={{
-                    marginTop: "2rem",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
+                    marginTop: "1.75rem",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
                     color: authorColor,
+                    letterSpacing: "0.005em",
                   }}
                 >
                   — {s.author}

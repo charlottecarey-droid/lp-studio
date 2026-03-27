@@ -8,9 +8,9 @@ interface Props {
 }
 
 const P     = "hsl(152,42%,12%)";
-const SEC   = "hsl(42,18%,96%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
+const AW    = "hsl(68,60%,52%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const ICONS = [TrendingDown, BarChart3, Scale, Wallet];
@@ -40,6 +40,21 @@ export function BlockDsoChallenges({ props }: Props) {
   const displayChallenges = (challenges && challenges.length > 0) ? challenges : DEFAULT_CHALLENGES;
   const gridCols = layout === "2-col" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 md:grid-cols-4";
 
+  const cardBg = dark
+    ? "rgba(255,255,255,0.04)"
+    : "white";
+  const cardBorder = dark
+    ? "1px solid rgba(255,255,255,0.08)"
+    : "1px solid rgba(0,0,0,0.05)";
+  const cardShadow = dark
+    ? "none"
+    : "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.06)";
+  const cardAccentBorder = dark ? `2px solid ${AW}` : `2px solid ${P}`;
+
+  const iconBg = dark ? `${AW}15` : `${P}12`;
+  const iconBorder = dark ? `1px solid ${AW}28` : `1px solid ${P}20`;
+  const iconColor = dark ? AW : P;
+
   return (
     <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
@@ -54,7 +69,7 @@ export function BlockDsoChallenges({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: dark ? "hsl(68,60%,52%)" : P,
+                color: dark ? AW : P,
                 marginBottom: "1.25rem",
               }}
             >
@@ -72,15 +87,15 @@ export function BlockDsoChallenges({ props }: Props) {
               lineHeight: 1.1,
               fontWeight: 600,
               color: dark ? "#fff" : FG,
-              letterSpacing: 0,
+              letterSpacing: "-0.015em",
             }}
           >
             {headline || "At scale — even small inefficiencies compound fast."}
           </motion.h2>
         </div>
 
-        <div className={`grid ${gridCols} gap-4`}>
-          {displayChallenges.slice(0, layout === "2-col" ? 4 : 4).map((c, i) => {
+        <div className={`grid ${gridCols} gap-5`}>
+          {displayChallenges.slice(0, 4).map((c, i) => {
             const Icon = ICONS[i % 4];
             return (
               <motion.div
@@ -88,41 +103,54 @@ export function BlockDsoChallenges({ props }: Props) {
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.08, duration: 0.6 }}
+                transition={{ delay: i * 0.08, duration: 0.65 }}
+                whileHover={{ y: -5 }}
                 style={{
-                  borderRadius: "1rem",
+                  borderRadius: "1.25rem",
                   display: "flex",
                   flexDirection: "column",
-                  padding: layout === "2-col" ? "2.5rem" : "1.75rem 1.75rem 2.5rem",
-                  background: dark
-                    ? "rgba(255,255,255,0.07)"
-                    : "linear-gradient(150deg,#ffffff 50%,hsl(152,42%,96%) 100%)",
-                  boxShadow: dark
-                    ? "0 1px 2px rgba(0,0,0,0.2)"
-                    : "0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.07)",
-                  borderTop: dark ? `2px solid hsl(68,60%,52%)` : `2px solid ${P}`,
+                  padding: layout === "2-col" ? "2.5rem" : "2rem 2rem 2.5rem",
+                  background: cardBg,
+                  backdropFilter: dark ? "blur(16px)" : "none",
+                  boxShadow: cardShadow,
+                  border: cardBorder,
+                  borderTop: cardAccentBorder,
+                  transition: "box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.16,1,0.3,1)",
+                  cursor: "default",
+                }}
+                onMouseEnter={e => {
+                  if (!dark) (e.currentTarget as HTMLElement).style.boxShadow =
+                    "0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08), 0 32px 64px rgba(0,0,0,0.10)";
+                  else (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                }}
+                onMouseLeave={e => {
+                  if (!dark) (e.currentTarget as HTMLElement).style.boxShadow = cardShadow;
+                  else (e.currentTarget as HTMLElement).style.background = cardBg;
                 }}
               >
                 <div
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "0.5rem",
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: dark ? "rgba(255,255,255,0.1)" : `${P}14`,
-                    marginBottom: "1.5rem",
+                    background: iconBg,
+                    border: iconBorder,
+                    marginBottom: "1.75rem",
                   }}
                 >
-                  <Icon style={{ width: 16, height: 16, color: dark ? "hsl(68,60%,52%)" : P }} />
+                  <Icon style={{ width: 18, height: 18, color: iconColor }} />
                 </div>
                 <h3
                   style={{
+                    fontFamily: DISPLAY_FONT,
                     fontSize: "0.9375rem",
                     fontWeight: 600,
+                    letterSpacing: "-0.01em",
                     color: dark ? "#fff" : FG,
-                    marginBottom: "0.75rem",
+                    marginBottom: "0.875rem",
                     lineHeight: 1.4,
                   }}
                 >
@@ -131,8 +159,8 @@ export function BlockDsoChallenges({ props }: Props) {
                 <p
                   style={{
                     fontSize: "0.875rem",
-                    color: dark ? "rgba(255,255,255,0.6)" : MU,
-                    lineHeight: 1.65,
+                    color: dark ? "rgba(255,255,255,0.55)" : MU,
+                    lineHeight: 1.7,
                   }}
                 >
                   {c.desc}

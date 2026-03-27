@@ -47,13 +47,16 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
 
   const eyebrowColor = dark ? AW : P;
   const headlineColor = dark ? "#fff" : FG;
-  const bodyColor = dark ? "rgba(255,255,255,0.65)" : MU;
-  const quoteBorderColor = dark ? `${AW}4d` : `${P}4d`;
-  const quoteTextColor = dark ? "rgba(255,255,255,0.65)" : `${FG}b3`;
-  const quoteAttrColor = dark ? "rgba(255,255,255,0.45)" : MU;
-  const tileBg = dark ? "rgba(255,255,255,0.08)" : SEC;
+  const bodyColor = dark ? "rgba(255,255,255,0.60)" : MU;
+  const quoteTextColor = dark ? "rgba(255,255,255,0.70)" : `${FG}b3`;
+  const quoteAttrColor = dark ? AW : P;
+
+  const tileBg = dark ? "rgba(255,255,255,0.05)" : "#fff";
+  const tileBorder = dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)";
+  const tileShadow = dark ? "none" : "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)";
+  const tileIconBg = dark ? `${AW}18` : `${P}10`;
   const tileIconColor = dark ? AW : P;
-  const tileTextColor = dark ? "#fff" : FG;
+  const tileTextColor = dark ? "rgba(255,255,255,0.85)" : FG;
 
   return (
     <>
@@ -65,7 +68,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
             <motion.div
               style={{
                 y: imageY,
-                boxShadow: "0 25px 60px rgba(0,0,0,0.18)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.10), 0 24px 60px rgba(0,0,0,0.20), 0 60px 120px rgba(0,0,0,0.15)",
                 borderRadius: "1.5rem",
                 overflow: "hidden",
                 position: "relative",
@@ -82,7 +85,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   <img
                     src={imageUrl}
                     alt="Dandy lab manufacturing floor"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1)" }}
+                    className="group-hover:scale-[1.03]"
                     loading="lazy"
                   />
                 ) : (
@@ -100,10 +104,10 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   </div>
                 )}
 
-                {/* Overlay tint */}
+                {/* Overlay */}
                 <div
-                  className="absolute inset-0 transition-colors duration-500"
-                  style={{ background: "rgba(0,0,0,0.20)" }}
+                  className="absolute inset-0 transition-opacity duration-500 group-hover:opacity-80"
+                  style={{ background: "rgba(0,0,0,0.18)" }}
                 />
 
                 {/* Play button */}
@@ -120,18 +124,18 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     <div
                       className="group-hover:scale-110 transition-transform duration-500"
                       style={{
-                        width: 64,
-                        height: 64,
+                        width: 72,
+                        height: 72,
                         borderRadius: "50%",
-                        background: `${P}e6`,
-                        backdropFilter: "blur(4px)",
+                        background: `${P}ee`,
+                        backdropFilter: "blur(8px)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: "0 20px 48px rgba(0,0,0,0.30)",
+                        boxShadow: `0 8px 32px ${P}55, 0 24px 64px rgba(0,0,0,0.30)`,
                       }}
                     >
-                      <Play style={{ width: 24, height: 24, color: "hsl(48,100%,96%)", marginLeft: 2 }} fill="hsl(48,100%,96%)" />
+                      <Play style={{ width: 26, height: 26, color: "hsl(48,100%,96%)", marginLeft: 3 }} fill="hsl(48,100%,96%)" />
                     </div>
                   </div>
                 )}
@@ -143,15 +147,15 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    padding: "1.5rem",
-                    background: "linear-gradient(to top,rgba(0,0,0,0.70),transparent)",
+                    padding: "2rem 1.5rem 1.5rem",
+                    background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 60%, transparent 100%)",
                   }}
                 >
                   <p
                     style={{
                       fontSize: 10,
                       fontWeight: 600,
-                      color: "rgba(255,255,255,0.70)",
+                      color: "rgba(255,255,255,0.60)",
                       textTransform: "uppercase",
                       letterSpacing: "0.2em",
                     }}
@@ -195,7 +199,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   fontSize: "clamp(2rem,4vw,3.25rem)",
                   lineHeight: 1.1,
                   fontWeight: 600,
-                  letterSpacing: 0,
+                  letterSpacing: "-0.015em",
                   color: headlineColor,
                 }}
               >
@@ -226,23 +230,41 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   viewport={{ once: true }}
                   transition={{ delay: 0.12 }}
                   style={{
-                    marginTop: "1.5rem",
-                    paddingLeft: "1rem",
-                    borderLeft: `2px solid ${quoteBorderColor}`,
+                    marginTop: "2rem",
+                    position: "relative",
+                    paddingLeft: "1.25rem",
+                    borderLeft: `3px solid ${dark ? AW : P}`,
                   }}
                 >
-                  <p
+                  {/* Large decorative quote mark */}
+                  <span
                     style={{
-                      fontSize: "0.875rem",
-                      color: quoteTextColor,
-                      fontStyle: "italic",
-                      lineHeight: 1.65,
+                      position: "absolute",
+                      top: -20,
+                      left: 10,
+                      fontFamily: "Georgia, serif",
+                      fontSize: "5rem",
+                      lineHeight: 1,
+                      color: dark ? `${AW}20` : `${P}14`,
+                      userSelect: "none",
+                      pointerEvents: "none",
                     }}
                   >
-                    "{quote}"
+                    "
+                  </span>
+                  <p
+                    style={{
+                      fontSize: "0.9375rem",
+                      color: quoteTextColor,
+                      fontStyle: "italic",
+                      lineHeight: 1.7,
+                      position: "relative",
+                    }}
+                  >
+                    {quote}
                   </p>
                   {quoteAttribution && (
-                    <p style={{ fontSize: "0.75rem", color: quoteAttrColor, marginTop: 8 }}>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: quoteAttrColor, marginTop: 10 }}>
                       — {quoteAttribution}
                     </p>
                   )}
@@ -259,24 +281,51 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   marginTop: "2.5rem",
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: "1rem",
+                  gap: "0.875rem",
                 }}
               >
-                {LAB_HIGHLIGHTS.map((h) => (
-                  <div
+                {LAB_HIGHLIGHTS.map((h, i) => (
+                  <motion.div
                     key={h.label}
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.25 }}
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "1rem",
-                      borderRadius: "0.75rem",
+                      gap: "0.875rem",
+                      padding: "1rem 1.125rem",
+                      borderRadius: "0.875rem",
                       background: tileBg,
+                      backdropFilter: dark ? "blur(12px)" : "none",
+                      border: tileBorder,
+                      boxShadow: tileShadow,
+                      transition: "box-shadow 0.25s ease",
+                      cursor: "default",
+                    }}
+                    onMouseEnter={e => {
+                      if (!dark) (e.currentTarget as HTMLElement).style.boxShadow =
+                        "0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.boxShadow = tileShadow;
                     }}
                   >
-                    <h.icon style={{ width: 20, height: 20, color: tileIconColor, flexShrink: 0 }} />
+                    <div
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: "50%",
+                        background: tileIconBg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <h.icon style={{ width: 16, height: 16, color: tileIconColor }} />
+                    </div>
                     <span style={{ fontSize: "0.875rem", fontWeight: 500, color: tileTextColor }}>{h.label}</span>
-                  </div>
+                  </motion.div>
                 ))}
               </motion.div>
 
@@ -301,10 +350,20 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)",
                     border: "none",
                     cursor: "pointer",
-                    transition: "opacity 0.2s",
+                    transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                    boxShadow: dark ? `0 4px 16px ${AW}45` : `0 4px 16px ${P}40`,
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = "0.9")}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+                  whileHover={{ y: -2 }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.boxShadow = dark
+                      ? `0 8px 28px ${AW}60`
+                      : `0 8px 28px ${P}55`;
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.boxShadow = dark
+                      ? `0 4px 16px ${AW}45`
+                      : `0 4px 16px ${P}40`;
+                  }}
                 >
                   <MapPin style={{ width: 16, height: 16 }} />
                   {ctaText}
@@ -329,25 +388,25 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "rgba(15,48,36,0.85)",
-              backdropFilter: "blur(12px)",
+              background: "rgba(8,20,16,0.90)",
+              backdropFilter: "blur(16px)",
               padding: "1rem",
             }}
             onClick={() => setVideoOpen(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 position: "relative",
                 width: "100%",
                 maxWidth: 896,
                 aspectRatio: "16/9",
-                borderRadius: "1rem",
+                borderRadius: "1.25rem",
                 overflow: "hidden",
-                boxShadow: "0 50px 100px rgba(0,0,0,0.4)",
+                boxShadow: "0 60px 120px rgba(0,0,0,0.5)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -355,14 +414,17 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                 onClick={() => setVideoOpen(false)}
                 style={{
                   position: "absolute",
-                  top: -40,
+                  top: -44,
                   right: 0,
                   zIndex: 10,
-                  color: "#fff",
+                  color: "rgba(255,255,255,0.70)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
+                  transition: "color 0.2s",
                 }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.70)")}
                 aria-label="Close video"
               >
                 <X style={{ width: 24, height: 24 }} />

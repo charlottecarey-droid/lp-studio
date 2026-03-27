@@ -11,7 +11,6 @@ interface Props {
 
 const P     = "hsl(152,42%,12%)";
 const PFG   = "hsl(48,100%,96%)";
-const SEC   = "hsl(42,18%,96%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "hsl(68,60%,52%)";
@@ -47,7 +46,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
   const eyebrowAnim = anim ? { initial: { opacity: 0, y: 10 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } } : {};
   const headlineAnim = anim ? { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } } : {};
   const subAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1 } } : {};
-  const tableAnim = anim ? { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1, duration: 0.7 } } : {};
+  const tableAnim = anim ? { initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1, duration: 0.7 } } : {};
   const ctaAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.2 } } : {};
 
   const displayRows = (rows && rows.length > 0) ? rows : DEFAULT_ROWS;
@@ -72,7 +71,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: dark ? "hsl(68,60%,52%)" : P,
+                color: dark ? AW : P,
                 marginBottom: "1.25rem",
               }}
             >
@@ -87,7 +86,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
               lineHeight: 1.1,
               fontWeight: 600,
               color: dark ? "#fff" : FG,
-              letterSpacing: 0,
+              letterSpacing: "-0.015em",
             }}
           >
             {headlineParts.length > 1 ? (
@@ -100,7 +99,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
               style={{
                 marginTop: "1.5rem",
                 fontSize: "1.0625rem",
-                color: dark ? "rgba(255,255,255,0.65)" : MU,
+                color: dark ? "rgba(255,255,255,0.60)" : MU,
                 lineHeight: 1.7,
                 maxWidth: 640,
                 margin: "1.5rem auto 0",
@@ -115,10 +114,11 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
         <motion.div
           {...tableAnim}
           style={{
-            borderRadius: "1rem",
+            borderRadius: "1.25rem",
             overflow: "hidden",
             background: "#fff",
-            boxShadow: "0 25px 60px rgba(0,0,0,0.10),0 8px 16px rgba(0,0,0,0.06)",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.07), 0 40px 80px rgba(0,0,0,0.10)",
+            border: "1px solid rgba(0,0,0,0.06)",
           }}
         >
           {/* Header row */}
@@ -126,41 +126,43 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr 1fr",
-              background: P,
+              background: `linear-gradient(135deg, ${P} 0%, hsl(152,45%,16%) 100%)`,
             }}
           >
             <div
               style={{
-                padding: "1.25rem",
+                padding: "1.375rem 1.5rem",
                 fontSize: 10,
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
-                color: "hsla(48,100%,96%,0.6)",
+                color: "hsla(48,100%,96%,0.5)",
               }}
             >
               What {companyName} Needs
             </div>
             <div
               style={{
-                padding: "1.25rem",
+                padding: "1.375rem 1.5rem",
                 fontSize: 10,
-                fontWeight: 600,
+                fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
                 color: headerDandyColor ?? AW,
+                borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
               Dandy
             </div>
             <div
               style={{
-                padding: "1.25rem",
+                padding: "1.375rem 1.5rem",
                 fontSize: 10,
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
-                color: "hsla(48,100%,96%,0.6)",
+                color: "hsla(48,100%,96%,0.5)",
+                borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
               Traditional Labs
@@ -175,41 +177,61 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr 1fr",
-                borderTop: "1px solid hsl(40,10%,90%)",
+                borderTop: "1px solid hsl(40,10%,92%)",
+                transition: "background 0.2s",
               }}
-              className="hover:bg-[hsl(42,18%,96%)]/40 transition-colors duration-200"
+              onMouseEnter={e => (e.currentTarget.style.background = "hsl(42,18%,97%)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <div
                 style={{
-                  padding: "1.25rem",
+                  padding: "1.25rem 1.5rem",
                   fontSize: "0.875rem",
-                  fontWeight: 500,
+                  fontWeight: 600,
                   color: tableNeedColor ?? FG,
+                  letterSpacing: "-0.005em",
                 }}
               >
                 {row.need}
               </div>
               <div
                 style={{
-                  padding: "1.25rem",
+                  padding: "1.25rem 1.5rem",
                   display: "flex",
                   alignItems: "flex-start",
                   gap: 10,
+                  borderLeft: `2px solid ${P}18`,
+                  background: `${P}04`,
                 }}
               >
-                <Check style={{ width: 16, height: 16, color: P, marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.5 }}>{row.dandy}</span>
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: `${P}15`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}
+                >
+                  <Check style={{ width: 11, height: 11, color: P }} strokeWidth={2.5} />
+                </div>
+                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55 }}>{row.dandy}</span>
               </div>
               <div
                 style={{
-                  padding: "1.25rem",
+                  padding: "1.25rem 1.5rem",
                   display: "flex",
                   alignItems: "flex-start",
                   gap: 10,
+                  borderLeft: "1px solid hsl(40,10%,92%)",
                 }}
               >
-                <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.3)", marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.5 }}>{row.traditional}</span>
+                <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.25)", marginTop: 2, flexShrink: 0 }} />
+                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55 }}>{row.traditional}</span>
               </div>
             </motion.div>
           ))}
@@ -230,16 +252,23 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 gap: 10,
                 borderRadius: 9999,
                 background: P,
-                padding: "1rem 2rem",
+                padding: "1rem 2.25rem",
                 fontSize: 14,
                 fontWeight: 600,
                 color: PFG,
                 cursor: "pointer",
                 border: "none",
-                transition: "opacity 0.2s",
+                transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                boxShadow: `0 4px 16px ${P}40`,
               }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.9")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = `0 8px 32px ${P}55`;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = `0 4px 16px ${P}40`;
+              }}
             >
               {ctaText} <ArrowRight style={{ width: 16, height: 16 }} />
             </button>

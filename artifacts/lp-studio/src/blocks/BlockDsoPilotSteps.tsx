@@ -65,12 +65,16 @@ export function BlockDsoPilotSteps({ props }: Props) {
 
   const eyebrowColor  = dark ? AW : P;
   const headlineColor = dark ? "#fff" : FG;
-  const subColor      = dark ? "rgba(255,255,255,0.65)" : MU;
+  const subColor      = dark ? "rgba(255,255,255,0.60)" : MU;
   const titleColor    = dark ? "#fff" : FG;
   const subtitleColor = dark ? `${AW}cc` : `${P}b3`;
-  const descColor     = dark ? "rgba(255,255,255,0.60)" : MU;
-  const trackGhost    = dark ? "rgba(255,255,255,0.12)" : `${P}22`;
+  const descColor     = dark ? "rgba(255,255,255,0.58)" : MU;
+  const trackGhost    = dark ? "rgba(255,255,255,0.10)" : `${P}18`;
   const trackActive   = dark ? AW : P;
+
+  const stepCardBg    = dark ? "rgba(255,255,255,0.04)" : "#fff";
+  const stepCardBorder = dark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.05)";
+  const stepCardShadow = dark ? "none" : "0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.05)";
 
   return (
     <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
@@ -104,7 +108,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               lineHeight: 1.1,
               fontWeight: 600,
               color: headlineColor,
-              letterSpacing: 0,
+              letterSpacing: "-0.015em",
             }}
           >
             {headline || <>Start small. Prove it out.<br />Then scale.</>}
@@ -130,7 +134,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
         </div>
 
         <div className="relative" ref={pilotRef}>
-          {/* Track line */}
+          {/* Track ghost */}
           <div
             style={{
               position: "absolute",
@@ -141,19 +145,20 @@ export function BlockDsoPilotSteps({ props }: Props) {
               background: trackGhost,
             }}
           />
+          {/* Track active fill */}
           <motion.div
             style={{
               position: "absolute",
               left: 24,
               top: 0,
-              width: 1,
-              background: trackActive,
+              width: 2,
+              background: `linear-gradient(to bottom, ${trackActive}, ${trackActive}88)`,
               height: lineHeight,
               transformOrigin: "top",
             }}
           />
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
             {(props.steps && props.steps.length > 0 ? props.steps : DEFAULT_STEPS).map((step, i) => {
               const Icon = STEP_ICONS[i % STEP_ICONS.length];
               return (
@@ -176,31 +181,45 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: dark ? `0 8px 24px ${AW}33` : `0 8px 24px ${P}33`,
+                        boxShadow: dark
+                          ? `0 0 0 4px ${AW}18, 0 8px 24px ${AW}40`
+                          : `0 0 0 4px ${P}12, 0 8px 24px ${P}35`,
                       }}
                     >
                       <Icon style={{ width: 20, height: 20, color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)" }} />
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div style={{ paddingBottom: 8, marginTop: -2 }}>
+                  {/* Content card */}
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: "1.75rem 2rem 2rem",
+                      borderRadius: "1.25rem",
+                      background: stepCardBg,
+                      backdropFilter: dark ? "blur(12px)" : "none",
+                      border: stepCardBorder,
+                      boxShadow: stepCardShadow,
+                      marginTop: -4,
+                    }}
+                  >
                     <p
                       style={{
                         fontSize: 11,
                         fontWeight: 600,
-                        color: AW,
+                        color: dark ? AW : P,
                         textTransform: "uppercase",
                         letterSpacing: "0.15em",
-                        marginBottom: 4,
+                        marginBottom: 6,
                       }}
                     >
                       Step 0{i + 1}
                     </p>
                     <h3
                       style={{
+                        fontFamily: DISPLAY_FONT,
                         fontSize: "1.25rem",
-                        fontWeight: 500,
+                        fontWeight: 600,
                         color: titleColor,
                         letterSpacing: "-0.02em",
                       }}
@@ -222,12 +241,12 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         marginTop: "1rem",
                         fontSize: "0.9375rem",
                         color: descColor,
-                        lineHeight: 1.65,
+                        lineHeight: 1.7,
                       }}
                     >
                       {step.desc}
                     </p>
-                    <ul style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <ul style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: 8 }}>
                       {step.details.map((d) => (
                         <li
                           key={d}
@@ -239,9 +258,24 @@ export function BlockDsoPilotSteps({ props }: Props) {
                             color: descColor,
                           }}
                         >
-                          <CheckCircle2
-                            style={{ width: 16, height: 16, color: dark ? AW : P, flexShrink: 0, marginTop: 2 }}
-                          />
+                          <div
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              background: dark ? `${AW}20` : `${P}12`,
+                              border: dark ? `1px solid ${AW}35` : `1px solid ${P}25`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              marginTop: 2,
+                            }}
+                          >
+                            <CheckCircle2
+                              style={{ width: 11, height: 11, color: dark ? AW : P }}
+                            />
+                          </div>
                           <span>{d}</span>
                         </li>
                       ))}
