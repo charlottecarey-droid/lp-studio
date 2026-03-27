@@ -302,6 +302,13 @@ export interface DsoScrollStoryBlockProps {
   chapters: DsoScrollStoryChapter[];
 }
 
+export interface DsoScrollStoryHeroBlockProps {
+  eyebrow: string;
+  chapters: DsoScrollStoryChapter[];
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
 export type DsoBentoTile =
   | { type: "stat"; value: string; label: string; description?: string }
   | { type: "photo"; imageUrl: string; caption: string }
@@ -631,6 +638,7 @@ type BlockVariant =
   | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps }
   | { type: "dso-stat-showcase"; props: DsoStatShowcaseBlockProps }
   | { type: "dso-scroll-story"; props: DsoScrollStoryBlockProps }
+  | { type: "dso-scroll-story-hero"; props: DsoScrollStoryHeroBlockProps }
   | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
@@ -1922,6 +1930,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-scroll-story-hero" as const,
+    label: "DSO Hero Story",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoScrollStoryHeroBlockProps => ({
+      eyebrow: "The Dandy Advantage",
+      chapters: [
+        { headline: "One lab partner. Every location.", body: "Dandy becomes your single lab relationship — standardizing quality, pricing, and reporting across every practice in your network. One contract. Zero silos.", imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1400&h=1000&fit=crop" },
+        { headline: "AI that catches problems before they happen.", body: "AI Scan Review validates every case in real time — before it leaves the chair. The result: a 96% first-time right rate and fewer costly remakes across your entire footprint.", imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=1400&h=1000&fit=crop" },
+        { headline: "Executive visibility into every practice.", body: "Real-time dashboards give DSO leadership insight into remake rates, case volumes, and turnaround times — by location, region, and brand. Manage by exception, not by spreadsheet.", imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1400&h=1000&fit=crop" },
+        { headline: "Prove ROI at 10 offices. Scale to 500.", body: "Our Pilot Program validates impact at a small number of locations first — measuring revenue lift, remake reduction, and chair time recovered — before you commit to a full rollout.", imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=1400&h=1000&fit=crop" },
+      ],
+      ctaText: "Request a Custom Demo",
+      ctaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="0" y="0" width="52" height="70" fill="#003A30" />
+        <rect x="52" y="0" width="68" height="70" fill="#1a4a3a" />
+        <rect x="8" y="12" width="18" height="2" rx="1" fill="hsl(68,60%,52%)" opacity="0.9" />
+        <rect x="8" y="18" width="36" height="5" rx="2" fill="hsl(48,100%,96%)" opacity="0.9" />
+        <rect x="8" y="26" width="36" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.4" />
+        <rect x="8" y="30" width="30" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.3" />
+        {[0,1,2,3].map(i => (
+          <rect key={i} x={8 + i*10} y="40" width={i===0?16:6} height="2" rx="1" fill={i===0?"hsl(68,60%,52%)":"rgba(255,255,255,0.2)"} />
+        ))}
+        <rect x="8" y="52" width="26" height="8" rx="2" fill="hsl(68,60%,52%)" />
+        <rect x="58" y="10" width="54" height="50" rx="3" fill="#2d6b56" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-bento-outcomes" as const,
     label: "DSO Bento Outcomes",
     category: "DSO" as BlockCategory,
@@ -2001,6 +2041,7 @@ export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "ds
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
+export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
@@ -2049,6 +2090,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
+    case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
   }
 }

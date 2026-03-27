@@ -1296,6 +1296,67 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-scroll-story-hero": {
+        const p = block.props;
+        const chapters = p.chapters ?? [];
+        const updateChapter = (i: number, patch: Partial<{ headline: string; body: string; imageUrl: string }>) => {
+          const next = chapters.map((c, idx) => idx === i ? { ...c, ...patch } : c);
+          onChange({ ...block, props: { ...p, chapters: next } });
+        };
+        const addChapter = () => onChange({ ...block, props: { ...p, chapters: [...chapters, { headline: "", body: "", imageUrl: "" }] } });
+        const removeChapter = (i: number) => onChange({ ...block, props: { ...p, chapters: chapters.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Advantage" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Text</Label>
+              <Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value } })} placeholder="Request a Custom Demo" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA URL</Label>
+              <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="https://…" />
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chapters (2–4)</Label>
+                <Button variant="ghost" size="sm" onClick={addChapter} className="h-7 text-xs gap-1">
+                  <Plus className="w-3 h-3" /> Add
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {chapters.map((c, i) => (
+                  <div key={i} className="border rounded-lg p-2.5 space-y-1.5 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">Chapter {i + 1}</span>
+                      <button onClick={() => removeChapter(i)} className="text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Headline</Label>
+                      <Input value={c.headline} onChange={e => updateChapter(i, { headline: e.target.value })} placeholder="One lab for every location." className="h-7 text-xs mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Body</Label>
+                      <Textarea rows={2} value={c.body} onChange={e => updateChapter(i, { body: e.target.value })} placeholder="Supporting paragraph…" className="resize-none text-xs mt-0.5" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-slate-400">Image URL</Label>
+                      <Input value={c.imageUrl} onChange={e => updateChapter(i, { imageUrl: e.target.value })} placeholder="https://images.unsplash.com/…" className="h-7 text-xs mt-0.5" />
+                    </div>
+                  </div>
+                ))}
+                {chapters.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-2">No chapters yet — uses defaults.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       case "dso-bento-outcomes": {
         const p = block.props;
         const tiles = p.tiles ?? [];

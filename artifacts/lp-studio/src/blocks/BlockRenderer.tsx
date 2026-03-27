@@ -13,6 +13,7 @@ import { BlockDsoProblem } from "./BlockDsoProblem";
 import { BlockDsoAiFeature } from "./BlockDsoAiFeature";
 import { BlockDsoStatShowcase } from "./BlockDsoStatShowcase";
 import { BlockDsoScrollStory } from "./BlockDsoScrollStory";
+import { BlockDsoScrollStoryHero } from "./BlockDsoScrollStoryHero";
 import { BlockDsoBentoOutcomes } from "./BlockDsoBentoOutcomes";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
@@ -421,6 +422,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoStatShowcase props={block.props} />;
       case "dso-scroll-story":
         return <BlockDsoScrollStory props={block.props} />;
+      case "dso-scroll-story-hero":
+        return <BlockDsoScrollStoryHero props={block.props} />;
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} />;
       default: {
