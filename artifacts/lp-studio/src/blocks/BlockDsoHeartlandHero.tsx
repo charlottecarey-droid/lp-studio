@@ -187,9 +187,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
           style={{
             opacity: heroOpacity,
             y: contentY,
-            paddingBottom: "clamp(4rem, 10vh, 7rem)",
           }}
-          className="relative z-10 flex flex-col justify-end flex-1 w-full"
+          className="relative z-10 flex flex-col justify-center flex-1 w-full pt-20"
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
             {p.eyebrow && (
