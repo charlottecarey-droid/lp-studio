@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -10,17 +10,47 @@ const AW  = "hsl(68,60%,52%)";
 const MU  = "rgba(255,255,255,0.46)";
 
 const DEFAULT_STATS: DsoStatShowcaseBlockProps["stats"] = [
-  { value: "96%",    label: "First-time right rate",   desc: "Industry-leading precision at enterprise scale" },
-  { value: "12,000+", label: "Dental practices",        desc: "Trust Dandy for their lab work" },
-  { value: "4.2 days", label: "Average turnaround",     desc: "Including AI review and quality control" },
-  { value: "$0",     label: "CAPEX to start",           desc: "All hardware included at no upfront cost" },
-  { value: "30%",    label: "Case acceptance lift",     desc: "On average across DSO partner networks" },
-  { value: "100%",   label: "AI quality screened",      desc: "Every scan reviewed before it leaves the chair" },
+  { value: "96%",     label: "First-time right rate",  desc: "Industry-leading precision at enterprise scale" },
+  { value: "12,000+", label: "Dental practices",       desc: "Trust Dandy for their lab work" },
+  { value: "4.2 days", label: "Average turnaround",   desc: "Including AI review and quality control" },
+  { value: "$0",      label: "CAPEX to start",         desc: "All hardware included at no upfront cost" },
+  { value: "30%",     label: "Case acceptance lift",   desc: "On average across DSO partner networks" },
+  { value: "100%",    label: "AI quality screened",    desc: "Every scan reviewed before it leaves the chair" },
 ];
+
+function parseValue(raw: string): { prefix: string; num: number; suffix: string; isDecimal: boolean } {
+  const match = raw.match(/^([^0-9]*)(\d[\d,.]*)(.*)$/);
+  if (!match) return { prefix: "", num: 0, suffix: raw, isDecimal: false };
+  const numStr = match[2].replace(/,/g, "");
+  const num = parseFloat(numStr);
+  const isDecimal = numStr.includes(".");
+  return { prefix: match[1], num, suffix: match[3], isDecimal };
+}
 
 function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][number]; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
+
+  const { prefix, num, suffix, isDecimal } = parseValue(stat.value);
+  const count = useMotionValue(0);
+  const [display, setDisplay] = useState(`${prefix}0${suffix}`);
+
+  useMotionValueEvent(count, "change", (latest) => {
+    const formatted = isDecimal
+      ? latest.toFixed(1)
+      : Math.round(latest).toLocaleString();
+    setDisplay(`${prefix}${formatted}${suffix}`);
+  });
+
+  useEffect(() => {
+    if (isInView) {
+      animate(count, num, {
+        duration: 1.6,
+        delay: index * 0.09,
+        ease: [0.16, 1, 0.3, 1],
+      });
+    }
+  }, [isInView, num, index, count]);
 
   return (
     <motion.div
@@ -29,31 +59,29 @@ function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][nu
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
       transition={{ duration: 0.75, delay: index * 0.09, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        padding: "2.25rem 2rem",
-        borderTop: `1px solid rgba(255,255,255,0.08)`,
+        padding: "2.25rem 1.75rem",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
         position: "relative",
         cursor: "default",
       }}
       className="group"
     >
-      {/* Value */}
-      <motion.p
+      {/* Animated numeric value */}
+      <p
         style={{
           fontFamily: DISPLAY_FONT,
-          fontSize: "clamp(2.5rem,5vw,3.75rem)",
+          fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
           fontWeight: 700,
           color: PFG,
           letterSpacing: "-0.04em",
           lineHeight: 1,
           marginBottom: "1rem",
         }}
-        animate={isInView ? { filter: "blur(0px)" } : { filter: "blur(6px)" }}
-        transition={{ duration: 0.6, delay: index * 0.09 + 0.1 }}
       >
-        {stat.value}
-      </motion.p>
+        {display}
+      </p>
 
-      {/* Lime accent line */}
+      {/* Lime accent line that grows in */}
       <motion.div
         style={{ height: 2, background: AW, marginBottom: "1rem", borderRadius: 1 }}
         initial={{ width: "0%" }}
@@ -97,13 +125,9 @@ interface Props {
 }
 
 export function BlockDsoStatShowcase({ props }: Props) {
-  const {
-    eyebrow = "By the Numbers",
-    headline = "Results that compound at scale.",
-    stats,
-  } = props;
-
+  const { eyebrow = "By the Numbers", headline = "Results that compound at scale.", stats } = props;
   const displayStats = stats && stats.length > 0 ? stats.slice(0, 6) : DEFAULT_STATS;
+
   const sectionRef = useRef<HTMLElement>(null);
   const headerInView = useInView(sectionRef, { once: true });
 
@@ -122,7 +146,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
           transform: "translateX(-50%)",
           width: 800,
           height: 400,
-          background: `radial-gradient(ellipse, rgba(154,184,54,0.08) 0%, transparent 70%)`,
+          background: "radial-gradient(ellipse, rgba(154,184,54,0.08) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
@@ -166,20 +190,18 @@ export function BlockDsoStatShowcase({ props }: Props) {
           </motion.h2>
         </div>
 
-        {/* Stat grid — 3 cols desktop, 2 cols tablet, 1 col mobile */}
+        {/* Responsive stat grid — 1 col mobile, 2 col tablet, 3 col desktop */}
         <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            borderLeft: `1px solid rgba(255,255,255,0.08)`,
-            borderBottom: `1px solid rgba(255,255,255,0.08)`,
+            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
           }}
-          className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
         >
           {displayStats.map((stat, i) => (
             <div
               key={i}
-              style={{ borderRight: `1px solid rgba(255,255,255,0.08)` }}
+              style={{ borderRight: "1px solid rgba(255,255,255,0.08)" }}
             >
               <StatCard stat={stat} index={i} />
             </div>
