@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PageBlock, BlockSettings } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
-import { BlockSettingsPanel } from "./BlockSettingsPanel";
+import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
 import { HeroPanel } from "./HeroPanel";
 import { TrustBarPanel } from "./TrustBarPanel";
 import { PasSectionPanel } from "./PasSectionPanel";
@@ -750,6 +750,29 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Table Text Colors</Label>
+              <ColorField
+                label="Dandy column header"
+                value={p.headerDandyColor}
+                onChange={v => onChange({ ...block, props: { ...p, headerDandyColor: v } })}
+              />
+              <ColorField
+                label="Need / Requirement column"
+                value={p.tableNeedColor}
+                onChange={v => onChange({ ...block, props: { ...p, tableNeedColor: v } })}
+              />
+              <ColorField
+                label="Dandy answer column"
+                value={p.tableDandyColor}
+                onChange={v => onChange({ ...block, props: { ...p, tableDandyColor: v } })}
+              />
+              <ColorField
+                label="Traditional lab column"
+                value={p.tableTraditionalColor}
+                onChange={v => onChange({ ...block, props: { ...p, tableTraditionalColor: v } })}
+              />
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">

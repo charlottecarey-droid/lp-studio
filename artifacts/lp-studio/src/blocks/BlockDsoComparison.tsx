@@ -35,6 +35,10 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
     ctaUrl = "#",
     rows,
     backgroundStyle = "muted",
+    tableNeedColor,
+    tableDandyColor,
+    tableTraditionalColor,
+    headerDandyColor,
   } = props;
   const dark = isDarkBg(backgroundStyle);
 
@@ -147,7 +151,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
-                color: AW,
+                color: headerDandyColor ?? AW,
               }}
             >
               Dandy
@@ -186,7 +190,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                   padding: "1.25rem",
                   fontSize: "0.875rem",
                   fontWeight: 500,
-                  color: FG,
+                  color: tableNeedColor ?? FG,
                 }}
               >
                 {row.need}
@@ -200,7 +204,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 }}
               >
                 <Check style={{ width: 16, height: 16, color: P, marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: `${FG}cc`, lineHeight: 1.5 }}>{row.dandy}</span>
+                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? `${FG}cc`, lineHeight: 1.5 }}>{row.dandy}</span>
               </div>
               <div
                 style={{
@@ -211,7 +215,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 }}
               >
                 <Minus style={{ width: 16, height: 16, color: `${MU}4d`, marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: `${MU}80`, lineHeight: 1.5 }}>{row.traditional}</span>
+                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? `${MU}80`, lineHeight: 1.5 }}>{row.traditional}</span>
               </div>
             </motion.div>
           ))}

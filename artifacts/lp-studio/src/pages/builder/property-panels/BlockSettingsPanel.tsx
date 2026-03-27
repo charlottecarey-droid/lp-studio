@@ -50,13 +50,13 @@ function isValidHex(v: string) {
   return /^#[0-9a-fA-F]{6}$/.test(v);
 }
 
-interface ColorFieldProps {
+export interface ColorFieldProps {
   label: string;
   value?: string;
   onChange: (v: string | undefined) => void;
 }
 
-function ColorField({ label, value, onChange }: ColorFieldProps) {
+export function ColorField({ label, value, onChange }: ColorFieldProps) {
   const hex = value && isValidHex(value) ? value : "";
   return (
     <div>

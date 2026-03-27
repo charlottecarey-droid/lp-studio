@@ -278,6 +278,10 @@ export interface DsoComparisonBlockProps {
   ctaUrl: string;
   rows: { need: string; dandy: string; traditional: string }[];
   backgroundStyle: BackgroundStyle;
+  tableNeedColor?: string;
+  tableDandyColor?: string;
+  tableTraditionalColor?: string;
+  headerDandyColor?: string;
 }
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
