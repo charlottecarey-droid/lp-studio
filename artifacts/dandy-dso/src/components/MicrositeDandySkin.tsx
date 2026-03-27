@@ -335,25 +335,26 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
             </motion.h2>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
-            className="flex rounded-2xl overflow-hidden"
-            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.07)" }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {displayChallenges.map((c, i) => {
               const Icon = challengeIcons[i % 4];
               return (
-                <div key={c.title} className="flex items-stretch flex-1">
-                  {i > 0 && <div className="w-px shrink-0" style={{ background: "rgba(0,0,0,0.07)" }} />}
-                  <div className="flex-1 flex flex-col px-8 py-10" style={{ background: "rgba(255,255,255,0.92)" }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
-                      <Icon className="w-4 h-4 text-primary" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-foreground mb-3">{c.title}</h3>
-                    <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
+                <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  transition={{ delay: i * 0.08, duration: 0.6 }}
+                  className="rounded-2xl flex flex-col px-7 py-10"
+                  style={{
+                    background: "rgba(255,255,255,0.92)",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
+                  }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+                    <Icon className="w-4 h-4 text-primary" />
                   </div>
-                </div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">{c.title}</h3>
+                  <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
+                </motion.div>
               );
             })}
-          </motion.div>
+          </div>
         </div>
       </section>
     );
