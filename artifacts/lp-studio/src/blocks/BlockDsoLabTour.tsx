@@ -2,14 +2,17 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
-import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
 
 interface Props {
   props: DsoLabTourBlockProps;
-  brand: BrandConfig;
   onCtaClick?: () => void;
 }
+
+const P   = "hsl(152,42%,12%)";
+const SEC = "hsl(42,18%,96%)";
+const FG  = "hsl(152,40%,13%)";
+const MU  = "hsl(152,8%,48%)";
+const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const LAB_HIGHLIGHTS = [
   { icon: Microscope, label: "Advanced Materials Lab"  },
@@ -18,7 +21,7 @@ const LAB_HIGHLIGHTS = [
   { icon: MapPin,     label: "Multiple Locations"      },
 ];
 
-export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
+export function BlockDsoLabTour({ props, onCtaClick }: Props) {
   const {
     eyebrow, headline, body,
     quote, quoteAttribution,
@@ -33,8 +36,6 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
   const imageY = useTransform(scrollYProgress, [0, 1], ["40px", "-40px"]);
   const textY  = useTransform(scrollYProgress, [0, 1], ["20px", "-20px"]);
 
-  const brandGreen = "hsl(152,42%,12%)";
-
   const handleCtaClick = () => {
     if (onCtaClick) { onCtaClick(); return; }
     if (ctaUrl && ctaUrl !== "#") window.open(ctaUrl, "_blank");
@@ -42,53 +43,110 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
 
   return (
     <>
-      <section ref={sectionRef} className={`bg-white ${SECTION_PY}`}>
-        <div className="max-w-[1200px] mx-auto px-6 md:px-10">
+      <section ref={sectionRef} style={{ background: "#fff" }} className="py-24 md:py-32">
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
           <div className="grid md:grid-cols-2 gap-14 lg:gap-24 items-center">
 
             {/* ── Image / Video ── */}
             <motion.div
-              style={{ y: imageY, boxShadow: "0 25px 60px rgba(0,0,0,0.18)" }}
+              style={{
+                y: imageY,
+                boxShadow: "0 25px 60px rgba(0,0,0,0.18)",
+                borderRadius: "1.5rem",
+                overflow: "hidden",
+                position: "relative",
+              }}
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="relative rounded-3xl overflow-hidden group cursor-pointer"
+              className="group cursor-pointer"
               onClick={() => videoUrl ? setVideoOpen(true) : undefined}
             >
-              <div className="relative aspect-[4/3]">
+              <div style={{ position: "relative", aspectRatio: "4/3" }}>
                 {imageUrl ? (
                   <img
                     src={imageUrl}
                     alt="Dandy lab manufacturing floor"
-                    className="w-full h-full object-cover"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                    <Microscope className="w-16 h-16 text-slate-300" />
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      background: SEC,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Microscope style={{ width: 64, height: 64, color: `${P}33` }} />
                   </div>
                 )}
 
                 {/* Overlay tint */}
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-500" />
+                <div
+                  className="absolute inset-0 transition-colors duration-500"
+                  style={{ background: "rgba(0,0,0,0.20)" }}
+                />
 
                 {/* Play button */}
                 {videoUrl && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-xl"
-                      style={{ background: `${brandGreen}e6` }}
+                      className="group-hover:scale-110 transition-transform duration-500"
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: "50%",
+                        background: `${P}e6`,
+                        backdropFilter: "blur(4px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 20px 48px rgba(0,0,0,0.30)",
+                      }}
                     >
-                      <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+                      <Play style={{ width: 24, height: 24, color: "hsl(48,100%,96%)", marginLeft: 2 }} fill="hsl(48,100%,96%)" />
                     </div>
                   </div>
                 )}
 
                 {/* Caption bar */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 to-transparent">
-                  <p className="text-[10px] font-semibold text-white/70 uppercase tracking-[0.2em]">Lab Tour</p>
-                  <p className="mt-1 text-base font-medium text-white">Inside Dandy's U.S. Manufacturing Facility</p>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: "1.5rem",
+                    background: "linear-gradient(to top,rgba(0,0,0,0.70),transparent)",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "rgba(255,255,255,0.70)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.2em",
+                    }}
+                  >
+                    Lab Tour
+                  </p>
+                  <p style={{ marginTop: 4, fontSize: "1rem", fontWeight: 500, color: "#fff" }}>
+                    Inside Dandy's U.S. Manufacturing Facility
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -100,8 +158,14 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  className="text-[11px] font-semibold tracking-[0.15em] uppercase mb-5"
-                  style={{ color: brandGreen }}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    color: P,
+                    marginBottom: "1.25rem",
+                  }}
                 >
                   {eyebrow}
                 </motion.p>
@@ -112,7 +176,14 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.7 }}
-                className="text-3xl md:text-4xl font-bold leading-tight text-slate-900"
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: "clamp(2rem,4vw,3.25rem)",
+                  lineHeight: 1.1,
+                  fontWeight: 600,
+                  letterSpacing: 0,
+                  color: FG,
+                }}
               >
                 {headline}
               </motion.h2>
@@ -123,7 +194,12 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 }}
-                  className="mt-6 text-lg text-slate-500 leading-relaxed"
+                  style={{
+                    marginTop: "1.5rem",
+                    fontSize: "1.125rem",
+                    color: MU,
+                    lineHeight: 1.65,
+                  }}
                 >
                   {body}
                 </motion.p>
@@ -135,12 +211,26 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.12 }}
-                  className="mt-6 pl-4"
-                  style={{ borderLeft: `2px solid ${brandGreen}4d` }}
+                  style={{
+                    marginTop: "1.5rem",
+                    paddingLeft: "1rem",
+                    borderLeft: `2px solid ${P}4d`,
+                  }}
                 >
-                  <p className="text-sm text-slate-600 italic leading-relaxed">"{quote}"</p>
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      color: `${FG}b3`,
+                      fontStyle: "italic",
+                      lineHeight: 1.65,
+                    }}
+                  >
+                    "{quote}"
+                  </p>
                   {quoteAttribution && (
-                    <p className="text-xs text-slate-400 mt-2">— {quoteAttribution}</p>
+                    <p style={{ fontSize: "0.75rem", color: MU, marginTop: 8 }}>
+                      — {quoteAttribution}
+                    </p>
                   )}
                 </motion.blockquote>
               )}
@@ -151,15 +241,27 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.15 }}
-                className="mt-10 grid grid-cols-2 gap-4"
+                style={{
+                  marginTop: "2.5rem",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "1rem",
+                }}
               >
                 {LAB_HIGHLIGHTS.map((h) => (
                   <div
                     key={h.label}
-                    className="flex items-center gap-3 p-4 rounded-xl bg-slate-50"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "1rem",
+                      borderRadius: "0.75rem",
+                      background: SEC,
+                    }}
                   >
-                    <h.icon className="w-5 h-5 shrink-0" style={{ color: brandGreen }} />
-                    <span className="text-sm font-medium text-slate-700">{h.label}</span>
+                    <h.icon style={{ width: 20, height: 20, color: P, flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.875rem", fontWeight: 500, color: FG }}>{h.label}</span>
                   </div>
                 ))}
               </motion.div>
@@ -172,10 +274,25 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                   viewport={{ once: true }}
                   transition={{ delay: 0.2 }}
                   onClick={handleCtaClick}
-                  className="inline-flex items-center gap-2.5 mt-10 rounded-full px-8 py-4 text-[14px] font-semibold text-white hover:opacity-90 transition-all duration-300"
-                  style={{ background: brandGreen }}
+                  style={{
+                    marginTop: "2.5rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 10,
+                    borderRadius: 9999,
+                    background: P,
+                    padding: "1rem 2rem",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "hsl(48,100%,96%)",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "0.9")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                 >
-                  <MapPin className="w-4 h-4" />
+                  <MapPin style={{ width: 16, height: 16 }} />
                   {ctaText}
                 </motion.button>
               )}
@@ -191,7 +308,17 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 50,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(15,48,36,0.85)",
+              backdropFilter: "blur(12px)",
+              padding: "1rem",
+            }}
             onClick={() => setVideoOpen(false)}
           >
             <motion.div
@@ -199,15 +326,32 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.3 }}
-              className="relative w-full max-w-4xl aspect-video rounded-2xl overflow-hidden shadow-2xl"
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: 896,
+                aspectRatio: "16/9",
+                borderRadius: "1rem",
+                overflow: "hidden",
+                boxShadow: "0 50px 100px rgba(0,0,0,0.4)",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setVideoOpen(false)}
-                className="absolute -top-10 right-0 z-10 text-white hover:text-white/80 transition-colors"
+                style={{
+                  position: "absolute",
+                  top: -40,
+                  right: 0,
+                  zIndex: 10,
+                  color: "#fff",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
                 aria-label="Close video"
               >
-                <X className="w-6 h-6" />
+                <X style={{ width: 24, height: 24 }} />
               </button>
               {videoUrl && (
                 <iframe
@@ -215,7 +359,7 @@ export function BlockDsoLabTour({ props, brand, onCtaClick }: Props) {
                   title="Lab tour video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  className="w-full h-full"
+                  style={{ width: "100%", height: "100%" }}
                 />
               )}
             </motion.div>

@@ -2,6 +2,12 @@ import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, Co
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
 import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
 import { BlockDsoLabTour } from "./BlockDsoLabTour";
+import { BlockDsoStatBar } from "./BlockDsoStatBar";
+import { BlockDsoSuccessStories } from "./BlockDsoSuccessStories";
+import { BlockDsoChallenges } from "./BlockDsoChallenges";
+import { BlockDsoPilotSteps } from "./BlockDsoPilotSteps";
+import { BlockDsoFinalCta } from "./BlockDsoFinalCta";
+import { BlockDsoComparison } from "./BlockDsoComparison";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -366,7 +372,28 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return (
           <BlockDsoLabTour
             props={block.props}
-            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
+      case "dso-stat-bar":
+        return <BlockDsoStatBar props={block.props} />;
+      case "dso-success-stories":
+        return <BlockDsoSuccessStories props={block.props} />;
+      case "dso-challenges":
+        return <BlockDsoChallenges props={block.props} />;
+      case "dso-pilot-steps":
+        return <BlockDsoPilotSteps props={block.props} />;
+      case "dso-final-cta":
+        return (
+          <BlockDsoFinalCta
+            props={block.props}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl) : undefined}
+          />
+        );
+      case "dso-comparison":
+        return (
+          <BlockDsoComparison
+            props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
           />
         );

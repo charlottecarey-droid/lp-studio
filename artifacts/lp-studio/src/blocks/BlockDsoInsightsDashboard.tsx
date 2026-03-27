@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   BarChart3, TrendingUp, Users, MapPin, Activity,
@@ -11,7 +11,6 @@ import {
 } from "recharts";
 import type { DsoInsightsDashboardBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
 
 interface Props {
   props: DsoInsightsDashboardBlockProps;
@@ -593,11 +592,12 @@ const TrendsView = ({ t }: { t: Theme }) => (
 );
 
 /* ── Section background helpers ─────────────────────────── */
-const BG: Record<string, string> = {
-  light: "bg-white",
-  muted: "bg-slate-50",
-  dark:  "bg-[hsl(152,42%,12%)] text-white",
+const BG_STYLE: Record<string, React.CSSProperties> = {
+  light: { background: "#fff" },
+  muted: { background: "hsl(42,18%,96%)" },
+  dark:  { background: "hsl(152,42%,12%)", color: "#fff" },
 };
+const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 /* ── Main block component ───────────────────────────────── */
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
@@ -616,9 +616,6 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
 
   const isDark = backgroundStyle === "dark";
-  const textColor = isDark ? "text-white" : "text-[hsl(152,42%,12%)]";
-  const subColor  = isDark ? "text-white/60" : "text-slate-500";
-  const eyebrowColor = isDark ? "text-[hsl(80,70%,55%)]" : "text-[hsl(152,38%,18%)]";
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
@@ -641,7 +638,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   };
 
   return (
-    <section className={`${BG[backgroundStyle]} ${SECTION_PY}`}>
+    <section style={BG_STYLE[backgroundStyle]} className="py-24 md:py-32">
       <div className="max-w-[1100px] mx-auto px-6 md:px-10">
         {/* Header */}
         <div className="text-center mb-10">
@@ -650,7 +647,14 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               initial={{ opacity: 0, y: 8 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className={`text-[11px] font-semibold tracking-[0.15em] uppercase mb-3 ${eyebrowColor}`}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: isDark ? "hsl(68,60%,52%)" : "hsl(152,42%,12%)",
+                marginBottom: "1.25rem",
+              }}
             >
               {eyebrow}
             </motion.p>
@@ -659,8 +663,15 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className={`text-3xl md:text-4xl font-bold leading-tight ${textColor}`}
+            transition={{ duration: 0.7 }}
+            style={{
+              fontFamily: DISPLAY_FONT,
+              fontSize: "clamp(2rem,4vw,3.25rem)",
+              lineHeight: 1.1,
+              fontWeight: 600,
+              letterSpacing: 0,
+              color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
+            }}
           >
             {headline}
           </motion.h2>
@@ -670,7 +681,14 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className={`mt-4 text-base md:text-lg leading-relaxed max-w-2xl mx-auto ${subColor}`}
+              style={{
+                marginTop: "1.25rem",
+                fontSize: "1.125rem",
+                lineHeight: 1.65,
+                maxWidth: 560,
+                margin: "1.25rem auto 0",
+                color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",
+              }}
             >
               {subheadline}
             </motion.p>

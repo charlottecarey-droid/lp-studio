@@ -348,6 +348,169 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-stat-bar": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">Stats are set in the block defaults. Edit via template data.</p>
+          </div>
+        );
+      }
+      case "dso-success-stories": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+          </div>
+        );
+      }
+      case "dso-challenges": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Layout</Label>
+              <Select value={p.layout} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "4-col" | "2-col" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4-col">4 columns</SelectItem>
+                  <SelectItem value="2-col">2 columns</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
+      case "dso-pilot-steps": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
+      case "dso-final-cta": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Primary CTA text</Label>
+              <Input value={p.primaryCtaText} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Primary CTA URL</Label>
+              <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="#" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secondary CTA text</Label>
+              <Input value={p.secondaryCtaText} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Secondary CTA URL</Label>
+              <Input value={p.secondaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
+            </div>
+          </div>
+        );
+      }
+      case "dso-comparison": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">DSO company name (column header)</Label>
+              <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="Your DSO" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA text</Label>
+              <Input value={p.ctaText} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA URL</Label>
+              <Input value={p.ctaUrl} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="#" />
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

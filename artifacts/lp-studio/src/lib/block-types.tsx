@@ -219,6 +219,52 @@ export interface DsoLabTourBlockProps {
   ctaUrl: string;
 }
 
+export interface DsoStatBarBlockProps {
+  stats: { value: string; label: string }[];
+  backgroundStyle: "white" | "muted";
+}
+
+export interface DsoSuccessStoriesBlockProps {
+  eyebrow: string;
+  headline: string;
+  cases: { name: string; stat: string; label: string; quote: string; author: string }[];
+}
+
+export interface DsoChallengesBlockProps {
+  eyebrow: string;
+  headline: string;
+  backgroundStyle: "white" | "muted";
+  layout: "4-col" | "2-col";
+  challenges: { title: string; desc: string }[];
+}
+
+export interface DsoPilotStepsBlockProps {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  backgroundStyle: "white" | "muted";
+}
+
+export interface DsoFinalCtaBlockProps {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  primaryCtaText: string;
+  primaryCtaUrl: string;
+  secondaryCtaText: string;
+  secondaryCtaUrl: string;
+}
+
+export interface DsoComparisonBlockProps {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  companyName: string;
+  ctaText: string;
+  ctaUrl: string;
+  rows: { need: string; dandy: string; traditional: string }[];
+}
+
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
 
 /** Condition that controls whether a step or field is shown */
@@ -477,7 +523,13 @@ type BlockVariant =
   | { type: "roi-calculator"; props: RoiCalculatorBlockProps }
   | { type: "spacer"; props: SpacerBlockProps }
   | { type: "dso-insights-dashboard"; props: DsoInsightsDashboardBlockProps }
-  | { type: "dso-lab-tour"; props: DsoLabTourBlockProps };
+  | { type: "dso-lab-tour"; props: DsoLabTourBlockProps }
+  | { type: "dso-stat-bar"; props: DsoStatBarBlockProps }
+  | { type: "dso-success-stories"; props: DsoSuccessStoriesBlockProps }
+  | { type: "dso-challenges"; props: DsoChallengesBlockProps }
+  | { type: "dso-pilot-steps"; props: DsoPilotStepsBlockProps }
+  | { type: "dso-final-cta"; props: DsoFinalCtaBlockProps }
+  | { type: "dso-comparison"; props: DsoComparisonBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -1384,6 +1436,169 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-stat-bar" as const,
+    label: "DSO Stats Bar",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoStatBarBlockProps => ({
+      stats: [
+        { value: "30%", label: "Avg case acceptance lift" },
+        { value: "96%", label: "First-time right rate" },
+        { value: "50%", label: "Denture appointments saved" },
+        { value: "$0", label: "CAPEX to get started" },
+      ],
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#fff" rx="4" />
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <rect x={10 + i*28} y="20" width="22" height="6" rx="2" fill="#003A30" opacity="0.8" />
+            <rect x={10 + i*28} y="30" width="18" height="3" rx="1.5" fill="#94a3b8" opacity="0.5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-success-stories" as const,
+    label: "DSO Success Stories",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoSuccessStoriesBlockProps => ({
+      eyebrow: "Proven Results",
+      headline: "DSOs that switched and never looked back.",
+      cases: [],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="8" y="8" width="32" height="4" rx="2" fill="white" opacity="0.7" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={8 + i*38} y="18" width="32" height="44" rx="3" fill="white" opacity="0.07" />
+            <rect x={12 + i*38} y="22" width="14" height="6" rx="2" fill="#C7E738" opacity="0.7" />
+            <rect x={12 + i*38} y="32" width="20" height="2" rx="1" fill="white" opacity="0.4" />
+            <rect x={12 + i*38} y="37" width="20" height="2" rx="1" fill="white" opacity="0.3" />
+            <rect x={12 + i*38} y="42" width="16" height="2" rx="1" fill="white" opacity="0.2" />
+            <rect x={12 + i*38} y="53" width="12" height="2" rx="1" fill="#C7E738" opacity="0.5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-challenges" as const,
+    label: "DSO Challenges",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoChallengesBlockProps => ({
+      eyebrow: "The Hidden Cost",
+      headline: "At scale — even small inefficiencies compound fast.",
+      backgroundStyle: "muted",
+      layout: "4-col",
+      challenges: [],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#faf9f7" rx="4" />
+        <rect x="8" y="8" width="50" height="4" rx="2" fill="#003A30" opacity="0.8" />
+        <rect x="8" y="16" width="36" height="2.5" rx="1.25" fill="#94a3b8" opacity="0.4" />
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <rect x={8 + i*29} y="24" width="24" height="38" rx="3" fill="white"
+              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.07))" }} />
+            <rect x={8 + i*29} y="24" width="24" height="2" rx="1" fill="#003A30" />
+            <rect x={11 + i*29} y="30" width="8" height="4" rx="1.5" fill="#003A30" opacity="0.1" />
+            <rect x={11 + i*29} y="38" width="16" height="2" rx="1" fill="#94a3b8" opacity="0.5" />
+            <rect x={11 + i*29} y="43" width="12" height="2" rx="1" fill="#94a3b8" opacity="0.3" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-pilot-steps" as const,
+    label: "DSO Pilot Steps",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoPilotStepsBlockProps => ({
+      eyebrow: "How It Works",
+      headline: "Start small. Prove it out. Then scale.",
+      subheadline: "Growth should be proven before it's scaled. Dandy helps validate impact with a small number of locations and then scale with confidence.",
+      backgroundStyle: "muted",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#faf9f7" rx="4" />
+        <rect x="8" y="8" width="50" height="4" rx="2" fill="#003A30" opacity="0.8" />
+        <line x1="24" y1="20" x2="24" y2="62" stroke="#003A30" strokeWidth="1" opacity="0.2" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <circle cx="24" cy={22 + i*18} r="5" fill="#003A30" />
+            <rect x="34" y={18 + i*18} width="30" height="3" rx="1.5" fill="#003A30" opacity="0.7" />
+            <rect x="34" y={24 + i*18} width="50" height="2" rx="1" fill="#94a3b8" opacity="0.4" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-final-cta" as const,
+    label: "DSO Final CTA",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoFinalCtaBlockProps => ({
+      eyebrow: "Next Steps",
+      headline: "Prove ROI. Then scale.",
+      subheadline: "Validate impact with a focused pilot at 5–10 offices. Measure remake reduction, chair time recovered, and same-store revenue lift in real time.",
+      primaryCtaText: "Get Pricing",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "Calculate ROI",
+      secondaryCtaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <circle cx="30" cy="15" r="30" fill="#C7E738" opacity="0.06" />
+        <circle cx="90" cy="60" r="25" fill="#2a5240" opacity="0.5" />
+        <rect x="35" y="12" width="50" height="5" rx="2.5" fill="white" opacity="0.8" />
+        <rect x="25" y="22" width="70" height="3" rx="1.5" fill="white" opacity="0.4" />
+        <rect x="30" y="28" width="60" height="2.5" rx="1.25" fill="white" opacity="0.3" />
+        <rect x="28" y="38" width="28" height="10" rx="5" fill="#C7E738" />
+        <rect x="64" y="38" width="28" height="10" rx="5" fill="transparent" stroke="white" strokeWidth="1" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-comparison" as const,
+    label: "DSO Comparison",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoComparisonBlockProps => ({
+      eyebrow: "The Dandy Difference",
+      headline: "Built for DSO scale.\nDesigned for provider trust.",
+      subheadline: "Dandy combines the lab providers choose with advanced manufacturing, AI-driven quality control, and network-wide insights.",
+      companyName: "Your DSO",
+      ctaText: "Request a Demo",
+      ctaUrl: "#",
+      rows: [],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#faf9f7" rx="4" />
+        <rect x="8" y="8" width="50" height="4" rx="2" fill="#003A30" opacity="0.8" />
+        <rect x="8" y="18" width="104" height="7" rx="2" fill="#003A30" />
+        <rect x="10" y="19.5" width="30" height="4" rx="1" fill="white" opacity="0.3" />
+        <rect x="46" y="19.5" width="20" height="4" rx="1" fill="#C7E738" opacity="0.7" />
+        <rect x="72" y="19.5" width="20" height="4" rx="1" fill="white" opacity="0.2" />
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <rect x="8" y={28 + i*9} width="104" height="8" rx="1" fill={i%2===0?"#fff":"#faf9f7"} stroke="#e2e8f0" strokeWidth="0.5" />
+            <rect x="10" y={31 + i*9} width="25" height="2" rx="1" fill="#003A30" opacity="0.6" />
+            <rect x="46" y={31 + i*9} width="20" height="2" rx="1" fill="#003A30" opacity="0.4" />
+            <rect x="72" y={31 + i*9} width="20" height="2" rx="1" fill="#94a3b8" opacity="0.3" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -1423,6 +1638,12 @@ export function createBlock(type: "roi-calculator"): Extract<PageBlock, { type: 
 export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
 export function createBlock(type: "dso-insights-dashboard"): Extract<PageBlock, { type: "dso-insights-dashboard" }>;
 export function createBlock(type: "dso-lab-tour"): Extract<PageBlock, { type: "dso-lab-tour" }>;
+export function createBlock(type: "dso-stat-bar"): Extract<PageBlock, { type: "dso-stat-bar" }>;
+export function createBlock(type: "dso-success-stories"): Extract<PageBlock, { type: "dso-success-stories" }>;
+export function createBlock(type: "dso-challenges"): Extract<PageBlock, { type: "dso-challenges" }>;
+export function createBlock(type: "dso-pilot-steps"): Extract<PageBlock, { type: "dso-pilot-steps" }>;
+export function createBlock(type: "dso-final-cta"): Extract<PageBlock, { type: "dso-final-cta" }>;
+export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: "dso-comparison" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -1459,6 +1680,12 @@ export function createBlock(type: BlockType): PageBlock {
     case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
     case "dso-insights-dashboard": return { id, type: "dso-insights-dashboard", props: props as DsoInsightsDashboardBlockProps };
     case "dso-lab-tour": return { id, type: "dso-lab-tour", props: props as DsoLabTourBlockProps };
+    case "dso-stat-bar": return { id, type: "dso-stat-bar", props: props as DsoStatBarBlockProps };
+    case "dso-success-stories": return { id, type: "dso-success-stories", props: props as DsoSuccessStoriesBlockProps };
+    case "dso-challenges": return { id, type: "dso-challenges", props: props as DsoChallengesBlockProps };
+    case "dso-pilot-steps": return { id, type: "dso-pilot-steps", props: props as DsoPilotStepsBlockProps };
+    case "dso-final-cta": return { id, type: "dso-final-cta", props: props as DsoFinalCtaBlockProps };
+    case "dso-comparison": return { id, type: "dso-comparison", props: props as DsoComparisonBlockProps };
   }
 }
 
