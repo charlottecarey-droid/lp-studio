@@ -203,7 +203,7 @@ export interface DsoInsightsDashboardBlockProps {
   headline: string;
   subheadline: string;
   practiceLabel: string;
-  backgroundStyle: "light" | "muted" | "dark";
+  backgroundStyle: "light" | "muted" | "dark" | "black" | "gradient";
   dashboardVariant: "light" | "dark";
 }
 

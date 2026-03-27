@@ -283,12 +283,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "light" | "muted" | "dark" } })}>
+              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "light" | "muted" | "dark" | "black" | "gradient" } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="light">Light (white)</SelectItem>
                   <SelectItem value="muted">Muted (off-white)</SelectItem>
-                  <SelectItem value="dark">Dark (forest green)</SelectItem>
+                  <SelectItem value="dark">Dark (Dandy green)</SelectItem>
+                  <SelectItem value="black">Black</SelectItem>
+                  <SelectItem value="gradient">Black → Dandy Green Gradient</SelectItem>
                 </SelectContent>
               </Select>
             </div>

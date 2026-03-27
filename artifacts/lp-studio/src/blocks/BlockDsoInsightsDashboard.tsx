@@ -593,9 +593,11 @@ const TrendsView = ({ t }: { t: Theme }) => (
 
 /* ── Section background helpers ─────────────────────────── */
 const BG_STYLE: Record<string, React.CSSProperties> = {
-  light: { background: "#fff" },
-  muted: { background: "hsl(42,18%,96%)" },
-  dark:  { background: "hsl(152,42%,12%)", color: "#fff" },
+  light:    { background: "#fff" },
+  muted:    { background: "hsl(42,18%,96%)" },
+  dark:     { background: "#003A30", color: "#fff" },
+  black:    { background: "#000000", color: "#fff" },
+  gradient: { background: "linear-gradient(135deg, #000000 0%, #003A30 100%)", color: "#fff" },
 };
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -615,7 +617,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   const [dateRange, setDateRange]         = useState("Last 6 months");
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
 
-  const isDark = backgroundStyle === "dark";
+  const isDark = backgroundStyle === "dark" || backgroundStyle === "black" || backgroundStyle === "gradient";
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
