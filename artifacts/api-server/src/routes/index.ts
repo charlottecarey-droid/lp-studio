@@ -9,6 +9,6 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(lpRouter);
 router.use(storageRouter);
-router.use("/api/dso", dsoRouter);
+router.use("/dso", dsoRouter);
 
 export default router;
