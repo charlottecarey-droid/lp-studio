@@ -368,14 +368,18 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                   return (
                     <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                       transition={{ delay: i * 0.1, duration: 0.6 }}
-                      className="w-[300px] md:w-[360px] p-8 shrink-0 rounded-xl"
-                      style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)", border: "1px solid rgba(0,0,0,0.07)" }}>
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
-                        <Icon className="w-5 h-5 text-primary" />
+                      className="w-[300px] md:w-[360px] shrink-0 rounded-xl overflow-hidden"
+                      style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+                      <div className="px-8 pt-8 pb-4" style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)" }}>
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
+                          <Icon className="w-5 h-5 text-primary" />
+                        </div>
+                        <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
                       </div>
-                      <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
-                      <div className="my-3" style={{ height: "1px", background: "rgba(0,0,0,0.04)" }} />
-                      <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
+                      <div style={{ height: "1px" }} />
+                      <div className="px-8 pt-4 pb-8" style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(12px)" }}>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
+                      </div>
                     </motion.div>
                   );
                 })}
