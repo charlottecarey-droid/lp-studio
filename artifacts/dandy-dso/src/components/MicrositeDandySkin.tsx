@@ -341,16 +341,21 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
               return (
                 <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                   transition={{ delay: i * 0.08, duration: 0.6 }}
-                  className="rounded-2xl flex flex-col px-7 py-10"
+                  className="rounded-2xl flex flex-col px-7 py-10 relative overflow-hidden"
                   style={{
-                    background: "rgba(255,255,255,0.92)",
+                    background: "linear-gradient(150deg, #ffffff 55%, hsl(152, 42%, 96%) 100%)",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
+                    borderTop: "2px solid hsl(152, 42%, 78%)",
                   }}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+                  <span className="absolute bottom-3 right-4 text-[72px] font-bold leading-none select-none pointer-events-none"
+                    style={{ color: "hsl(152, 42%, 12%)", opacity: 0.045 }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6 relative z-10" style={{ background: "hsl(152, 42%, 12%, 0.09)" }}>
                     <Icon className="w-4 h-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3">{c.title}</h3>
-                  <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
+                  <h3 className="text-sm font-semibold text-foreground mb-3 relative z-10">{c.title}</h3>
+                  <p className="text-[13px] text-muted-foreground leading-relaxed relative z-10">{c.desc}</p>
                 </motion.div>
               );
             })}
@@ -380,16 +385,21 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
           {DEFAULT_PROBLEMS.map((p, i) => (
             <motion.div key={p.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
-              className="rounded-2xl flex flex-col px-8 py-10"
+              className="rounded-2xl flex flex-col px-8 py-10 relative overflow-hidden"
               style={{
-                background: "rgba(255,255,255,0.92)",
+                background: "linear-gradient(150deg, #ffffff 55%, hsl(152, 42%, 96%) 100%)",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
+                borderTop: "2px solid hsl(152, 42%, 78%)",
               }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+              <span className="absolute bottom-3 right-5 text-[96px] font-bold leading-none select-none pointer-events-none"
+                style={{ color: "hsl(152, 42%, 12%)", opacity: 0.045 }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6 relative z-10" style={{ background: "hsl(152, 42%, 12%, 0.09)" }}>
                 <p.icon className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="text-base font-semibold text-foreground mb-3">{p.title}</h3>
-              <p className="text-[13px] text-muted-foreground leading-relaxed">{p.desc}</p>
+              <h3 className="text-base font-semibold text-foreground mb-3 relative z-10">{p.title}</h3>
+              <p className="text-[13px] text-muted-foreground leading-relaxed relative z-10">{p.desc}</p>
             </motion.div>
           ))}
         </div>
