@@ -131,7 +131,17 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
         onChange={(v) => onChange({ ...s, bgColor: v })}
       />
       <ColorField
-        label="Text"
+        label="Headline color"
+        value={s.headlineColor}
+        onChange={(v) => onChange({ ...s, headlineColor: v })}
+      />
+      <ColorField
+        label="Body text color"
+        value={s.bodyColor}
+        onChange={(v) => onChange({ ...s, bodyColor: v })}
+      />
+      <ColorField
+        label="All text (global)"
         value={s.textColor}
         onChange={(v) => onChange({ ...s, textColor: v })}
       />

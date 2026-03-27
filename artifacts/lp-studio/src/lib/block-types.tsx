@@ -121,6 +121,8 @@ export interface BlockSettings {
   minHeight?: "none" | "25" | "50" | "75" | "100";
   bgColor?: string;
   textColor?: string;
+  headlineColor?: string;
+  bodyColor?: string;
   cardBgColor?: string;
   animationStyle?: "fade-up" | "fade-in" | "slide-left" | "slide-right" | "scale-in" | "none";
   animationDelay?: number;

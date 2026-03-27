@@ -106,6 +106,8 @@ function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animati
   }
   if (settings.bgColor) style.backgroundColor = settings.bgColor;
   if (settings.textColor) style.color = settings.textColor;
+  if (settings.headlineColor) (style as Record<string, string>)["--blk-headline-color"] = settings.headlineColor;
+  if (settings.bodyColor) (style as Record<string, string>)["--blk-body-color"] = settings.bodyColor;
   if (settings.cardBgColor) (style as Record<string, string>)["--card-bg"] = settings.cardBgColor;
 
   const hasBgImage = !!settings.bgImageUrl;

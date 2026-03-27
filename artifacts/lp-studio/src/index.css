@@ -279,4 +279,19 @@
   [data-blk-bg] > div > section {
     background-color: var(--blk-bg) !important;
   }
+
+  /* Headline color override: when --blk-headline-color is set on the wrapper,
+     apply it to all h1/h2/h3 elements inside (overrides Tailwind classes too). */
+  [style*="--blk-headline-color"] h1,
+  [style*="--blk-headline-color"] h2,
+  [style*="--blk-headline-color"] h3 {
+    color: var(--blk-headline-color) !important;
+  }
+
+  /* Body color override: when --blk-body-color is set on the wrapper,
+     apply it to p and li elements inside. */
+  [style*="--blk-body-color"] p,
+  [style*="--blk-body-color"] li {
+    color: var(--blk-body-color) !important;
+  }
 }
