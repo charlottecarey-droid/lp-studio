@@ -12,7 +12,7 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "all";
+type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "segments" | "all";
 
 const COLOR_FIELDS = [
   "primaryColor", "accentColor", "navBgColor", "textColor",
@@ -42,6 +42,10 @@ const PRODUCT_FIELDS = [
   "productLines",
 ];
 
+const SEGMENT_FIELDS = [
+  "segments",
+];
+
 function getFieldsForSection(section: ImportSection): string[] {
   switch (section) {
     case "colors": return COLOR_FIELDS;
@@ -49,7 +53,8 @@ function getFieldsForSection(section: ImportSection): string[] {
     case "buttons": return BUTTON_FIELDS;
     case "voice": return VOICE_FIELDS;
     case "products": return PRODUCT_FIELDS;
-    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS, ...PRODUCT_FIELDS];
+    case "segments": return SEGMENT_FIELDS;
+    case "all": return [...COLOR_FIELDS, ...TYPOGRAPHY_FIELDS, ...BUTTON_FIELDS, ...VOICE_FIELDS, ...PRODUCT_FIELDS, ...SEGMENT_FIELDS];
   }
 }
 
@@ -99,6 +104,7 @@ function buildPromptForSection(section: ImportSection): string {
     targetAudience: "string — who the copy speaks to",
     copyExamples: "string[] — up to 6 sample headlines or CTAs representing brand voice",
     productLines: '{ name: string, description: string, valueProps: string[], claims: string[], keywords: string[] }[] — up to 12 product lines. name = product name, description = one-line summary, valueProps = key benefits, claims = provable statements (e.g. "50% faster"), keywords = SEO target keywords',
+    segments: '{ name: string, description: string, messagingAngle: string, uniqueContext: string, valueProps: string[], segmentProducts: string[], personas: { role: string, painPoints: string[] }[], challenges: { title: string, desc: string }[], stats: { value: string, label: string }[], comparisonRows: { need: string, us: string, them: string }[] }[] — audience segments. name = segment name (e.g. "DSO Leaders"), description = brief overview, messagingAngle = core pitch angle for this segment, uniqueContext = what makes this segment distinct, valueProps = up to 8 key benefits for this segment, segmentProducts = product names most relevant to this segment, personas = up to 6 buyer roles with their pain points, challenges = up to 8 problems this segment faces, stats = up to 6 proof-point metrics (value + label), comparisonRows = up to 8 comparison rows (need, what we offer, what competitors offer)',
   };
 
   const fields = getFieldsForSection(section);
@@ -194,6 +200,43 @@ function sanitizeField(field: string, value: unknown): { valid: boolean; sanitiz
     }
     return { valid: false, sanitized: null };
   }
+  if (field === "segments") {
+    if (Array.isArray(value)) {
+      const sanitizeStrArr = (arr: unknown, max: number): string[] =>
+        Array.isArray(arr)
+          ? arr.filter((s): s is string => typeof s === "string" && s.trim().length > 0).map((s) => s.trim()).slice(0, max)
+          : [];
+      const filtered = value
+        .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string" && ((v as Record<string, unknown>).name as string).trim().length > 0)
+        .map((v) => ({
+          id: `seg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: (v.name as string).trim(),
+          description: typeof v.description === "string" ? v.description.trim() : "",
+          messagingAngle: typeof v.messagingAngle === "string" ? v.messagingAngle.trim() : "",
+          uniqueContext: typeof v.uniqueContext === "string" ? v.uniqueContext.trim() : "",
+          valueProps: sanitizeStrArr(v.valueProps, 8),
+          segmentProducts: sanitizeStrArr(v.segmentProducts, 12),
+          personas: Array.isArray(v.personas)
+            ? v.personas.filter((p): p is { role: string; painPoints: string[] } => typeof p === "object" && p !== null && typeof (p as { role?: unknown }).role === "string")
+                .map((p) => ({ role: (p.role as string).trim(), painPoints: sanitizeStrArr((p as { painPoints?: unknown }).painPoints, 8) })).slice(0, 6)
+            : [],
+          challenges: Array.isArray(v.challenges)
+            ? v.challenges.filter((c): c is { title: string; desc: string } => typeof c === "object" && c !== null && typeof (c as { title?: unknown }).title === "string")
+                .map((c) => ({ title: (c.title as string).trim(), desc: typeof (c as { desc?: unknown }).desc === "string" ? ((c as { desc: string }).desc).trim() : "" })).slice(0, 8)
+            : [],
+          stats: Array.isArray(v.stats)
+            ? v.stats.filter((s): s is { value: string; label: string } => typeof s === "object" && s !== null && typeof (s as { value?: unknown }).value === "string")
+                .map((s) => ({ value: (s.value as string).trim(), label: typeof (s as { label?: unknown }).label === "string" ? ((s as { label: string }).label).trim() : "" })).slice(0, 6)
+            : [],
+          comparisonRows: Array.isArray(v.comparisonRows)
+            ? v.comparisonRows.filter((r): r is { need: string; us: string; them: string } => typeof r === "object" && r !== null && typeof (r as { need?: unknown }).need === "string")
+                .map((r) => ({ need: (r.need as string).trim(), us: typeof (r as { us?: unknown }).us === "string" ? ((r as { us: string }).us).trim() : "", them: typeof (r as { them?: unknown }).them === "string" ? ((r as { them: string }).them).trim() : "" })).slice(0, 8)
+            : [],
+        }));
+      if (filtered.length > 0) return { valid: true, sanitized: filtered.slice(0, 20) };
+    }
+    return { valid: false, sanitized: null };
+  }
   if (typeof value === "string" && value.trim().length > 0) return { valid: true, sanitized: value.trim() };
   return { valid: false, sanitized: null };
 }
@@ -211,9 +254,9 @@ router.post("/lp/brand-import", async (req, res): Promise<void> => {
     return;
   }
 
-  const validSections = new Set<ImportSection>(["colors", "typography", "buttons", "voice", "products", "all"]);
+  const validSections = new Set<ImportSection>(["colors", "typography", "buttons", "voice", "products", "segments", "all"]);
   if (!validSections.has(section)) {
-    res.status(400).json({ error: "section must be one of: colors, typography, buttons, voice, products, all" });
+    res.status(400).json({ error: "section must be one of: colors, typography, buttons, voice, products, segments, all" });
     return;
   }
 

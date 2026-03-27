@@ -41,7 +41,7 @@ interface BrandPreset {
   created_at: string;
 }
 
-type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products";
+type ImportSection = "colors" | "typography" | "buttons" | "voice" | "products" | "segments";
 
 interface ImportResult {
   proposed: Record<string, unknown>;
@@ -631,7 +631,7 @@ export default function BrandSettings() {
   const [importOpen, setImportOpen] = useState(false);
   const [importTab, setImportTab] = useState<ImportSection>("colors");
   const [importTexts, setImportTexts] = useState<Record<ImportSection, string>>({
-    colors: "", typography: "", buttons: "", voice: "", products: "",
+    colors: "", typography: "", buttons: "", voice: "", products: "", segments: "",
   });
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -811,7 +811,13 @@ export default function BrandSettings() {
         count++;
       }
     }
-    setConfig((prev) => ({ ...prev, ...updates } as BrandConfig));
+    setConfig((prev) => {
+      const next = { ...prev, ...updates } as BrandConfig;
+      if (updates["segments"] && Array.isArray(updates["segments"])) {
+        next.segments = [...(prev.segments ?? []), ...(updates["segments"] as typeof prev.segments)];
+      }
+      return next;
+    });
     setHexErrors({});
     setImportApplied(true);
     toast({ title: `${count} field${count !== 1 ? "s" : ""} updated`, description: "Review and save when ready." });
@@ -822,7 +828,7 @@ export default function BrandSettings() {
     setImportResult(null);
     setImportChecked({});
     setImportApplied(false);
-    setImportTexts({ colors: "", typography: "", buttons: "", voice: "", products: "" });
+    setImportTexts({ colors: "", typography: "", buttons: "", voice: "", products: "", segments: "" });
     setImportTab("colors");
   };
 
@@ -1744,7 +1750,7 @@ export default function BrandSettings() {
           ) : (
             <div className="flex flex-col gap-4 py-2">
               <div className="flex border-b border-border">
-                {(["colors", "typography", "buttons", "voice", "products"] as ImportSection[]).map((tab) => (
+                {(["colors", "typography", "buttons", "voice", "products", "segments"] as ImportSection[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setImportTab(tab)}
@@ -1768,6 +1774,7 @@ export default function BrandSettings() {
                   importTab === "typography" ? "Paste font names, size scales, weight specs..." :
                   importTab === "buttons" ? "Paste button style descriptions..." :
                   importTab === "products" ? "Paste product names, descriptions, value props, claims, keywords..." :
+                  importTab === "segments" ? "Paste audience segment descriptions — who they are, their challenges, pain points, relevant stats, and how you compare to alternatives. Each segment will be extracted with its name, personas, challenges, proof-point stats, and comparison rows." :
                   "Paste tone of voice, pillars, taglines, sample copy..."
                 }
                 className="min-h-[160px] text-sm resize-none"
