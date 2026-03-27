@@ -399,6 +399,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
           <BlockDsoComparison
             props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            animationsEnabled={animationsEnabled}
           />
         );
       case "dso-heartland-hero":

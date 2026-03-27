@@ -2067,7 +2067,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         </div>
       ) : (
         <div className="cursor-pointer" onClick={e => { e.stopPropagation(); onSelect(); }}>
-          <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} />
+          <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} animationsEnabled={false} />
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 interface Props {
   props: DsoComparisonBlockProps;
   onCtaClick?: () => void;
+  animationsEnabled?: boolean;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -25,7 +26,7 @@ const DEFAULT_ROWS = [
   { need: "Change Management", dandy: "Hands-on training that respects provider autonomy", traditional: "Minimal onboarding, slow rollout" },
 ];
 
-export function BlockDsoComparison({ props, onCtaClick }: Props) {
+export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true }: Props) {
   const {
     eyebrow = "The Dandy Difference",
     headline = "Built for DSO scale.\nDesigned for provider trust.",
@@ -41,6 +42,13 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
     headerDandyColor,
   } = props;
   const dark = isDarkBg(backgroundStyle);
+
+  const anim = animationsEnabled;
+  const eyebrowAnim = anim ? { initial: { opacity: 0, y: 10 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true } } : {};
+  const headlineAnim = anim ? { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } } : {};
+  const subAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1 } } : {};
+  const tableAnim = anim ? { initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.1, duration: 0.7 } } : {};
+  const ctaAnim = anim ? { initial: { opacity: 0, y: 15 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { delay: 0.2 } } : {};
 
   const displayRows = (rows && rows.length > 0) ? rows : DEFAULT_ROWS;
 
@@ -58,9 +66,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
             <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              {...eyebrowAnim}
               style={{
                 fontSize: 11,
                 fontWeight: 600,
@@ -74,10 +80,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
             </motion.p>
           )}
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
+            {...headlineAnim}
             style={{
               fontFamily: DISPLAY_FONT,
               fontSize: "clamp(2rem,4vw,3.25rem)",
@@ -93,10 +96,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
           </motion.h2>
           {subheadline && (
             <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+              {...subAnim}
               style={{
                 marginTop: "1.5rem",
                 fontSize: "1.125rem",
@@ -113,10 +113,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
 
         {/* Table */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1, duration: 0.7 }}
+          {...tableAnim}
           style={{
             borderRadius: "1rem",
             overflow: "hidden",
@@ -139,7 +136,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
-                color: `${PFG}99`,
+                color: "hsla(48,100%,96%,0.6)",
               }}
             >
               What {companyName} Needs
@@ -163,7 +160,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.15em",
-                color: `${PFG}99`,
+                color: "hsla(48,100%,96%,0.6)",
               }}
             >
               Traditional Labs
@@ -174,10 +171,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
           {displayRows.map((row, i) => (
             <motion.div
               key={row.need}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.04 }}
+              {...(anim ? { initial: { opacity: 0 }, whileInView: { opacity: 1 }, viewport: { once: true }, transition: { delay: i * 0.04 } } : {})}
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr 1fr",
@@ -204,7 +198,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                 }}
               >
                 <Check style={{ width: 16, height: 16, color: P, marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? `${FG}cc`, lineHeight: 1.5 }}>{row.dandy}</span>
+                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.5 }}>{row.dandy}</span>
               </div>
               <div
                 style={{
@@ -214,8 +208,8 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
                   gap: 10,
                 }}
               >
-                <Minus style={{ width: 16, height: 16, color: `${MU}4d`, marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? `${MU}80`, lineHeight: 1.5 }}>{row.traditional}</span>
+                <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.3)", marginTop: 2, flexShrink: 0 }} />
+                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.5 }}>{row.traditional}</span>
               </div>
             </motion.div>
           ))}
@@ -224,10 +218,7 @@ export function BlockDsoComparison({ props, onCtaClick }: Props) {
         {/* CTA */}
         {ctaText && (
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
+            {...ctaAnim}
             style={{ marginTop: "3rem", textAlign: "center" }}
           >
             <button
