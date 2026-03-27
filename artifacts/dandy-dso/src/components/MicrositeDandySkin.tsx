@@ -350,16 +350,16 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
               <svg className="absolute -top-16 left-0 w-full h-[calc(100%+80px)] pointer-events-none z-0" viewBox="0 0 1200 300" preserveAspectRatio="none" fill="none">
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(152 42% 12%)" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="hsl(152 42% 12%)" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor="hsl(152 42% 12%)" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="hsl(152 42% 12%)" stopOpacity="0.01" />
                   </linearGradient>
                   <clipPath id="areaClip"><rect x="0" y="0" width={1200 * pathLen} height="300" /></clipPath>
                 </defs>
-                <path d="M0 30 L40 25 L80 55 L120 40 L160 70 L200 58 L240 90 L280 75 L320 105 L360 95 L400 125 L440 110 L480 140 L520 128 L560 155 L600 145 L640 175 L680 160 L720 190 L760 180 L800 210 L840 198 L880 225 L920 215 L960 240 L1000 232 L1040 255 L1080 248 L1120 268 L1160 260 L1200 280 L1200 300 L0 300 Z"
+                <path d="M 0 35 L 30 28 L 75 50 L 105 38 L 155 62 L 185 52 L 215 68 L 260 92 L 290 80 L 330 108 L 360 96 L 395 118 L 425 105 L 460 128 L 490 118 L 525 142 L 565 158 L 595 146 L 635 165 L 660 155 L 695 178 L 730 168 L 765 190 L 800 205 L 830 195 L 870 218 L 900 208 L 940 232 L 970 220 L 1010 245 L 1045 235 L 1080 255 L 1110 248 L 1145 268 L 1175 260 L 1200 275 L 1200 300 L 0 300 Z"
                   fill="url(#areaGrad)" clipPath="url(#areaClip)" />
-                <path d="M0 30 L40 25 L80 55 L120 40 L160 70 L200 58 L240 90 L280 75 L320 105 L360 95 L400 125 L440 110 L480 140 L520 128 L560 155 L600 145 L640 175 L680 160 L720 190 L760 180 L800 210 L840 198 L880 225 L920 215 L960 240 L1000 232 L1040 255 L1080 248 L1120 268 L1160 260 L1200 280"
-                  stroke="hsl(152 42% 12%)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"
-                  strokeDasharray="2000" strokeDashoffset={2000 - 2000 * pathLen} style={{ transition: "stroke-dashoffset 0.05s linear" }} />
+                <path d="M 0 35 L 30 28 L 75 50 L 105 38 L 155 62 L 185 52 L 215 68 L 260 92 L 290 80 L 330 108 L 360 96 L 395 118 L 425 105 L 460 128 L 490 118 L 525 142 L 565 158 L 595 146 L 635 165 L 660 155 L 695 178 L 730 168 L 765 190 L 800 205 L 830 195 L 870 218 L 900 208 L 940 232 L 970 220 L 1010 245 L 1045 235 L 1080 255 L 1110 248 L 1145 268 L 1175 260 L 1200 275"
+                  stroke="hsl(152 42% 14%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"
+                  strokeDasharray="3500" strokeDashoffset={3500 - 3500 * pathLen} style={{ transition: "stroke-dashoffset 0.05s linear" }} />
               </svg>
 
               <motion.div style={{ x: challengeX }} className="flex gap-6 will-change-transform relative z-10">
@@ -367,12 +367,14 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                   const Icon = challengeIcons[i % 4];
                   return (
                     <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                      transition={{ delay: i * 0.1, duration: 0.6 }} className="w-[300px] md:w-[360px] premium-card p-8 shrink-0">
-                      <div className="w-11 h-11 rounded-xl bg-primary/[0.08] flex items-center justify-center mb-5">
+                      transition={{ delay: i * 0.1, duration: 0.6 }}
+                      className="w-[300px] md:w-[360px] p-8 shrink-0 rounded-xl"
+                      style={{ background: "white", border: "1px solid rgba(0,0,0,0.09)", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-5" style={{ background: "hsl(152, 42%, 12%, 0.07)" }}>
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
-                      <h3 className="text-lg font-medium text-foreground tracking-tight">{c.title}</h3>
-                      <p className="mt-3 text-[15px] text-muted-foreground leading-relaxed">{c.desc}</p>
+                      <h3 className="text-base font-semibold text-foreground">{c.title}</h3>
+                      <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
                     </motion.div>
                   );
                 })}
