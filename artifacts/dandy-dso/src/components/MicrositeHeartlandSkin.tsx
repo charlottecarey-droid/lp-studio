@@ -27,7 +27,6 @@ import scannerSpeed from "@/assets/scanner-speed.webp";
 import dandyLabMachines from "@/assets/dandy-lab-machines.jpg";
 import ctaOperations from "@/assets/cta-operations.jpg";
 import digitalScanning from "@/assets/digital-scanning.jpg";
-import dandyInsightsDashboard from "@/assets/dandy-insights-dashboard.png";
 
 // ─── Types ──────────────────────────────────────────────────────────
 type BriefingData = {
@@ -898,11 +897,8 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
                     </motion.div>
                   </div>
                   <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="relative order-first md:order-last">
-                    <div className="rounded-xl overflow-hidden border border-border/60 relative">
-                      <motion.img src={cfg?.sectionImages?.aiScanReviewImage || aiScanReview} alt="AI-powered dental scan quality review" className="w-full h-auto aspect-[4/3] object-cover" loading="lazy"
-                        animate={{ scale: [1, 1.03, 1], rotate: [0, 0.3, -0.3, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
-                      <motion.div className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/40 to-transparent"
-                        animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }} />
+                    <div className="rounded-xl overflow-hidden border border-border/60">
+                      <img src={cfg?.sectionImages?.aiScanReviewImage || aiScanReview} alt="AI-powered dental scan quality review" className="w-full h-auto aspect-[4/3] object-cover" loading="lazy" />
                     </div>
                   </motion.div>
                 </div>
@@ -1049,20 +1045,33 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
                   </motion.p>
                 </div>
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 }}
-                  className="relative rounded-2xl border border-border bg-card overflow-hidden cursor-pointer group" onClick={() => setCalcOpen(true)}>
-                  <div className="relative aspect-[16/7] overflow-hidden">
-                    <img src={dandyInsightsDashboard} alt="ROI Calculator preview" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-card/40" />
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group border border-primary/20"
+                  style={{ background: "hsl(192, 25%, 8%)" }}
+                  onClick={() => setCalcOpen(true)}>
+                  {/* subtle top glow */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.05] via-transparent to-transparent pointer-events-none" />
+                  {/* stat row */}
+                  <div className="relative grid grid-cols-3" style={{ borderBottom: "1px solid hsl(192, 20%, 16%)" }}>
+                    {[
+                      { value: "60%",    label: "Fewer remakes",       accent: true,  borderLeft: false },
+                      { value: "$1.2M+", label: "Avg. annual upside",  accent: false, borderLeft: true  },
+                      { value: "200+",   label: "Hours recovered / yr", accent: true, borderLeft: true  },
+                    ].map((s) => (
+                      <div key={s.label} className="py-10 px-6 text-center" style={s.borderLeft ? { borderLeft: "1px solid hsl(192, 20%, 16%)" } : {}}>
+                        <p className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: s.accent ? "hsl(72, 55%, 48%)" : "hsl(0, 0%, 95%)" }}>{s.value}</p>
+                        <p className="text-xs md:text-sm mt-2" style={{ color: "hsl(192, 15%, 50%)" }}>{s.label}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
-                    <div className="grid grid-cols-3 gap-6 md:gap-10 mb-8 w-full max-w-2xl">
-                      <div className="text-center"><p className="text-3xl md:text-5xl font-bold text-primary tracking-tight">60%</p><p className="text-xs md:text-sm text-muted-foreground mt-1">Fewer remakes</p></div>
-                      <div className="text-center"><p className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">$1.2M+</p><p className="text-xs md:text-sm text-muted-foreground mt-1">Avg. annual upside</p></div>
-                      <div className="text-center"><p className="text-3xl md:text-5xl font-bold text-primary tracking-tight">200+</p><p className="text-xs md:text-sm text-muted-foreground mt-1">Hours recovered / yr</p></div>
-                    </div>
-                    <div className="flex items-center gap-2 mb-3"><Calculator className="w-5 h-5 text-primary" /><span className="text-sm font-medium text-muted-foreground">Interactive ROI Calculator</span></div>
-                    <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
-                      Calculate Your Savings<ArrowRight className="w-4 h-4" />
+                  {/* CTA row */}
+                  <div className="relative py-8 flex flex-col items-center gap-4">
+                    <p className="text-sm max-w-sm text-center" style={{ color: "hsl(192, 15%, 50%)" }}>
+                      Enter {company}'s network size for a personalized ROI analysis.
+                    </p>
+                    <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 group-hover:shadow-primary/30">
+                      <Calculator className="w-4 h-4" />
+                      Calculate Your Savings
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 </motion.div>
