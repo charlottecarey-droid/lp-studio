@@ -309,6 +309,14 @@ export interface DsoScrollStoryHeroBlockProps {
   ctaUrl?: string;
 }
 
+export interface DsoNetworkMapBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
 export type DsoBentoTile =
   | { type: "stat"; value: string; label: string; description?: string }
   | { type: "photo"; imageUrl: string; caption: string }
@@ -639,6 +647,7 @@ type BlockVariant =
   | { type: "dso-stat-showcase"; props: DsoStatShowcaseBlockProps }
   | { type: "dso-scroll-story"; props: DsoScrollStoryBlockProps }
   | { type: "dso-scroll-story-hero"; props: DsoScrollStoryHeroBlockProps }
+  | { type: "dso-network-map"; props: DsoNetworkMapBlockProps }
   | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
@@ -1962,6 +1971,45 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-network-map" as const,
+    label: "DSO Network Map",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoNetworkMapBlockProps => ({
+      eyebrow: "Dandy Network",
+      headline: "One platform.\nEvery practice.",
+      body: "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
+      ctaText: "See the Live Network",
+      ctaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        {/* Left text column */}
+        <rect x="6" y="10" width="18" height="2" rx="1" fill="hsl(68,60%,52%)" opacity="0.9" />
+        <rect x="6" y="16" width="38" height="5" rx="2" fill="hsl(48,100%,96%)" opacity="0.8" />
+        <rect x="6" y="24" width="34" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.35" />
+        <rect x="6" y="28" width="28" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.25" />
+        <rect x="6" y="36" width="32" height="8" rx="1.5" fill="hsl(68,60%,52%)" opacity="0.8" />
+        {/* Right SVG network */}
+        {/* Center node */}
+        <circle cx={84} cy={35} r={6} fill="#003A30" stroke="hsl(68,60%,52%)" strokeWidth="1.2" />
+        <circle cx={84} cy={35} r={10} fill="none" stroke="hsl(68,60%,52%)" strokeWidth="0.5" strokeOpacity="0.3" />
+        {/* Spokes */}
+        {[0, 60, 120, 180, 240, 300].map((a, i) => {
+          const rad = a * Math.PI / 180;
+          const nx = 84 + Math.cos(rad) * 20;
+          const ny = 35 + Math.sin(rad) * 18;
+          return (
+            <g key={i}>
+              <line x1={84} y1={35} x2={nx} y2={ny} stroke="hsl(68,60%,52%)" strokeWidth="0.5" strokeOpacity="0.35" strokeDasharray="2 2" />
+              <circle cx={nx} cy={ny} r={2.5} fill="#003A30" stroke="hsl(68,60%,52%)" strokeWidth="0.8" />
+            </g>
+          );
+        })}
+      </svg>
+    ),
+  },
+  {
     type: "dso-bento-outcomes" as const,
     label: "DSO Bento Outcomes",
     category: "DSO" as BlockCategory,
@@ -2042,6 +2090,7 @@ export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: 
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
 export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
+export function createBlock(type: "dso-network-map"): Extract<PageBlock, { type: "dso-network-map" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
@@ -2091,6 +2140,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
     case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };
+    case "dso-network-map": return { id, type: "dso-network-map", props: props as DsoNetworkMapBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
   }
 }

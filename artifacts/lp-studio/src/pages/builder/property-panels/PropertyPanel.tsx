@@ -1296,6 +1296,33 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-network-map": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Dandy Network" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} placeholder="One platform.&#10;Every practice." className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} placeholder="Dandy connects your entire DSO…" className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Text</Label>
+              <Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value } })} placeholder="See the Live Network" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA URL</Label>
+              <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="https://…" />
+            </div>
+          </div>
+        );
+      }
       case "dso-scroll-story-hero": {
         const p = block.props;
         const chapters = p.chapters ?? [];
