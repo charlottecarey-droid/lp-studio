@@ -5,6 +5,20 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+
+function getOpenAIClient(): OpenAI | null {
+  const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (integrationBase && integrationKey) {
+    return new OpenAI({ apiKey: integrationKey, baseURL: integrationBase });
+  }
+  const directKey = process.env.OPENAI_API_KEY;
+  if (directKey) {
+    return new OpenAI({ apiKey: directKey });
+  }
+  return null;
+}
 
 function getGeminiClient(): GoogleGenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
@@ -346,41 +360,41 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
   const { prompt } = body;
   if (!prompt) return res.status(400).json({ error: "Missing prompt" });
 
+  const systemPrompt = "You are an expert B2B sales email copywriter for Dandy, a dental lab platform for DSOs. Write compelling, personalized outreach emails. Output only the email (subject line + body). Nothing else.";
+
+  // GPT-5 — primary
+  const openai = getOpenAIClient();
+  if (openai) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        max_completion_tokens: 8192,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+      });
+      const email = response.choices[0]?.message?.content ?? "Could not generate email.";
+      return res.json({ email });
+    } catch (err: any) {
+      // fall through to Gemini
+    }
+  }
+
+  // Gemini — fallback
   const gemini = getGeminiClient();
   if (gemini) {
     try {
       const response = await gemini.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: `You are a sales email copywriter. Output only the email as requested. Nothing else.\n\n${prompt}` }] }],
+        contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
         config: { maxOutputTokens: 8192 },
       });
       const email = response.text ?? "Could not generate email.";
       return res.json({ email });
     } catch (err: any) {
-      return res.status(500).json({ error: `Gemini error: ${err.message}` });
+      return res.status(500).json({ error: `AI error: ${err.message}` });
     }
-  }
-
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(500).json({ error: `OpenAI error: ${err}` });
-    }
-    const data = await response.json() as any;
-    const email = data.choices?.[0]?.message?.content ?? "Could not generate email.";
-    return res.json({ email });
   }
 
   const email = `Subject: Transforming Lab Operations at ${(prompt.match(/company[:\s]+([^\n,]+)/i) || [])[1] || "your organization"}\n\nHi [First Name],\n\n[No AI provider configured — this is a placeholder.]\n\nBest,\n[Your Name]`;
