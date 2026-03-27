@@ -420,13 +420,6 @@ const TrendsView = () => (
   </motion.div>
 );
 
-// ─── Section transition ─────────────────────────────────────────────
-const HeartlandTransition = ({ from = "dark", to = "light" }: { from?: "dark" | "light"; to?: "dark" | "light" }) => {
-  const bg = from === "dark" && to === "light"
-    ? "linear-gradient(to bottom, hsl(192, 30%, 5%), hsl(0, 0%, 98%))"
-    : "linear-gradient(to bottom, hsl(0, 0%, 98%), hsl(192, 30%, 5%))";
-  return <div className="h-10 md:h-12 z-20" style={{ background: bg }} />;
-};
 
 // ═══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -649,8 +642,8 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
         </section>
 
         {visibleSections.has("hiddenCost") && challenges.length > 0 && wrapSection("hiddenCost",
-          <div className="heartland-section-dark">
-            <section className="py-20 md:py-28 lg:py-36 relative overflow-hidden heartland-texture-grid">
+          <div style={{ background: "hsl(192, 30%, 5%)" }}>
+            <section className="py-20 md:py-28 lg:py-36 relative overflow-hidden">
               <div className="absolute inset-0 pointer-events-none">
                 <img src={heroBusiness} alt="" className="w-full h-full object-cover opacity-[0.04]" aria-hidden="true" />
                 <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-primary/5" />
@@ -680,7 +673,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
           </div>
         )}
 
-        <HeartlandTransition from="dark" to="light" />
+
         {visibleSections.has("problem") && wrapSection("problem",
           <section className="py-20 md:py-28 lg:py-36 relative z-10 overflow-hidden" style={{ background: "hsl(0, 0%, 98%)", color: "hsl(192, 30%, 10%)" }}>
             <div className="max-w-[1200px] mx-auto px-6 md:px-10 relative z-10">
@@ -717,11 +710,11 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
         )}
 
 
-        <HeartlandTransition from="light" to="dark" />
+
 
         {/* ═══ COMPARISON ═══ */}
         {visibleSections.has("comparison") && compRows.length > 0 && wrapSection("comparison",
-          <div className="heartland-section-dark">
+          <div style={{ background: "hsl(192, 30%, 5%)" }}>
             <section id="solutions" className="py-20 md:py-28 lg:py-36">
               <div className="max-w-[1000px] mx-auto px-6 md:px-10">
                 <div className="text-center mb-14">
@@ -816,7 +809,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
 
         {/* ═══ DASHBOARD ═══ */}
         {visibleSections.has("dashboard") && wrapSection("dashboard",
-          <div className="heartland-section-dark">
+          <div style={{ background: "hsl(192, 30%, 5%)" }}>
             <section id="dashboard" className="py-20 md:py-28 lg:py-36">
               <div className="max-w-[1200px] mx-auto px-6 md:px-10">
                 <div className="text-center mb-12">
@@ -878,7 +871,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
 
         {/* ═══ AI QUALITY ═══ */}
         {visibleSections.has("aiScanReview") && wrapSection("aiScanReview",
-          <div className="heartland-section-alt">
+          <div style={{ background: "hsl(192, 25%, 8%)" }}>
             <section className="py-20 md:py-28 lg:py-36">
               <div className="max-w-[1200px] mx-auto px-6 md:px-10">
                 <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -918,7 +911,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
           </div>
         )}
 
-        <HeartlandTransition from="dark" to="light" />
+
 
         {/* ═══ SUCCESS STORIES ═══ */}
         {visibleSections.has("successStories") && caseStudies.length > 0 && wrapSection("successStories",
@@ -955,11 +948,11 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
           </section>
         )}
 
-        <HeartlandTransition from="light" to="dark" />
+
 
         {/* ═══ PILOT PROGRAM ═══ */}
         {visibleSections.has("pilotApproach") && wrapSection("pilotApproach",
-          <div className="heartland-section-dark">
+          <div style={{ background: "hsl(192, 30%, 5%)" }}>
             <section className="py-20 md:py-28 lg:py-36">
               <div className="max-w-3xl mx-auto px-6 md:px-10">
                 <div className="text-center mb-14">
@@ -998,7 +991,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
 
         {/* ═══ LAB TOUR ═══ */}
         {visibleSections.has("labTour") && wrapSection("labTour",
-          <div className="heartland-section-alt">
+          <div style={{ background: "hsl(192, 25%, 8%)" }}>
             <section className="py-20 md:py-28 lg:py-36">
               <div className="max-w-[1200px] mx-auto px-6 md:px-10">
                 <div className="grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -1042,7 +1035,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
 
         {/* ═══ CALCULATOR ═══ */}
         {visibleSections.has("calculator") && wrapSection("calculator",
-          <div className="heartland-section-dark">
+          <div style={{ background: "hsl(192, 30%, 5%)" }}>
             <section id="calculator" className="py-20 md:py-28 lg:py-36">
               <div className="max-w-[1100px] mx-auto px-6 md:px-10">
                 <div className="text-center mb-10">
