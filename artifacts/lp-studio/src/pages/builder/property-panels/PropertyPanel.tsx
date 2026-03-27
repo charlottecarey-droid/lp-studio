@@ -551,7 +551,17 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </div>
                 ))}
                 {challenges.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-2">No challenges yet. Click Add to get started.</p>
+                  <div className="text-center py-3 space-y-2">
+                    <p className="text-xs text-slate-400">No challenges yet.</p>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ challenges: [
+                      { title: "Same-Store Growth Pressure", desc: "Acquisition pipelines have slowed. With rising costs and tighter financing, DSOs must unlock more revenue from existing practices to protect EBITDA — and the dental lab is one of the most overlooked levers." },
+                      { title: "Fragmented Lab Relationships", desc: "If every dentist chooses their own lab, you never get a volume advantage. Disconnected vendors across regions create data silos, quality variance, and zero negotiating leverage." },
+                      { title: "Standards That Don't Survive Growth", desc: "Most DSOs don't fail because they grow too fast — they fail because their standards don't scale. Variability creeps in, outcomes drift, and operational discipline erodes with every new location." },
+                      { title: "Capital Constraints", desc: "Scanner requests pile up every year — $40K–$75K per operatory adds up fast. DSOs need a partner that eliminates CAPEX, includes premium hardware, and proves ROI within months." },
+                    ] })}>
+                      Load defaults
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
