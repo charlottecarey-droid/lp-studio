@@ -35,8 +35,31 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const company = p.companyName?.trim() ?? "";
 
   const renderHeadline = () => {
-    if (company && p.headline.includes(company)) {
-      const [before, ...rest] = p.headline.split(company);
+    const text = p.headline ?? "";
+
+    // Support {highlighted text} syntax for accent coloring
+    if (text.includes("{") && text.includes("}")) {
+      const parts: React.ReactNode[] = [];
+      const regex = /\{([^}]+)\}/g;
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      let key = 0;
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index));
+        }
+        parts.push(
+          <span key={key++} style={{ color: PRIMARY }}>{match[1]}</span>
+        );
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+      return <>{parts}</>;
+    }
+
+    // Fallback: highlight companyName if it appears literally in the headline
+    if (company && text.includes(company)) {
+      const [before, ...rest] = text.split(company);
       const after = rest.join(company);
       return (
         <>
@@ -46,7 +69,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
         </>
       );
     }
-    return p.headline;
+
+    return text;
   };
 
   return (
