@@ -10,6 +10,7 @@ interface Props {
 }
 
 const P   = "hsl(152,42%,12%)";
+const AW  = "hsl(68,60%,52%)";
 const SEC = "hsl(42,18%,96%)";
 const FG  = "hsl(152,40%,13%)";
 const MU  = "hsl(152,8%,48%)";
@@ -43,6 +44,16 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
     if (onCtaClick) { onCtaClick(); return; }
     if (ctaUrl && ctaUrl !== "#") window.open(ctaUrl, "_blank");
   };
+
+  const eyebrowColor = dark ? AW : P;
+  const headlineColor = dark ? "#fff" : FG;
+  const bodyColor = dark ? "rgba(255,255,255,0.65)" : MU;
+  const quoteBorderColor = dark ? `${AW}4d` : `${P}4d`;
+  const quoteTextColor = dark ? "rgba(255,255,255,0.65)" : `${FG}b3`;
+  const quoteAttrColor = dark ? "rgba(255,255,255,0.45)" : MU;
+  const tileBg = dark ? "rgba(255,255,255,0.08)" : SEC;
+  const tileIconColor = dark ? AW : P;
+  const tileTextColor = dark ? "#fff" : FG;
 
   return (
     <>
@@ -166,7 +177,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     fontWeight: 600,
                     letterSpacing: "0.15em",
                     textTransform: "uppercase",
-                    color: P,
+                    color: eyebrowColor,
                     marginBottom: "1.25rem",
                   }}
                 >
@@ -185,7 +196,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   lineHeight: 1.1,
                   fontWeight: 600,
                   letterSpacing: 0,
-                  color: FG,
+                  color: headlineColor,
                 }}
               >
                 {headline}
@@ -200,7 +211,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   style={{
                     marginTop: "1.5rem",
                     fontSize: "1.125rem",
-                    color: MU,
+                    color: bodyColor,
                     lineHeight: 1.65,
                   }}
                 >
@@ -217,13 +228,13 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   style={{
                     marginTop: "1.5rem",
                     paddingLeft: "1rem",
-                    borderLeft: `2px solid ${P}4d`,
+                    borderLeft: `2px solid ${quoteBorderColor}`,
                   }}
                 >
                   <p
                     style={{
                       fontSize: "0.875rem",
-                      color: `${FG}b3`,
+                      color: quoteTextColor,
                       fontStyle: "italic",
                       lineHeight: 1.65,
                     }}
@@ -231,7 +242,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     "{quote}"
                   </p>
                   {quoteAttribution && (
-                    <p style={{ fontSize: "0.75rem", color: MU, marginTop: 8 }}>
+                    <p style={{ fontSize: "0.75rem", color: quoteAttrColor, marginTop: 8 }}>
                       — {quoteAttribution}
                     </p>
                   )}
@@ -260,11 +271,11 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                       gap: "0.75rem",
                       padding: "1rem",
                       borderRadius: "0.75rem",
-                      background: SEC,
+                      background: tileBg,
                     }}
                   >
-                    <h.icon style={{ width: 20, height: 20, color: P, flexShrink: 0 }} />
-                    <span style={{ fontSize: "0.875rem", fontWeight: 500, color: FG }}>{h.label}</span>
+                    <h.icon style={{ width: 20, height: 20, color: tileIconColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.875rem", fontWeight: 500, color: tileTextColor }}>{h.label}</span>
                   </div>
                 ))}
               </motion.div>
@@ -283,11 +294,11 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     alignItems: "center",
                     gap: 10,
                     borderRadius: 9999,
-                    background: P,
+                    background: dark ? AW : P,
                     padding: "1rem 2rem",
                     fontSize: 14,
                     fontWeight: 600,
-                    color: "hsl(48,100%,96%)",
+                    color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)",
                     border: "none",
                     cursor: "pointer",
                     transition: "opacity 0.2s",

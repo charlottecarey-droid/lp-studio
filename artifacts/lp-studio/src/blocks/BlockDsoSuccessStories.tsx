@@ -10,6 +10,8 @@ interface Props {
 const P   = "hsl(152,42%,12%)";
 const PFG = "hsl(48,100%,96%)";
 const AW  = "hsl(68,60%,52%)";
+const FG  = "hsl(152,40%,13%)";
+const MU  = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const DEFAULT_CASES = [
@@ -41,6 +43,21 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
   const dark = isDarkBg(backgroundStyle);
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
 
+  const eyebrowColor  = dark ? AW : P;
+  const headlineColor = dark ? PFG : P;
+
+  const cardBg     = dark ? "rgba(255,255,255,0.06)" : "#fff";
+  const cardBorder = dark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.08)";
+  const cardShadow = dark ? "none" : "0 4px 20px rgba(0,0,0,0.06)";
+  const hoverBg    = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.02)";
+
+  const companyColor = dark ? "rgba(255,255,255,0.50)" : MU;
+  const statColor    = dark ? PFG : FG;
+  const labelColor   = dark ? "rgba(255,255,255,0.60)" : MU;
+  const dividerColor = dark ? `${AW}66` : `${P}33`;
+  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `${FG}b3`;
+  const authorColor  = dark ? AW : P;
+
   return (
     <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
@@ -55,7 +72,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: dark ? AW : P,
+                color: eyebrowColor,
                 marginBottom: "1.25rem",
               }}
             >
@@ -72,7 +89,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: dark ? PFG : P,
+              color: headlineColor,
               letterSpacing: 0,
             }}
           >
@@ -90,14 +107,17 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               transition={{ delay: i * 0.12, duration: 0.7 }}
               style={{
                 borderRadius: "1rem",
-                background: "rgba(255,255,255,0.06)",
-                backdropFilter: "blur(8px)",
-                border: "1px solid rgba(255,255,255,0.10)",
+                background: cardBg,
+                backdropFilter: dark ? "blur(8px)" : "none",
+                border: cardBorder,
+                boxShadow: cardShadow,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
+                transition: "background 0.3s",
               }}
-              className="hover:bg-white/[0.1] transition-colors duration-300"
+              onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+              onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
             >
               <div
                 style={{
@@ -113,7 +133,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                     fontWeight: 600,
                     textTransform: "uppercase",
                     letterSpacing: "0.2em",
-                    color: "rgba(255,255,255,0.50)",
+                    color: companyColor,
                     marginBottom: "1.5rem",
                   }}
                 >
@@ -123,7 +143,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                   style={{
                     fontSize: "clamp(2.5rem,4vw,3rem)",
                     fontWeight: 500,
-                    color: PFG,
+                    color: statColor,
                     letterSpacing: "-0.035em",
                     lineHeight: 1,
                   }}
@@ -133,7 +153,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                 <p
                   style={{
                     fontSize: "0.875rem",
-                    color: "rgba(255,255,255,0.60)",
+                    color: labelColor,
                     marginTop: "0.5rem",
                     marginBottom: "2rem",
                   }}
@@ -144,14 +164,14 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                   style={{
                     width: 32,
                     height: 1,
-                    background: `${AW}66`,
+                    background: dividerColor,
                     marginBottom: "1.5rem",
                   }}
                 />
                 <blockquote
                   style={{
                     fontSize: "0.875rem",
-                    color: "rgba(255,255,255,0.70)",
+                    color: quoteColor,
                     lineHeight: 1.6,
                     fontStyle: "italic",
                     flex: 1,
@@ -164,7 +184,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                     marginTop: "2rem",
                     fontSize: "0.875rem",
                     fontWeight: 500,
-                    color: AW,
+                    color: authorColor,
                   }}
                 >
                   — {s.author}

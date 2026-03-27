@@ -11,7 +11,6 @@ interface Props {
 }
 
 const P     = "hsl(152,42%,12%)";
-const SEC   = "hsl(42,18%,96%)";
 const FG    = "hsl(152,40%,13%)";
 const MU    = "hsl(152,8%,48%)";
 const AW    = "hsl(68,60%,52%)";
@@ -64,6 +63,15 @@ export function BlockDsoPilotSteps({ props }: Props) {
   });
   const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
+  const eyebrowColor  = dark ? AW : P;
+  const headlineColor = dark ? "#fff" : FG;
+  const subColor      = dark ? "rgba(255,255,255,0.65)" : MU;
+  const titleColor    = dark ? "#fff" : FG;
+  const subtitleColor = dark ? `${AW}cc` : `${P}b3`;
+  const descColor     = dark ? "rgba(255,255,255,0.60)" : MU;
+  const trackGhost    = dark ? "rgba(255,255,255,0.12)" : `${P}22`;
+  const trackActive   = dark ? AW : P;
+
   return (
     <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
@@ -78,7 +86,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: dark ? "hsl(68,60%,52%)" : P,
+                color: eyebrowColor,
                 marginBottom: "1.25rem",
               }}
             >
@@ -95,7 +103,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: dark ? "#fff" : FG,
+              color: headlineColor,
               letterSpacing: 0,
             }}
           >
@@ -110,7 +118,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               style={{
                 marginTop: "1.5rem",
                 fontSize: "1.125rem",
-                color: MU,
+                color: subColor,
                 lineHeight: 1.65,
                 maxWidth: 560,
                 margin: "1.5rem auto 0",
@@ -130,7 +138,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               top: 0,
               bottom: 0,
               width: 1,
-              background: `${P}22`,
+              background: trackGhost,
             }}
           />
           <motion.div
@@ -139,7 +147,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               left: 24,
               top: 0,
               width: 1,
-              background: P,
+              background: trackActive,
               height: lineHeight,
               transformOrigin: "top",
             }}
@@ -164,14 +172,14 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         width: 48,
                         height: 48,
                         borderRadius: "50%",
-                        background: P,
+                        background: dark ? AW : P,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: `0 8px 24px ${P}33`,
+                        boxShadow: dark ? `0 8px 24px ${AW}33` : `0 8px 24px ${P}33`,
                       }}
                     >
-                      <Icon style={{ width: 20, height: 20, color: "hsl(48,100%,96%)" }} />
+                      <Icon style={{ width: 20, height: 20, color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)" }} />
                     </div>
                   </div>
 
@@ -193,7 +201,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                       style={{
                         fontSize: "1.25rem",
                         fontWeight: 500,
-                        color: FG,
+                        color: titleColor,
                         letterSpacing: "-0.02em",
                       }}
                     >
@@ -203,7 +211,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                       style={{
                         fontSize: "0.875rem",
                         fontWeight: 500,
-                        color: `${P}b3`,
+                        color: subtitleColor,
                         marginTop: 4,
                       }}
                     >
@@ -213,7 +221,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                       style={{
                         marginTop: "1rem",
                         fontSize: "0.9375rem",
-                        color: MU,
+                        color: descColor,
                         lineHeight: 1.65,
                       }}
                     >
@@ -228,11 +236,11 @@ export function BlockDsoPilotSteps({ props }: Props) {
                             alignItems: "flex-start",
                             gap: 10,
                             fontSize: "0.9375rem",
-                            color: MU,
+                            color: descColor,
                           }}
                         >
                           <CheckCircle2
-                            style={{ width: 16, height: 16, color: P, flexShrink: 0, marginTop: 2 }}
+                            style={{ width: 16, height: 16, color: dark ? AW : P, flexShrink: 0, marginTop: 2 }}
                           />
                           <span>{d}</span>
                         </li>

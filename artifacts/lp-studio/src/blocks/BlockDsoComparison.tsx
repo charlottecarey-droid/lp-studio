@@ -100,7 +100,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
               style={{
                 marginTop: "1.5rem",
                 fontSize: "1.125rem",
-                color: MU,
+                color: dark ? "rgba(255,255,255,0.65)" : MU,
                 lineHeight: 1.65,
                 maxWidth: 640,
                 margin: "1.5rem auto 0",
