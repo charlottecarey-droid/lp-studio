@@ -600,7 +600,7 @@ const BG_STYLE: Record<string, React.CSSProperties> = {
   dark:     { background: "#003A30", color: "#fff" },
   "dandy-green": { background: "#003A30", color: "#fff" },
   black:    { background: "#000000", color: "#fff" },
-  gradient: { background: "linear-gradient(135deg, #000000 0%, #003A30 100%)", color: "#fff" },
+  gradient: { background: "radial-gradient(ellipse 120% 100% at 50% 50%, #003A30 0%, #001a14 55%, #000000 100%)", color: "#fff" },
 };
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
