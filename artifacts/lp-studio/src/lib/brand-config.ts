@@ -26,6 +26,39 @@ export interface ProductLine {
   keywords: string[];
 }
 
+export interface SegmentPersona {
+  role: string;
+  painPoints: string[];
+}
+
+export interface SegmentChallenge {
+  title: string;
+  desc: string;
+}
+
+export interface SegmentStat {
+  value: string;
+  label: string;
+}
+
+export interface SegmentComparisonRow {
+  need: string;
+  us: string;
+  them: string;
+}
+
+export interface AudienceSegment {
+  id: string;
+  name: string;
+  description: string;
+  messagingAngle: string;
+  valueProps: string[];
+  personas: SegmentPersona[];
+  challenges: SegmentChallenge[];
+  stats: SegmentStat[];
+  comparisonRows: SegmentComparisonRow[];
+}
+
 export interface BrandConfig {
   primaryColor: string;
   accentColor: string;
@@ -80,6 +113,7 @@ export interface BrandConfig {
   copyExamples: string[];
   copyInstructions: string;
   productLines: ProductLine[];
+  segments: AudienceSegment[];
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
@@ -136,6 +170,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   copyExamples: [],
   copyInstructions: "",
   productLines: [],
+  segments: [],
 };
 
 const BUTTON_RADIUS: Record<ButtonRadius, string> = {

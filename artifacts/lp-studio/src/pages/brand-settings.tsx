@@ -14,6 +14,7 @@ import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
+  Users, BarChart2, TableProperties, AlertCircle, UserSquare2,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -26,6 +27,7 @@ import type {
   ButtonFontWeight, ButtonTextCase, ButtonLetterSpacing, SectionPadding,
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
+  AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
 } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
@@ -224,6 +226,337 @@ function ProductLineCard({ product, onChange, onRemove }: {
               placeholder="Add a keyword and press Enter"
               max={12}
             />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SegmentCard({ segment, onChange, onRemove }: {
+  segment: AudienceSegment;
+  onChange: (updated: AudienceSegment) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const set = (key: keyof AudienceSegment, value: unknown) => onChange({ ...segment, [key]: value });
+
+  const addPersona = () => set("personas", [...segment.personas, { role: "", painPoints: [] }]);
+  const updatePersona = (i: number, key: keyof SegmentPersona, value: unknown) => {
+    const arr = [...segment.personas];
+    arr[i] = { ...arr[i], [key]: value };
+    set("personas", arr);
+  };
+  const removePersona = (i: number) => set("personas", segment.personas.filter((_, idx) => idx !== i));
+
+  const addChallenge = () => set("challenges", [...segment.challenges, { title: "", desc: "" }]);
+  const updateChallenge = (i: number, key: keyof SegmentChallenge, value: string) => {
+    const arr = [...segment.challenges];
+    arr[i] = { ...arr[i], [key]: value };
+    set("challenges", arr);
+  };
+  const removeChallenge = (i: number) => set("challenges", segment.challenges.filter((_, idx) => idx !== i));
+
+  const addStat = () => set("stats", [...segment.stats, { value: "", label: "" }]);
+  const updateStat = (i: number, key: keyof SegmentStat, value: string) => {
+    const arr = [...segment.stats];
+    arr[i] = { ...arr[i], [key]: value };
+    set("stats", arr);
+  };
+  const removeStat = (i: number) => set("stats", segment.stats.filter((_, idx) => idx !== i));
+
+  const addRow = () => set("comparisonRows", [...segment.comparisonRows, { need: "", us: "", them: "" }]);
+  const updateRow = (i: number, key: keyof SegmentComparisonRow, value: string) => {
+    const arr = [...segment.comparisonRows];
+    arr[i] = { ...arr[i], [key]: value };
+    set("comparisonRows", arr);
+  };
+  const removeRow = (i: number) => set("comparisonRows", segment.comparisonRows.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-muted/30 cursor-pointer select-none"
+        onClick={() => setOpen(!open)}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {open ? <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />}
+          <span className="font-medium text-sm truncate">{segment.name || "Untitled Segment"}</span>
+          {segment.personas.length > 0 && (
+            <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0">
+              {segment.personas.length} persona{segment.personas.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {open && (
+        <div className="p-4 space-y-6">
+          {/* Basic info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Segment Name</Label>
+              <Input
+                value={segment.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Enterprise DSO, Mid-Market Group"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Messaging Angle</Label>
+              <Input
+                value={segment.messagingAngle}
+                onChange={(e) => set("messagingAngle", e.target.value)}
+                placeholder="e.g. Scale without compromise"
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Description</Label>
+            <Textarea
+              value={segment.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="Brief description of this audience segment and what matters to them"
+              className="text-sm min-h-[70px] resize-none"
+            />
+          </div>
+
+          {/* Value Props */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Value Props for This Segment</Label>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Key reasons this audience chooses you over alternatives</p>
+            <TagInput
+              value={segment.valueProps}
+              onChange={(v) => set("valueProps", v)}
+              placeholder="Add a value prop and press Enter"
+              max={8}
+            />
+          </div>
+
+          {/* Personas */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <UserSquare2 className="w-3.5 h-3.5 text-muted-foreground" />
+                <Label className="text-xs">Buyer Personas</Label>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addPersona}
+                disabled={segment.personas.length >= 6}
+              >
+                <Plus className="w-3 h-3" />
+                Add Persona
+              </Button>
+            </div>
+            {segment.personas.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic">No personas yet — add buyer roles to personalize copy.</p>
+            ) : (
+              <div className="space-y-2">
+                {segment.personas.map((persona, i) => (
+                  <div key={i} className="border rounded-md p-3 space-y-2 bg-muted/10">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        value={persona.role}
+                        onChange={(e) => updatePersona(i, "role", e.target.value)}
+                        placeholder="Role / title (e.g. Chief Clinical Officer)"
+                        aria-label="Persona role"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => removePersona(i)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <TagInput
+                      value={persona.painPoints}
+                      onChange={(v) => updatePersona(i, "painPoints", v)}
+                      placeholder="Add a pain point and press Enter"
+                      max={6}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Challenges */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                <Label className="text-xs">Industry Challenges</Label>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addChallenge}
+                disabled={segment.challenges.length >= 8}
+              >
+                <Plus className="w-3 h-3" />
+                Add Challenge
+              </Button>
+            </div>
+            {segment.challenges.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic">No challenges yet — define the problems this segment faces.</p>
+            ) : (
+              <div className="space-y-2">
+                {segment.challenges.map((c, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <Input
+                      value={c.title}
+                      onChange={(e) => updateChallenge(i, "title", e.target.value)}
+                      placeholder="Challenge title"
+                      className="h-8 text-sm w-40 shrink-0"
+                    />
+                    <Input
+                      value={c.desc}
+                      onChange={(e) => updateChallenge(i, "desc", e.target.value)}
+                      placeholder="Brief description"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => removeChallenge(i)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <BarChart2 className="w-3.5 h-3.5 text-muted-foreground" />
+                <Label className="text-xs">Key Stats / Metrics</Label>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addStat}
+                disabled={segment.stats.length >= 6}
+              >
+                <Plus className="w-3 h-3" />
+                Add Stat
+              </Button>
+            </div>
+            {segment.stats.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic">No stats yet — add proof points like "50% faster turnaround".</p>
+            ) : (
+              <div className="space-y-2">
+                {segment.stats.map((s, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      value={s.value}
+                      onChange={(e) => updateStat(i, "value", e.target.value)}
+                      placeholder="Value (e.g. 50%)"
+                      className="h-8 text-sm w-32 shrink-0"
+                    />
+                    <Input
+                      value={s.label}
+                      onChange={(e) => updateStat(i, "label", e.target.value)}
+                      placeholder="Label (e.g. faster delivery)"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => removeStat(i)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Comparison Rows */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <TableProperties className="w-3.5 h-3.5 text-muted-foreground" />
+                <Label className="text-xs">Comparison Rows (vs. Alternative)</Label>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addRow}
+                disabled={segment.comparisonRows.length >= 8}
+              >
+                <Plus className="w-3 h-3" />
+                Add Row
+              </Button>
+            </div>
+            {segment.comparisonRows.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic">No comparison rows yet — define how you win against alternatives.</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-[1fr_1fr_1fr_32px] gap-1.5 px-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Need</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">You</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Alternative</span>
+                  <span />
+                </div>
+                {segment.comparisonRows.map((r, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-1.5 items-center">
+                    <Input
+                      value={r.need}
+                      onChange={(e) => updateRow(i, "need", e.target.value)}
+                      placeholder="e.g. Turnaround"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      value={r.us}
+                      onChange={(e) => updateRow(i, "us", e.target.value)}
+                      placeholder="e.g. 1–2 days"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      value={r.them}
+                      onChange={(e) => updateRow(i, "them", e.target.value)}
+                      placeholder="e.g. 7–10 days"
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeRow(i)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -519,6 +852,26 @@ export default function BrandSettings() {
 
   const removeProductLine = (idx: number) => {
     update("productLines", (config.productLines || []).filter((_, i) => i !== idx));
+  };
+
+  // ── Audience Segments ──────────────────────────────────────────────
+  const addSegment = () => {
+    if ((config.segments?.length ?? 0) >= 10) return;
+    const id = `seg_${Date.now()}`;
+    update("segments", [...(config.segments || []), {
+      id, name: "", description: "", messagingAngle: "",
+      valueProps: [], personas: [], challenges: [], stats: [], comparisonRows: [],
+    }]);
+  };
+
+  const updateSegment = (idx: number, updated: AudienceSegment) => {
+    const segs = [...(config.segments || [])];
+    segs[idx] = updated;
+    update("segments", segs);
+  };
+
+  const removeSegment = (idx: number) => {
+    update("segments", (config.segments || []).filter((_, i) => i !== idx));
   };
 
   return (
@@ -1120,7 +1473,48 @@ export default function BrandSettings() {
             )}
           </Card>
 
-          {/* SECTION 7 — PRESETS */}
+          {/* SECTION 7 — AUDIENCE SEGMENTS */}
+          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <div>
+                  <h2 className="font-display font-semibold text-lg">Audience Segments</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Define audience profiles with personas, challenges, stats, and comparison data. AI uses these to personalize copy per segment.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={addSegment}
+                disabled={(config.segments?.length ?? 0) >= 10}
+                className="gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Segment
+              </Button>
+            </div>
+            <Separator />
+
+            {(config.segments ?? []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No segments yet. Add audience segments to enable personalized landing pages and AI copy tailored to each buyer group.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(config.segments ?? []).map((seg, i) => (
+                  <SegmentCard
+                    key={seg.id || i}
+                    segment={seg}
+                    onChange={(updated) => updateSegment(i, updated)}
+                    onRemove={() => removeSegment(i)}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* SECTION 8 — PRESETS */}
           <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
