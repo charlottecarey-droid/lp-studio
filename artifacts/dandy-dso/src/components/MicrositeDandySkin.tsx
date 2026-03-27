@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { motion, useInView, useScroll, useTransform, useMotionValueEvent, AnimatePresence } from "framer-motion";
+import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
   ArrowRight, TrendingDown, BarChart3, Scale, Wallet,
   AlertTriangle, Users2, TrendingUp, Check, Minus,
@@ -177,9 +177,6 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
   const challengeRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress: challengeProgress } = useScroll({ target: challengeRef, offset: ["start start", "end end"] });
   const challengeX = useTransform(challengeProgress, [0.1, 0.9], ["0%", "-45%"]);
-  const [pathLen, setPathLen] = useState(0);
-  const pathProgress = useTransform(challengeProgress, [0.05, 0.85], [0, 1]);
-  useMotionValueEvent(pathProgress, "change", (v) => setPathLen(v));
 
   const displayChallenges = cfg?.challenges || DEFAULT_CHALLENGES.map(c => ({ title: c.title, desc: c.desc }));
   const challengeIcons = [TrendingDown, BarChart3, Scale, Wallet];
@@ -347,21 +344,6 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
             </div>
 
             <div className="max-w-[1280px] mx-auto w-full relative">
-              <svg className="absolute -top-16 left-0 w-full h-[calc(100%+80px)] pointer-events-none z-0" viewBox="0 0 1200 300" preserveAspectRatio="none" fill="none">
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(152 42% 12%)" stopOpacity="0.15" />
-                    <stop offset="100%" stopColor="hsl(152 42% 12%)" stopOpacity="0.01" />
-                  </linearGradient>
-                  <clipPath id="areaClip"><rect x="0" y="0" width={1200 * pathLen} height="300" /></clipPath>
-                </defs>
-                <path d="M 0 35 L 30 28 L 75 50 L 105 38 L 155 62 L 185 52 L 215 68 L 260 92 L 290 80 L 330 108 L 360 96 L 395 118 L 425 105 L 460 128 L 490 118 L 525 142 L 565 158 L 595 146 L 635 165 L 660 155 L 695 178 L 730 168 L 765 190 L 800 205 L 830 195 L 870 218 L 900 208 L 940 232 L 970 220 L 1010 245 L 1045 235 L 1080 255 L 1110 248 L 1145 268 L 1175 260 L 1200 275 L 1200 300 L 0 300 Z"
-                  fill="url(#areaGrad)" clipPath="url(#areaClip)" />
-                <path d="M 0 35 L 30 28 L 75 50 L 105 38 L 155 62 L 185 52 L 215 68 L 260 92 L 290 80 L 330 108 L 360 96 L 395 118 L 425 105 L 460 128 L 490 118 L 525 142 L 565 158 L 595 146 L 635 165 L 660 155 L 695 178 L 730 168 L 765 190 L 800 205 L 830 195 L 870 218 L 900 208 L 940 232 L 970 220 L 1010 245 L 1045 235 L 1080 255 L 1110 248 L 1145 268 L 1175 260 L 1200 275"
-                  stroke="hsl(152 42% 14%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"
-                  strokeDasharray="3500" strokeDashoffset={3500 - 3500 * pathLen} style={{ transition: "stroke-dashoffset 0.05s linear" }} />
-              </svg>
-
               <motion.div style={{ x: challengeX }} className="flex gap-5 will-change-transform relative z-10">
                 {displayChallenges.map((c, i) => {
                   const Icon = challengeIcons[i % 4];
