@@ -35,7 +35,7 @@ const DSOLabTour = () => {
             >
               <div className="relative aspect-[4/3]">
                 <img src={dandyLabMachines} alt="Dandy lab manufacturing floor" className="w-full h-full object-cover" loading="lazy" />
-                <div className="absolute inset-0 bg-foreground/20 group-hover:bg-foreground/10 transition-colors duration-500" />
+                <div className="absolute inset-0 bg-foreground/10 group-hover:bg-black/5 transition-colors duration-500" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-16 h-16 rounded-full bg-primary/90 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-xl">
                     <Play className="w-6 h-6 text-primary-foreground ml-0.5" fill="currentColor" />
@@ -95,7 +95,7 @@ const DSOLabTour = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/80 backdrop-blur-md p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
             onClick={() => setVideoOpen(false)}
           >
             <motion.div
