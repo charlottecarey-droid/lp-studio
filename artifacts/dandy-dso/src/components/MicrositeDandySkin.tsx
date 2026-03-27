@@ -173,11 +173,6 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
   const heroImageY = useTransform(heroProgress, [0, 1], ["0%", "30%"]);
   const heroOverlayOpacity = useTransform(heroProgress, [0, 1], [0.85, 1]);
 
-  /* ── CHALLENGE horizontal scroll ── */
-  const challengeRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: challengeProgress } = useScroll({ target: challengeRef, offset: ["start start", "end end"] });
-  const challengeX = useTransform(challengeProgress, [0.1, 0.9], ["0%", "-45%"]);
-
   const displayChallenges = cfg?.challenges || DEFAULT_CHALLENGES.map(c => ({ title: c.title, desc: c.desc }));
   const challengeIcons = [TrendingDown, BarChart3, Scale, Wallet];
 
@@ -329,45 +324,36 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
     }
 
     return (
-      <section key="challenges" ref={challengeRef} className="relative" style={{ height: "200vh" }}>
-        <div className="sticky top-0 h-screen overflow-hidden bg-secondary">
-          <div className="relative h-full flex flex-col justify-center px-6 md:px-10">
-            <div className="max-w-[1280px] mx-auto w-full mb-12">
-              <div className="max-w-3xl">
-                <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                  className="text-[11px] font-semibold text-primary mb-4 tracking-[0.15em] uppercase">The Hidden Cost</motion.p>
-                <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
-                  className="text-display text-foreground">
-                  {sectionHeadline("challenges", "At scale — even small inefficiencies compound fast.")}
-                </motion.h2>
-              </div>
-            </div>
-
-            <div className="max-w-[1280px] mx-auto w-full relative">
-              <motion.div style={{ x: challengeX }} className="flex gap-5 will-change-transform relative z-10">
-                {displayChallenges.map((c, i) => {
-                  const Icon = challengeIcons[i % 4];
-                  return (
-                    <motion.div key={c.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                      transition={{ delay: i * 0.1, duration: 0.6 }}
-                      className="w-[280px] md:w-[340px] shrink-0 rounded-2xl p-7 flex flex-col gap-4"
-                      style={{
-                        background: "rgba(255,255,255,0.88)",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.06)",
-                      }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
-                          <Icon className="w-4 h-4 text-primary" />
-                        </div>
-                        <h3 className="text-sm font-semibold text-foreground leading-snug">{c.title}</h3>
-                      </div>
-                      <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            </div>
+      <section key="challenges" className="section-padding bg-secondary">
+        <div className="max-w-[1280px] mx-auto px-6 md:px-10">
+          <div className="max-w-3xl mb-14">
+            <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+              className="text-[11px] font-semibold text-primary mb-4 tracking-[0.15em] uppercase">The Hidden Cost</motion.p>
+            <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
+              className="text-display text-foreground">
+              {sectionHeadline("challenges", "At scale — even small inefficiencies compound fast.")}
+            </motion.h2>
           </div>
+
+          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
+            className="flex rounded-2xl overflow-hidden"
+            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.07)" }}>
+            {displayChallenges.map((c, i) => {
+              const Icon = challengeIcons[i % 4];
+              return (
+                <div key={c.title} className="flex items-stretch flex-1">
+                  {i > 0 && <div className="w-px shrink-0" style={{ background: "rgba(0,0,0,0.07)" }} />}
+                  <div className="flex-1 flex flex-col px-8 py-10" style={{ background: "rgba(255,255,255,0.92)" }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">{c.title}</h3>
+                    <p className="text-[13px] text-muted-foreground leading-relaxed">{c.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </motion.div>
         </div>
       </section>
     );
