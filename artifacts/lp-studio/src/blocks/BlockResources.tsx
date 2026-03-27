@@ -2,6 +2,7 @@ import type { ResourcesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -17,15 +18,8 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
   const { headline, subheadline, columns, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
-  const bgClass =
-    backgroundStyle === "dark"
-      ? "bg-slate-900 text-white"
-      : backgroundStyle === "light-gray"
-        ? "bg-slate-50 text-slate-900"
-        : "bg-white text-slate-900";
-
-  const cardBg =
-    backgroundStyle === "dark" ? "bg-slate-800" : "bg-white";
+  const isDark = isDarkBg(backgroundStyle);
+  const cardBg = isDark ? "bg-white/10" : "bg-white";
 
   const GRID_COLS: Record<number, string> = {
     2: "grid-cols-1 sm:grid-cols-2",
@@ -36,7 +30,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
   const gridCols = GRID_COLS[columns] ?? GRID_COLS[3];
 
   return (
-    <section className={`${bgClass} ${sectionPy}`}>
+    <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
         {headline && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
@@ -44,7 +38,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
           </h2>
         )}
         {subheadline && (
-          <p className={`${getBodySizeClass(brand)} mb-10 ${backgroundStyle === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+          <p className={`${getBodySizeClass(brand)} mb-10 ${isDark ? "text-white/70" : "text-slate-500"}`}>
             {subheadline}
           </p>
         )}
@@ -55,7 +49,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
               key={i}
               href={item.url || "#"}
               className={`group rounded-xl overflow-hidden ${cardBg} border flex flex-col`}
-              style={backgroundStyle === "dark" ? { borderColor: "rgba(255,255,255,0.08)" } : { borderColor: "rgb(241,245,249)" }}
+              style={isDark ? { borderColor: "rgba(255,255,255,0.08)" } : { borderColor: "rgb(241,245,249)" }}
               initial={animationsEnabled ? { opacity: 0, y: 28 } : undefined}
               whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, amount: 0.1 }}
@@ -84,11 +78,11 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
                     {item.category}
                   </span>
                 )}
-                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${backgroundStyle === "dark" ? "text-white" : "text-slate-900"}`}>
+                <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
                   {item.title}
                 </h3>
                 {item.description && (
-                  <p className={`text-sm leading-relaxed flex-1 ${backgroundStyle === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                  <p className={`text-sm leading-relaxed flex-1 ${isDark ? "text-white/70" : "text-slate-500"}`}>
                     {item.description}
                   </p>
                 )}

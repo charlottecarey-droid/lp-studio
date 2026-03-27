@@ -1,3 +1,4 @@
+import { BG_OPTIONS } from "@/lib/bg-styles";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,8 +111,7 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="white">Light</SelectItem>
-            <SelectItem value="dark">Dark</SelectItem>
+            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             <SelectItem value="brand">Brand Color</SelectItem>
           </SelectContent>
         </Select>

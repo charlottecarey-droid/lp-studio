@@ -2,6 +2,7 @@ import { Trash2, SlidersHorizontal, AlignLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PageBlock, BlockSettings } from "@/lib/block-types";
+import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
 import { BlockSettingsPanel } from "./BlockSettingsPanel";
 import { HeroPanel } from "./HeroPanel";
 import { TrustBarPanel } from "./TrustBarPanel";
@@ -283,14 +284,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "light" | "muted" | "dark" | "black" | "gradient" } })}>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">Light (white)</SelectItem>
-                  <SelectItem value="muted">Muted (off-white)</SelectItem>
-                  <SelectItem value="dark">Dark (Dandy green)</SelectItem>
-                  <SelectItem value="black">Black</SelectItem>
-                  <SelectItem value="gradient">Black → Dandy Green Gradient</SelectItem>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -347,6 +344,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">CTA URL</Label>
               <Input value={p.ctaUrl} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="#" />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         );
       }
@@ -356,11 +362,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="white">White</SelectItem>
-                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -380,6 +385,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Headline</Label>
               <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         );
       }
@@ -397,11 +411,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+              <Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="white">White</SelectItem>
-                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -436,11 +449,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as "white" | "muted" } })}>
+              <Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="white">White</SelectItem>
-                  <SelectItem value="muted">Muted (off-white)</SelectItem>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -479,6 +491,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Secondary CTA URL</Label>
               <Input value={p.secondaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         );
       }
@@ -509,6 +530,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">CTA URL</Label>
               <Input value={p.ctaUrl} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="#" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         );

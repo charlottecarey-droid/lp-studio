@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BG_OPTIONS } from "@/lib/bg-styles";
 import type { RoiCalculatorBlockProps, RoiInputField, RoiOutputField } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -301,9 +302,7 @@ export function RoiCalculatorPanel({ props, onChange }: Props) {
         <Select value={props.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...props, backgroundStyle: v as RoiCalculatorBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="white">White</SelectItem>
-            <SelectItem value="light-gray">Light Gray</SelectItem>
-            <SelectItem value="dark">Dark</SelectItem>
+            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </FieldRow>

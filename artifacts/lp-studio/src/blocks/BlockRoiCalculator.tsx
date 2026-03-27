@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import type { RoiCalculatorBlockProps, RoiOutputField } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,9 @@ const BG_STYLES: Record<string, string> = {
   white: "bg-white",
   dark: "bg-[#003A30] text-white",
   "light-gray": "bg-slate-50",
+  muted: "bg-[hsl(42,18%,96%)]",
+  "dandy-green": "bg-[#003A30] text-white",
+  black: "bg-black text-white",
 };
 
 export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
@@ -49,15 +53,17 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
     setOverrides(prev => ({ ...prev, [id]: v }));
   };
 
-  const isDark = props.backgroundStyle === "dark";
+  const isDark = isDarkBg(props.backgroundStyle);
 
   const ctaUrl = (() => {
     if (props.ctaAction === "chilipiper" && props.chilipiperUrl) return `chilipiper:${props.chilipiperUrl}`;
     return props.ctaUrl ?? "#";
   })();
 
+  const bgStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
+
   return (
-    <section className={cn("w-full", BG_STYLES[props.backgroundStyle ?? "white"], sectionPy)}>
+    <section className={cn("w-full", BG_STYLES[props.backgroundStyle ?? "white"] ?? BG_STYLES["white"], sectionPy)} style={bgStyle}>
       <div className="max-w-6xl mx-auto px-6 md:px-10">
         <div className="text-center mb-12">
           <h2 className={cn("text-3xl md:text-4xl font-bold mb-4", isDark ? "text-white" : "text-foreground")}>

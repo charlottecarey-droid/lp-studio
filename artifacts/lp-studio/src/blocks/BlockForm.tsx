@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormBlockProps, FormField, FormStep, StepCondition } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 const API_BASE = "/api";
 
@@ -146,9 +147,12 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     "white": "bg-white",
     "light-gray": "bg-gray-50",
     "dark": "bg-[#003A30] text-white",
+    "muted": "bg-[hsl(42,18%,96%)]",
+    "dandy-green": "bg-[#003A30] text-white",
+    "black": "bg-black text-white",
   };
 
-  const isDark = props.backgroundStyle === "dark";
+  const isDark = isDarkBg(props.backgroundStyle);
   const [currentStep, setCurrentStep] = useState(0);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
@@ -276,9 +280,11 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
 
   const accentColor = brand.primaryColor || "#C7E738";
 
+  const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
+
   if (submitted) {
     return (
-      <section className={`${bgStyles[props.backgroundStyle]} py-16 px-4`}>
+      <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-16 px-4`} style={bgInlineStyle}>
         <div className="max-w-xl mx-auto text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{ background: `${accentColor}22` }}>
             <svg viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2.5" className="w-8 h-8">
@@ -294,7 +300,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   }
 
   return (
-    <section className={`${bgStyles[props.backgroundStyle]} py-16 px-4`}>
+    <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-16 px-4`} style={bgInlineStyle}>
       <div className="max-w-xl mx-auto">
         {(props.headline || props.subheadline) && (
           <div className="text-center mb-8">

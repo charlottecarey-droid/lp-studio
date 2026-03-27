@@ -1,7 +1,9 @@
 import type { ResourcesBlockProps, ResourceItem } from "../../../lib/block-types";
+import { BG_OPTIONS } from "@/lib/bg-styles";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
@@ -92,21 +94,12 @@ export default function ResourcesPanel({ props, onChange }: Props) {
 
       <div>
         <Label className="text-xs text-slate-500 mb-1">Background</Label>
-        <div className="flex gap-2">
-          {(["white", "light-gray", "dark"] as const).map((bg) => (
-            <button
-              key={bg}
-              onClick={() => onChange({ ...props, backgroundStyle: bg })}
-              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                props.backgroundStyle === bg
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
-            >
-              {bg === "white" ? "White" : bg === "light-gray" ? "Light Gray" : "Dark"}
-            </button>
-          ))}
-        </div>
+        <Select value={props.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...props, backgroundStyle: v as ResourcesBlockProps["backgroundStyle"] })}>
+          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border-t pt-4">

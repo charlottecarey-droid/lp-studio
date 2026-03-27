@@ -2,6 +2,7 @@ import type { CaseStudiesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -26,18 +27,18 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
   const { headline, subheadline, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
-  const bg = backgroundStyle === "light-gray" ? "bg-slate-50" : "bg-white";
+  const isDark = isDarkBg(backgroundStyle);
   const featured = items[0];
   const rest = items.slice(1);
 
   return (
-    <section className={`${bg} ${sectionPy}`}>
+    <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
         {headline && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>{headline}</h2>
         )}
         {subheadline && (
-          <p className={`${getBodySizeClass(brand)} text-slate-500 mb-10`}>{subheadline}</p>
+          <p className={`${getBodySizeClass(brand)} ${isDark ? "text-white/70" : "text-slate-500"} mb-10`}>{subheadline}</p>
         )}
 
         <div className={`grid grid-cols-1 gap-4 ${{

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { DsoSuccessStoriesBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoSuccessStoriesBlockProps;
@@ -36,11 +37,12 @@ const DEFAULT_CASES = [
 ];
 
 export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
-  const { eyebrow, headline, cases } = props;
+  const { eyebrow, headline, cases, backgroundStyle = "dandy-green" } = props;
+  const dark = isDarkBg(backgroundStyle);
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
 
   return (
-    <section style={{ background: P }} className="py-24 md:py-32">
+    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
@@ -53,7 +55,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: AW,
+                color: dark ? AW : P,
                 marginBottom: "1.25rem",
               }}
             >
@@ -70,7 +72,7 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: PFG,
+              color: dark ? PFG : P,
               letterSpacing: 0,
             }}
           >

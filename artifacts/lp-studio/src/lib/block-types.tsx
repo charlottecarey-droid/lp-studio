@@ -1,4 +1,5 @@
 import type React from "react";
+import type { BackgroundStyle } from "./bg-styles";
 
 export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO";
 
@@ -10,7 +11,7 @@ export interface HeroBlockProps {
   ctaColor: string;
   heroType: "dandy-video" | "static-image" | "none";
   layout: "centered" | "split" | "split-right" | "minimal";
-  backgroundStyle: "white" | "dark";
+  backgroundStyle: BackgroundStyle;
   showSocialProof: boolean;
   socialProofText: string;
   imageUrl: string;
@@ -139,7 +140,7 @@ export interface VideoSectionBlockProps {
   chilipiperUrl?: string;
   videoUrl: string;
   aspectRatio: "16/9" | "4/3" | "1/1";
-  backgroundStyle: "white" | "dark" | "light-gray";
+  backgroundStyle: BackgroundStyle;
   overlayHeadline?: string;
   overlaySubheadline?: string;
   overlayCtaText?: string;
@@ -164,7 +165,7 @@ export interface CaseStudiesBlockProps {
   subheadline: string;
   columns?: 2 | 3 | 4;
   items: CaseStudyItem[];
-  backgroundStyle: "white" | "light-gray";
+  backgroundStyle: BackgroundStyle;
   hoverLift?: boolean;
   hoverImageZoom?: boolean;
 }
@@ -182,7 +183,7 @@ export interface ResourcesBlockProps {
   subheadline: string;
   columns: 2 | 3 | 4 | 5;
   items: ResourceItem[];
-  backgroundStyle: "white" | "light-gray" | "dark";
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface RichTextBlockProps {
@@ -203,7 +204,7 @@ export interface DsoInsightsDashboardBlockProps {
   headline: string;
   subheadline: string;
   practiceLabel: string;
-  backgroundStyle: "light" | "muted" | "dark" | "black" | "gradient";
+  backgroundStyle: BackgroundStyle;
   dashboardVariant: "light" | "dark";
 }
 
@@ -217,23 +218,25 @@ export interface DsoLabTourBlockProps {
   videoUrl: string;
   ctaText: string;
   ctaUrl: string;
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface DsoStatBarBlockProps {
   stats: { value: string; label: string }[];
-  backgroundStyle: "white" | "muted";
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface DsoSuccessStoriesBlockProps {
   eyebrow: string;
   headline: string;
   cases: { name: string; stat: string; label: string; quote: string; author: string }[];
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface DsoChallengesBlockProps {
   eyebrow: string;
   headline: string;
-  backgroundStyle: "white" | "muted";
+  backgroundStyle: BackgroundStyle;
   layout: "4-col" | "2-col";
   challenges: { title: string; desc: string }[];
 }
@@ -242,7 +245,7 @@ export interface DsoPilotStepsBlockProps {
   eyebrow: string;
   headline: string;
   subheadline: string;
-  backgroundStyle: "white" | "muted";
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface DsoFinalCtaBlockProps {
@@ -253,6 +256,7 @@ export interface DsoFinalCtaBlockProps {
   primaryCtaUrl: string;
   secondaryCtaText: string;
   secondaryCtaUrl: string;
+  backgroundStyle: BackgroundStyle;
 }
 
 export interface DsoComparisonBlockProps {
@@ -263,6 +267,7 @@ export interface DsoComparisonBlockProps {
   ctaText: string;
   ctaUrl: string;
   rows: { need: string; dandy: string; traditional: string }[];
+  backgroundStyle: BackgroundStyle;
 }
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
@@ -306,7 +311,7 @@ export interface FormBlockProps {
   submitButtonTextColor?: string;
   successMessage: string;
   redirectUrl: string;
-  backgroundStyle: "white" | "light-gray" | "dark";
+  backgroundStyle: BackgroundStyle;
   formId?: number;
 }
 
@@ -437,7 +442,7 @@ export interface PopupBlockProps {
   showOnce: boolean;
   overlayOpacity: number;
   position: "center" | "bottom-left" | "bottom-right";
-  backgroundStyle: "white" | "dark";
+  backgroundStyle: BackgroundStyle;
   // Chili Piper calendar CTA
   ctaType: "url" | "chilipiper";
   chilipiperUrl: string;
@@ -452,7 +457,7 @@ export interface StickyBarBlockProps {
   chilipiperUrl?: string;
   ctaColor: string;
   position: "top" | "bottom";
-  backgroundStyle: "white" | "dark" | "brand";
+  backgroundStyle: BackgroundStyle | "brand";
   showAfterScroll: number;
   dismissible: boolean;
 }
@@ -488,7 +493,7 @@ export interface RoiCalculatorBlockProps {
   ctaAction?: "url" | "chilipiper";
   chilipiperUrl?: string;
   ctaEnabled: boolean;
-  backgroundStyle: "white" | "dark" | "light-gray";
+  backgroundStyle: BackgroundStyle;
   accentColor?: string;
   resultsPanelLabel?: string;
   disclaimer?: string;
@@ -1418,6 +1423,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       videoUrl: "",
       ctaText: "Request a Lab Tour",
       ctaUrl: "#",
+      backgroundStyle: "white",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -1469,6 +1475,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       eyebrow: "Proven Results",
       headline: "DSOs that switched and never looked back.",
       cases: [],
+      backgroundStyle: "dandy-green",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -1553,6 +1560,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       primaryCtaUrl: "#",
       secondaryCtaText: "Calculate ROI",
       secondaryCtaUrl: "#",
+      backgroundStyle: "dandy-green",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -1579,6 +1587,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaText: "Request a Demo",
       ctaUrl: "#",
       rows: [],
+      backgroundStyle: "muted",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

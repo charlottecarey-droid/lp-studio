@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingDown, BarChart3, Scale, Wallet } from "lucide-react";
 import type { DsoChallengesBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoChallengesBlockProps;
@@ -35,12 +36,12 @@ const DEFAULT_CHALLENGES = [
 
 export function BlockDsoChallenges({ props }: Props) {
   const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges } = props;
-  const bg = backgroundStyle === "white" ? "#fff" : SEC;
+  const dark = isDarkBg(backgroundStyle);
   const displayChallenges = (challenges && challenges.length > 0) ? challenges : DEFAULT_CHALLENGES;
   const gridCols = layout === "2-col" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 md:grid-cols-4";
 
   return (
-    <section style={{ background: bg }} className="py-24 md:py-32">
+    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ maxWidth: 768, marginBottom: "3.5rem" }}>
           {eyebrow && (
@@ -53,7 +54,7 @@ export function BlockDsoChallenges({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: P,
+                color: dark ? "hsl(68,60%,52%)" : P,
                 marginBottom: "1rem",
               }}
             >
@@ -70,7 +71,7 @@ export function BlockDsoChallenges({ props }: Props) {
               fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: FG,
+              color: dark ? "#fff" : FG,
               letterSpacing: 0,
             }}
           >
@@ -93,9 +94,13 @@ export function BlockDsoChallenges({ props }: Props) {
                   display: "flex",
                   flexDirection: "column",
                   padding: layout === "2-col" ? "2.5rem" : "1.75rem 1.75rem 2.5rem",
-                  background: "linear-gradient(150deg,#ffffff 50%,hsl(152,42%,96%) 100%)",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.07)",
-                  borderTop: `2px solid ${P}`,
+                  background: dark
+                    ? "rgba(255,255,255,0.07)"
+                    : "linear-gradient(150deg,#ffffff 50%,hsl(152,42%,96%) 100%)",
+                  boxShadow: dark
+                    ? "0 1px 2px rgba(0,0,0,0.2)"
+                    : "0 1px 2px rgba(0,0,0,0.04),0 6px 24px rgba(0,0,0,0.07)",
+                  borderTop: dark ? `2px solid hsl(68,60%,52%)` : `2px solid ${P}`,
                 }}
               >
                 <div
@@ -106,17 +111,17 @@ export function BlockDsoChallenges({ props }: Props) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: `${P}14`,
+                    background: dark ? "rgba(255,255,255,0.1)" : `${P}14`,
                     marginBottom: "1.5rem",
                   }}
                 >
-                  <Icon style={{ width: 16, height: 16, color: P }} />
+                  <Icon style={{ width: 16, height: 16, color: dark ? "hsl(68,60%,52%)" : P }} />
                 </div>
                 <h3
                   style={{
                     fontSize: "0.875rem",
                     fontWeight: 600,
-                    color: FG,
+                    color: dark ? "#fff" : FG,
                     marginBottom: "0.75rem",
                     lineHeight: 1.35,
                   }}
@@ -126,7 +131,7 @@ export function BlockDsoChallenges({ props }: Props) {
                 <p
                   style={{
                     fontSize: "0.8125rem",
-                    color: MU,
+                    color: dark ? "rgba(255,255,255,0.6)" : MU,
                     lineHeight: 1.65,
                   }}
                 >

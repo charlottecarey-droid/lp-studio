@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoFinalCtaBlockProps;
@@ -22,7 +23,9 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
     primaryCtaUrl = "#",
     secondaryCtaText = "Calculate ROI",
     secondaryCtaUrl = "#",
+    backgroundStyle = "dandy-green",
   } = props;
+  const dark = isDarkBg(backgroundStyle);
 
   const ctaRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ctaRef, offset: ["start end", "end start"] });
@@ -46,7 +49,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
   return (
     <section
       ref={ctaRef}
-      style={{ position: "relative", overflow: "hidden", background: P }}
+      style={{ position: "relative", overflow: "hidden", ...getBgStyle(backgroundStyle) }}
       className="py-24 md:py-32"
     >
       {/* Orb 1 */}
@@ -101,7 +104,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
               fontWeight: 600,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
-              color: AW,
+              color: dark ? AW : P,
               marginBottom: "1.5rem",
             }}
           >
@@ -119,7 +122,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
             fontSize: "clamp(2rem,4vw,3.25rem)",
             lineHeight: 1.1,
             fontWeight: 600,
-            color: PFG,
+            color: dark ? PFG : P,
             letterSpacing: 0,
           }}
         >
@@ -137,7 +140,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
             style={{
               marginTop: "1.5rem",
               fontSize: "1.125rem",
-              color: `${PFG}a6`,
+              color: dark ? `${PFG}a6` : "hsl(152,8%,48%)",
               lineHeight: 1.65,
             }}
           >

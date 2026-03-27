@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2 } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoPilotStepsBlockProps;
@@ -52,7 +53,7 @@ const DEFAULT_STEPS = [
 
 export function BlockDsoPilotSteps({ props }: Props) {
   const { eyebrow, headline, subheadline, backgroundStyle = "muted" } = props;
-  const bg = backgroundStyle === "white" ? "#fff" : SEC;
+  const dark = isDarkBg(backgroundStyle);
 
   const pilotRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -62,7 +63,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
   const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   return (
-    <section style={{ background: bg }} className="py-24 md:py-32">
+    <section style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (
@@ -75,7 +76,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: P,
+                color: dark ? "hsl(68,60%,52%)" : P,
                 marginBottom: "1.25rem",
               }}
             >
@@ -92,7 +93,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: FG,
+              color: dark ? "#fff" : FG,
               letterSpacing: 0,
             }}
           >

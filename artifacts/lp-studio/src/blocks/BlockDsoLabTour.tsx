@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoLabTourBlockProps;
@@ -27,7 +28,9 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
     quote, quoteAttribution,
     imageUrl, videoUrl,
     ctaText, ctaUrl,
+    backgroundStyle = "white",
   } = props;
+  const dark = isDarkBg(backgroundStyle);
 
   const [videoOpen, setVideoOpen] = useState(false);
 
@@ -43,7 +46,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
 
   return (
     <>
-      <section ref={sectionRef} style={{ background: "#fff" }} className="py-24 md:py-32">
+      <section ref={sectionRef} style={getBgStyle(backgroundStyle)} className="py-24 md:py-32">
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
           <div className="grid md:grid-cols-2 gap-14 lg:gap-24 items-center">
 

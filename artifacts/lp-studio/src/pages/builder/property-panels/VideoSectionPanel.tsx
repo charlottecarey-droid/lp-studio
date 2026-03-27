@@ -1,4 +1,5 @@
 import type { VideoSectionBlockProps } from "@/lib/block-types";
+import { BG_OPTIONS } from "@/lib/bg-styles";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -185,17 +186,10 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Background</Label>
-        <Select
-          value={props.backgroundStyle}
-          onValueChange={v => {
-            if (v === "white" || v === "dark" || v === "light-gray") set("backgroundStyle", v);
-          }}
-        >
+        <Select value={props.backgroundStyle} onValueChange={v => set("backgroundStyle", v)}>
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="white">White</SelectItem>
-            <SelectItem value="dark">Dark</SelectItem>
-            <SelectItem value="light-gray">Light Gray</SelectItem>
+            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

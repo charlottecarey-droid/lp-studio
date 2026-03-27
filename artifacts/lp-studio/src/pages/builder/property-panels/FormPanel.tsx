@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BG_OPTIONS } from "@/lib/bg-styles";
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off, X } from "lucide-react";
 import type { FormBlockProps, FormField, FormFieldType, FormStep } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
@@ -553,9 +554,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <Select value={props.backgroundStyle} onValueChange={v => set("backgroundStyle", v as FormBlockProps["backgroundStyle"])}>
             <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="white">White</SelectItem>
-              <SelectItem value="light-gray">Light Gray</SelectItem>
-              <SelectItem value="dark">Dark</SelectItem>
+              {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

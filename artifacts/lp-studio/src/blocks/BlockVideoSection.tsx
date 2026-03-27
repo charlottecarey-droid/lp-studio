@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
@@ -29,6 +30,9 @@ const BG_CLASSES: Record<string, string> = {
   white: "bg-white text-slate-900",
   dark: "bg-[#003A30] text-white",
   "light-gray": "bg-slate-50 text-slate-900",
+  muted: "bg-[hsl(42,18%,96%)] text-slate-900",
+  "dandy-green": "bg-[#003A30] text-white",
+  black: "bg-black text-white",
 };
 
 export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
@@ -46,7 +50,8 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const bgClass = BG_CLASSES[props.backgroundStyle] ?? BG_CLASSES.white;
   const aspectClass = ASPECT_CLASSES[props.aspectRatio] ?? ASPECT_CLASSES["16/9"];
-  const isDark = props.backgroundStyle === "dark";
+  const isDark = isDarkBg(props.backgroundStyle);
+  const bgGradientStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
   const layout = props.layout ?? "full-width";
   const isSplit = layout === "split-left" || layout === "split-right";
   const LIME = brand.accentColor;
@@ -239,7 +244,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   if (isSplit) {
     return (
       <>
-        <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
+        <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)} style={bgGradientStyle}>
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {layout === "split-left" ? (
@@ -263,7 +268,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
 
   return (
     <>
-      <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)}>
+      <section className={cn("w-full px-6 md:px-10", bgClass, sectionPy)} style={bgGradientStyle}>
         <div className="max-w-5xl mx-auto">
           {(props.headline || props.subheadline) && (
             <div className="text-center max-w-3xl mx-auto mb-10">

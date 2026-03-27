@@ -6,6 +6,7 @@ import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 const DEFAULT_IMAGE = "/dandy-platform.webp";
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -24,7 +25,10 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   const FOREST = brand.primaryColor;
   const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
   const isFullWidth = props.buttonWidth === "full";
-  const isDark = props.backgroundStyle === "dark";
+  const isDark = isDarkBg(props.backgroundStyle);
+  const bgExtended = ["black", "gradient", "muted", "light-gray"].includes(props.backgroundStyle ?? "")
+    ? getBgStyle(props.backgroundStyle)
+    : undefined;
   const isSplit = props.layout === "split" || props.layout === "split-right";
   const isSplitRight = props.layout === "split-right";
 
@@ -110,7 +114,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   );
 
   return (
-    <div className={cn("w-full font-sans selection:bg-[#C7E738] selection:text-[#003A30]", isDark ? "bg-[#003A30] text-white" : "bg-white text-slate-900")}>
+    <div className={cn("w-full font-sans selection:bg-[#C7E738] selection:text-[#003A30]", isDark ? "bg-[#003A30] text-white" : "bg-white text-slate-900")} style={bgExtended}>
       <div className="min-h-[70vh] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
           <img src={dandyLogoUrl} alt="Dandy" className="h-8 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
@@ -120,7 +124,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
         </nav>
         <section
           className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[#003A30]" : "bg-white")}
-          style={contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }}
+          style={{ ...(contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }), ...(bgExtended ?? {}) }}
         >
           {isSplit ? (
             <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">

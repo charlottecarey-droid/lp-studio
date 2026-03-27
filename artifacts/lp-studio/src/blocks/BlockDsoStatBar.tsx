@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoStatBarBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoStatBarBlockProps;
@@ -9,9 +10,14 @@ interface Props {
 const P = "hsl(152,42%,12%)";
 const FG = "hsl(152,40%,13%)";
 const MU = "hsl(152,8%,48%)";
-const SEC_BG = "hsl(42,18%,96%)";
 
-const StatItem = ({ stat, i }: { stat: { value: string; label: string }; i: number }) => {
+const StatItem = ({
+  stat, i, dark,
+}: {
+  stat: { value: string; label: string };
+  i: number;
+  dark: boolean;
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
 
@@ -27,21 +33,23 @@ const StatItem = ({ stat, i }: { stat: { value: string; label: string }; i: numb
         style={{
           fontSize: "clamp(2rem,4vw,2.75rem)",
           fontWeight: 500,
-          color: FG,
+          color: dark ? "hsl(68,60%,52%)" : FG,
           letterSpacing: "-0.02em",
           lineHeight: 1.1,
         }}
       >
         {stat.value}
       </p>
-      <p style={{ fontSize: "0.875rem", color: MU, marginTop: "0.375rem" }}>{stat.label}</p>
+      <p style={{ fontSize: "0.875rem", color: dark ? "rgba(255,255,255,0.6)" : MU, marginTop: "0.375rem" }}>
+        {stat.label}
+      </p>
     </motion.div>
   );
 };
 
 export function BlockDsoStatBar({ props }: Props) {
   const { stats = [], backgroundStyle = "white" } = props;
-  const bg = backgroundStyle === "muted" ? SEC_BG : "#fff";
+  const dark = isDarkBg(backgroundStyle);
 
   const displayStats = stats.length > 0
     ? stats.slice(0, 4)
@@ -53,7 +61,7 @@ export function BlockDsoStatBar({ props }: Props) {
       ];
 
   return (
-    <section style={{ background: bg }}>
+    <section style={getBgStyle(backgroundStyle)}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "2.5rem 1.5rem 3rem" }}>
         <div
           style={{
@@ -64,7 +72,7 @@ export function BlockDsoStatBar({ props }: Props) {
           className="md:grid-cols-4"
         >
           {displayStats.map((stat, i) => (
-            <StatItem key={stat.label} stat={stat} i={i} />
+            <StatItem key={stat.label} stat={stat} i={i} dark={dark} />
           ))}
         </div>
       </div>

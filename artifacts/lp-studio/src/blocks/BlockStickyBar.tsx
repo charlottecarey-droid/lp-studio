@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperModal } from "./ChiliPiperModal";
@@ -32,12 +33,14 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
 
   if (dismissed || !visible) return null;
 
-  const isDark = p.backgroundStyle === "dark";
   const isBrand = p.backgroundStyle === "brand";
+  const isDark = !isBrand && isDarkBg(p.backgroundStyle);
 
-  const bgColor = isBrand
-    ? (brand.primaryColor || "#003A30")
-    : isDark ? "#1e293b" : "#ffffff";
+  const barBgStyle = isBrand
+    ? { backgroundColor: brand.primaryColor || "#003A30" }
+    : isDark || p.backgroundStyle === "gradient"
+      ? getBgStyle(p.backgroundStyle)
+      : { backgroundColor: p.backgroundStyle === "muted" ? "hsl(42,18%,96%)" : p.backgroundStyle === "light-gray" ? "#f8fafc" : "#ffffff" };
   const textColor = (isDark || isBrand) ? "#ffffff" : "#1e293b";
 
   return (
@@ -47,7 +50,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
         "fixed left-0 right-0 z-[9998] flex items-center justify-center gap-4 px-4 py-3 shadow-lg transition-transform duration-300",
         p.position === "top" ? "top-0" : "bottom-0"
       )}
-      style={{ backgroundColor: bgColor, color: textColor }}
+      style={{ ...barBgStyle, color: textColor }}
     >
       <p className="text-sm font-medium flex-1 text-center">{p.text}</p>
       {p.ctaText && (
