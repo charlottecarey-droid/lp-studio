@@ -210,9 +210,9 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   transition={{ delay: 0.1 }}
                   style={{
                     marginTop: "1.5rem",
-                    fontSize: "1.125rem",
+                    fontSize: "1.0625rem",
                     color: bodyColor,
-                    lineHeight: 1.65,
+                    lineHeight: 1.7,
                   }}
                 >
                   {body}

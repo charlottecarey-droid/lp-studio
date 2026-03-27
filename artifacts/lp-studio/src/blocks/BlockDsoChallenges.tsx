@@ -55,7 +55,7 @@ export function BlockDsoChallenges({ props }: Props) {
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
                 color: dark ? "hsl(68,60%,52%)" : P,
-                marginBottom: "1rem",
+                marginBottom: "1.25rem",
               }}
             >
               {eyebrow}
@@ -119,18 +119,18 @@ export function BlockDsoChallenges({ props }: Props) {
                 </div>
                 <h3
                   style={{
-                    fontSize: "0.875rem",
+                    fontSize: "0.9375rem",
                     fontWeight: 600,
                     color: dark ? "#fff" : FG,
                     marginBottom: "0.75rem",
-                    lineHeight: 1.35,
+                    lineHeight: 1.4,
                   }}
                 >
                   {c.title}
                 </h3>
                 <p
                   style={{
-                    fontSize: "0.8125rem",
+                    fontSize: "0.875rem",
                     color: dark ? "rgba(255,255,255,0.6)" : MU,
                     lineHeight: 1.65,
                   }}

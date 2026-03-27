@@ -53,7 +53,7 @@ export function BlockDsoProblem({ props }: Props) {
   return (
     <section
       style={{ background: "hsl(0,0%,98%)", color: TEAL }}
-      className="py-20 md:py-28 lg:py-36 relative overflow-hidden"
+      className="py-24 md:py-32 relative overflow-hidden"
     >
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10 relative z-10">
 
@@ -75,11 +75,11 @@ export function BlockDsoProblem({ props }: Props) {
             transition={{ duration: 0.7 }}
             style={{
               fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(2rem,4.5vw,3.75rem)",
+              fontSize: "clamp(2rem,4vw,3.25rem)",
               lineHeight: 1.1,
               fontWeight: 600,
               color: TEAL,
-              letterSpacing: "-0.01em",
+              letterSpacing: 0,
               maxWidth: 800,
               margin: "0 auto",
             }}

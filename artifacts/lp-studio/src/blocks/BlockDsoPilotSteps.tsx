@@ -117,9 +117,9 @@ export function BlockDsoPilotSteps({ props }: Props) {
               transition={{ delay: 0.1 }}
               style={{
                 marginTop: "1.5rem",
-                fontSize: "1.125rem",
+                fontSize: "1.0625rem",
                 color: subColor,
-                lineHeight: 1.65,
+                lineHeight: 1.7,
                 maxWidth: 560,
                 margin: "1.5rem auto 0",
               }}
@@ -187,11 +187,11 @@ export function BlockDsoPilotSteps({ props }: Props) {
                   <div style={{ paddingBottom: 8, marginTop: -2 }}>
                     <p
                       style={{
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: 600,
                         color: AW,
                         textTransform: "uppercase",
-                        letterSpacing: "0.2em",
+                        letterSpacing: "0.15em",
                         marginBottom: 4,
                       }}
                     >

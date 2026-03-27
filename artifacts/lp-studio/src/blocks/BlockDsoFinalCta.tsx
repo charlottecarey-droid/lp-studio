@@ -102,10 +102,10 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
             style={{
               fontSize: 11,
               fontWeight: 600,
-              letterSpacing: "0.2em",
+              letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: dark ? AW : P,
-              marginBottom: "1.5rem",
+              marginBottom: "1.25rem",
             }}
           >
             {eyebrow}
@@ -139,9 +139,9 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
             transition={{ delay: 0.1 }}
             style={{
               marginTop: "1.5rem",
-              fontSize: "1.125rem",
+              fontSize: "1.0625rem",
               color: dark ? `${PFG}a6` : "hsl(152,8%,48%)",
-              lineHeight: 1.65,
+              lineHeight: 1.7,
             }}
           >
             {subheadline}

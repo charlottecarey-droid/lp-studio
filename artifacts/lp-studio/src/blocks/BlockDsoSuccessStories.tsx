@@ -129,10 +129,10 @@ export function BlockDsoSuccessStories({ props, onCtaClick }: Props) {
               >
                 <p
                   style={{
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
                     textTransform: "uppercase",
-                    letterSpacing: "0.2em",
+                    letterSpacing: "0.15em",
                     color: companyColor,
                     marginBottom: "1.5rem",
                   }}
