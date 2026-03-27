@@ -29,7 +29,7 @@ export function BlockDsoAiFeature({ props }: Props) {
     body      = "AI Scan Review catches issues in real time — avoiding costly rework and maximizing revenue potential before a case ever reaches the bench.",
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
-    imageUrl  = "/dso-ai-scan.png",
+    imageUrl  = "/dso-ai-scan.jpg",
   } = props;
 
   const bulletIcons = [ScanLine, RefreshCw, ShieldCheck];
