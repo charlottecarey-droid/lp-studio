@@ -454,6 +454,41 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_dso_email_outreach_log_sfdc ON dso_email_outreach_log(salesforce_id) WHERE salesforce_id IS NOT NULL;
       ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS abm_stage text;
       ALTER TABLE dso_microsites ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+      -- Personalized links for LP Studio pages
+      CREATE TABLE IF NOT EXISTS lp_personalized_links (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        contact_name text NOT NULL,
+        company text,
+        email text,
+        token text NOT NULL UNIQUE,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_lp_personalized_links_page ON lp_personalized_links(page_id);
+      CREATE INDEX IF NOT EXISTS idx_lp_personalized_links_token ON lp_personalized_links(token);
+
+      CREATE TABLE IF NOT EXISTS lp_personalized_link_visits (
+        id serial PRIMARY KEY,
+        link_id integer NOT NULL REFERENCES lp_personalized_links(id) ON DELETE CASCADE,
+        ip text,
+        city text,
+        region text,
+        country text,
+        scroll_depth_pct real,
+        cta_clicks integer NOT NULL DEFAULT 0,
+        visited_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_lp_pl_visits_link ON lp_personalized_link_visits(link_id);
+
+      CREATE TABLE IF NOT EXISTS lp_page_alert_emails (
+        id serial PRIMARY KEY,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        email text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(page_id, email)
+      );
+      CREATE INDEX IF NOT EXISTS idx_lp_page_alert_emails_page ON lp_page_alert_emails(page_id);
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

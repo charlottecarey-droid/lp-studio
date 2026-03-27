@@ -23,6 +23,8 @@ import integrationsRouter from "./integrations";
 import smartTrafficRouter from "./smart-traffic";
 import heatmapRouter from "./heatmap";
 import performanceRouter from "./performance";
+import personalizedLinksRouter from "./personalized-links";
+import tokenResolveRouter from "./token-resolve";
 
 const router = Router();
 
@@ -50,5 +52,7 @@ router.use(seoMetaGenerateRouter);
 router.use(integrationsRouter);
 router.use(smartTrafficRouter);
 router.use(heatmapRouter);
+router.use(personalizedLinksRouter);
+router.use(tokenResolveRouter);
 
 export default router;

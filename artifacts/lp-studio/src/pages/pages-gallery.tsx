@@ -12,13 +12,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { createBlock, templateToBlocks, type PageBlock } from "@/lib/block-types";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import { useReviews } from "@/hooks/use-collaboration";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
+import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
 
 const API_BASE = "/api";
 
@@ -217,6 +218,7 @@ export default function PagesGallery() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [abTestPage, setAbTestPage] = useState<{ id: number; title: string; slug: string } | null>(null);
+  const [personalizedLinksPage, setPersonalizedLinksPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [, navigate] = useLocation();
@@ -443,6 +445,15 @@ export default function PagesGallery() {
                       variant="ghost"
                       size="sm"
                       className="px-2 hover:text-primary"
+                      title="Personalized links"
+                      onClick={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2 hover:text-primary"
                       title="Share for review"
                       onClick={() => setSharePageId({ id: page.id, title: page.title })}
                     >
@@ -486,6 +497,15 @@ export default function PagesGallery() {
         <CreateTestFromPageModal
           page={abTestPage}
           onClose={() => setAbTestPage(null)}
+        />
+      )}
+
+      {personalizedLinksPage && (
+        <PersonalizedLinksPanel
+          pageId={personalizedLinksPage.id}
+          pageSlug={personalizedLinksPage.slug}
+          pageTitle={personalizedLinksPage.title}
+          onClose={() => setPersonalizedLinksPage(null)}
         />
       )}
 

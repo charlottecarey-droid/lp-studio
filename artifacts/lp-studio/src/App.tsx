@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import PersonalizedLinkResolver from "@/pages/personalized-link-resolver";
 
 import Dashboard from "@/pages/dashboard";
 import CreateTest from "@/pages/create-test";
@@ -68,6 +69,9 @@ function Router() {
 
       {/* Review Shell (No App Layout) */}
       <Route path="/review/:pageId" component={ReviewShell} />
+
+      {/* Personalized link resolver (No App Layout) */}
+      <Route path="/p/:token" component={PersonalizedLinkResolver} />
       
       <Route component={NotFound} />
     </Switch>

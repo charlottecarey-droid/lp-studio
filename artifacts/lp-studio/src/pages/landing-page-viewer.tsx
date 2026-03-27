@@ -199,6 +199,9 @@ export default function LandingPageViewer() {
     ? parseInt(searchParams.get("previewVariantId")!, 10)
     : undefined;
   const isPreviewMode = !!previewVariantId;
+
+  // Personalized link token: ?_plToken=<token> — enables engagement attribution
+  const plToken = searchParams.get("_plToken") ?? null;
   
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
@@ -254,6 +257,61 @@ export default function LandingPageViewer() {
       setHasTrackedImpression(true);
     }
   }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode]);
+
+  // Personalized link engagement tracking: scroll depth + CTA clicks via _plToken
+  useEffect(() => {
+    if (!plToken) return;
+
+    const engagementUrl = `/api/lp/personalized-links/${plToken}/engagement`;
+
+    let maxScrollDepth = 0;
+    let ctaClicksDelta = 0;
+    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    function flush() {
+      if (maxScrollDepth === 0 && ctaClicksDelta === 0) return;
+      const payload = { scrollDepthPct: maxScrollDepth, ctaClicks: ctaClicksDelta };
+      ctaClicksDelta = 0;
+      fetch(engagementUrl, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), keepalive: true }).catch(() => undefined);
+    }
+
+    function scheduleFlush() {
+      if (flushTimeout) clearTimeout(flushTimeout);
+      flushTimeout = setTimeout(flush, 3000);
+    }
+
+    function onScroll() {
+      const scrolled = window.scrollY + window.innerHeight;
+      const total = document.documentElement.scrollHeight;
+      const pct = total > 0 ? Math.round((scrolled / total) * 100) : 0;
+      if (pct > maxScrollDepth) {
+        maxScrollDepth = Math.min(pct, 100);
+        scheduleFlush();
+      }
+    }
+
+    function onCtaClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest("a[href], button[data-cta]");
+      if (anchor) {
+        ctaClicksDelta++;
+        scheduleFlush();
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("click", onCtaClick, true);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("click", onCtaClick, true);
+      window.removeEventListener("beforeunload", flush);
+      if (flushTimeout) clearTimeout(flushTimeout);
+      flush();
+    };
+  }, [plToken]);
 
   if (isLoading || (!isPreviewMode && !sessionId)) {
     return (
