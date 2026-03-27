@@ -175,8 +175,9 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 
-  h1, h2, h3, h4 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: var(--app-font-display);
+    @apply tracking-normal;
   }
 }
 
@@ -185,7 +186,7 @@
   font-family: var(--app-font-display);
   font-size: clamp(2rem, 4vw, 3.25rem);
   line-height: 1.1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   font-weight: 600;
 }
 
@@ -193,13 +194,13 @@
   .text-display {
     font-size: clamp(2.25rem, 4.5vw, 3.75rem);
     line-height: 1.08;
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
   }
 }
 
 .text-title {
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .section-padding {
