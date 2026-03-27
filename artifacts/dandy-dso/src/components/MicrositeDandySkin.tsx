@@ -376,15 +376,20 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
           </motion.p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-5">
+        <div className="grid sm:grid-cols-2 gap-4">
           {DEFAULT_PROBLEMS.map((p, i) => (
             <motion.div key={p.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }} className="premium-card p-8 group">
-              <div className="w-11 h-11 rounded-xl bg-primary/[0.08] flex items-center justify-center mb-6 group-hover:bg-primary/[0.12] transition-colors">
-                <p.icon className="w-5 h-5 text-primary" />
+              transition={{ delay: i * 0.08 }}
+              className="rounded-2xl flex flex-col px-8 py-10"
+              style={{
+                background: "rgba(255,255,255,0.92)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
+              }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.08)" }}>
+                <p.icon className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="text-lg font-medium text-foreground tracking-tight">{p.title}</h3>
-              <p className="mt-3 text-[15px] text-muted-foreground leading-relaxed">{p.desc}</p>
+              <h3 className="text-base font-semibold text-foreground mb-3">{p.title}</h3>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">{p.desc}</p>
             </motion.div>
           ))}
         </div>
