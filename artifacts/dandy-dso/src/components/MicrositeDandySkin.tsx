@@ -385,7 +385,7 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
               style={{
                 background: "linear-gradient(150deg, #ffffff 50%, hsl(152, 42%, 96%) 100%)",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 6px 24px rgba(0,0,0,0.07)",
-                borderTop: "2px solid hsl(152, 42%, 12%)",
+                borderBottom: "2px solid hsl(152, 42%, 12%)",
               }}>
               <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-6" style={{ background: "hsl(152, 42%, 12%, 0.09)" }}>
                 <p.icon className="w-4 h-4 text-primary" />
