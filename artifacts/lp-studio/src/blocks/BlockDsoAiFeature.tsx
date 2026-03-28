@@ -3,6 +3,7 @@ import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 
 const P    = "#003A30";
 const AW   = "hsl(68,60%,52%)";
@@ -31,7 +32,7 @@ export function BlockDsoAiFeature({ props }: Props) {
     body      = "AI Scan Review catches issues in real time — avoiding costly rework and maximizing revenue potential before a case ever reaches the bench.",
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
-    imageUrl  = "/dso-ai-scan.jpg",
+    imageUrl  = "",
     backgroundStyle = "dandy-green",
     ctaText,
     ctaUrl,
@@ -284,18 +285,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                 loading="lazy"
               />
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "1rem",
-                  color: mu,
-                }}
-              >
-                <ScanLine style={{ width: 64, height: 64 }} />
-                <p style={{ fontSize: "0.875rem" }}>AI Scan Preview</p>
-              </div>
+              <AiScanReviewAnimation />
             )}
           </motion.div>
 
