@@ -282,6 +282,35 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
         ...getBgStyle(backgroundStyle),
       }}
     >
+      {props.backgroundVideoUrl && (
+        <>
+          <video
+            src={props.backgroundVideoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 0,
+            }}
+          />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: panelOverlay,
+              zIndex: 1,
+            }}
+          />
+        </>
+      )}
       {textPanel}
       {imagePanel}
 

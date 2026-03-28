@@ -978,13 +978,63 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "" }} />
+
+            {/* Layout */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Background</Label>
+              <Label className="text-xs">Layout</Label>
+              <div className="flex gap-2">
+                {([["full-bleed", "Full Bleed"], ["split", "Two Column"]] as const).map(([val, label]) => (
+                  <button key={val} onClick={() => onChange({ ...block, props: { ...p, layout: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.layout ?? "full-bleed") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Background color */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background color</Label>
               <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+
+            {/* Full-bleed media */}
+            {(p.layout ?? "full-bleed") === "full-bleed" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Background image (optional)</Label>
+                  <ImagePicker value={p.backgroundImageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, backgroundImageUrl: v } })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Background video URL (optional)</Label>
+                  <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
+                  <p className="text-[11px] text-muted-foreground">Overrides background image when set. Use a direct MP4/WebM link.</p>
+                </div>
+              </>
+            )}
+
+            {/* Two-column image */}
+            {(p.layout ?? "full-bleed") === "split" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Hero image</Label>
+                  <ImagePicker value={p.heroImageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroImageUrl: v } })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image side</Label>
+                  <div className="flex gap-2">
+                    {(["left", "right"] as const).map(side => (
+                      <button key={side} onClick={() => onChange({ ...block, props: { ...p, heroImageSide: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageSide ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                        Image {side}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow (optional)</Label>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
@@ -1016,10 +1066,6 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">Secondary CTA URL</Label>
               <Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Background image URL (optional)</Label>
-              <Input value={p.backgroundImageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundImageUrl: e.target.value } })} placeholder="https://..." />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1632,6 +1678,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background video URL (optional)</Label>
+              <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
+              <p className="text-[11px] text-muted-foreground">Plays behind the full section. Use a direct MP4/WebM link.</p>
             </div>
             <DsoRefreshRow fields={["eyebrow"]} values={{ eyebrow: p.eyebrow ?? "" }} />
             <div className="space-y-1.5">

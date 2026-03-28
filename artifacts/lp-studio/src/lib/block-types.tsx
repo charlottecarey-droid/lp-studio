@@ -241,7 +241,12 @@ export interface DsoHeartlandHeroBlockProps {
   primaryCtaMode?: CtaMode;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  backgroundStyle?: BackgroundStyle;
   backgroundImageUrl?: string;
+  backgroundVideoUrl?: string;
+  layout?: "full-bleed" | "split";
+  heroImageUrl?: string;
+  heroImageSide?: "left" | "right";
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;
 }
@@ -328,6 +333,8 @@ export interface DsoScrollStoryHeroBlockProps {
   ctaUrl?: string;
   ctaMode?: CtaMode;
   imagePosition?: "left" | "right";
+  backgroundStyle?: BackgroundStyle;
+  backgroundVideoUrl?: string;
 }
 
 export interface DsoNetworkMapBlockProps {
