@@ -183,17 +183,18 @@ export function BlockDsoScrollStory({ props }: Props) {
                 </p>
 
                 {/* Animated chapter text */}
-                <div style={{ position: "relative", minHeight: 240 }}>
+                <div style={{ position: "relative", minHeight: 240, perspective: "900px" }}>
                   {displayChapters.map((ch, i) => (
                     <motion.div
                       key={i}
-                      style={{ position: i === 0 ? "relative" : "absolute", top: 0 }}
+                      style={{ position: i === 0 ? "relative" : "absolute", top: 0, transformOrigin: "50% 110%" }}
                       animate={{
                         opacity: active === i ? 1 : 0,
-                        y: active === i ? 0 : active > i ? -24 : 24,
+                        y: active === i ? 0 : active > i ? -36 : 28,
+                        rotateX: active === i ? 0 : active > i ? -14 : 12,
                         pointerEvents: active === i ? "auto" : "none",
                       }}
-                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     >
                       <h3
                         style={{
@@ -222,8 +223,12 @@ export function BlockDsoScrollStory({ props }: Props) {
                   <motion.div
                     key={i}
                     style={{ position: "absolute", inset: 0 }}
-                    animate={{ opacity: active === i ? 1 : 0, scale: active === i ? 1 : 1.04 }}
-                    transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                    animate={{
+                      opacity: active === i ? 1 : 0,
+                      y: active === i ? "0%" : active > i ? "-6%" : "6%",
+                      scale: active === i ? 1 : 1.03,
+                    }}
+                    transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <img
                       src={ch.imageUrl}
