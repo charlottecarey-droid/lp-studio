@@ -1314,17 +1314,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
             </div>
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Floating Image URL</Label>
-              <p className="text-xs text-muted-foreground">One image that floats over the particle field. Paste any image URL below.</p>
-              <Input
-                className="text-xs font-mono"
-                value={(p.imageUrls ?? [])[0] ?? ""}
-                onChange={e => {
-                  const val = e.target.value.trim();
-                  onChange({ ...block, props: { ...p, imageUrls: val ? [val] : [] } });
-                }}
-                placeholder="https://…"
-              />
+              <Label className="text-xs">Image URL</Label>
+              <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank to hide.</p>
+              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image Side</Label>
+              <div className="flex gap-2">
+                {(["left", "right"] as const).map(side => (
+                  <button
+                    key={side}
+                    onClick={() => onChange({ ...block, props: { ...p, imagePosition: side } })}
+                    className={`flex-1 py-1.5 text-xs rounded border capitalize ${
+                      (p.imagePosition ?? "right") === side
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    {side}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="border-t pt-3 space-y-2">
               <Label className="text-xs text-muted-foreground">Stat 1</Label>

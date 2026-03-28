@@ -6,6 +6,7 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.42)";
+const BG    = "#001a13";
 
 /* ── Particle engine ── */
 interface Particle { x: number; y: number; vx: number; vy: number; r: number; opacity: number }
@@ -18,14 +19,6 @@ function makeParticles(W: number, H: number, n: number): Particle[] {
   }));
 }
 
-/* ── Drift animation for the right-column image ── */
-const DRIFT = {
-  x:   [0, 10, -6, 0],
-  y:   [0, -14, 10, 0],
-  rot: [0, 1.5, -1, 0],
-  dur: 20,
-};
-
 interface Props { props: DsoParticleMeshBlockProps }
 
 export function BlockDsoParticleMesh({ props }: Props) {
@@ -36,7 +29,8 @@ export function BlockDsoParticleMesh({ props }: Props) {
     stat1Value = "500+", stat1Label = "Locations",
     stat2Value = "96%",  stat2Label = "First-Time Right",
     stat3Value = "< 4d", stat3Label = "Avg Turnaround",
-    imageUrls  = [],
+    imageUrl   = "",
+    imagePosition = "right",
   } = props;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);
@@ -72,7 +66,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
       const W = canvas.width, H = canvas.height;
       const ps = pRef.current;
 
-      ctx.fillStyle = "#001a13";
+      ctx.fillStyle = BG;
       ctx.fillRect(0, 0, W, H);
 
       for (const p of ps) {
@@ -118,137 +112,145 @@ export function BlockDsoParticleMesh({ props }: Props) {
     return () => { cancelAnimationFrame(animRef.current); ro.disconnect(); };
   }, []);
 
+  const hasImage   = Boolean(imageUrl);
+  const imgOnLeft  = imagePosition === "left";
+
   const stats = [
     { value: stat1Value, label: stat1Label },
     { value: stat2Value, label: stat2Label },
     { value: stat3Value, label: stat3Label },
   ];
 
-  const floatUrl = imageUrls.length > 0 ? imageUrls[0] : null;
-
   return (
     <section
       ref={sectionRef}
-      style={{ position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}
+      style={{ position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "stretch" }}
     >
-      {/* Particle canvas — bottom layer */}
+      {/* Particle canvas — fills entire section */}
       <canvas
         ref={canvasRef}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
       />
 
-      {/* Radial vignette — heavier on left so text stays legible */}
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
-        background: "radial-gradient(ellipse 80% 100% at 20% 50%, rgba(0,10,7,0.55) 0%, rgba(0,10,7,0) 100%)",
-      }} />
+      {/* Full-bleed image column */}
+      {hasImage && (
+        <>
+          <div style={{
+            position: "absolute",
+            left:  imgOnLeft ? 0 : "50%",
+            right: imgOnLeft ? "50%" : 0,
+            top: 0, bottom: 0,
+            overflow: "hidden", zIndex: 1,
+          }}>
+            <img
+              src={imageUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+            />
+            {/* Gradient fade toward the content side */}
+            <div style={{
+              position: "absolute", inset: 0,
+              background: imgOnLeft
+                ? `linear-gradient(to right, transparent 55%, ${BG} 100%)`
+                : `linear-gradient(to left,  transparent 55%, ${BG} 100%)`,
+            }} />
+            {/* Top/bottom edge fades */}
+            <div style={{
+              position: "absolute", inset: 0,
+              background: `linear-gradient(to bottom, ${BG} 0%, transparent 10%, transparent 90%, ${BG} 100%)`,
+            }} />
+          </div>
+          {/* Vignette on the content side to keep particles readable */}
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+            background: imgOnLeft
+              ? `linear-gradient(to left,  transparent 40%, ${BG} 100%)`
+              : `linear-gradient(to right, transparent 40%, ${BG} 100%)`,
+          }} />
+        </>
+      )}
 
-      {/* Two-column content grid */}
+      {/* Content grid */}
       <div
         className="dspm-grid"
         style={{
           position: "relative", zIndex: 2,
           maxWidth: 1200, margin: "0 auto",
-          padding: "7rem 2rem", width: "100%",
+          padding: "8rem 2.5rem", width: "100%",
           display: "grid",
-          gridTemplateColumns: floatUrl ? "1fr 1fr" : "1fr",
-          gap: "4rem",
+          gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr",
           alignItems: "center",
+          gap: hasImage ? "5rem" : "0",
         }}
       >
-        {/* ── Left: editorial text ── */}
-        <div>
+        {/* Image-side spacer (or nothing when no image) */}
+        {hasImage && imgOnLeft && <div />}
+
+        {/* Editorial text — always on the side opposite to the image */}
+        <motion.div
+          initial={{ opacity: 0, x: hasImage ? (imgOnLeft ? 32 : -32) : 0, y: hasImage ? 0 : 20 }}
+          animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        >
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5 }}
-            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem" }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem" }}
           >
             {eyebrow}
           </motion.p>
           <motion.h2
-            initial={{ opacity: 0, y: 28 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.65, delay: 0.08 }}
+            transition={{ duration: 0.65, delay: 0.1 }}
             style={{
               fontFamily: DISPLAY_FONT,
               fontSize: "clamp(2.5rem,5.5vw,5.5rem)",
               fontWeight: 800, color: PFG,
               letterSpacing: "-0.05em", lineHeight: 0.92,
-              marginBottom: "2.25rem", whiteSpace: "pre-line",
+              marginBottom: "2rem", whiteSpace: "pre-line",
             }}
           >
             {headline}
           </motion.h2>
           <motion.p
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.55, delay: 0.2 }}
-            style={{ fontSize: "1.125rem", lineHeight: 1.72, color: MUTED, maxWidth: 440 }}
+            style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440 }}
           >
             {body}
           </motion.p>
 
           {/* Stat strip */}
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.34 }}
+            transition={{ duration: 0.6, delay: 0.32 }}
             style={{
-              display: "flex", gap: "3rem", marginTop: "4rem",
+              display: "flex", gap: "3rem", marginTop: "3.5rem",
               borderTop: "1px solid rgba(199,231,56,0.18)",
-              paddingTop: "2.25rem",
+              paddingTop: "2rem",
             }}
             className="dspm-stats"
           >
             {stats.map((s, i) => (
               <div key={i}>
-                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "2.375rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</p>
-                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.45rem" }}>{s.label}</p>
+                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "2.25rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem" }}>{s.label}</p>
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
 
-        {/* ── Right: large drifting image ── */}
-        {floatUrl && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={inView ? {
-              opacity: 1, scale: 1,
-              x: DRIFT.x as number[],
-              y: DRIFT.y as number[],
-              rotate: DRIFT.rot as number[],
-            } : {}}
-            transition={{
-              opacity: { duration: 1.2 },
-              scale:   { duration: 1.2 },
-              x:       { duration: DRIFT.dur, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
-              y:       { duration: DRIFT.dur * 0.87, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
-              rotate:  { duration: DRIFT.dur * 1.15, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
-            }}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-          >
-            <img
-              src={floatUrl}
-              alt=""
-              draggable={false}
-              style={{
-                width: "100%",
-                maxWidth: "580px",
-                height: "auto",
-                display: "block",
-                filter: "drop-shadow(0 0 60px rgba(199,231,56,0.22)) drop-shadow(0 0 20px rgba(199,231,56,0.10))",
-                mixBlendMode: "screen",
-              }}
-            />
-          </motion.div>
-        )}
+        {/* Image-side spacer when image is on the right */}
+        {hasImage && !imgOnLeft && <div />}
       </div>
 
       <style>{`
         @media (max-width: 768px) {
-          .dspm-grid { grid-template-columns: 1fr !important; }
+          .dspm-grid  { grid-template-columns: 1fr !important; gap: 0 !important; }
           .dspm-stats { gap: 1.75rem !important; flex-wrap: wrap !important; }
         }
       `}</style>

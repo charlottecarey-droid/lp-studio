@@ -349,7 +349,8 @@ export interface DsoParticleMeshBlockProps {
   stat2Label?: string;
   stat3Value?: string;
   stat3Label?: string;
-  imageUrls?: string[];
+  imageUrl?: string;
+  imagePosition?: "left" | "right";
 }
 
 export interface DsoFlowCanvasBlockProps {
@@ -2155,7 +2156,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       stat1Value: "500+", stat1Label: "Locations",
       stat2Value: "96%",  stat2Label: "First-Time Right",
       stat3Value: "< 4d", stat3Label: "Avg Turnaround",
-      imageUrls: ["https://meetdandy-lp.com/api/storage/objects/uploads/8fc1187a-7e5a-46b1-8314-f8edffef941a"],
+      imageUrl: "https://meetdandy-lp.com/api/storage/objects/uploads/8fc1187a-7e5a-46b1-8314-f8edffef941a",
+      imagePosition: "right",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
