@@ -18,14 +18,12 @@ function makeParticles(W: number, H: number, n: number): Particle[] {
   }));
 }
 
-/* ── Single large floating image config ── */
-const FLOAT_CFG = {
-  left: 52, top: 8, w: 520,
-  opacity: 0.72,
-  dx: [0, 18, -12, 0],
-  dy: [0, -20, 14, 0],
-  rot: [0, 3, -2, 0],
-  dur: 18,
+/* ── Drift animation for the right-column image ── */
+const DRIFT = {
+  x:   [0, 10, -6, 0],
+  y:   [0, -14, 10, 0],
+  rot: [0, 1.5, -1, 0],
+  dur: 20,
 };
 
 interface Props { props: DsoParticleMeshBlockProps }
@@ -139,50 +137,27 @@ export function BlockDsoParticleMesh({ props }: Props) {
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
       />
 
-      {/* Single large floating image — above particles, below content */}
-      {floatUrl && (
-        <motion.img
-          src={floatUrl}
-          alt=""
-          draggable={false}
-          initial={{ opacity: 0 }}
-          animate={{
-            opacity: [0, FLOAT_CFG.opacity, FLOAT_CFG.opacity],
-            x:      FLOAT_CFG.dx as number[],
-            y:      FLOAT_CFG.dy as number[],
-            rotate: FLOAT_CFG.rot as number[],
-            scale:  [1, 1.03, 0.98, 1],
-          }}
-          transition={{
-            opacity: { duration: 1.4 },
-            x:       { duration: FLOAT_CFG.dur, repeat: Infinity, ease: "easeInOut" },
-            y:       { duration: FLOAT_CFG.dur * 0.85, repeat: Infinity, ease: "easeInOut" },
-            rotate:  { duration: FLOAT_CFG.dur * 1.1, repeat: Infinity, ease: "easeInOut" },
-            scale:   { duration: FLOAT_CFG.dur * 0.9, repeat: Infinity, ease: "easeInOut" },
-          }}
-          style={{
-            position: "absolute",
-            left: `${FLOAT_CFG.left}%`,
-            top:  `${FLOAT_CFG.top}%`,
-            width: `${FLOAT_CFG.w}px`,
-            maxWidth: "48vw",
-            zIndex: 1,
-            pointerEvents: "none",
-            filter: "drop-shadow(0 0 40px rgba(199,231,56,0.25)) drop-shadow(0 0 12px rgba(199,231,56,0.12))",
-            mixBlendMode: "screen",
-          }}
-        />
-      )}
-
-      {/* Radial vignette — pulls edges dark so text is always readable */}
+      {/* Radial vignette — heavier on left so text stays legible */}
       <div style={{
-        position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "radial-gradient(ellipse 110% 90% at 30% 50%, rgba(0,26,19,0) 0%, rgba(0,10,7,0.72) 100%)",
+        position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+        background: "radial-gradient(ellipse 80% 100% at 20% 50%, rgba(0,10,7,0.55) 0%, rgba(0,10,7,0) 100%)",
       }} />
 
-      {/* Editorial content */}
-      <div style={{ position: "relative", zIndex: 3, maxWidth: 1200, margin: "0 auto", padding: "7rem 2rem", width: "100%" }}>
-        <div style={{ maxWidth: 660 }}>
+      {/* Two-column content grid */}
+      <div
+        className="dspm-grid"
+        style={{
+          position: "relative", zIndex: 2,
+          maxWidth: 1200, margin: "0 auto",
+          padding: "7rem 2rem", width: "100%",
+          display: "grid",
+          gridTemplateColumns: floatUrl ? "1fr 1fr" : "1fr",
+          gap: "4rem",
+          alignItems: "center",
+        }}
+      >
+        {/* ── Left: editorial text ── */}
+        <div>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -197,7 +172,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
             transition={{ duration: 0.65, delay: 0.08 }}
             style={{
               fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(3rem,7.5vw,6.5rem)",
+              fontSize: "clamp(2.5rem,5.5vw,5.5rem)",
               fontWeight: 800, color: PFG,
               letterSpacing: "-0.05em", lineHeight: 0.92,
               marginBottom: "2.25rem", whiteSpace: "pre-line",
@@ -209,35 +184,71 @@ export function BlockDsoParticleMesh({ props }: Props) {
             initial={{ opacity: 0, y: 18 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.55, delay: 0.2 }}
-            style={{ fontSize: "1.125rem", lineHeight: 1.72, color: MUTED, maxWidth: 460 }}
+            style={{ fontSize: "1.125rem", lineHeight: 1.72, color: MUTED, maxWidth: 440 }}
           >
             {body}
           </motion.p>
+
+          {/* Stat strip */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.6, delay: 0.34 }}
+            style={{
+              display: "flex", gap: "3rem", marginTop: "4rem",
+              borderTop: "1px solid rgba(199,231,56,0.18)",
+              paddingTop: "2.25rem",
+            }}
+            className="dspm-stats"
+          >
+            {stats.map((s, i) => (
+              <div key={i}>
+                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "2.375rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.45rem" }}>{s.label}</p>
+              </div>
+            ))}
+          </motion.div>
         </div>
 
-        {/* Stat strip */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.34 }}
-          style={{
-            display: "flex", gap: "3rem", marginTop: "4.5rem",
-            borderTop: "1px solid rgba(199,231,56,0.18)",
-            paddingTop: "2.25rem",
-          }}
-          className="dspm-stats"
-        >
-          {stats.map((s, i) => (
-            <div key={i}>
-              <p style={{ fontFamily: DISPLAY_FONT, fontSize: "2.375rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</p>
-              <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.45rem" }}>{s.label}</p>
-            </div>
-          ))}
-        </motion.div>
+        {/* ── Right: large drifting image ── */}
+        {floatUrl && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={inView ? {
+              opacity: 1, scale: 1,
+              x: DRIFT.x as number[],
+              y: DRIFT.y as number[],
+              rotate: DRIFT.rot as number[],
+            } : {}}
+            transition={{
+              opacity: { duration: 1.2 },
+              scale:   { duration: 1.2 },
+              x:       { duration: DRIFT.dur, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
+              y:       { duration: DRIFT.dur * 0.87, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
+              rotate:  { duration: DRIFT.dur * 1.15, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
+            }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <img
+              src={floatUrl}
+              alt=""
+              draggable={false}
+              style={{
+                width: "100%",
+                maxWidth: "580px",
+                height: "auto",
+                display: "block",
+                filter: "drop-shadow(0 0 60px rgba(199,231,56,0.22)) drop-shadow(0 0 20px rgba(199,231,56,0.10))",
+                mixBlendMode: "screen",
+              }}
+            />
+          </motion.div>
+        )}
       </div>
 
       <style>{`
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
+          .dspm-grid { grid-template-columns: 1fr !important; }
           .dspm-stats { gap: 1.75rem !important; flex-wrap: wrap !important; }
         }
       `}</style>
