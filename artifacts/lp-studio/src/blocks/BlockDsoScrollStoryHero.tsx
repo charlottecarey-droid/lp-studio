@@ -10,6 +10,26 @@ const PFG    = "hsl(48,100%,96%)";
 const AW     = "hsl(68,60%,52%)";
 const MUTED  = "hsla(48,100%,96%,0.55)";
 
+const BG_PANEL_MAP: Record<string, string> = {
+  "white":       "#ffffff",
+  "light-gray":  "#f3f4f6",
+  "muted":       "hsl(48,100%,96%)",
+  "dark":        "#1a1a1a",
+  "dandy-green": "#003A30",
+  "black":       "#000000",
+  "gradient":    "#001a14",
+};
+
+const BG_OVERLAY_MAP: Record<string, string> = {
+  "white":       "rgba(255,255,255,0.70)",
+  "light-gray":  "rgba(243,244,246,0.70)",
+  "muted":       "rgba(255,250,230,0.70)",
+  "dark":        "rgba(26,26,26,0.70)",
+  "dandy-green": "rgba(0,58,48,0.60)",
+  "black":       "rgba(0,0,0,0.70)",
+  "gradient":    "rgba(0,26,20,0.70)",
+};
+
 const DEFAULT_CHAPTERS: DsoScrollStoryHeroBlockProps["chapters"] = [
   {
     headline: "One lab partner. Every location.",
@@ -47,6 +67,8 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
     backgroundStyle = "dandy-green",
   } = props;
   const imageRight = imagePosition !== "left";
+  const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;
+  const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgba(0,58,48,0.60)";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -74,7 +96,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
           width: "clamp(340px, 46%, 640px)",
           minWidth: 0,
           padding: "clamp(2.5rem,6vw,5.5rem) clamp(1.5rem,5vw,4.5rem)",
-          background: P,
+          background: panelBg,
           flexShrink: 0,
           order: imageRight ? 0 : 1,
         }}
@@ -217,8 +239,8 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
           />
           {/* Gradient overlays — flip direction when image is on the left */}
           <div style={{ position: "absolute", inset: 0, background: imageRight
-            ? "linear-gradient(90deg, rgba(0,58,48,0.60) 0%, rgba(0,0,0,0) 45%)"
-            : "linear-gradient(270deg, rgba(0,58,48,0.60) 0%, rgba(0,0,0,0) 45%)"
+            ? `linear-gradient(90deg, ${panelOverlay} 0%, rgba(0,0,0,0) 45%)`
+            : `linear-gradient(270deg, ${panelOverlay} 0%, rgba(0,0,0,0) 45%)`
           }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)" }} />
           {/* Watermark number */}
