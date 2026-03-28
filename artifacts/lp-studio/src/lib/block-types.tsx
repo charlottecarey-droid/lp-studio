@@ -2724,9 +2724,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "Built on trust. Backed by guarantees.",
       subheadline: "We stand behind every case — because your reputation depends on it.",
       promises: [
-        { icon: "ban",         title: "Zero Long-Term Contracts", desc: "Simple, transparent pricing. No lock-ins, no hidden fees. Stay because you want to, not because you have to." },
-        { icon: "rotate",      title: "Free No-Hassle Remakes",   desc: "If it doesn't fit, we'll make it right — no questions asked, no finger-pointing. Every single time." },
-        { icon: "shieldCheck", title: "10-Year Warranty",          desc: "Every crown, bridge, and restoration is backed by a 10-year warranty. Your patients are covered for years to come." },
+        { icon: "ban",          title: "Zero Long-Term Contracts",    desc: "Simple, transparent pricing. No lock-ins, no hidden fees. Stay because you want to, not because you have to." },
+        { icon: "rotate",       title: "Free No-Hassle Remakes",      desc: "If it doesn't fit, we'll make it right — no questions asked, no finger-pointing. Every single time." },
+        { icon: "shieldCheck",  title: "10-Year Warranty",            desc: "Every crown, bridge, and restoration is backed by a 10-year warranty. Your patients are covered for years to come." },
+        { icon: "trending-up",  title: "96% First-Time Fit Rate",     desc: "AI-powered scan review catches prep issues before a case ships — meaning fewer remakes and faster seating appointments." },
+        { icon: "clock",        title: "Same-Day Case Acknowledgment", desc: "Every case is acknowledged the same day it's submitted, so you always know it's in queue and on track." },
+        { icon: "heart",        title: "Dedicated Clinical Support",  desc: "Your personal Dandy success manager is on call for clinical questions, feedback, and anything your team needs." },
       ],
       backgroundStyle: "dark",
     }),
@@ -2735,13 +2738,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect width="120" height="70" fill="#001a13" rx="4" />
         <rect x="5" y="5" width="18" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
         <rect x="5" y="10" width="38" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
-        {[[5,22],[65,22],[5,46],[65,46]].map(([x,y]) => (
+        {[[5,19],[44,19],[83,19],[5,45],[44,45],[83,45]].map(([x,y]) => (
           <g key={`${x}-${y}`}>
-            <rect x={x} y={y} width="52" height="20" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-            <circle cx={x+10} cy={y+10} r="6" fill="rgba(194,229,58,0.15)" stroke="hsl(68,60%,52%)" strokeWidth="0.5" />
-            <rect x={x+20} y={y+5} width="26" height="2.5" rx="1" fill="hsl(48,100%,96%)" opacity="0.7" />
-            <rect x={x+20} y={y+10} width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.25)" />
-            <rect x={x+20} y={y+14} width="22" height="1.5" rx="0.75" fill="rgba(255,255,255,0.18)" />
+            <rect x={x} y={y} width="34" height="22" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <circle cx={x+8} cy={y+9} r="5" fill="rgba(194,229,58,0.15)" stroke="hsl(68,60%,52%)" strokeWidth="0.5" />
+            <rect x={x+16} y={y+5} width="14" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.7" />
+            <rect x={x+3} y={y+16} width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.22)" />
           </g>
         ))}
       </svg>
