@@ -122,29 +122,29 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                 background: cardBg,
                 border: cardBor,
                 borderRadius: "1.25rem",
-                padding: "1.75rem 1.5rem",
+                padding: "2.25rem 2rem",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.75rem",
+                gap: "1rem",
                 backdropFilter: dark ? "blur(12px)" : "none",
-                flexBasis: "240px",
+                flexBasis: "300px",
                 flexGrow: 0,
                 flexShrink: 0,
-                width: "240px",
+                width: "300px",
               }}
             >
               {m.photo ? (
                 <img
                   src={m.photo}
                   alt={m.name}
-                  style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `2px solid ${dark ? "rgba(255,255,255,0.15)" : "#e5e7eb"}` }}
+                  style={{ width: 96, height: 96, borderRadius: "50%", objectFit: "cover", border: `2px solid ${dark ? "rgba(255,255,255,0.15)" : "#e5e7eb"}` }}
                 />
               ) : (
                 <div
                   style={{
-                    width: 72,
-                    height: 72,
+                    width: 96,
+                    height: 96,
                     borderRadius: "50%",
                     background: dark ? `${LIME}18` : `${BRAND}12`,
                     border: `2px solid ${dark ? `${LIME}40` : `${BRAND}25`}`,
@@ -153,7 +153,7 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                     justifyContent: "center",
                   }}
                 >
-                  <User style={{ width: 30, height: 30, color: dark ? LIME : BRAND, opacity: 0.7 }} />
+                  <User style={{ width: 40, height: 40, color: dark ? LIME : BRAND, opacity: 0.7 }} />
                 </div>
               )}
 
