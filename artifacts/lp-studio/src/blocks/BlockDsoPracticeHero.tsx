@@ -145,7 +145,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           <ChiliPiperButton
             url={secondaryCtaUrl || ""}
             className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "#fff" : BRAND, color: dark ? "#fff" : BRAND, background: "transparent" }}
+            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: "transparent" }}
           >
             {secondaryCtaText}
           </ChiliPiperButton>
@@ -153,7 +153,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           <motion.a
             href={secondaryCtaUrl || "#"}
             className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "#fff" : BRAND, color: dark ? "#fff" : BRAND, background: "transparent", textDecoration: "none" }}
+            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: "transparent", textDecoration: "none" }}
             whileHover={{ scale: 1.04, y: -1 }}
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
