@@ -180,6 +180,12 @@ function resolveCtaUrl(props: { ctaUrl?: string; ctaAction?: string; chilipiperU
   return props.ctaUrl ?? "#";
 }
 
+function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefined): string {
+  const url = ctaUrl ?? "#";
+  if (ctaMode === "chilipiper") return `chilipiper:${url}`;
+  return url;
+}
+
 export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
     ? PADDING_X_PX[block.blockSettings.paddingX]
@@ -416,14 +422,14 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return (
           <BlockDsoFinalCta
             props={block.props}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl) : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
           />
         );
       case "dso-comparison":
         return (
           <BlockDsoComparison
             props={block.props}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
             animationsEnabled={animationsEnabled}
           />
         );
@@ -431,7 +437,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return (
           <BlockDsoHeartlandHero
             props={block.props}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl) : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
           />
         );
       case "dso-problem":
@@ -443,9 +449,19 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-scroll-story":
         return <BlockDsoScrollStory props={block.props} />;
       case "dso-scroll-story-hero":
-        return <BlockDsoScrollStoryHero props={block.props} />;
+        return (
+          <BlockDsoScrollStoryHero
+            props={block.props}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
+          />
+        );
       case "dso-network-map":
-        return <BlockDsoNetworkMap props={block.props} />;
+        return (
+          <BlockDsoNetworkMap
+            props={block.props}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.ctaUrl, block.props.ctaMode)) : undefined}
+          />
+        );
       case "dso-case-flow":
         return <BlockDsoCaseFlow props={block.props} />;
       case "dso-live-feed":

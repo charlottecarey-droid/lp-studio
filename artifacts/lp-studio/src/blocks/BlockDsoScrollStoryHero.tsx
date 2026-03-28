@@ -55,9 +55,10 @@ const DEFAULT_CHAPTERS: DsoScrollStoryHeroBlockProps["chapters"] = [
 
 interface Props {
   props: DsoScrollStoryHeroBlockProps;
+  onCtaClick?: () => void;
 }
 
-export function BlockDsoScrollStoryHero({ props }: Props) {
+export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
   const {
     eyebrow = "The Dandy Advantage",
     chapters,
@@ -198,7 +199,8 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
         {ctaText && (
           <div>
             <a
-              href={ctaUrl || "#"}
+              href={onCtaClick ? undefined : (ctaUrl || "#")}
+              onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
               style={{
                 display: "inline-block",
                 padding: "0.875rem 2rem",
@@ -210,6 +212,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
                 letterSpacing: "-0.01em",
                 borderRadius: "0.5rem",
                 textDecoration: "none",
+                cursor: "pointer",
                 transition: "opacity 0.2s",
               }}
               onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}

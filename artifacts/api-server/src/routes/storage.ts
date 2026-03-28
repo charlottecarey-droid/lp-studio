@@ -127,7 +127,7 @@ Rules:
     "lp-hero"        → lifestyle shot, people smiling, team/clinic environment, before-after results, patient story — suitable as a landing page hero
     "lp-feature"     → clean product/procedure angle, moderate close-up of a device or service, good for a feature row
     "product-detail" → extreme close-up, technical diagram, spec illustration, guide graphic, not suitable as a hero
-- "og": true if the image is a social-sharing / Open Graph card — i.e. text or a logo overlaid on a background, appears designed for social media sharing (typically wide 1.91:1 ratio with headline text, brand name, or URL on it), website screenshot, or any promotional card NOT suitable as a standalone photo. Set false otherwise.`,
+- "og": true if the image is ANY of the following — social-sharing / Open Graph card (text or logo overlaid on a background, wide 1.91:1 ratio with headline text, brand name, or URL), website screenshot, promotional ad creative, advertisement banner, call-to-action graphic, marketing promotional card with text overlays, or any composite design NOT suitable as a standalone editorial photo. When in doubt, set og: true for images with significant text content. Set false only for clean standalone photos with no text overlays.`,
         },
         {
           role: "user",
@@ -203,7 +203,7 @@ async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeTyp
 lp-hero        → lifestyle, people, smiles, clinic/team environment, before-after results — good as a landing page hero
 lp-feature     → clean product/procedure angle, moderate close-up, good for a feature section
 product-detail → extreme close-up, technical diagram, spec illustration, guide graphic — not suitable as a hero
-og-image       → social-sharing / Open Graph card — text or logo overlaid on a background image, website screenshot, or any promotional card designed for social media (NOT a standalone photo)`,
+og-image       → any of: social-sharing / Open Graph card, text or logo overlaid on a background image, website screenshot, promotional ad creative, advertisement banner, call-to-action graphic, marketing card with text overlays, or any composite design with significant text NOT suitable as a standalone editorial photo. Choose og-image when in doubt for images with text.`,
         },
         {
           role: "user",

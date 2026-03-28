@@ -238,6 +238,7 @@ export interface DsoHeartlandHeroBlockProps {
   subheadline: string;
   primaryCtaText: string;
   primaryCtaUrl: string;
+  primaryCtaMode?: CtaMode;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
   backgroundImageUrl?: string;
@@ -325,6 +326,7 @@ export interface DsoScrollStoryHeroBlockProps {
   chapters: DsoScrollStoryChapter[];
   ctaText?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
   imagePosition?: "left" | "right";
 }
 
@@ -334,6 +336,7 @@ export interface DsoNetworkMapBlockProps {
   body?: string;
   ctaText?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoCaseFlowStage {
@@ -671,6 +674,7 @@ export interface DsoFinalCtaBlockProps {
   subheadline: string;
   primaryCtaText: string;
   primaryCtaUrl: string;
+  primaryCtaMode?: CtaMode;
   secondaryCtaText: string;
   secondaryCtaUrl: string;
   backgroundStyle: BackgroundStyle;
@@ -686,6 +690,7 @@ export interface DsoComparisonBlockProps {
   companyName: string;
   ctaText: string;
   ctaUrl: string;
+  ctaMode?: CtaMode;
   rows: { need: string; dandy: string; traditional: string }[];
   backgroundStyle: BackgroundStyle;
   tableNeedColor?: string;

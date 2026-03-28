@@ -479,24 +479,24 @@ RULES:
 const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
 
 AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
-- "dso-heartland-hero": Full-bleed hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundImageUrl (string), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
-- "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#"), imagePosition ("left"|"right"), chapters (array 2–4 of {headline, body, imageUrl})
+- "dso-heartland-hero": Full-bleed hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundImageUrl (string), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
+- "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), chapters (array 2–4 of {headline, body, imageUrl})
 - "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array 3–6 of {icon, title, desc}). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[], optional). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-ai-feature": AI feature showcase with stats + image. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-stat-showcase": Premium stats section. Props: eyebrow (string), headline (string), stats (array 3–5 of {value, label, description}). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-scroll-story": Scroll-driven narrative with chapters. Props: eyebrow (string), chapters (array 3–5 of {headline, body, imageUrl})
-- "dso-network-map": Animated network / geography visualization. Props: eyebrow (string), headline (string), body (string), ctaText (string), ctaUrl ("#")
+- "dso-network-map": Animated network / geography visualization. Props: eyebrow (string), headline (string), body (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-case-flow": Case workflow timeline with metrics. Props: eyebrow (string), headline (string), subheadline (string), stages (array 3–6 of {number ("01"|"02"|etc), label, metric, metricLabel, body})
 - "dso-live-feed": Real-time activity ticker. Props: eyebrow (string), headline (string), body (string), footerNote (string)
 - "dso-particle-mesh": Particle-canvas section with stats and optional image. Props: eyebrow (string), headline (string), body (string), stat1Value (string), stat1Label (string), stat2Value (string), stat2Label (string), stat3Value (string), stat3Label (string), imageUrl (string), imagePosition ("left"|"right")
 - "dso-flow-canvas": Animated orb canvas with big stat + quote. Props: eyebrow (string), quote (string), attribution (string), stat (string), statLabel (string), imageUrl (string)
 - "dso-bento-outcomes": Bento grid of outcomes. Props: eyebrow (string), headline (string), tiles (array 4–6 of one of: {type:"stat",value,label,description} | {type:"photo",imageUrl,caption} | {type:"feature",headline,body} | {type:"quote",quote,author})
 - "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
-- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string, use "Dandy"), ctaText (string), ctaUrl ("#"), rows (array 4–8 of {need, dandy, traditional})
+- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string, use "Dandy"), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array 4–8 of {need, dandy, traditional})
 - "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array 2–4 of {name, stat, label, quote, author, image}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
-- "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#"), secondaryCtaText (string), secondaryCtaUrl ("#")
+- "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#")
 
 RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
@@ -511,7 +511,7 @@ RULES:
 10. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
 11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
 12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.
-13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl.
+13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
 14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.`;
 
 const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. You generate complete page structures as JSON for Dandy's "DSO Practices" block library.
@@ -665,11 +665,16 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         // Inject Chili Piper into primaryCtaUrl blocks (hero, final-cta)
         if (brandChilipiperUrl && DSO_PRIMARY_CTA_BLOCKS.has(btype)) {
           props.primaryCtaUrl = brandChilipiperUrl;
+          props.primaryCtaMode = "chilipiper";
         }
 
-        // Inject Chili Piper into top-level ctaUrl blocks
-        if (brandChilipiperUrl && DSO_TOP_CTA_BLOCKS.has(btype) && props.ctaUrl) {
+        // Inject Chili Piper into top-level ctaUrl blocks (always inject, regardless of existing ctaUrl)
+        if (brandChilipiperUrl && DSO_TOP_CTA_BLOCKS.has(btype)) {
           props.ctaUrl = brandChilipiperUrl;
+          props.ctaMode = "chilipiper";
+          if (!props.ctaText) {
+            props.ctaText = "Schedule a Demo";
+          }
         }
 
         // Fix background style: dandy-green is required for dso-problem, dso-ai-feature, dso-stat-showcase

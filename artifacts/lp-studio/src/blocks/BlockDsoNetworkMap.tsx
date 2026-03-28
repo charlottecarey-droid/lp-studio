@@ -151,9 +151,12 @@ function TickStat({ target, suffix, label, delay, inView }: {
 }
 
 /* ── Main block ────────────────────────────────── */
-interface Props { props: DsoNetworkMapBlockProps }
+interface Props {
+  props: DsoNetworkMapBlockProps;
+  onCtaClick?: () => void;
+}
 
-export function BlockDsoNetworkMap({ props }: Props) {
+export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
   const {
     eyebrow    = "Dandy Network",
     headline   = "One platform.\nEvery practice.",
@@ -258,7 +261,8 @@ export function BlockDsoNetworkMap({ props }: Props) {
               transition={{ duration: 0.5, delay: 0.32 }}
             >
               <a
-                href={ctaUrl || "#"}
+                href={onCtaClick ? undefined : (ctaUrl || "#")}
+                onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -271,6 +275,7 @@ export function BlockDsoNetworkMap({ props }: Props) {
                   fontWeight: 700,
                   borderRadius: "0.5rem",
                   textDecoration: "none",
+                  cursor: "pointer",
                   letterSpacing: "-0.01em",
                   transition: "opacity 0.2s",
                 }}
