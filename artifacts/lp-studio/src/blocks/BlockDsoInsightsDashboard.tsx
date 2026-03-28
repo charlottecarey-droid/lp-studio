@@ -111,6 +111,17 @@ const kpiSparklines: Record<string, { month: string; value: number }[]> = {
 
 const DATE_RANGES = ["Last 7 days", "Last 30 days", "Last 90 days", "Last 6 months", "Last 12 months"];
 
+const LIVE_EVENTS = [
+  { loc: "Chicago – Michigan Ave",  type: "Crown",   dr: "Dr. James Park"   },
+  { loc: "Dallas – Greenville Ave", type: "Implant", dr: "Dr. Sarah Chen"   },
+  { loc: "Orlando – Colonial",      type: "Bridge",  dr: "Dr. Amy Foster"   },
+  { loc: "Tampa – Brandon",         type: "Crown",   dr: "Dr. Maria Lopez"  },
+  { loc: "Phoenix – Scottsdale",    type: "Crown",   dr: "Dr. Kevin Wright" },
+  { loc: "Dallas – Greenville Ave", type: "Bridge",  dr: "Dr. Sarah Chen"   },
+  { loc: "Chicago – Michigan Ave",  type: "Implant", dr: "Dr. James Park"   },
+  { loc: "Tampa – Brandon",         type: "Implant", dr: "Dr. Maria Lopez"  },
+];
+
 /* ── Theme ─────────────────────────────────────────────────── */
 type Theme = ReturnType<typeof getTheme>;
 const getTheme = (variant: "dark" | "light") => {
@@ -200,13 +211,14 @@ const useCountUp = (end: number, duration = 1200, decimals = 0, started = false)
 
 /* ── KPI Card ────────────────────────────────────────────── */
 const KPICard = ({
-  stat, index, expandedCard, setExpandedCard, t,
+  stat, index, expandedCard, setExpandedCard, t, flash,
 }: {
   stat: { label: string; value: string; change: string; up: boolean; numericValue: number; decimals: number; prefix: string; suffix: string };
   index: number;
   expandedCard: string | null;
   setExpandedCard: (v: string | null) => void;
   t: Theme;
+  flash?: number;
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, margin: "-50px" });
@@ -215,6 +227,17 @@ const KPICard = ({
   const sparkData = kpiSparklines[stat.label];
   const displayValue = `${stat.prefix}${stat.decimals > 0 ? count.toFixed(stat.decimals) : count.toLocaleString()}${stat.suffix}`;
 
+  const [flashing, setFlashing] = useState(false);
+  const prevFlash = useRef(flash);
+  useEffect(() => {
+    if (flash !== undefined && flash !== prevFlash.current) {
+      prevFlash.current = flash;
+      setFlashing(true);
+      const id = setTimeout(() => setFlashing(false), 900);
+      return () => clearTimeout(id);
+    }
+  }, [flash]);
+
   return (
     <motion.div
       ref={cardRef}
@@ -222,8 +245,21 @@ const KPICard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06 }}
       onClick={() => setExpandedCard(isExpanded ? null : stat.label)}
-      className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4 ${t.hoverBorder} transition-all cursor-pointer select-none`}
+      style={{ position: "relative" }}
+      className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-4 ${t.hoverBorder} transition-all cursor-pointer select-none overflow-hidden`}
     >
+      <AnimatePresence>
+        {flashing && (
+          <motion.div
+            key="flash"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            style={{ position: "absolute", inset: 0, background: "rgba(90,210,130,0.12)", pointerEvents: "none", borderRadius: "inherit" }}
+          />
+        )}
+      </AnimatePresence>
       <div className="flex items-center justify-between">
         <p className={`text-xs ${t.textMuted}`}>{stat.label}</p>
         <ChevronDown className={`w-3 h-3 ${t.textMuted} transition-transform ${isExpanded ? "rotate-180" : ""}`} />
@@ -267,19 +303,27 @@ const KPICard = ({
 };
 
 /* ── Overview ────────────────────────────────────────────── */
-const OverviewView = ({ t }: { t: Theme }) => {
+const OverviewView = ({ t, liveOffset = 0 }: { t: Theme; liveOffset?: number }) => {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const kpis = [
-    { label: "Total Cases",      value: "1,454",  change: "+12.3%",   up: true,  numericValue: 1454, decimals: 0, prefix: "",  suffix: "" },
-    { label: "Remake Rate",      value: "2.8%",   change: "-1.4%",    up: false, numericValue: 2.8,  decimals: 1, prefix: "",  suffix: "%" },
-    { label: "Avg Turnaround",   value: "4.2 days",change: "-0.8 days",up: false,numericValue: 4.2,  decimals: 1, prefix: "",  suffix: " days" },
-    { label: "Active Locations", value: "5",      change: "+1",       up: true,  numericValue: 5,    decimals: 0, prefix: "",  suffix: "" },
+    { label: "Total Cases",      value: "1,454",   change: "+12.3%",    up: true,  numericValue: 1454 + liveOffset, decimals: 0, prefix: "",  suffix: "" },
+    { label: "Remake Rate",      value: "2.8%",    change: "-1.4%",     up: false, numericValue: 2.8,  decimals: 1, prefix: "",  suffix: "%" },
+    { label: "Avg Turnaround",   value: "4.2 days",change: "-0.8 days", up: false, numericValue: 4.2,  decimals: 1, prefix: "",  suffix: " days" },
+    { label: "Active Locations", value: "5",       change: "+1",        up: true,  numericValue: 5,    decimals: 0, prefix: "",  suffix: "" },
   ];
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((stat, i) => (
-          <KPICard key={stat.label} stat={stat} index={i} expandedCard={expandedCard} setExpandedCard={setExpandedCard} t={t} />
+          <KPICard
+            key={stat.label}
+            stat={stat}
+            index={i}
+            expandedCard={expandedCard}
+            setExpandedCard={setExpandedCard}
+            t={t}
+            flash={stat.label === "Total Cases" ? liveOffset : undefined}
+          />
         ))}
       </div>
       <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-5`}>
@@ -301,6 +345,7 @@ const OverviewView = ({ t }: { t: Theme }) => {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      <LiveEventTicker t={t} />
     </div>
   );
 };
@@ -591,6 +636,71 @@ const TrendsView = ({ t }: { t: Theme }) => (
   </motion.div>
 );
 
+/* ── Live Event Ticker ───────────────────────────────────── */
+const LiveEventTicker = ({ t }: { t: Theme }) => {
+  const [events, setEvents] = useState(() =>
+    LIVE_EVENTS.slice(0, 3).map((e, i) => ({ ...e, id: i }))
+  );
+  const counter = useRef(LIVE_EVENTS.length);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = LIVE_EVENTS[counter.current % LIVE_EVENTS.length];
+      counter.current++;
+      const newId = counter.current;
+      setEvents(prev => [...prev.slice(-4), { ...next, id: newId }]);
+    }, 2600);
+    return () => clearInterval(id);
+  }, []);
+
+  const typeColor: Record<string, string> = {
+    Crown: "hsl(68,60%,45%)", Implant: "hsl(200,60%,50%)", Bridge: "hsl(30,70%,55%)",
+  };
+
+  return (
+    <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} overflow-hidden`}>
+      <div className={`flex items-center justify-between px-4 py-2 border-b ${t.cardBorder}`}>
+        <div className="flex items-center gap-2">
+          <motion.div
+            animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            style={{ width: 7, height: 7, borderRadius: "50%", background: "hsl(145,65%,48%)", flexShrink: 0 }}
+          />
+          <span className={`text-[11px] font-semibold uppercase tracking-widest ${t.textMuted}`}>Live Activity</span>
+        </div>
+        <span className={`text-[10px] ${t.textMuted} opacity-60`}>Real-time · Network-wide</span>
+      </div>
+      <div style={{ height: "5.5rem", overflow: "hidden", position: "relative" }}>
+        <AnimatePresence initial={false} mode="popLayout">
+          {events.slice(-3).map((ev) => (
+            <motion.div
+              key={ev.id}
+              initial={{ opacity: 0, y: 32 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -32, transition: { duration: 0.3 } }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "0.45rem 1rem" }}
+            >
+              <span
+                style={{
+                  display: "inline-block", padding: "2px 8px", borderRadius: 999,
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                  background: `${typeColor[ev.type] ?? "#999"}22`,
+                  color: typeColor[ev.type] ?? "#999",
+                  flexShrink: 0,
+                }}
+              >{ev.type}</span>
+              <span className={`text-sm font-medium ${t.textPrimary} truncate`}>{ev.dr}</span>
+              <span className={`text-xs ${t.textMuted} truncate hidden sm:block`}>· {ev.loc}</span>
+              <span className={`text-[10px] ${t.textMuted} ml-auto flex-shrink-0 opacity-60`}>just now</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
 /* ── Section background helpers ─────────────────────────── */
 const BG_STYLE: Record<string, React.CSSProperties> = {
   white:    { background: "#fff" },
@@ -619,6 +729,14 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
   const [dateRange, setDateRange]         = useState("Last 6 months");
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [liveOffset, setLiveOffset]       = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLiveOffset(prev => prev + Math.floor(Math.random() * 2) + 1);
+    }, 7800);
+    return () => clearInterval(id);
+  }, []);
 
   const isDark = ["dark", "dandy-green", "black", "gradient"].includes(backgroundStyle ?? "");
 
@@ -634,7 +752,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
     if (activeTab === "providers" && selectedProvider !== null)
       return <ProviderDetail doc={providerData[selectedProvider]} onBack={() => setSelectedProvider(null)} t={t} />;
     switch (activeTab) {
-      case "overview":   return <OverviewView t={t} />;
+      case "overview":   return <OverviewView t={t} liveOffset={liveOffset} />;
       case "locations":  return <LocationsView onSelect={setSelectedLocation} t={t} />;
       case "providers":  return <ProvidersView onSelect={setSelectedProvider} t={t} />;
       case "trends":     return <TrendsView t={t} />;
@@ -731,7 +849,15 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-300" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-300" />
             </div>
-            <div className="ml-3 flex-1 max-w-xs">
+            <div className="flex items-center gap-1.5 ml-3">
+              <motion.div
+                animate={{ opacity: [1, 0.25, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                style={{ width: 6, height: 6, borderRadius: "50%", background: "hsl(145,65%,48%)", flexShrink: 0 }}
+              />
+              <span className={`text-[10px] font-semibold tracking-widest uppercase ${t.textAccent}`} style={{ opacity: 0.9 }}>Live</span>
+            </div>
+            <div className="flex-1 max-w-xs">
               <div className={`rounded ${t.browserUrlBg} px-3 py-1 text-[11px] ${t.browserUrlText} text-center`}>
                 app.meetdandy.com/dashboard
               </div>
