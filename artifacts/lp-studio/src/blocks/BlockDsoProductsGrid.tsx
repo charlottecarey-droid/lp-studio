@@ -1,7 +1,16 @@
 import { motion } from "framer-motion";
-import { Package, Cpu, Activity, Moon, Anchor, RotateCcw, Smile, Layers } from "lucide-react";
+import { Crown, SmilePlus, Stethoscope, Target, Scan, Sparkles, Moon, Shield } from "lucide-react";
 import type { DsoProductsGridBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+
+import productPosteriorCrowns from "@/assets/dandy-product-posterior-crowns.webp";
+import productAnteriorCrowns  from "@/assets/dandy-product-anterior-crowns.webp";
+import productDentures        from "@/assets/dandy-product-dentures.webp";
+import productImplants         from "@/assets/dandy-product-implants.webp";
+import productGuidedSurgery   from "@/assets/dandy-product-guided-surgery.webp";
+import productAligners         from "@/assets/dandy-product-aligners.webp";
+import productGuards           from "@/assets/dandy-product-guards.webp";
+import productSleep            from "@/assets/dandy-product-sleep.webp";
 
 interface Props {
   props: DsoProductsGridBlockProps;
@@ -11,7 +20,35 @@ const BRAND   = "#003A30";
 const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const FALLBACK_ICONS = [Cpu, Activity, Moon, Anchor, RotateCcw, Smile, Layers, Package];
+const PRODUCT_IMAGES: Record<string, string> = {
+  "posterior-crowns":  productPosteriorCrowns,
+  "anterior-crowns":   productAnteriorCrowns,
+  dentures:            productDentures,
+  implants:            productImplants,
+  "guided-surgery":    productGuidedSurgery,
+  aligners:            productAligners,
+  guards:              productGuards,
+  sleep:               productSleep,
+  "Posterior Crowns":  productPosteriorCrowns,
+  "Anterior Crowns":   productAnteriorCrowns,
+  "Dentures":          productDentures,
+  "Implant Restorations": productImplants,
+  "Guided Surgery":    productGuidedSurgery,
+  "Clear Aligners":    productAligners,
+  "Night Guards & TMJ": productGuards,
+  "Sleep Appliances":  productSleep,
+};
+
+const PRODUCT_ICONS: Record<string, React.ElementType> = {
+  crown:       Crown,
+  smile:       SmilePlus,
+  stethoscope: Stethoscope,
+  target:      Target,
+  scan:        Scan,
+  sparkles:    Sparkles,
+  moon:        Moon,
+  shield:      Shield,
+};
 
 export function BlockDsoProductsGrid({ props }: Props) {
   const { eyebrow, headline, subheadline, products = [], backgroundStyle = "muted" } = props;
@@ -67,7 +104,8 @@ export function BlockDsoProductsGrid({ props }: Props) {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "1.25rem" }}>
           {products.map((product, i) => {
-            const Icon = FALLBACK_ICONS[i % FALLBACK_ICONS.length];
+            const imgSrc = PRODUCT_IMAGES[(product as any).imageKey] || PRODUCT_IMAGES[product.name] || product.imageUrl || null;
+            const Icon = PRODUCT_ICONS[product.icon?.toLowerCase()] ?? Crown;
             return (
               <motion.div
                 key={i}
@@ -83,9 +121,9 @@ export function BlockDsoProductsGrid({ props }: Props) {
                   backdropFilter: dark ? "blur(12px)" : "none",
                 }}
               >
-                {product.imageUrl ? (
+                {imgSrc ? (
                   <div style={{ height: 140, overflow: "hidden" }}>
-                    <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src={imgSrc} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 ) : (
                   <div

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, Clock, Zap, TrendingUp, Star, CheckCircle, Award, Heart, Users, Package, Layers, Gift } from "lucide-react";
+import { ShieldCheck, Ban, RotateCcw, Clock, Zap, TrendingUp, Star, CheckCircle, Award, Heart, Users, Package, Layers, Gift } from "lucide-react";
 import type { DsoPromisesBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
@@ -13,10 +13,15 @@ const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   "shield-check": ShieldCheck,
-  "shield": ShieldCheck,
+  shieldCheck: ShieldCheck,
+  shield: ShieldCheck,
+  ban: Ban,
+  rotate: RotateCcw,
+  "rotate-ccw": RotateCcw,
   clock: Clock,
   zap: Zap,
   "trending-up": TrendingUp,
+  trending: TrendingUp,
   star: Star,
   "check-circle": CheckCircle,
   award: Award,

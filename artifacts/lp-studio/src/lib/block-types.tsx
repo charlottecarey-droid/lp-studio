@@ -437,6 +437,7 @@ export interface DsoProductItem {
   detail: string;
   price: string;
   icon?: string;
+  imageKey?: string;
   imageUrl?: string;
 }
 
@@ -2509,15 +2510,17 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoProductsGridBlockProps => ({
       eyebrow: "The Full Platform",
-      headline: "Everything your practices need in one place.",
-      subheadline: "From crowns to clear aligners — Dandy's full product catalog, delivered with a 96% first-time fit rate.",
+      headline: "One lab for everything your practice needs.",
+      subheadline: "Perfect fit. Fast turnarounds. One connected system that simplifies your entire restorative workflow.",
       products: [
-        { name: "Crowns & Bridges", detail: "PFM, Zirconia, E.max — all in 5 business days", price: "From $109" },
-        { name: "Clear Aligners", detail: "In-house aligner therapy with Dandy-designed software", price: "From $495" },
-        { name: "Dentures", detail: "Full & partial dentures with 2-appointment workflow", price: "From $299" },
-        { name: "Nightguards", detail: "Hard, soft, and hybrid — delivered in 3 days", price: "From $79" },
-        { name: "Implants", detail: "Custom abutments, full-arch restorations, & surgical guides", price: "From $129" },
-        { name: "Retainers", detail: "Vivera-compatible, hawley, and fixed retainers", price: "From $59" },
+        { icon: "crown",       imageKey: "posterior-crowns", name: "Posterior Crowns",     detail: "AI-perfected, 5-day turnaround",        price: "From $99/unit" },
+        { icon: "smile",       imageKey: "anterior-crowns",  name: "Anterior Crowns",      detail: "Stunning aesthetics, free 3D approvals", price: "Premium materials" },
+        { icon: "stethoscope", imageKey: "dentures",         name: "Dentures",             detail: "2-appointment digital workflow",         price: "From $199/arch" },
+        { icon: "target",      imageKey: "implants",         name: "Implant Restorations", detail: "FDA-approved, custom abutments",         price: "All systems supported" },
+        { icon: "scan",        imageKey: "guided-surgery",   name: "Guided Surgery",       detail: "3D-printed surgical guides",             price: "$109/site" },
+        { icon: "sparkles",    imageKey: "aligners",         name: "Clear Aligners",       detail: "Doctor-directed, 3D simulations",        price: "Flexible plans" },
+        { icon: "moon",        imageKey: "guards",           name: "Night Guards & TMJ",   detail: "Digital heatmaps, 3D-printed",           price: "From $59 bundled" },
+        { icon: "shield",      imageKey: "sleep",            name: "Sleep Appliances",     detail: "MAD devices for OSA patients",           price: "Medical billing support" },
       ],
       backgroundStyle: "muted",
     }),
@@ -2577,12 +2580,13 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoActivationStepsBlockProps => ({
       eyebrow: "Getting Started",
-      headline: "You're three steps away from going live.",
+      headline: "Four steps to going live with Dandy.",
       subheadline: "Our onboarding team handles every detail — from scanner delivery to your first case.",
       steps: [
-        { step: "01", title: "Book your activation call", desc: "Schedule a 30-minute call with your dedicated Dandy rep. We'll align on your locations, workflow, and launch timeline." },
-        { step: "02", title: "Get your scanners delivered", desc: "We ship premium intraoral scanners directly to your practices — no CAPEX, no delays, no IT involvement required." },
-        { step: "03", title: "Train your team & send your first case", desc: "Our clinical team trains your doctors and staff on-site. Most practices send their first case within 48 hours of training." },
+        { step: "1", title: "Schedule Your Kickoff", desc: "Meet your dedicated team and align on rollout timeline." },
+        { step: "2", title: "Equipment Setup", desc: "We ship and install scanners — fully configured." },
+        { step: "3", title: "Team Training", desc: "Hands-on training for doctors and staff." },
+        { step: "4", title: "Go Live", desc: "Submit your first cases and experience the difference." },
       ],
       ctaText: "Book Your Activation Call",
       ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
@@ -2613,13 +2617,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoPromisesBlockProps => ({
       eyebrow: "Our Guarantees",
-      headline: "We don't just promise results.\nWe guarantee them.",
-      subheadline: "Every Dandy DSO partnership comes backed by commitments that protect your group's investment and outcomes.",
+      headline: "Built on trust. Backed by guarantees.",
+      subheadline: "We stand behind every case — because your reputation depends on it.",
       promises: [
-        { icon: "shield-check", title: "96% First-Time Fit", desc: "If a case doesn't fit the first time, we remake it — free. Our AI catches issues before they ever leave the lab." },
-        { icon: "clock", title: "5-Day Crown Turnaround", desc: "Premium restorations delivered in 5 business days. If we miss the window, you get a credit — no questions asked." },
-        { icon: "zap", title: "Same-Day Support", desc: "Direct line to your dedicated Dandy rep. Questions get answers the same business day, every time." },
-        { icon: "trending-up", title: "Measurable ROI in 90 Days", desc: "We track remake reduction, chair time recovered, and revenue lift — and we show you the numbers." },
+        { icon: "ban",         title: "Zero Long-Term Contracts", desc: "Simple, transparent pricing. No lock-ins, no hidden fees. Stay because you want to, not because you have to." },
+        { icon: "rotate",      title: "Free No-Hassle Remakes",   desc: "If it doesn't fit, we'll make it right — no questions asked, no finger-pointing. Every single time." },
+        { icon: "shieldCheck", title: "10-Year Warranty",          desc: "Every crown, bridge, and restoration is backed by a 10-year warranty. Your patients are covered for years to come." },
       ],
       backgroundStyle: "dark",
     }),

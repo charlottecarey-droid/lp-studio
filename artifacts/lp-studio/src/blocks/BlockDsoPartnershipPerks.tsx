@@ -20,6 +20,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   users: Users,
   clock: Clock,
   "trending-up": TrendingUp,
+  trending: TrendingUp,
   "check-circle": CheckCircle,
   award: Award,
   heart: Heart,
