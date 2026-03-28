@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2 } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 
 const API_BASE = "/api";
 
-type LibraryType = "product_showcase" | "product_grid" | "case_study" | "resource";
+type LibraryType = "product_showcase" | "product_grid" | "case_study" | "resource" | "team_member";
 
 interface LibraryItem {
   id: number;
@@ -139,10 +139,24 @@ function ResourceForm({
   );
 }
 
+function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const v = value as { name?: string; role?: string; email?: string; calendlyUrl?: string; photo?: string };
+  return (
+    <div className="space-y-2">
+      <Input placeholder="Full name" value={v.name ?? ""} onChange={e => onChange({ ...v, name: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="Role / Title (e.g. Enterprise AE)" value={v.role ?? ""} onChange={e => onChange({ ...v, role: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="email@meetdandy.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="ChiliPiper / Calendly URL" value={v.calendlyUrl ?? ""} onChange={e => onChange({ ...v, calendlyUrl: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="Photo URL (optional)" value={v.photo ?? ""} onChange={e => onChange({ ...v, photo: e.target.value })} className="text-xs h-7" />
+    </div>
+  );
+}
+
 function getDefaultContent(type: LibraryType): Record<string, unknown> {
   if (type === "product_showcase") return { name: "", description: "", badge: "", image: "" };
   if (type === "product_grid") return { title: "", description: "", image: "" };
   if (type === "case_study") return { title: "", categories: "", url: "#", image: "", logoUrl: "" };
+  if (type === "team_member") return { name: "", role: "", email: "", calendlyUrl: "", photo: "" };
   return { title: "", description: "", category: "Article", url: "#", image: "" };
 }
 
@@ -150,6 +164,7 @@ function ContentForm({ type, value, onChange }: { type: LibraryType; value: Reco
   if (type === "product_showcase") return <ProductShowcaseForm value={value} onChange={onChange} />;
   if (type === "product_grid") return <ProductGridForm value={value} onChange={onChange} />;
   if (type === "case_study") return <CaseStudyForm value={value} onChange={onChange} />;
+  if (type === "team_member") return <TeamMemberForm value={value} onChange={onChange} />;
   return <ResourceForm value={value} onChange={onChange} />;
 }
 
@@ -158,6 +173,7 @@ function getPreviewText(item: LibraryItem): string {
   if (item.type === "product_showcase") return String(c.description ?? "").slice(0, 80);
   if (item.type === "product_grid") return String(c.description ?? "").slice(0, 80);
   if (item.type === "case_study") return String(c.categories ?? "");
+  if (item.type === "team_member") return [c.role, c.email].filter(Boolean).join(" · ");
   return String(c.category ?? "");
 }
 
@@ -1042,6 +1058,7 @@ const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: Reac
   { id: "product_grid", label: "Product Grid", description: "Items used in Product Grid blocks" },
   { id: "case_study", label: "Case Studies", description: "Case study cards across landing pages" },
   { id: "resource", label: "Resources", description: "Articles, guides, and resources" },
+  { id: "team_member", label: "Sales Reps", description: "Sales reps and their booking links — pick from this list when building Meet the Team blocks.", icon: <Users className="w-3.5 h-3.5" /> },
   { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
 ];
 

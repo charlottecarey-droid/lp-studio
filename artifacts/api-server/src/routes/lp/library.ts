@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-const VALID_TYPES = ["product_showcase", "product_grid", "case_study", "resource"] as const;
+const VALID_TYPES = ["product_showcase", "product_grid", "case_study", "resource", "team_member"] as const;
 type LibraryType = typeof VALID_TYPES[number];
 
 function isValidType(t: string): t is LibraryType {

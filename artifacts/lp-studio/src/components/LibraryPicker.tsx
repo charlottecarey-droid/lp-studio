@@ -21,7 +21,7 @@ export interface LibraryItem {
 interface LibraryPickerProps {
   open: boolean;
   onClose: () => void;
-  type: "product_showcase" | "product_grid" | "case_study" | "resource";
+  type: "product_showcase" | "product_grid" | "case_study" | "resource" | "team_member";
   onSelect: (items: Record<string, unknown>[]) => void;
   title: string;
   renderPreview: (item: LibraryItem) => React.ReactNode;
@@ -207,7 +207,7 @@ export function SaveItemToLibraryButton({ type, content, defaultName = "" }: Sav
 }
 
 interface LibraryButtonsProps {
-  type: "product_showcase" | "product_grid" | "case_study" | "resource";
+  type: "product_showcase" | "product_grid" | "case_study" | "resource" | "team_member";
   title: string;
   renderPreview: (item: LibraryItem) => React.ReactNode;
   onLoadDefaults: (items: Record<string, unknown>[]) => void;

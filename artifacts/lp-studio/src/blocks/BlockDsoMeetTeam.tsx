@@ -158,54 +158,53 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
               )}
 
               <div style={{ padding: "1.5rem 1.75rem 2rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{m.name}</p>
-                <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3 }}>{m.role}</p>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
-                {m.email && (
-                  <a
-                    href={`mailto:${m.email}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: "0.8125rem",
-                      color: mutedC,
-                      textDecoration: "none",
-                      transition: "color 0.2s",
-                    }}
-                  >
-                    <Mail style={{ width: 13, height: 13, flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</span>
-                  </a>
-                )}
-                {m.calendlyUrl && (
-                  <a
-                    href={m.calendlyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      color: dark ? BRAND : "#fff",
-                      background: dark ? LIME : BRAND,
-                      borderRadius: "0.5rem",
-                      padding: "0.5rem 0.875rem",
-                      textDecoration: "none",
-                      marginTop: 4,
-                    }}
-                  >
-                    <Calendar style={{ width: 13, height: 13 }} />
-                    Book a call
-                  </a>
-                )}
-              </div>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{m.name}</p>
+                  <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3 }}>{m.role}</p>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
+                  {m.email && (
+                    <a
+                      href={`mailto:${m.email}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: "0.8125rem",
+                        color: mutedC,
+                        textDecoration: "none",
+                        transition: "color 0.2s",
+                      }}
+                    >
+                      <Mail style={{ width: 13, height: 13, flexShrink: 0 }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</span>
+                    </a>
+                  )}
+                  {m.calendlyUrl && (
+                    <a
+                      href={m.calendlyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        fontSize: "0.8125rem",
+                        fontWeight: 600,
+                        color: dark ? BRAND : "#fff",
+                        background: dark ? LIME : BRAND,
+                        borderRadius: "0.5rem",
+                        padding: "0.5rem 0.875rem",
+                        textDecoration: "none",
+                        marginTop: 4,
+                      }}
+                    >
+                      <Calendar style={{ width: 13, height: 13 }} />
+                      Book a call
+                    </a>
+                  )}
+                </div>
               </div>
             </motion.div>
           ))}
