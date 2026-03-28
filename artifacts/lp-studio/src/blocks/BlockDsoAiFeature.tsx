@@ -4,6 +4,7 @@ import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
+import { WordReveal } from "./WordReveal";
 
 const P    = "#003A30";
 const AW   = "hsl(68,60%,52%)";
@@ -102,33 +103,30 @@ export function BlockDsoAiFeature({ props }: Props) {
                 {eyebrow}
               </motion.p>
             )}
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
+            <h2
               style={{
                 fontFamily: DISPLAY_FONT,
                 fontSize: "clamp(2rem,3.5vw,3rem)",
-                lineHeight: 1.08,
+                lineHeight: 1.15,
                 fontWeight: 600,
                 letterSpacing: "-0.025em",
-                color: fg,
                 marginBottom: body ? "1.25rem" : 0,
               }}
             >
-              {headline}
-            </motion.h2>
+              <WordReveal
+                text={headline}
+                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgba(0,58,48,0.2)"}
+                brightColor={fg}
+              />
+            </h2>
             {body && (
-              <motion.p
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.08 }}
-                style={{ fontSize: "1rem", color: mu, lineHeight: 1.7 }}
-              >
-                {body}
-              </motion.p>
+              <p style={{ fontSize: "1rem", lineHeight: 1.7 }}>
+                <WordReveal
+                  text={body}
+                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgba(0,58,48,0.18)"}
+                  brightColor={mu}
+                />
+              </p>
             )}
           </div>
 
