@@ -49,6 +49,8 @@ interface MediaImage {
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
 const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail"]);
+/** Tags that permanently exclude an image from AI image selection */
+const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph"]);
 
 /** Get the landing-page purpose of an image (first purpose tag found, or "" for unclassified) */
 function getImagePurpose(img: MediaImage): string {
@@ -68,11 +70,15 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(500);
 
-    const images: MediaImage[] = rows.map(r => ({
+    const allImages: MediaImage[] = rows.map(r => ({
       url: r.url,
       title: r.title ?? "",
       tags: (r.tags as string[]) ?? [],
     }));
+
+    // Exclude OG/social-sharing images — they are tagged "og-image" by the auto-tagger
+    // and should never be used as landing page block images.
+    const images = allImages.filter(img => !img.tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase())));
 
     if (images.length === 0) return { images, catalogText: "" };
 

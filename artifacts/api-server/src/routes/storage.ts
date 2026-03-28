@@ -96,6 +96,7 @@ type ImagePurpose = typeof VALID_PURPOSES[number];
  *   "lp-hero"        — lifestyle, people, environments, smiles, clinic shots (hero sections)
  *   "lp-feature"     — clean product/procedure shots, moderate close-ups (feature rows)
  *   "product-detail" — very close-up product, diagrams, spec/guide illustrations
+ *   "og-image"       — (exclusion tag) social/OG sharing image; auto-excluded from AI page generation
  */
 async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[] = []) {
   try {
@@ -117,20 +118,22 @@ async function autoTagImage(mediaId: number, imageBuffer: Buffer, mimeType: stri
             `You are an image tagger for a dental/medical marketing asset library. Return ONLY a valid JSON object (no markdown, no explanation):
 {
   "tags": ["tag1", "tag2"],
-  "purpose": "lp-hero"
+  "purpose": "lp-hero",
+  "og": false
 }
 Rules:
 - "tags": 3–6 short lowercase descriptive tags (1–3 words each) describing subject, style, and mood.
 - "purpose": exactly one of:
     "lp-hero"        → lifestyle shot, people smiling, team/clinic environment, before-after results, patient story — suitable as a landing page hero
     "lp-feature"     → clean product/procedure angle, moderate close-up of a device or service, good for a feature row
-    "product-detail" → extreme close-up, technical diagram, spec illustration, guide graphic, not suitable as a hero`,
+    "product-detail" → extreme close-up, technical diagram, spec illustration, guide graphic, not suitable as a hero
+- "og": true if the image is a social-sharing / Open Graph card — i.e. text or a logo overlaid on a background, appears designed for social media sharing (typically wide 1.91:1 ratio with headline text, brand name, or URL on it), website screenshot, or any promotional card NOT suitable as a standalone photo. Set false otherwise.`,
         },
         {
           role: "user",
           content: [
             { type: "image_url", image_url: { url: dataUri, detail: "low" } },
-            { type: "text", text: "Tag this image and classify its landing page purpose." },
+            { type: "text", text: "Tag this image, classify its landing page purpose, and detect if it is an OG/social-sharing image." },
           ],
         },
       ],
@@ -141,6 +144,7 @@ Rules:
 
     let aiTags: string[] = [];
     let purpose: ImagePurpose | "" = "";
+    let isOg = false;
 
     try {
       const parsed = JSON.parse(cleaned);
@@ -152,16 +156,18 @@ Rules:
         if (typeof parsed.purpose === "string" && VALID_PURPOSES.includes(parsed.purpose as ImagePurpose)) {
           purpose = parsed.purpose as ImagePurpose;
         }
+        if (parsed.og === true) isOg = true;
       }
     } catch {
       // JSON parse failed — skip tagging
     }
 
-    if (aiTags.length > 0 || purpose) {
-      // Purpose tag goes first (guaranteed slot outside the 10-tag cap for regular tags)
-      const purposeArr: string[] = purpose ? [purpose] : [];
-      // Remove any stale purpose tags from existing tags before merging
-      const cleanedExisting = existingTags.filter(t => !VALID_PURPOSES.includes(t as ImagePurpose));
+    if (aiTags.length > 0 || purpose || isOg) {
+      // OG images get the "og-image" exclusion tag prepended; no LP purpose tag assigned
+      const purposeArr: string[] = isOg ? ["og-image"] : (purpose ? [purpose] : []);
+      // Remove any stale purpose/og tags from existing tags before merging
+      const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+      const cleanedExisting = existingTags.filter(t => !staleTagSet.has(t));
       const merged = [...new Set([...purposeArr, ...cleanedExisting, ...aiTags])].slice(0, 11);
       await db
         .update(lpMediaTable)
@@ -173,7 +179,7 @@ Rules:
   }
 }
 
-/** Re-classify just the purpose (lp-hero/lp-feature/product-detail) for an image that already has content tags.
+/** Re-classify just the purpose (lp-hero/lp-feature/product-detail/og-image) for an image that already has content tags.
  *  Much lighter than full autoTagImage — only updates the purpose prefix tag.
  */
 async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[]): Promise<void> {
@@ -194,9 +200,10 @@ async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeTyp
           role: "system",
           content:
             `Classify this image's landing page purpose. Reply with ONLY one of these exact strings:
-lp-hero       → lifestyle, people, smiles, clinic/team environment, before-after results — good as a landing page hero
-lp-feature    → clean product/procedure angle, moderate close-up, good for a feature section
-product-detail → extreme close-up, technical diagram, spec illustration, guide graphic — not suitable as a hero`,
+lp-hero        → lifestyle, people, smiles, clinic/team environment, before-after results — good as a landing page hero
+lp-feature     → clean product/procedure angle, moderate close-up, good for a feature section
+product-detail → extreme close-up, technical diagram, spec illustration, guide graphic — not suitable as a hero
+og-image       → social-sharing / Open Graph card — text or logo overlaid on a background image, website screenshot, or any promotional card designed for social media (NOT a standalone photo)`,
         },
         {
           role: "user",
@@ -209,11 +216,21 @@ product-detail → extreme close-up, technical diagram, spec illustration, guide
     });
 
     const raw = (completion.choices[0]?.message?.content?.trim() ?? "").toLowerCase();
+    const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+
+    if (raw.includes("og-image")) {
+      // OG images: tag as "og-image", remove any LP purpose tags
+      const cleanedTags = existingTags.filter(t => !staleTagSet.has(t));
+      const merged = ["og-image", ...cleanedTags].slice(0, 11);
+      await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
+      return;
+    }
+
     const purpose = VALID_PURPOSES.find(p => raw.includes(p));
     if (!purpose) return;
 
-    // Remove any stale purpose tags, prepend new one
-    const cleanedTags = existingTags.filter(t => !VALID_PURPOSES.includes(t as typeof VALID_PURPOSES[number]));
+    // Remove any stale purpose/og tags, prepend new one
+    const cleanedTags = existingTags.filter(t => !staleTagSet.has(t));
     const merged = [purpose, ...cleanedTags].slice(0, 11);
     await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
   } catch {
@@ -229,9 +246,10 @@ router.post("/lp/media/reclassify", async (req: Request, res: Response) => {
       .from(lpMediaTable)
       .where(eq(lpMediaTable.mediaType, "image"));
 
+    const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES, "og-image"]);
     const unclassified = rows.filter(r => {
       const tags = (r.tags as string[]) ?? [];
-      return !tags.some(t => VALID_PURPOSES.includes(t as typeof VALID_PURPOSES[number]));
+      return !tags.some(t => ALL_PURPOSE_TAGS.has(t));
     });
 
     res.json({ total: unclassified.length, message: `Reclassifying ${unclassified.length} images in the background…` });
