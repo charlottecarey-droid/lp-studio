@@ -1,0 +1,47 @@
+# AI Content Brief — Independence Dental Group practices
+**Objective:** Get them to book a demo to activate their new partnership perks
+
+## Company / Audience Overview
+Independence Dental Group practices are part of a Dental Service Organization (DSO) network where Dandy holds preferred partner status. These individual practices are navigating busy schedules, established workflows, and patient care priorities while balancing changes introduced by corporate partnerships. They have access to exclusive benefits with Dandy that streamline clinical workflows and improve patient outcomes.
+
+## Buyer Personas
+### 1. Practice dentist / associate dentist
+**Motivations:** Wants tools that make their clinical work easier and more effective without disrupting patient care or adding time to their day
+**Pain Points:**
+- skeptical of corporate-mandated changes — 'I've been using my lab for years, why switch?'
+- worried about disruption to established workflow and patient relationships
+- no time to learn new systems during a packed clinical schedule
+
+### 2. Office manager / practice manager
+**Motivations:** Wants solutions that simplify operations, save time, and improve the patient experience without adding complexity
+**Pain Points:**
+- responsible for smooth daily operations — any disruption creates patient scheduling chaos
+- managing supply ordering across multiple vendors is already overwhelming
+- needs to see that new tools reduce admin burden, not add to it
+
+### 3. Dental assistant / clinical staff
+**Motivations:** Wants tools that are intuitive, reliable, and empower them to excel in their role without increasing stress or workload
+**Pain Points:**
+- bear the brunt of workflow changes — they're the ones scanning, prepping, and managing chairside
+- need confidence that new tech works before relying on it with patients
+- fear of being blamed if new workflow causes issues or delays
+
+## Suggested Headline
+your independence dental peers are already seeing the difference with dandy
+
+## Key Value Props
+- your DSO already negotiated preferred access to Dandy — getting started is free and pre-approved, no CapEx request needed
+- AI catches prep issues before they become remakes — dentists in your network have stopped double-checking margins entirely
+- practices in your network are already seeing 50% fewer denture appointments and freeing chair time for higher-value cases
+- your dental assistants can handle 90% of the digital workflow, freeing you to focus on clinical decisions and patient care
+
+## Tone Guidance
+The tone should be knowledgeable and warm, speaking directly to the daily realities and challenges of Independence Dental practices. Use a confident and compassionate voice, focusing on how Dandy can improve workflows and patient outcomes. Avoid corporate jargon and make the messaging relatable and personal.
+
+## CTA Suggestions
+- see it in action — book your demo today
+- book a demo and activate your new perks
+- get started with your pre-approved access now
+
+## Recommended LP Blocks
+Hero → Stat Callout → Testimonial → Benefits Grid → Lead Form

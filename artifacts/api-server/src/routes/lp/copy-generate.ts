@@ -195,9 +195,19 @@ function pickLibraryImage(context: string, images: MediaImage[], usedUrls: Set<s
   return "";
 }
 
+function buildSegmentCopyContext(blockType: string, blockCategory?: string): string {
+  if (!blockType.startsWith("dso-")) return "";
+  if (blockCategory === "DSO Practices") {
+    return `You are writing copy for a "DSO Practices" segment landing page block of type "${blockType}". This page targets dental practices that are part of a DSO network — individual practice owners, dentists, office managers, and clinical teams. Write B2B copy focused on practice-level benefits: chair-time savings, clinical consistency, seamless onboarding/training, Dandy scanner support, per-case quality guarantees, and practice-level ROI. Be warm, specific, and credible. Reference Dandy products naturally: "AI Scan Review", "same-day delivery", "first-time fit rate", "remake reduction", "dedicated rep", "on-site training". Avoid jargon that only DSO executives would care about (network-wide KPIs, consolidation metrics, M&A integration). Use sentence casing throughout.`;
+  }
+  // Default: enterprise DSO blocks (Heartland-style, C-suite targeting)
+  return `You are writing copy for a DSO (dental service organization) enterprise sales page block of type "${blockType}". Write B2B copy targeting DSO executives (CEO, COO, VP of Operations). Focus on multi-location dental networks, operational efficiency, lab standardization, AI-powered workflows, and measurable ROI. Be specific and credible. Reference Dandy product names where natural: "AI Scan Review", "Pilot Program", "first-time fit rate", "remake reduction", "turnaround time". Use sentence casing throughout.`;
+}
+
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const body = req.body as {
     blockType?: string;
+    blockCategory?: string;
     action?: string;
     field?: string;
     currentValue?: string;
@@ -228,10 +238,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const brandPrompt = buildBrandSystemPrompt(brand);
   const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
 
-  const isDsoBlock = blockType.startsWith("dso-");
-  const dsoContext = isDsoBlock
-    ? `You are writing copy for a DSO (dental service organization) enterprise sales page block of type "${blockType}". Write B2B copy targeting DSO executives (CEO, COO, VP of Operations). Focus on multi-location dental networks, operational efficiency, lab standardization, AI-powered workflows, and measurable ROI. Be specific and credible. Reference Dandy product names where natural: "AI Scan Review", "Pilot Program", "first-time fit rate", "remake reduction", "turnaround time". Use sentence casing throughout.`
-    : "";
+  const dsoContext = buildSegmentCopyContext(blockType, body.blockCategory);
 
   if (action === "refresh") {
     const { fields, currentValues = {} } = body;

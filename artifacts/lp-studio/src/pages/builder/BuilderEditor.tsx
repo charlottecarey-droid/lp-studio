@@ -196,8 +196,17 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
   );
 }
 
+const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
+
 function SegmentLibrary({ onAdd, customBlocks, segments }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[] }) {
-  const builtInSegmentBlocks = BLOCK_REGISTRY.filter(b => b.category === "DSO");
+  // Group all non-core registry blocks by their category name
+  const segmentGroupMap = BLOCK_REGISTRY.reduce((acc, block) => {
+    if (CORE_CATEGORIES.has(block.category)) return acc;
+    if (!acc[block.category]) acc[block.category] = [];
+    acc[block.category].push(block);
+    return acc;
+  }, {} as Record<string, typeof BLOCK_REGISTRY>);
+  const segmentGroupEntries = Object.entries(segmentGroupMap);
 
   const renderBlockButton = (key: string, label: string, thumbnail: ReactNode, onClick: () => void) => (
     <button
@@ -219,17 +228,17 @@ function SegmentLibrary({ onAdd, customBlocks, segments }: { onAdd: (type: strin
 
   return (
     <div className="p-4 space-y-5">
-      {/* Built-in segment blocks */}
-      {builtInSegmentBlocks.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Segment Blocks</p>
+      {/* Built-in segment blocks — grouped by category */}
+      {segmentGroupEntries.map(([categoryName, blocks]) => (
+        <div key={categoryName}>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{categoryName}</p>
           <div className="grid grid-cols-2 gap-2">
-            {builtInSegmentBlocks.map(block =>
+            {blocks.map(block =>
               renderBlockButton(block.type, block.label, <BlockThumbnail type={block.type} />, () => onAdd(block.type))
             )}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Per-brand-segment custom blocks */}
       {segments.length > 0 ? (

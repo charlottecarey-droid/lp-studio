@@ -395,6 +395,18 @@ function buildBrandContext(brand: BrandConfig): string {
   return parts.join("\n");
 }
 
+/** Detect if the user prompt is targeting practice-level staff within a DSO network */
+function isDsoPracticesPrompt(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  const keywords = [
+    "dso practices", "practice segment", "dental practices", "individual practices",
+    "practice owners", "practice teams", "practice staff", "practice-level",
+    "onboarding practices", "activating practices", "my practices",
+    "practice page", "practice portal", "practice microsit",
+  ];
+  return keywords.some(kw => lower.includes(kw));
+}
+
 /** Detect if the user prompt is targeting a DSO / multi-location dental group audience */
 function isDsoPrompt(prompt: string): boolean {
   const lower = prompt.toLowerCase();
@@ -482,6 +494,33 @@ RULES:
 11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
 12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.`;
 
+const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in dental practice enablement pages for DSO networks. You generate complete page structures as JSON for Dandy's "DSO Practices" block library.
+
+These pages are shown to individual dental practices that are part of a DSO network — targeting practice owners, dentists, office managers, and clinical teams. Copy should be warm, specific, and ROI-focused at the practice level (chair-time savings, clinical quality, ease of onboarding, dedicated support). Avoid enterprise-level jargon (consolidation metrics, M&A, network KPIs).
+
+AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
+- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldLabel (string), oldBullets (string[]), newLabel (string), newBullets (string[]), backgroundStyle ("dark"|"white"|"muted")
+- "dso-partnership-perks": Icon grid of partnership benefits/perks. Props: eyebrow (string), headline (string), subheadline (string), perks (array of {icon, title, desc} — icon keys: "trophy","gift","zap","users","clock","star","shield","heart","check","target"), backgroundStyle ("dark"|"white"|"muted")
+- "dso-products-grid": Product card grid with images/icons. Props: eyebrow (string), headline (string), subheadline (string), products (array of {name, detail, price, icon, imageKey} — imageKey options: "posterior-crowns","anterior-crowns","dentures","implants","guided-surgery","aligners","guards","sleep"), backgroundStyle ("white"|"muted"|"dark")
+- "dso-promo-cards": 2-column promotional offer cards. Props: eyebrow (string), headline (string), subheadline (string), cards (array of {title, desc, badge, ctaText, ctaUrl} — badge options: "NEW","EXCLUSIVE","FREE","LIMITED"), backgroundStyle ("dark"|"white")
+- "dso-activation-steps": Numbered onboarding steps (4 steps). Props: eyebrow (string), headline (string), subheadline (string), steps (array 4 of {number ("01"|"02"|etc), title, subtitle, body, detail}), backgroundStyle ("dark"|"white"|"muted")
+- "dso-promises": Promise/guarantee cards with icons. Props: eyebrow (string), headline (string), subheadline (string), promises (array of {icon, title, desc} — icon keys: "ban","rotate","shieldCheck","trending","award","zap","clock","heart"), backgroundStyle ("dark"|"white"|"muted")
+- "dso-meet-team": Team member cards with booking buttons + section CTA. Props: eyebrow (string), headline (string), subheadline (string), ctaText (string), ctaUrl (string), members (array of {name, role, email, photo, calendlyUrl}), backgroundStyle ("dark"|"white"|"muted")
+- "dso-testimonials": 3-column testimonial strip. Props: eyebrow (string), headline (string), subheadline (string), testimonials (array of {quote, author, location}), backgroundStyle ("dark"|"white"|"muted")
+
+RULES:
+1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
+3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
+4. Generate 5–8 blocks per page. Always start with "dso-paradigm-shift" or "dso-partnership-perks", and always end with "dso-meet-team" or "dso-promises".
+5. Recommended page flow: paradigm-shift → products-grid → partnership-perks → activation-steps → promises → testimonials → meet-team
+6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
+7. Use real Dandy product references: "AI Scan Review", "first-time fit rate", "same-day delivery", "on-site training", "dedicated rep", "Dandy scanner".
+8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
+9. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
+10. When the user provides specific numbers or stats, use those EXACT numbers.
+11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the team and promises sections.`;
+
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const { prompt } = req.body as { prompt?: string };
 
@@ -501,17 +540,20 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const [brand, mediaCatalog] = await Promise.all([fetchBrand(), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
 
-  const useDso = isDsoPrompt(prompt);
-  const systemPrompt = useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
+  const useDsoPractices = isDsoPracticesPrompt(prompt);
+  const useDso = !useDsoPractices && isDsoPrompt(prompt);
+  const systemPrompt = useDsoPractices ? DSO_PRACTICES_SYSTEM_PROMPT : useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
-    useDso
-      ? "Generate a complete DSO enterprise landing page using only DSO block types. Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays."
-      : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
+    useDsoPractices
+      ? "Generate a complete DSO Practices landing page using only DSO Practices block types. Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network."
+      : useDso
+        ? "Generate a complete DSO enterprise landing page using only DSO block types. Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays."
+        : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
   );
 
   const userPrompt = userPromptParts.join("\n\n");

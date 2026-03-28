@@ -1,7 +1,7 @@
 import type React from "react";
 import type { BackgroundStyle } from "./bg-styles";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO" | "DSO Practices";
 
 export interface HeroBlockProps {
   headline: string;
@@ -2398,7 +2398,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-meet-team" as const,
     label: "DSO Meet the Team",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoMeetTeamBlockProps => ({
       eyebrow: "Your Dedicated Team",
       headline: "The team behind your partnership.",
@@ -2433,7 +2433,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-paradigm-shift" as const,
     label: "DSO Paradigm Shift",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoParadigmShiftBlockProps => ({
       eyebrow: "The New Standard",
       headline: "From fragmented labs to one unified partner.",
@@ -2477,7 +2477,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-partnership-perks" as const,
     label: "DSO Partnership Perks",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPartnershipPerksBlockProps => ({
       eyebrow: "Partnership Benefits",
       headline: "Perks that come with every Dandy partnership.",
@@ -2511,7 +2511,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-products-grid" as const,
     label: "DSO Products Grid",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoProductsGridBlockProps => ({
       eyebrow: "The Full Platform",
       headline: "One lab for everything your practice needs.",
@@ -2548,7 +2548,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-promo-cards" as const,
     label: "DSO Promo Cards",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPromoCardsBlockProps => ({
       eyebrow: "Limited-Time Offers",
       headline: "Exclusive promotions for DSO partners.",
@@ -2581,7 +2581,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-activation-steps" as const,
     label: "DSO Activation Steps",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoActivationStepsBlockProps => ({
       eyebrow: "Getting Started",
       headline: "Four steps to going live with Dandy.",
@@ -2618,7 +2618,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-promises" as const,
     label: "DSO Promises",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPromisesBlockProps => ({
       eyebrow: "Our Guarantees",
       headline: "Built on trust. Backed by guarantees.",
@@ -2650,7 +2650,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "dso-testimonials" as const,
     label: "DSO Testimonials",
-    category: "DSO" as BlockCategory,
+    category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoTestimonialsBlockProps => ({
       eyebrow: "What Our Partners Say",
       headline: "Practices that switched and never looked back.",

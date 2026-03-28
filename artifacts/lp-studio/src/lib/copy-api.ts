@@ -1,4 +1,10 @@
+import { BLOCK_REGISTRY } from "./block-types";
+
 const API = "/api/lp/copy-generate";
+
+function getBlockCategory(blockType: string): string | undefined {
+  return BLOCK_REGISTRY.find((b) => b.type === blockType)?.category;
+}
 
 export interface SegmentContext {
   id: string;
@@ -29,10 +35,11 @@ export async function suggestCopy(
 ): Promise<string[]> {
   const { getBriefContext } = await import("./brief-context");
   const briefContext = getBriefContext() ?? undefined;
+  const blockCategory = getBlockCategory(blockType);
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blockType, field, currentValue, siblingFields, count, briefContext }),
+    body: JSON.stringify({ blockType, blockCategory, field, currentValue, siblingFields, count, briefContext }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -73,10 +80,11 @@ export async function refreshBlockCopy(
 ): Promise<Record<string, string>> {
   const { getBriefContext } = await import("./brief-context");
   const briefContext = getBriefContext() ?? undefined;
+  const blockCategory = getBlockCategory(blockType);
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blockType, action: "refresh", fields, currentValues, briefContext }),
+    body: JSON.stringify({ blockType, blockCategory, action: "refresh", fields, currentValues, briefContext }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
