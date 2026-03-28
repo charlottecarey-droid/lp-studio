@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 import { WordReveal } from "./WordReveal";
+import { StatCounter } from "./StatCounter";
 
 const P    = "#003A30";
 const AW   = "hsl(68,60%,52%)";
@@ -64,19 +65,36 @@ export function BlockDsoAiFeature({ props }: Props) {
       className="py-24 md:py-32"
     >
       {dark && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "30%",
-            transform: "translate(-50%, -50%)",
-            width: 600,
-            height: 600,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${AW}08 0%, transparent 70%)`,
-            pointerEvents: "none",
-          }}
-        />
+        <>
+          <motion.div
+            animate={{ x: [0, 40, -20, 0], y: [0, -30, 20, 0], scale: [1, 1.15, 0.95, 1] }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+            style={{
+              position: "absolute",
+              top: "10%",
+              left: "15%",
+              width: 700,
+              height: 700,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${AW}0A 0%, transparent 65%)`,
+              pointerEvents: "none",
+            }}
+          />
+          <motion.div
+            animate={{ x: [0, -50, 30, 0], y: [0, 40, -20, 0], scale: [1, 0.9, 1.1, 1] }}
+            transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+            style={{
+              position: "absolute",
+              bottom: "5%",
+              right: "10%",
+              width: 500,
+              height: 500,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, hsl(152,60%,25%)22 0%, transparent 65%)`,
+              pointerEvents: "none",
+            }}
+          />
+        </>
       )}
 
       <div
@@ -88,9 +106,10 @@ export function BlockDsoAiFeature({ props }: Props) {
           <div>
             {eyebrow && (
               <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: -18 }}
+                whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
+                transition={{ type: "spring", stiffness: 120, damping: 18 }}
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
@@ -139,14 +158,20 @@ export function BlockDsoAiFeature({ props }: Props) {
           >
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: ctaText ? "2rem" : 0 }}>
               {stats.map((s, i) => (
-                <div key={i}>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.1 + i * 0.08, type: "spring", stiffness: 100, damping: 16 }}
+                >
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, letterSpacing: "-0.03em", color: fg, lineHeight: 1 }}>
-                    {s.value}
+                    <StatCounter value={s.value} />
                   </p>
                   <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem" }}>
                     {s.label}
                   </p>
-                </div>
+                </motion.div>
               ))}
             </div>
             {ctaText && (
