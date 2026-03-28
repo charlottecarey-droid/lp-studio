@@ -32,7 +32,7 @@ import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { getBlockDef } from "@/lib/block-types";
-import { ImageUrlInput } from "@/components/ImageUrlInput";
+import { ImagePicker } from "@/components/ImagePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -331,7 +331,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image</Label>
-              <ImageUrlInput value={p.imageUrl} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              <ImagePicker value={p.imageUrl} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Video URL (YouTube embed)</Label>
@@ -1038,7 +1038,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Photos</Label>
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-slate-400">Primary image</Label>
-                <ImageUrlInput
+                <ImagePicker
                   value={(p.imageUrls ?? [])[0] ?? ""}
                   onChange={v => {
                     const urls = [...(p.imageUrls ?? [])];
@@ -1049,7 +1049,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] text-slate-400">Secondary image</Label>
-                <ImageUrlInput
+                <ImagePicker
                   value={(p.imageUrls ?? [])[1] ?? ""}
                   onChange={v => {
                     const urls = [...(p.imageUrls ?? [])];
@@ -1143,7 +1143,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image</Label>
-              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
@@ -1316,7 +1316,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Image</Label>
-                      <ImageUrlInput value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
+                      <ImagePicker value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
                     </div>
                   </div>
                 ))}
@@ -1355,7 +1355,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs">Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank to hide.</p>
-              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>
@@ -1409,7 +1409,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">Left Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on the left half. Leave blank for centered layout.</p>
-              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
@@ -1591,7 +1591,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Image</Label>
-                      <ImageUrlInput value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
+                      <ImagePicker value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
                     </div>
                   </div>
                 ))}
@@ -1680,7 +1680,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       <>
                         <div>
                           <Label className="text-[11px] text-slate-400">Image</Label>
-                          <ImageUrlInput value={tile.imageUrl} onChange={v => updateTile(i, { imageUrl: v })} />
+                          <ImagePicker value={tile.imageUrl} onChange={v => updateTile(i, { imageUrl: v })} />
                         </div>
                         <div>
                           <Label className="text-[11px] text-slate-400">Caption</Label>
@@ -1736,7 +1736,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank for text-only.</p>
-              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>
