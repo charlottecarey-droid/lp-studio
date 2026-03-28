@@ -1351,6 +1351,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Left Image URL</Label>
+              <p className="text-xs text-muted-foreground">Full-bleed image on the left half. Leave blank for centered layout.</p>
+              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Standard" />
             </div>

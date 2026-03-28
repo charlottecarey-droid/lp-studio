@@ -358,6 +358,7 @@ export interface DsoFlowCanvasBlockProps {
   attribution?: string;
   stat?: string;
   statLabel?: string;
+  imageUrl?: string;
 }
 
 export type DsoBentoTile =
@@ -2193,6 +2194,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       attribution: "Dandy Engineering Team",
       stat: "99.2%",
       statLabel: "First-Time Fit Rate — Network-Wide",
+      imageUrl: "https://meetdandy-lp.com/api/storage/objects/uploads/8fc1187a-7e5a-46b1-8314-f8edffef941a",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
