@@ -20,6 +20,7 @@ import { BlockDsoLiveFeed } from "./BlockDsoLiveFeed";
 import { BlockDsoParticleMesh } from "./BlockDsoParticleMesh";
 import { BlockDsoFlowCanvas } from "./BlockDsoFlowCanvas";
 import { BlockDsoBentoOutcomes } from "./BlockDsoBentoOutcomes";
+import { BlockDsoCtaCapture } from "./BlockDsoCtaCapture";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -441,6 +442,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoFlowCanvas props={block.props} />;
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} />;
+      case "dso-cta-capture":
+        return <BlockDsoCtaCapture props={block.props} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

@@ -49,10 +49,13 @@ export function useHeatmapTracker(pageId: number | undefined | null, sessionId: 
   const flush = useCallback(() => {
     if (buffer.current.length === 0) return;
     const events = buffer.current.splice(0);
-    // Use sendBeacon for reliability on page unload, fall back to fetch
+    // Use sendBeacon for reliability on page unload, fall back to fetch.
+    // Wrap in a Blob so the browser sends Content-Type: application/json
+    // (sendBeacon defaults to text/plain which bypasses express.json() parsing).
     const payload = JSON.stringify({ events });
     if (navigator.sendBeacon) {
-      navigator.sendBeacon(`${API_BASE}/lp/heatmap`, payload);
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon(`${API_BASE}/lp/heatmap`, blob);
     } else {
       fetch(`${API_BASE}/lp/heatmap`, {
         method: "POST",

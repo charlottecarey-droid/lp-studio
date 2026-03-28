@@ -1631,6 +1631,60 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-cta-capture": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image URL</Label>
+              <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank for text-only.</p>
+              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image Side</Label>
+              <div className="flex gap-2">
+                {(["left", "right"] as const).map(side => (
+                  <button key={side} onClick={() => onChange({ ...block, props: { ...p, imagePosition: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.imagePosition ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                    {side}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Get Started Today" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <Textarea rows={2} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Input Label</Label>
+              <Input value={p.inputLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, inputLabel: e.target.value } })} placeholder="Work email" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Input Placeholder</Label>
+              <Input value={p.inputPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, inputPlaceholder: e.target.value } })} placeholder="yourname@dsogroup.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Label</Label>
+              <Input value={p.ctaLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaLabel: e.target.value } })} placeholder="Request a Demo" />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Trust Line 1</Label>
+              <Input value={p.trust1 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust1: e.target.value } })} placeholder="1,200+ DSO locations" />
+              <Label className="text-xs text-muted-foreground">Trust Line 2</Label>
+              <Input value={p.trust2 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust2: e.target.value } })} placeholder="No long-term contract" />
+              <Label className="text-xs text-muted-foreground">Trust Line 3</Label>
+              <Input value={p.trust3 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust3: e.target.value } })} placeholder="Live in 30 days" />
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

@@ -374,6 +374,20 @@ export interface DsoBentoOutcomesBlockProps {
   tiles: DsoBentoTile[];
 }
 
+export interface DsoCtaCaptureBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  inputLabel?: string;
+  inputPlaceholder?: string;
+  ctaLabel?: string;
+  trust1?: string;
+  trust2?: string;
+  trust3?: string;
+  imageUrl?: string;
+  imagePosition?: "left" | "right";
+}
+
 export interface DsoPilotStep {
   title: string;
   subtitle: string;
@@ -697,7 +711,8 @@ type BlockVariant =
   | { type: "dso-live-feed"; props: DsoLiveFeedBlockProps }
   | { type: "dso-particle-mesh"; props: DsoParticleMeshBlockProps }
   | { type: "dso-flow-canvas"; props: DsoFlowCanvasBlockProps }
-  | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
+  | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps }
+  | { type: "dso-cta-capture"; props: DsoCtaCaptureBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -2247,6 +2262,50 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-cta-capture" as const,
+    label: "DSO CTA Capture",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoCtaCaptureBlockProps => ({
+      eyebrow: "Get Started Today",
+      headline: "See what Dandy can\ndo for your group.",
+      body: "Join DSO leaders already running smarter, faster dental operations. Setup takes one call.",
+      inputLabel: "Work email",
+      inputPlaceholder: "yourname@dsogroup.com",
+      ctaLabel: "Request a Demo",
+      trust1: "1,200+ DSO locations",
+      trust2: "No long-term contract",
+      trust3: "Live in 30 days",
+      imageUrl: "https://meetdandy-lp.com/api/storage/objects/uploads/8fc1187a-7e5a-46b1-8314-f8edffef941a",
+      imagePosition: "right",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#050e08" rx="4" />
+        {/* Image half */}
+        <rect x="60" y="0" width="60" height="70" fill="#0a2018" />
+        <rect x="60" y="0" width="60" height="70" fill="url(#ctaFade)" />
+        <defs>
+          <linearGradient id="ctaFade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#050e08" />
+            <stop offset="60%" stopColor="transparent" />
+          </linearGradient>
+        </defs>
+        {/* Eyebrow dot */}
+        <circle cx="10" cy="16" r="2" fill="hsl(68,60%,52%)" />
+        <rect x="15" y="14" width="22" height="3" rx="1.5" fill="hsl(68,60%,52%)" opacity="0.8" />
+        {/* Headline lines */}
+        <rect x="10" y="23" width="44" height="5" rx="2" fill="hsl(48,100%,96%)" opacity="0.9" />
+        <rect x="10" y="31" width="36" height="5" rx="2" fill="hsl(48,100%,96%)" opacity="0.7" />
+        {/* Body */}
+        <rect x="10" y="41" width="42" height="2" rx="1" fill="white" opacity="0.3" />
+        <rect x="10" y="45" width="36" height="2" rx="1" fill="white" opacity="0.2" />
+        {/* Pill input */}
+        <rect x="10" y="53" width="46" height="10" rx="5" fill="rgba(255,255,255,0.06)" stroke="rgba(199,231,56,0.3)" strokeWidth="0.7" />
+        <rect x="36" y="55" width="18" height="6" rx="3" fill="hsl(68,60%,52%)" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2304,6 +2363,7 @@ export function createBlock(type: "dso-live-feed"): Extract<PageBlock, { type: "
 export function createBlock(type: "dso-particle-mesh"): Extract<PageBlock, { type: "dso-particle-mesh" }>;
 export function createBlock(type: "dso-flow-canvas"): Extract<PageBlock, { type: "dso-flow-canvas" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
+export function createBlock(type: "dso-cta-capture"): Extract<PageBlock, { type: "dso-cta-capture" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2358,6 +2418,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-particle-mesh": return { id, type: "dso-particle-mesh", props: props as DsoParticleMeshBlockProps };
     case "dso-flow-canvas": return { id, type: "dso-flow-canvas", props: props as DsoFlowCanvasBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
+    case "dso-cta-capture": return { id, type: "dso-cta-capture", props: props as DsoCtaCaptureBlockProps };
   }
 }
 
