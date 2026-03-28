@@ -1867,10 +1867,23 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeMember = (i: number) => onChange({ ...block, props: { ...p, members: members.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
-            <div className="border-t pt-3 space-y-1.5"><Label className="text-xs">Section CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Book a Meeting" className="h-8 text-xs" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", ctaText: p.ctaText ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Section CTA Text</Label>
+              <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Book a Meeting" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Section CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
@@ -1902,9 +1915,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeItem = (side: "oldWayItems" | "newWayItems", idx: number) => onChange({ ...block, props: { ...p, [side]: (p[side] ?? []).filter((_, i) => i !== idx) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Old Way Label</Label><Input value={p.oldWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, oldWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Old Way" /></div>
               <div className="space-y-1.5"><Label className="text-xs">New Way Label</Label><Input value={p.newWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, newWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Dandy Way" /></div>
@@ -1937,9 +1960,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removePerk = (i: number) => onChange({ ...block, props: { ...p, perks: perks.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Perks</Label><Button variant="ghost" size="sm" onClick={addPerk} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -1968,9 +2001,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeProduct = (i: number) => onChange({ ...block, props: { ...p, products: products.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Products</Label><Button variant="ghost" size="sm" onClick={addProduct} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2002,9 +2045,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeCard = (i: number) => onChange({ ...block, props: { ...p, cards: cards.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Promo Cards</Label><Button variant="ghost" size="sm" onClick={addCard} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2035,10 +2088,23 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeStep = (i: number) => onChange({ ...block, props: { ...p, steps: steps.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Book Your Activation Call" className="h-8 text-xs" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", ctaText: p.ctaText ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Text</Label>
+              <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Book Your Activation Call" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
@@ -2068,9 +2134,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removePromise = (i: number) => onChange({ ...block, props: { ...p, promises: promises.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Promises</Label><Button variant="ghost" size="sm" onClick={addPromise} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2099,9 +2175,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeT = (i: number) => onChange({ ...block, props: { ...p, testimonials: testimonials.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Testimonials</Label><Button variant="ghost" size="sm" onClick={addT} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2123,18 +2209,37 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow (co-brand)</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Heartland Dental × Dandy" className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={3} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText", "trustLine"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "", secondaryCtaText: p.secondaryCtaText ?? "", trustLine: p.trustLine ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow (co-brand)</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="Heartland Dental × Dandy" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", subheadline: p.subheadline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5"><Label className="text-xs">Primary CTA Text</Label><Input value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value || undefined } })} placeholder="Start your first case" className="h-8 text-xs" /></div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Primary CTA Text</Label>
+                <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v || undefined } })} placeholder="Start your first case" fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
+              </div>
               <div className="space-y-1.5"><Label className="text-xs">Primary CTA URL</Label><Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5"><Label className="text-xs">Secondary CTA Text</Label><Input value={p.secondaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value || undefined } })} placeholder="See how it works" className="h-8 text-xs" /></div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Secondary CTA Text</Label>
+                <AiTextField type="input" value={p.secondaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, secondaryCtaText: v || undefined } })} placeholder="See how it works" fieldLabel="Secondary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "secondaryCtaText", p.secondaryCtaText ?? "", { headline: p.headline ?? "" })} />
+              </div>
               <div className="space-y-1.5"><Label className="text-xs">Secondary CTA URL</Label><Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             </div>
-            <div className="space-y-1.5"><Label className="text-xs">Trust Line</Label><Input value={p.trustLine ?? ""} onChange={e => onChange({ ...block, props: { ...p, trustLine: e.target.value || undefined } })} placeholder="Join 200+ practices already using Dandy" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Trust Line</Label>
+              <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Dandy" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
           </div>
         );
@@ -2150,8 +2255,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeItem = (i: number) => onChange({ ...block, props: { ...p, items: items.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats</Label><Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2180,9 +2292,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeItem = (i: number) => onChange({ ...block, props: { ...p, items: items.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">FAQ Items</Label><Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2210,10 +2332,23 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeBullet = (i: number) => onChange({ ...block, props: { ...p, bullets: bullets.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Body</Label><Textarea value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value || undefined } })} rows={3} className="text-xs resize-none" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Learn more" className="h-8 text-xs" /></div>
+            <DsoRefreshRow fields={["eyebrow", "headline", "body", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "", ctaText: p.ctaText ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", body: p.body ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v || undefined } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Text</Label>
+              <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Learn more" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
+            </div>
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="grid grid-cols-2 gap-2">

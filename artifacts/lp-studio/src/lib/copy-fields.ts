@@ -7,4 +7,17 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "zigzag-features": ["headline", "body"],
   "pas-section": ["headline", "body"],
   "bottom-cta": ["headline", "subheadline", "ctaText"],
+  // DSO Practices blocks
+  "dso-practice-hero": ["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText", "trustLine"],
+  "dso-stat-row": ["eyebrow", "headline"],
+  "dso-faq": ["eyebrow", "headline", "subheadline"],
+  "dso-split-feature": ["eyebrow", "headline", "body", "ctaText"],
+  "dso-meet-team": ["eyebrow", "headline", "subheadline", "ctaText"],
+  "dso-paradigm-shift": ["eyebrow", "headline", "subheadline"],
+  "dso-partnership-perks": ["eyebrow", "headline", "subheadline"],
+  "dso-products-grid": ["eyebrow", "headline", "subheadline"],
+  "dso-promo-cards": ["eyebrow", "headline", "subheadline"],
+  "dso-activation-steps": ["eyebrow", "headline", "subheadline", "ctaText"],
+  "dso-promises": ["eyebrow", "headline", "subheadline"],
+  "dso-testimonials": ["eyebrow", "headline", "subheadline"],
 };

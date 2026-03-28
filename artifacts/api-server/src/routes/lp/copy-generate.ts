@@ -91,7 +91,7 @@ const KNOWN_FIELDS = new Set([
   // DSO-specific fields
   "eyebrow", "quote", "attribution", "stat", "statLabel",
   "footerNote", "primaryCtaText", "inputLabel", "ctaLabel",
-  "trust1", "trust2", "trust3",
+  "trust1", "trust2", "trust3", "trustLine",
 ]);
 
 interface SegmentContext {
