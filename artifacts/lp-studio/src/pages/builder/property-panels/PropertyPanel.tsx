@@ -2240,6 +2240,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <div className="space-y-1.5"><Label className="text-xs">Secondary CTA URL</Label><Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
               <div className="space-y-1.5 col-span-2"><Label className="text-xs">Secondary CTA Mode</Label><Select value={p.secondaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, secondaryCtaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             </div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply Primary CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies the Primary CTA text, URL, and mode above to every other section on this page.</p>
+                <Button
+                  size="sm"
+                  className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white"
+                  onClick={onApplyCtaToAll}
+                  disabled={!p.primaryCtaText && !p.primaryCtaUrl}
+                >
+                  Apply CTA to All Sections
+                </Button>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs">Trust Line</Label>
               <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Dandy" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />

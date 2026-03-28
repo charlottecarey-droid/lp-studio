@@ -964,6 +964,27 @@ export default function BuilderEditor() {
   const applyCtaToAll = () => {
     if (!selectedBlock) return;
     const p = selectedBlock.props as Record<string, unknown>;
+
+    // DSO Practice Hero: copy primaryCta → ctaText/ctaUrl/ctaMode on all DSO blocks
+    if (selectedBlock.type === "dso-practice-hero") {
+      const ctaText = (p.primaryCtaText ?? "") as string;
+      const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
+      const ctaMode = (p.primaryCtaMode ?? "link") as string;
+      const DSO_CTA_BLOCKS = new Set([
+        "dso-split-feature", "dso-activation-steps", "dso-meet-team",
+        "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
+        "dso-products-grid", "dso-promises", "dso-testimonials",
+        "dso-stat-row", "dso-faq",
+      ]);
+      setBlocks(prev => prev.map(b => {
+        if (b.id === selectedBlock.id) return b;
+        if (!DSO_CTA_BLOCKS.has(b.type)) return b;
+        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
+      }));
+      return;
+    }
+
+    // Legacy blocks: copy ctaUrl / ctaAction / chilipiperUrl
     const ctaUrl = (p.ctaUrl ?? p.url ?? "") as string;
     const ctaAction = (p.ctaAction ?? p.ctaType ?? "url") as string;
     const chilipiperUrl = (p.chilipiperUrl ?? "") as string;
