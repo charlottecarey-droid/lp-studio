@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 const P    = "hsl(152,42%,12%)";
 const AW   = "hsl(68,60%,52%)";
@@ -30,6 +31,7 @@ export function BlockDsoAiFeature({ props }: Props) {
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
     imageUrl  = "/dso-ai-scan.jpg",
+    backgroundStyle = "dandy-green",
   } = props;
 
   const bulletIcons = [ScanLine, RefreshCw, ShieldCheck];
@@ -37,7 +39,7 @@ export function BlockDsoAiFeature({ props }: Props) {
   return (
     <section
       style={{
-        background: "hsl(152,32%,7%)",
+        ...getBgStyle(backgroundStyle),
         color: "#fff",
         position: "relative",
         overflow: "hidden",

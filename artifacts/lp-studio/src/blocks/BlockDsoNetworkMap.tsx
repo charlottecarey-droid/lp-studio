@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, animate, useMotionValue } from "framer-motion";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P    = "#003A30";
@@ -166,6 +167,7 @@ export function BlockDsoNetworkMap({ props }: Props) {
     body = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
     ctaText = "See the Live Network",
     ctaUrl = "#",
+    backgroundStyle = "dandy-green",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -174,7 +176,7 @@ export function BlockDsoNetworkMap({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ background: P, padding: "0", overflow: "hidden", position: "relative" }}
+      style={{ ...getBgStyle(backgroundStyle), padding: "0", overflow: "hidden", position: "relative" }}
     >
       {/* Subtle radial glow behind the SVG */}
       <div style={{

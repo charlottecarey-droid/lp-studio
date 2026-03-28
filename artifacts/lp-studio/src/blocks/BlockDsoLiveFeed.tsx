@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView, animate } from "framer-motion";
 import type { DsoLiveFeedBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P     = "#003A30";
@@ -149,6 +150,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
     headline = "Dandy sees everything.\nYour team acts on what matters.",
     body = "Every metric from every location, streaming in real time. The Dandy dashboard transforms raw case data into executive-ready intelligence — automatically.",
     footerNote = "Live data from 127 DSO locations across 14 states",
+    backgroundStyle = "dandy-green",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -161,7 +163,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
   }, []);
 
   return (
-    <section ref={sectionRef} style={{ background: P, padding: "6rem 1.5rem", position: "relative", overflow: "hidden" }}>
+    <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle), padding: "6rem 1.5rem", position: "relative", overflow: "hidden" }}>
       {/* Background radial glow */}
       <div style={{ position: "absolute", top: "30%", right: "-5%", width: "40%", aspectRatio: "1", background: "radial-gradient(circle, hsla(68,60%,52%,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
 

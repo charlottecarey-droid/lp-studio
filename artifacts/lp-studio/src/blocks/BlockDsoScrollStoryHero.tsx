@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -43,6 +44,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
     ctaText = "Request a Custom Demo",
     ctaUrl = "#",
     imagePosition = "right",
+    backgroundStyle = "dandy-green",
   } = props;
   const imageRight = imagePosition !== "left";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
@@ -252,7 +254,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
         display: "flex",
         flexDirection: "row",
         overflow: "hidden",
-        background: P,
+        ...getBgStyle(backgroundStyle),
       }}
     >
       {textPanel}

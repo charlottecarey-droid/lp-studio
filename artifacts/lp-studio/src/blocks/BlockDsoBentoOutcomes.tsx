@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { DsoBentoOutcomesBlockProps, DsoBentoTile } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -186,11 +187,12 @@ export function BlockDsoBentoOutcomes({ props }: Props) {
     eyebrow = "Why Dandy",
     headline = "Every metric that matters. All in one platform.",
     tiles,
+    backgroundStyle = "white",
   } = props;
   const displayTiles = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
 
   return (
-    <section style={{ background: LIGHT_BG }} className="py-24 md:py-32">
+    <section style={{ ...getBgStyle(backgroundStyle) }} className="py-24 md:py-32">
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Header */}
         <div style={{ marginBottom: "3.5rem" }}>

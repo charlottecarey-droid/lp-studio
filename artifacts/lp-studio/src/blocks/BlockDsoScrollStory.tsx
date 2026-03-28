@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useMotionValueEvent, useInView } from "framer-motion";
 import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function BlockDsoScrollStory({ props }: Props) {
-  const { eyebrow = "The Dandy Advantage", chapters } = props;
+  const { eyebrow = "The Dandy Advantage", chapters, backgroundStyle = "white" } = props;
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -69,7 +70,7 @@ export function BlockDsoScrollStory({ props }: Props) {
   }, [sectionInView, paused, displayChapters.length]);
 
   return (
-    <section ref={sectionRef} style={{ background: LIGHT_BG }}>
+    <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle) }}>
       {/* Section header */}
       <div style={{ textAlign: "center", padding: "5rem 1.5rem 0", maxWidth: 1200, margin: "0 auto" }}>
         {eyebrow && (

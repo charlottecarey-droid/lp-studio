@@ -2,6 +2,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 interface Props {
   props: DsoHeartlandHeroBlockProps;
@@ -74,7 +75,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   };
 
   return (
-    <div style={{ background: BG }}>
+    <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
         ref={heroRef}
         className="relative flex flex-col overflow-hidden"

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoCaseFlowBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P     = "#003A30";
@@ -83,6 +84,7 @@ export function BlockDsoCaseFlow({ props }: Props) {
     headline = "From scan to seat in under 4 days.",
     subheadline = "Every Dandy case follows the same precise, AI-validated workflow — regardless of which location submits it.",
     stages,
+    backgroundStyle = "dandy-green",
   } = props;
 
   const displayStages = stages && stages.length > 0 ? stages.slice(0, 4) : DEFAULT_STAGES;
@@ -90,7 +92,7 @@ export function BlockDsoCaseFlow({ props }: Props) {
   const inView = useInView(sectionRef, { once: true, margin: "-12%" });
 
   return (
-    <section ref={sectionRef} style={{ background: P, padding: "6rem 1.5rem", overflow: "hidden", position: "relative" }}>
+    <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle), padding: "6rem 1.5rem", overflow: "hidden", position: "relative" }}>
       {/* Background texture */}
       <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 20% 80%, hsla(68,60%,52%,0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsla(152,42%,30%,0.12) 0%, transparent 50%)", pointerEvents: "none" }} />
 

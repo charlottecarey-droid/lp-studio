@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoFlowCanvasBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
@@ -26,6 +27,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
     stat        = "99.2%",
     statLabel   = "First-Time Fit Rate — Network-Wide",
     imageUrl    = "",
+    backgroundStyle = "dandy-green",
   } = props;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);
@@ -86,7 +88,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "stretch" }}
+      style={{ position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "stretch", ...getBgStyle(backgroundStyle) }}
     >
       {/* Canvas — atmospheric background */}
       <canvas

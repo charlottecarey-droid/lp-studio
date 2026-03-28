@@ -6,6 +6,7 @@ import {
   DollarSign, Network, Activity, Scale,
 } from "lucide-react";
 import type { DsoProblemBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -52,6 +53,7 @@ export function BlockDsoProblem({ props }: Props) {
     body = "",
     panels,
     imageUrls = [],
+    backgroundStyle = "dandy-green",
   } = props;
 
   const imgA = imageUrls[0] || DEFAULT_IMG_A;
@@ -69,7 +71,7 @@ export function BlockDsoProblem({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ background: P, color: PFG, position: "relative", overflow: "hidden" }}
+      style={{ ...getBgStyle(backgroundStyle), color: PFG, position: "relative", overflow: "hidden" }}
       className="py-24 md:py-36"
     >
       {/* Subtle noise/texture overlay */}

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -125,7 +126,7 @@ interface Props {
 }
 
 export function BlockDsoStatShowcase({ props }: Props) {
-  const { eyebrow = "By the Numbers", headline = "Results that compound at scale.", stats } = props;
+  const { eyebrow = "By the Numbers", headline = "Results that compound at scale.", stats, backgroundStyle = "dandy-green" } = props;
   const displayStats = stats && stats.length > 0 ? stats.slice(0, 6) : DEFAULT_STATS;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -134,7 +135,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ background: P, color: PFG, position: "relative", overflow: "hidden" }}
+      style={{ ...getBgStyle(backgroundStyle), color: PFG, position: "relative", overflow: "hidden" }}
       className="py-24 md:py-32"
     >
       {/* Subtle decorative glow */}

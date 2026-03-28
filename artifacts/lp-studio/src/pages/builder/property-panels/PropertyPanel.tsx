@@ -908,6 +908,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow (optional)</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Difference" />
             </div>
@@ -1009,6 +1016,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Problem" />
             </div>
@@ -1109,6 +1123,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Waste Prevention" />
             </div>
@@ -1193,6 +1214,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="By the Numbers" />
             </div>
@@ -1252,6 +1280,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Advantage" />
             </div>
@@ -1298,6 +1333,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const urlsStr = (p.imageUrls ?? []).join("\n");
         return (
           <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="AI-Driven Intelligence" />
@@ -1358,6 +1400,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Left Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on the left half. Leave blank for centered layout.</p>
               <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
@@ -1390,6 +1439,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="How Dandy Works" />
             </div>
@@ -1409,6 +1465,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Platform Intelligence" />
@@ -1432,6 +1495,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Dandy Network" />
@@ -1466,6 +1536,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const removeChapter = (i: number) => onChange({ ...block, props: { ...p, chapters: chapters.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>
               <div className="flex gap-2">
@@ -1546,6 +1623,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         };
         return (
           <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Why Dandy" />
@@ -1643,9 +1727,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank for text-only.</p>
-              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>

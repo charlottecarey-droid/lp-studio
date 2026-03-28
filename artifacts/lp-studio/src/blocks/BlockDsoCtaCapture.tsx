@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
+import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
@@ -23,6 +24,7 @@ export function BlockDsoCtaCapture({ props }: Props) {
     trust3        = "Live in 30 days",
     imageUrl      = "",
     imagePosition = "right",
+    backgroundStyle = "dandy-green",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -37,7 +39,7 @@ export function BlockDsoCtaCapture({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", background: BG }}
+      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle(backgroundStyle) }}
     >
       {/* Atmospheric lime radial glow — content side */}
       <div style={{
