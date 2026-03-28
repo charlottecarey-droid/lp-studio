@@ -1,0 +1,47 @@
+# AI Content Brief — Independence Dental Group practices
+**Objective:** Independence DSO Practices Try Dandy Free for 90 days and get a $1500 lab credit and your first 5 dentures on us. This is part of our new partnership, we want as many practices to sign up as possible. this should help them trust us
+
+## Company / Audience Overview
+Independence Dental Group practices operate within a DSO network that recently partnered with Dandy as a preferred lab partner. These practices are focused on efficient workflows, delivering high-quality patient outcomes, and maintaining smooth operations amidst the demands of a busy clinical schedule. While the DSO has established the partnership with Dandy, practice-level adoption requires trust in the value and ease of transition.
+
+## Buyer Personas
+### 1. Practice Dentist / Associate Dentist
+**Motivations:** Wants tools and services that enhance clinical efficiency, improve patient outcomes, and reduce the risk of remakes — while being easy to adopt with minimal disruption.
+**Pain Points:**
+- Skeptical of corporate-mandated changes — 'I've been using my lab for years, why switch?'
+- Worried about disruption to established workflow and patient relationships
+- No time to learn new systems during a packed clinical schedule
+
+### 2. Office Manager / Practice Manager
+**Motivations:** Seeks solutions that simplify workflows, reduce administrative overhead, and keep the practice running smoothly without adding stress for the team.
+**Pain Points:**
+- Responsible for smooth daily operations — any disruption creates patient scheduling chaos
+- Managing supply ordering across multiple vendors is already overwhelming
+- Needs to see that new tools reduce admin burden, not add to it
+
+### 3. Dental Assistant / Clinical Staff
+**Motivations:** Wants user-friendly tools that make their work easier, increase their value to the practice, and ensure positive patient experiences without creating additional stress.
+**Pain Points:**
+- Bear the brunt of workflow changes — they're the ones scanning, prepping, and managing chairside
+- Need confidence that new tech actually works before relying on it with patients
+- Fear of being blamed if new workflow causes issues or delays
+
+## Suggested Headline
+Your peers at Independence Dental Group are already seeing the results — try Dandy free for 90 days and experience the difference
+
+## Key Value Props
+- Your DSO already negotiated preferred access to Dandy — getting started is free and pre-approved, no CapEx request needed
+- Practices in your network are seeing 50% fewer denture appointments and freeing chair time for higher-value cases
+- AI catches prep issues before they become remakes — doctors in your network have stopped double-checking margins entirely
+- This isn't a lab switch — it's a workflow upgrade that your peers chose voluntarily and kept using
+
+## Tone Guidance
+The tone should be warm, knowledgeable, and uncomplicated, speaking directly to dentists and their teams. Focus on the benefits to their daily workflow, patient outcomes, and clinical confidence. Keep the messaging personal and professional, avoiding corporate jargon or over-promising. Highlight peer successes within their own network to build trust.
+
+## CTA Suggestions
+- try Dandy free for 90 days
+- get started with your $1500 lab credit
+- claim your free denture cases today
+
+## Recommended LP Blocks
+Hero → Testimonial → Benefits Grid → Photo Strip → Bottom CTA

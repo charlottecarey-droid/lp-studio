@@ -21,7 +21,7 @@ import { ShareReviewModal } from "@/components/collaboration/share-review-modal"
 import { useReviews } from "@/hooks/use-collaboration";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
-import { ContentBriefModal, type ContentBrief } from "@/components/ContentBriefModal";
+import { ContentBriefModal } from "@/components/ContentBriefModal";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { setBriefContext } from "@/lib/brief-context";
 
@@ -315,57 +315,64 @@ export default function PagesGallery() {
     }
   };
 
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null) => {
+    const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt.trim() }),
+    });
+    if (!genRes.ok) {
+      const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+      throw new Error((err as { error?: string }).error ?? "Generation failed");
+    }
+    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
+    const page = await createPage({
+      title: generated.title,
+      slug: generated.slug,
+      blocks: generated.blocks,
+      status: "draft",
+    });
+    const activeSeg = seg ?? selectedSegment;
+    if (activeSeg) {
+      setBriefContext({
+        company: generated.title,
+        objective: prompt.trim(),
+        valueProps: activeSeg.valueProps ?? [],
+        toneGuidance: activeSeg.messagingAngle ?? "",
+        suggestedHeadline: "",
+        segmentContext: {
+          id: activeSeg.id,
+          name: activeSeg.name,
+          description: activeSeg.description,
+          messagingAngle: activeSeg.messagingAngle,
+          uniqueContext: activeSeg.uniqueContext,
+          valueProps: activeSeg.valueProps,
+          personas: activeSeg.personas.map(p => ({ role: p.role, painPoints: p.painPoints })),
+          challenges: activeSeg.challenges.map(c => ({ title: c.title, desc: c.desc })),
+        },
+      });
+    }
+    navigate(`/builder/${page.id}`);
+  };
+
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
     setAiGenerating(true);
     setCreateError(null);
     try {
-      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: aiPrompt.trim() }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error((err as { error?: string }).error ?? "Generation failed");
-      }
-      const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
-
-      // Create the page with the AI-generated content
-      const page = await createPage({
-        title: generated.title,
-        slug: generated.slug,
-        blocks: generated.blocks,
-        status: "draft",
-      });
+      await generatePageFromPrompt(aiPrompt);
       setShowCreateModal(false);
       setAiPrompt("");
       setCreateMode("template");
-      if (selectedSegment) {
-        setBriefContext({
-          company: generated.title,
-          objective: aiPrompt.trim(),
-          valueProps: selectedSegment.valueProps ?? [],
-          toneGuidance: selectedSegment.messagingAngle ?? "",
-          suggestedHeadline: "",
-          segmentContext: {
-            id: selectedSegment.id,
-            name: selectedSegment.name,
-            description: selectedSegment.description,
-            messagingAngle: selectedSegment.messagingAngle,
-            uniqueContext: selectedSegment.uniqueContext,
-            valueProps: selectedSegment.valueProps,
-            personas: selectedSegment.personas.map(p => ({ role: p.role, painPoints: p.painPoints })),
-            challenges: selectedSegment.challenges.map(c => ({ title: c.title, desc: c.desc })),
-          },
-        });
-      }
-      navigate(`/builder/${page.id}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to generate page");
     } finally {
       setAiGenerating(false);
     }
+  };
+
+  const handleGeneratePageFromBrief = async (prompt: string) => {
+    await generatePageFromPrompt(prompt);
   };
 
   const handleDelete = async (page: Page) => {
@@ -576,6 +583,7 @@ export default function PagesGallery() {
       <ContentBriefModal
         open={briefModalOpen}
         onClose={() => setBriefModalOpen(false)}
+        onGeneratePage={handleGeneratePageFromBrief}
       />
 
       {/* Create Page Modal */}

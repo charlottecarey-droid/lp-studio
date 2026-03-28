@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Copy, Check, User, Target, Layout, Wand2, ChevronDown, ChevronUp, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, Sparkles, Copy, Check, User, Target, Layout, Wand2, ChevronDown, ChevronUp, Users, Rocket } from "lucide-react";
 import { fetchBrandConfig, type BrandConfig, type AudienceSegment } from "@/lib/brand-config";
 
 const API_BASE = "/api";
@@ -33,7 +32,26 @@ interface ContentBriefModalProps {
   open: boolean;
   onClose: () => void;
   onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
+  onGeneratePage?: (prompt: string) => Promise<void>;
   initialSegmentId?: string;
+}
+
+function buildBriefPrompt(brief: ContentBrief, company: string, objective: string, segment: AudienceSegment | null): string {
+  const parts: string[] = [];
+  parts.push(`Create a landing page for "${company}".`);
+  if (segment) parts.push(`Target audience segment: ${segment.name} — ${segment.messagingAngle || segment.description}`);
+  parts.push(`Campaign objective: ${objective}`);
+  if (brief.suggestedHeadline) parts.push(`Headline: "${brief.suggestedHeadline}"`);
+  if (brief.companyOverview) parts.push(`Audience context: ${brief.companyOverview}`);
+  if (brief.valueProps.length) parts.push(`Key value props:\n${brief.valueProps.map(v => `- ${v}`).join("\n")}`);
+  if (brief.toneGuidance) parts.push(`Tone: ${brief.toneGuidance}`);
+  if (brief.ctaSuggestions.length) parts.push(`CTAs: ${brief.ctaSuggestions.join("; ")}`);
+  if (brief.recommendedBlocks.length) parts.push(`Recommended block flow: ${brief.recommendedBlocks.join(" → ")}`);
+  if (brief.personas.length) {
+    const personaLines = brief.personas.map(p => `${p.title}: ${p.painPoints.slice(0, 2).join("; ")}`);
+    parts.push(`Buyer personas: ${personaLines.join(" | ")}`);
+  }
+  return parts.join("\n\n");
 }
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -68,10 +86,11 @@ function buildBrandContext(brand: BrandConfig | null) {
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
-export function ContentBriefModal({ open, onClose, onApply, initialSegmentId }: ContentBriefModalProps) {
+export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId }: ContentBriefModalProps) {
   const [company, setCompany] = useState("");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [brief, setBrief] = useState<ContentBrief | null>(null);
   const [briefCompany, setBriefCompany] = useState("");
@@ -180,6 +199,21 @@ export function ContentBriefModal({ open, onClose, onApply, initialSegmentId }: 
     if (!brief || !onApply) return;
     onApply(brief, briefCompany, briefObjective, selectedSegment ?? undefined);
     onClose();
+  };
+
+  const handleGeneratePage = async () => {
+    if (!brief || !onGeneratePage) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const prompt = buildBriefPrompt(brief, briefCompany, briefObjective, selectedSegment);
+      await onGeneratePage(prompt);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate page");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleClose = () => {
@@ -412,21 +446,46 @@ export function ContentBriefModal({ open, onClose, onApply, initialSegmentId }: 
                 </div>
               </div>
 
-              {/* Apply to Page button */}
-              {onApply && (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Apply to Page</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                      Pre-fills AI copy generation with this brief's value props, tone, and company context.
-                    </p>
+              {/* Action buttons */}
+              <div className="space-y-2">
+                {onGeneratePage && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Generate page from brief</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        Builds a full landing page using the brief's audience, headline, value props, and block structure.
+                      </p>
+                    </div>
+                    <Button onClick={handleGeneratePage} disabled={generating} className="gap-2 shrink-0">
+                      {generating ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Building…
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="w-3.5 h-3.5" />
+                          Generate
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <Button onClick={handleApply} className="gap-2 shrink-0">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Apply
-                  </Button>
-                </div>
-              )}
+                )}
+                {onApply && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Apply to current page</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        Pre-fills AI copy generation with this brief's value props, tone, and company context.
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={handleApply} className="gap-2 shrink-0">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Apply
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
