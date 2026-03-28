@@ -33,6 +33,7 @@ export function BlockDsoAiFeature({ props }: Props) {
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
     imageUrl  = "",
+    videoUrl  = "/videos/ai-scan-review.mp4",
     backgroundStyle = "dandy-green",
     ctaText,
     ctaUrl,
@@ -277,7 +278,18 @@ export function BlockDsoAiFeature({ props }: Props) {
               justifyContent: "center",
             }}
           >
-            <AiScanReviewAnimation imageUrl={imageUrl} />
+            {videoUrl ? (
+              <video
+                src={videoUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <AiScanReviewAnimation imageUrl={imageUrl} />
+            )}
           </motion.div>
 
         </div>

@@ -1261,8 +1261,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Image</Label>
+              <Label className="text-xs">Image (fallback when no video)</Label>
               <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Video URL</Label>
+              <Input value={p.videoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, videoUrl: e.target.value } })} placeholder="/videos/ai-scan-review.mp4" className="h-8 text-xs" />
+              <p className="text-[10px] text-muted-foreground">Loops as motion graphic. Leave empty to show animated UI instead.</p>
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">

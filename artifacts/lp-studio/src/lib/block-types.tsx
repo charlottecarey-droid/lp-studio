@@ -299,6 +299,7 @@ export interface DsoAiFeatureBlockProps {
   bullets: string[];
   stats: { value: string; label: string }[];
   imageUrl: string;
+  videoUrl?: string;
   backgroundStyle?: BackgroundStyle;
   ctaText?: string;
   ctaUrl?: string;
