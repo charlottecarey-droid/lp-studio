@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DEFAULT_IMAGE = "/dandy-platform.webp";
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -91,17 +92,28 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       )}
       <motion.div {...cAnim}>
         <div className={cn("flex flex-col gap-4 pt-2", isFullWidth ? "w-full" : "w-fit", !isSplit && "items-center", isSplitRight && "items-end")}>
-          <motion.button
-            onClick={onCtaClick}
-            className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
-            style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
-            whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
-            whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
-            transition={{ type: "spring", stiffness: 400, damping: 18 }}
-          >
-            <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </motion.button>
+          {props.ctaAction === "chilipiper" && props.chilipiperUrl ? (
+            <ChiliPiperButton
+              url={props.chilipiperUrl}
+              className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
+              style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+            >
+              <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </ChiliPiperButton>
+          ) : (
+            <motion.button
+              onClick={onCtaClick}
+              className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
+              style={{ backgroundColor: LIME, color: CTA_TEXT_COLOR }}
+              whileHover={animationsEnabled ? { scale: 1.04, y: -1 } : undefined}
+              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+              transition={{ type: "spring", stiffness: 400, damping: 18 }}
+            >
+              <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </motion.button>
+          )}
           {props.showSocialProof && (
             <div className={cn("flex items-center gap-2 text-sm font-medium opacity-80", !isSplit && "justify-center")}>
               <ShieldCheck className="w-4 h-4" />
