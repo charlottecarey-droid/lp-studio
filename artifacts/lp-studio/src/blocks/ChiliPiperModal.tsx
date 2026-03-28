@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { usePageContext } from "@/lib/page-context";
 
 const API_BASE = "/api";
 
@@ -49,8 +50,12 @@ function extractLeadFromEvent(data: unknown): ChiliPiperLead | null {
   return Object.keys(lead).length > 0 ? lead : null;
 }
 
-export function ChiliPiperModal({ url, pageId, variantId, sessionId, onClose }: Props) {
+export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
   const submittedRef = useRef(false);
+  const ctx = usePageContext();
+  const pageId = pageIdProp ?? ctx.pageId;
+  const variantId = variantIdProp ?? ctx.variantId;
+  const sessionId = sessionIdProp ?? ctx.sessionId;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

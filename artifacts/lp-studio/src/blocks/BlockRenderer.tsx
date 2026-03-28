@@ -1,4 +1,5 @@
 import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps } from "@/lib/block-types";
+import { PageContextProvider } from "@/lib/page-context";
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
 import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
 import { BlockDsoLabTour } from "./BlockDsoLabTour";
@@ -499,5 +500,9 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
     ? { ...block.blockSettings, paddingX: undefined }
     : block.blockSettings;
 
-  return <>{wrapWithSettings(inner, outerSettings, animationsEnabled)}</>;
+  return (
+    <PageContextProvider value={{ pageId, variantId, sessionId }}>
+      {wrapWithSettings(inner, outerSettings, animationsEnabled)}
+    </PageContextProvider>
+  );
 }
