@@ -90,7 +90,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
         </p>
 
         {/* Animated headline + body */}
-        <div style={{ position: "relative", minHeight: "clamp(200px, 32vh, 340px)", marginBottom: "2.5rem" }}>
+        <div style={{ position: "relative", minHeight: "clamp(200px, 32vh, 340px)", marginBottom: "2.5rem", perspective: "900px" }}>
           {displayChapters.map((ch, i) => (
             <motion.div
               key={i}
@@ -98,13 +98,15 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
                 position: i === 0 ? "relative" : "absolute",
                 top: 0,
                 width: "100%",
+                transformOrigin: "50% 110%",
               }}
               animate={{
                 opacity: active === i ? 1 : 0,
-                y: active === i ? 0 : active > i ? -20 : 20,
+                y: active === i ? 0 : active > i ? -36 : 28,
+                rotateX: active === i ? 0 : active > i ? -14 : 12,
                 pointerEvents: active === i ? "auto" : "none",
               }}
-              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
               <h1 style={{
                 fontFamily: DISPLAY_FONT,
@@ -199,13 +201,17 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
   );
 
   const imagePanel = (
-    <div className="dsosh-right" style={{ position: "relative", flex: 1, minHeight: "100%", order: imageRight ? 1 : 0 }}>
+    <div className="dsosh-right" style={{ position: "relative", flex: 1, minHeight: "100%", order: imageRight ? 1 : 0, overflow: "hidden" }}>
       {displayChapters.map((ch, i) => (
         <motion.div
           key={i}
           style={{ position: "absolute", inset: 0 }}
-          animate={{ opacity: active === i ? 1 : 0, scale: active === i ? 1 : 1.04 }}
-          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+          animate={{
+            opacity: active === i ? 1 : 0,
+            y: active === i ? "0%" : active > i ? "-6%" : "6%",
+            scale: active === i ? 1 : 1.03,
+          }}
+          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
         >
           <img
             src={ch.imageUrl}
