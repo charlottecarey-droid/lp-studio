@@ -2659,7 +2659,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         { quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann", location: "Founder, APEX Dental Partners" },
         { quote: "Reduced crown appointments by 2–3 minutes per case. That adds up to hours of saved chair time per month — and our remake headaches are gone.", author: "Clinical Director", location: "Open & Affordable Dental" },
         { quote: "The training you guys give is incredible. The onboarding has been incredible. The whole experience has been incredible.", author: "Dr. Trey Mueller", location: "Chief Clinical Officer, Dental Care Alliance" },
-        { quote: "We went from three different labs with inconsistent quality to one partner with a 96% fit rate. The difference is night and day.", author: "VP of Operations", location: "Regional DSO, Southeast" },
       ],
       backgroundStyle: "dark",
     }),
