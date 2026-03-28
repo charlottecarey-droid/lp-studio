@@ -9,6 +9,16 @@ const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.48)";
 const BG    = "#050e08";
 
+const BG_COLOR_MAP: Record<string, string> = {
+  "white":      "#ffffff",
+  "light-gray": "#f3f4f6",
+  "muted":      "hsl(48,100%,96%)",
+  "dark":       "#1a1a1a",
+  "dandy-green":"#003A30",
+  "black":      "#000000",
+  "gradient":   "#001a14",
+};
+
 /* ── Orbs: much more subtle now — atmospheric depth, not hero feature ── */
 const ORBS = [
   { bx: 0.15, by: 0.35, rx: 0.20, ry: 0.18, sx: 0.19, sy: 0.24, rad: 0.70, rgb: [0,  46, 28],  a: 0.22 },
@@ -35,6 +45,8 @@ export function BlockDsoFlowCanvas({ props }: Props) {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
 
+  const canvasBg = BG_COLOR_MAP[backgroundStyle] ?? BG;
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -59,7 +71,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
       const mx = Math.max(W, H);
 
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = BG;
+      ctx.fillStyle = canvasBg;
       ctx.fillRect(0, 0, W, H);
 
       ctx.globalCompositeOperation = "screen";
@@ -81,7 +93,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
 
     animRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(animRef.current); ro.disconnect(); };
-  }, []);
+  }, [canvasBg]);
 
   const hasImage = Boolean(imageUrl);
 
@@ -119,18 +131,18 @@ export function BlockDsoFlowCanvas({ props }: Props) {
             {/* Fade-to-right edge so image bleeds into canvas/content */}
             <div style={{
               position: "absolute", inset: 0,
-              background: `linear-gradient(to right, transparent 55%, ${BG} 100%)`,
+              background: `linear-gradient(to right, transparent 55%, ${canvasBg} 100%)`,
             }} />
             {/* Subtle top/bottom edge fade */}
             <div style={{
               position: "absolute", inset: 0,
-              background: `linear-gradient(to bottom, ${BG} 0%, transparent 12%, transparent 88%, ${BG} 100%)`,
+              background: `linear-gradient(to bottom, ${canvasBg} 0%, transparent 12%, transparent 88%, ${canvasBg} 100%)`,
             }} />
           </div>
           {/* Vignette from the right side covering canvas area */}
           <div style={{
             position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
-            background: `linear-gradient(to left, transparent 40%, ${BG} 100%)`,
+            background: `linear-gradient(to left, transparent 40%, ${canvasBg} 100%)`,
           }} />
         </>
       )}
