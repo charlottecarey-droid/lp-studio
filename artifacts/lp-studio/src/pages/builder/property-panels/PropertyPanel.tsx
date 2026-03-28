@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
-import { suggestCopy, refreshBlockCopy } from "@/lib/copy-api";
+import { suggestCopy, refreshBlockCopy, refreshBentoTiles, type DsoBentoTile } from "@/lib/copy-api";
 
 interface Props {
   block: PageBlock;
@@ -54,6 +54,20 @@ interface Props {
 export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, pageId, onApplyCtaToAll }: Props) {
   const def = getBlockDef(block.type);
   const [dsoRefreshing, setDsoRefreshing] = useState(false);
+  const [bentoTilesRefreshing, setBentoTilesRefreshing] = useState(false);
+
+  const handleBentoTilesRefresh = async (currentTiles: DsoBentoTile[]) => {
+    setBentoTilesRefreshing(true);
+    try {
+      const types = currentTiles.length > 0 ? currentTiles.map(t => t.type) : ["stat", "stat", "stat", "photo", "quote", "feature"];
+      const tiles = await refreshBentoTiles(types);
+      onChange({ ...block, props: { ...block.props, tiles } });
+    } catch (e) {
+      console.error("Bento tiles refresh failed", e);
+    } finally {
+      setBentoTilesRefreshing(false);
+    }
+  };
 
   const handleDsoRefresh = async (fields: string[], currentValues: Record<string, string>) => {
     setDsoRefreshing(true);
@@ -1687,15 +1701,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="border-t pt-3">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tiles</Label>
-                <div className="flex gap-1">
-                  {(["stat","photo","feature","quote"] as const).map(t => (
-                    <Button key={t} variant="ghost" size="sm" onClick={() => addTile(t)} className="h-6 text-[10px] px-1.5 capitalize">
-                      +{t}
-                    </Button>
-                  ))}
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-1.5 gap-1 text-emerald-700 hover:text-emerald-800"
+                  disabled={bentoTilesRefreshing}
+                  onClick={() => handleBentoTilesRefresh(tiles as DsoBentoTile[])}
+                >
+                  {bentoTilesRefreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
+                  AI tiles
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(["stat","photo","feature","quote"] as const).map(t => (
+                  <Button key={t} variant="ghost" size="sm" onClick={() => addTile(t)} className="h-6 text-[10px] px-1.5 capitalize">
+                    +{t}
+                  </Button>
+                ))}
               </div>
               <div className="space-y-2">
                 {tiles.map((tile, i) => (

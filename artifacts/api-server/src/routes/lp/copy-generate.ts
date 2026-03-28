@@ -143,6 +143,14 @@ function buildBriefContextPrompt(brief: BriefContext): string {
   return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted to this specific audience.`;
 }
 
+// Curated dental/clinical placeholder images for bento photo tiles
+const DSO_PHOTO_PLACEHOLDERS = [
+  { url: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=800&h=600&fit=crop", hint: "dental scan" },
+  { url: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=600&fit=crop", hint: "clinical workflow" },
+  { url: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=600&fit=crop", hint: "dental lab" },
+  { url: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop", hint: "dental office" },
+];
+
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const body = req.body as {
     blockType?: string;
@@ -154,6 +162,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
     fields?: string[];
     currentValues?: Record<string, string>;
     briefContext?: BriefContext;
+    tileTypes?: string[];
   };
 
   const { blockType, action } = body;
@@ -244,6 +253,67 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
       }
 
       res.json({ updated });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+    return;
+  }
+
+  if (action === "refresh-tiles" && blockType === "dso-bento-outcomes") {
+    const requestedTypes: string[] = Array.isArray(body.tileTypes) ? body.tileTypes : ["stat", "stat", "stat", "photo", "quote", "feature"];
+
+    const photoTiles = DSO_PHOTO_PLACEHOLDERS.slice();
+    let photoIndex = 0;
+
+    const tileSchemaDesc = `Return a JSON array called "tiles" where each element is one of:
+- stat tile: { "type": "stat", "value": "...", "label": "...", "description": "..." }
+  value = short metric (e.g. "96%", "2–3 days", "$4,200"), label = short name, description = 1 sentence
+- photo tile: { "type": "photo", "imageUrl": "PLACEHOLDER", "caption": "..." }
+  caption = short descriptive phrase (≤8 words)
+- feature tile: { "type": "feature", "headline": "...", "body": "..." }
+  headline ≤ 6 words, body ≤ 20 words
+- quote tile: { "type": "quote", "quote": "...", "author": "..." }
+  quote ≤ 20 words, author = role + org (e.g. "COO, Heartland Dental")
+
+Generate exactly ${requestedTypes.length} tiles in this order: ${requestedTypes.join(", ")}.
+Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "tiles": [...] } — no markdown.`;
+
+    const systemPrompt = [brandPrompt, briefPrompt, dsoContext, tileSchemaDesc].filter(Boolean).join("\n\n");
+    const userPrompt = `Generate ${requestedTypes.length} bento outcome tiles for the dso-bento-outcomes block. Types in order: ${requestedTypes.join(", ")}. Make every stat specific and credible.`;
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.75,
+        max_completion_tokens: 1500,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      let parsed: { tiles?: unknown[] } = {};
+      try {
+        const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        parsed = JSON.parse(cleaned);
+      } catch {
+        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        return;
+      }
+
+      const rawTiles = Array.isArray(parsed.tiles) ? parsed.tiles : [];
+      const tiles = rawTiles.map((t) => {
+        const tile = t as Record<string, unknown>;
+        if (tile.type === "photo") {
+          const placeholder = photoTiles[photoIndex % photoTiles.length];
+          photoIndex++;
+          return { ...tile, imageUrl: placeholder.url };
+        }
+        return tile;
+      });
+
+      res.json({ tiles });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

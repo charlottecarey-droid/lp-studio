@@ -42,6 +42,30 @@ export async function suggestCopy(
   return data.suggestions;
 }
 
+export type DsoBentoTile =
+  | { type: "stat"; value: string; label: string; description: string }
+  | { type: "photo"; imageUrl: string; caption: string }
+  | { type: "feature"; headline: string; body: string }
+  | { type: "quote"; quote: string; author: string };
+
+export async function refreshBentoTiles(
+  tileTypes: string[] = ["stat", "stat", "stat", "photo", "quote", "feature"],
+): Promise<DsoBentoTile[]> {
+  const { getBriefContext } = await import("./brief-context");
+  const briefContext = getBriefContext() ?? undefined;
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blockType: "dso-bento-outcomes", action: "refresh-tiles", tileTypes, briefContext }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Tile generation failed");
+  }
+  const data = await res.json() as { tiles: DsoBentoTile[] };
+  return data.tiles ?? [];
+}
+
 export async function refreshBlockCopy(
   blockType: string,
   fields: string[],
