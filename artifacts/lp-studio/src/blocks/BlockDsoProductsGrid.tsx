@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { BlockDsoCta } from "@/components/BlockDsoCta";
 import productPosteriorCrowns from "@/assets/dandy-product-posterior-crowns.webp";
 import productAnteriorCrowns  from "@/assets/dandy-product-anterior-crowns.webp";
 import productDentures        from "@/assets/dandy-product-dentures.webp";
@@ -56,7 +57,7 @@ const PRODUCT_ICONS: Record<string, React.ElementType> = {
 };
 
 export function BlockDsoProductsGrid({ props, brand }: Props) {
-  const { eyebrow, headline, subheadline, products = [], ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "muted" } = props;
+  const { eyebrow, headline, subheadline, products = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "muted" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -163,28 +164,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
             transition={{ delay: 0.3 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >
-            {ctaMode === "chilipiper" ? (
-              <ChiliPiperButton
-                url={ctaUrl ?? ""}
-                className={getButtonClasses(brand, "inline-flex items-center")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-              >
-                {ctaText}
-              </ChiliPiperButton>
-            ) : (
-              <motion.a
-                href={ctaUrl ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={getButtonClasses(brand, "inline-flex items-center")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
-                whileHover={{ scale: 1.04, y: -1 }}
-                whileTap={{ scale: 0.96 }}
-                transition={SPRING}
-              >
-                {ctaText}
-              </motion.a>
-            )}
+            <BlockDsoCta ctaText={ctaText} ctaUrl={ctaUrl} ctaMode={ctaMode} ctaVariant={ctaVariant} brand={brand} dark={dark} />
           </motion.div>
         )}
       </div>

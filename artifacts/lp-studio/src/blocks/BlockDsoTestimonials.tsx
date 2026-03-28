@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { BlockDsoCta } from "@/components/BlockDsoCta";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -18,7 +19,7 @@ const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoTestimonials({ props, brand }: Props) {
-  const { eyebrow, headline, subheadline, testimonials = [], ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark" } = props;
+  const { eyebrow, headline, subheadline, testimonials = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -137,28 +138,7 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
             transition={{ delay: 0.3 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >
-            {ctaMode === "chilipiper" ? (
-              <ChiliPiperButton
-                url={ctaUrl ?? ""}
-                className={getButtonClasses(brand, "inline-flex items-center")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-              >
-                {ctaText}
-              </ChiliPiperButton>
-            ) : (
-              <motion.a
-                href={ctaUrl ?? "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={getButtonClasses(brand, "inline-flex items-center")}
-                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
-                whileHover={{ scale: 1.04, y: -1 }}
-                whileTap={{ scale: 0.96 }}
-                transition={SPRING}
-              >
-                {ctaText}
-              </motion.a>
-            )}
+            <BlockDsoCta ctaText={ctaText} ctaUrl={ctaUrl} ctaMode={ctaMode} ctaVariant={ctaVariant} brand={brand} dark={dark} />
           </motion.div>
         )}
       </div>

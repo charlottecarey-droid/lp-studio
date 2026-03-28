@@ -376,6 +376,7 @@ export interface DsoBentoOutcomesBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -410,6 +411,7 @@ export interface DsoMeetTeamBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   members: DsoMeetTeamMember[];
   backgroundStyle?: BackgroundStyle;
 }
@@ -425,6 +427,7 @@ export interface DsoParadigmShiftBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -442,6 +445,7 @@ export interface DsoPartnershipPerksBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -462,6 +466,7 @@ export interface DsoProductsGridBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -495,6 +500,7 @@ export interface DsoActivationStepsBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -512,6 +518,7 @@ export interface DsoPromisesBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -529,6 +536,7 @@ export interface DsoTestimonialsBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -564,6 +572,7 @@ export interface DsoStatRowBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -580,6 +589,7 @@ export interface DsoFaqBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -591,6 +601,7 @@ export interface DsoSplitFeatureBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
   imageUrl?: string;
   imagePosition?: "left" | "right";
   backgroundStyle?: BackgroundStyle;

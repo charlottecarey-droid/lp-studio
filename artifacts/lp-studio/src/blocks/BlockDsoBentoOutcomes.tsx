@@ -4,6 +4,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { BlockDsoCta } from "@/components/BlockDsoCta";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -193,9 +194,10 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
     eyebrow = "Why Dandy",
     headline = "Every metric that matters. All in one platform.",
     tiles,
-    ctaText, ctaUrl, ctaMode = "link",
+    ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",
     backgroundStyle = "white",
   } = props;
+  const dark = isDarkBg(backgroundStyle ?? "white");
   const displayTiles = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
 
   return (
@@ -277,41 +279,17 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
           ))}
         </div>
 
-        {ctaText && (() => {
-          const dark = isDarkBg(backgroundStyle ?? "white");
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              style={{ textAlign: "center", marginTop: "3rem" }}
-            >
-              {ctaMode === "chilipiper" ? (
-                <ChiliPiperButton
-                  url={ctaUrl ?? ""}
-                  className={getButtonClasses(brand, "inline-flex items-center")}
-                  style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
-                >
-                  {ctaText}
-                </ChiliPiperButton>
-              ) : (
-                <motion.a
-                  href={ctaUrl ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={getButtonClasses(brand, "inline-flex items-center")}
-                  style={{ backgroundColor: dark ? brand.accentColor : brand.primaryColor, color: dark ? brand.primaryColor : brand.accentColor, textDecoration: "none" }}
-                  whileHover={{ scale: 1.04, y: -1 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={SPRING}
-                >
-                  {ctaText}
-                </motion.a>
-              )}
-            </motion.div>
-          );
-        })()}
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            style={{ textAlign: "center", marginTop: "3rem" }}
+          >
+            <BlockDsoCta ctaText={ctaText} ctaUrl={ctaUrl} ctaMode={ctaMode} ctaVariant={ctaVariant} brand={brand} dark={dark} />
+          </motion.div>
+        )}
       </div>
     </section>
   );
