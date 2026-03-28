@@ -70,7 +70,7 @@ export function BlockDsoParadigmShift({ props }: Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }} className="md:grid-cols-2 grid-cols-1">
+        <div style={{ display: "grid", gap: "1.5rem" }} className="grid-cols-1 md:grid-cols-2">
           {/* Old Way */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
