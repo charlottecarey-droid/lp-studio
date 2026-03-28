@@ -82,9 +82,9 @@ export function BlockDsoAiFeature({ props }: Props) {
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}
         className="md:px-10"
       >
-        <div className="grid md:grid-cols-[2fr_3fr] gap-12 items-center">
 
-          {/* ── Left: text ── */}
+        {/* ── Header: eyebrow + headline + body / stats ── */}
+        <div className="grid md:grid-cols-[3fr_2fr] gap-10 items-end mb-10">
           <div>
             {eyebrow && (
               <motion.p
@@ -97,13 +97,12 @@ export function BlockDsoAiFeature({ props }: Props) {
                   letterSpacing: "0.15em",
                   textTransform: "uppercase",
                   color: AW,
-                  marginBottom: "1.5rem",
+                  marginBottom: "1.25rem",
                 }}
               >
                 {eyebrow}
               </motion.p>
             )}
-
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -111,189 +110,117 @@ export function BlockDsoAiFeature({ props }: Props) {
               transition={{ duration: 0.7 }}
               style={{
                 fontFamily: DISPLAY_FONT,
-                fontSize: "clamp(2.25rem,4vw,3.5rem)",
+                fontSize: "clamp(2rem,3.5vw,3rem)",
                 lineHeight: 1.08,
                 fontWeight: 600,
                 letterSpacing: "-0.025em",
                 color: fg,
-                marginBottom: "1.5rem",
+                marginBottom: body ? "1.25rem" : 0,
               }}
             >
               {headline}
             </motion.h2>
-
             {body && (
               <motion.p
                 initial={{ opacity: 0, y: 15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.08 }}
-                style={{
-                  fontSize: "1.0625rem",
-                  color: mu,
-                  lineHeight: 1.7,
-                  marginBottom: "2.25rem",
-                }}
+                style={{ fontSize: "1rem", color: mu, lineHeight: 1.7 }}
               >
                 {body}
               </motion.p>
             )}
+          </div>
 
-            {/* Bullets */}
-            <motion.ul
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.12 }}
-              style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2.75rem" }}
-            >
-              {bullets.map((text, i) => {
-                const Icon = bulletIcons[i % bulletIcons.length];
-                return (
-                  <li key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: iconBg,
-                        border: `1px solid ${iconBorder}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Icon style={{ width: 14, height: 14, color: AW }} />
-                    </div>
-                    <span style={{ fontSize: "0.9375rem", color: mu2 }}>{text}</span>
-                  </li>
-                );
-              })}
-            </motion.ul>
-
-            {/* Stats row */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.18 }}
-              style={{ display: "flex", gap: "2.5rem", flexWrap: "wrap", marginBottom: ctaText ? "2.25rem" : 0 }}
-            >
+          {/* Stats + CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.15 }}
+          >
+            <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: ctaText ? "2rem" : 0 }}>
               {stats.map((s, i) => (
                 <div key={i}>
-                  <p
-                    style={{
-                      fontFamily: DISPLAY_FONT,
-                      fontSize: "clamp(1.75rem,3vw,2.25rem)",
-                      fontWeight: 600,
-                      letterSpacing: "-0.03em",
-                      color: fg,
-                      lineHeight: 1,
-                    }}
-                  >
+                  <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, letterSpacing: "-0.03em", color: fg, lineHeight: 1 }}>
                     {s.value}
                   </p>
-                  <p
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      letterSpacing: "0.15em",
-                      textTransform: "uppercase",
-                      color: statMu,
-                      marginTop: "0.375rem",
-                    }}
-                  >
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem" }}>
                     {s.label}
                   </p>
                 </div>
               ))}
-            </motion.div>
-
-            {/* Optional CTA */}
+            </div>
             {ctaText && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.24 }}
-              >
-                {ctaMode === "chilipiper" ? (
-                  <ChiliPiperButton
-                    url={ctaUrl ?? ""}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      padding: "0.75rem 2rem",
-                      borderRadius: "0.5rem",
-                      background: AW,
-                      color: P,
-                      fontWeight: 600,
-                      fontSize: "0.9375rem",
-                      cursor: "pointer",
-                      border: "none",
-                    }}
-                  >
-                    {ctaText}
-                  </ChiliPiperButton>
-                ) : (
-                  <a
-                    href={ctaUrl || "#"}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      padding: "0.75rem 2rem",
-                      borderRadius: "0.5rem",
-                      background: AW,
-                      color: P,
-                      fontWeight: 600,
-                      fontSize: "0.9375rem",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {ctaText}
-                  </a>
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {/* ── Right: scan video / image ── */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            style={{
-              borderRadius: "1.25rem",
-              overflow: "hidden",
-              border: `1px solid ${imgBorder}`,
-              boxShadow: "0 4px 32px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.45)",
-              background: imgBg,
-              minHeight: "520px",
-              alignSelf: "stretch",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {videoUrl ? (
-              <video
-                src={videoUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <AiScanReviewAnimation imageUrl={imageUrl} />
+              ctaMode === "chilipiper" ? (
+                <ChiliPiperButton url={ctaUrl ?? ""} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", cursor: "pointer", border: "none" }}>
+                  {ctaText}
+                </ChiliPiperButton>
+              ) : (
+                <a href={ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", textDecoration: "none" }}>
+                  {ctaText}
+                </a>
+              )
             )}
           </motion.div>
-
         </div>
+
+        {/* ── Landscape video / animation ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          style={{
+            borderRadius: "1.25rem",
+            overflow: "hidden",
+            border: `1px solid ${imgBorder}`,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.4)",
+            background: imgBg,
+            aspectRatio: "16/9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {videoUrl ? (
+            <video
+              src={videoUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <AiScanReviewAnimation imageUrl={imageUrl} />
+          )}
+        </motion.div>
+
+        {/* ── Bullets row below video ── */}
+        {bullets.length > 0 && (
+          <motion.ul
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem 3rem", marginTop: "2.5rem", listStyle: "none", padding: 0 }}
+          >
+            {bullets.map((text, i) => {
+              const Icon = bulletIcons[i % bulletIcons.length];
+              return (
+                <li key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: iconBg, border: `1px solid ${iconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon style={{ width: 13, height: 13, color: AW }} />
+                  </div>
+                  <span style={{ fontSize: "0.9rem", color: mu2 }}>{text}</span>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+
       </div>
     </section>
   );
