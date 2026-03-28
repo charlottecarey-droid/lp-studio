@@ -1,14 +1,26 @@
 import { useState } from "react";
-import { Trash2, Plus, BookOpen } from "lucide-react";
+import { Trash2, Plus, BookOpen, BookmarkPlus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { LibraryPicker } from "@/components/LibraryPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import type { PageBlock, CtaMode } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
+
+const API_BASE = "/api";
+
+async function saveRepToLibrary(member: { name: string; role: string; email?: string; calendlyUrl?: string; photo?: string }) {
+  const res = await fetch(`${API_BASE}/lp/library/team_member`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: member.name || "Unnamed Rep", content: member, is_default: false }),
+  });
+  if (!res.ok) throw new Error("Failed to save");
+}
 
 interface DsoMeetTeamPanelProps {
   block: PageBlock & { type: "dso-meet-team" };
@@ -18,8 +30,20 @@ interface DsoMeetTeamPanelProps {
 
 export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeamPanelProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
+  const [savedIdx, setSavedIdx] = useState<number | null>(null);
   const p = block.props;
   const members = p.members ?? [];
+
+  const handleSaveToLibrary = async (i: number) => {
+    setSavingIdx(i);
+    try {
+      await saveRepToLibrary(members[i]);
+      setSavedIdx(i);
+      setTimeout(() => setSavedIdx(null), 2500);
+    } catch { /* silent */ }
+    finally { setSavingIdx(null); }
+  };
 
   const updateMember = (i: number, patch: Partial<typeof members[0]>) => {
     const next = members.map((m, idx) => idx === i ? { ...m, ...patch } : m);
@@ -77,12 +101,31 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
         <div className="space-y-3">
           {members.map((m, i) => (
             <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
-              <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Member {i + 1}</span><button onClick={() => removeMember(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Member {i + 1}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => void handleSaveToLibrary(i)}
+                    disabled={savingIdx === i}
+                    title="Save to Sales Reps library"
+                    className={`transition-colors ${savedIdx === i ? "text-emerald-600" : "text-slate-400 hover:text-[#003A30]"}`}
+                  >
+                    {savingIdx === i
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : savedIdx === i
+                        ? <Check className="w-3.5 h-3.5" />
+                        : <BookmarkPlus className="w-3.5 h-3.5" />}
+                  </button>
+                  <button onClick={() => removeMember(i)} className="text-slate-400 hover:text-red-500">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
               <Input value={m.name} onChange={e => updateMember(i, { name: e.target.value })} placeholder="Name" className="h-8 text-xs" />
               <Input value={m.role} onChange={e => updateMember(i, { role: e.target.value })} placeholder="Role / Title" className="h-8 text-xs" />
               <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@meetdandy.com" className="h-8 text-xs" />
-              <Input value={m.photo ?? ""} onChange={e => updateMember(i, { photo: e.target.value })} placeholder="Photo URL (optional)" className="h-8 text-xs" />
               <Input value={m.calendlyUrl ?? ""} onChange={e => updateMember(i, { calendlyUrl: e.target.value })} placeholder="Calendly / booking URL" className="h-8 text-xs" />
+              <ImagePicker label="Headshot" value={m.photo ?? ""} onChange={url => updateMember(i, { photo: url })} />
             </div>
           ))}
         </div>

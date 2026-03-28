@@ -147,7 +147,7 @@ function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; o
       <Input placeholder="Role / Title (e.g. Enterprise AE)" value={v.role ?? ""} onChange={e => onChange({ ...v, role: e.target.value })} className="text-xs h-7" />
       <Input placeholder="email@meetdandy.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
       <Input placeholder="ChiliPiper / Calendly URL" value={v.calendlyUrl ?? ""} onChange={e => onChange({ ...v, calendlyUrl: e.target.value })} className="text-xs h-7" />
-      <Input placeholder="Photo URL (optional)" value={v.photo ?? ""} onChange={e => onChange({ ...v, photo: e.target.value })} className="text-xs h-7" />
+      <ImagePicker label="Headshot" value={v.photo ?? ""} onChange={url => onChange({ ...v, photo: url })} />
     </div>
   );
 }
