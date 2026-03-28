@@ -1296,6 +1296,69 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-particle-mesh": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="AI-Driven Intelligence" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs text-muted-foreground">Stat 1</Label>
+              <div className="flex gap-2">
+                <Input className="w-24" value={p.stat1Value ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat1Value: e.target.value } })} placeholder="500+" />
+                <Input value={p.stat1Label ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat1Label: e.target.value } })} placeholder="Locations" />
+              </div>
+              <Label className="text-xs text-muted-foreground">Stat 2</Label>
+              <div className="flex gap-2">
+                <Input className="w-24" value={p.stat2Value ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat2Value: e.target.value } })} placeholder="96%" />
+                <Input value={p.stat2Label ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat2Label: e.target.value } })} placeholder="First-Time Right" />
+              </div>
+              <Label className="text-xs text-muted-foreground">Stat 3</Label>
+              <div className="flex gap-2">
+                <Input className="w-24" value={p.stat3Value ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat3Value: e.target.value } })} placeholder="< 4d" />
+                <Input value={p.stat3Label ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat3Label: e.target.value } })} placeholder="Avg Turnaround" />
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-flow-canvas": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Standard" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Large Stat</Label>
+              <Input value={p.stat ?? ""} onChange={e => onChange({ ...block, props: { ...p, stat: e.target.value } })} placeholder="99.2%" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Stat Label</Label>
+              <Input value={p.statLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, statLabel: e.target.value } })} placeholder="First-Time Fit Rate — Network-Wide" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quote</Label>
+              <Textarea rows={3} value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Attribution</Label>
+              <Input value={p.attribution ?? ""} onChange={e => onChange({ ...block, props: { ...p, attribution: e.target.value } })} placeholder="Dandy Engineering Team" />
+            </div>
+          </div>
+        );
+      }
       case "dso-case-flow": {
         const p = block.props;
         return (

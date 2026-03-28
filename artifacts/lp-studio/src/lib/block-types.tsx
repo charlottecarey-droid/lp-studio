@@ -339,6 +339,26 @@ export interface DsoLiveFeedBlockProps {
   footerNote?: string;
 }
 
+export interface DsoParticleMeshBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  stat1Value?: string;
+  stat1Label?: string;
+  stat2Value?: string;
+  stat2Label?: string;
+  stat3Value?: string;
+  stat3Label?: string;
+}
+
+export interface DsoFlowCanvasBlockProps {
+  eyebrow?: string;
+  quote?: string;
+  attribution?: string;
+  stat?: string;
+  statLabel?: string;
+}
+
 export type DsoBentoTile =
   | { type: "stat"; value: string; label: string; description?: string }
   | { type: "photo"; imageUrl: string; caption: string }
@@ -672,6 +692,8 @@ type BlockVariant =
   | { type: "dso-network-map"; props: DsoNetworkMapBlockProps }
   | { type: "dso-case-flow"; props: DsoCaseFlowBlockProps }
   | { type: "dso-live-feed"; props: DsoLiveFeedBlockProps }
+  | { type: "dso-particle-mesh"; props: DsoParticleMeshBlockProps }
+  | { type: "dso-flow-canvas"; props: DsoFlowCanvasBlockProps }
   | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
@@ -2121,6 +2143,75 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-particle-mesh" as const,
+    label: "DSO Particle Mesh",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoParticleMeshBlockProps => ({
+      eyebrow: "AI-Driven Intelligence",
+      headline: "Every case,\nconnected.",
+      body: "Dandy's neural lab infrastructure routes, validates, and delivers with machine precision — connecting every practice, every provider, every outcome.",
+      stat1Value: "500+", stat1Label: "Locations",
+      stat2Value: "96%",  stat2Label: "First-Time Right",
+      stat3Value: "< 4d", stat3Label: "Avg Turnaround",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001a13" rx="4" />
+        {/* Particle network illustration */}
+        {([
+          [22,14],[60,8],[98,20],[15,36],[45,30],[80,35],[100,52],[55,55],[30,58],[72,18],[40,48],[88,12],
+        ] as [number,number][]).map(([x,y],i) => (
+          <circle key={i} cx={x} cy={y} r={1.2} fill="hsl(68,60%,52%)" opacity="0.7" />
+        ))}
+        {/* Connections */}
+        {[
+          [22,14,60,8],[60,8,98,20],[22,14,45,30],[60,8,80,35],[98,20,80,35],
+          [45,30,80,35],[45,30,55,55],[80,35,100,52],[55,55,100,52],[30,58,55,55],
+          [15,36,45,30],[72,18,60,8],[88,12,98,20],
+        ].map(([x1,y1,x2,y2],i) => (
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="hsl(68,60%,52%)" strokeWidth="0.5" strokeOpacity="0.3" />
+        ))}
+        {/* Text overlay */}
+        <rect x="5" y="42" width="14" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="47" width="40" height="5" rx="1.5" fill="hsl(48,100%,96%)" opacity="0.75" />
+        <rect x="5" y="55" width="32" height="1.5" rx="0.5" fill="rgba(255,255,255,0.25)" />
+        <rect x="5" y="58.5" width="28" height="1.5" rx="0.5" fill="rgba(255,255,255,0.18)" />
+        {/* Glow center */}
+        <circle cx="60" cy="35" r="18" fill="none" stroke="hsl(68,60%,52%)" strokeOpacity="0.06" strokeWidth="12" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-flow-canvas" as const,
+    label: "DSO Flow Canvas",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoFlowCanvasBlockProps => ({
+      eyebrow: "The Dandy Standard",
+      quote: "We didn't just digitize the lab workflow.\nWe rebuilt it from the ground up.",
+      attribution: "Dandy Engineering Team",
+      stat: "99.2%",
+      statLabel: "First-Time Fit Rate — Network-Wide",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#000e09" rx="4" />
+        {/* Aurora blobs */}
+        <ellipse cx="30" cy="25" rx="38" ry="28" fill="rgba(0,58,36,0.5)" />
+        <ellipse cx="90" cy="48" rx="34" ry="24" fill="rgba(30,90,22,0.45)" />
+        <ellipse cx="60" cy="60" rx="28" ry="20" fill="rgba(70,120,10,0.35)" />
+        <ellipse cx="88" cy="14" rx="26" ry="18" fill="rgba(8,70,38,0.4)" />
+        {/* Centered stat text */}
+        <rect x="38" y="18" width="44" height="14" rx="3" fill="rgba(0,14,9,0.45)" />
+        <rect x="44" y="22" width="32" height="8" rx="2" fill="hsl(68,60%,52%)" opacity="0.85" />
+        {/* Quote line */}
+        <rect x="22" y="38" width="76" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.6" />
+        <rect x="30" y="43" width="60" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.4" />
+        {/* Attribution */}
+        <rect x="45" y="51" width="30" height="1.5" rx="0.75" fill="rgba(255,255,255,0.3)" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-bento-outcomes" as const,
     label: "DSO Bento Outcomes",
     category: "DSO" as BlockCategory,
@@ -2204,6 +2295,8 @@ export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, {
 export function createBlock(type: "dso-network-map"): Extract<PageBlock, { type: "dso-network-map" }>;
 export function createBlock(type: "dso-case-flow"): Extract<PageBlock, { type: "dso-case-flow" }>;
 export function createBlock(type: "dso-live-feed"): Extract<PageBlock, { type: "dso-live-feed" }>;
+export function createBlock(type: "dso-particle-mesh"): Extract<PageBlock, { type: "dso-particle-mesh" }>;
+export function createBlock(type: "dso-flow-canvas"): Extract<PageBlock, { type: "dso-flow-canvas" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
@@ -2256,6 +2349,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-network-map": return { id, type: "dso-network-map", props: props as DsoNetworkMapBlockProps };
     case "dso-case-flow": return { id, type: "dso-case-flow", props: props as DsoCaseFlowBlockProps };
     case "dso-live-feed": return { id, type: "dso-live-feed", props: props as DsoLiveFeedBlockProps };
+    case "dso-particle-mesh": return { id, type: "dso-particle-mesh", props: props as DsoParticleMeshBlockProps };
+    case "dso-flow-canvas": return { id, type: "dso-flow-canvas", props: props as DsoFlowCanvasBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
   }
 }
