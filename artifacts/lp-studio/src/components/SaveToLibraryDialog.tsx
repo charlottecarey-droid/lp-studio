@@ -3,26 +3,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookmarkPlus, LayoutGrid, Building2 } from "lucide-react";
+import { BookmarkPlus, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PageBlock } from "@/lib/block-types";
 import { getBlockDef } from "@/lib/block-types";
-
-type BlockSegment = "core" | "segment";
+import type { AudienceSegment } from "@/lib/brand-config";
 
 const API_BASE = "/api";
 
 interface Props {
   open: boolean;
   block: PageBlock | null;
+  segments: AudienceSegment[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function SaveToLibraryDialog({ open, block, onClose, onSaved }: Props) {
+export function SaveToLibraryDialog({ open, block, segments, onClose, onSaved }: Props) {
   const defaultName = block ? (getBlockDef(block.type)?.label ?? block.type) : "";
   const [name, setName] = useState(defaultName);
-  const [segment, setSegment] = useState<BlockSegment>("core");
+  const [segment, setSegment] = useState<string>("core");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,41 +97,42 @@ export function SaveToLibraryDialog({ open, block, onClose, onSaved }: Props) {
               autoFocus
             />
           </div>
+
           <div>
-            <Label className="text-sm font-medium mb-2 block">Tab Assignment</Label>
-            <div className="flex gap-2">
+            <Label className="text-sm font-medium mb-2 block">Tab</Label>
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSegment("core")}
                 className={cn(
-                  "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-left transition-colors",
+                  "flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-left transition-colors",
                   segment === "core"
                     ? "border-primary bg-primary/5 text-primary"
                     : "border-border text-muted-foreground hover:border-primary/40"
                 )}
               >
                 <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium">Core</p>
-                  <p className="text-[10px] opacity-70">Blocks tab</p>
-                </div>
+                <span className="text-xs font-medium">Core</span>
               </button>
-              <button
-                onClick={() => setSegment("segment")}
-                className={cn(
-                  "flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 text-left transition-colors",
-                  segment === "segment"
-                    ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
-                    : "border-border text-muted-foreground hover:border-[#003A30]/30"
-                )}
-              >
-                <Building2 className="w-3.5 h-3.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium">Segment</p>
-                  <p className="text-[10px] opacity-70">DSO tab</p>
-                </div>
-              </button>
+              {segments.map(seg => (
+                <button
+                  key={seg.id}
+                  onClick={() => setSegment(seg.name)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-left transition-colors",
+                    segment === seg.name
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  <span className="text-xs font-medium">{seg.name}</span>
+                </button>
+              ))}
             </div>
+            {segments.length === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1.5">Add segments in Brand Settings to enable segment assignment.</p>
+            )}
           </div>
+
           {block && (
             <p className="text-xs text-muted-foreground">
               Saves the current <span className="font-medium">{getBlockDef(block.type)?.label ?? block.type}</span> block — content, colors, and layout settings — to your block library for reuse on any page.

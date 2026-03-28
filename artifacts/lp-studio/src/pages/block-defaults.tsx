@@ -160,11 +160,11 @@ export default function BlockDefaultsPage() {
             {/* Segment section separator */}
             <div className="border-t border-border pt-3">
               <div className="flex items-center gap-1.5 px-2 mb-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#003A30]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Segment Blocks</p>
               </div>
               <div className="space-y-4">
-                {renderCategoryList(segmentCategories, "bg-[#003A30]")}
+                {renderCategoryList(segmentCategories)}
               </div>
             </div>
           </div>

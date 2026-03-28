@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchBrandConfig, DEFAULT_BRAND, type AudienceSegment } from "@/lib/brand-config";
+import { Link } from "wouter";
 
 const API = "/api";
 
@@ -25,36 +27,33 @@ interface CustomBlock {
 }
 
 type BlockEditorType = "rich-text" | "custom-html";
-type BlockSegment = "core" | "segment";
 
 interface EditorState {
   id?: number;
   name: string;
   block_type: BlockEditorType;
-  segment: BlockSegment;
+  segment: string;
   html: string;
 }
 
 export default function CustomBlocksPage() {
   const [blocks, setBlocks] = useState<CustomBlock[]>([]);
+  const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editor, setEditor] = useState<EditorState>({ name: "", block_type: "rich-text", html: "" });
+  const [editor, setEditor] = useState<EditorState>({ name: "", block_type: "rich-text", segment: "core", html: "" });
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const load = async () => {
-    try {
-      const data = await fetch(`${API}/lp/custom-blocks`).then(r => r.json() as Promise<CustomBlock[]>);
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/lp/custom-blocks`).then(r => r.json() as Promise<CustomBlock[]>).catch(() => [] as CustomBlock[]),
+      fetchBrandConfig().catch(() => DEFAULT_BRAND),
+    ]).then(([data, brand]) => {
       setBlocks(data);
-    } catch {
-      setBlocks([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
+      setSegments(brand.segments ?? []);
+    }).finally(() => setIsLoading(false));
+  }, []);
 
   const openCreate = () => {
     setEditor({ name: "", block_type: "rich-text", segment: "core", html: "" });
@@ -66,7 +65,7 @@ export default function CustomBlocksPage() {
       id: block.id,
       name: block.name,
       block_type: block.block_type as BlockEditorType,
-      segment: (block.segment === "segment" ? "segment" : "core") as BlockSegment,
+      segment: block.segment ?? "core",
       html: block.props?.html ?? "",
     });
     setEditorOpen(true);
@@ -118,6 +117,17 @@ export default function CustomBlocksPage() {
     }
   };
 
+  const segmentLabel = (seg: string) => {
+    if (!seg || seg === "core") return "Core";
+    const found = segments.find(s => s.name === seg);
+    return found ? found.name : seg;
+  };
+
+  const isKnownSegment = (seg: string) => {
+    if (!seg || seg === "core") return true;
+    return segments.some(s => s.name === seg);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -126,7 +136,7 @@ export default function CustomBlocksPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Custom Blocks</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Build reusable blocks with the Rich Text editor or custom HTML. They appear as a "Custom" category in the page builder.
+              Build reusable blocks with the Rich Text editor or custom HTML. Assign them to the Blocks tab (Core) or a segment-specific tab.
             </p>
           </div>
           <Button onClick={openCreate} className="gap-2 shrink-0">
@@ -176,17 +186,18 @@ export default function CustomBlocksPage() {
                           HTML
                         </Badge>
                       )}
-                      {block.segment === "segment" ? (
-                        <Badge className="gap-1 text-xs bg-[#003A30]/10 text-[#003A30] border border-[#003A30]/20 hover:bg-[#003A30]/10">
-                          <Building2 className="w-3 h-3" />
-                          Segment
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
-                          <LayoutGrid className="w-3 h-3" />
-                          Core
-                        </Badge>
-                      )}
+                      <Badge
+                        variant={(!block.segment || block.segment === "core") ? "outline" : "secondary"}
+                        className={cn(
+                          "gap-1 text-xs",
+                          (!block.segment || block.segment === "core") && "text-muted-foreground",
+                          block.segment && block.segment !== "core" && isKnownSegment(block.segment) && "bg-primary/8 text-primary border-primary/20",
+                          block.segment && block.segment !== "core" && !isKnownSegment(block.segment) && "text-amber-600 border-amber-200 bg-amber-50"
+                        )}
+                      >
+                        <LayoutGrid className="w-3 h-3" />
+                        {segmentLabel(block.segment)}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -276,14 +287,14 @@ export default function CustomBlocksPage() {
               </div>
             </div>
 
-            {/* Segment selector */}
+            {/* Tab assignment */}
             <div>
               <Label className="text-sm font-medium mb-2 block">Tab Assignment</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setEditor(prev => ({ ...prev, segment: "core" }))}
                   className={cn(
-                    "flex-1 flex items-center gap-2.5 px-4 py-3 rounded-lg border-2 text-left transition-colors",
+                    "flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 text-left transition-colors",
                     editor.segment === "core"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border bg-background text-muted-foreground hover:border-primary/40"
@@ -292,24 +303,35 @@ export default function CustomBlocksPage() {
                   <LayoutGrid className="w-4 h-4 shrink-0" />
                   <div>
                     <p className="text-sm font-medium">Core</p>
-                    <p className="text-xs opacity-70 mt-0.5">Appears in the main Blocks tab</p>
+                    <p className="text-xs opacity-70">Blocks tab</p>
                   </div>
                 </button>
-                <button
-                  onClick={() => setEditor(prev => ({ ...prev, segment: "segment" }))}
-                  className={cn(
-                    "flex-1 flex items-center gap-2.5 px-4 py-3 rounded-lg border-2 text-left transition-colors",
-                    editor.segment === "segment"
-                      ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
-                      : "border-border bg-background text-muted-foreground hover:border-[#003A30]/40"
-                  )}
-                >
-                  <Building2 className="w-4 h-4 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">Segment</p>
-                    <p className="text-xs opacity-70 mt-0.5">Appears in the DSO Segment tab</p>
-                  </div>
-                </button>
+                {segments.map(seg => (
+                  <button
+                    key={seg.id}
+                    onClick={() => setEditor(prev => ({ ...prev, segment: seg.name }))}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 text-left transition-colors",
+                      editor.segment === seg.name
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{seg.name}</p>
+                      <p className="text-xs opacity-70">Segment tab</p>
+                    </div>
+                  </button>
+                ))}
+                {segments.length === 0 && (
+                  <p className="text-xs text-muted-foreground self-center">
+                    No segments defined yet.{" "}
+                    <Link href="/brand-settings" className="underline underline-offset-2 hover:text-foreground">
+                      Add segments in Brand Settings
+                    </Link>{" "}
+                    to assign this block to a segment tab.
+                  </p>
+                )}
               </div>
             </div>
 
