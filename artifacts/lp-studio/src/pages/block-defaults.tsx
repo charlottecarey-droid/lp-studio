@@ -97,8 +97,48 @@ export default function BlockDefaultsPage() {
     }
   };
 
-  const categories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"];
+  const coreCategories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"];
+  const segmentCategories: BlockCategory[] = ["DSO"];
   const savedCount = Object.keys(blockDefaults).length;
+
+  const renderCategoryList = (cats: BlockCategory[], accent?: string) =>
+    cats.map(cat => {
+      const blocks = BLOCK_REGISTRY.filter(b => b.category === cat);
+      if (blocks.length === 0) return null;
+      return (
+        <div key={cat}>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 px-2">{cat}</p>
+          <div className="space-y-0.5">
+            {blocks.map(block => {
+              const hasSaved = !!blockDefaults[block.type];
+              const isSelected = selectedType === block.type;
+              return (
+                <button
+                  key={block.type}
+                  onClick={() => selectBlockType(block.type)}
+                  className={cn(
+                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors",
+                    isSelected
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <span className={cn("text-xs font-medium", isSelected ? "text-primary" : "text-foreground")}>
+                    {block.label}
+                  </span>
+                  {hasSaved && (
+                    <span
+                      className={cn("w-2 h-2 rounded-full shrink-0", isSelected ? "bg-primary" : accent ?? "bg-emerald-500")}
+                      title="Default saved"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    });
 
   return (
     <AppLayout>
@@ -115,42 +155,18 @@ export default function BlockDefaultsPage() {
             </p>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-4">
-            {categories.map(cat => {
-              const blocks = BLOCK_REGISTRY.filter(b => b.category === cat);
-              return (
-                <div key={cat}>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 px-2">{cat}</p>
-                  <div className="space-y-0.5">
-                    {blocks.map(block => {
-                      const hasSaved = !!blockDefaults[block.type];
-                      const isSelected = selectedType === block.type;
-                      return (
-                        <button
-                          key={block.type}
-                          onClick={() => selectBlockType(block.type)}
-                          className={cn(
-                            "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-colors",
-                            isSelected
-                              ? "bg-primary/10 text-primary"
-                              : "hover:bg-muted text-foreground"
-                          )}
-                        >
-                          <span className={cn("text-xs font-medium", isSelected ? "text-primary" : "text-foreground")}>
-                            {block.label}
-                          </span>
-                          {hasSaved && (
-                            <span
-                              className={cn("w-2 h-2 rounded-full shrink-0", isSelected ? "bg-primary" : "bg-emerald-500")}
-                              title="Default saved"
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            {renderCategoryList(coreCategories)}
+
+            {/* Segment section separator */}
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center gap-1.5 px-2 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#003A30]" />
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Segment Blocks</p>
+              </div>
+              <div className="space-y-4">
+                {renderCategoryList(segmentCategories, "bg-[#003A30]")}
+              </div>
+            </div>
           </div>
         </aside>
 
