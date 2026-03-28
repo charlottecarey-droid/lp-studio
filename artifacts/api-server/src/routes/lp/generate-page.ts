@@ -207,6 +207,7 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     const props = b.props as Record<string, unknown> | undefined;
     if (!props) continue;
     if (typeof props.imageUrl === "string" && props.imageUrl) usedUrls.add(props.imageUrl);
+    if (typeof props.backgroundImageUrl === "string" && props.backgroundImageUrl) usedUrls.add(props.backgroundImageUrl);
     if (Array.isArray(props.images)) {
       for (const img of props.images) {
         const i = img as Record<string, unknown>;
@@ -225,6 +226,27 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
         if (typeof it.image === "string" && it.image) usedUrls.add(it.image);
       }
     }
+    // DSO chapters (scroll-story, scroll-story-hero)
+    if (Array.isArray(props.chapters)) {
+      for (const ch of props.chapters) {
+        const c = ch as Record<string, unknown>;
+        if (typeof c.imageUrl === "string" && c.imageUrl) usedUrls.add(c.imageUrl);
+      }
+    }
+    // DSO bento tiles
+    if (Array.isArray(props.tiles)) {
+      for (const tile of props.tiles) {
+        const t = tile as Record<string, unknown>;
+        if (typeof t.imageUrl === "string" && t.imageUrl) usedUrls.add(t.imageUrl);
+      }
+    }
+    // DSO success-stories cases
+    if (Array.isArray(props.cases)) {
+      for (const c of props.cases) {
+        const cs = c as Record<string, unknown>;
+        if (typeof cs.image === "string" && cs.image) usedUrls.add(cs.image);
+      }
+    }
   }
 
   // Second pass: fill empty URLs with purpose-aware selection
@@ -236,11 +258,13 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
     const subheadline = (props.subheadline as string) ?? "";
     const blockContext = `${blockType} ${headline} ${subheadline}`;
 
+    // ── Standard LP blocks ──────────────────────────────────────────────
+
     // Hero imageUrl → prefer lifestyle/people shots
     if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
       props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
-    } else if ("imageUrl" in props && !props.imageUrl) {
-      // Other blocks with imageUrl (e.g. product-showcase) → feature images
+    } else if (!blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
+      // Other standard blocks with imageUrl → feature images
       props.imageUrl = findBestImage(blockContext, images, usedUrls, "lp-feature");
     }
 
@@ -274,6 +298,55 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
           return { ...item, image: findBestImage(itemContext, images, usedUrls, "product-detail") };
         }
         return item;
+      });
+    }
+
+    // ── DSO blocks ──────────────────────────────────────────────────────
+
+    // DSO hero background image
+    if (blockType === "dso-heartland-hero" && !props.backgroundImageUrl) {
+      props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+    }
+
+    // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
+    if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
+      const purpose = ["dso-heartland-hero", "dso-scroll-story-hero"].includes(blockType) ? "lp-hero" : "lp-feature";
+      props.imageUrl = findBestImage(blockContext, images, usedUrls, purpose);
+    }
+
+    // DSO scroll-story and scroll-story-hero chapters → fill each chapter's imageUrl
+    if (
+      (blockType === "dso-scroll-story" || blockType === "dso-scroll-story-hero") &&
+      Array.isArray(props.chapters)
+    ) {
+      props.chapters = (props.chapters as Record<string, unknown>[]).map((ch) => {
+        if (!ch.imageUrl) {
+          const chContext = `${ch.headline ?? ""} ${ch.body ?? ""}`;
+          return { ...ch, imageUrl: findBestImage(chContext, images, usedUrls, "lp-feature") };
+        }
+        return ch;
+      });
+    }
+
+    // DSO bento-outcomes photo tiles
+    if (blockType === "dso-bento-outcomes" && Array.isArray(props.tiles)) {
+      props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
+        if (tile.type === "photo" && !tile.imageUrl) {
+          const tileContext = `${tile.caption ?? ""} dental clinical`;
+          return { ...tile, imageUrl: findBestImage(tileContext, images, usedUrls, "lp-feature") };
+        }
+        return tile;
+      });
+    }
+
+    // DSO success-stories case images
+    if (blockType === "dso-success-stories" && Array.isArray(props.cases)) {
+      props.cases = (props.cases as Record<string, unknown>[]).map((c) => {
+        if (!c.image) {
+          const caseContext = `${c.name ?? ""} ${c.author ?? ""} dental practice`;
+          return { ...c, image: findBestImage(caseContext, images, usedUrls, "lp-feature") };
+        }
+        return c;
       });
     }
 
@@ -322,6 +395,19 @@ function buildBrandContext(brand: BrandConfig): string {
   return parts.join("\n");
 }
 
+/** Detect if the user prompt is targeting a DSO / multi-location dental group audience */
+function isDsoPrompt(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  const dsoKeywords = [
+    "dso", "dental service organization", "dental support organization",
+    "multi-location", "multi location", "group practice", "dental group",
+    "dental network", "dental management", "practice management",
+    "regional dental", "enterprise dental", "dental partnership",
+    "dental consolidator", "dental operator", "dental platform",
+  ];
+  return dsoKeywords.some(kw => lower.includes(kw));
+}
+
 const SYSTEM_PROMPT = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
 AVAILABLE BLOCK TYPES (use these exact type strings):
@@ -360,6 +446,42 @@ RULES:
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific Dandy product lines like "AI Scan Review" or "Smile Simulation". Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get the smile you deserve" (correct), "Get The Smile You Deserve" (wrong — no title case), "get the smile you deserve" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.`;
 
+const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
+
+AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
+- "dso-heartland-hero": Full-bleed hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundImageUrl (string), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
+- "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#"), imagePosition ("left"|"right"), chapters (array 2–4 of {headline, body, imageUrl})
+- "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array 3–6 of {icon, title, desc}). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[], optional)
+- "dso-ai-feature": AI feature showcase with stats + image. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string)
+- "dso-stat-showcase": Premium stats section. Props: eyebrow (string), headline (string), stats (array 3–5 of {value, label, description})
+- "dso-scroll-story": Scroll-driven narrative with chapters. Props: eyebrow (string), chapters (array 3–5 of {headline, body, imageUrl})
+- "dso-network-map": Animated network / geography visualization. Props: eyebrow (string), headline (string), body (string), ctaText (string), ctaUrl ("#")
+- "dso-case-flow": Case workflow timeline with metrics. Props: eyebrow (string), headline (string), subheadline (string), stages (array 3–6 of {number ("01"|"02"|etc), label, metric, metricLabel, body})
+- "dso-live-feed": Real-time activity ticker. Props: eyebrow (string), headline (string), body (string), footerNote (string)
+- "dso-particle-mesh": Particle-canvas section with stats and optional image. Props: eyebrow (string), headline (string), body (string), stat1Value (string), stat1Label (string), stat2Value (string), stat2Label (string), stat3Value (string), stat3Label (string), imageUrl (string), imagePosition ("left"|"right")
+- "dso-flow-canvas": Animated orb canvas with big stat + quote. Props: eyebrow (string), quote (string), attribution (string), stat (string), statLabel (string), imageUrl (string)
+- "dso-bento-outcomes": Bento grid of outcomes. Props: eyebrow (string), headline (string), tiles (array 4–6 of one of: {type:"stat",value,label,description} | {type:"photo",imageUrl,caption} | {type:"feature",headline,body} | {type:"quote",quote,author})
+- "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
+- "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string, use "Dandy"), ctaText (string), ctaUrl ("#"), rows (array 4–8 of {need, dandy, traditional})
+- "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array 2–4 of {name, stat, label, quote, author, image})
+- "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])})
+- "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
+- "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#"), secondaryCtaText (string), secondaryCtaUrl ("#")
+
+RULES:
+1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
+2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
+3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
+4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
+5. Recommended page flow: hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta
+6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
+7. Use real Dandy product references: "AI Scan Review", "Dandy Pilot Program", "first-time fit rate", "remake reduction", "turnaround time".
+8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
+9. IMAGES: Assign imageUrl props from the IMAGE LIBRARY where relevant. For chapters arrays, populate each chapter's imageUrl. Use lifestyle/clinic shots for heroes and split sections; leave imageUrl as "" if no suitable image exists.
+10. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
+11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
+12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.`;
+
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const { prompt } = req.body as { prompt?: string };
 
@@ -379,11 +501,18 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const [brand, mediaCatalog] = await Promise.all([fetchBrand(), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
 
+  const useDso = isDsoPrompt(prompt);
+  const systemPrompt = useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
+
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
-  userPromptParts.push("Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant.");
+  userPromptParts.push(
+    useDso
+      ? "Generate a complete DSO enterprise landing page using only DSO block types. Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays."
+      : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
+  );
 
   const userPrompt = userPromptParts.join("\n\n");
 
@@ -393,7 +522,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
       temperature: 0.7,
       max_completion_tokens: 4096,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });
