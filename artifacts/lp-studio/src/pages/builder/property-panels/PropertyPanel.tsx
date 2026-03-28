@@ -1946,7 +1946,19 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             {(["oldWayItems", "newWayItems"] as const).map(side => (
               <div key={side} className="border-t pt-3">
-                <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{side === "oldWayItems" ? "Old Way Items" : "New Way Items"}</Label><Button variant="ghost" size="sm" onClick={() => addItem(side)} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{side === "oldWayItems" ? "Old Way Items" : "New Way Items"}</Label>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={async () => {
+                      try {
+                        const current = (p[side] ?? []).join(" | ");
+                        const suggestions = await suggestCopy(block.type, side, current, { headline: p.headline ?? "", [side === "oldWayItems" ? "newWayItems" : "oldWayItems"]: (p[side === "oldWayItems" ? "newWayItems" : "oldWayItems"] ?? []).join(" | ") }, 5);
+                        if (suggestions.length > 0) onChange({ ...block, props: { ...p, [side]: suggestions } });
+                      } catch {}
+                    }} className="h-7 text-xs gap-1 text-purple-600 hover:text-purple-700"><RefreshCcw className="w-3 h-3" /> AI</Button>
+                    <Button variant="ghost" size="sm" onClick={() => addItem(side)} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button>
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   {(p[side] ?? []).map((item, i) => (
                     <div key={i} className="flex gap-1 items-center">
@@ -2154,8 +2166,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
                     <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Step {i + 1}</span><button onClick={() => removeStep(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
                     <Input value={step.step} onChange={e => updateStep(i, { step: e.target.value })} placeholder="01" className="h-8 text-xs" />
-                    <Input value={step.title} onChange={e => updateStep(i, { title: e.target.value })} placeholder="Step title" className="h-8 text-xs" />
-                    <Textarea value={step.desc} onChange={e => updateStep(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
+                    <AiTextField type="input" value={step.title} onChange={v => updateStep(i, { title: v })} placeholder="Step title" fieldLabel="Step Title" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "stepTitle", step.title, { desc: step.desc, headline: p.headline ?? "" })} />
+                    <AiTextField type="textarea" rows={2} value={step.desc} onChange={v => updateStep(i, { desc: v })} placeholder="What happens in this step…" fieldLabel="Step Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "stepDesc", step.desc, { title: step.title, headline: p.headline ?? "" })} />
                   </div>
                 ))}
               </div>

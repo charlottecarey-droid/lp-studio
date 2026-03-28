@@ -105,9 +105,10 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
 
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            display: "flex",
+            flexWrap: "wrap",
             gap: "1.5rem",
+            justifyContent: "center",
           }}
         >
           {members.map((m, i) => (
@@ -127,6 +128,10 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                 alignItems: "center",
                 gap: "0.75rem",
                 backdropFilter: dark ? "blur(12px)" : "none",
+                flexBasis: "240px",
+                flexGrow: 0,
+                flexShrink: 0,
+                width: "240px",
               }}
             >
               {m.photo ? (
