@@ -88,16 +88,31 @@ export function BlockDsoProblem({ props }: Props) {
         <div className="grid md:grid-cols-[5fr_6fr] gap-16 lg:gap-24 items-center">
 
           {/* ── Left: Stacked photography ── */}
-          <motion.div style={{ position: "relative", minHeight: 480, paddingBottom: 100 }}>
+          <motion.div style={{ position: "relative", minHeight: 500, paddingBottom: 120 }}>
+
+            {/* Lime glow behind cluster — gives the images a "stage" */}
+            <div style={{
+              position: "absolute",
+              top: "5%",
+              left: "-8%",
+              width: "90%",
+              height: "75%",
+              borderRadius: "50%",
+              background: `radial-gradient(ellipse, ${AW}09 0%, transparent 70%)`,
+              pointerEvents: "none",
+              zIndex: 0,
+            }} />
+
             {/* Primary image */}
             <motion.div
               style={{
                 y: imgAY,
                 borderRadius: "1.25rem",
                 overflow: "hidden",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.35), 0 40px 80px rgba(0,0,0,0.40)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.25), 0 32px 72px rgba(0,0,0,0.55)",
                 position: "relative",
                 zIndex: 1,
+                outline: "1.5px solid rgba(255,255,255,0.07)",
               }}
               initial={{ opacity: 0, x: -32 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -114,21 +129,24 @@ export function BlockDsoProblem({ props }: Props) {
               <div style={{ height: 3, background: `linear-gradient(90deg, ${AW}, transparent)` }} />
             </motion.div>
 
-            {/* Secondary image — offset lower-right */}
+            {/* Secondary image — rotated photo-print style */}
             <motion.div
               style={{
                 y: imgBY,
                 position: "absolute",
                 bottom: 0,
-                right: -24,
-                width: "58%",
+                right: -16,
+                width: "56%",
                 zIndex: 2,
-                borderRadius: "1rem",
+                borderRadius: "0.875rem",
                 overflow: "hidden",
-                boxShadow: "0 16px 48px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.35)",
+                boxShadow: "0 20px 56px rgba(0,0,0,0.60), 0 4px 16px rgba(0,0,0,0.40)",
+                outline: "1.5px solid rgba(255,255,255,0.10)",
+                rotate: -2,
+                transformOrigin: "bottom right",
               }}
-              initial={{ opacity: 0, x: 28 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 28, rotate: -4 }}
+              whileInView={{ opacity: 1, x: 0, rotate: -2 }}
               viewport={{ once: true }}
               transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
@@ -143,7 +161,7 @@ export function BlockDsoProblem({ props }: Props) {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "linear-gradient(160deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.55) 100%)",
+                  background: "linear-gradient(160deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.62) 100%)",
                   display: "flex",
                   alignItems: "flex-end",
                   padding: "1rem 1.25rem",
@@ -154,7 +172,7 @@ export function BlockDsoProblem({ props }: Props) {
                   <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>First-time right rate</p>
                 </div>
               </div>
-              {/* Lime corner */}
+              {/* Lime bottom accent */}
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
             </motion.div>
           </motion.div>
