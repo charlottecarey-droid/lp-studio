@@ -4,7 +4,7 @@ import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P      = "#003A30";
+const P      = "hsl(152,42%,12%)";
 const PFG    = "hsl(48,100%,96%)";
 const AW     = "hsl(68,60%,52%)";
 const MUTED  = "hsla(48,100%,96%,0.55)";
@@ -215,8 +215,8 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
           />
           {/* Gradient overlays — flip direction when image is on the left */}
           <div style={{ position: "absolute", inset: 0, background: imageRight
-            ? "linear-gradient(90deg, rgba(0,58,48,0.60) 0%, rgba(0,0,0,0) 45%)"
-            : "linear-gradient(270deg, rgba(0,58,48,0.60) 0%, rgba(0,0,0,0) 45%)"
+            ? "linear-gradient(90deg, rgba(9,41,30,0.55) 0%, rgba(0,0,0,0) 40%)"
+            : "linear-gradient(270deg, rgba(9,41,30,0.55) 0%, rgba(0,0,0,0) 40%)"
           }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)" }} />
           {/* Watermark number */}
