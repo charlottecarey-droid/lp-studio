@@ -9,7 +9,7 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-const P   = "hsl(152,42%,12%)";
+const P   = "#003A30";
 const AW  = "hsl(68,60%,52%)";
 const SEC = "hsl(42,18%,96%)";
 const FG  = "hsl(152,40%,13%)";

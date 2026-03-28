@@ -3,7 +3,7 @@ import { motion, useInView, animate, useMotionValue } from "framer-motion";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
-const P    = "hsl(152,42%,12%)";
+const P    = "#003A30";
 const PFG  = "hsl(48,100%,96%)";
 const AW   = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.5)";
