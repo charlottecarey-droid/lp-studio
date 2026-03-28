@@ -313,9 +313,24 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
 
     // ── DSO blocks ──────────────────────────────────────────────────────
 
-    // DSO hero background image
-    if (blockType === "dso-heartland-hero" && !props.backgroundImageUrl) {
-      props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+    // DSO heartland-hero: fill images based on layout; default backgroundStyle
+    if (blockType === "dso-heartland-hero") {
+      if (!props.backgroundStyle) props.backgroundStyle = "dandy-green";
+      const layout = props.layout as string | undefined;
+      if (layout === "split") {
+        if (!props.heroImageUrl) {
+          props.heroImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+        }
+      } else {
+        if (!props.backgroundImageUrl) {
+          props.backgroundImageUrl = findBestImage(blockContext, images, usedUrls, "lp-hero");
+        }
+      }
+    }
+
+    // DSO scroll-story-hero: default backgroundStyle
+    if (blockType === "dso-scroll-story-hero" && !props.backgroundStyle) {
+      props.backgroundStyle = "dandy-green";
     }
 
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
@@ -479,8 +494,8 @@ RULES:
 const DSO_SYSTEM_PROMPT = `You are an expert B2B landing page architect specialising in enterprise dental (DSO) sales pages. You generate complete, premium page structures as JSON for Dandy's DSO block library.
 
 AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
-- "dso-heartland-hero": Full-bleed hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundImageUrl (string), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
-- "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), chapters (array 2–4 of {headline, body, imageUrl})
+- "dso-heartland-hero": Hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), layout ("full-bleed"|"split" — use "split" when you have a clear hero image to showcase, otherwise "full-bleed"), backgroundImageUrl (string — for full-bleed layout: a wide landscape photo that overlays behind the hero), heroImageUrl (string — for split layout: a tall/portrait-friendly clinical or team photo; leave blank "" for full-bleed), heroImageSide ("left"|"right" — default "right"; flip to "left" for visual variety), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
+- "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), chapters (array 2–4 of {headline, body, imageUrl})
 - "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array 3–6 of {icon, title, desc}). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[], optional). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-ai-feature": AI feature showcase with stats + image. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-stat-showcase": Premium stats section. Props: eyebrow (string), headline (string), stats (array 3–5 of {value, label, description}). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
