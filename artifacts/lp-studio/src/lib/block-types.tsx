@@ -611,6 +611,19 @@ export interface DsoSplitFeatureBlockProps {
   backgroundStyle?: BackgroundStyle;
 }
 
+export interface DsoSoftwareShowcaseBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  imageUrl?: string;
+  features?: { icon?: string; label: string }[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+  backgroundStyle?: BackgroundStyle;
+  layout?: "centered" | "split";
+}
+
 /* ─── end DSO Practices types ────────────────────────────────────────────── */
 
 export interface DsoPilotStep {
@@ -953,7 +966,8 @@ type BlockVariant =
   | { type: "dso-practice-hero"; props: DsoPracticeHeroBlockProps }
   | { type: "dso-stat-row"; props: DsoStatRowBlockProps }
   | { type: "dso-faq"; props: DsoFaqBlockProps }
-  | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps };
+  | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps }
+  | { type: "dso-software-showcase"; props: DsoSoftwareShowcaseBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -2930,6 +2944,47 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-software-showcase" as const,
+    label: "DSO Software Showcase",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoSoftwareShowcaseBlockProps => ({
+      eyebrow: "Chairside Software",
+      headline: "The only chairside software\nbuilt for same-day dentistry.",
+      body: "Dandy's AI-powered platform gives clinicians real-time scan review, prep guidance, and digital workflows — all in one seamless experience.",
+      imageUrl: "https://meetdandy-lp.com/api/storage/objects/uploads/9900b5fa-e2f5-484b-bcd6-16ed56ddf5cb",
+      features: [
+        { icon: "zap",   label: "Real-time scan analysis" },
+        { icon: "check", label: "AI-flagged margin errors" },
+        { icon: "clock", label: "2–3 min saved per case" },
+        { icon: "bar",   label: "Full-arch crown prep" },
+      ],
+      ctaText: "See it in action",
+      ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      ctaMode: "chilipiper",
+      backgroundStyle: "dandy-green",
+      layout: "centered",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="20" y="8" width="80" height="3" rx="1.5" fill="hsl(68,60%,52%)" opacity="0.6" />
+        <rect x="25" y="14" width="70" height="5" rx="2.5" fill="white" opacity="0.85" />
+        <rect x="30" y="22" width="60" height="2.5" rx="1.25" fill="white" opacity="0.35" />
+        <rect x="5" y="30" width="110" height="26" rx="4" fill="white" opacity="0.06" stroke="white" strokeWidth="0.5" strokeOpacity="0.12" />
+        <rect x="7" y="32" width="106" height="5" rx="2" fill="white" opacity="0.07" />
+        <rect x="9" y="33" width="8" height="3" rx="1.5" fill="#ff5f57" opacity="0.8" />
+        <rect x="19" y="33" width="8" height="3" rx="1.5" fill="#febc2e" opacity="0.8" />
+        <rect x="29" y="33" width="8" height="3" rx="1.5" fill="#28c840" opacity="0.8" />
+        <rect x="7" y="38" width="106" height="16" rx="1" fill="white" opacity="0.05" />
+        <rect x="9" y="40" width="102" height="12" rx="1" fill="#0d1f18" />
+        <rect x="59" y="58" width="24" height="4" rx="2" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="35" y="64" width="20" height="2" rx="1" fill="white" opacity="0.2" />
+        <rect x="58" y="64" width="20" height="2" rx="1" fill="white" opacity="0.2" />
+        <rect x="81" y="64" width="20" height="2" rx="1" fill="white" opacity="0.2" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-cta-capture" as const,
     label: "DSO CTA Capture",
     category: "DSO" as BlockCategory,
@@ -3043,6 +3098,7 @@ export function createBlock(type: "dso-practice-hero"): Extract<PageBlock, { typ
 export function createBlock(type: "dso-stat-row"): Extract<PageBlock, { type: "dso-stat-row" }>;
 export function createBlock(type: "dso-faq"): Extract<PageBlock, { type: "dso-faq" }>;
 export function createBlock(type: "dso-split-feature"): Extract<PageBlock, { type: "dso-split-feature" }>;
+export function createBlock(type: "dso-software-showcase"): Extract<PageBlock, { type: "dso-software-showcase" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -3110,6 +3166,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-stat-row": return { id, type: "dso-stat-row", props: props as DsoStatRowBlockProps };
     case "dso-faq": return { id, type: "dso-faq", props: props as DsoFaqBlockProps };
     case "dso-split-feature": return { id, type: "dso-split-feature", props: props as DsoSplitFeatureBlockProps };
+    case "dso-software-showcase": return { id, type: "dso-software-showcase", props: props as DsoSoftwareShowcaseBlockProps };
   }
 }
 

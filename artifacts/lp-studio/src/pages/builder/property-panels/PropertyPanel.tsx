@@ -2461,6 +2461,65 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-software-showcase": {
+        const p = block.props;
+        const features = p.features ?? [];
+        const updateFeature = (i: number, key: "label" | "icon", val: string) => {
+          const next = features.map((f, idx) => idx === i ? { ...f, [key]: val } : f);
+          onChange({ ...block, props: { ...p, features: next } });
+        };
+        const addFeature = () => onChange({ ...block, props: { ...p, features: [...features, { icon: "check", label: "" }] } });
+        const removeFeature = (i: number) => onChange({ ...block, props: { ...p, features: features.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <DsoRefreshRow fields={["eyebrow", "headline", "body", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "", ctaText: p.ctaText ?? "" }} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", body: p.body ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v || undefined } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA Text</Label>
+              <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="See it in action" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Screenshot URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered</SelectItem><SelectItem value="split" className="text-xs">Split</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature Chips</Label><Button variant="ghost" size="sm" onClick={addFeature} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-2">
+                {features.map((f, i) => (
+                  <div key={i} className="flex gap-1 items-center">
+                    <Select value={f.icon ?? "check"} onValueChange={v => updateFeature(i, "icon", v)}>
+                      <SelectTrigger className="h-8 text-xs w-24 flex-shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="check" className="text-xs">✓ Check</SelectItem>
+                        <SelectItem value="zap" className="text-xs">⚡ Zap</SelectItem>
+                        <SelectItem value="clock" className="text-xs">🕐 Clock</SelectItem>
+                        <SelectItem value="bar" className="text-xs">📊 Bar</SelectItem>
+                        <SelectItem value="monitor" className="text-xs">🖥 Monitor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input value={f.label} onChange={e => updateFeature(i, "label", e.target.value)} className="h-8 text-xs flex-1" placeholder="Feature label" />
+                    <button onClick={() => removeFeature(i)} className="text-slate-400 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

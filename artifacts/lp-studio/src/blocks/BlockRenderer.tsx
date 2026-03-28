@@ -33,6 +33,7 @@ import { BlockDsoPracticeHero } from "./BlockDsoPracticeHero";
 import { BlockDsoStatRow } from "./BlockDsoStatRow";
 import { BlockDsoFaq } from "./BlockDsoFaq";
 import { BlockDsoSplitFeature } from "./BlockDsoSplitFeature";
+import { BlockDsoSoftwareShowcase } from "./BlockDsoSoftwareShowcase";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -480,6 +481,8 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoFaq props={block.props} brand={brand} />;
       case "dso-split-feature":
         return <BlockDsoSplitFeature props={block.props} brand={brand} />;
+      case "dso-software-showcase":
+        return <BlockDsoSoftwareShowcase props={block.props} brand={brand} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

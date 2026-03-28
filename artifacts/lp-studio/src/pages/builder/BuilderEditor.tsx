@@ -971,7 +971,7 @@ export default function BuilderEditor() {
       const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
       const ctaMode = (p.primaryCtaMode ?? "link") as string;
       const DSO_CTA_BLOCKS = new Set([
-        "dso-split-feature", "dso-activation-steps", "dso-meet-team",
+        "dso-split-feature", "dso-software-showcase", "dso-activation-steps", "dso-meet-team",
         "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
         "dso-products-grid", "dso-promises", "dso-testimonials",
         "dso-stat-row", "dso-faq",
