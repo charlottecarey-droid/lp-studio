@@ -32,6 +32,7 @@ import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { getBlockDef } from "@/lib/block-types";
+import { ImageUrlInput } from "@/components/ImageUrlInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -329,8 +330,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Input value={p.quoteAttribution} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
-              <Input value={p.imageUrl} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://..." />
+              <Label className="text-xs">Image</Label>
+              <ImageUrlInput value={p.imageUrl} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Video URL (YouTube embed)</Label>
@@ -1022,29 +1023,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="border-t pt-3 space-y-2">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Photos</Label>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-slate-400">Primary image URL</Label>
-                <Input
+                <Label className="text-[11px] text-slate-400">Primary image</Label>
+                <ImageUrlInput
                   value={(p.imageUrls ?? [])[0] ?? ""}
-                  onChange={e => {
+                  onChange={v => {
                     const urls = [...(p.imageUrls ?? [])];
-                    urls[0] = e.target.value;
+                    urls[0] = v;
                     onChange({ ...block, props: { ...p, imageUrls: urls } });
                   }}
-                  placeholder="https://images.unsplash.com/…"
-                  className="text-xs"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-slate-400">Secondary image URL</Label>
-                <Input
+                <Label className="text-[11px] text-slate-400">Secondary image</Label>
+                <ImageUrlInput
                   value={(p.imageUrls ?? [])[1] ?? ""}
-                  onChange={e => {
+                  onChange={v => {
                     const urls = [...(p.imageUrls ?? [])];
-                    urls[1] = e.target.value;
+                    urls[1] = v;
                     onChange({ ...block, props: { ...p, imageUrls: urls } });
                   }}
-                  placeholder="https://images.unsplash.com/…"
-                  className="text-xs"
                 />
               </div>
             </div>
@@ -1124,8 +1121,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
-              <Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="/dso-ai-scan.png" />
+              <Label className="text-xs">Image</Label>
+              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
@@ -1283,8 +1280,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       <Textarea rows={2} value={c.body} onChange={e => updateChapter(i, { body: e.target.value })} placeholder="Supporting paragraph…" className="resize-none text-xs mt-0.5" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-400">Image URL</Label>
-                      <Input value={c.imageUrl} onChange={e => updateChapter(i, { imageUrl: e.target.value })} placeholder="https://images.unsplash.com/…" className="h-7 text-xs mt-0.5" />
+                      <Label className="text-[11px] text-slate-400">Image</Label>
+                      <ImageUrlInput value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
                     </div>
                   </div>
                 ))}
@@ -1314,9 +1311,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
             </div>
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Image URL</Label>
+              <Label className="text-xs">Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on one half. Leave blank to hide.</p>
-              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Image Side</Label>
@@ -1361,9 +1358,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Left Image URL</Label>
+              <Label className="text-xs">Left Image</Label>
               <p className="text-xs text-muted-foreground">Full-bleed image on the left half. Leave blank for centered layout.</p>
-              <Input className="text-xs font-mono" value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value } })} placeholder="https://…" />
+              <ImageUrlInput value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
             </div>
             <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
@@ -1516,8 +1513,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       <Textarea rows={2} value={c.body} onChange={e => updateChapter(i, { body: e.target.value })} placeholder="Supporting paragraph…" className="resize-none text-xs mt-0.5" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-400">Image URL</Label>
-                      <Input value={c.imageUrl} onChange={e => updateChapter(i, { imageUrl: e.target.value })} placeholder="https://images.unsplash.com/…" className="h-7 text-xs mt-0.5" />
+                      <Label className="text-[11px] text-slate-400">Image</Label>
+                      <ImageUrlInput value={c.imageUrl} onChange={v => updateChapter(i, { imageUrl: v })} />
                     </div>
                   </div>
                 ))}
@@ -1598,8 +1595,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     {tile.type === "photo" && (
                       <>
                         <div>
-                          <Label className="text-[11px] text-slate-400">Image URL</Label>
-                          <Input value={tile.imageUrl} onChange={e => updateTile(i, { imageUrl: e.target.value })} placeholder="https://…" className="h-7 text-xs mt-0.5" />
+                          <Label className="text-[11px] text-slate-400">Image</Label>
+                          <ImageUrlInput value={tile.imageUrl} onChange={v => updateTile(i, { imageUrl: v })} />
                         </div>
                         <div>
                           <Label className="text-[11px] text-slate-400">Caption</Label>
