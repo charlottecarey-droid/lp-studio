@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -480,17 +480,18 @@ function MediaTab() {
     setSelected(new Set());
   };
 
-  const handleReclassify = async () => {
+  const handleReclassify = async (force = false) => {
     if (reclassifying) return;
     setReclassifying(true);
-    setReclassifyMsg("Starting…");
+    setReclassifyMsg(force ? "Re-scanning all images…" : "Starting…");
     try {
-      const res = await fetch("/api/lp/media/reclassify", { method: "POST" });
+      const url = force ? "/api/lp/media/reclassify?force=true" : "/api/lp/media/reclassify";
+      const res = await fetch(url, { method: "POST" });
       const data = await res.json() as { total: number; message?: string };
       setReclassifyMsg(data.total === 0
         ? "All images already classified!"
         : `Classifying ${data.total} images in the background — refresh in a moment.`);
-      setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 5000);
+      setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 6000);
     } catch {
       setReclassifyMsg("Failed to start.");
       setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 3000);
@@ -602,16 +603,29 @@ function MediaTab() {
           {/* Classify existing images */}
           <div className="mt-4 pt-3 border-t border-border">
             <button
-              onClick={handleReclassify}
+              onClick={() => handleReclassify(false)}
               disabled={reclassifying}
               className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              title="Classify your existing images so the AI page generator uses hero/lifestyle images in hero sections and product shots in product sections"
+              title="Classify untagged images so the AI page generator picks the right image for each section"
             >
               {reclassifying
                 ? <Loader2 className="w-3 h-3 animate-spin shrink-0" />
                 : <Sparkles className="w-3 h-3 shrink-0" />}
               <span className="text-left leading-tight">
                 {reclassifying ? "Classifying…" : "Classify for AI"}
+              </span>
+            </button>
+            <button
+              onClick={() => handleReclassify(true)}
+              disabled={reclassifying}
+              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              title="Re-scan ALL images — use this to fix OG/social images that were incorrectly tagged as hero or feature images"
+            >
+              {reclassifying
+                ? <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                : <RefreshCw className="w-3 h-3 shrink-0" />}
+              <span className="text-left leading-tight">
+                Re-scan all (fix OG images)
               </span>
             </button>
             {reclassifyMsg && (

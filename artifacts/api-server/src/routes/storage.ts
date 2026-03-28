@@ -241,23 +241,35 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
 /** Reclassify all images that don't yet have a purpose tag */
 router.post("/lp/media/reclassify", async (req: Request, res: Response) => {
   try {
+    // force=true re-examines ALL images, including those already tagged.
+    // Use this to fix images that were misclassified before the OG-detection prompt was tightened.
+    const force = req.query.force === "true" || req.body?.force === true;
+
     const rows = await db
       .select({ id: lpMediaTable.id, url: lpMediaTable.url, mimeType: lpMediaTable.mimeType, tags: lpMediaTable.tags })
       .from(lpMediaTable)
       .where(eq(lpMediaTable.mediaType, "image"));
 
     const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES, "og-image"]);
-    const unclassified = rows.filter(r => {
-      const tags = (r.tags as string[]) ?? [];
-      return !tags.some(t => ALL_PURPOSE_TAGS.has(t));
-    });
+    const toProcess = force
+      ? rows
+      : rows.filter(r => {
+          const tags = (r.tags as string[]) ?? [];
+          return !tags.some(t => ALL_PURPOSE_TAGS.has(t));
+        });
 
-    res.json({ total: unclassified.length, message: `Reclassifying ${unclassified.length} images in the background…` });
+    res.json({
+      total: toProcess.length,
+      force,
+      message: force
+        ? `Force-reclassifying all ${toProcess.length} images (including already-tagged) in the background…`
+        : `Reclassifying ${toProcess.length} unclassified images in the background…`,
+    });
 
     // Process in background — fetch each image buffer from local serve URL
     setImmediate(async () => {
       const port = process.env.PORT ?? "8080";
-      for (const row of unclassified) {
+      for (const row of toProcess) {
         try {
           const fullUrl = `http://localhost:${port}${row.url}`;
           const resp = await fetch(fullUrl);
