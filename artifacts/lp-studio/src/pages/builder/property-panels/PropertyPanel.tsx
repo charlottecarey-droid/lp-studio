@@ -1296,6 +1296,49 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-case-flow": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="How Dandy Works" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} placeholder="From scan to seat in under 4 days." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea rows={2} value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <p className="text-xs text-muted-foreground italic">Stage cards use built-in defaults. Custom stage editing coming soon.</p>
+          </div>
+        );
+      }
+      case "dso-live-feed": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Platform Intelligence" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Body</Label>
+              <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Footer Note</Label>
+              <Input value={p.footerNote ?? ""} onChange={e => onChange({ ...block, props: { ...p, footerNote: e.target.value } })} placeholder="Live data from 127 DSO locations…" />
+            </div>
+          </div>
+        );
+      }
       case "dso-network-map": {
         const p = block.props;
         return (

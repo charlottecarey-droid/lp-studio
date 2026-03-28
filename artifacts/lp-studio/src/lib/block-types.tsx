@@ -317,6 +317,28 @@ export interface DsoNetworkMapBlockProps {
   ctaUrl?: string;
 }
 
+export interface DsoCaseFlowStage {
+  number?: string;
+  label: string;
+  metric: string;
+  metricLabel: string;
+  body: string;
+}
+
+export interface DsoCaseFlowBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  stages?: DsoCaseFlowStage[];
+}
+
+export interface DsoLiveFeedBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  footerNote?: string;
+}
+
 export type DsoBentoTile =
   | { type: "stat"; value: string; label: string; description?: string }
   | { type: "photo"; imageUrl: string; caption: string }
@@ -648,6 +670,8 @@ type BlockVariant =
   | { type: "dso-scroll-story"; props: DsoScrollStoryBlockProps }
   | { type: "dso-scroll-story-hero"; props: DsoScrollStoryHeroBlockProps }
   | { type: "dso-network-map"; props: DsoNetworkMapBlockProps }
+  | { type: "dso-case-flow"; props: DsoCaseFlowBlockProps }
+  | { type: "dso-live-feed"; props: DsoLiveFeedBlockProps }
   | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
@@ -2010,6 +2034,93 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-case-flow" as const,
+    label: "DSO Case Flow",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoCaseFlowBlockProps => ({
+      eyebrow: "How Dandy Works",
+      headline: "From scan to seat in under 4 days.",
+      subheadline: "Every Dandy case follows the same precise, AI-validated workflow — regardless of which location submits it.",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        {/* Eyebrow + headline */}
+        <rect x="6" y="7" width="16" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.85" />
+        <rect x="6" y="12" width="42" height="4.5" rx="1.5" fill="hsl(48,100%,96%)" opacity="0.8" />
+        {/* Pipeline row */}
+        {[0, 1, 2, 3].map(i => {
+          const x = 8 + i * 28;
+          const cx = x + 7;
+          return (
+            <g key={i}>
+              {/* Connector line between cards */}
+              {i < 3 && (
+                <line x1={x + 14} y1={30} x2={x + 28} y2={30} stroke="hsl(68,60%,52%)" strokeWidth="1" strokeOpacity="0.5" strokeDasharray="2 1.5" />
+              )}
+              {/* Stage card */}
+              <rect x={x} y="22" width="14" height="30" rx="2" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />
+              {/* Top lime bar */}
+              <rect x={x} y="22" width="14" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.7" />
+              {/* Stage number */}
+              <rect x={x + 2} y="25" width="4" height="1.5" rx="0.5" fill="hsl(68,60%,52%)" opacity="0.7" />
+              {/* Metric */}
+              <rect x={x + 2} y="29" width="10" height="3" rx="1" fill="hsl(48,100%,96%)" opacity="0.6" />
+              {/* Body text lines */}
+              <rect x={x + 2} y="34" width="9" height="1" rx="0.5" fill="rgba(255,255,255,0.2)" />
+              <rect x={x + 2} y="36.5" width="7" height="1" rx="0.5" fill="rgba(255,255,255,0.15)" />
+              <rect x={x + 2} y="39" width="8" height="1" rx="0.5" fill="rgba(255,255,255,0.12)" />
+            </g>
+          );
+        })}
+        {/* Travelling packet */}
+        <circle cx="50" cy="30" r="1.5" fill="hsl(68,60%,52%)" opacity="0.9" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-live-feed" as const,
+    label: "DSO Live Feed",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoLiveFeedBlockProps => ({
+      eyebrow: "Platform Intelligence",
+      headline: "Dandy sees everything.\nYour team acts on what matters.",
+      body: "Every metric from every location, streaming in real time. The Dandy dashboard transforms raw case data into executive-ready intelligence — automatically.",
+      footerNote: "Live data from 127 DSO locations across 14 states",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        {/* Left text column */}
+        <rect x="5" y="8" width="14" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.85" />
+        <rect x="5" y="13" width="32" height="4" rx="1.5" fill="hsl(48,100%,96%)" opacity="0.75" />
+        <rect x="5" y="19" width="28" height="1.5" rx="0.5" fill="rgba(255,255,255,0.2)" />
+        <rect x="5" y="22" width="24" height="1.5" rx="0.5" fill="rgba(255,255,255,0.15)" />
+        <rect x="5" y="25" width="26" height="1.5" rx="0.5" fill="rgba(255,255,255,0.15)" />
+        {/* Live dot */}
+        <circle cx="7" cy="34" r="2" fill="hsl(68,60%,52%)" opacity="0.9" />
+        <rect x="11" y="32.5" width="12" height="1.5" rx="0.5" fill="hsl(68,60%,52%)" opacity="0.7" />
+        {/* Terminal panel */}
+        <rect x="47" y="5" width="68" height="60" rx="3" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+        {/* Terminal header */}
+        <rect x="47" y="5" width="68" height="8" rx="3" fill="rgba(0,0,0,0.2)" />
+        {[50, 54, 58].map((x, i) => (
+          <circle key={i} cx={x} cy="9" r="1.5" fill={["#B45309", "#6B7280", "hsl(68,60%,52%)"][i]} opacity="0.7" />
+        ))}
+        {/* Metric rows */}
+        {[0, 1, 2, 3, 4, 5].map(i => (
+          <g key={i}>
+            <line x1="47" y1={17 + i * 8} x2="115" y2={17 + i * 8} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
+            <rect x="50" y={18.5 + i * 8} width="28" height="1.5" rx="0.5" fill="rgba(255,255,255,0.25)" />
+            <rect x="90" y={18.5 + i * 8} width="12" height="1.5" rx="0.5" fill={i % 2 === 0 ? "hsl(68,60%,52%)" : "hsl(48,100%,96%)"} opacity="0.7" />
+            {/* Arrow indicator */}
+            <rect x="105" y={18.5 + i * 8} width="4" height="1.5" rx="0.5" fill={i % 3 === 1 ? "hsl(4,80%,60%)" : "hsl(68,60%,52%)"} opacity="0.8" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
     type: "dso-bento-outcomes" as const,
     label: "DSO Bento Outcomes",
     category: "DSO" as BlockCategory,
@@ -2091,6 +2202,8 @@ export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { typ
 export function createBlock(type: "dso-scroll-story"): Extract<PageBlock, { type: "dso-scroll-story" }>;
 export function createBlock(type: "dso-scroll-story-hero"): Extract<PageBlock, { type: "dso-scroll-story-hero" }>;
 export function createBlock(type: "dso-network-map"): Extract<PageBlock, { type: "dso-network-map" }>;
+export function createBlock(type: "dso-case-flow"): Extract<PageBlock, { type: "dso-case-flow" }>;
+export function createBlock(type: "dso-live-feed"): Extract<PageBlock, { type: "dso-live-feed" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
@@ -2141,6 +2254,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-scroll-story": return { id, type: "dso-scroll-story", props: props as DsoScrollStoryBlockProps };
     case "dso-scroll-story-hero": return { id, type: "dso-scroll-story-hero", props: props as DsoScrollStoryHeroBlockProps };
     case "dso-network-map": return { id, type: "dso-network-map", props: props as DsoNetworkMapBlockProps };
+    case "dso-case-flow": return { id, type: "dso-case-flow", props: props as DsoCaseFlowBlockProps };
+    case "dso-live-feed": return { id, type: "dso-live-feed", props: props as DsoLiveFeedBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
   }
 }

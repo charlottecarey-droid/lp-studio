@@ -15,6 +15,8 @@ import { BlockDsoStatShowcase } from "./BlockDsoStatShowcase";
 import { BlockDsoScrollStory } from "./BlockDsoScrollStory";
 import { BlockDsoScrollStoryHero } from "./BlockDsoScrollStoryHero";
 import { BlockDsoNetworkMap } from "./BlockDsoNetworkMap";
+import { BlockDsoCaseFlow } from "./BlockDsoCaseFlow";
+import { BlockDsoLiveFeed } from "./BlockDsoLiveFeed";
 import { BlockDsoBentoOutcomes } from "./BlockDsoBentoOutcomes";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
@@ -427,6 +429,10 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoScrollStoryHero props={block.props} />;
       case "dso-network-map":
         return <BlockDsoNetworkMap props={block.props} />;
+      case "dso-case-flow":
+        return <BlockDsoCaseFlow props={block.props} />;
+      case "dso-live-feed":
+        return <BlockDsoLiveFeed props={block.props} />;
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} />;
       default: {
