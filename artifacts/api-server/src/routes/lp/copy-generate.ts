@@ -1,7 +1,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
@@ -143,13 +144,56 @@ function buildBriefContextPrompt(brief: BriefContext): string {
   return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted to this specific audience.`;
 }
 
-// Curated dental/clinical placeholder images for bento photo tiles
-const DSO_PHOTO_PLACEHOLDERS = [
-  { url: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=800&h=600&fit=crop", hint: "dental scan" },
-  { url: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=600&fit=crop", hint: "clinical workflow" },
-  { url: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=600&fit=crop", hint: "dental lab" },
-  { url: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop", hint: "dental office" },
-];
+// ── Media library helpers (shared with generate-page) ───────────────────
+interface MediaImage { url: string; title: string; tags: string[] }
+const PURPOSE_TAGS = new Set(["lp-hero", "lp-feature", "product-detail"]);
+const SKIP_TAGS_IMG = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail"]);
+
+async function fetchLibraryImages(): Promise<MediaImage[]> {
+  try {
+    const rows = await db
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"))
+      .orderBy(desc(lpMediaTable.createdAt))
+      .limit(500);
+    return rows.map(r => ({ url: r.url, title: r.title ?? "", tags: (r.tags as string[]) ?? [] }));
+  } catch {
+    return [];
+  }
+}
+
+function pickLibraryImage(context: string, images: MediaImage[], usedUrls: Set<string>): string {
+  if (images.length === 0) return "";
+  const ctxLower = context.toLowerCase();
+  const ctxWords = ctxLower.split(/\s+/);
+  let best: MediaImage | null = null;
+  let bestScore = -Infinity;
+  for (const img of images) {
+    if (usedUrls.has(img.url)) continue;
+    let score = 0;
+    const purpose = img.tags.find(t => PURPOSE_TAGS.has(t));
+    if (purpose === "lp-feature") score += 6;
+    else if (purpose === "lp-hero") score += 3;
+    else if (purpose === "product-detail") score -= 4;
+    for (const tag of img.tags) {
+      const t = tag.toLowerCase();
+      if (SKIP_TAGS_IMG.has(t)) continue;
+      if (ctxLower.includes(t)) score += 3;
+      for (const w of t.split(/\s+/)) {
+        if (w.length > 3 && ctxWords.some(cw => cw.includes(w) || w.includes(cw))) score += 1;
+      }
+    }
+    const titleLow = img.title.toLowerCase();
+    if (titleLow && ctxWords.some(w => w.length > 3 && titleLow.includes(w))) score += 1;
+    if (score > bestScore) { bestScore = score; best = img; }
+  }
+  if (best) { usedUrls.add(best.url); return best.url; }
+  // fallback: first unused
+  const fallback = images.find(i => !usedUrls.has(i.url));
+  if (fallback) { usedUrls.add(fallback.url); return fallback.url; }
+  return "";
+}
 
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const body = req.body as {
@@ -262,8 +306,9 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   if (action === "refresh-tiles" && blockType === "dso-bento-outcomes") {
     const requestedTypes: string[] = Array.isArray(body.tileTypes) ? body.tileTypes : ["stat", "stat", "stat", "photo", "quote", "feature"];
 
-    const photoTiles = DSO_PHOTO_PLACEHOLDERS.slice();
-    let photoIndex = 0;
+    // Fetch library images upfront so photo tiles use real media
+    const libraryImages = await fetchLibraryImages();
+    const usedImageUrls = new Set<string>();
 
     const tileSchemaDesc = `Return a JSON array called "tiles" where each element is one of:
 - stat tile: { "type": "stat", "value": "...", "label": "...", "description": "..." }
@@ -306,9 +351,9 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
       const tiles = rawTiles.map((t) => {
         const tile = t as Record<string, unknown>;
         if (tile.type === "photo") {
-          const placeholder = photoTiles[photoIndex % photoTiles.length];
-          photoIndex++;
-          return { ...tile, imageUrl: placeholder.url };
+          const caption = typeof tile.caption === "string" ? tile.caption : "";
+          const imageUrl = pickLibraryImage(`dental clinic scan ${caption}`, libraryImages, usedImageUrls);
+          return { ...tile, imageUrl };
         }
         return tile;
       });
