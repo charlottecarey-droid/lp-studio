@@ -122,11 +122,9 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                 background: cardBg,
                 border: cardBor,
                 borderRadius: "1.25rem",
-                padding: "2.25rem 2rem",
+                overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
-                gap: "1rem",
                 backdropFilter: dark ? "blur(12px)" : "none",
                 flexBasis: "300px",
                 flexGrow: 0,
@@ -135,28 +133,31 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
               }}
             >
               {m.photo ? (
-                <img
-                  src={m.photo}
-                  alt={m.name}
-                  style={{ width: 96, height: 96, borderRadius: "50%", objectFit: "cover", border: `2px solid ${dark ? "rgba(255,255,255,0.15)" : "#e5e7eb"}` }}
-                />
+                <div style={{ width: "100%", height: 220, overflow: "hidden", flexShrink: 0 }}>
+                  <img
+                    src={m.photo}
+                    alt={m.name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+                  />
+                </div>
               ) : (
                 <div
                   style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: "50%",
-                    background: dark ? `${LIME}18` : `${BRAND}12`,
-                    border: `2px solid ${dark ? `${LIME}40` : `${BRAND}25`}`,
+                    width: "100%",
+                    height: 220,
+                    flexShrink: 0,
+                    background: dark ? `${LIME}10` : `${BRAND}07`,
+                    borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e5e7eb"}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <User style={{ width: 40, height: 40, color: dark ? LIME : BRAND, opacity: 0.7 }} />
+                  <User style={{ width: 56, height: 56, color: dark ? LIME : BRAND, opacity: 0.35 }} />
                 </div>
               )}
 
+              <div style={{ padding: "1.5rem 1.75rem 2rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
               <div style={{ textAlign: "center" }}>
                 <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{m.name}</p>
                 <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3 }}>{m.role}</p>
@@ -204,6 +205,7 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                     Book a call
                   </a>
                 )}
+              </div>
               </div>
             </motion.div>
           ))}
