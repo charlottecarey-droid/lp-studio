@@ -1856,6 +1856,265 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-meet-team": {
+        const p = block.props;
+        const members = p.members ?? [];
+        const updateMember = (i: number, patch: Partial<typeof members[0]>) => {
+          const next = members.map((m, idx) => idx === i ? { ...m, ...patch } : m);
+          onChange({ ...block, props: { ...p, members: next } });
+        };
+        const addMember = () => onChange({ ...block, props: { ...p, members: [...members, { name: "", role: "", email: "", calendlyUrl: "" }] } });
+        const removeMember = (i: number) => onChange({ ...block, props: { ...p, members: members.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Members</Label><Button variant="ghost" size="sm" onClick={addMember} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {members.map((m, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Member {i + 1}</span><button onClick={() => removeMember(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={m.name} onChange={e => updateMember(i, { name: e.target.value })} placeholder="Name" className="h-8 text-xs" />
+                    <Input value={m.role} onChange={e => updateMember(i, { role: e.target.value })} placeholder="Role / Title" className="h-8 text-xs" />
+                    <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@meetdandy.com" className="h-8 text-xs" />
+                    <Input value={m.photo ?? ""} onChange={e => updateMember(i, { photo: e.target.value })} placeholder="Photo URL (optional)" className="h-8 text-xs" />
+                    <Input value={m.calendlyUrl ?? ""} onChange={e => updateMember(i, { calendlyUrl: e.target.value })} placeholder="Calendly / booking URL" className="h-8 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-paradigm-shift": {
+        const p = block.props;
+        const updateItem = (side: "oldWayItems" | "newWayItems", idx: number, val: string) => {
+          const arr = [...(p[side] ?? [])];
+          arr[idx] = val;
+          onChange({ ...block, props: { ...p, [side]: arr } });
+        };
+        const addItem = (side: "oldWayItems" | "newWayItems") => onChange({ ...block, props: { ...p, [side]: [...(p[side] ?? []), ""] } });
+        const removeItem = (side: "oldWayItems" | "newWayItems", idx: number) => onChange({ ...block, props: { ...p, [side]: (p[side] ?? []).filter((_, i) => i !== idx) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5"><Label className="text-xs">Old Way Label</Label><Input value={p.oldWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, oldWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Old Way" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">New Way Label</Label><Input value={p.newWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, newWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Dandy Way" /></div>
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            {(["oldWayItems", "newWayItems"] as const).map(side => (
+              <div key={side} className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{side === "oldWayItems" ? "Old Way Items" : "New Way Items"}</Label><Button variant="ghost" size="sm" onClick={() => addItem(side)} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+                <div className="space-y-1.5">
+                  {(p[side] ?? []).map((item, i) => (
+                    <div key={i} className="flex gap-1 items-center">
+                      <Input value={item} onChange={e => updateItem(side, i, e.target.value)} className="h-8 text-xs flex-1" />
+                      <button onClick={() => removeItem(side, i)} className="text-slate-400 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      case "dso-partnership-perks": {
+        const p = block.props;
+        const perks = p.perks ?? [];
+        const updatePerk = (i: number, patch: Partial<typeof perks[0]>) => {
+          const next = perks.map((pk, idx) => idx === i ? { ...pk, ...patch } : pk);
+          onChange({ ...block, props: { ...p, perks: next } });
+        };
+        const addPerk = () => onChange({ ...block, props: { ...p, perks: [...perks, { icon: "star", title: "", desc: "" }] } });
+        const removePerk = (i: number) => onChange({ ...block, props: { ...p, perks: perks.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Perks</Label><Button variant="ghost" size="sm" onClick={addPerk} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {perks.map((perk, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Perk {i + 1}</span><button onClick={() => removePerk(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={perk.icon} onChange={e => updatePerk(i, { icon: e.target.value })} placeholder="Icon (e.g. gift, star, shield)" className="h-8 text-xs" />
+                    <Input value={perk.title} onChange={e => updatePerk(i, { title: e.target.value })} placeholder="Perk title" className="h-8 text-xs" />
+                    <Textarea value={perk.desc} onChange={e => updatePerk(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-products-grid": {
+        const p = block.props;
+        const products = p.products ?? [];
+        const updateProduct = (i: number, patch: Partial<typeof products[0]>) => {
+          const next = products.map((pr, idx) => idx === i ? { ...pr, ...patch } : pr);
+          onChange({ ...block, props: { ...p, products: next } });
+        };
+        const addProduct = () => onChange({ ...block, props: { ...p, products: [...products, { name: "", detail: "", price: "" }] } });
+        const removeProduct = (i: number) => onChange({ ...block, props: { ...p, products: products.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Products</Label><Button variant="ghost" size="sm" onClick={addProduct} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {products.map((prod, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Product {i + 1}</span><button onClick={() => removeProduct(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={prod.name} onChange={e => updateProduct(i, { name: e.target.value })} placeholder="Product name" className="h-8 text-xs" />
+                    <Input value={prod.detail} onChange={e => updateProduct(i, { detail: e.target.value })} placeholder="Short detail" className="h-8 text-xs" />
+                    <Input value={prod.price} onChange={e => updateProduct(i, { price: e.target.value })} placeholder="From $109" className="h-8 text-xs" />
+                    <Input value={prod.imageUrl ?? ""} onChange={e => updateProduct(i, { imageUrl: e.target.value || undefined })} placeholder="Image URL (optional)" className="h-8 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-promo-cards": {
+        const p = block.props;
+        const cards = p.cards ?? [];
+        const updateCard = (i: number, patch: Partial<typeof cards[0]>) => {
+          const next = cards.map((c, idx) => idx === i ? { ...c, ...patch } : c);
+          onChange({ ...block, props: { ...p, cards: next } });
+        };
+        const addCard = () => onChange({ ...block, props: { ...p, cards: [...cards, { title: "", desc: "", badge: "", ctaText: "", ctaUrl: "" }] } });
+        const removeCard = (i: number) => onChange({ ...block, props: { ...p, cards: cards.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Promo Cards</Label><Button variant="ghost" size="sm" onClick={addCard} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {cards.map((card, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Card {i + 1}</span><button onClick={() => removeCard(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={card.title} onChange={e => updateCard(i, { title: e.target.value })} placeholder="$1,500 Lab Credit" className="h-8 text-xs" />
+                    <Textarea value={card.desc} onChange={e => updateCard(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
+                    <Input value={card.badge ?? ""} onChange={e => updateCard(i, { badge: e.target.value || undefined })} placeholder="Badge (CREDIT, FREE, NEW)" className="h-8 text-xs" />
+                    <Input value={card.ctaText ?? ""} onChange={e => updateCard(i, { ctaText: e.target.value || undefined })} placeholder="CTA text" className="h-8 text-xs" />
+                    <Input value={card.ctaUrl ?? ""} onChange={e => updateCard(i, { ctaUrl: e.target.value || undefined })} placeholder="CTA URL" className="h-8 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-activation-steps": {
+        const p = block.props;
+        const steps = p.steps ?? [];
+        const updateStep = (i: number, patch: Partial<typeof steps[0]>) => {
+          const next = steps.map((s, idx) => idx === i ? { ...s, ...patch } : s);
+          onChange({ ...block, props: { ...p, steps: next } });
+        };
+        const addStep = () => onChange({ ...block, props: { ...p, steps: [...steps, { step: String(steps.length + 1).padStart(2, "0"), title: "", desc: "" }] } });
+        const removeStep = (i: number) => onChange({ ...block, props: { ...p, steps: steps.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Book Your Activation Call" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Steps</Label><Button variant="ghost" size="sm" onClick={addStep} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {steps.map((step, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Step {i + 1}</span><button onClick={() => removeStep(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={step.step} onChange={e => updateStep(i, { step: e.target.value })} placeholder="01" className="h-8 text-xs" />
+                    <Input value={step.title} onChange={e => updateStep(i, { title: e.target.value })} placeholder="Step title" className="h-8 text-xs" />
+                    <Textarea value={step.desc} onChange={e => updateStep(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-promises": {
+        const p = block.props;
+        const promises = p.promises ?? [];
+        const updatePromise = (i: number, patch: Partial<typeof promises[0]>) => {
+          const next = promises.map((pr, idx) => idx === i ? { ...pr, ...patch } : pr);
+          onChange({ ...block, props: { ...p, promises: next } });
+        };
+        const addPromise = () => onChange({ ...block, props: { ...p, promises: [...promises, { icon: "shield-check", title: "", desc: "" }] } });
+        const removePromise = (i: number) => onChange({ ...block, props: { ...p, promises: promises.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Promises</Label><Button variant="ghost" size="sm" onClick={addPromise} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {promises.map((promise, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Promise {i + 1}</span><button onClick={() => removePromise(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={promise.icon} onChange={e => updatePromise(i, { icon: e.target.value })} placeholder="Icon (e.g. shield-check, clock)" className="h-8 text-xs" />
+                    <Input value={promise.title} onChange={e => updatePromise(i, { title: e.target.value })} placeholder="Title" className="h-8 text-xs" />
+                    <Textarea value={promise.desc} onChange={e => updatePromise(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-testimonials": {
+        const p = block.props;
+        const testimonials = p.testimonials ?? [];
+        const updateT = (i: number, patch: Partial<typeof testimonials[0]>) => {
+          const next = testimonials.map((t, idx) => idx === i ? { ...t, ...patch } : t);
+          onChange({ ...block, props: { ...p, testimonials: next } });
+        };
+        const addT = () => onChange({ ...block, props: { ...p, testimonials: [...testimonials, { quote: "", author: "", location: "" }] } });
+        const removeT = (i: number) => onChange({ ...block, props: { ...p, testimonials: testimonials.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Testimonials</Label><Button variant="ghost" size="sm" onClick={addT} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {testimonials.map((t, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Testimonial {i + 1}</span><button onClick={() => removeT(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Textarea value={t.quote} onChange={e => updateT(i, { quote: e.target.value })} placeholder="Quote text" rows={3} className="text-xs resize-none" />
+                    <Input value={t.author} onChange={e => updateT(i, { author: e.target.value })} placeholder="Author name" className="h-8 text-xs" />
+                    <Input value={t.location ?? ""} onChange={e => updateT(i, { location: e.target.value || undefined })} placeholder="Title / Organization" className="h-8 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

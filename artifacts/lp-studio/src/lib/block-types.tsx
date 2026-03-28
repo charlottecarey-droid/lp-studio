@@ -389,6 +389,127 @@ export interface DsoCtaCaptureBlockProps {
   imagePosition?: "left" | "right";
 }
 
+/* ─── DSO Practices Segment: 8 net-new blocks ─────────────────────────────── */
+
+export interface DsoMeetTeamMember {
+  name: string;
+  role: string;
+  photo?: string;
+  email?: string;
+  calendlyUrl?: string;
+}
+
+export interface DsoMeetTeamBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  members: DsoMeetTeamMember[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoParadigmShiftBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  oldWayLabel?: string;
+  newWayLabel?: string;
+  oldWayItems: string[];
+  newWayItems: string[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoPartnershipPerk {
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+export interface DsoPartnershipPerksBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  perks: DsoPartnershipPerk[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoProductItem {
+  name: string;
+  detail: string;
+  price: string;
+  icon?: string;
+  imageUrl?: string;
+}
+
+export interface DsoProductsGridBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  products: DsoProductItem[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoPromoCard {
+  title: string;
+  desc: string;
+  badge?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
+export interface DsoPromoCardsBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  cards: DsoPromoCard[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoActivationStep {
+  step: string;
+  title: string;
+  desc: string;
+}
+
+export interface DsoActivationStepsBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  steps: DsoActivationStep[];
+  ctaText?: string;
+  ctaUrl?: string;
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoPromise {
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+export interface DsoPromisesBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  promises: DsoPromise[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoTestimonialItem {
+  quote: string;
+  author: string;
+  location?: string;
+}
+
+export interface DsoTestimonialsBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  testimonials: DsoTestimonialItem[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+/* ─── end DSO Practices types ────────────────────────────────────────────── */
+
 export interface DsoPilotStep {
   title: string;
   subtitle: string;
@@ -713,7 +834,15 @@ type BlockVariant =
   | { type: "dso-particle-mesh"; props: DsoParticleMeshBlockProps }
   | { type: "dso-flow-canvas"; props: DsoFlowCanvasBlockProps }
   | { type: "dso-bento-outcomes"; props: DsoBentoOutcomesBlockProps }
-  | { type: "dso-cta-capture"; props: DsoCtaCaptureBlockProps };
+  | { type: "dso-cta-capture"; props: DsoCtaCaptureBlockProps }
+  | { type: "dso-meet-team"; props: DsoMeetTeamBlockProps }
+  | { type: "dso-paradigm-shift"; props: DsoParadigmShiftBlockProps }
+  | { type: "dso-partnership-perks"; props: DsoPartnershipPerksBlockProps }
+  | { type: "dso-products-grid"; props: DsoProductsGridBlockProps }
+  | { type: "dso-promo-cards"; props: DsoPromoCardsBlockProps }
+  | { type: "dso-activation-steps"; props: DsoActivationStepsBlockProps }
+  | { type: "dso-promises"; props: DsoPromisesBlockProps }
+  | { type: "dso-testimonials"; props: DsoTestimonialsBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -2264,6 +2393,291 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-meet-team" as const,
+    label: "DSO Meet the Team",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoMeetTeamBlockProps => ({
+      eyebrow: "Your Dedicated Team",
+      headline: "The team behind your partnership.",
+      subheadline: "Every practice gets a dedicated Dandy rep who knows your workflow, not a generic help desk.",
+      members: [
+        { name: "Asad Ahmed", role: "Enterprise AE", email: "asad.ahmed@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/asad-ahmed" },
+        { name: "Dan MacAdam", role: "Strategic AE", email: "dan.macadam@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/dan-macadam" },
+        { name: "Matt Gorski", role: "Large Enterprise AE", email: "matt.gorski@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/Matt-Gorski" },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="5" y="6" width="18" height="2" rx="1" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="11" width="40" height="5" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        <rect x="5" y="19" width="30" height="2" rx="1" fill="rgba(255,255,255,0.3)" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={5 + i * 38} y="30" width="32" height="35" rx="4" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <circle cx={21 + i * 38} cy="43" r="7" fill="rgba(255,255,255,0.12)" />
+            <rect x={8 + i * 38} y="53" width="24" height="2" rx="1" fill="rgba(255,255,255,0.55)" />
+            <rect x={10 + i * 38} y="57" width="18" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.6" />
+            <rect x={8 + i * 38} y="60" width="26" height="3" rx="1.5" fill="hsl(68,60%,52%)" opacity="0.25" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-paradigm-shift" as const,
+    label: "DSO Paradigm Shift",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoParadigmShiftBlockProps => ({
+      eyebrow: "The New Standard",
+      headline: "From fragmented labs to one unified partner.",
+      subheadline: "Dandy replaces the old model with a fully integrated lab platform — built for how modern practices operate.",
+      oldWayLabel: "The Old Way",
+      newWayLabel: "The Dandy Way",
+      oldWayItems: [
+        "Multiple disconnected lab vendors",
+        "Inconsistent quality across locations",
+        "Remake costs absorbed by the practice",
+        "No visibility into case performance",
+        "Expensive scanner CAPEX per operatory",
+      ],
+      newWayItems: [
+        "One unified lab partner across all locations",
+        "AI Scan Review catches issues before they happen",
+        "96% first-time fit rate — guaranteed",
+        "Real-time dashboard across every practice",
+        "Premium scanners included at $0 CAPEX",
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001a13" rx="4" />
+        <rect x="5" y="6" width="16" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="10" width="36" height="4" rx="1.5" fill="hsl(48,100%,96%)" opacity="0.75" />
+        <rect x="5" y="20" width="52" height="44" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />
+        <rect x="65" y="20" width="52" height="44" rx="3" fill="rgba(194,229,58,0.08)" stroke="hsl(68,60%,52%)" strokeWidth="0.5" />
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <circle cx="12" cy={27 + i * 8} r="1.5" fill="rgba(255,100,100,0.7)" />
+            <rect x="17" y={26 + i * 8} width="34" height="1.5" rx="0.75" fill="rgba(255,255,255,0.3)" />
+            <circle cx="72" cy={27 + i * 8} r="1.5" fill="hsl(68,60%,52%)" opacity="0.9" />
+            <rect x="77" y={26 + i * 8} width="34" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-partnership-perks" as const,
+    label: "DSO Partnership Perks",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoPartnershipPerksBlockProps => ({
+      eyebrow: "Partnership Benefits",
+      headline: "Perks that come with every Dandy partnership.",
+      subheadline: "From day one, your practices get dedicated support, premium hardware, and exclusive incentives.",
+      perks: [
+        { icon: "gift", title: "$100 UberEats Gift Card", desc: "Book a lunch-and-learn for your team — we'll bring the food and walk you through going digital with Dandy." },
+        { icon: "star", title: "Dedicated DSO Support", desc: "Your own account team that knows your group's workflow. Direct line, same-day response." },
+        { icon: "shield", title: "Free CE Credits", desc: "Accredited courses on digital dentistry, scan technique, and restorative workflows." },
+        { icon: "sparkles", title: "$1,500 Lab Credit", desc: "New practices get $1,500 toward their first cases — experience Dandy quality risk-free from day one." },
+        { icon: "zap", title: "AI Scan Review", desc: "Real-time AI flags margin issues while your patient is still in the chair — fewer remakes, faster seats." },
+        { icon: "users", title: "Live Clinical Collaboration", desc: "Chat directly with Dandy lab technicians in real time to dial in your preps." },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="5" y="6" width="22" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="11" width="44" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        {[[5,24],[44,24],[83,24],[5,47],[44,47],[83,47]].map(([x,y],i) => (
+          <g key={i}>
+            <rect x={x} y={y} width="34" height="20" rx="3" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <circle cx={x+7} cy={y+7} r="4" fill="hsl(68,60%,52%)" opacity="0.3" />
+            <rect x={x+14} y={y+4} width="16" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.6" />
+            <rect x={x+3} y={y+14} width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.2)" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-products-grid" as const,
+    label: "DSO Products Grid",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoProductsGridBlockProps => ({
+      eyebrow: "The Full Platform",
+      headline: "Everything your practices need in one place.",
+      subheadline: "From crowns to clear aligners — Dandy's full product catalog, delivered with a 96% first-time fit rate.",
+      products: [
+        { name: "Crowns & Bridges", detail: "PFM, Zirconia, E.max — all in 5 business days", price: "From $109" },
+        { name: "Clear Aligners", detail: "In-house aligner therapy with Dandy-designed software", price: "From $495" },
+        { name: "Dentures", detail: "Full & partial dentures with 2-appointment workflow", price: "From $299" },
+        { name: "Nightguards", detail: "Hard, soft, and hybrid — delivered in 3 days", price: "From $79" },
+        { name: "Implants", detail: "Custom abutments, full-arch restorations, & surgical guides", price: "From $129" },
+        { name: "Retainers", detail: "Vivera-compatible, hawley, and fixed retainers", price: "From $59" },
+      ],
+      backgroundStyle: "muted",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f1f5f2" rx="4" />
+        <rect x="5" y="5" width="18" height="1.5" rx="0.75" fill="#003A30" opacity="0.6" />
+        <rect x="5" y="10" width="40" height="4" rx="2" fill="#003A30" opacity="0.85" />
+        {[[5,20],[43,20],[81,20],[5,44],[43,44],[81,44]].map(([x,y],i) => (
+          <g key={i}>
+            <rect x={x} y={y} width="34" height="22" rx="3" fill="white" stroke="#e2e8f0" strokeWidth="0.8" />
+            <rect x={x} y={y} width="34" height="6" rx="3" fill="#003A30" opacity="0.08" />
+            <rect x={x+3} y={y+9} width="20" height="2" rx="1" fill="#003A30" opacity="0.7" />
+            <rect x={x+3} y={y+14} width="26" height="1.5" rx="0.75" fill="#94a3b8" opacity="0.5" />
+            <rect x={x+3} y={y+18} width="12" height="1.5" rx="0.75" fill="#C7E738" opacity="0.9" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-promo-cards" as const,
+    label: "DSO Promo Cards",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoPromoCardsBlockProps => ({
+      eyebrow: "Limited-Time Offers",
+      headline: "Exclusive promotions for DSO partners.",
+      subheadline: "Activate your practices and take advantage of offers available only through your group partnership.",
+      cards: [
+        { title: "$1,500 Lab Credit", desc: "Activate your practice and get $1,500 toward your first cases — experience our 96% fit rate with zero risk.", badge: "CREDIT", ctaText: "Claim my credit" },
+        { title: "$1,000 Lab Credit", desc: "Sign up within 90 days and put $1,000 toward crowns, bridges, or dentures — on us.", badge: "CREDIT", ctaText: "Get started" },
+        { title: "Free Scanner + Cart", desc: "Your practice gets a premium intraoral scanner and all-in-one operatory cart at zero cost — included with your DSO partnership.", badge: "FREE", ctaText: "Reserve yours" },
+        { title: "Free Laptop + Cart", desc: "Full digital setup for your operatory — scanner, laptop, and cart delivered and installed at no charge.", badge: "FREE", ctaText: "Reserve yours" },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001a13" rx="4" />
+        <rect x="5" y="5" width="20" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="10" width="42" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        {[[5,20],[63,20],[5,46],[63,46]].map(([x,y],i) => (
+          <g key={i}>
+            <rect x={x} y={y} width="54" height="22" rx="3" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <rect x={x+3} y={y+3} width="14" height="5" rx="2.5" fill={i % 2 === 0 ? "hsl(68,60%,52%)" : "hsl(48,100%,96%)"} opacity="0.8" />
+            <rect x={x+3} y={y+11} width="34" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.6" />
+            <rect x={x+3} y={y+15} width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.25)" />
+            <rect x={x+3} y={y+19} width="18" height="2" rx="1" fill="hsl(68,60%,52%)" opacity="0.4" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-activation-steps" as const,
+    label: "DSO Activation Steps",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoActivationStepsBlockProps => ({
+      eyebrow: "Getting Started",
+      headline: "You're three steps away from going live.",
+      subheadline: "Our onboarding team handles every detail — from scanner delivery to your first case.",
+      steps: [
+        { step: "01", title: "Book your activation call", desc: "Schedule a 30-minute call with your dedicated Dandy rep. We'll align on your locations, workflow, and launch timeline." },
+        { step: "02", title: "Get your scanners delivered", desc: "We ship premium intraoral scanners directly to your practices — no CAPEX, no delays, no IT involvement required." },
+        { step: "03", title: "Train your team & send your first case", desc: "Our clinical team trains your doctors and staff on-site. Most practices send their first case within 48 hours of training." },
+      ],
+      ctaText: "Book Your Activation Call",
+      ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="5" y="6" width="20" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="11" width="42" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <line x1="18" y1={25 + i * 14} x2="18" y2={i < 2 ? 36 + i * 14 : 33 + i * 14} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+            <circle cx="18" cy={23 + i * 14} r="5" fill="hsl(68,60%,52%)" opacity="0.2" stroke="hsl(68,60%,52%)" strokeWidth="0.7" />
+            <rect x="16.5" y={22 + i * 14} width="3" height="2" rx="0.5" fill="hsl(68,60%,52%)" opacity="0.9" />
+            <rect x="28" y={21 + i * 14} width="28" height="2" rx="1" fill="hsl(48,100%,96%)" opacity="0.7" />
+            <rect x="28" y={25 + i * 14} width="42" height="1.5" rx="0.75" fill="rgba(255,255,255,0.25)" />
+            <rect x="28" y={28.5 + i * 14} width="34" height="1.5" rx="0.75" fill="rgba(255,255,255,0.15)" />
+          </g>
+        ))}
+        <rect x="5" y="63" width="42" height="5" rx="2.5" fill="hsl(68,60%,52%)" opacity="0.85" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-promises" as const,
+    label: "DSO Promises",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoPromisesBlockProps => ({
+      eyebrow: "Our Guarantees",
+      headline: "We don't just promise results.\nWe guarantee them.",
+      subheadline: "Every Dandy DSO partnership comes backed by commitments that protect your group's investment and outcomes.",
+      promises: [
+        { icon: "shield-check", title: "96% First-Time Fit", desc: "If a case doesn't fit the first time, we remake it — free. Our AI catches issues before they ever leave the lab." },
+        { icon: "clock", title: "5-Day Crown Turnaround", desc: "Premium restorations delivered in 5 business days. If we miss the window, you get a credit — no questions asked." },
+        { icon: "zap", title: "Same-Day Support", desc: "Direct line to your dedicated Dandy rep. Questions get answers the same business day, every time." },
+        { icon: "trending-up", title: "Measurable ROI in 90 Days", desc: "We track remake reduction, chair time recovered, and revenue lift — and we show you the numbers." },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#001a13" rx="4" />
+        <rect x="5" y="5" width="18" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="10" width="38" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        {[[5,22],[65,22],[5,46],[65,46]].map(([x,y]) => (
+          <g key={`${x}-${y}`}>
+            <rect x={x} y={y} width="52" height="20" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <circle cx={x+10} cy={y+10} r="6" fill="rgba(194,229,58,0.15)" stroke="hsl(68,60%,52%)" strokeWidth="0.5" />
+            <rect x={x+20} y={y+5} width="26" height="2.5" rx="1" fill="hsl(48,100%,96%)" opacity="0.7" />
+            <rect x={x+20} y={y+10} width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.25)" />
+            <rect x={x+20} y={y+14} width="22" height="1.5" rx="0.75" fill="rgba(255,255,255,0.18)" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-testimonials" as const,
+    label: "DSO Testimonials",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoTestimonialsBlockProps => ({
+      eyebrow: "What Our Partners Say",
+      headline: "Practices that switched and never looked back.",
+      subheadline: "Hear from DSO leaders across the country who've made Dandy their lab partner.",
+      testimonials: [
+        { quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann", location: "Founder, APEX Dental Partners" },
+        { quote: "Reduced crown appointments by 2–3 minutes per case. That adds up to hours of saved chair time per month — and our remake headaches are gone.", author: "Clinical Director", location: "Open & Affordable Dental" },
+        { quote: "The training you guys give is incredible. The onboarding has been incredible. The whole experience has been incredible.", author: "Dr. Trey Mueller", location: "Chief Clinical Officer, Dental Care Alliance" },
+        { quote: "We went from three different labs with inconsistent quality to one partner with a 96% fit rate. The difference is night and day.", author: "VP of Operations", location: "Regional DSO, Southeast" },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="5" y="5" width="20" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="10" width="44" height="4" rx="2" fill="hsl(48,100%,96%)" opacity="0.75" />
+        {[5,42,79].map((x,i) => (
+          <g key={i}>
+            <rect x={x} y="20" width="34" height="44" rx="3" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+            <rect x={x+3} y="25" width="4" height="3" rx="0.5" fill="hsl(68,60%,52%)" opacity="0.7" />
+            <rect x={x+3} y="31" width="28" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
+            <rect x={x+3} y="35" width="26" height="1.5" rx="0.75" fill="rgba(255,255,255,0.35)" />
+            <rect x={x+3} y="39" width="22" height="1.5" rx="0.75" fill="rgba(255,255,255,0.25)" />
+            <line x1={x+3} y1="47" x2={x+31} y2="47" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+            <circle cx={x+8} cy="53" r="4" fill="rgba(255,255,255,0.12)" />
+            <rect x={x+15} y="51" width="16" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)" />
+            <rect x={x+15} y="55" width="14" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
     type: "dso-cta-capture" as const,
     label: "DSO CTA Capture",
     category: "DSO" as BlockCategory,
@@ -2365,6 +2779,14 @@ export function createBlock(type: "dso-particle-mesh"): Extract<PageBlock, { typ
 export function createBlock(type: "dso-flow-canvas"): Extract<PageBlock, { type: "dso-flow-canvas" }>;
 export function createBlock(type: "dso-bento-outcomes"): Extract<PageBlock, { type: "dso-bento-outcomes" }>;
 export function createBlock(type: "dso-cta-capture"): Extract<PageBlock, { type: "dso-cta-capture" }>;
+export function createBlock(type: "dso-meet-team"): Extract<PageBlock, { type: "dso-meet-team" }>;
+export function createBlock(type: "dso-paradigm-shift"): Extract<PageBlock, { type: "dso-paradigm-shift" }>;
+export function createBlock(type: "dso-partnership-perks"): Extract<PageBlock, { type: "dso-partnership-perks" }>;
+export function createBlock(type: "dso-products-grid"): Extract<PageBlock, { type: "dso-products-grid" }>;
+export function createBlock(type: "dso-promo-cards"): Extract<PageBlock, { type: "dso-promo-cards" }>;
+export function createBlock(type: "dso-activation-steps"): Extract<PageBlock, { type: "dso-activation-steps" }>;
+export function createBlock(type: "dso-promises"): Extract<PageBlock, { type: "dso-promises" }>;
+export function createBlock(type: "dso-testimonials"): Extract<PageBlock, { type: "dso-testimonials" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2420,6 +2842,14 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-flow-canvas": return { id, type: "dso-flow-canvas", props: props as DsoFlowCanvasBlockProps };
     case "dso-bento-outcomes": return { id, type: "dso-bento-outcomes", props: props as DsoBentoOutcomesBlockProps };
     case "dso-cta-capture": return { id, type: "dso-cta-capture", props: props as DsoCtaCaptureBlockProps };
+    case "dso-meet-team": return { id, type: "dso-meet-team", props: props as DsoMeetTeamBlockProps };
+    case "dso-paradigm-shift": return { id, type: "dso-paradigm-shift", props: props as DsoParadigmShiftBlockProps };
+    case "dso-partnership-perks": return { id, type: "dso-partnership-perks", props: props as DsoPartnershipPerksBlockProps };
+    case "dso-products-grid": return { id, type: "dso-products-grid", props: props as DsoProductsGridBlockProps };
+    case "dso-promo-cards": return { id, type: "dso-promo-cards", props: props as DsoPromoCardsBlockProps };
+    case "dso-activation-steps": return { id, type: "dso-activation-steps", props: props as DsoActivationStepsBlockProps };
+    case "dso-promises": return { id, type: "dso-promises", props: props as DsoPromisesBlockProps };
+    case "dso-testimonials": return { id, type: "dso-testimonials", props: props as DsoTestimonialsBlockProps };
   }
 }
 

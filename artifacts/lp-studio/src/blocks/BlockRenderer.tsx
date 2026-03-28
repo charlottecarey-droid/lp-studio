@@ -21,6 +21,14 @@ import { BlockDsoParticleMesh } from "./BlockDsoParticleMesh";
 import { BlockDsoFlowCanvas } from "./BlockDsoFlowCanvas";
 import { BlockDsoBentoOutcomes } from "./BlockDsoBentoOutcomes";
 import { BlockDsoCtaCapture } from "./BlockDsoCtaCapture";
+import { BlockDsoMeetTeam } from "./BlockDsoMeetTeam";
+import { BlockDsoParadigmShift } from "./BlockDsoParadigmShift";
+import { BlockDsoPartnershipPerks } from "./BlockDsoPartnershipPerks";
+import { BlockDsoProductsGrid } from "./BlockDsoProductsGrid";
+import { BlockDsoPromoCards } from "./BlockDsoPromoCards";
+import { BlockDsoActivationSteps } from "./BlockDsoActivationSteps";
+import { BlockDsoPromises } from "./BlockDsoPromises";
+import { BlockDsoTestimonials } from "./BlockDsoTestimonials";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -444,6 +452,22 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoBentoOutcomes props={block.props} />;
       case "dso-cta-capture":
         return <BlockDsoCtaCapture props={block.props} />;
+      case "dso-meet-team":
+        return <BlockDsoMeetTeam props={block.props} />;
+      case "dso-paradigm-shift":
+        return <BlockDsoParadigmShift props={block.props} />;
+      case "dso-partnership-perks":
+        return <BlockDsoPartnershipPerks props={block.props} />;
+      case "dso-products-grid":
+        return <BlockDsoProductsGrid props={block.props} />;
+      case "dso-promo-cards":
+        return <BlockDsoPromoCards props={block.props} />;
+      case "dso-activation-steps":
+        return <BlockDsoActivationSteps props={block.props} />;
+      case "dso-promises":
+        return <BlockDsoPromises props={block.props} />;
+      case "dso-testimonials":
+        return <BlockDsoTestimonials props={block.props} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
