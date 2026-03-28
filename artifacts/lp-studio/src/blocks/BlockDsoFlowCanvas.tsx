@@ -6,7 +6,7 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.48)";
-const BG    = "#003A30";
+const BG    = "#050e08";
 
 /* ── Orbs: much more subtle now — atmospheric depth, not hero feature ── */
 const ORBS = [
