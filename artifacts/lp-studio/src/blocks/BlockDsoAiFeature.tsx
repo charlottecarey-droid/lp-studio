@@ -176,7 +176,7 @@ export function BlockDsoAiFeature({ props }: Props) {
             borderRadius: "1.25rem",
             overflow: "hidden",
             border: `1px solid ${imgBorder}`,
-            boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.4)",
+            boxShadow: "none",
             background: imgBg,
             aspectRatio: "16/9",
             display: "flex",
