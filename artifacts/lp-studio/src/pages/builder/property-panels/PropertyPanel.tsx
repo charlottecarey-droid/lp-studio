@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PageBlock, BlockSettings } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, CtaMode } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
 import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
 import { HeroPanel } from "./HeroPanel";
@@ -1885,6 +1885,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Book a Meeting" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Section CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Section CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Members</Label><Button variant="ghost" size="sm" onClick={addMember} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2106,6 +2107,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Book Your Activation Call" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Steps</Label><Button variant="ghost" size="sm" onClick={addStep} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2228,6 +2230,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v || undefined } })} placeholder="Start your first case" fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
               </div>
               <div className="space-y-1.5"><Label className="text-xs">Primary CTA URL</Label><Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Primary CTA Mode</Label><Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
@@ -2235,6 +2238,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <AiTextField type="input" value={p.secondaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, secondaryCtaText: v || undefined } })} placeholder="See how it works" fieldLabel="Secondary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "secondaryCtaText", p.secondaryCtaText ?? "", { headline: p.headline ?? "" })} />
               </div>
               <div className="space-y-1.5"><Label className="text-xs">Secondary CTA URL</Label><Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+              <div className="space-y-1.5 col-span-2"><Label className="text-xs">Secondary CTA Mode</Label><Select value={p.secondaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, secondaryCtaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Trust Line</Label>
@@ -2350,6 +2354,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.ctaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, ctaText: v || undefined } })} placeholder="Learn more" fieldLabel="CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "ctaText", p.ctaText ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Image Position</Label><Select value={p.imagePosition ?? "right"} onValueChange={v => onChange({ ...block, props: { ...p, imagePosition: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>

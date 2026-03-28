@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
   props: DsoSplitFeatureBlockProps;
@@ -19,6 +20,7 @@ export function BlockDsoSplitFeature({ props }: Props) {
     bullets = [],
     ctaText,
     ctaUrl,
+    ctaMode = "link",
     imageUrl,
     imagePosition = "right",
     backgroundStyle = "white",
@@ -83,24 +85,45 @@ export function BlockDsoSplitFeature({ props }: Props) {
 
       {ctaText && (
         <div style={{ paddingTop: "0.5rem" }}>
-          <a
-            href={ctaUrl || "#"}
-            style={{
-              display: "inline-block",
-              background: LIME,
-              color: BRAND,
-              fontWeight: 700,
-              fontSize: "0.9375rem",
-              borderRadius: "0.6rem",
-              padding: "0.75rem 1.75rem",
-              textDecoration: "none",
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-          >
-            {ctaText}
-          </a>
+          {ctaMode === "chilipiper" ? (
+            <ChiliPiperButton
+              url={ctaUrl || ""}
+              style={{
+                display: "inline-block",
+                background: LIME,
+                color: BRAND,
+                fontWeight: 700,
+                fontSize: "0.9375rem",
+                borderRadius: "0.6rem",
+                padding: "0.75rem 1.75rem",
+                transition: "opacity 0.2s",
+                border: "none",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              {ctaText}
+            </ChiliPiperButton>
+          ) : (
+            <a
+              href={ctaUrl || "#"}
+              style={{
+                display: "inline-block",
+                background: LIME,
+                color: BRAND,
+                fontWeight: 700,
+                fontSize: "0.9375rem",
+                borderRadius: "0.6rem",
+                padding: "0.75rem 1.75rem",
+                textDecoration: "none",
+                transition: "opacity 0.2s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >
+              {ctaText}
+            </a>
+          )}
         </div>
       )}
     </motion.div>

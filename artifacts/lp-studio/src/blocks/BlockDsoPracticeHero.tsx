@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
   props: DsoPracticeHeroBlockProps;
@@ -17,8 +18,10 @@ export function BlockDsoPracticeHero({ props }: Props) {
     subheadline,
     primaryCtaText,
     primaryCtaUrl,
+    primaryCtaMode = "link",
     secondaryCtaText,
     secondaryCtaUrl,
+    secondaryCtaMode = "link",
     trustLine,
     backgroundStyle = "dark",
   } = props;
@@ -117,47 +120,90 @@ export function BlockDsoPracticeHero({ props }: Props) {
           style={{ display: "flex", gap: "0.875rem", justifyContent: "center", flexWrap: "wrap" }}
         >
           {primaryCtaText && (
-            <a
-              href={primaryCtaUrl || "#"}
-              style={{
-                display: "inline-block",
-                background: LIME,
-                color: BRAND,
-                fontWeight: 700,
-                fontSize: "0.9375rem",
-                borderRadius: "0.6rem",
-                padding: "0.875rem 2rem",
-                textDecoration: "none",
-                letterSpacing: "0.01em",
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-            >
-              {primaryCtaText}
-            </a>
+            primaryCtaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={primaryCtaUrl || ""}
+                style={{
+                  display: "inline-block",
+                  background: LIME,
+                  color: BRAND,
+                  fontWeight: 700,
+                  fontSize: "0.9375rem",
+                  borderRadius: "0.6rem",
+                  padding: "0.875rem 2rem",
+                  letterSpacing: "0.01em",
+                  transition: "opacity 0.2s",
+                  border: "none",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                {primaryCtaText}
+              </ChiliPiperButton>
+            ) : (
+              <a
+                href={primaryCtaUrl || "#"}
+                style={{
+                  display: "inline-block",
+                  background: LIME,
+                  color: BRAND,
+                  fontWeight: 700,
+                  fontSize: "0.9375rem",
+                  borderRadius: "0.6rem",
+                  padding: "0.875rem 2rem",
+                  textDecoration: "none",
+                  letterSpacing: "0.01em",
+                  transition: "opacity 0.2s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              >
+                {primaryCtaText}
+              </a>
+            )
           )}
 
           {secondaryCtaText && (
-            <a
-              href={secondaryCtaUrl || "#"}
-              style={{
-                display: "inline-block",
-                background: "transparent",
-                color: dark ? "#fff" : BRAND,
-                fontWeight: 600,
-                fontSize: "0.9375rem",
-                borderRadius: "0.6rem",
-                padding: "0.875rem 1.75rem",
-                textDecoration: "none",
-                border: `1.5px solid ${dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`}`,
-                transition: "border-color 0.2s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.5)" : BRAND)}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`)}
-            >
-              {secondaryCtaText}
-            </a>
+            secondaryCtaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={secondaryCtaUrl || ""}
+                style={{
+                  display: "inline-block",
+                  background: "transparent",
+                  color: dark ? "#fff" : BRAND,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  borderRadius: "0.6rem",
+                  padding: "0.875rem 1.75rem",
+                  border: `1.5px solid ${dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`}`,
+                  transition: "border-color 0.2s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.5)" : BRAND)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`)}
+              >
+                {secondaryCtaText}
+              </ChiliPiperButton>
+            ) : (
+              <a
+                href={secondaryCtaUrl || "#"}
+                style={{
+                  display: "inline-block",
+                  background: "transparent",
+                  color: dark ? "#fff" : BRAND,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  borderRadius: "0.6rem",
+                  padding: "0.875rem 1.75rem",
+                  textDecoration: "none",
+                  border: `1.5px solid ${dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`}`,
+                  transition: "border-color 0.2s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.5)" : BRAND)}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`)}
+              >
+                {secondaryCtaText}
+              </a>
+            )
           )}
         </motion.div>
 

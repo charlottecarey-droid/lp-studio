@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoActivationStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
   props: DsoActivationStepsBlockProps;
@@ -14,7 +15,7 @@ const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 export function BlockDsoActivationSteps({ props }: Props) {
   const {
     eyebrow, headline, subheadline, steps = [],
-    ctaText, ctaUrl, backgroundStyle = "dark",
+    ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark",
   } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -133,26 +134,47 @@ export function BlockDsoActivationSteps({ props }: Props) {
             transition={{ delay: 0.3 }}
             style={{ textAlign: "center", marginTop: "3rem" }}
           >
-            <a
-              href={ctaUrl ?? "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: "1rem",
-                fontWeight: 600,
-                color: dark ? BRAND : "#fff",
-                background: dark ? LIME : BRAND,
-                padding: "0.875rem 2rem",
-                borderRadius: "0.625rem",
-                textDecoration: "none",
-              }}
-            >
-              {ctaText}
-              <ArrowRight style={{ width: 16, height: 16 }} />
-            </a>
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: dark ? BRAND : "#fff",
+                  background: dark ? LIME : BRAND,
+                  padding: "0.875rem 2rem",
+                  borderRadius: "0.625rem",
+                  border: "none",
+                }}
+              >
+                {ctaText}
+                <ArrowRight style={{ width: 16, height: 16 }} />
+              </ChiliPiperButton>
+            ) : (
+              <a
+                href={ctaUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: dark ? BRAND : "#fff",
+                  background: dark ? LIME : BRAND,
+                  padding: "0.875rem 2rem",
+                  borderRadius: "0.625rem",
+                  textDecoration: "none",
+                }}
+              >
+                {ctaText}
+                <ArrowRight style={{ width: 16, height: 16 }} />
+              </a>
+            )}
           </motion.div>
         )}
       </div>

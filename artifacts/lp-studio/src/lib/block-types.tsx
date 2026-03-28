@@ -405,6 +405,7 @@ export interface DsoMeetTeamBlockProps {
   subheadline?: string;
   ctaText?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
   members: DsoMeetTeamMember[];
   backgroundStyle?: BackgroundStyle;
 }
@@ -480,6 +481,7 @@ export interface DsoActivationStepsBlockProps {
   steps: DsoActivationStep[];
   ctaText?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -511,14 +513,18 @@ export interface DsoTestimonialsBlockProps {
   backgroundStyle?: BackgroundStyle;
 }
 
+export type CtaMode = "link" | "chilipiper";
+
 export interface DsoPracticeHeroBlockProps {
   eyebrow?: string;
   headline?: string;
   subheadline?: string;
   primaryCtaText?: string;
   primaryCtaUrl?: string;
+  primaryCtaMode?: CtaMode;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  secondaryCtaMode?: CtaMode;
   trustLine?: string;
   backgroundStyle?: BackgroundStyle;
 }
@@ -556,6 +562,7 @@ export interface DsoSplitFeatureBlockProps {
   bullets?: string[];
   ctaText?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
   imageUrl?: string;
   imagePosition?: "left" | "right";
   backgroundStyle?: BackgroundStyle;

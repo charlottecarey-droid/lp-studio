@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Mail, Calendar, User } from "lucide-react";
 import type { DsoMeetTeamBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
   props: DsoMeetTeamBlockProps;
@@ -12,7 +13,7 @@ const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoMeetTeam({ props }: Props) {
-  const { eyebrow, headline, subheadline, ctaText, ctaUrl, members = [], backgroundStyle = "dark" } = props;
+  const { eyebrow, headline, subheadline, ctaText, ctaUrl, ctaMode = "link", members = [], backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -69,29 +70,53 @@ export function BlockDsoMeetTeam({ props }: Props) {
               transition={{ delay: 0.2 }}
               style={{ marginTop: "2rem" }}
             >
-              <a
-                href={ctaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  fontFamily: DISPLAY,
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                  color: dark ? BRAND : "#fff",
-                  background: dark ? LIME : BRAND,
-                  borderRadius: "0.625rem",
-                  padding: "0.75rem 1.75rem",
-                  textDecoration: "none",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                <Calendar style={{ width: 16, height: 16 }} />
-                {ctaText}
-              </a>
+              {ctaMode === "chilipiper" ? (
+                <ChiliPiperButton
+                  url={ctaUrl}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    fontFamily: DISPLAY,
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    color: dark ? BRAND : "#fff",
+                    background: dark ? LIME : BRAND,
+                    borderRadius: "0.625rem",
+                    padding: "0.75rem 1.75rem",
+                    letterSpacing: "-0.01em",
+                    border: "none",
+                  }}
+                >
+                  <Calendar style={{ width: 16, height: 16 }} />
+                  {ctaText}
+                </ChiliPiperButton>
+              ) : (
+                <a
+                  href={ctaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    fontFamily: DISPLAY,
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    color: dark ? BRAND : "#fff",
+                    background: dark ? LIME : BRAND,
+                    borderRadius: "0.625rem",
+                    padding: "0.75rem 1.75rem",
+                    textDecoration: "none",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  <Calendar style={{ width: 16, height: 16 }} />
+                  {ctaText}
+                </a>
+              )}
             </motion.div>
           )}
         </div>
