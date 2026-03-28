@@ -106,7 +106,7 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
         justifyContent: "center",
         flexShrink: 0,
       }}>
-        {/* Real product image backdrop */}
+        {/* Real product image backdrop — z-index 1 (base layer) */}
         {imageUrl && (
           <img
             src={imageUrl}
@@ -116,13 +116,13 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
               width: "100%", height: "100%",
               objectFit: "cover",
               borderRadius: "0.75rem",
-              opacity: 0.85,
+              zIndex: 1,
             }}
           />
         )}
 
-        {/* Tooth outline SVG — grid overlay (dimmed when image present) */}
-        <svg viewBox="0 0 130 110" style={{ width: 110, height: 90, position: "relative", opacity: imageUrl ? 0.3 : 1 }}>
+        {/* Tooth outline SVG — z-index 2 (grid overlay, dimmed when image present) */}
+        <svg viewBox="0 0 130 110" style={{ width: 110, height: 90, position: "relative", zIndex: 2, opacity: imageUrl ? 0.25 : 1 }}>
           {/* Crown body */}
           <path d="M18 90 Q12 62 22 42 Q34 18 46 24 Q55 30 65 24 Q75 18 87 24 Q99 18 109 42 Q120 62 113 90 Q100 98 82 91 Q72 86 65 91 Q58 86 48 91 Q30 98 18 90Z"
             fill="none" stroke={LIME} strokeWidth="1.5" strokeLinejoin="round" opacity="0.55" />
@@ -133,14 +133,14 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
           <ellipse cx="65" cy="68" rx="7" ry="9" fill="none" stroke={LIME} strokeWidth="1" opacity="0.25" />
         </svg>
 
-        {/* Scan sweep line */}
+        {/* Scan sweep line — z-index 3 (top layer) */}
         {scanning && (
           <motion.div
             animate={{ top: ["8%", "92%"] }}
             transition={{ duration: 1.6, ease: "linear", repeat: Infinity }}
             style={{
               position: "absolute", left: "8%", right: "8%",
-              height: "1.5px",
+              height: "1.5px", zIndex: 3,
               background: `linear-gradient(to right, transparent, ${LIME}cc, transparent)`,
               boxShadow: `0 0 10px 2px ${LIME}66`,
             }}
@@ -165,6 +165,7 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
                 position: "absolute", left: pt.x, top: pt.y,
                 transform: "translate(-50%, -50%)",
                 width: 8, height: 8, borderRadius: "50%",
+                zIndex: 3,
                 background: LIME, boxShadow: `0 0 8px 2px ${LIME}88`,
               }}
             />
@@ -180,6 +181,7 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
               exit={{ opacity: 0 }}
               style={{
                 position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)",
+                zIndex: 3,
                 background: "rgba(5,20,12,0.92)", border: `1px solid ${LIME}`,
                 borderRadius: 999, padding: "3px 14px",
                 fontSize: "0.62rem", fontWeight: 700, color: LIME,
