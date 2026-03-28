@@ -1298,6 +1298,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "dso-particle-mesh": {
         const p = block.props;
+        const urlsStr = (p.imageUrls ?? []).join("\n");
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
@@ -1311,6 +1312,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">Body</Label>
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Floating Images</Label>
+              <p className="text-xs text-muted-foreground">One image URL per line (up to 5). Images float over the particle field.</p>
+              <Textarea
+                rows={5}
+                className="resize-none text-xs font-mono"
+                value={urlsStr}
+                onChange={e => {
+                  const urls = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+                  onChange({ ...block, props: { ...p, imageUrls: urls } });
+                }}
+                placeholder={"https://…\nhttps://…"}
+              />
             </div>
             <div className="border-t pt-3 space-y-2">
               <Label className="text-xs text-muted-foreground">Stat 1</Label>
