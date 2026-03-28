@@ -14,12 +14,12 @@ const API_BASE = "/api";
 interface Props {
   open: boolean;
   block: PageBlock | null;
-  segments: AudienceSegment[];
+  segments?: AudienceSegment[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function SaveToLibraryDialog({ open, block, segments, onClose, onSaved }: Props) {
+export function SaveToLibraryDialog({ open, block, segments = [], onClose, onSaved }: Props) {
   const defaultName = block ? (getBlockDef(block.type)?.label ?? block.type) : "";
   const [name, setName] = useState(defaultName);
   const [segment, setSegment] = useState<string>("core");
