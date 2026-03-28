@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, Code2, Type, Blocks } from "lucide-react";
+import { Plus, Pencil, Trash2, Code2, Type, Blocks, LayoutGrid, Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const API = "/api";
 
@@ -17,17 +18,20 @@ interface CustomBlock {
   name: string;
   block_type: string;
   props: { html: string };
+  segment: string;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
 type BlockEditorType = "rich-text" | "custom-html";
+type BlockSegment = "core" | "segment";
 
 interface EditorState {
   id?: number;
   name: string;
   block_type: BlockEditorType;
+  segment: BlockSegment;
   html: string;
 }
 
@@ -53,7 +57,7 @@ export default function CustomBlocksPage() {
   useEffect(() => { load(); }, []);
 
   const openCreate = () => {
-    setEditor({ name: "", block_type: "rich-text", html: "" });
+    setEditor({ name: "", block_type: "rich-text", segment: "core", html: "" });
     setEditorOpen(true);
   };
 
@@ -62,6 +66,7 @@ export default function CustomBlocksPage() {
       id: block.id,
       name: block.name,
       block_type: block.block_type as BlockEditorType,
+      segment: (block.segment === "segment" ? "segment" : "core") as BlockSegment,
       html: block.props?.html ?? "",
     });
     setEditorOpen(true);
@@ -74,6 +79,7 @@ export default function CustomBlocksPage() {
       const body = {
         name: editor.name.trim(),
         block_type: editor.block_type,
+        segment: editor.segment,
         props: { html: editor.html },
       };
       if (editor.id) {
@@ -158,7 +164,7 @@ export default function CustomBlocksPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-foreground truncate">{block.name}</p>
-                    <div className="mt-1">
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                       {block.block_type === "rich-text" ? (
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <Type className="w-3 h-3" />
@@ -168,6 +174,17 @@ export default function CustomBlocksPage() {
                         <Badge variant="secondary" className="gap-1 text-xs font-mono">
                           <Code2 className="w-3 h-3" />
                           HTML
+                        </Badge>
+                      )}
+                      {block.segment === "segment" ? (
+                        <Badge className="gap-1 text-xs bg-[#003A30]/10 text-[#003A30] border border-[#003A30]/20 hover:bg-[#003A30]/10">
+                          <Building2 className="w-3 h-3" />
+                          Segment
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+                          <LayoutGrid className="w-3 h-3" />
+                          Core
                         </Badge>
                       )}
                     </div>
@@ -254,6 +271,43 @@ export default function CustomBlocksPage() {
                   <div>
                     <p className="text-sm font-medium">Custom HTML</p>
                     <p className="text-xs opacity-70 mt-0.5">Raw HTML — embeds, widgets, advanced layouts</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Segment selector */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Tab Assignment</Label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditor(prev => ({ ...prev, segment: "core" }))}
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 px-4 py-3 rounded-lg border-2 text-left transition-colors",
+                    editor.segment === "core"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  <LayoutGrid className="w-4 h-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Core</p>
+                    <p className="text-xs opacity-70 mt-0.5">Appears in the main Blocks tab</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setEditor(prev => ({ ...prev, segment: "segment" }))}
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 px-4 py-3 rounded-lg border-2 text-left transition-colors",
+                    editor.segment === "segment"
+                      ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
+                      : "border-border bg-background text-muted-foreground hover:border-[#003A30]/40"
+                  )}
+                >
+                  <Building2 className="w-4 h-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Segment</p>
+                    <p className="text-xs opacity-70 mt-0.5">Appears in the DSO Segment tab</p>
                   </div>
                 </button>
               </div>

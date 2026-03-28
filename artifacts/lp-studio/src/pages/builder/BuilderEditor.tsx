@@ -67,6 +67,7 @@ interface CustomBlock {
   block_type: string;
   props: Record<string, unknown>;
   block_settings?: Record<string, unknown>;
+  segment?: string;
 }
 
 function genBlockId(type: string) {
@@ -135,6 +136,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 
 function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
+  const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
 
   return (
     <div className="p-4 space-y-6">
@@ -166,11 +168,11 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
           </div>
         );
       })}
-      {customBlocks.length > 0 && (
+      {coreCustomBlocks.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Custom</p>
           <div className="grid grid-cols-2 gap-2">
-            {customBlocks.map(block => (
+            {coreCustomBlocks.map(block => (
               <button
                 key={block.id}
                 onClick={() => onAdd(`custom:${block.id}`)}
@@ -194,15 +196,17 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
   );
 }
 
-function SegmentLibrary({ onAdd }: { onAdd: (type: string) => void }) {
+function SegmentLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
   const dsoBlocks = BLOCK_REGISTRY.filter(b => b.category === "DSO");
+  const segmentCustomBlocks = customBlocks.filter(b => b.segment === "segment");
+  const totalCount = dsoBlocks.length + segmentCustomBlocks.length;
   return (
     <div className="p-4 space-y-5">
       {/* Segment header */}
       <div className="flex items-center gap-2 pb-1 border-b border-border">
         <div className="w-2 h-2 rounded-full bg-[#003A30]" />
         <p className="text-xs font-semibold text-foreground">Dandy DSO</p>
-        <span className="ml-auto text-[10px] text-muted-foreground">{dsoBlocks.length} blocks</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">{totalCount} blocks</span>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed -mt-2">
         Enterprise blocks for DSO-targeted landing pages. Designed for multi-location dental group sales.
@@ -225,8 +229,25 @@ function SegmentLibrary({ onAdd }: { onAdd: (type: string) => void }) {
             </div>
           </button>
         ))}
+        {segmentCustomBlocks.map(block => (
+          <button
+            key={block.id}
+            onClick={() => onAdd(`custom:${block.id}`)}
+            className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-background hover:border-[#003A30]/40 hover:bg-[#003A30]/5 transition-all text-left"
+          >
+            <CustomBlockThumbnail blockType={block.block_type} />
+            <span className="text-[11px] font-medium text-center leading-tight text-muted-foreground group-hover:text-foreground">
+              {block.name}
+            </span>
+            <div className="absolute inset-0 flex items-center justify-center bg-[#003A30]/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-[#003A30] text-white rounded-full p-1">
+                <Plus className="w-3 h-3" />
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
-      {dsoBlocks.length === 0 && (
+      {totalCount === 0 && (
         <p className="text-xs text-muted-foreground text-center py-4">No segment blocks available.</p>
       )}
     </div>
@@ -1263,7 +1284,7 @@ export default function BuilderEditor() {
               <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} />
             </TabsContent>
             <TabsContent value="segment" className="mt-0">
-              <SegmentLibrary onAdd={addBlock} />
+              <SegmentLibrary onAdd={addBlock} customBlocks={customBlocks} />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel
