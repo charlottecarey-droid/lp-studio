@@ -527,6 +527,9 @@ export interface DsoPracticeHeroBlockProps {
   secondaryCtaMode?: CtaMode;
   trustLine?: string;
   backgroundStyle?: BackgroundStyle;
+  layout?: "centered" | "split" | "bg-image";
+  imageUrl?: string;
+  imageAlt?: string;
 }
 
 export interface DsoStatRowItem {

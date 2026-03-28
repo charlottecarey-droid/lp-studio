@@ -2245,6 +2245,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Dandy" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout & Image</Label>
+              <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" | "bg-image" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered (no image)</SelectItem><SelectItem value="split" className="text-xs">Split — content left, image right</SelectItem><SelectItem value="bg-image" className="text-xs">Background image</SelectItem></SelectContent></Select></div>
+              {(p.layout === "split" || p.layout === "bg-image") && <>
+                <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Image Alt Text</Label><Input value={p.imageAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageAlt: e.target.value || undefined } })} placeholder="Doctor reviewing a case" className="h-8 text-xs" /></div>
+              </>}
+            </div>
           </div>
         );
       }
