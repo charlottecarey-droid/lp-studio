@@ -277,16 +277,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               justifyContent: "center",
             }}
           >
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt="Dandy AI Scan Review — 3D dental scan with AI issue detection"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                loading="lazy"
-              />
-            ) : (
-              <AiScanReviewAnimation />
-            )}
+            <AiScanReviewAnimation imageUrl={imageUrl} />
           </motion.div>
 
         </div>

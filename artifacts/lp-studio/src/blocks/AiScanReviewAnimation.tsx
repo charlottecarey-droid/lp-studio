@@ -18,7 +18,11 @@ const CHECKS = [
 
 type Phase = "scanning" | "detecting" | "result" | "confirm" | "reset";
 
-export function AiScanReviewAnimation() {
+interface AiScanReviewAnimationProps {
+  imageUrl?: string;
+}
+
+export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps = {}) {
   const [phase, setPhase]               = useState<Phase>("scanning");
   const [visibleChecks, setVisibleChecks] = useState(0);
 
@@ -102,8 +106,23 @@ export function AiScanReviewAnimation() {
         justifyContent: "center",
         flexShrink: 0,
       }}>
-        {/* Tooth outline SVG */}
-        <svg viewBox="0 0 130 110" style={{ width: 110, height: 90 }}>
+        {/* Real product image backdrop */}
+        {imageUrl && (
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              borderRadius: "0.75rem",
+              opacity: 0.85,
+            }}
+          />
+        )}
+
+        {/* Tooth outline SVG — grid overlay (dimmed when image present) */}
+        <svg viewBox="0 0 130 110" style={{ width: 110, height: 90, position: "relative", opacity: imageUrl ? 0.3 : 1 }}>
           {/* Crown body */}
           <path d="M18 90 Q12 62 22 42 Q34 18 46 24 Q55 30 65 24 Q75 18 87 24 Q99 18 109 42 Q120 62 113 90 Q100 98 82 91 Q72 86 65 91 Q58 86 48 91 Q30 98 18 90Z"
             fill="none" stroke={LIME} strokeWidth="1.5" strokeLinejoin="round" opacity="0.55" />
