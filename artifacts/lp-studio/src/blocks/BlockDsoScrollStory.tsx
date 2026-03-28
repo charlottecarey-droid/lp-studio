@@ -96,18 +96,18 @@ export function BlockDsoScrollStory({ props }: Props) {
           transition={{ delay: 0.06 }}
           style={{
             fontFamily: DISPLAY_FONT,
-            fontSize: "clamp(1.625rem,3vw,2.5rem)",
-            fontWeight: 600,
+            fontSize: "clamp(2.25rem,4.5vw,3.75rem)",
+            fontWeight: 700,
             color: FG,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.1,
-            maxWidth: 560,
-            margin: "0 auto 1rem",
+            letterSpacing: "-0.03em",
+            lineHeight: 1.05,
+            maxWidth: 720,
+            margin: "0 auto 1.25rem",
           }}
         >
           How Dandy transforms your lab strategy
         </motion.p>
-        <p style={{ fontSize: "0.9375rem", color: FG_MU, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
+        <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
           Scroll to explore each pillar of the Dandy platform.
         </p>
       </div>
@@ -183,7 +183,7 @@ export function BlockDsoScrollStory({ props }: Props) {
                 </p>
 
                 {/* Animated chapter text */}
-                <div style={{ position: "relative", minHeight: 240, perspective: "900px" }}>
+                <div style={{ position: "relative", minHeight: 300, perspective: "900px" }}>
                   {displayChapters.map((ch, i) => (
                     <motion.div
                       key={i}
@@ -199,17 +199,17 @@ export function BlockDsoScrollStory({ props }: Props) {
                       <h3
                         style={{
                           fontFamily: DISPLAY_FONT,
-                          fontSize: "clamp(1.5rem,2.75vw,2.25rem)",
-                          fontWeight: 600,
+                          fontSize: "clamp(2rem,3.5vw,3rem)",
+                          fontWeight: 700,
                           color: FG,
-                          letterSpacing: "-0.02em",
-                          lineHeight: 1.15,
+                          letterSpacing: "-0.03em",
+                          lineHeight: 1.08,
                           marginBottom: "1.5rem",
                         }}
                       >
                         {ch.headline}
                       </h3>
-                      <p style={{ fontSize: "1rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440 }}>
+                      <p style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440 }}>
                         {ch.body}
                       </p>
                     </motion.div>
