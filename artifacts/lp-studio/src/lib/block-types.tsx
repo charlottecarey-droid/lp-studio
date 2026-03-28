@@ -511,6 +511,56 @@ export interface DsoTestimonialsBlockProps {
   backgroundStyle?: BackgroundStyle;
 }
 
+export interface DsoPracticeHeroBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  primaryCtaText?: string;
+  primaryCtaUrl?: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  trustLine?: string;
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoStatRowItem {
+  value: string;
+  label: string;
+  detail?: string;
+}
+
+export interface DsoStatRowBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  items: DsoStatRowItem[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoFaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface DsoFaqBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  items: DsoFaqItem[];
+  backgroundStyle?: BackgroundStyle;
+}
+
+export interface DsoSplitFeatureBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  bullets?: string[];
+  ctaText?: string;
+  ctaUrl?: string;
+  imageUrl?: string;
+  imagePosition?: "left" | "right";
+  backgroundStyle?: BackgroundStyle;
+}
+
 /* ─── end DSO Practices types ────────────────────────────────────────────── */
 
 export interface DsoPilotStep {
@@ -845,7 +895,11 @@ type BlockVariant =
   | { type: "dso-promo-cards"; props: DsoPromoCardsBlockProps }
   | { type: "dso-activation-steps"; props: DsoActivationStepsBlockProps }
   | { type: "dso-promises"; props: DsoPromisesBlockProps }
-  | { type: "dso-testimonials"; props: DsoTestimonialsBlockProps };
+  | { type: "dso-testimonials"; props: DsoTestimonialsBlockProps }
+  | { type: "dso-practice-hero"; props: DsoPracticeHeroBlockProps }
+  | { type: "dso-stat-row"; props: DsoStatRowBlockProps }
+  | { type: "dso-faq"; props: DsoFaqBlockProps }
+  | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -2684,6 +2738,142 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-practice-hero" as const,
+    label: "DSO Practice Hero",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoPracticeHeroBlockProps => ({
+      eyebrow: "Heartland Dental × Dandy",
+      headline: "Your practice. Elevated by Dandy.",
+      subheadline: "As a Heartland partner, your practice gets dedicated support, premium scanners at no cost, and a lab that backs every case with a first-time fit guarantee.",
+      primaryCtaText: "Start your first case",
+      primaryCtaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      secondaryCtaText: "See how it works",
+      secondaryCtaUrl: "#",
+      trustLine: "Join 200+ practices in your network already using Dandy",
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <radialGradient id="pg-hero-glow" cx="50%" cy="0%" r="60%">
+          <stop offset="0%" stopColor="hsl(68,60%,52%)" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+        </radialGradient>
+        <rect width="120" height="70" fill="url(#pg-hero-glow)" rx="4" />
+        <rect x="30" y="10" width="60" height="5" rx="10" fill="rgba(199,231,56,0.2)" stroke="rgba(199,231,56,0.3)" strokeWidth="0.5" />
+        <rect x="18" y="20" width="84" height="9" rx="3" fill="rgba(255,255,255,0.75)" />
+        <rect x="25" y="32" width="70" height="3" rx="1.5" fill="rgba(255,255,255,0.3)" />
+        <rect x="30" y="37" width="60" height="2.5" rx="1.25" fill="rgba(255,255,255,0.2)" />
+        <rect x="26" y="46" width="30" height="9" rx="4" fill="hsl(68,60%,52%)" />
+        <rect x="62" y="46" width="30" height="9" rx="4" fill="transparent" stroke="rgba(255,255,255,0.25)" strokeWidth="0.75" />
+        <rect x="35" y="60" width="50" height="1.5" rx="0.75" fill="rgba(255,255,255,0.15)" />
+      </svg>
+    ),
+  },
+  {
+    type: "dso-stat-row" as const,
+    label: "DSO Stat Row",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoStatRowBlockProps => ({
+      eyebrow: "By the numbers",
+      headline: "Results that speak for themselves.",
+      items: [
+        { value: "96%", label: "First-time fit rate", detail: "Industry average is 78%" },
+        { value: "50%", label: "Fewer remakes", detail: "Compared to traditional labs" },
+        { value: "2x", label: "Faster turnaround", detail: "Same-day delivery available" },
+        { value: "12K+", label: "Active practices", detail: "Across DSO networks nationwide" },
+      ],
+      backgroundStyle: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="5" y="8" width="18" height="1.5" rx="0.75" fill="hsl(68,60%,52%)" opacity="0.8" />
+        <rect x="5" y="13" width="36" height="3.5" rx="1.5" fill="rgba(255,255,255,0.65)" />
+        {[5,33,61,89].map((x, i) => (
+          <g key={i}>
+            <rect x={x} y="25" width="26" height="38" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+            <rect x={x+3} y="30" width="18" height="8" rx="2" fill="hsl(68,60%,52%)" opacity="0.5" />
+            <rect x={x+3} y="42" width="20" height="2" rx="1" fill="rgba(255,255,255,0.5)" />
+            <rect x={x+3} y="47" width="16" height="1.5" rx="0.75" fill="rgba(255,255,255,0.2)" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-faq" as const,
+    label: "DSO FAQ",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoFaqBlockProps => ({
+      eyebrow: "Common questions",
+      headline: "Everything you're wondering about switching.",
+      subheadline: "We know change feels risky. Here's what practices ask us most.",
+      items: [
+        { question: "Will switching labs disrupt my current workflow?", answer: "No. We design the transition around your schedule. An on-site Dandy trainer comes to your practice, walks your team through the scanner and workflow, and you're up and running in days — not weeks. Most practices see zero disruption to active cases." },
+        { question: "What if my first case doesn't come back right?", answer: "We back every case with our first-time fit guarantee. If a crown or restoration doesn't seat on the first try, we remake it at no cost and send your dedicated rep to troubleshoot the scan. No runaround, no charge." },
+        { question: "Does my DSO have a special pricing arrangement with Dandy?", answer: "Yes — your network has negotiated preferred pricing and an exclusive onboarding incentive for member practices. Your first $1,500 in cases is credited to your account, plus you get a $100 UberEats card for hosting a lunch-and-learn." },
+        { question: "How does the Dandy scanner work, and is it hard to learn?", answer: "The Dandy scanner is an iTero-compatible intraoral scanner included at $0 CAPEX. Your team typically gets comfortable in one or two cases. Our AI Scan Review flags any issues while the patient is still in the chair — so you fix it before submitting, not after." },
+        { question: "What products does Dandy offer?", answer: "Dandy covers the full restorative range — posterior and anterior crowns, veneers, implant restorations, dentures, sleep appliances, night guards, and clear aligners. All cases flow through one portal, one account team, one bill." },
+      ],
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="20" y="6" width="30" height="1.5" rx="0.75" fill="#003A30" opacity="0.4" />
+        <rect x="10" y="11" width="60" height="4" rx="2" fill="#003A30" opacity="0.7" />
+        {[0,1,2,3,4].map(i => (
+          <g key={i}>
+            <rect x="10" y={21 + i * 10} width="100" height="8" rx="3" fill="#fff" stroke="#e5e7eb" strokeWidth="0.5" />
+            <rect x="14" y={24 + i * 10} width="56" height="2" rx="1" fill="#374151" opacity="0.5" />
+            <path d={`M 104 ${25 + i * 10} l -3 3 l -3 -3`} stroke="#003A30" strokeWidth="1" fill="none" strokeLinecap="round" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dso-split-feature" as const,
+    label: "DSO Split Feature",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoSplitFeatureBlockProps => ({
+      eyebrow: "AI-powered quality control",
+      headline: "Catch scan issues before the patient leaves the chair.",
+      body: "AI Scan Review analyzes every impression in real time — flagging margin gaps, prep angles, and tissue interference while you still have the patient seated. It's like having a master ceramist review every scan instantly.",
+      bullets: [
+        "Margin errors caught before submission — not after",
+        "Real-time feedback with visual callouts",
+        "Fewer remakes means more productive chair time",
+        "No extra software — built into the Dandy workflow",
+      ],
+      ctaText: "See AI Scan Review in action",
+      ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      imageUrl: "",
+      imagePosition: "right",
+      backgroundStyle: "white",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="5" y="10" width="52" height="50" rx="3" fill="#fff" stroke="#e5e7eb" strokeWidth="0.5" />
+        <rect x="9" y="16" width="14" height="1.5" rx="0.75" fill="#003A30" opacity="0.5" />
+        <rect x="9" y="21" width="40" height="5" rx="2" fill="#003A30" opacity="0.7" />
+        <rect x="9" y="29" width="38" height="2" rx="1" fill="#6b7280" opacity="0.4" />
+        <rect x="9" y="33" width="34" height="2" rx="1" fill="#6b7280" opacity="0.3" />
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <circle cx="12" cy={41 + i * 5} r="1.5" fill="#003A30" opacity="0.5" />
+            <rect x="16" y={40 + i * 5} width="28" height="1.5" rx="0.75" fill="#374151" opacity="0.4" />
+          </g>
+        ))}
+        <rect x="62" y="10" width="52" height="50" rx="8" fill="#003A3010" stroke="#003A3018" strokeWidth="0.5" />
+        <circle cx="88" cy="35" r="14" fill="#003A30" opacity="0.12" />
+        <path d="M80 35 C80 28 96 28 96 35" stroke="hsl(68,60%,52%)" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-cta-capture" as const,
     label: "DSO CTA Capture",
     category: "DSO" as BlockCategory,
@@ -2793,6 +2983,10 @@ export function createBlock(type: "dso-promo-cards"): Extract<PageBlock, { type:
 export function createBlock(type: "dso-activation-steps"): Extract<PageBlock, { type: "dso-activation-steps" }>;
 export function createBlock(type: "dso-promises"): Extract<PageBlock, { type: "dso-promises" }>;
 export function createBlock(type: "dso-testimonials"): Extract<PageBlock, { type: "dso-testimonials" }>;
+export function createBlock(type: "dso-practice-hero"): Extract<PageBlock, { type: "dso-practice-hero" }>;
+export function createBlock(type: "dso-stat-row"): Extract<PageBlock, { type: "dso-stat-row" }>;
+export function createBlock(type: "dso-faq"): Extract<PageBlock, { type: "dso-faq" }>;
+export function createBlock(type: "dso-split-feature"): Extract<PageBlock, { type: "dso-split-feature" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2856,6 +3050,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-activation-steps": return { id, type: "dso-activation-steps", props: props as DsoActivationStepsBlockProps };
     case "dso-promises": return { id, type: "dso-promises", props: props as DsoPromisesBlockProps };
     case "dso-testimonials": return { id, type: "dso-testimonials", props: props as DsoTestimonialsBlockProps };
+    case "dso-practice-hero": return { id, type: "dso-practice-hero", props: props as DsoPracticeHeroBlockProps };
+    case "dso-stat-row": return { id, type: "dso-stat-row", props: props as DsoStatRowBlockProps };
+    case "dso-faq": return { id, type: "dso-faq", props: props as DsoFaqBlockProps };
+    case "dso-split-feature": return { id, type: "dso-split-feature", props: props as DsoSplitFeatureBlockProps };
   }
 }
 

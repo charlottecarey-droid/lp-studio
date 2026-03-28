@@ -29,6 +29,10 @@ import { BlockDsoPromoCards } from "./BlockDsoPromoCards";
 import { BlockDsoActivationSteps } from "./BlockDsoActivationSteps";
 import { BlockDsoPromises } from "./BlockDsoPromises";
 import { BlockDsoTestimonials } from "./BlockDsoTestimonials";
+import { BlockDsoPracticeHero } from "./BlockDsoPracticeHero";
+import { BlockDsoStatRow } from "./BlockDsoStatRow";
+import { BlockDsoFaq } from "./BlockDsoFaq";
+import { BlockDsoSplitFeature } from "./BlockDsoSplitFeature";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -468,6 +472,14 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
         return <BlockDsoPromises props={block.props} />;
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} />;
+      case "dso-practice-hero":
+        return <BlockDsoPracticeHero props={block.props} />;
+      case "dso-stat-row":
+        return <BlockDsoStatRow props={block.props} />;
+      case "dso-faq":
+        return <BlockDsoFaq props={block.props} />;
+      case "dso-split-feature":
+        return <BlockDsoSplitFeature props={block.props} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

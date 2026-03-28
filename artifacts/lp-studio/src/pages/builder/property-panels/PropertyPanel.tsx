@@ -2119,6 +2119,121 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-practice-hero": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow (co-brand)</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Heartland Dental × Dandy" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={3} className="text-xs resize-none" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5"><Label className="text-xs">Primary CTA Text</Label><Input value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value || undefined } })} placeholder="Start your first case" className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Primary CTA URL</Label><Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5"><Label className="text-xs">Secondary CTA Text</Label><Input value={p.secondaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value || undefined } })} placeholder="See how it works" className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Secondary CTA URL</Label><Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Trust Line</Label><Input value={p.trustLine ?? ""} onChange={e => onChange({ ...block, props: { ...p, trustLine: e.target.value || undefined } })} placeholder="Join 200+ practices already using Dandy" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+          </div>
+        );
+      }
+      case "dso-stat-row": {
+        const p = block.props;
+        const items = p.items ?? [];
+        const updateItem = (i: number, patch: Partial<typeof items[0]>) => {
+          const next = items.map((it, idx) => idx === i ? { ...it, ...patch } : it);
+          onChange({ ...block, props: { ...p, items: next } });
+        };
+        const addItem = () => onChange({ ...block, props: { ...p, items: [...items, { value: "", label: "", detail: "" }] } });
+        const removeItem = (i: number) => onChange({ ...block, props: { ...p, items: items.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats</Label><Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {items.map((item, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Stat {i + 1}</span><button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={item.value} onChange={e => updateItem(i, { value: e.target.value })} placeholder="96% or 50+ or 2x" className="h-8 text-xs" />
+                    <Input value={item.label} onChange={e => updateItem(i, { label: e.target.value })} placeholder="Label" className="h-8 text-xs" />
+                    <Input value={item.detail ?? ""} onChange={e => updateItem(i, { detail: e.target.value || undefined })} placeholder="Detail line (optional)" className="h-8 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-faq": {
+        const p = block.props;
+        const items = p.items ?? [];
+        const updateItem = (i: number, patch: Partial<typeof items[0]>) => {
+          const next = items.map((it, idx) => idx === i ? { ...it, ...patch } : it);
+          onChange({ ...block, props: { ...p, items: next } });
+        };
+        const addItem = () => onChange({ ...block, props: { ...p, items: [...items, { question: "", answer: "" }] } });
+        const removeItem = (i: number) => onChange({ ...block, props: { ...p, items: items.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">FAQ Items</Label><Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-3">
+                {items.map((item, i) => (
+                  <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                    <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Q{i + 1}</span><button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                    <Input value={item.question} onChange={e => updateItem(i, { question: e.target.value })} placeholder="Question" className="h-8 text-xs" />
+                    <Textarea value={item.answer} onChange={e => updateItem(i, { answer: e.target.value })} placeholder="Answer" rows={3} className="text-xs resize-none" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "dso-split-feature": {
+        const p = block.props;
+        const bullets = p.bullets ?? [];
+        const updateBullet = (i: number, val: string) => {
+          const next = [...bullets]; next[i] = val;
+          onChange({ ...block, props: { ...p, bullets: next } });
+        };
+        const addBullet = () => onChange({ ...block, props: { ...p, bullets: [...bullets, ""] } });
+        const removeBullet = (i: number) => onChange({ ...block, props: { ...p, bullets: bullets.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Body</Label><Textarea value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value || undefined } })} rows={3} className="text-xs resize-none" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Learn more" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5"><Label className="text-xs">Image Position</Label><Select value={p.imagePosition ?? "right"} onValueChange={v => onChange({ ...block, props: { ...p, imagePosition: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bullet Points</Label><Button variant="ghost" size="sm" onClick={addBullet} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
+              <div className="space-y-1.5">
+                {bullets.map((b, i) => (
+                  <div key={i} className="flex gap-1 items-center">
+                    <Input value={b} onChange={e => updateBullet(i, e.target.value)} className="h-8 text-xs flex-1" placeholder={`Bullet ${i + 1}`} />
+                    <button onClick={() => removeBullet(i)} className="text-slate-400 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

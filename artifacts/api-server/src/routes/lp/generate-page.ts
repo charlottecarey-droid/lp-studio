@@ -506,12 +506,16 @@ const DSO_PRACTICES_SYSTEM_PROMPT = `You are an expert B2B landing page architec
 These pages are shown to individual dental practices that are part of a DSO network — targeting practice owners, dentists, office managers, and clinical teams. Copy should be warm, specific, and ROI-focused at the practice level (chair-time savings, clinical quality, ease of onboarding, dedicated support). Avoid enterprise-level jargon (consolidation metrics, M&A, network KPIs).
 
 AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
-- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldLabel (string), oldBullets (string[]), newLabel (string), newBullets (string[]), backgroundStyle ("dark"|"white"|"muted")
+- "dso-practice-hero": Full-width centered hero for practice landing pages. Props: eyebrow (string — use DSO co-brand like "Heartland Dental × Dandy"), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), trustLine (string — e.g. "Join 200+ practices in your network already using Dandy"), backgroundStyle ("dark"|"white"|"muted")
+- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string), oldWayItems (string[]), newWayLabel (string), newWayItems (string[]), backgroundStyle ("dark"|"white"|"muted")
+- "dso-stat-row": Bold impact metrics in a horizontal grid — 3–4 stats. Props: eyebrow (string), headline (string, optional), items (array of {value (e.g. "96%" or "2x" or "50+"), label (string), detail (string, optional)}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-partnership-perks": Icon grid of partnership benefits/perks. Props: eyebrow (string), headline (string), subheadline (string), perks (array of {icon, title, desc} — icon keys: "trophy","gift","zap","users","clock","star","shield","heart","check","target"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-products-grid": Product card grid with images/icons. Props: eyebrow (string), headline (string), subheadline (string), products (array of {name, detail, price, icon, imageKey} — imageKey options: "posterior-crowns","anterior-crowns","dentures","implants","guided-surgery","aligners","guards","sleep"), backgroundStyle ("white"|"muted"|"dark")
+- "dso-split-feature": Split two-column section with image one side, content the other. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 items), ctaText (string, optional), ctaUrl (string, optional), imageUrl (string, leave blank ""), imagePosition ("left"|"right"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-promo-cards": 2-column promotional offer cards. Props: eyebrow (string), headline (string), subheadline (string), cards (array of {title, desc, badge, ctaText, ctaUrl} — badge options: "NEW","EXCLUSIVE","FREE","LIMITED"), backgroundStyle ("dark"|"white")
-- "dso-activation-steps": Numbered onboarding steps (4 steps). Props: eyebrow (string), headline (string), subheadline (string), steps (array 4 of {number ("01"|"02"|etc), title, subtitle, body, detail}), backgroundStyle ("dark"|"white"|"muted")
+- "dso-activation-steps": Numbered onboarding steps (4 steps). Props: eyebrow (string), headline (string), subheadline (string), steps (array 4 of {step ("01"|"02"|etc), title, desc}), ctaText (string, optional), ctaUrl (string, optional), backgroundStyle ("dark"|"white"|"muted")
 - "dso-promises": Promise/guarantee cards with icons. Props: eyebrow (string), headline (string), subheadline (string), promises (array of {icon, title, desc} — icon keys: "ban","rotate","shieldCheck","trending","award","zap","clock","heart"), backgroundStyle ("dark"|"white"|"muted")
+- "dso-faq": Expandable accordion FAQ for handling objections. Props: eyebrow (string), headline (string), subheadline (string), items (array of {question, answer}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-meet-team": Team member cards with booking buttons + section CTA. Props: eyebrow (string), headline (string), subheadline (string), ctaText (string), ctaUrl (string), members (array of {name, role, email, photo, calendlyUrl}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-testimonials": 3-column testimonial strip. Props: eyebrow (string), headline (string), subheadline (string), testimonials (array of {quote, author, location}), backgroundStyle ("dark"|"white"|"muted")
 
@@ -519,14 +523,14 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5–8 blocks per page. Always start with "dso-paradigm-shift" or "dso-partnership-perks", and always end with "dso-meet-team" or "dso-promises".
-5. Recommended page flow: paradigm-shift → products-grid → partnership-perks → activation-steps → promises → testimonials → meet-team
+4. Generate 6–9 blocks per page. Always start with "dso-practice-hero". Always end with "dso-meet-team" or "dso-promises".
+5. Recommended page flow: practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team
 6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
 7. Use real Dandy product references: "AI Scan Review", "first-time fit rate", "same-day delivery", "on-site training", "dedicated rep", "Dandy scanner".
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
 9. CAPITALIZATION: Always use sentence casing. First word of every sentence capitalized only — except acronyms, proper nouns, and Dandy product lines like "AI Scan Review". NEVER title-case or all-lowercase.
 10. When the user provides specific numbers or stats, use those EXACT numbers.
-11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the team and promises sections.`;
+11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.`;
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const { prompt } = req.body as { prompt?: string };
