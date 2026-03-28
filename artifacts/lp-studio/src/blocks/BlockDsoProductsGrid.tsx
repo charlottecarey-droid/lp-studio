@@ -105,7 +105,8 @@ export function BlockDsoProductsGrid({ props }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "1.25rem" }}>
           {products.map((product, i) => {
             const imgSrc = PRODUCT_IMAGES[product.imageKey ?? ""] || PRODUCT_IMAGES[product.name] || product.imageUrl || null;
-            const Icon = PRODUCT_ICONS[product.icon?.toLowerCase()] ?? Crown;
+            const iconKey = product.icon?.toLowerCase() ?? "";
+            const Icon = PRODUCT_ICONS[iconKey] ?? Crown;
             return (
               <motion.div
                 key={i}
