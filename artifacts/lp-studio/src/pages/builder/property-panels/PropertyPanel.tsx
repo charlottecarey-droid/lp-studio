@@ -1882,6 +1882,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs text-muted-foreground">Trust Line 3</Label>
               <Input value={p.trust3 ?? ""} onChange={e => onChange({ ...block, props: { ...p, trust3: e.target.value } })} placeholder="Live in 30 days" />
             </div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chili Piper</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Chili Piper URL</Label>
+                <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                <p className="text-xs text-muted-foreground">Email will be auto-prefilled when the form is submitted.</p>
+              </div>
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Success State</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Success Headline</Label>
+                <Input value={p.successHeadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, successHeadline: e.target.value } })} placeholder="You're on the list!" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Success Body</Label>
+                <Input value={p.successBody ?? ""} onChange={e => onChange({ ...block, props: { ...p, successBody: e.target.value } })} placeholder="Check your inbox..." className="h-8 text-xs" />
+              </div>
+            </div>
           </div>
         );
       }

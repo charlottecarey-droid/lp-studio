@@ -395,6 +395,9 @@ export interface DsoCtaCaptureBlockProps {
   trust3?: string;
   imageUrl?: string;
   imagePosition?: "left" | "right";
+  chilipiperUrl?: string;
+  successHeadline?: string;
+  successBody?: string;
 }
 
 /* ─── DSO Practices Segment: 8 net-new blocks ─────────────────────────────── */
@@ -3000,6 +3003,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       trust3: "Live in 30 days",
       imageUrl: "https://meetdandy-lp.com/api/storage/objects/uploads/8fc1187a-7e5a-46b1-8314-f8edffef941a",
       imagePosition: "right",
+      chilipiperUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      successHeadline: "You're on the list!",
+      successBody: "Check your inbox — we'll be in touch shortly to schedule your demo.",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

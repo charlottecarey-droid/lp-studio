@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
+import { createPortal } from "react-dom";
+import { X, Calendar, CheckCircle2, Loader2 } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 
@@ -8,10 +10,29 @@ const PFG   = "hsl(48,100%,96%)";
 const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.50)";
 const BG    = "#050e08";
+const API_BASE = "/api";
 
-interface Props { props: DsoCtaCaptureBlockProps }
+interface Props {
+  props: DsoCtaCaptureBlockProps;
+  pageId?: number;
+  variantId?: number;
+}
 
-export function BlockDsoCtaCapture({ props }: Props) {
+type FormState = "idle" | "loading" | "success" | "error";
+
+function buildChiliPiperUrl(base: string, email: string): string {
+  if (!base) return "";
+  try {
+    const url = new URL(base);
+    url.searchParams.set("email", email);
+    return url.toString();
+  } catch {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}email=${encodeURIComponent(email)}`;
+  }
+}
+
+export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
   const {
     eyebrow       = "Get Started Today",
     headline      = "See what Dandy can\ndo for your group.",
@@ -24,24 +45,68 @@ export function BlockDsoCtaCapture({ props }: Props) {
     trust3        = "Live in 30 days",
     imageUrl      = "",
     imagePosition = "right",
-    backgroundStyle = "dandy-green",
+    chilipiperUrl = "",
+    successHeadline = "You're on the list!",
+    successBody = "Check your inbox — we'll be in touch shortly to schedule your demo.",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-8%" });
   const [focused, setFocused] = useState(false);
+  const [email, setEmail] = useState("");
+  const [formState, setFormState] = useState<FormState>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [cpOpen, setCpOpen] = useState(false);
+  const [cpUrl, setCpUrl] = useState("");
 
   const hasImage  = Boolean(imageUrl);
   const imgOnLeft = imagePosition === "left";
-
   const trusts = [trust1, trust2, trust3].filter(Boolean);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setErrorMsg("Please enter a valid work email.");
+      return;
+    }
+    setErrorMsg("");
+    setFormState("loading");
+
+    try {
+      if (pageId) {
+        await fetch(`${API_BASE}/lp/leads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageId,
+            variantId,
+            fields: { email: trimmed, source: "dso-cta-capture" },
+          }),
+        });
+      }
+    } catch {
+    }
+
+    setFormState("success");
+
+    if (chilipiperUrl) {
+      const url = buildChiliPiperUrl(chilipiperUrl, trimmed);
+      setCpUrl(url);
+      setCpOpen(true);
+    }
+  }
+
+  const isLoading = formState === "loading";
+  const isSuccess = formState === "success";
 
   return (
     <section
       ref={sectionRef}
-      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle(backgroundStyle) }}
+      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle("dandy-green") }}
     >
-      {/* Atmospheric lime radial glow — content side */}
+      {/* Atmospheric lime radial glow */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: imgOnLeft
@@ -72,7 +137,6 @@ export function BlockDsoCtaCapture({ props }: Props) {
             transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
           />
-          {/* Gradient fade toward content */}
           <div style={{
             position: "absolute", inset: 0,
             background: imgOnLeft
@@ -99,10 +163,8 @@ export function BlockDsoCtaCapture({ props }: Props) {
           gap: "5rem",
         }}
       >
-        {/* Spacer when image is on the left */}
         {hasImage && imgOnLeft && <div />}
 
-        {/* CTA content */}
         <motion.div
           initial={{ opacity: 0, x: hasImage ? (imgOnLeft ? 32 : -32) : 0, y: hasImage ? 0 : 20 }}
           animate={inView ? { opacity: 1, x: 0, y: 0 } : {}}
@@ -115,7 +177,6 @@ export function BlockDsoCtaCapture({ props }: Props) {
             transition={{ duration: 0.45 }}
             style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "2rem" }}
           >
-            {/* Lime pulse dot */}
             <span style={{
               display: "inline-block", width: 7, height: 7, borderRadius: "50%",
               background: AW, boxShadow: "0 0 0 3px rgba(199,231,56,0.18)",
@@ -152,63 +213,128 @@ export function BlockDsoCtaCapture({ props }: Props) {
             {body}
           </motion.p>
 
-          {/* Input label */}
-          {inputLabel && (
-            <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(199,231,56,0.6)", marginBottom: "0.65rem" }}>
-              {inputLabel}
-            </p>
-          )}
-
-          {/* Pill input + CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "rgba(255,255,255,0.04)",
-              border: `1px solid ${focused ? "rgba(199,231,56,0.5)" : "rgba(199,231,56,0.2)"}`,
-              borderRadius: 999,
-              padding: "5px 5px 5px 22px",
-              gap: 8,
-              backdropFilter: "blur(12px)",
-              boxShadow: focused ? "0 0 0 3px rgba(199,231,56,0.08), 0 0 24px rgba(199,231,56,0.06)" : "none",
-              transition: "border-color 0.2s, box-shadow 0.2s",
-              maxWidth: 480,
-            }}
-          >
-            <input
-              type="email"
-              placeholder={inputPlaceholder}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
+          {/* ── Success state ── */}
+          {isSuccess ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               style={{
-                flex: 1, minWidth: 0,
-                background: "none", border: "none", outline: "none",
-                color: PFG, fontSize: "0.9375rem",
-                fontFamily: "inherit",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.625rem",
+                maxWidth: 480,
+                background: "rgba(199,231,56,0.07)",
+                border: "1px solid rgba(199,231,56,0.22)",
+                borderRadius: "1rem",
+                padding: "1.25rem 1.5rem",
               }}
-            />
-            <button
-              style={{
-                background: AW,
-                color: "#050e08",
-                border: "none", borderRadius: 999,
-                padding: "13px 26px",
-                fontWeight: 800, fontSize: "0.875rem",
-                cursor: "pointer", whiteSpace: "nowrap",
-                fontFamily: DISPLAY_FONT,
-                letterSpacing: "-0.01em",
-                flexShrink: 0,
-                transition: "opacity 0.15s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
             >
-              {ctaLabel}
-            </button>
-          </motion.div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <CheckCircle2 style={{ width: 18, height: 18, color: AW, flexShrink: 0 }} />
+                <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: PFG }}>{successHeadline}</span>
+              </div>
+              <p style={{ fontSize: "0.875rem", color: MUTED, margin: 0, lineHeight: 1.6 }}>{successBody}</p>
+              {chilipiperUrl && (
+                <button
+                  type="button"
+                  onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim())); setCpOpen(true); }}
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: "0.25rem",
+                    background: AW, color: BG,
+                    border: "none", borderRadius: 999,
+                    padding: "9px 20px",
+                    fontWeight: 700, fontSize: "0.8125rem",
+                    cursor: "pointer", fontFamily: DISPLAY_FONT,
+                    display: "flex", alignItems: "center", gap: "0.4rem",
+                  }}
+                >
+                  <Calendar style={{ width: 13, height: 13 }} />
+                  Open scheduler
+                </button>
+              )}
+            </motion.div>
+          ) : (
+            <>
+              {/* Input label */}
+              {inputLabel && (
+                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(199,231,56,0.6)", marginBottom: "0.65rem" }}>
+                  {inputLabel}
+                </p>
+              )}
+
+              {/* Pill input + CTA */}
+              <motion.form
+                onSubmit={handleSubmit}
+                noValidate
+                initial={{ opacity: 0, y: 12 }}
+                animate={inView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${focused ? "rgba(199,231,56,0.5)" : errorMsg ? "rgba(239,68,68,0.5)" : "rgba(199,231,56,0.2)"}`,
+                  borderRadius: 999,
+                  padding: "5px 5px 5px 22px",
+                  gap: 8,
+                  backdropFilter: "blur(12px)",
+                  boxShadow: focused ? "0 0 0 3px rgba(199,231,56,0.08), 0 0 24px rgba(199,231,56,0.06)" : "none",
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                  maxWidth: 480,
+                }}
+              >
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); if (errorMsg) setErrorMsg(""); }}
+                  placeholder={inputPlaceholder}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  disabled={isLoading}
+                  style={{
+                    flex: 1, minWidth: 0,
+                    background: "none", border: "none", outline: "none",
+                    color: PFG, fontSize: "0.9375rem",
+                    fontFamily: "inherit",
+                    opacity: isLoading ? 0.5 : 1,
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  style={{
+                    background: AW,
+                    color: "#050e08",
+                    border: "none", borderRadius: 999,
+                    padding: "13px 26px",
+                    fontWeight: 800, fontSize: "0.875rem",
+                    cursor: isLoading ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                    fontFamily: DISPLAY_FONT,
+                    letterSpacing: "-0.01em",
+                    flexShrink: 0,
+                    opacity: isLoading ? 0.75 : 1,
+                    transition: "opacity 0.15s",
+                    display: "flex", alignItems: "center", gap: "0.4rem",
+                  }}
+                  onMouseEnter={e => !isLoading && (e.currentTarget.style.opacity = "0.88")}
+                  onMouseLeave={e => !isLoading && (e.currentTarget.style.opacity = "1")}
+                >
+                  {isLoading && <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />}
+                  {ctaLabel}
+                </button>
+              </motion.form>
+
+              {/* Error message */}
+              {errorMsg && (
+                <p style={{ fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.5rem", marginLeft: "1rem" }}>
+                  {errorMsg}
+                </p>
+              )}
+            </>
+          )}
 
           {/* Trust strip */}
           {trusts.length > 0 && (
@@ -234,7 +360,6 @@ export function BlockDsoCtaCapture({ props }: Props) {
           )}
         </motion.div>
 
-        {/* Spacer when image is on the right */}
         {hasImage && !imgOnLeft && <div />}
       </div>
 
@@ -242,7 +367,71 @@ export function BlockDsoCtaCapture({ props }: Props) {
         @media (max-width: 768px) {
           .dcc-grid { grid-template-columns: 1fr !important; gap: 2rem !important; }
         }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* ── Chili Piper Modal ── */}
+      {cpOpen && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "1.5rem",
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setCpOpen(false); }}
+        >
+          <div
+            style={{
+              position: "relative", width: "100%",
+              maxWidth: 880, height: "min(90vh, 720px)",
+              background: "#fff", borderRadius: "1.25rem",
+              overflow: "hidden",
+              boxShadow: "0 30px 70px rgba(0,0,0,0.45)",
+              display: "flex", flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                display: "flex", alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.875rem 1.25rem",
+                borderBottom: "1px solid #e5e7eb",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Calendar style={{ width: 16, height: 16, color: "#003A30" }} />
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#003A30", fontFamily: "'Inter',system-ui,sans-serif" }}>
+                  Schedule a Meeting
+                </span>
+              </div>
+              <button
+                onClick={() => setCpOpen(false)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  padding: "0.25rem", borderRadius: "0.375rem",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#6b7280", transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#f3f4f6")}
+                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+            <iframe
+              src={cpUrl}
+              style={{ flex: 1, width: "100%", border: "none", minHeight: 0 }}
+              allow="camera; microphone; clipboard-write"
+              title="Schedule a Meeting"
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </section>
   );
 }

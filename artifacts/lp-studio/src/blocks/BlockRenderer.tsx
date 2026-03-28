@@ -456,7 +456,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} brand={brand} />;
       case "dso-cta-capture":
-        return <BlockDsoCtaCapture props={block.props} />;
+        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} />;
       case "dso-meet-team":
         return <BlockDsoMeetTeam props={block.props} brand={brand} />;
       case "dso-paradigm-shift":
