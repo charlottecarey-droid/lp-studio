@@ -2,9 +2,15 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { DsoStatRowBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoStatRowBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
@@ -49,8 +55,8 @@ function parseStatValue(value: string): { prefix: string; num: number; suffix: s
   return { prefix: m[1], num: parseFloat(m[2]), suffix: m[3] };
 }
 
-export function BlockDsoStatRow({ props }: Props) {
-  const { eyebrow, headline, items = [], backgroundStyle = "dark" } = props;
+export function BlockDsoStatRow({ props, brand }: Props) {
+  const { eyebrow, headline, items = [], ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -130,6 +136,39 @@ export function BlockDsoStatRow({ props }: Props) {
             );
           })}
         </div>
+
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            style={{ textAlign: "center", marginTop: "2.5rem" }}
+          >
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+              >
+                {ctaText}
+              </ChiliPiperButton>
+            ) : (
+              <motion.a
+                href={ctaUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING}
+              >
+                {ctaText}
+              </motion.a>
+            )}
+          </motion.div>
+        )}
       </div>
     </section>
   );

@@ -2,9 +2,15 @@ import { motion } from "framer-motion";
 import { Gift, Star, Shield, Sparkles, Zap, Users, Clock, TrendingUp, CheckCircle, Award, Heart, Layers } from "lucide-react";
 import type { DsoPartnershipPerksBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoPartnershipPerksBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
@@ -48,8 +54,8 @@ function PerkIcon({ name, dark }: { name: string; dark: boolean }) {
   );
 }
 
-export function BlockDsoPartnershipPerks({ props }: Props) {
-  const { eyebrow, headline, subheadline, perks = [], backgroundStyle = "dark" } = props;
+export function BlockDsoPartnershipPerks({ props, brand }: Props) {
+  const { eyebrow, headline, subheadline, perks = [], ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -125,6 +131,39 @@ export function BlockDsoPartnershipPerks({ props }: Props) {
             </motion.div>
           ))}
         </div>
+
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            style={{ textAlign: "center", marginTop: "3rem" }}
+          >
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+              >
+                {ctaText}
+              </ChiliPiperButton>
+            ) : (
+              <motion.a
+                href={ctaUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING}
+              >
+                {ctaText}
+              </motion.a>
+            )}
+          </motion.div>
+        )}
       </div>
     </section>
   );

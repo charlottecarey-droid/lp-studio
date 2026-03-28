@@ -1,6 +1,11 @@
 import { motion } from "framer-motion";
 import type { DsoBentoOutcomesBlockProps, DsoBentoTile } from "@/lib/block-types";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -180,13 +185,15 @@ function TileSwitch({ tile, delay }: { tile: DsoBentoTile; delay: number }) {
 
 interface Props {
   props: DsoBentoOutcomesBlockProps;
+  brand: BrandConfig;
 }
 
-export function BlockDsoBentoOutcomes({ props }: Props) {
+export function BlockDsoBentoOutcomes({ props, brand }: Props) {
   const {
     eyebrow = "Why Dandy",
     headline = "Every metric that matters. All in one platform.",
     tiles,
+    ctaText, ctaUrl, ctaMode = "link",
     backgroundStyle = "white",
   } = props;
   const displayTiles = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
@@ -269,6 +276,42 @@ export function BlockDsoBentoOutcomes({ props }: Props) {
             </div>
           ))}
         </div>
+
+        {ctaText && (() => {
+          const dark = isDarkBg(backgroundStyle ?? "white");
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              style={{ textAlign: "center", marginTop: "3rem" }}
+            >
+              {ctaMode === "chilipiper" ? (
+                <ChiliPiperButton
+                  url={ctaUrl ?? ""}
+                  className={getButtonClasses(brand, "inline-flex items-center")}
+                  style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+                >
+                  {ctaText}
+                </ChiliPiperButton>
+              ) : (
+                <motion.a
+                  href={ctaUrl ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={getButtonClasses(brand, "inline-flex items-center")}
+                  style={{ backgroundColor: dark ? brand.accentColor : brand.primaryColor, color: dark ? brand.primaryColor : brand.accentColor, textDecoration: "none" }}
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={SPRING}
+                >
+                  {ctaText}
+                </motion.a>
+              )}
+            </motion.div>
+          );
+        })()}
       </div>
     </section>
   );

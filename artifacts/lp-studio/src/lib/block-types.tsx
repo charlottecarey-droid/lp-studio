@@ -373,6 +373,10 @@ export interface DsoBentoOutcomesBlockProps {
   eyebrow: string;
   headline: string;
   tiles: DsoBentoTile[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+  backgroundStyle?: BackgroundStyle;
 }
 
 export interface DsoCtaCaptureBlockProps {
@@ -418,6 +422,9 @@ export interface DsoParadigmShiftBlockProps {
   newWayLabel?: string;
   oldWayItems: string[];
   newWayItems: string[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -432,6 +439,9 @@ export interface DsoPartnershipPerksBlockProps {
   headline?: string;
   subheadline?: string;
   perks: DsoPartnershipPerk[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -449,6 +459,9 @@ export interface DsoProductsGridBlockProps {
   headline?: string;
   subheadline?: string;
   products: DsoProductItem[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -496,6 +509,9 @@ export interface DsoPromisesBlockProps {
   headline?: string;
   subheadline?: string;
   promises: DsoPromise[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -510,6 +526,9 @@ export interface DsoTestimonialsBlockProps {
   headline?: string;
   subheadline?: string;
   testimonials: DsoTestimonialItem[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -542,6 +561,9 @@ export interface DsoStatRowBlockProps {
   eyebrow?: string;
   headline?: string;
   items: DsoStatRowItem[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -555,6 +577,9 @@ export interface DsoFaqBlockProps {
   headline?: string;
   subheadline?: string;
   items: DsoFaqItem[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
   backgroundStyle?: BackgroundStyle;
 }
 

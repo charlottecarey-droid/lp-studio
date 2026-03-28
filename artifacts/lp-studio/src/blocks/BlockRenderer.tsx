@@ -453,31 +453,31 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-flow-canvas":
         return <BlockDsoFlowCanvas props={block.props} />;
       case "dso-bento-outcomes":
-        return <BlockDsoBentoOutcomes props={block.props} />;
+        return <BlockDsoBentoOutcomes props={block.props} brand={brand} />;
       case "dso-cta-capture":
         return <BlockDsoCtaCapture props={block.props} />;
       case "dso-meet-team":
         return <BlockDsoMeetTeam props={block.props} brand={brand} />;
       case "dso-paradigm-shift":
-        return <BlockDsoParadigmShift props={block.props} />;
+        return <BlockDsoParadigmShift props={block.props} brand={brand} />;
       case "dso-partnership-perks":
-        return <BlockDsoPartnershipPerks props={block.props} />;
+        return <BlockDsoPartnershipPerks props={block.props} brand={brand} />;
       case "dso-products-grid":
-        return <BlockDsoProductsGrid props={block.props} />;
+        return <BlockDsoProductsGrid props={block.props} brand={brand} />;
       case "dso-promo-cards":
         return <BlockDsoPromoCards props={block.props} />;
       case "dso-activation-steps":
         return <BlockDsoActivationSteps props={block.props} brand={brand} />;
       case "dso-promises":
-        return <BlockDsoPromises props={block.props} />;
+        return <BlockDsoPromises props={block.props} brand={brand} />;
       case "dso-testimonials":
-        return <BlockDsoTestimonials props={block.props} />;
+        return <BlockDsoTestimonials props={block.props} brand={brand} />;
       case "dso-practice-hero":
         return <BlockDsoPracticeHero props={block.props} brand={brand} />;
       case "dso-stat-row":
-        return <BlockDsoStatRow props={block.props} />;
+        return <BlockDsoStatRow props={block.props} brand={brand} />;
       case "dso-faq":
-        return <BlockDsoFaq props={block.props} />;
+        return <BlockDsoFaq props={block.props} brand={brand} />;
       case "dso-split-feature":
         return <BlockDsoSplitFeature props={block.props} brand={brand} />;
       default: {

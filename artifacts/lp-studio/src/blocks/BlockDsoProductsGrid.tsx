@@ -2,7 +2,9 @@ import { motion } from "framer-motion";
 import { Crown, SmilePlus, Stethoscope, Target, Scan, Sparkles, Moon, Shield } from "lucide-react";
 import type { DsoProductsGridBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
-
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import productPosteriorCrowns from "@/assets/dandy-product-posterior-crowns.webp";
 import productAnteriorCrowns  from "@/assets/dandy-product-anterior-crowns.webp";
 import productDentures        from "@/assets/dandy-product-dentures.webp";
@@ -12,8 +14,11 @@ import productAligners         from "@/assets/dandy-product-aligners.webp";
 import productGuards           from "@/assets/dandy-product-guards.webp";
 import productSleep            from "@/assets/dandy-product-sleep.webp";
 
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
+
 interface Props {
   props: DsoProductsGridBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
@@ -50,8 +55,8 @@ const PRODUCT_ICONS: Record<string, React.ElementType> = {
   shield:      Shield,
 };
 
-export function BlockDsoProductsGrid({ props }: Props) {
-  const { eyebrow, headline, subheadline, products = [], backgroundStyle = "muted" } = props;
+export function BlockDsoProductsGrid({ props, brand }: Props) {
+  const { eyebrow, headline, subheadline, products = [], ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "muted" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -149,6 +154,39 @@ export function BlockDsoProductsGrid({ props }: Props) {
             );
           })}
         </div>
+
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            style={{ textAlign: "center", marginTop: "3rem" }}
+          >
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+              >
+                {ctaText}
+              </ChiliPiperButton>
+            ) : (
+              <motion.a
+                href={ctaUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={getButtonClasses(brand, "inline-flex items-center")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING}
+              >
+                {ctaText}
+              </motion.a>
+            )}
+          </motion.div>
+        )}
       </div>
     </section>
   );
