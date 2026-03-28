@@ -195,7 +195,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundColor: FOREST,
+            backgroundColor: props.overlayColor ?? FOREST,
             opacity: overlayOpacity,
           }}
         />

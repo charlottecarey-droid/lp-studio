@@ -41,6 +41,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
     headerDandyColor,
     backgroundImage,
     backgroundOverlay,
+    overlayColor = "#000000",
   } = props;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
@@ -63,7 +64,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
 
   return (
     <section style={sectionBgStyle} className="py-24 md:py-32">
-      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />}
       <div style={{ position: "relative", zIndex: 1, maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>

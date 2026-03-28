@@ -223,6 +223,7 @@ export interface DsoLabTourBlockProps {
   backgroundStyle: BackgroundStyle;
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export interface DsoStatBarBlockProps {
@@ -251,6 +252,7 @@ export interface DsoSuccessStoriesBlockProps {
   backgroundStyle: BackgroundStyle;
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export interface DsoChallengesBlockProps {
@@ -261,6 +263,7 @@ export interface DsoChallengesBlockProps {
   challenges: { title: string; desc: string }[];
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export type DsoProblemPanelIcon =
@@ -625,6 +628,7 @@ export interface DsoPilotStepsBlockProps {
   steps?: DsoPilotStep[];
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export interface DsoFinalCtaBlockProps {
@@ -638,6 +642,7 @@ export interface DsoFinalCtaBlockProps {
   backgroundStyle: BackgroundStyle;
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export interface DsoComparisonBlockProps {
@@ -655,6 +660,7 @@ export interface DsoComparisonBlockProps {
   headerDandyColor?: string;
   backgroundImage?: string;
   backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export type FormFieldType = "text" | "email" | "phone" | "textarea" | "select" | "checkbox" | "hidden";
@@ -800,6 +806,7 @@ export interface FullBleedHeroBlockProps {
   backgroundVideoUrl?: string;
   videoAutoplay?: boolean;
   overlayOpacity: number;
+  overlayColor?: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   headlineColor?: string;
   subheadlineColor?: string;

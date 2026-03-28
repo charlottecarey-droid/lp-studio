@@ -257,9 +257,21 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
         )}
 
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-            Overlay Opacity — {props.overlayOpacity ?? 50}%
-          </Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Overlay Opacity — {props.overlayOpacity ?? 50}%
+            </Label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Color</span>
+              <input
+                type="color"
+                value={props.overlayColor ?? "#003A30"}
+                onChange={e => set("overlayColor", e.target.value)}
+                className="h-7 w-10 rounded cursor-pointer border border-slate-200 p-0.5"
+                title="Overlay color"
+              />
+            </div>
+          </div>
           <Slider
             min={0}
             max={80}

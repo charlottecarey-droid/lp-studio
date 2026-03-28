@@ -407,7 +407,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
@@ -503,7 +506,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
@@ -603,7 +609,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
@@ -717,7 +726,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
@@ -825,7 +837,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
@@ -883,7 +898,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             {p.backgroundImage && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Image Overlay Opacity <span className="text-slate-400">({Math.round((p.backgroundOverlay ?? 0.55) * 100)}%)</span></Label>
+                  <input type="color" value={p.overlayColor ?? "#000000"} onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })} className="h-6 w-10 rounded cursor-pointer border border-slate-200 p-0.5" title="Overlay color" />
+                </div>
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}

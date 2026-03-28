@@ -26,6 +26,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
     backgroundStyle = "dandy-green",
     backgroundImage,
     backgroundOverlay,
+    overlayColor = "#000000",
   } = props;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? { ...getImageBgSectionStyle(backgroundImage), overflow: "hidden" as const } : { position: "relative" as const, overflow: "hidden" as const, ...getBgStyle(backgroundStyle) };
@@ -56,7 +57,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
       style={sectionBgStyle}
       className="py-28 md:py-36"
     >
-      {backgroundImage && <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />}
+      {backgroundImage && <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />}
       {/* Orb 1 — top center */}
       <motion.div
         style={{

@@ -42,7 +42,7 @@ const DEFAULT_CASES = [
 ];
 
 export function BlockDsoSuccessStories({ props }: Props) {
-  const { eyebrow, headline, cases, backgroundStyle = "muted", backgroundImage, backgroundOverlay } = props;
+  const { eyebrow, headline, cases, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000" } = props;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
@@ -63,7 +63,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
   return (
     <section style={sectionBgStyle} className="py-24 md:py-32">
       {backgroundImage && (
-        <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${backgroundOverlay ?? 0.55})`, zIndex: 0, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />
       )}
       <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Header */}
