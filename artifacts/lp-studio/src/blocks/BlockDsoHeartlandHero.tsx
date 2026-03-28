@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 
 interface Props {
   props: DsoHeartlandHeroBlockProps;
@@ -14,18 +15,6 @@ const BG       = "hsl(192, 30%, 5%)";
 const MUTED_FG = "hsl(192, 10%, 55%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-/* ── Dandy wordmark (inline SVG "D" letterform) ─────────── */
-function DandyMark() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <rect width="20" height="20" rx="5" fill={PRIMARY} />
-      <path
-        d="M6 5h4.5C13.538 5 16 7.238 16 10s-2.462 5-5.5 5H6V5z"
-        fill="hsl(192,30%,6%)"
-      />
-    </svg>
-  );
-}
 
 export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const heroRef = useRef<HTMLElement>(null);
@@ -126,19 +115,17 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
           }}
         >
           {/* Left — Dandy × Company */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-            <DandyMark />
-            <span
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <img
+              src={dandyLogoUrl}
+              alt="Dandy"
               style={{
-                fontFamily: DISPLAY_FONT,
-                fontSize: "0.9375rem",
-                fontWeight: 600,
-                color: "#fff",
-                letterSpacing: "-0.01em",
+                height: 26,
+                width: "auto",
+                filter: "brightness(0) invert(1)",
+                display: "block",
               }}
-            >
-              Dandy
-            </span>
+            />
             {company && (
               <>
                 <span
