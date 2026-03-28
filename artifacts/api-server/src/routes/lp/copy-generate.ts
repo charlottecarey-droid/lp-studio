@@ -84,8 +84,13 @@ async function fetchBrand(): Promise<BrandConfig> {
 }
 
 const KNOWN_FIELDS = new Set([
+  // Standard LP fields
   "headline", "subheadline", "ctaText", "body", "secondaryCtaText",
   "title", "description", "bodyText", "tagline",
+  // DSO-specific fields
+  "eyebrow", "quote", "attribution", "stat", "statLabel",
+  "footerNote", "primaryCtaText", "inputLabel", "ctaLabel",
+  "trust1", "trust2", "trust3",
 ]);
 
 interface SegmentContext {
@@ -170,6 +175,11 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const brandPrompt = buildBrandSystemPrompt(brand);
   const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
 
+  const isDsoBlock = blockType.startsWith("dso-");
+  const dsoContext = isDsoBlock
+    ? `You are writing copy for a DSO (dental service organization) enterprise sales page block of type "${blockType}". Write B2B copy targeting DSO executives (CEO, COO, VP of Operations). Focus on multi-location dental networks, operational efficiency, lab standardization, AI-powered workflows, and measurable ROI. Be specific and credible. Reference Dandy product names where natural: "AI Scan Review", "Pilot Program", "first-time fit rate", "remake reduction", "turnaround time". Use sentence casing throughout.`
+    : "";
+
   if (action === "refresh") {
     const { fields, currentValues = {} } = body;
     if (!Array.isArray(fields) || fields.length === 0) {
@@ -190,6 +200,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
     const systemPrompt = [
       brandPrompt,
       briefPrompt,
+      dsoContext,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
@@ -262,6 +273,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
   const systemPrompt = [
     brandPrompt,
     briefPrompt,
+    dsoContext,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
     `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
     `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
