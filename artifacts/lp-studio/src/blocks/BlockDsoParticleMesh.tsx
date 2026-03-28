@@ -18,15 +18,15 @@ function makeParticles(W: number, H: number, n: number): Particle[] {
   }));
 }
 
-/* ── Float configuration for overlaid images ── */
-/* Each image gets a unique sinusoidal drift path (dx/dy are keyframe waypoints) */
-const FLOAT_CFG = [
-  { left: 56,  top:  4,  w: 300, opacity: 0.50, dx: [0, 22, -14, 0], dy: [0, -18,  26, 0], rot: [0,  4, -2, 0], dur: 17 },
-  { left: 70,  top: 38,  w: 200, opacity: 0.35, dx: [0, -18,  12, 0], dy: [0,  24, -10, 0], rot: [0, -5,  3, 0], dur: 22 },
-  { left: 44,  top: 58,  w: 240, opacity: 0.30, dx: [0,  14, -20, 0], dy: [0, -10,  18, 0], rot: [0,  3, -4, 0], dur: 19 },
-  { left: 80,  top: 12,  w: 150, opacity: 0.22, dx: [0, -12,   8, 0], dy: [0,  16,  -8, 0], rot: [0,  6, -3, 0], dur: 25 },
-  { left: 62,  top: 72,  w: 170, opacity: 0.25, dx: [0,  10, -14, 0], dy: [0,  -6,  20, 0], rot: [0, -4,  5, 0], dur: 20 },
-];
+/* ── Single large floating image config ── */
+const FLOAT_CFG = {
+  left: 52, top: 8, w: 520,
+  opacity: 0.72,
+  dx: [0, 18, -12, 0],
+  dy: [0, -20, 14, 0],
+  rot: [0, 3, -2, 0],
+  dur: 18,
+};
 
 interface Props { props: DsoParticleMeshBlockProps }
 
@@ -126,11 +126,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
     { value: stat3Value, label: stat3Label },
   ];
 
-  /* Determine which images to show: cycle through available URLs up to 5 positions */
-  const floatItems = FLOAT_CFG.map((cfg, i) => ({
-    cfg,
-    url: imageUrls.length > 0 ? imageUrls[i % imageUrls.length] : null,
-  })).filter(item => item.url);
+  const floatUrl = imageUrls.length > 0 ? imageUrls[0] : null;
 
   return (
     <section
@@ -143,45 +139,39 @@ export function BlockDsoParticleMesh({ props }: Props) {
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
       />
 
-      {/* Floating product images — above particles, below content */}
-      {floatItems.length > 0 && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none", overflow: "hidden" }}>
-          {floatItems.map(({ cfg, url }, i) => (
-            <motion.img
-              key={i}
-              src={url!}
-              alt=""
-              draggable={false}
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: [0, cfg.opacity, cfg.opacity],
-                x:      cfg.dx as number[],
-                y:      cfg.dy as number[],
-                rotate: cfg.rot as number[],
-                scale:  [1, 1.04, 0.97, 1],
-              }}
-              transition={{
-                opacity: { duration: 1.2, delay: 0.3 + i * 0.15 },
-                x:       { duration: cfg.dur, repeat: Infinity, ease: "easeInOut" },
-                y:       { duration: cfg.dur * 0.85, repeat: Infinity, ease: "easeInOut" },
-                rotate:  { duration: cfg.dur * 1.1, repeat: Infinity, ease: "easeInOut" },
-                scale:   { duration: cfg.dur * 0.9, repeat: Infinity, ease: "easeInOut" },
-              }}
-              style={{
-                position: "absolute",
-                left: `${cfg.left}%`,
-                top:  `${cfg.top}%`,
-                width: `${cfg.w}px`,
-                maxWidth: "30vw",
-                /* Lime glow that ties images into the particle aesthetic */
-                filter: "drop-shadow(0 0 28px rgba(199,231,56,0.22)) drop-shadow(0 0 8px rgba(199,231,56,0.12))",
-                /* Screen blend: dark canvas bg cancels out → only the bright
-                   product areas show through, creating a holographic feel */
-                mixBlendMode: "screen",
-              }}
-            />
-          ))}
-        </div>
+      {/* Single large floating image — above particles, below content */}
+      {floatUrl && (
+        <motion.img
+          src={floatUrl}
+          alt=""
+          draggable={false}
+          initial={{ opacity: 0 }}
+          animate={{
+            opacity: [0, FLOAT_CFG.opacity, FLOAT_CFG.opacity],
+            x:      FLOAT_CFG.dx as number[],
+            y:      FLOAT_CFG.dy as number[],
+            rotate: FLOAT_CFG.rot as number[],
+            scale:  [1, 1.03, 0.98, 1],
+          }}
+          transition={{
+            opacity: { duration: 1.4 },
+            x:       { duration: FLOAT_CFG.dur, repeat: Infinity, ease: "easeInOut" },
+            y:       { duration: FLOAT_CFG.dur * 0.85, repeat: Infinity, ease: "easeInOut" },
+            rotate:  { duration: FLOAT_CFG.dur * 1.1, repeat: Infinity, ease: "easeInOut" },
+            scale:   { duration: FLOAT_CFG.dur * 0.9, repeat: Infinity, ease: "easeInOut" },
+          }}
+          style={{
+            position: "absolute",
+            left: `${FLOAT_CFG.left}%`,
+            top:  `${FLOAT_CFG.top}%`,
+            width: `${FLOAT_CFG.w}px`,
+            maxWidth: "48vw",
+            zIndex: 1,
+            pointerEvents: "none",
+            filter: "drop-shadow(0 0 40px rgba(199,231,56,0.25)) drop-shadow(0 0 12px rgba(199,231,56,0.12))",
+            mixBlendMode: "screen",
+          }}
+        />
       )}
 
       {/* Radial vignette — pulls edges dark so text is always readable */}

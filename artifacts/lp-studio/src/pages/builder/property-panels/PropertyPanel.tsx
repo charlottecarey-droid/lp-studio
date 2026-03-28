@@ -1314,17 +1314,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Textarea rows={3} value={p.body ?? ""} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} className="resize-none text-xs" />
             </div>
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Floating Images</Label>
-              <p className="text-xs text-muted-foreground">One image URL per line (up to 5). Images float over the particle field.</p>
-              <Textarea
-                rows={5}
-                className="resize-none text-xs font-mono"
-                value={urlsStr}
+              <Label className="text-xs">Floating Image URL</Label>
+              <p className="text-xs text-muted-foreground">One image that floats over the particle field. Paste any image URL below.</p>
+              <Input
+                className="text-xs font-mono"
+                value={(p.imageUrls ?? [])[0] ?? ""}
                 onChange={e => {
-                  const urls = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
-                  onChange({ ...block, props: { ...p, imageUrls: urls } });
+                  const val = e.target.value.trim();
+                  onChange({ ...block, props: { ...p, imageUrls: val ? [val] : [] } });
                 }}
-                placeholder={"https://…\nhttps://…"}
+                placeholder="https://…"
               />
             </div>
             <div className="border-t pt-3 space-y-2">
