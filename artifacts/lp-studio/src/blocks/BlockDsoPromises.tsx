@@ -98,7 +98,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1.25rem" }}>
           {promises.map((promise, i) => {
             const Icon = ICON_MAP[promise.icon?.toLowerCase()] ?? ShieldCheck;
             return (
@@ -109,6 +109,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.09, duration: 0.5 }}
                 style={{
+                  flex: "0 1 300px",
                   background: cardBg,
                   border: cardBor,
                   borderRadius: "1.25rem",

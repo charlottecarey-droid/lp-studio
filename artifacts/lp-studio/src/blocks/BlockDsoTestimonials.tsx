@@ -71,7 +71,7 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1.25rem" }}>
           {testimonials.map((t, i) => (
             <motion.div
               key={i}
@@ -80,6 +80,7 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
               viewport={{ once: true }}
               transition={{ delay: i * 0.09, duration: 0.55 }}
               style={{
+                flex: "0 1 280px",
                 background: cardBg,
                 border: cardBor,
                 borderRadius: "1.25rem",

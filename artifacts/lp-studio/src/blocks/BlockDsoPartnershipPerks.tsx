@@ -106,7 +106,7 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1.25rem" }}>
           {perks.map((perk, i) => (
             <motion.div
               key={i}
@@ -115,6 +115,7 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
               viewport={{ once: true }}
               transition={{ delay: i * 0.08, duration: 0.5 }}
               style={{
+                flex: "0 1 300px",
                 background: cardBg,
                 border: cardBor,
                 borderRadius: "1rem",
