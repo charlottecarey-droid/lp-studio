@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
@@ -104,6 +105,17 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
           pointerEvents: "none",
         }}
       />
+
+      {dark && (
+        <>
+          <ScanAcross duration={12} delay={3} repeatDelay={10} />
+          <ScanDown duration={14} delay={7} repeatDelay={12} />
+          <PulseGlow top="50%" left="50%" size={500} duration={9} delay={1} />
+          <FlickerDot top="18%" left="8%" delay={0} />
+          <FlickerDot top="72%" right="6%" delay={1.8} />
+          <FlickerDot top="40%" right="12%" delay={4} />
+        </>
+      )}
 
       {/* Thin top border accent */}
       <div

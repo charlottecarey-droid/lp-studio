@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { ScanDown, FlickerDot } from "./SectionAmbient";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
@@ -79,8 +80,16 @@ export function BlockDsoPilotSteps({ props }: Props) {
   const stepCardShadow = dark ? "none" : "0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.05)";
 
   return (
-    <section style={sectionBgStyle} className="py-24 md:py-32">
+    <section style={{ ...sectionBgStyle, position: "relative", overflow: "hidden" }} className="py-24 md:py-32">
       {backgroundImage && <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />}
+      {dark && (
+        <>
+          <ScanDown duration={11} delay={0} repeatDelay={10} />
+          <FlickerDot top="25%" left="6%" delay={0.5} />
+          <FlickerDot top="60%" right="5%" delay={2.5} />
+          <FlickerDot top="80%" left="45%" delay={5} />
+        </>
+      )}
       <div style={{ position: "relative", zIndex: 1, maxWidth: 800, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "4rem" }}>
           {eyebrow && (

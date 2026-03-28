@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
+import { ScanAcross, PulseGlow } from "./SectionAmbient";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -171,6 +172,12 @@ export function BlockDsoStatShowcase({ props }: Props) {
             pointerEvents: "none",
           }}
         />
+      )}
+      {dark && (
+        <>
+          <ScanAcross duration={13} delay={1} repeatDelay={9} />
+          <PulseGlow top="50%" left="90%" size={300} duration={8} delay={2} />
+        </>
       )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>

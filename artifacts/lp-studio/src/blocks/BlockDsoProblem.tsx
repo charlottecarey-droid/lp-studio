@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { ScanDown, PulseGlow } from "./SectionAmbient";
 import {
   AlertTriangle, BarChart3, Users2, TrendingDown,
   Clock, Shield, Microscope, Layers, Zap, Target,
@@ -94,6 +95,13 @@ export function BlockDsoProblem({ props }: Props) {
             pointerEvents: "none",
           }}
         />
+      )}
+      {dark && (
+        <>
+          <ScanDown duration={10} delay={2} repeatDelay={8} />
+          <PulseGlow top="15%" left="80%" size={320} duration={6} delay={0} />
+          <PulseGlow top="70%" left="12%" size={260} duration={7} delay={3} />
+        </>
       )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
