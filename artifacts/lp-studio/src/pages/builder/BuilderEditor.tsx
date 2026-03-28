@@ -134,7 +134,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
 
   return (
     <div className="p-4 space-y-6">
@@ -189,6 +189,45 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function SegmentLibrary({ onAdd }: { onAdd: (type: string) => void }) {
+  const dsoBlocks = BLOCK_REGISTRY.filter(b => b.category === "DSO");
+  return (
+    <div className="p-4 space-y-5">
+      {/* Segment header */}
+      <div className="flex items-center gap-2 pb-1 border-b border-border">
+        <div className="w-2 h-2 rounded-full bg-[#003A30]" />
+        <p className="text-xs font-semibold text-foreground">Dandy DSO</p>
+        <span className="ml-auto text-[10px] text-muted-foreground">{dsoBlocks.length} blocks</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground leading-relaxed -mt-2">
+        Enterprise blocks for DSO-targeted landing pages. Designed for multi-location dental group sales.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {dsoBlocks.map(block => (
+          <button
+            key={block.type}
+            onClick={() => onAdd(block.type)}
+            className="group relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-background hover:border-[#003A30]/40 hover:bg-[#003A30]/5 transition-all text-left"
+          >
+            <BlockThumbnail type={block.type} />
+            <span className="text-[11px] font-medium text-center leading-tight text-muted-foreground group-hover:text-foreground">
+              {block.label}
+            </span>
+            <div className="absolute inset-0 flex items-center justify-center bg-[#003A30]/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-[#003A30] text-white rounded-full p-1">
+                <Plus className="w-3 h-3" />
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+      {dsoBlocks.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4">No segment blocks available.</p>
       )}
     </div>
   );
@@ -1215,12 +1254,16 @@ export default function BuilderEditor() {
             <div className="sticky top-0 bg-background/90 backdrop-blur border-b border-border z-10">
               <TabsList className="w-full rounded-none border-0 bg-transparent h-10">
                 <TabsTrigger value="blocks" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Blocks</TabsTrigger>
+                <TabsTrigger value="segment" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Segment</TabsTrigger>
                 <TabsTrigger value="layers" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Layers</TabsTrigger>
                 <TabsTrigger value="templates" className="flex-1 text-xs rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">Templates</TabsTrigger>
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
               <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} />
+            </TabsContent>
+            <TabsContent value="segment" className="mt-0">
+              <SegmentLibrary onAdd={addBlock} />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel
