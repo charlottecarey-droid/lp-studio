@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Crown, SmilePlus, Stethoscope, Target, Scan, Sparkles, Moon, Shield } from "lucide-react";
 import type { DsoProductsGridBlockProps } from "@/lib/block-types";
@@ -61,6 +62,15 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
+  const [windowWidth, setWindowWidth] = useState(() => typeof window !== "undefined" ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handler = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  const desktopCols = Math.min(products.length, 4);
+  const gridCols = windowWidth < 640 ? 1 : windowWidth < 1024 ? Math.min(products.length, 2) : desktopCols;
+
   const eyebrowC  = dark ? LIME : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
   const subC      = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
@@ -108,7 +118,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(products.length, 4)}, 1fr)`, gap: "1.25rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: "1.25rem" }}>
           {products.map((product, i) => {
             const imgSrc = product.imageUrl || PRODUCT_IMAGES[product.imageKey ?? ""] || PRODUCT_IMAGES[product.name] || null;
             const iconKey = product.icon?.toLowerCase() ?? "";
