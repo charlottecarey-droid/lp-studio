@@ -142,10 +142,20 @@ export function BlockDsoParticleMesh({ props }: Props) {
             top: 0, bottom: 0,
             overflow: "hidden", zIndex: 1,
           }}>
-            <img
+            <motion.img
               src={imageUrl}
               alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+              animate={{
+                scale:  [1.06, 1.10, 1.07, 1.06],
+                x:      [0, 10, -8, 0],
+                y:      [0, -12, 8, 0],
+              }}
+              transition={{
+                duration: 22,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block", transformOrigin: "center center" }}
             />
             {/* Gradient fade toward the content side */}
             <div style={{
