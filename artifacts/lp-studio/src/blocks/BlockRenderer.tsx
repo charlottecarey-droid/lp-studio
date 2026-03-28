@@ -457,7 +457,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-cta-capture":
         return <BlockDsoCtaCapture props={block.props} />;
       case "dso-meet-team":
-        return <BlockDsoMeetTeam props={block.props} />;
+        return <BlockDsoMeetTeam props={block.props} brand={brand} />;
       case "dso-paradigm-shift":
         return <BlockDsoParadigmShift props={block.props} />;
       case "dso-partnership-perks":
@@ -467,19 +467,19 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-promo-cards":
         return <BlockDsoPromoCards props={block.props} />;
       case "dso-activation-steps":
-        return <BlockDsoActivationSteps props={block.props} />;
+        return <BlockDsoActivationSteps props={block.props} brand={brand} />;
       case "dso-promises":
         return <BlockDsoPromises props={block.props} />;
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} />;
       case "dso-practice-hero":
-        return <BlockDsoPracticeHero props={block.props} />;
+        return <BlockDsoPracticeHero props={block.props} brand={brand} />;
       case "dso-stat-row":
         return <BlockDsoStatRow props={block.props} />;
       case "dso-faq":
         return <BlockDsoFaq props={block.props} />;
       case "dso-split-feature":
-        return <BlockDsoSplitFeature props={block.props} />;
+        return <BlockDsoSplitFeature props={block.props} brand={brand} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

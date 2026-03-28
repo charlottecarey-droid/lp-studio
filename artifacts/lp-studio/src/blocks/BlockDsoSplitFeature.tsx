@@ -3,16 +3,21 @@ import { CheckCircle2 } from "lucide-react";
 import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoSplitFeatureBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
 const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoSplitFeature({ props }: Props) {
+export function BlockDsoSplitFeature({ props, brand }: Props) {
   const {
     eyebrow,
     headline,
@@ -88,41 +93,22 @@ export function BlockDsoSplitFeature({ props }: Props) {
           {ctaMode === "chilipiper" ? (
             <ChiliPiperButton
               url={ctaUrl || ""}
-              style={{
-                display: "inline-block",
-                background: LIME,
-                color: BRAND,
-                fontWeight: 700,
-                fontSize: "0.9375rem",
-                borderRadius: "0.6rem",
-                padding: "0.75rem 1.75rem",
-                transition: "opacity 0.2s",
-                border: "none",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              className={getButtonClasses(brand, "inline-flex items-center")}
+              style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
             >
               {ctaText}
             </ChiliPiperButton>
           ) : (
-            <a
+            <motion.a
               href={ctaUrl || "#"}
-              style={{
-                display: "inline-block",
-                background: LIME,
-                color: BRAND,
-                fontWeight: 700,
-                fontSize: "0.9375rem",
-                borderRadius: "0.6rem",
-                padding: "0.75rem 1.75rem",
-                textDecoration: "none",
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+              className={getButtonClasses(brand, "inline-flex items-center")}
+              style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              transition={SPRING}
             >
               {ctaText}
-            </a>
+            </motion.a>
           )}
         </div>
       )}

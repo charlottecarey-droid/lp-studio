@@ -3,16 +3,21 @@ import { Mail, Calendar, User } from "lucide-react";
 import type { DsoMeetTeamBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoMeetTeamBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
 const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoMeetTeam({ props }: Props) {
+export function BlockDsoMeetTeam({ props, brand }: Props) {
   const { eyebrow, headline, subheadline, ctaText, ctaUrl, ctaMode = "link", members = [], backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -73,49 +78,26 @@ export function BlockDsoMeetTeam({ props }: Props) {
               {ctaMode === "chilipiper" ? (
                 <ChiliPiperButton
                   url={ctaUrl}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    fontFamily: DISPLAY,
-                    fontSize: "0.9375rem",
-                    fontWeight: 600,
-                    color: dark ? BRAND : "#fff",
-                    background: dark ? LIME : BRAND,
-                    borderRadius: "0.625rem",
-                    padding: "0.75rem 1.75rem",
-                    letterSpacing: "-0.01em",
-                    border: "none",
-                  }}
+                  className={getButtonClasses(brand, "inline-flex items-center gap-2")}
+                  style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
                 >
                   <Calendar style={{ width: 16, height: 16 }} />
                   {ctaText}
                 </ChiliPiperButton>
               ) : (
-                <a
+                <motion.a
                   href={ctaUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    fontFamily: DISPLAY,
-                    fontSize: "0.9375rem",
-                    fontWeight: 600,
-                    color: dark ? BRAND : "#fff",
-                    background: dark ? LIME : BRAND,
-                    borderRadius: "0.625rem",
-                    padding: "0.75rem 1.75rem",
-                    textDecoration: "none",
-                    letterSpacing: "-0.01em",
-                  }}
+                  className={getButtonClasses(brand, "inline-flex items-center gap-2")}
+                  style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={SPRING}
                 >
                   <Calendar style={{ width: 16, height: 16 }} />
                   {ctaText}
-                </a>
+                </motion.a>
               )}
             </motion.div>
           )}

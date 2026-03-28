@@ -2,16 +2,21 @@ import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoPracticeHeroBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
 const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoPracticeHero({ props }: Props) {
+export function BlockDsoPracticeHero({ props, brand }: Props) {
   const {
     eyebrow,
     headline,
@@ -116,43 +121,22 @@ export function BlockDsoPracticeHero({ props }: Props) {
         primaryCtaMode === "chilipiper" ? (
           <ChiliPiperButton
             url={primaryCtaUrl || ""}
-            style={{
-              display: "inline-block",
-              background: LIME,
-              color: BRAND,
-              fontWeight: 700,
-              fontSize: "0.9375rem",
-              borderRadius: "0.6rem",
-              padding: "0.875rem 2rem",
-              letterSpacing: "0.01em",
-              transition: "opacity 0.2s",
-              border: "none",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            className={getButtonClasses(brand, "inline-flex items-center")}
+            style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
           >
             {primaryCtaText}
           </ChiliPiperButton>
         ) : (
-          <a
+          <motion.a
             href={primaryCtaUrl || "#"}
-            style={{
-              display: "inline-block",
-              background: LIME,
-              color: BRAND,
-              fontWeight: 700,
-              fontSize: "0.9375rem",
-              borderRadius: "0.6rem",
-              padding: "0.875rem 2rem",
-              textDecoration: "none",
-              letterSpacing: "0.01em",
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            className={getButtonClasses(brand, "inline-flex items-center")}
+            style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
+            transition={SPRING}
           >
             {primaryCtaText}
-          </a>
+          </motion.a>
         )
       )}
 
@@ -160,42 +144,22 @@ export function BlockDsoPracticeHero({ props }: Props) {
         secondaryCtaMode === "chilipiper" ? (
           <ChiliPiperButton
             url={secondaryCtaUrl || ""}
-            style={{
-              display: "inline-block",
-              background: "transparent",
-              color: dark ? "#fff" : BRAND,
-              fontWeight: 600,
-              fontSize: "0.9375rem",
-              borderRadius: "0.6rem",
-              padding: "0.875rem 1.75rem",
-              border: `1.5px solid ${dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`}`,
-              transition: "border-color 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.5)" : BRAND)}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`)}
+            className={getSecondaryButtonClasses(brand)}
+            style={{ borderColor: brand.accentColor, color: dark ? "#fff" : brand.primaryColor, background: "transparent" }}
           >
             {secondaryCtaText}
           </ChiliPiperButton>
         ) : (
-          <a
+          <motion.a
             href={secondaryCtaUrl || "#"}
-            style={{
-              display: "inline-block",
-              background: "transparent",
-              color: dark ? "#fff" : BRAND,
-              fontWeight: 600,
-              fontSize: "0.9375rem",
-              borderRadius: "0.6rem",
-              padding: "0.875rem 1.75rem",
-              textDecoration: "none",
-              border: `1.5px solid ${dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`}`,
-              transition: "border-color 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.5)" : BRAND)}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? "rgba(255,255,255,0.25)" : `${BRAND}30`)}
+            className={getSecondaryButtonClasses(brand)}
+            style={{ borderColor: brand.accentColor, color: dark ? "#fff" : brand.primaryColor, background: "transparent", textDecoration: "none" }}
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
+            transition={SPRING}
           >
             {secondaryCtaText}
-          </a>
+          </motion.a>
         )
       )}
     </motion.div>

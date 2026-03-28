@@ -1,29 +1,33 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar } from "lucide-react";
+import { motion } from "framer-motion";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface ChiliPiperButtonProps {
   url: string;
   children: React.ReactNode;
+  className?: string;
   style?: React.CSSProperties;
-  onMouseEnter?: React.MouseEventHandler<HTMLButtonElement>;
-  onMouseLeave?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
-export function ChiliPiperButton({ url, children, style, onMouseEnter, onMouseLeave }: ChiliPiperButtonProps) {
+export function ChiliPiperButton({ url, children, className, style }: ChiliPiperButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
+      <motion.button
         type="button"
         onClick={() => url && setOpen(true)}
-        style={{ ...style, cursor: "pointer" }}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        className={className}
+        style={{ cursor: "pointer", ...style }}
+        whileHover={{ scale: 1.04, y: -1 }}
+        whileTap={{ scale: 0.96 }}
+        transition={SPRING}
       >
         {children}
-      </button>
+      </motion.button>
 
       {open && createPortal(
         <div

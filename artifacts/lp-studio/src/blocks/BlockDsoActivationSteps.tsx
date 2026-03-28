@@ -3,16 +3,21 @@ import { ArrowRight } from "lucide-react";
 import type { DsoActivationStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import type { BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses } from "@/lib/brand-config";
+
+const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoActivationStepsBlockProps;
+  brand: BrandConfig;
 }
 
 const BRAND   = "#003A30";
 const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoActivationSteps({ props }: Props) {
+export function BlockDsoActivationSteps({ props, brand }: Props) {
   const {
     eyebrow, headline, subheadline, steps = [],
     ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark",
@@ -137,43 +142,26 @@ export function BlockDsoActivationSteps({ props }: Props) {
             {ctaMode === "chilipiper" ? (
               <ChiliPiperButton
                 url={ctaUrl ?? ""}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  color: dark ? BRAND : "#fff",
-                  background: dark ? LIME : BRAND,
-                  padding: "0.875rem 2rem",
-                  borderRadius: "0.625rem",
-                  border: "none",
-                }}
+                className={getButtonClasses(brand, "inline-flex items-center gap-2")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
               >
                 {ctaText}
                 <ArrowRight style={{ width: 16, height: 16 }} />
               </ChiliPiperButton>
             ) : (
-              <a
+              <motion.a
                 href={ctaUrl ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  color: dark ? BRAND : "#fff",
-                  background: dark ? LIME : BRAND,
-                  padding: "0.875rem 2rem",
-                  borderRadius: "0.625rem",
-                  textDecoration: "none",
-                }}
+                className={getButtonClasses(brand, "inline-flex items-center gap-2")}
+                style={{ backgroundColor: brand.accentColor, color: brand.primaryColor, textDecoration: "none" }}
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING}
               >
                 {ctaText}
                 <ArrowRight style={{ width: 16, height: 16 }} />
-              </a>
+              </motion.a>
             )}
           </motion.div>
         )}
