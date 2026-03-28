@@ -399,6 +399,13 @@ function buildBrandContext(brand: BrandConfig): string {
 function isDsoPracticesPrompt(prompt: string): boolean {
   const lower = prompt.toLowerCase();
   const keywords = [
+    "dso practices landing page",
+    "dso practices block",
+    "use only dso practices",
+    "dso practices segment",
+    "dso practices (land",
+    "dso practices (expand",
+    "target audience segment: dso practice",
     "dso practices", "practice segment", "dental practices", "individual practices",
     "practice owners", "practice teams", "practice staff", "practice-level",
     "onboarding practices", "activating practices", "my practices",
@@ -543,6 +550,8 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const useDsoPractices = isDsoPracticesPrompt(prompt);
   const useDso = !useDsoPractices && isDsoPrompt(prompt);
   const systemPrompt = useDsoPractices ? DSO_PRACTICES_SYSTEM_PROMPT : useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
+  const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
+  console.log(`[generate-page] prompt path: ${promptPath} | first 120 chars: ${prompt.slice(0, 120).replace(/\n/g, " ")}`);
 
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);

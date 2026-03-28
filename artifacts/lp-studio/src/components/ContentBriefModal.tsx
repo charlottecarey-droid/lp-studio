@@ -36,9 +36,22 @@ interface ContentBriefModalProps {
   initialSegmentId?: string;
 }
 
+function isDsoPracticesSegment(segment: AudienceSegment | null): boolean {
+  if (!segment) return false;
+  const name = segment.name.toLowerCase();
+  return name.includes("dso practices") || name.includes("dso practice");
+}
+
 function buildBriefPrompt(brief: ContentBrief, company: string, objective: string, segment: AudienceSegment | null): string {
+  const isDsoPractices = isDsoPracticesSegment(segment);
   const parts: string[] = [];
-  parts.push(`Create a landing page for "${company}".`);
+
+  if (isDsoPractices) {
+    parts.push(`Create a DSO Practices landing page for "${company}". Use ONLY DSO Practices block types — do NOT use any standard or DSO enterprise block types.`);
+  } else {
+    parts.push(`Create a landing page for "${company}".`);
+  }
+
   if (segment) parts.push(`Target audience segment: ${segment.name} — ${segment.messagingAngle || segment.description}`);
   parts.push(`Campaign objective: ${objective}`);
   if (brief.suggestedHeadline) parts.push(`Headline: "${brief.suggestedHeadline}"`);
@@ -46,7 +59,9 @@ function buildBriefPrompt(brief: ContentBrief, company: string, objective: strin
   if (brief.valueProps.length) parts.push(`Key value props:\n${brief.valueProps.map(v => `- ${v}`).join("\n")}`);
   if (brief.toneGuidance) parts.push(`Tone: ${brief.toneGuidance}`);
   if (brief.ctaSuggestions.length) parts.push(`CTAs: ${brief.ctaSuggestions.join("; ")}`);
-  if (brief.recommendedBlocks.length) parts.push(`Recommended block flow: ${brief.recommendedBlocks.join(" → ")}`);
+  if (!isDsoPractices && brief.recommendedBlocks.length) {
+    parts.push(`Recommended block flow: ${brief.recommendedBlocks.join(" → ")}`);
+  }
   if (brief.personas.length) {
     const personaLines = brief.personas.map(p => `${p.title}: ${p.painPoints.slice(0, 2).join("; ")}`);
     parts.push(`Buyer personas: ${personaLines.join(" | ")}`);
