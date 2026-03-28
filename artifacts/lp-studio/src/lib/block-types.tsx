@@ -253,6 +253,9 @@ export interface DsoSuccessStoriesBlockProps {
   backgroundImage?: string;
   backgroundOverlay?: number;
   overlayColor?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoChallengesBlockProps {
@@ -277,6 +280,10 @@ export interface DsoProblemBlockProps {
   body: string;
   panels: { icon: DsoProblemPanelIcon; title: string; desc: string }[];
   imageUrls?: string[];
+  backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoAiFeatureBlockProps {
@@ -286,12 +293,20 @@ export interface DsoAiFeatureBlockProps {
   bullets: string[];
   stats: { value: string; label: string }[];
   imageUrl: string;
+  backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoStatShowcaseBlockProps {
   eyebrow: string;
   headline: string;
   stats: { value: string; label: string; description?: string }[];
+  backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoScrollStoryChapter {
@@ -645,6 +660,9 @@ export interface DsoPilotStepsBlockProps {
   backgroundImage?: string;
   backgroundOverlay?: number;
   overlayColor?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoFinalCtaBlockProps {

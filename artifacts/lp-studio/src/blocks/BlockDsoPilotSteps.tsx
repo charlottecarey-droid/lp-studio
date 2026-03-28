@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const STEP_ICONS = [Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers];
 
@@ -53,7 +54,7 @@ const DEFAULT_STEPS = [
 ];
 
 export function BlockDsoPilotSteps({ props }: Props) {
-  const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000" } = props;
+  const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
@@ -288,6 +289,55 @@ export function BlockDsoPilotSteps({ props }: Props) {
             })}
           </div>
         </div>
+
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            style={{ textAlign: "center", marginTop: "3rem" }}
+          >
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 2rem",
+                  borderRadius: "0.5rem",
+                  background: AW,
+                  color: P,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  cursor: "pointer",
+                  border: "none",
+                }}
+              >
+                {ctaText}
+              </ChiliPiperButton>
+            ) : (
+              <a
+                href={ctaUrl || "#"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 2rem",
+                  borderRadius: "0.5rem",
+                  background: AW,
+                  color: P,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  textDecoration: "none",
+                }}
+              >
+                {ctaText}
+              </a>
+            )}
+          </motion.div>
+        )}
       </div>
     </section>
   );

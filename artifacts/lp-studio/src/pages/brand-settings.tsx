@@ -1269,6 +1269,13 @@ export default function BrandSettings() {
             <p className="text-sm text-muted-foreground -mt-2">Fallback for any CTA button without a custom URL or text.</p>
             <TextField label="Default CTA Text" value={config.defaultCtaText} onChange={(v) => update("defaultCtaText", v)} placeholder="Get Started Free" />
             <TextField label="Default CTA URL" value={config.defaultCtaUrl} onChange={(v) => update("defaultCtaUrl", v)} placeholder="https://..." />
+            <TextField
+              label="Chili Piper Booking URL"
+              value={config.chilipiperUrl ?? ""}
+              onChange={(v) => update("chilipiperUrl", v)}
+              placeholder="https://na.chilipiper.com/..."
+              hint="When set, all DSO page CTAs will open a Chili Piper booking modal instead of linking to a URL."
+            />
           </Card>
 
           <Card className="p-6 flex flex-col gap-5">

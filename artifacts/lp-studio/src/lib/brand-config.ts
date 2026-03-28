@@ -116,6 +116,7 @@ export interface BrandConfig {
   copyInstructions: string;
   productLines: ProductLine[];
   segments: AudienceSegment[];
+  chilipiperUrl?: string;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {

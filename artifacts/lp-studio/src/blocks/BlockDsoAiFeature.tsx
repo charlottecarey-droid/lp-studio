@@ -2,8 +2,9 @@ import { motion } from "framer-motion";
 import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
-const P    = "hsl(152,42%,12%)";
+const P    = "#003A30";
 const AW   = "hsl(68,60%,52%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -32,7 +33,20 @@ export function BlockDsoAiFeature({ props }: Props) {
     stats     = DEFAULT_STATS,
     imageUrl  = "/dso-ai-scan.jpg",
     backgroundStyle = "dandy-green",
+    ctaText,
+    ctaUrl,
+    ctaMode = "link",
   } = props;
+
+  const dark = isDarkBg(backgroundStyle);
+  const fg   = dark ? "#fff"                    : P;
+  const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgba(0,58,48,0.60)";
+  const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgba(0,58,48,0.80)";
+  const statMu = dark ? "rgba(255,255,255,0.40)" : "rgba(0,58,48,0.45)";
+  const imgBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const imgBg     = dark ? "hsl(152,30%,6%)"        : "hsl(152,20%,95%)";
+  const iconBg    = dark ? `${AW}18` : `${AW}22`;
+  const iconBorder = dark ? `${AW}30` : `${AW}44`;
 
   const bulletIcons = [ScanLine, RefreshCw, ShieldCheck];
 
@@ -40,26 +54,27 @@ export function BlockDsoAiFeature({ props }: Props) {
     <section
       style={{
         ...getBgStyle(backgroundStyle),
-        color: "#fff",
+        color: fg,
         position: "relative",
         overflow: "hidden",
       }}
       className="py-24 md:py-32"
     >
-      {/* Subtle background glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "30%",
-          transform: "translate(-50%, -50%)",
-          width: 600,
-          height: 600,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${AW}08 0%, transparent 70%)`,
-          pointerEvents: "none",
-        }}
-      />
+      {dark && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "30%",
+            transform: "translate(-50%, -50%)",
+            width: 600,
+            height: 600,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${AW}08 0%, transparent 70%)`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       <div
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}
@@ -98,7 +113,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                 lineHeight: 1.08,
                 fontWeight: 600,
                 letterSpacing: "-0.025em",
-                color: "#fff",
+                color: fg,
                 marginBottom: "1.5rem",
               }}
             >
@@ -113,7 +128,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                 transition={{ delay: 0.08 }}
                 style={{
                   fontSize: "1.0625rem",
-                  color: "rgba(255,255,255,0.60)",
+                  color: mu,
                   lineHeight: 1.7,
                   marginBottom: "2.25rem",
                 }}
@@ -139,8 +154,8 @@ export function BlockDsoAiFeature({ props }: Props) {
                         width: 32,
                         height: 32,
                         borderRadius: "50%",
-                        background: `${AW}18`,
-                        border: `1px solid ${AW}30`,
+                        background: iconBg,
+                        border: `1px solid ${iconBorder}`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -149,7 +164,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                     >
                       <Icon style={{ width: 14, height: 14, color: AW }} />
                     </div>
-                    <span style={{ fontSize: "0.9375rem", color: "rgba(255,255,255,0.80)" }}>{text}</span>
+                    <span style={{ fontSize: "0.9375rem", color: mu2 }}>{text}</span>
                   </li>
                 );
               })}
@@ -161,7 +176,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.18 }}
-              style={{ display: "flex", gap: "2.5rem", flexWrap: "wrap" }}
+              style={{ display: "flex", gap: "2.5rem", flexWrap: "wrap", marginBottom: ctaText ? "2.25rem" : 0 }}
             >
               {stats.map((s, i) => (
                 <div key={i}>
@@ -171,7 +186,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                       fontSize: "clamp(1.75rem,3vw,2.25rem)",
                       fontWeight: 600,
                       letterSpacing: "-0.03em",
-                      color: "#fff",
+                      color: fg,
                       lineHeight: 1,
                     }}
                   >
@@ -183,7 +198,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                       fontWeight: 600,
                       letterSpacing: "0.15em",
                       textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.40)",
+                      color: statMu,
                       marginTop: "0.375rem",
                     }}
                   >
@@ -192,6 +207,55 @@ export function BlockDsoAiFeature({ props }: Props) {
                 </div>
               ))}
             </motion.div>
+
+            {/* Optional CTA */}
+            {ctaText && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.24 }}
+              >
+                {ctaMode === "chilipiper" ? (
+                  <ChiliPiperButton
+                    url={ctaUrl ?? ""}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem 2rem",
+                      borderRadius: "0.5rem",
+                      background: AW,
+                      color: P,
+                      fontWeight: 600,
+                      fontSize: "0.9375rem",
+                      cursor: "pointer",
+                      border: "none",
+                    }}
+                  >
+                    {ctaText}
+                  </ChiliPiperButton>
+                ) : (
+                  <a
+                    href={ctaUrl || "#"}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem 2rem",
+                      borderRadius: "0.5rem",
+                      background: AW,
+                      color: P,
+                      fontWeight: 600,
+                      fontSize: "0.9375rem",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {ctaText}
+                  </a>
+                )}
+              </motion.div>
+            )}
           </div>
 
           {/* ── Right: scan image ── */}
@@ -203,9 +267,9 @@ export function BlockDsoAiFeature({ props }: Props) {
             style={{
               borderRadius: "1.25rem",
               overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: `1px solid ${imgBorder}`,
               boxShadow: "0 4px 24px rgba(0,0,0,0.4), 0 32px 80px rgba(0,0,0,0.5)",
-              background: "hsl(152,30%,6%)",
+              background: imgBg,
               aspectRatio: "4/3",
               display: "flex",
               alignItems: "center",
@@ -220,14 +284,13 @@ export function BlockDsoAiFeature({ props }: Props) {
                 loading="lazy"
               />
             ) : (
-              /* Placeholder when no image */
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   gap: "1rem",
-                  color: "rgba(255,255,255,0.25)",
+                  color: mu,
                 }}
               >
                 <ScanLine style={{ width: 64, height: 64 }} />

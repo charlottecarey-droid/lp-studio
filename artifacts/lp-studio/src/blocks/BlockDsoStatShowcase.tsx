@@ -1,14 +1,13 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const P   = "#003A30";
-const PFG = "hsl(48,100%,96%)";
 const AW  = "hsl(68,60%,52%)";
-const MU  = "rgba(255,255,255,0.46)";
 
 const DEFAULT_STATS: DsoStatShowcaseBlockProps["stats"] = [
   { value: "96%",     label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },
@@ -28,7 +27,19 @@ function parseValue(raw: string): { prefix: string; num: number; suffix: string;
   return { prefix: match[1], num, suffix: match[3], isDecimal };
 }
 
-function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][number]; index: number }) {
+function StatCard({
+  stat,
+  index,
+  fg,
+  mu,
+  borderColor,
+}: {
+  stat: DsoStatShowcaseBlockProps["stats"][number];
+  index: number;
+  fg: string;
+  mu: string;
+  borderColor: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
 
@@ -61,19 +72,18 @@ function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][nu
       transition={{ duration: 0.75, delay: index * 0.09, ease: [0.16, 1, 0.3, 1] }}
       style={{
         padding: "2.25rem 1.75rem",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        borderTop: `1px solid ${borderColor}`,
         position: "relative",
         cursor: "default",
       }}
       className="group"
     >
-      {/* Animated numeric value */}
       <p
         style={{
           fontFamily: DISPLAY_FONT,
           fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
           fontWeight: 700,
-          color: PFG,
+          color: fg,
           letterSpacing: "-0.04em",
           lineHeight: 1,
           marginBottom: "1rem",
@@ -82,7 +92,6 @@ function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][nu
         {display}
       </p>
 
-      {/* Lime accent line that grows in */}
       <motion.div
         style={{ height: 2, background: AW, marginBottom: "1rem", borderRadius: 1 }}
         initial={{ width: "0%" }}
@@ -90,19 +99,16 @@ function StatCard({ stat, index }: { stat: DsoStatShowcaseBlockProps["stats"][nu
         transition={{ duration: 0.6, delay: index * 0.09 + 0.2 }}
       />
 
-      {/* Label */}
-      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: PFG, marginBottom: "0.5rem", letterSpacing: "-0.01em" }}>
+      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: fg, marginBottom: "0.5rem", letterSpacing: "-0.01em" }}>
         {stat.label}
       </p>
 
-      {/* Description */}
       {stat.description && (
-        <p style={{ fontSize: "0.8125rem", color: MU, lineHeight: 1.55 }}>
+        <p style={{ fontSize: "0.8125rem", color: mu, lineHeight: 1.55 }}>
           {stat.description}
         </p>
       )}
 
-      {/* Hover right-border accent */}
       <div
         style={{
           position: "absolute",
@@ -126,8 +132,22 @@ interface Props {
 }
 
 export function BlockDsoStatShowcase({ props }: Props) {
-  const { eyebrow = "By the Numbers", headline = "Results that compound at scale.", stats, backgroundStyle = "dandy-green" } = props;
+  const {
+    eyebrow = "By the Numbers",
+    headline = "Results that compound at scale.",
+    stats,
+    backgroundStyle = "dandy-green",
+    ctaText,
+    ctaUrl,
+    ctaMode = "link",
+  } = props;
   const displayStats = stats && stats.length > 0 ? stats.slice(0, 6) : DEFAULT_STATS;
+
+  const dark = isDarkBg(backgroundStyle);
+  const fg         = dark ? "hsl(48,100%,96%)"      : P;
+  const eyebrowFg  = AW;
+  const mu         = dark ? "rgba(255,255,255,0.46)" : "rgba(0,58,48,0.55)";
+  const borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
 
   const sectionRef = useRef<HTMLElement>(null);
   const headerInView = useInView(sectionRef, { once: true });
@@ -135,25 +155,25 @@ export function BlockDsoStatShowcase({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ ...getBgStyle(backgroundStyle), color: PFG, position: "relative", overflow: "hidden" }}
+      style={{ ...getBgStyle(backgroundStyle), color: fg, position: "relative", overflow: "hidden" }}
       className="py-24 md:py-32"
     >
-      {/* Subtle decorative glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: -200,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 800,
-          height: 400,
-          background: "radial-gradient(ellipse, rgba(154,184,54,0.08) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
+      {dark && (
+        <div
+          style={{
+            position: "absolute",
+            top: -200,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 800,
+            height: 400,
+            background: "radial-gradient(ellipse, rgba(154,184,54,0.08) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
-        {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "4.5rem" }}>
           {eyebrow && (
             <motion.p
@@ -165,7 +185,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: AW,
+                color: eyebrowFg,
                 marginBottom: "1.25rem",
               }}
             >
@@ -181,7 +201,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
               fontSize: "clamp(2rem,4vw,3rem)",
               lineHeight: 1.1,
               fontWeight: 600,
-              color: PFG,
+              color: fg,
               letterSpacing: "-0.02em",
               maxWidth: 640,
               margin: "0 auto",
@@ -191,23 +211,70 @@ export function BlockDsoStatShowcase({ props }: Props) {
           </motion.h2>
         </div>
 
-        {/* Responsive stat grid — 1 col mobile, 2 col tablet, 3 col desktop */}
         <div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
           style={{
-            borderLeft: "1px solid rgba(255,255,255,0.08)",
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            borderLeft: `1px solid ${borderColor}`,
+            borderBottom: `1px solid ${borderColor}`,
           }}
         >
           {displayStats.map((stat, i) => (
             <div
               key={i}
-              style={{ borderRight: "1px solid rgba(255,255,255,0.08)" }}
+              style={{ borderRight: `1px solid ${borderColor}` }}
             >
-              <StatCard stat={stat} index={i} />
+              <StatCard stat={stat} index={i} fg={fg} mu={mu} borderColor={borderColor} />
             </div>
           ))}
         </div>
+
+        {ctaText && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={headerInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            style={{ textAlign: "center", marginTop: "3rem" }}
+          >
+            {ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={ctaUrl ?? ""}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 2rem",
+                  borderRadius: "0.5rem",
+                  background: AW,
+                  color: P,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  cursor: "pointer",
+                  border: "none",
+                }}
+              >
+                {ctaText}
+              </ChiliPiperButton>
+            ) : (
+              <a
+                href={ctaUrl || "#"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.75rem 2rem",
+                  borderRadius: "0.5rem",
+                  background: AW,
+                  color: P,
+                  fontWeight: 600,
+                  fontSize: "0.9375rem",
+                  textDecoration: "none",
+                }}
+              >
+                {ctaText}
+              </a>
+            )}
+          </motion.div>
+        )}
       </div>
     </section>
   );

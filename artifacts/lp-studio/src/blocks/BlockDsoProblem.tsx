@@ -6,14 +6,13 @@ import {
   DollarSign, Network, Activity, Scale,
 } from "lucide-react";
 import type { DsoProblemBlockProps } from "@/lib/block-types";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P    = "hsl(152,42%,12%)";
-const PFG  = "hsl(48,100%,96%)";
+const P    = "#003A30";
 const AW   = "hsl(68,60%,52%)";
-const MU   = "rgba(255,255,255,0.52)";
 
 const DEFAULT_IMG_A = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=660&fit=crop";
 const DEFAULT_IMG_B = "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=640&h=440&fit=crop";
@@ -54,7 +53,17 @@ export function BlockDsoProblem({ props }: Props) {
     panels,
     imageUrls = [],
     backgroundStyle = "dandy-green",
+    ctaText,
+    ctaUrl,
+    ctaMode = "link",
   } = props;
+
+  const dark = isDarkBg(backgroundStyle);
+  const fg   = dark ? "hsl(48,100%,96%)"      : P;
+  const mu   = dark ? "rgba(255,255,255,0.52)" : "rgba(0,58,48,0.55)";
+  const dividerColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const iconBg     = dark ? `${AW}14` : `${AW}22`;
+  const iconBorder = dark ? `${AW}28` : `${AW}44`;
 
   const imgA = imageUrls[0] || DEFAULT_IMG_A;
   const imgB = imageUrls[1] || DEFAULT_IMG_B;
@@ -71,20 +80,21 @@ export function BlockDsoProblem({ props }: Props) {
   return (
     <section
       ref={sectionRef}
-      style={{ ...getBgStyle(backgroundStyle), color: PFG, position: "relative", overflow: "hidden" }}
+      style={{ ...getBgStyle(backgroundStyle), color: fg, position: "relative", overflow: "hidden" }}
       className="py-24 md:py-36"
     >
-      {/* Subtle noise/texture overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0.025,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          backgroundSize: "200px 200px",
-          pointerEvents: "none",
-        }}
-      />
+      {dark && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0.025,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+            backgroundSize: "200px 200px",
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
         <div className="grid md:grid-cols-[5fr_6fr] gap-16 lg:gap-24 items-center">
@@ -92,7 +102,6 @@ export function BlockDsoProblem({ props }: Props) {
           {/* ── Left: Stacked photography ── */}
           <motion.div style={{ position: "relative", minHeight: 500, paddingBottom: 120 }}>
 
-            {/* Lime glow behind cluster — gives the images a "stage" */}
             <div style={{
               position: "absolute",
               top: "5%",
@@ -127,11 +136,10 @@ export function BlockDsoProblem({ props }: Props) {
                 style={{ width: "100%", height: 340, objectFit: "cover", display: "block" }}
                 loading="lazy"
               />
-              {/* Lime accent bottom strip */}
               <div style={{ height: 3, background: `linear-gradient(90deg, ${AW}, transparent)` }} />
             </motion.div>
 
-            {/* Secondary image — rotated photo-print style */}
+            {/* Secondary image */}
             <motion.div
               style={{
                 y: imgBY,
@@ -158,7 +166,6 @@ export function BlockDsoProblem({ props }: Props) {
                 style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
                 loading="lazy"
               />
-              {/* Dark overlay with stat */}
               <div
                 style={{
                   position: "absolute",
@@ -174,7 +181,6 @@ export function BlockDsoProblem({ props }: Props) {
                   <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>First-time right rate</p>
                 </div>
               </div>
-              {/* Lime bottom accent */}
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
             </motion.div>
           </motion.div>
@@ -209,7 +215,7 @@ export function BlockDsoProblem({ props }: Props) {
                 fontSize: "clamp(1.875rem,3.5vw,2.875rem)",
                 lineHeight: 1.1,
                 fontWeight: 600,
-                color: PFG,
+                color: fg,
                 letterSpacing: "-0.015em",
                 marginBottom: body ? "1.25rem" : "2.75rem",
               }}
@@ -223,13 +229,12 @@ export function BlockDsoProblem({ props }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.08 }}
-                style={{ fontSize: "1rem", lineHeight: 1.7, color: MU, marginBottom: "2.75rem" }}
+                style={{ fontSize: "1rem", lineHeight: 1.7, color: mu, marginBottom: "2.75rem" }}
               >
                 {body}
               </motion.p>
             )}
 
-            {/* Problem list — vertical with dividers */}
             <div>
               {displayPanels.map((panel, i) => {
                 const Icon = ICON_MAP[panel.icon] ?? AlertTriangle;
@@ -245,19 +250,18 @@ export function BlockDsoProblem({ props }: Props) {
                       display: "flex",
                       gap: "1.25rem",
                       padding: "1.375rem 0",
-                      borderTop: `1px solid rgba(255,255,255,0.07)`,
+                      borderTop: `1px solid ${dividerColor}`,
                       cursor: "default",
                     }}
                   >
-                    {/* Icon */}
                     <div style={{ flexShrink: 0, paddingTop: 2 }}>
                       <div
                         style={{
                           width: 38,
                           height: 38,
                           borderRadius: "50%",
-                          background: `${AW}14`,
-                          border: `1px solid ${AW}28`,
+                          background: iconBg,
+                          border: `1px solid ${iconBorder}`,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -269,32 +273,78 @@ export function BlockDsoProblem({ props }: Props) {
                       </div>
                     </div>
 
-                    {/* Text */}
                     <div>
                       <p
                         style={{
                           fontFamily: DISPLAY_FONT,
                           fontSize: "1rem",
                           fontWeight: 600,
-                          color: PFG,
+                          color: fg,
                           marginBottom: "0.4rem",
                           letterSpacing: "-0.01em",
                           transition: "color 0.2s",
                         }}
-                        className="group-hover:text-white"
                       >
                         {panel.title}
                       </p>
-                      <p style={{ fontSize: "0.9rem", lineHeight: 1.65, color: MU }}>
+                      <p style={{ fontSize: "0.9rem", lineHeight: 1.65, color: mu }}>
                         {panel.desc}
                       </p>
                     </div>
                   </motion.div>
                 );
               })}
-              {/* Bottom divider */}
-              <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+              <div style={{ height: 1, background: dividerColor }} />
             </div>
+
+            {ctaText && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.25 }}
+                style={{ marginTop: "2.25rem" }}
+              >
+                {ctaMode === "chilipiper" ? (
+                  <ChiliPiperButton
+                    url={ctaUrl ?? ""}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem 2rem",
+                      borderRadius: "0.5rem",
+                      background: AW,
+                      color: P,
+                      fontWeight: 600,
+                      fontSize: "0.9375rem",
+                      cursor: "pointer",
+                      border: "none",
+                    }}
+                  >
+                    {ctaText}
+                  </ChiliPiperButton>
+                ) : (
+                  <a
+                    href={ctaUrl || "#"}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.75rem 2rem",
+                      borderRadius: "0.5rem",
+                      background: AW,
+                      color: P,
+                      fontWeight: 600,
+                      fontSize: "0.9375rem",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {ctaText}
+                  </a>
+                )}
+              </motion.div>
+            )}
           </motion.div>
 
         </div>
