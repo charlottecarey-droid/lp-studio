@@ -1,19 +1,20 @@
-import { useRef, useEffect, useState } from "react";
-import { motion, useInView, animate, useMotionValue } from "framer-motion";
+import { useRef } from "react";
+import { motion, useInView, animate } from "framer-motion";
+import { useEffect, useState } from "react";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
-const P    = "#003A30";
-const PFG  = "hsl(48,100%,96%)";
-const AW   = "hsl(68,60%,52%)";
+const P     = "#003A30";
+const PFG   = "hsl(48,100%,96%)";
+const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.5)";
 const CARD  = "rgba(255,255,255,0.05)";
 const CARD_BORDER = "rgba(255,255,255,0.10)";
 
 /* ── SVG layout ─────────────────────────────── */
-const CX = 250, CY = 220;
-const R  = 148;
+const CX = 250, CY = 230;
+const R  = 152;
 
 const OFFICES = [
   { label: "Chicago",  sub: "127 locations", angle: -90  },
@@ -28,111 +29,103 @@ const OFFICES = [
   y: CY + Math.sin(o.angle * Math.PI / 180) * R,
 }));
 
-/* ── Packet component (travels center→node→center) ── */
-function Packet({ node, delay, inView }: {
-  node: typeof OFFICES[0];
-  delay: number;
-  inView: boolean;
-}) {
-  const mx = useMotionValue(CX);
-  const my = useMotionValue(CY);
-  const [opacity, setOpacity] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const DURATION = 1.8;
-    let cancelled = false;
-    const run = async () => {
-      while (!cancelled) {
-        setOpacity(0);
-        await new Promise(r => setTimeout(r, delay * 1000 + Math.random() * 800));
-        if (cancelled) break;
-        mx.set(CX);
-        my.set(CY);
-        setOpacity(1);
-        await Promise.all([
-          animate(mx, node.x, { duration: DURATION, ease: "easeIn" }),
-          animate(my, node.y, { duration: DURATION, ease: "easeIn" }),
-        ]);
-        setOpacity(0.3);
-        await new Promise(r => setTimeout(r, 180));
-        setOpacity(1);
-        await Promise.all([
-          animate(mx, CX, { duration: DURATION, ease: "easeOut" }),
-          animate(my, CY, { duration: DURATION, ease: "easeOut" }),
-        ]);
-        await new Promise(r => setTimeout(r, 600 + Math.random() * 500));
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [inView, node.x, node.y, delay]);
-
-  return (
-    <motion.circle
-      r={3.5}
-      fill={AW}
-      style={{ x: mx, y: my, opacity }}
-      filter="url(#glow-lime)"
-    />
-  );
-}
-
-/* ── Edge line (draws in when inView) ── */
+/* ── Edge — solid line that draws in ── */
 function Edge({ node, idx, inView }: {
   node: typeof OFFICES[0];
   idx: number;
   inView: boolean;
 }) {
+  const len = Math.hypot(node.x - CX, node.y - CY);
+  const gradId = `edge-grad-${idx}`;
   return (
-    <motion.line
-      x1={CX} y1={CY}
-      x2={node.x} y2={node.y}
-      stroke={AW}
-      strokeWidth={1}
-      strokeOpacity={0.25}
-      strokeDasharray="4 4"
-      initial={{ pathLength: 0, opacity: 0 }}
-      animate={inView ? { pathLength: 1, opacity: 1 } : {}}
-      transition={{ duration: 0.8, delay: 0.3 + idx * 0.12, ease: "easeOut" }}
-    />
+    <>
+      <defs>
+        <linearGradient id={gradId} x1={CX} y1={CY} x2={node.x} y2={node.y} gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor={AW} stopOpacity="0.55" />
+          <stop offset="100%" stopColor={AW} stopOpacity="0.10" />
+        </linearGradient>
+      </defs>
+      <motion.line
+        x1={CX} y1={CY}
+        x2={node.x} y2={node.y}
+        stroke={`url(#${gradId})`}
+        strokeWidth={1}
+        strokeLinecap="round"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={inView ? { pathLength: 1, opacity: 1 } : {}}
+        transition={{ duration: 1.1, delay: 0.4 + idx * 0.1, ease: "easeOut" }}
+        style={{ "--len": len } as React.CSSProperties}
+      />
+    </>
   );
 }
 
-/* ── Office node ── */
+/* ── Office node — precision dot style ── */
 function OfficeNode({ node, idx, inView }: {
   node: typeof OFFICES[0];
   idx: number;
   inView: boolean;
 }) {
-  const left = node.x < CX - 20;
-  const anchor = left ? "end" : node.x > CX + 20 ? "start" : "middle";
-  const labelX = anchor === "end" ? node.x - 14 : anchor === "start" ? node.x + 14 : node.x;
-  const labelY = node.y > CY + 30 ? node.y + 22 : node.y < CY - 30 ? node.y - 14 : node.y;
+  const left   = node.x < CX - 20;
+  const right  = node.x > CX + 20;
+  const anchor = left ? "end" : right ? "start" : "middle";
+  const dx     = left ? -18 : right ? 18 : 0;
+  const dy     = node.y > CY + 30 ? 20 : node.y < CY - 30 ? -12 : 0;
+  const lx     = node.x + dx;
+  const ly     = node.y + dy;
 
   return (
     <motion.g
       initial={{ scale: 0, opacity: 0 }}
       animate={inView ? { scale: 1, opacity: 1 } : {}}
-      transition={{ duration: 0.5, delay: 0.8 + idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.5, delay: 1.0 + idx * 0.09, ease: [0.16, 1, 0.3, 1] }}
       style={{ transformOrigin: `${node.x}px ${node.y}px` }}
     >
-      {/* Outer ring */}
-      <circle cx={node.x} cy={node.y} r={10} fill="none" stroke={AW} strokeWidth={1} strokeOpacity={0.35} />
-      {/* Inner dot */}
-      <circle cx={node.x} cy={node.y} r={5} fill={P} stroke={AW} strokeWidth={1.5} />
-      {/* Label */}
-      <text x={labelX} y={labelY + 4} textAnchor={anchor} fill={PFG} fontSize={9} fontWeight="600" fontFamily="Inter,system-ui,sans-serif" opacity={0.9}>
+      {/* Precision tick: 4 short lines from dot */}
+      {[0, 90, 180, 270].map(a => (
+        <line
+          key={a}
+          x1={node.x + Math.cos(a * Math.PI / 180) * 7}
+          y1={node.y + Math.sin(a * Math.PI / 180) * 7}
+          x2={node.x + Math.cos(a * Math.PI / 180) * 11}
+          y2={node.y + Math.sin(a * Math.PI / 180) * 11}
+          stroke={AW}
+          strokeWidth={0.75}
+          strokeOpacity={0.5}
+        />
+      ))}
+      {/* Core dot */}
+      <circle cx={node.x} cy={node.y} r={4} fill={PFG} />
+      <circle cx={node.x} cy={node.y} r={4} fill="none" stroke={AW} strokeWidth={1} strokeOpacity={0.6} />
+      {/* Labels */}
+      <text
+        x={lx} y={ly + 4}
+        textAnchor={anchor}
+        fill={PFG}
+        fontSize={9.5}
+        fontWeight="600"
+        fontFamily="Inter,system-ui,sans-serif"
+        opacity={0.92}
+        letterSpacing="0.01em"
+      >
         {node.label}
       </text>
-      <text x={labelX} y={labelY + 14} textAnchor={anchor} fill={AW} fontSize={7.5} fontFamily="Inter,system-ui,sans-serif" opacity={0.75}>
+      <text
+        x={lx} y={ly + 15}
+        textAnchor={anchor}
+        fill={AW}
+        fontSize={7.5}
+        fontFamily="Inter,system-ui,sans-serif"
+        opacity={0.65}
+        letterSpacing="0.02em"
+      >
         {node.sub}
       </text>
     </motion.g>
   );
 }
 
-/* ── Stats strip that ticks up ── */
+/* ── Animated counter ── */
 function TickStat({ target, suffix, label, delay, inView }: {
   target: number; suffix: string; label: string; delay: number; inView: boolean;
 }) {
@@ -140,7 +133,7 @@ function TickStat({ target, suffix, label, delay, inView }: {
   useEffect(() => {
     if (!inView) return;
     const controls = animate(0, target, {
-      duration: 2,
+      duration: 2.2,
       delay,
       ease: "easeOut",
       onUpdate: v => setVal(Math.round(v)),
@@ -152,7 +145,7 @@ function TickStat({ target, suffix, label, delay, inView }: {
       <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,3.5vw,2.25rem)", fontWeight: 700, color: AW, letterSpacing: "-0.03em", lineHeight: 1 }}>
         {val.toLocaleString()}{suffix}
       </p>
-      <p style={{ fontSize: "0.75rem", color: MUTED, marginTop: "0.3rem", letterSpacing: "0.04em" }}>{label}</p>
+      <p style={{ fontSize: "0.75rem", color: MUTED, marginTop: "0.3rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>{label}</p>
     </div>
   );
 }
@@ -162,11 +155,11 @@ interface Props { props: DsoNetworkMapBlockProps }
 
 export function BlockDsoNetworkMap({ props }: Props) {
   const {
-    eyebrow = "Dandy Network",
-    headline = "One platform.\nEvery practice.",
-    body = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
-    ctaText = "See the Live Network",
-    ctaUrl = "#",
+    eyebrow    = "Dandy Network",
+    headline   = "One platform.\nEvery practice.",
+    body       = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
+    ctaText    = "See the Live Network",
+    ctaUrl     = "#",
     backgroundStyle = "dandy-green",
   } = props;
 
@@ -178,24 +171,25 @@ export function BlockDsoNetworkMap({ props }: Props) {
       ref={sectionRef}
       style={{ ...getBgStyle(backgroundStyle), padding: "0", overflow: "hidden", position: "relative" }}
     >
-      {/* Subtle radial glow behind the SVG */}
+      {/* Ambient glow behind graphic */}
       <div style={{
         position: "absolute",
-        top: "50%", right: "-10%",
-        width: "55%", aspectRatio: "1",
-        background: `radial-gradient(circle, hsla(68,60%,52%,0.07) 0%, transparent 70%)`,
+        top: "50%", right: "-5%",
+        width: "50%", aspectRatio: "1",
+        background: `radial-gradient(circle, hsla(68,60%,52%,0.06) 0%, transparent 68%)`,
         transform: "translateY(-50%)",
         pointerEvents: "none",
       }} />
 
-      <div style={{
-        maxWidth: 1280,
-        margin: "0 auto",
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        alignItems: "center",
-        minHeight: "100svh",
-      }}
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          alignItems: "center",
+          minHeight: "100svh",
+        }}
         className="dsomg-grid"
       >
         {/* ── Left: text ── */}
@@ -252,9 +246,9 @@ export function BlockDsoNetworkMap({ props }: Props) {
               marginBottom: "2.5rem",
             }}
           >
-            <TickStat target={500} suffix="+" label="DSO Locations" delay={0.5} inView={inView} />
-            <TickStat target={96} suffix="%" label="First-Time Right" delay={0.65} inView={inView} />
-            <TickStat target={4} suffix="d" label="Avg Turnaround" delay={0.8} inView={inView} />
+            <TickStat target={500} suffix="+" label="DSO Locations"    delay={0.5}  inView={inView} />
+            <TickStat target={96}  suffix="%" label="First-Time Right"  delay={0.65} inView={inView} />
+            <TickStat target={4}   suffix="d" label="Avg Turnaround"    delay={0.8}  inView={inView} />
           </motion.div>
 
           {ctaText && (
@@ -284,7 +278,9 @@ export function BlockDsoNetworkMap({ props }: Props) {
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
                 {ctaText}
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </a>
             </motion.div>
           )}
@@ -293,106 +289,129 @@ export function BlockDsoNetworkMap({ props }: Props) {
         {/* ── Right: SVG network ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
           <svg
-            viewBox="0 0 500 450"
+            viewBox="0 0 500 470"
             width="100%"
             style={{ maxWidth: 520, display: "block" }}
             overflow="visible"
           >
             <defs>
-              {/* Glow filters */}
-              <filter id="glow-lime" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
+              {/* Hub glow */}
+              <filter id="glow-hub" x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
                 <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
-              <filter id="glow-center" x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="10" result="blur" />
+              {/* Dot glow */}
+              <filter id="glow-dot" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
                 <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
-              <radialGradient id="center-grad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor={AW} stopOpacity="0.22" />
-                <stop offset="100%" stopColor={AW} stopOpacity="0" />
+              {/* Radial ambient */}
+              <radialGradient id="ambient" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stopColor={AW} stopOpacity="0.14" />
+                <stop offset="100%" stopColor={AW} stopOpacity="0"    />
+              </radialGradient>
+              {/* Hub face gradient */}
+              <radialGradient id="hub-face" cx="38%" cy="35%" r="65%">
+                <stop offset="0%"   stopColor="hsl(140,30%,28%)" />
+                <stop offset="100%" stopColor={P} />
               </radialGradient>
             </defs>
 
-            {/* Background radial halo */}
+            {/* Ambient radial field */}
             <motion.circle
-              cx={CX} cy={CY} r={175}
-              fill="url(#center-grad)"
-              initial={{ scale: 0.6, opacity: 0 }}
+              cx={CX} cy={CY} r={190}
+              fill="url(#ambient)"
+              initial={{ scale: 0.5, opacity: 0 }}
               animate={inView ? { scale: 1, opacity: 1 } : {}}
-              transition={{ duration: 1.2, ease: "easeOut" }}
+              transition={{ duration: 1.4, ease: "easeOut" }}
               style={{ transformOrigin: `${CX}px ${CY}px` }}
             />
 
-            {/* Grid: subtle concentric rings */}
-            {[60, 100, 148, 190].map((r, i) => (
+            {/* Architecture rings — very faint */}
+            {[70, 120, 170].map((r, i) => (
               <motion.circle
                 key={r}
                 cx={CX} cy={CY} r={r}
                 fill="none"
                 stroke={AW}
-                strokeWidth={0.5}
-                strokeOpacity={0.08}
+                strokeWidth={0.4}
+                strokeOpacity={0.07}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={inView ? { scale: 1, opacity: 1 } : {}}
-                transition={{ duration: 0.8, delay: i * 0.1 }}
+                transition={{ duration: 1, delay: 0.2 + i * 0.1 }}
                 style={{ transformOrigin: `${CX}px ${CY}px` }}
               />
             ))}
 
-            {/* Edges */}
-            {OFFICES.map((node, i) => <Edge key={i} node={node} idx={i} inView={inView} />)}
-
-            {/* Data packets */}
-            {inView && OFFICES.map((node, i) => <Packet key={i} node={node} delay={i * 0.35} inView={inView} />)}
+            {/* Edges (solid gradient lines) */}
+            {OFFICES.map((node, i) => (
+              <Edge key={i} node={node} idx={i} inView={inView} />
+            ))}
 
             {/* Office nodes */}
-            {OFFICES.map((node, i) => <OfficeNode key={i} node={node} idx={i} inView={inView} />)}
+            {OFFICES.map((node, i) => (
+              <OfficeNode key={i} node={node} idx={i} inView={inView} />
+            ))}
 
-            {/* Center: pulsing rings */}
-            {inView && [1, 2, 3].map(i => (
+            {/* Single slow ambient pulse on center — restrained */}
+            {inView && (
               <motion.circle
-                key={i}
                 cx={CX} cy={CY}
-                r={28}
+                r={36}
                 fill="none"
                 stroke={AW}
-                strokeWidth={1.5}
-                initial={{ scale: 1, opacity: 0.6 }}
-                animate={{ scale: 2.6 + i * 0.5, opacity: 0 }}
-                transition={{ duration: 2, delay: i * 0.65, repeat: Infinity, ease: "easeOut" }}
+                strokeWidth={0.75}
+                initial={{ scale: 1, opacity: 0.3 }}
+                animate={{ scale: 2.8, opacity: 0 }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeOut", repeatDelay: 1.2 }}
                 style={{ transformOrigin: `${CX}px ${CY}px` }}
               />
-            ))}
+            )}
 
             {/* Center hub */}
             <motion.g
               initial={{ scale: 0, opacity: 0 }}
               animate={inView ? { scale: 1, opacity: 1 } : {}}
-              transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
               style={{ transformOrigin: `${CX}px ${CY}px` }}
-              filter="url(#glow-center)"
+              filter="url(#glow-hub)"
             >
-              <circle cx={CX} cy={CY} r={30} fill={AW} opacity={0.15} />
-              <circle cx={CX} cy={CY} r={22} fill={P} stroke={AW} strokeWidth={2} />
-              {/* Dandy "D" logotype mark */}
-              <text x={CX} y={CY + 5} textAnchor="middle" fill={AW} fontSize={16} fontWeight="800" fontFamily={DISPLAY_FONT}>
-                D
-              </text>
+              {/* Outer ring */}
+              <circle cx={CX} cy={CY} r={36} fill="none" stroke={AW} strokeWidth={0.75} strokeOpacity={0.3} />
+              {/* Inner ring */}
+              <circle cx={CX} cy={CY} r={28} fill="none" stroke={AW} strokeWidth={0.5} strokeOpacity={0.2} />
+              {/* Hub face */}
+              <circle cx={CX} cy={CY} r={24} fill="url(#hub-face)" stroke={AW} strokeWidth={1.25} strokeOpacity={0.7} />
+              {/* Crosshair marks — precision instrument feel */}
+              {[0, 90, 180, 270].map(a => (
+                <line
+                  key={a}
+                  x1={CX + Math.cos(a * Math.PI / 180) * 10}
+                  y1={CY + Math.sin(a * Math.PI / 180) * 10}
+                  x2={CX + Math.cos(a * Math.PI / 180) * 16}
+                  y2={CY + Math.sin(a * Math.PI / 180) * 16}
+                  stroke={AW}
+                  strokeWidth={1.25}
+                  strokeOpacity={0.8}
+                  strokeLinecap="round"
+                />
+              ))}
+              {/* Center point */}
+              <circle cx={CX} cy={CY} r={2.5} fill={AW} />
             </motion.g>
 
-            {/* Center label */}
+            {/* DANDY HUB label below hub */}
             <motion.text
-              x={CX} y={CY + 48}
+              x={CX} y={CY + 52}
               textAnchor="middle"
               fill={PFG}
-              fontSize={9}
+              fontSize={8}
               fontWeight="700"
               fontFamily="Inter,system-ui,sans-serif"
-              letterSpacing="0.1em"
+              letterSpacing="0.14em"
               initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 0.85 } : {}}
-              transition={{ duration: 0.5, delay: 0.9 }}
+              animate={inView ? { opacity: 0.6 } : {}}
+              transition={{ duration: 0.6, delay: 1.1 }}
             >
               DANDY HUB
             </motion.text>
@@ -400,7 +419,6 @@ export function BlockDsoNetworkMap({ props }: Props) {
         </div>
       </div>
 
-      {/* Mobile stack tweak */}
       <style>{`
         @media (max-width: 767px) {
           .dsomg-grid { grid-template-columns: 1fr !important; min-height: unset !important; }
