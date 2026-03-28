@@ -662,6 +662,8 @@ export default function BuilderEditor() {
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
   const [saveToLibraryBlock, setSaveToLibraryBlock] = useState<PageBlock | null>(null);
 
+  const { toast } = useToast();
+
   // Content Brief state
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
