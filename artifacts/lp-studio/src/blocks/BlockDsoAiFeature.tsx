@@ -82,7 +82,6 @@ export function BlockDsoAiFeature({ props }: Props) {
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}
         className="md:px-10"
       >
-
         {/* ── Header: eyebrow + headline + body / stats ── */}
         <div className="grid md:grid-cols-[3fr_2fr] gap-10 items-end mb-10">
           <div>
@@ -165,41 +164,41 @@ export function BlockDsoAiFeature({ props }: Props) {
             )}
           </motion.div>
         </div>
+      </div>
 
-        {/* ── Landscape video / animation ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          style={{
-            borderRadius: "1.25rem",
-            overflow: "hidden",
-            border: `1px solid ${imgBorder}`,
-            boxShadow: "none",
-            background: imgBg,
-            aspectRatio: "16/9",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {videoUrl ? (
-            <video
-              src={videoUrl}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          ) : (
-            <AiScanReviewAnimation imageUrl={imageUrl} />
-          )}
-        </motion.div>
+      {/* ── Full-width landscape video / animation ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        style={{
+          overflow: "hidden",
+          background: imgBg,
+          aspectRatio: "16/9",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {videoUrl ? (
+          <video
+            src={videoUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <AiScanReviewAnimation imageUrl={imageUrl} />
+        )}
+      </motion.div>
 
-        {/* ── Bullets row below video ── */}
-        {bullets.length > 0 && (
+      {/* ── Bullets row below video ── */}
+      {bullets.length > 0 && (
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }} className="md:px-10">
           <motion.ul
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -219,9 +218,8 @@ export function BlockDsoAiFeature({ props }: Props) {
               );
             })}
           </motion.ul>
-        )}
-
-      </div>
+        </div>
+      )}
     </section>
   );
 }
