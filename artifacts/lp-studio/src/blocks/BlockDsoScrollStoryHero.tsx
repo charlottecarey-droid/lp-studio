@@ -42,7 +42,9 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
     chapters,
     ctaText = "Request a Custom Demo",
     ctaUrl = "#",
+    imagePosition = "right",
   } = props;
+  const imageRight = imagePosition !== "left";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -58,21 +60,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
     return () => clearInterval(id);
   }, [sectionInView, paused, displayChapters.length]);
 
-  return (
-    <section
-      ref={sectionRef}
-      className="dsosh-layout"
-      style={{
-        position: "relative",
-        width: "100%",
-        minHeight: "100svh",
-        display: "flex",
-        flexDirection: "row",
-        overflow: "hidden",
-        background: P,
-      }}
-    >
-      {/* ── Left panel — text ── */}
+  const textPanel = (
       <div
         className="dsosh-left"
         style={{
@@ -86,6 +74,7 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
           padding: "clamp(2.5rem,6vw,5.5rem) clamp(1.5rem,5vw,4.5rem)",
           background: P,
           flexShrink: 0,
+          order: imageRight ? 0 : 1,
         }}
       >
         {/* Eyebrow */}
@@ -207,52 +196,74 @@ export function BlockDsoScrollStoryHero({ props }: Props) {
           </div>
         )}
       </div>
+  );
 
-      {/* ── Right panel — crossfading image ── */}
-      <div className="dsosh-right" style={{ position: "relative", flex: 1, minHeight: "100%" }}>
-        {displayChapters.map((ch, i) => (
-          <motion.div
-            key={i}
-            style={{ position: "absolute", inset: 0 }}
-            animate={{ opacity: active === i ? 1 : 0, scale: active === i ? 1 : 1.04 }}
-            transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <img
-              src={ch.imageUrl}
-              alt={ch.headline}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              loading={i === 0 ? "eager" : "lazy"}
-            />
-            {/* Gradient overlays */}
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(9,41,30,0.55) 0%, rgba(0,0,0,0) 40%)" }} />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)" }} />
-            {/* Watermark number */}
-            <div style={{
-              position: "absolute",
-              bottom: "2rem",
-              right: "2rem",
-              fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(5rem,10vw,9rem)",
-              fontWeight: 800,
-              color: "rgba(255,255,255,0.09)",
-              lineHeight: 1,
-              letterSpacing: "-0.06em",
-              userSelect: "none",
-            }}>
-              {String(i + 1).padStart(2, "0")}
-            </div>
-            {/* Lime bottom accent */}
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
-          </motion.div>
-        ))}
-      </div>
+  const imagePanel = (
+    <div className="dsosh-right" style={{ position: "relative", flex: 1, minHeight: "100%", order: imageRight ? 1 : 0 }}>
+      {displayChapters.map((ch, i) => (
+        <motion.div
+          key={i}
+          style={{ position: "absolute", inset: 0 }}
+          animate={{ opacity: active === i ? 1 : 0, scale: active === i ? 1 : 1.04 }}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <img
+            src={ch.imageUrl}
+            alt={ch.headline}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            loading={i === 0 ? "eager" : "lazy"}
+          />
+          {/* Gradient overlays — flip direction when image is on the left */}
+          <div style={{ position: "absolute", inset: 0, background: imageRight
+            ? "linear-gradient(90deg, rgba(9,41,30,0.55) 0%, rgba(0,0,0,0) 40%)"
+            : "linear-gradient(270deg, rgba(9,41,30,0.55) 0%, rgba(0,0,0,0) 40%)"
+          }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)" }} />
+          {/* Watermark number */}
+          <div style={{
+            position: "absolute",
+            bottom: "2rem",
+            ...(imageRight ? { right: "2rem" } : { left: "2rem" }),
+            fontFamily: DISPLAY_FONT,
+            fontSize: "clamp(5rem,10vw,9rem)",
+            fontWeight: 800,
+            color: "rgba(255,255,255,0.09)",
+            lineHeight: 1,
+            letterSpacing: "-0.06em",
+            userSelect: "none",
+          }}>
+            {String(i + 1).padStart(2, "0")}
+          </div>
+          {/* Lime bottom accent */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
+        </motion.div>
+      ))}
+    </div>
+  );
+
+  return (
+    <section
+      ref={sectionRef}
+      className="dsosh-layout"
+      style={{
+        position: "relative",
+        width: "100%",
+        minHeight: "100svh",
+        display: "flex",
+        flexDirection: "row",
+        overflow: "hidden",
+        background: P,
+      }}
+    >
+      {textPanel}
+      {imagePanel}
 
       {/* ── Mobile overlay — stacked, image behind ── */}
       <style>{`
         @media (max-width: 767px) {
           .dsosh-layout { flex-direction: column !important; }
-          .dsosh-left { width: 100% !important; min-height: unset !important; padding: 2.5rem 1.25rem 2.5rem !important; }
-          .dsosh-right { position: relative !important; height: 45vw !important; min-height: 180px !important; flex: unset !important; width: 100% !important; }
+          .dsosh-left { width: 100% !important; min-height: unset !important; padding: 2.5rem 1.25rem 2.5rem !important; order: 0 !important; }
+          .dsosh-right { position: relative !important; height: 45vw !important; min-height: 180px !important; flex: unset !important; width: 100% !important; order: 1 !important; }
         }
       `}</style>
     </section>

@@ -307,6 +307,7 @@ export interface DsoScrollStoryHeroBlockProps {
   chapters: DsoScrollStoryChapter[];
   ctaText?: string;
   ctaUrl?: string;
+  imagePosition?: "left" | "right";
 }
 
 export interface DsoNetworkMapBlockProps {

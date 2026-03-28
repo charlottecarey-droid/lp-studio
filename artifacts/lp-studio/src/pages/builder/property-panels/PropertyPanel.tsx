@@ -1470,6 +1470,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Image Side</Label>
+              <div className="flex gap-2">
+                {(["left", "right"] as const).map(side => (
+                  <button key={side} onClick={() => onChange({ ...block, props: { ...p, imagePosition: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.imagePosition ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                    Image {side}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
               <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="The Dandy Advantage" />
             </div>
