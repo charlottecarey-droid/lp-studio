@@ -119,8 +119,8 @@ export function BlockDsoPartnershipPerks({ props }: Props) {
             >
               <PerkIcon name={perk.icon} dark={dark} />
               <div>
-                <p style={{ fontFamily: DISPLAY, fontSize: "0.9375rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{perk.title}</p>
-                <p style={{ fontSize: "0.875rem", color: descC, marginTop: 4, lineHeight: 1.6 }}>{perk.desc}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{perk.title}</p>
+                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: 4, lineHeight: 1.6 }}>{perk.desc}</p>
               </div>
             </motion.div>
           ))}

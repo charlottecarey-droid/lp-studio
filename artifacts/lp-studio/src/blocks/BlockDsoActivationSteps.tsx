@@ -118,7 +118,7 @@ export function BlockDsoActivationSteps({ props }: Props) {
                   backdropFilter: dark ? "blur(12px)" : "none",
                 }}
               >
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.125rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{step.title}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{step.title}</p>
                 <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.5rem", lineHeight: 1.65 }}>{step.desc}</p>
               </div>
             </motion.div>

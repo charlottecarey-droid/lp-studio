@@ -53,8 +53,8 @@ export function BlockDsoSplitFeature({ props }: Props) {
         <h2
           style={{
             fontFamily: DISPLAY,
-            fontSize: "clamp(1.75rem,3vw,2.5rem)",
-            lineHeight: 1.2,
+            fontSize: "clamp(1.875rem,3.5vw,2.75rem)",
+            lineHeight: 1.15,
             fontWeight: 600,
             color: headlineC,
             letterSpacing: "-0.015em",

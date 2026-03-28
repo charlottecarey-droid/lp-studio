@@ -45,7 +45,7 @@ export function BlockDsoMeetTeam({ props }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
+              style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
               {headline}
             </motion.h2>
@@ -146,7 +146,7 @@ export function BlockDsoMeetTeam({ props }: Props) {
               )}
 
               <div style={{ textAlign: "center" }}>
-                <p style={{ fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{m.name}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{m.name}</p>
                 <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: roleC, marginTop: 3 }}>{m.role}</p>
               </div>
 

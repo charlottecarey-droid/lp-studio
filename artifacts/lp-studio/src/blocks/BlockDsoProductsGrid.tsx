@@ -142,7 +142,7 @@ export function BlockDsoProductsGrid({ props }: Props) {
 
                 <div style={{ padding: "1.25rem 1.5rem 1.5rem" }}>
                   <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{product.name}</p>
-                  <p style={{ fontSize: "0.875rem", color: detailC, marginTop: 4, lineHeight: 1.55 }}>{product.detail}</p>
+                  <p style={{ fontSize: "0.9375rem", color: detailC, marginTop: 4, lineHeight: 1.55 }}>{product.detail}</p>
                   <p style={{ fontSize: "1rem", fontWeight: 700, color: priceC, marginTop: "0.875rem" }}>{product.price}</p>
                 </div>
               </motion.div>

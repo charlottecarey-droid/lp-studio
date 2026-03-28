@@ -72,7 +72,7 @@ export function BlockDsoStatRow({ props }: Props) {
               </p>
             )}
             {headline && (
-              <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}>
+              <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", fontWeight: 600, color: headlineC, lineHeight: 1.15, letterSpacing: "-0.015em" }}>
                 {headline}
               </h2>
             )}

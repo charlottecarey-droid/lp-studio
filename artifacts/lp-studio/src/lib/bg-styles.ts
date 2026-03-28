@@ -13,7 +13,7 @@ const MAP: Record<BackgroundStyle, React.CSSProperties> = {
   "white":       { background: "#fff" },
   "light-gray":  { background: "#f8fafc" },
   "muted":       { background: "hsl(42,18%,96%)" },
-  "dark":        { background: "#0f172a", color: "#fff" },
+  "dark":        { background: "#1a1a1a", color: "#fff" },
   "dandy-green": { background: "#003A30", color: "#fff" },
   "black":       { background: "#000000", color: "#fff" },
   "gradient":    { background: "radial-gradient(ellipse 120% 100% at 50% 50%, #003A30 0%, #001a14 55%, #000000 100%)", color: "#fff" },

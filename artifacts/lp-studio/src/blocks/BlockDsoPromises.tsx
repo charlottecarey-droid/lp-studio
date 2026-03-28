@@ -67,8 +67,8 @@ export function BlockDsoPromises({ props }: Props) {
               transition={{ duration: 0.6 }}
               style={{
                 fontFamily: DISPLAY,
-                fontSize: "clamp(2rem,3.5vw,3rem)",
-                lineHeight: 1.1,
+                fontSize: "clamp(1.875rem,3.5vw,2.75rem)",
+                lineHeight: 1.15,
                 fontWeight: 600,
                 color: headlineC,
                 letterSpacing: "-0.02em",
@@ -124,7 +124,7 @@ export function BlockDsoPromises({ props }: Props) {
                 >
                   <Icon style={{ width: 24, height: 24, color: dark ? LIME : BRAND }} />
                 </div>
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.125rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{promise.title}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{promise.title}</p>
                 <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.625rem", lineHeight: 1.65 }}>{promise.desc}</p>
               </motion.div>
             );

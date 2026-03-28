@@ -47,7 +47,7 @@ export function BlockDsoFaq({ props }: Props) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              style={{ fontFamily: DISPLAY, fontSize: "clamp(1.75rem,3vw,2.5rem)", lineHeight: 1.2, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
+              style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
               {headline}
             </motion.h2>
