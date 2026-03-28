@@ -32,6 +32,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
     layout = "centered",
     imageUrl,
     imageAlt = "",
+    imageShadow = true,
   } = props;
 
   const dark = isDarkBg(backgroundStyle);
@@ -268,9 +269,11 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
               style={{
                 borderRadius: "1.25rem",
                 overflow: "hidden",
-                boxShadow: dark
-                  ? "0 32px 64px rgba(0,0,0,0.45)"
-                  : "0 24px 48px rgba(0,58,48,0.12)",
+                boxShadow: imageShadow
+                  ? (dark
+                    ? "0 32px 64px rgba(0,0,0,0.45)"
+                    : "0 24px 48px rgba(0,58,48,0.12)")
+                  : "none",
                 aspectRatio: "4/3",
               }}
             >

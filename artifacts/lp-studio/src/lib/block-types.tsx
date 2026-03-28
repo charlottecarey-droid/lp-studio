@@ -557,6 +557,7 @@ export interface DsoPracticeHeroBlockProps {
   layout?: "centered" | "split" | "bg-image";
   imageUrl?: string;
   imageAlt?: string;
+  imageShadow?: boolean;
 }
 
 export interface DsoStatRowItem {

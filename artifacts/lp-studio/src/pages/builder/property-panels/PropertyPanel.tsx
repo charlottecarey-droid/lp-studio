@@ -38,6 +38,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy, refreshBlockCopy, refreshBentoTiles, type DsoBentoTile } from "@/lib/copy-api";
@@ -2287,6 +2288,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Image Alt Text</Label><Input value={p.imageAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageAlt: e.target.value || undefined } })} placeholder="Doctor reviewing a case" className="h-8 text-xs" /></div>
               </>}
+              {p.layout === "split" && (
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Image Drop Shadow</Label>
+                  <Switch checked={p.imageShadow !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, imageShadow: v } })} />
+                </div>
+              )}
             </div>
           </div>
         );
