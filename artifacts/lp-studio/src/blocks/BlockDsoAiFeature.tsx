@@ -82,7 +82,7 @@ export function BlockDsoAiFeature({ props }: Props) {
         style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}
         className="md:px-10"
       >
-        <div className="grid md:grid-cols-2 gap-16 items-center">
+        <div className="grid md:grid-cols-[2fr_3fr] gap-12 items-center">
 
           {/* ── Left: text ── */}
           <div>
@@ -260,7 +260,7 @@ export function BlockDsoAiFeature({ props }: Props) {
             )}
           </div>
 
-          {/* ── Right: scan image ── */}
+          {/* ── Right: scan video / image ── */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -270,9 +270,10 @@ export function BlockDsoAiFeature({ props }: Props) {
               borderRadius: "1.25rem",
               overflow: "hidden",
               border: `1px solid ${imgBorder}`,
-              boxShadow: "0 4px 24px rgba(0,0,0,0.4), 0 32px 80px rgba(0,0,0,0.5)",
+              boxShadow: "0 4px 32px rgba(0,0,0,0.5), 0 40px 100px rgba(0,0,0,0.45)",
               background: imgBg,
-              aspectRatio: "4/3",
+              minHeight: "520px",
+              alignSelf: "stretch",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
