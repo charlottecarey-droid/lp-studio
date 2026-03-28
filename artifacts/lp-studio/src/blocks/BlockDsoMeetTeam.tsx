@@ -12,7 +12,7 @@ const LIME    = "hsl(68,60%,52%)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoMeetTeam({ props }: Props) {
-  const { eyebrow, headline, subheadline, members = [], backgroundStyle = "dark" } = props;
+  const { eyebrow, headline, subheadline, ctaText, ctaUrl, members = [], backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -60,6 +60,39 @@ export function BlockDsoMeetTeam({ props }: Props) {
             >
               {subheadline}
             </motion.p>
+          )}
+          {ctaText && ctaUrl && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              style={{ marginTop: "2rem" }}
+            >
+              <a
+                href={ctaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  fontFamily: DISPLAY,
+                  fontSize: "0.9375rem",
+                  fontWeight: 600,
+                  color: dark ? BRAND : "#fff",
+                  background: dark ? LIME : BRAND,
+                  borderRadius: "0.625rem",
+                  padding: "0.75rem 1.75rem",
+                  textDecoration: "none",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                <Calendar style={{ width: 16, height: 16 }} />
+                {ctaText}
+              </a>
+            </motion.div>
           )}
         </div>
 

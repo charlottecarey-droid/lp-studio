@@ -1870,6 +1870,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5"><Label className="text-xs">Eyebrow</Label><Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Headline</Label><Input value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Subheadline</Label><Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} rows={2} className="text-xs resize-none" /></div>
+            <div className="border-t pt-3 space-y-1.5"><Label className="text-xs">Section CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="Book a Meeting" className="h-8 text-xs" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Section CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Members</Label><Button variant="ghost" size="sm" onClick={addMember} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -1979,7 +1981,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <Input value={prod.name} onChange={e => updateProduct(i, { name: e.target.value })} placeholder="Product name" className="h-8 text-xs" />
                     <Input value={prod.detail} onChange={e => updateProduct(i, { detail: e.target.value })} placeholder="Short detail" className="h-8 text-xs" />
                     <Input value={prod.price} onChange={e => updateProduct(i, { price: e.target.value })} placeholder="From $109" className="h-8 text-xs" />
-                    <Input value={prod.imageUrl ?? ""} onChange={e => updateProduct(i, { imageUrl: e.target.value || undefined })} placeholder="Image URL (optional)" className="h-8 text-xs" />
+                    <Input value={prod.icon ?? ""} onChange={e => updateProduct(i, { icon: e.target.value || undefined })} placeholder="Icon key (crown, smile, moon…)" className="h-8 text-xs" />
+                    <Input value={prod.imageKey ?? ""} onChange={e => updateProduct(i, { imageKey: e.target.value || undefined })} placeholder="Image key (posterior-crowns, dentures…)" className="h-8 text-xs" />
+                    <Input value={prod.imageUrl ?? ""} onChange={e => updateProduct(i, { imageUrl: e.target.value || undefined })} placeholder="Image URL (overrides key)" className="h-8 text-xs" />
                   </div>
                 ))}
               </div>

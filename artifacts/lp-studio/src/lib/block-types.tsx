@@ -403,6 +403,8 @@ export interface DsoMeetTeamBlockProps {
   eyebrow?: string;
   headline?: string;
   subheadline?: string;
+  ctaText?: string;
+  ctaUrl?: string;
   members: DsoMeetTeamMember[];
   backgroundStyle?: BackgroundStyle;
 }
@@ -2401,6 +2403,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       eyebrow: "Your Dedicated Team",
       headline: "The team behind your partnership.",
       subheadline: "Every practice gets a dedicated Dandy rep who knows your workflow, not a generic help desk.",
+      ctaText: "Book a Meeting",
+      ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
       members: [
         { name: "Asad Ahmed", role: "Enterprise AE", email: "asad.ahmed@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/asad-ahmed" },
         { name: "Dan MacAdam", role: "Strategic AE", email: "dan.macadam@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/dan-macadam" },
