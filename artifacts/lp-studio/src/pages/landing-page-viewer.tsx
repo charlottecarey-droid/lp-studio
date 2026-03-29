@@ -409,7 +409,7 @@ export default function LandingPageViewer() {
               style={block.blockSettings?.animationStyle ?? "fade-up"}
               enabled={animationsEnabled}
             >
-              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} />
+              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
             </ScrollReveal>
           );
         })}
@@ -515,7 +515,7 @@ export default function LandingPageViewer() {
                   style={block.blockSettings?.animationStyle ?? "fade-up"}
                   enabled={linkedAnimationsEnabled}
                 >
-                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} />
+                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
                 </ScrollReveal>
               );
             })

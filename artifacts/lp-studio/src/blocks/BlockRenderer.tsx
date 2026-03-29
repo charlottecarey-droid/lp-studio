@@ -75,6 +75,7 @@ interface Props {
   pageId?: number;
   variantId?: number;
   sessionId?: string;
+  pageVars?: Record<string, string>;
 }
 
 const SPACING_PX: Record<string, string> = {
@@ -187,7 +188,7 @@ function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefine
   return url;
 }
 
-export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
+export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars }: Props) {
   const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
     ? PADDING_X_PX[block.blockSettings.paddingX]
     : undefined;
@@ -474,7 +475,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} brand={brand} />;
       case "dso-cta-capture":
-        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} />;
+        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} />;
       case "dso-meet-team":
         return <BlockDsoMeetTeam props={block.props} brand={brand} />;
       case "dso-paradigm-shift":

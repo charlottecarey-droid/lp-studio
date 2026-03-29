@@ -16,32 +16,32 @@ interface Props {
   props: DsoCtaCaptureBlockProps;
   pageId?: number;
   variantId?: number;
+  prefillCompany?: string;
 }
 
 type FormState = "idle" | "loading" | "success";
 type FormStep = 1 | 2;
 
-function buildChiliPiperUrl(base: string, email: string): string {
+function buildChiliPiperUrl(base: string, email: string, firstName: string, lastName: string, company: string): string {
   if (!base) return "";
   try {
     const url = new URL(base);
     url.searchParams.set("email", email);
+    if (firstName) url.searchParams.set("firstName", firstName);
+    if (lastName)  url.searchParams.set("lastName", lastName);
+    if (company)   url.searchParams.set("company", company);
     return url.toString();
   } catch {
     const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}email=${encodeURIComponent(email)}`;
+    const params = new URLSearchParams({ email });
+    if (firstName) params.set("firstName", firstName);
+    if (lastName)  params.set("lastName", lastName);
+    if (company)   params.set("company", company);
+    return `${base}${sep}${params.toString()}`;
   }
 }
 
-const LOCATION_OPTIONS = [
-  "1–5 locations",
-  "6–20 locations",
-  "21–50 locations",
-  "51–100 locations",
-  "100+ locations",
-];
-
-export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
+export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }: Props) {
   const {
     eyebrow       = "Get Started Today",
     headline      = "See what Dandy can\ndo for your group.",
@@ -67,12 +67,13 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [org, setOrg] = useState("");
-  const [locations, setLocations] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState(prefillCompany ?? "");
+  const hasCompanyPrefill = Boolean(prefillCompany);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [nameError, setNameError] = useState("");
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
 
   const [formState, setFormState] = useState<FormState>("idle");
   const [cpOpen, setCpOpen] = useState(false);
@@ -95,12 +96,17 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
 
   async function handleStep2(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      setNameError("Please enter your name.");
-      return;
-    }
-    setNameError("");
+    let hasError = false;
+    if (!firstName.trim()) { setFirstNameError("Required"); hasError = true; }
+    if (!lastName.trim())  { setLastNameError("Required");  hasError = true; }
+    if (hasError) return;
+    setFirstNameError("");
+    setLastNameError("");
     setFormState("loading");
+
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const co = company.trim();
 
     try {
       if (pageId) {
@@ -112,10 +118,10 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
             variantId,
             fields: {
               email: email.trim(),
-              name: name.trim(),
-              phone: phone.trim() || undefined,
-              organization: org.trim() || undefined,
-              locations: locations || undefined,
+              name: `${fn} ${ln}`,
+              firstName: fn,
+              lastName: ln,
+              organization: co || undefined,
               source: "dso-cta-capture",
             },
           }),
@@ -128,7 +134,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
     setFormState("success");
 
     if (chilipiperUrl) {
-      const url = buildChiliPiperUrl(chilipiperUrl, email.trim());
+      const url = buildChiliPiperUrl(chilipiperUrl, email.trim(), fn, ln, co);
       setCpUrl(url);
       setCpOpen(true);
     }
@@ -311,7 +317,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               {chilipiperUrl && (
                 <button
                   type="button"
-                  onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim())); setCpOpen(true); }}
+                  onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim(), firstName.trim(), lastName.trim(), company.trim())); setCpOpen(true); }}
                   style={{
                     alignSelf: "flex-start", marginTop: "0.25rem",
                     background: AW, color: BG, border: "none", borderRadius: 999,
@@ -431,72 +437,59 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
                     noValidate
                     style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
                   >
-                    {/* Full name */}
-                    <div>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={e => { setName(e.target.value); if (nameError) setNameError(""); }}
-                        placeholder="Full name *"
-                        required
-                        onFocus={() => setFocusedField("name")}
-                        onBlur={() => setFocusedField(null)}
-                        disabled={isLoading}
-                        style={fieldStyle("name", Boolean(nameError))}
-                      />
-                      {nameError && (
-                        <p style={{ fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.35rem", marginLeft: "0.25rem" }}>
-                          {nameError}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Phone + Org name */}
+                    {/* First name | Last name */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={e => setPhone(e.target.value)}
-                        placeholder="Phone number"
-                        onFocus={() => setFocusedField("phone")}
-                        onBlur={() => setFocusedField(null)}
-                        disabled={isLoading}
-                        style={fieldStyle("phone")}
-                      />
-                      <input
-                        type="text"
-                        value={org}
-                        onChange={e => setOrg(e.target.value)}
-                        placeholder="DSO / Practice name"
-                        onFocus={() => setFocusedField("org")}
-                        onBlur={() => setFocusedField(null)}
-                        disabled={isLoading}
-                        style={fieldStyle("org")}
-                      />
+                      <div>
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={e => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(""); }}
+                          placeholder="First name *"
+                          required
+                          onFocus={() => setFocusedField("firstName")}
+                          onBlur={() => setFocusedField(null)}
+                          disabled={isLoading}
+                          style={fieldStyle("firstName", Boolean(firstNameError))}
+                        />
+                        {firstNameError && (
+                          <p style={{ fontSize: "0.7rem", color: "rgba(239,68,68,0.85)", marginTop: "0.25rem", marginLeft: "0.25rem" }}>
+                            {firstNameError}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={e => { setLastName(e.target.value); if (lastNameError) setLastNameError(""); }}
+                          placeholder="Last name *"
+                          required
+                          onFocus={() => setFocusedField("lastName")}
+                          onBlur={() => setFocusedField(null)}
+                          disabled={isLoading}
+                          style={fieldStyle("lastName", Boolean(lastNameError))}
+                        />
+                        {lastNameError && (
+                          <p style={{ fontSize: "0.7rem", color: "rgba(239,68,68,0.85)", marginTop: "0.25rem", marginLeft: "0.25rem" }}>
+                            {lastNameError}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Number of locations */}
-                    <select
-                      value={locations}
-                      onChange={e => setLocations(e.target.value)}
-                      onFocus={() => setFocusedField("locations")}
-                      onBlur={() => setFocusedField(null)}
-                      disabled={isLoading}
-                      style={{
-                        ...fieldStyle("locations"),
-                        color: locations ? PFG : MUTED,
-                        appearance: "none",
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(199,231,56,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "right 14px center",
-                        paddingRight: 36,
-                      }}
-                    >
-                      <option value="" disabled>Number of locations</option>
-                      {LOCATION_OPTIONS.map(opt => (
-                        <option key={opt} value={opt} style={{ background: "#111", color: PFG }}>{opt}</option>
-                      ))}
-                    </select>
+                    {/* Company name — hidden when already personalized */}
+                    {!hasCompanyPrefill && (
+                      <input
+                        type="text"
+                        value={company}
+                        onChange={e => setCompany(e.target.value)}
+                        placeholder="DSO / Practice group name"
+                        onFocus={() => setFocusedField("company")}
+                        onBlur={() => setFocusedField(null)}
+                        disabled={isLoading}
+                        style={fieldStyle("company")}
+                      />
+                    )}
 
                     {/* Submit */}
                     <button
