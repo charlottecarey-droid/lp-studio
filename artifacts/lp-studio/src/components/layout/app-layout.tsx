@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, LayoutGrid, CheckCircle2, BarChart2, BookOpen, Blocks, Settings2, Users, FormInput, Plug2 } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/layout/mode-toggle";
 import dandyLogo from "@/assets/dandy-logo.svg";
 
 export function AppSidebar() {
@@ -22,7 +23,12 @@ export function AppSidebar() {
             </div>
           </div>
         </div>
-        
+
+        {/* Mode Toggle */}
+        <div className="px-4 pb-4">
+          <ModeToggle />
+        </div>
+
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Platform</SidebarGroupLabel>
           <SidebarGroupContent>

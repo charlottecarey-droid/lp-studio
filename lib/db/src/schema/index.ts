@@ -11,3 +11,10 @@ export * from "./lpLeads";
 export * from "./lpForms";
 export * from "./lpSmartTraffic";
 export * from "./lpHeatmapEvents";
+
+// Sales Console tables
+export * from "./salesAccounts";
+export * from "./salesContacts";
+export * from "./salesHotlinks";
+export * from "./salesEmails";
+export * from "./salesSignals";

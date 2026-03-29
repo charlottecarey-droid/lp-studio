@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import PersonalizedLinkResolver from "@/pages/personalized-link-resolver";
+import { ModeProvider } from "@/lib/mode-context";
 
 import Dashboard from "@/pages/dashboard";
 import CreateTest from "@/pages/create-test";
@@ -25,6 +26,14 @@ import LeadsPage from "@/pages/leads";
 import FormsPage from "@/pages/forms";
 import IntegrationsPage from "@/pages/integrations";
 import NewPage from "@/pages/new-page";
+
+// Sales Console pages
+import SalesDashboard from "@/pages/sales/sales-dashboard";
+import SalesAccounts from "@/pages/sales/sales-accounts";
+import SalesContacts from "@/pages/sales/sales-contacts";
+import SalesPages from "@/pages/sales/sales-pages";
+import SalesOutreach from "@/pages/sales/sales-outreach";
+import SalesSignals from "@/pages/sales/sales-signals";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,13 +63,22 @@ function Router() {
       <Route path="/leads" component={LeadsPage} />
       <Route path="/forms" component={FormsPage} />
       <Route path="/integrations" component={IntegrationsPage} />
-      
+
+      {/* Sales Console Routes */}
+      <Route path="/sales" component={SalesDashboard} />
+      <Route path="/sales/accounts/:id" component={SalesAccounts} />
+      <Route path="/sales/accounts" component={SalesAccounts} />
+      <Route path="/sales/contacts" component={SalesContacts} />
+      <Route path="/sales/pages" component={SalesPages} />
+      <Route path="/sales/outreach" component={SalesOutreach} />
+      <Route path="/sales/signals" component={SalesSignals} />
+
       {/* Builder Editor (no app layout — full screen) */}
       <Route path="/builder/:pageId" component={BuilderEditor} />
 
       {/* Block Test Editor (no app layout — full screen) */}
       <Route path="/block-test-editor/:testId/:variantId/:blockId" component={BlockTestEditor} />
-      
+
       {/* Visitor Facing Landing Page (No App Layout) */}
       <Route path="/lp/:slug" component={LandingPageViewer} />
 
@@ -72,7 +90,7 @@ function Router() {
 
       {/* Personalized link resolver (No App Layout) */}
       <Route path="/p/:token" component={PersonalizedLinkResolver} />
-      
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -82,9 +100,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <ModeProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </ModeProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
