@@ -219,13 +219,25 @@ export default function LandingPageViewer() {
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
 
-  // Campaign page variables: ?_v_company=XYZ&_v_first_name=Jane etc.
-  // These are injected by the sales hotlink resolver and substituted into block content.
+  // Campaign page variables — substituted into block content at render time.
+  // Stored in sessionStorage (keyed by slug) so the URL stays clean with no visible params.
+  // URL params (_v_*) are still supported as a fallback for direct links.
   const pageVars = (() => {
     const vars: Record<string, string> = {};
+    // 1. Read from sessionStorage (set by the personalized link resolver)
+    try {
+      const stored = sessionStorage.getItem(`pv:${slug}`);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, string>;
+        Object.assign(vars, parsed);
+      }
+    } catch {
+      // sessionStorage unavailable — ignore
+    }
+    // 2. Also check URL _v_* params (lower priority, for dev/preview use)
     for (const [k, v] of searchParams.entries()) {
       if (k.startsWith("_v_")) {
-        const varKey = k.slice(3); // strip "_v_" prefix
+        const varKey = k.slice(3);
         vars[`{{${varKey}}}`] = v;
       }
     }

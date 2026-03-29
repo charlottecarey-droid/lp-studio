@@ -39,6 +39,7 @@ export default function PersonalizedLinkResolver() {
         return res.json() as Promise<LpResolveResponse>;
       })
       .then(data => {
+        // LP links use _plToken for engagement tracking — no vars in URL
         window.location.replace(`${base}/lp/${data.pageSlug}?_plToken=${encodeURIComponent(data.token)}`);
       })
       .catch(async () => {
@@ -48,13 +49,18 @@ export default function PersonalizedLinkResolver() {
           if (!salesRes.ok) throw new Error("not found");
           const data = await salesRes.json() as SalesResolveResponse;
 
-          // Build URL with personalization vars so the page can substitute {{company}} etc.
-          const params = new URLSearchParams({ _salesToken: token });
-          if (data.company) params.set("_v_company", data.company);
-          if (data.firstName) params.set("_v_first_name", data.firstName);
-          if (data.lastName) params.set("_v_last_name", data.lastName);
+          // Store personalization vars in sessionStorage — keeps the URL clean.
+          // The prospect sees meetdandy-lp.com/lp/page-name with nothing revealing in the address bar.
+          const vars: Record<string, string> = {};
+          if (data.company) vars["{{company}}"] = data.company;
+          if (data.firstName) vars["{{first_name}}"] = data.firstName;
+          if (data.lastName) vars["{{last_name}}"] = data.lastName;
+          if (Object.keys(vars).length > 0) {
+            sessionStorage.setItem(`pv:${data.pageSlug}`, JSON.stringify(vars));
+          }
 
-          window.location.replace(`${base}/lp/${data.pageSlug}?${params.toString()}`);
+          // Redirect to a clean URL — no query params
+          window.location.replace(`${base}/lp/${data.pageSlug}`);
         } catch {
           setError("This link is invalid or has expired.");
         }
