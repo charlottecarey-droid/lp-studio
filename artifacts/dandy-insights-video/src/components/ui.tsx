@@ -98,19 +98,20 @@ interface MetricPillProps {
   value: string;
   trend?: 'up' | 'down' | 'neutral';
   delay?: number;
+  large?: boolean;
 }
-export function MetricPill({ label, value, trend = 'neutral', delay = 0 }: MetricPillProps) {
+export function MetricPill({ label, value, trend = 'neutral', delay = 0, large = false }: MetricPillProps) {
   const trendColor = trend === 'up' ? '#059669' : trend === 'down' ? '#dc2626' : '#374151';
   const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '';
   return (
     <motion.div
-      className="flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
+      className={`flex items-center gap-3 bg-white rounded-full shadow-[0_6px_24px_rgba(0,0,0,0.16)] ${large ? 'px-7 py-4' : 'px-4 py-2'}`}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, delay, type: 'spring', bounce: 0.4 }}
     >
-      <span className="text-[#6b7280] text-[0.9vw]">{label}</span>
-      <span className="text-[1vw] font-bold tabular-nums" style={{ color: trendColor }}>
+      <span className={`text-[#6b7280] ${large ? 'text-[1.15vw]' : 'text-[0.9vw]'}`}>{label}</span>
+      <span className={`font-bold tabular-nums ${large ? 'text-[1.45vw]' : 'text-[1vw]'}`} style={{ color: trendColor }}>
         {arrow}{value}
       </span>
     </motion.div>

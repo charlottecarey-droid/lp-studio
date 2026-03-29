@@ -83,9 +83,9 @@ export default function Scene2Reveal() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <MetricPill label="Providers tracked" value="47" trend="up" delay={0} />
-            <MetricPill label="Avg remake rate" value="5.3%" trend="down" delay={0.1} />
-            <MetricPill label="Locations" value="12" trend="neutral" delay={0.2} />
+            <MetricPill label="Providers tracked" value="47" trend="up" delay={0} large />
+            <MetricPill label="Avg remake rate" value="5.3%" trend="down" delay={0.1} large />
+            <MetricPill label="Locations" value="12" trend="neutral" delay={0.2} large />
           </motion.div>
         )}
       </AnimatePresence>
