@@ -1,0 +1,480 @@
+
+LP Studio
+Sales Console
+Implementation Plan
+Adding a dedicated sales experience to LP Studio
+Charlotte Carey  |  March 2026
+
+
+1. Why a Sales Console
+LP Studio is built for marketers. The navigation, the mental model, the language — everything assumes the user is thinking in pages, blocks, A/B tests, and conversion funnels. A sales rep trying to accomplish their job in this interface would need to navigate through Pages → Builder → Tests → Leads, clicking through screens designed for a completely different workflow.
+The DSO app worked for sales because it was built around accounts, not pages. A rep would open an account, see the briefing, create a microsite, generate a tracked link, fire off an email, and watch engagement come in. Everything flowed from the account outward. The whole journey was 5–6 clicks.
+Merging these two apps into one product doesn’t mean merging them into one UI. Sales and marketing share infrastructure (the page builder, brand settings, content library, the database) but they need different entry points, different navigation, and different workflows.
+The Sales Console is not a new app. It’s a dedicated mode within LP Studio that gives sales reps their own navigation, their own dashboard, and their own workflows — while sharing everything under the hood with the marketing side.
+
+2. The Concept: Mode Toggle
+2.1 How It Works
+LP Studio’s sidebar gets a mode toggle at the top: Marketing and Sales. Clicking the toggle swaps the sidebar navigation, the dashboard, and the available routes. The URL structure changes from /pages, /tests, /analytics to /sales/accounts, /sales/outreach, /sales/signals. But the page builder itself (/builder/:pageId) is shared — both modes open the same editor.
+2.2 What Each Mode Sees
+
+Marketing Mode
+Sales Mode
+Dashboard
+Live pages, experiments, draft count, A/B test results
+My accounts, recent outreach, engagement signals, pipeline metrics
+Primary Nav
+Pages, Experiments, Analytics, Leads, Forms, Approvals
+Accounts, My Pages, Outreach, Signals, Contacts
+Page Builder
+Full builder with all blocks, brand settings, block defaults
+Same builder — but opened from account context, pre-populated with AI
+Settings
+Brand, Content Library, Block Defaults, Custom Blocks, Integrations
+Email Templates, My Signature, Notification Preferences
+Create Flow
+New Page → blank builder or template gallery
+Account → “Create Page for This Account” → builder (AI pre-populated)
+Analytics
+Aggregate: heatmaps, geo, device breakdown, Smart Traffic stats
+Per-prospect: who viewed, what they clicked, when, engagement score
+
+2.3 What’s Shared (Not Duplicated)
+	•	Page Builder: Identical component. Same blocks, same drag-and-drop, same brand settings. The builder doesn’t know which mode launched it.
+	•	Brand Settings: One source of truth for colors, fonts, tone, messaging pillars, segment configs. Both modes inherit.
+	•	Content Library: Saved blocks and templates available to both modes. Marketing creates templates; sales uses them.
+	•	Database: Same lp_pages, lp_leads, lp_events tables. A page created in sales mode is visible in marketing mode and vice versa.
+	•	AI Engine: Same copy-generate, generate-page, and brand-aware AI. Sales mode adds account context and segment context to the prompts.
+	•	Media Library: Shared images, videos, assets.
+
+3. Sales Console Routes & Pages
+Sales reps think in accounts and prospects, not pages and experiments. Every route in the Sales Console starts from “who am I trying to reach?” not “what am I trying to build?”
+3.1 /sales/dashboard — Sales Home
+Purpose: The rep’s daily home base. Shows what needs attention right now.
+	•	Recent Signals: Live feed of prospect engagement — “Sarah Johnson viewed your Heartland page 12 min ago, scrolled to ROI Calculator.” Click to open account.
+	•	My Pages: Pages this rep created or owns, sorted by recent activity. Quick stats: views, clicks, leads this week.
+	•	Outreach Summary: Emails sent this week, open rate, click rate, replies. Top-performing email template.
+	•	Quick Actions: Buttons: “Create Page for Account”, “Send Email”, “Import Contacts.”
+
+3.2 /sales/accounts — Account Hub
+Purpose: Search, browse, and manage target accounts. This is the primary entry point for sales work.
+Account List View
+	•	Searchable/filterable list of all accounts (companies) from the contact database
+	•	Each card shows: company name, tier, contact count, pages created, engagement score (high/medium/low), last activity date
+	•	Filter by: tier, engagement level, has page (yes/no), last contacted
+	•	Sort by: engagement score, last activity, company name, contact count
+
+/sales/accounts/:id — Account Detail
+Purpose: Everything the rep needs to work an account, on one page. This is the key screen.
+The account detail page has 5 sections, all visible on one scrollable page:
+	•	Account Overview: Company name, tier badge, industry, size, PE backer (if any), website. Engagement score with sparkline. Link to Salesforce record if mapped.
+	•	AI Briefing Panel: “Generate Briefing” button that calls the AI briefing engine. Once generated, shows: company overview, leadership team, recent news, buying committee with pain points, recommended messaging angle, suggested page content. Briefing is saved and reusable. “Refresh” button to regenerate with latest data.
+	•	Pages for This Account: List of all LP Studio pages created for this company. Each shows title, status (draft/live), views, last viewed, top engagement signal. “Create Page” button opens the page builder pre-populated with account context (company name, recommended blocks from briefing, segment brand settings). “Generate Tracked Link” button inline for each page.
+	•	Contacts at This Account: Table of contacts at this company: name, title, email, engagement history (last email sent, last page view, last click). “Send Email” button per contact. “Generate AI Email” button per contact that uses account briefing + contact role to draft personalized outreach.
+	•	Activity Timeline: Chronological feed of all engagement: page views (with hotlink attribution to specific contacts), email sends/opens/clicks, form submissions, CTA clicks. Each entry shows timestamp, contact name (if attributed), action, and page name.
+
+3.3 /sales/pages — My Pages
+Purpose: All pages this rep has created or been assigned. Not the full marketing page gallery — just their work.
+	•	Grid or list view of pages with: title, account name, status, views, leads, last activity
+	•	Quick actions per page: edit in builder, copy link, generate tracked link, view analytics, send in email
+	•	Filter by: account, status (draft/live), date created
+	•	“Create Page” button → choose account first → then builder (pre-populated with account context)
+
+3.4 /sales/outreach — Email & Campaigns
+Purpose: Send individual emails or campaigns with pages embedded. The email workflow, simplified for sales.
+Single Send (Default View)
+	•	Pick a contact (search by name, company, or email) or enter a new email address
+	•	Pick a page to include (dropdown of rep’s pages, auto-suggests pages for that contact’s account)
+	•	Choose: “Write my own” or “Generate with AI”
+	•	If AI: system uses account briefing + contact role + page content to draft email with tracked page link
+	•	If manual: email editor (TipTap) with merge variables and tracked link auto-inserted
+	•	Preview → Send. Email sent via Resend. Tracked link generated automatically.
+	•	After send: entry appears in account activity timeline and outreach history
+
+Campaign Send (Tab)
+	•	Select a contact list or build one with filters (company, title, department, tier)
+	•	Select an email template (from template library) or create new
+	•	Select a page to include — system auto-resolves {{page_url}} per recipient’s account if multiple pages exist
+	•	Optional: enable A/B test with second template
+	•	Configure sender (name, email, reply-to)
+	•	Preview with sample contact → Send or Schedule
+	•	Campaign dashboard shows: sent, opened, clicked, bounced, per-recipient status
+
+Email Templates (Tab)
+	•	Library of reusable email templates with the WYSIWYG editor
+	•	Starter templates: intro outreach, case study share, follow-up, meeting request
+	•	Merge variables: {{first_name}}, {{company}}, {{page_url}}, {{sender_name}}, and custom
+	•	Test send to self before using in campaigns
+
+3.5 /sales/signals — Real-Time Engagement
+Purpose: Live feed of prospect activity. The “inbox” for sales signals.
+	•	Page Views: “Sarah Johnson viewed Heartland Dental page” with timestamp, scroll depth, sections viewed, device
+	•	CTA Clicks: “Dr. Fooshée clicked ‘Schedule Demo’ on APEX page”
+	•	Email Engagement: “John Smith opened your Q1 outreach email” / “John Smith clicked the page link”
+	•	Form Submissions: “New lead from Heartland page: jane@heartland.com”
+	•	Each signal is clickable → opens the account detail page
+	•	Filter by: signal type, account, time range
+	•	Mark as read / snooze / follow up
+
+Signals are powered by the existing tracking infrastructure (lp_page_visits, lp_events, lp_heatmap_events) plus the hotlink attribution system (lp_hotlinks) and email tracking (lp_campaign_sends). A new SSE or WebSocket endpoint pushes events to the Sales Console in real time.
+3.6 /sales/contacts — Contact Database
+Purpose: Manage the people you’re selling to. Import, search, segment, and track engagement per contact.
+	•	Contact Table: Searchable, filterable list: name, title, company, email, engagement score, last activity
+	•	Import: CSV/Excel import wizard with field mapping and dedup (from existing ContactImporter)
+	•	Contact Detail (/sales/contacts/:id): Full engagement history: emails sent, pages viewed (with scroll depth), CTAs clicked, forms submitted. Links to associated account.
+	•	Quick Actions: Send email, generate AI email, generate tracked link, add to list
+	•	Lists: Named contact lists for campaigns. Build by filtering (company, title, department, tier) or manual selection.
+
+4. The Sales Page Creation Flow
+The critical difference from marketing mode: sales reps don’t start from a blank canvas. They start from an account, and AI fills in the rest.
+4.1 Flow: Account → AI → Builder → Send
+	•	Start at Account Detail: Rep is on /sales/accounts/heartland-dental. They see the AI briefing, the buying committee, the recommended messaging angle.
+	•	Click “Create Page for This Account”: Modal asks: What’s this page for? (dropdown: intro outreach, case study share, ROI pitch, event follow-up, custom). Optional: select a template from the content library.
+	•	AI Pre-Populates: System calls generate-page with: account name, account briefing data, selected segment config, brand settings, template (if chosen), and page purpose. Returns a full page with hero, value props, social proof, CTA — all customized for this account.
+	•	Builder Opens: Rep sees the pre-populated page in the standard LP Studio builder. They can tweak headlines, swap images, add/remove blocks. Same builder marketing uses — same brand enforcement, same block library.
+	•	Save & Publish: One click to go live. Page URL is generated. System auto-generates a tracked link for this account.
+	•	Send: Banner appears: “Page is live! Send it to a contact?” → Opens email composer pre-filled with the tracked page link and account-specific AI-drafted email.
+
+4.2 How AI Uses Account Context
+The generate-page route already accepts a briefContext parameter. For sales mode, this parameter is populated from the account briefing:
+Brief Context Field
+Source
+How AI Uses It
+company
+Account name from contact DB
+Personalizes hero headline: “How [Company] Can...”
+objective
+Page purpose selected by rep
+Determines block sequence and CTA style
+segmentContext
+Segment config from brand settings (e.g., DSO Practices)
+Injects segment messaging angle, challenges, value props into copy
+personas
+Buying committee from AI briefing
+Tailors benefits grid to persona pain points
+companyOverview
+AI briefing company summary
+Grounds all copy in company-specific context
+valueProps
+Segment value props + briefing fit analysis
+Populates benefits/value prop sections
+toneGuidance
+Brand settings tone + segment messaging angle
+Controls voice: executive, clinical, operational
+
+5. The Email → Page Pipeline
+The most critical workflow to get right is the closed loop from “I sent a page” to “I can see who engaged with it.” This is what made the DSO app valuable for sales and what no competitor offers.
+5.1 How Tracked Links Work
+	•	Rep creates page: Standard lp_pages record. Page is live at /lp/{slug}.
+	•	Rep generates tracked link for a contact: System creates lp_hotlinks record: {pageId, contactId, token (8-char), createdAt}. Link URL: /lp/{slug}?hl={token}.
+	•	Rep sends email: Email contains the tracked link. If using campaign sender, {{page_url}} auto-resolves to the tracked link for each recipient.
+	•	Contact clicks link: Page loads. Client-side tracker reads ?hl={token}, matches to hotlink record. All subsequent events (page_visit, heatmap_event, lp_event) are tagged with hotlinkId and contactId.
+	•	Rep sees engagement: Signals page shows: “Sarah Johnson viewed your page, scrolled to Section 4, clicked Schedule Demo.” Account timeline shows the full history.
+
+5.2 Email → Page URL Resolution
+When sending a campaign to multiple contacts, the system needs to resolve the right page URL for each recipient:
+	•	Campaign is configured with a page (or “auto-match by account”)
+	•	For each recipient, system looks up their company in lp_contacts
+	•	Finds pages tagged to that account (via a new account_id field on lp_pages)
+	•	If a tracked link exists for this contact + page, uses it. Otherwise generates one.
+	•	Replaces {{page_url}} in the email template with the resolved tracked link
+	•	Sends email via Resend with open pixel and click tracking
+
+5.3 What the Rep Sees After Sending
+Signal
+What Happened
+Where It Shows Up
+Email Opened
+Open tracking pixel fired
+Signals feed + account timeline + outreach history
+Link Clicked
+Contact clicked tracked link in email
+Signals feed + account timeline. Tracked as page view.
+Page Viewed
+Contact viewed page (with scroll depth, time on page)
+Signals feed + account timeline + page analytics
+Section Reached
+Contact scrolled to specific block (e.g., ROI Calculator)
+Account timeline. Shows which sections resonated.
+CTA Clicked
+Contact clicked a CTA button (e.g., Schedule Demo)
+Signals feed (high priority) + account timeline
+Form Submitted
+Contact filled out a form on the page
+Signals feed (high priority) + leads table + account timeline
+Return Visit
+Contact re-visited the page (same hotlink token)
+Signals feed + account timeline. Shows sustained interest.
+
+6. Database & API Changes
+6.1 New Tables (Drizzle Schema)
+Table
+Key Columns
+Migrated From
+lp_contacts
+id, orgId, firstName, lastName, email, title, company, salesforceId, segment, engagementScore
+dso_target_contacts
+lp_contact_lists
+id, orgId, name, description, createdAt
+dso_email_lists
+lp_contact_list_members
+listId (FK), contactId (FK)
+dso_email_list_members
+lp_hotlinks
+id, pageId (FK), contactId (FK), token (unique 8-char), createdAt
+dso_microsite_hotlinks
+lp_campaigns
+id, orgId, name, templateId, templateBId, listId, status, senderName, senderEmail, replyTo, abTestEnabled
+dso_email_campaigns
+lp_campaign_sends
+id, campaignId (FK), contactId (FK), email, variant, sentAt, openedAt, clickedAt, hotlinkId
+dso_email_campaign_sends
+lp_email_templates
+id, orgId, name, subject, htmlBody, plainBody, format, createdAt, updatedAt
+dso_marketing_templates
+lp_unsubscribes
+id, email, createdAt
+dso_email_unsubscribes
+lp_suppressed_emails
+id, email, reason, createdAt
+dso_suppressed_emails
+lp_signals
+id, orgId, type, contactId, pageId, hotlinkId, metadata (JSON), readAt, createdAt
+NEW
+lp_briefings
+id, orgId, company, briefingData (JSON), createdAt, updatedAt
+NEW
+
+6.2 Changes to Existing Tables
+Table
+New Column
+Purpose
+lp_pages
+accountId (nullable FK to lp_contacts company)
+Links pages to accounts for sales context
+lp_pages
+createdBy (user ID from auth)
+Lets My Pages show only the rep’s pages
+lp_pages
+mode (“marketing” | “sales”)
+Filter pages by mode in sidebar views
+lp_page_visits
+hotlinkId (nullable FK)
+Attribute visits to specific tracked links
+lp_events
+hotlinkId (nullable FK)
+Attribute conversions to tracked links
+lp_heatmap_events
+hotlinkId (nullable FK)
+Attribute click/scroll data to contacts
+
+6.3 New API Routes
+Route Module
+Key Endpoints
+Notes
+/lp/contacts
+CRUD, import (CSV/Excel), filter, dedup, Salesforce sync
+Replaces dso_target_contacts via generic endpoint
+/lp/hotlinks
+Generate, list by page/contact, track visit, attribution report
+Token generation + tracking integration
+/lp/campaigns
+CRUD, send, schedule, A/B, per-recipient status, analytics
+Resend integration, merge variable resolution
+/lp/email-templates
+CRUD, preview render, clone, test send
+Used by both single send and campaigns
+/lp/email-tracking
+GET open pixel, GET click redirect
+Lightweight, no auth. Updates campaign_sends.
+/lp/signals
+GET list (filtered), SSE stream, mark read, snooze
+Powers the real-time signals feed
+/lp/briefings
+POST generate, GET by company, PUT update
+AI briefing with Perplexity + Gemini/GPT-4o
+/lp/accounts
+GET list (aggregated from contacts), GET detail with engagement
+Virtual entity — aggregates contacts by company
+
+7. Frontend Architecture
+7.1 Mode Toggle Implementation
+The mode toggle lives in the AppLayout sidebar component, above the navigation links. It stores the current mode in React context (SalesModeContext) and persists to localStorage. Route guards ensure /sales/* routes are only accessible in sales mode and vice versa.
+	•	SalesModeContext: Provides { mode, setMode } to entire app. Components use useMode() hook to check current mode.
+	•	Sidebar Component: Reads mode from context. Renders marketing nav or sales nav accordingly. Toggle is a segmented control at the top.
+	•	Route Definitions: All /sales/* routes are defined alongside existing routes in App.tsx. The sidebar determines which links are shown, not which routes exist.
+
+7.2 New Component Tree
+Component
+Location
+Reuses From
+SalesDashboard
+pages/sales/dashboard.tsx
+New
+AccountList
+pages/sales/accounts.tsx
+New
+AccountDetail
+pages/sales/account-detail.tsx
+New (uses BriefingPanel)
+SalesPages
+pages/sales/my-pages.tsx
+PagesGallery (filtered)
+OutreachHub
+pages/sales/outreach.tsx
+New (tabs: send, campaigns, templates)
+EmailComposer
+components/outreach/EmailComposer.tsx
+EmailWYSIWYGEditor (generalized)
+CampaignBuilder
+components/outreach/CampaignBuilder.tsx
+DSOCampaigns (refactored)
+CampaignDashboard
+components/outreach/CampaignDashboard.tsx
+DSOCampaigns dashboard tab
+SignalsFeed
+pages/sales/signals.tsx
+New (uses SSE)
+ContactsPage
+pages/sales/contacts.tsx
+DSOContacts (generalized)
+ContactDetail
+pages/sales/contact-detail.tsx
+New
+BriefingPanel
+components/outreach/BriefingPanel.tsx
+DSOAccountBriefing (generalized)
+TrackedLinkGenerator
+components/outreach/TrackedLinkGenerator.tsx
+DSO hotlink UI (extracted)
+ContactImportWizard
+components/outreach/ContactImportWizard.tsx
+ContactImporter (generalized)
+
+8. Implementation Phases
+Each phase delivers usable functionality. The Sales Console doesn’t need to be 100% complete to be useful — even Phase 1 alone gives reps more than they have today.
+Phase 1: Foundation + Accounts (Weeks 1–2)
+Delivers: Mode toggle, contacts database, account hub, AI briefings.
+	•	SalesModeContext + mode toggle: Add context provider, toggle UI in sidebar, persist to localStorage. Define /sales/* route stubs.
+	•	Sales sidebar navigation: Render sales-specific nav when in sales mode. Links to: Dashboard, Accounts, My Pages, Outreach, Signals, Contacts.
+	•	Contacts schema + API: Create lp_contacts, lp_contact_lists, lp_contact_list_members in Drizzle. Build /lp/contacts route module with CRUD, import, filtering.
+	•	ContactsPage + ContactImportWizard: Port from DSO. Generalize field mapping. Remove Dandy-specific fields.
+	•	Accounts page: Build AccountList (aggregates contacts by company) and AccountDetail (overview + contacts table + activity timeline).
+	•	Briefings schema + API: Create lp_briefings table. Build /lp/briefings route. Port AI briefing logic from DSO (generalize away from Dandy context).
+	•	BriefingPanel component: Port from DSOAccountBriefing. Wire to /lp/briefings API. Render in AccountDetail page.
+
+Phase 2: Tracked Links + Signals (Week 3)
+Delivers: Personalized tracked links, real-time engagement signals, per-contact attribution.
+	•	Hotlinks schema + API: Create lp_hotlinks table. Build /lp/hotlinks route (generate, track, list, attribution).
+	•	Add hotlinkId to tracking tables: Add nullable hotlinkId column to lp_page_visits, lp_events, lp_heatmap_events. Update tracking routes to accept and store hotlinkId.
+	•	Client-side hotlink tracking: Update useVisitorSession hook: if ?hl={token} in URL, resolve to hotlinkId, include in all tracking calls.
+	•	TrackedLinkGenerator component: Port from DSO. Inline in AccountDetail pages list and SalesPages page.
+	•	Signals schema + API: Create lp_signals table. Build /lp/signals route with SSE stream endpoint. Create trigger: when lp_page_visits or lp_events is inserted with a hotlinkId, write to lp_signals.
+	•	SignalsFeed page: Real-time feed using SSE. Filterable by type, account, time. Click-through to account detail.
+	•	Sales Dashboard (basic): Wire up recent signals, my pages, and quick action buttons.
+
+Phase 3: Email + Outreach (Weeks 4–5)
+Delivers: Email sending (single + campaign), AI email generation, tracked page links in emails.
+	•	Email schemas + API: Create lp_campaigns, lp_campaign_sends, lp_email_templates, lp_unsubscribes, lp_suppressed_emails in Drizzle. Build /lp/campaigns, /lp/email-templates, /lp/email-tracking routes.
+	•	EmailComposer component: Port EmailWYSIWYGEditor. Make merge variables configurable (not hardcoded). Add “Insert Tracked Link” button.
+	•	Single Send flow: Build OutreachHub with single send tab: pick contact → pick page → write or generate email → send.
+	•	AI email generation: Port handleGenerateEmail from DSO routes. Wire to brand settings + account briefing context instead of hardcoded Dandy prompt.
+	•	Campaign builder: Port CampaignBuilder and CampaignDashboard from DSOCampaigns. Wire to new /lp/campaigns API.
+	•	Page URL resolution in campaigns: When sending campaign, resolve {{page_url}} per recipient: look up account → find page → generate or find tracked link → insert URL.
+	•	Open/click tracking: Port pixel + redirect endpoints from DSO. Wire to lp_campaign_sends. Create signals on engagement.
+
+Phase 4: AI Page Creation + Polish (Week 6)
+Delivers: Account-context page creation, post-publish email flow, unified experience.
+	•	Add accountId + mode to lp_pages: New columns. “Create Page for Account” sets accountId and mode=“sales”. My Pages filters by createdBy + mode.
+	•	Account-context page generation: When creating from AccountDetail, pass briefing data + segment config to generate-page. AI pre-populates blocks with account-specific copy.
+	•	Post-publish email prompt: After publishing a page, banner: “Page is live! Send it to a contact?” → opens email composer with tracked link pre-inserted.
+	•	Sales Dashboard (complete): Wire all widgets: signals feed, my pages with stats, outreach summary, pipeline metrics.
+	•	Account activity timeline: Aggregate lp_page_visits, lp_events, lp_campaign_sends by account into chronological feed on AccountDetail.
+	•	Polish: Loading states, empty states, error handling, responsive sidebar, keyboard shortcuts (Cmd+K search for accounts/contacts).
+
+9. What to Port vs. Build New
+Component
+Action
+Source
+Changes Needed
+EmailWYSIWYGEditor
+Port
+dandy-dso (624 lines)
+Make merge vars configurable, remove Dandy banner
+CampaignBuilder
+Port
+DSOCampaigns (1,737 lines)
+Extract from monolith, wire to new API
+CampaignDashboard
+Port
+DSOCampaigns dashboard tab
+Extract, wire to new API
+ContactImportWizard
+Port
+ContactImporter.tsx
+Remove Dandy-specific fields, keep field mapping
+BriefingPanel
+Port
+DSOAccountBriefing.tsx
+Generalize context prompt, remove Dandy specifics
+TrackedLinkGenerator
+Port
+DSO hotlink UI in SiteManager
+Wire to lp_hotlinks API instead of Supabase
+ListBuilder
+Port
+DSOCampaigns list tab
+Extract, wire to new API
+Email send logic
+Port
+DSO routes (Resend + tracking)
+Move to /lp/campaigns route, proper types
+SalesDashboard
+Build New
+—
+New design, new data sources
+AccountList / AccountDetail
+Build New
+—
+New pages, aggregate from contacts
+SignalsFeed
+Build New
+—
+New page, SSE integration
+ContactDetail
+Build New
+—
+Engagement history per contact
+OutreachHub / Single Send
+Build New
+—
+New UX for single email send
+Mode Toggle / SalesModeContext
+Build New
+—
+Context provider + sidebar toggle
+
+10. Timeline Summary
+Week
+Phase
+What Ships
+Sales Can
+1–2
+Foundation + Accounts
+Mode toggle, contacts DB, account hub, AI briefings, import wizard
+Research accounts, import contacts
+3
+Tracked Links + Signals
+Hotlinks, per-contact attribution, real-time signals feed, sales dashboard
+Track prospect engagement
+4–5
+Email + Outreach
+Single send, campaigns, AI email gen, templates, open/click tracking
+Send emails with tracked pages
+6
+AI Pages + Polish
+Account-context page creation, post-publish email flow, full dashboard
+Create + send + track in one flow
+
+At the end of 6 weeks, a sales rep can: open LP Studio → switch to Sales mode → find an account → generate an AI briefing → create a personalized page → generate a tracked link → send an AI-drafted email with the link → watch real-time signals as the prospect engages. That’s the full DSO app workflow, rebuilt inside LP Studio, with the full power of the LP Studio builder behind it.
+
+Charlotte Carey  |  LP Studio  |  March 2026
