@@ -59,10 +59,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-[#1B5435] font-sans overflow-hidden py-16 md:py-20"
+      className="relative w-full bg-[#1B5435] font-sans py-16 md:py-20"
     >
       {/* Background glow */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <motion.div
           className="absolute inset-0"
           style={{ background: "radial-gradient(circle at 50% 40%, #B8FF57 0%, transparent 65%)" }}
@@ -143,25 +143,25 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </div>
           </motion.div>
 
-          {/* Floating close-up cards */}
+          {/* Floating close-up cards — overlaid at bottom corners of dashboard */}
           <motion.div
-            className="absolute -bottom-6 -left-6 w-56 md:w-72 rounded-xl shadow-2xl border border-white/10 overflow-hidden bg-white z-20"
-            initial={{ opacity: 0, y: 40, x: -16 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: -16 }}
-            transition={{ duration: 0.8, delay: 2.2, type: "spring", stiffness: 80 }}
-            style={{ boxShadow: "0 20px 40px -8px rgba(0,0,0,0.5)" }}
+            className="absolute bottom-6 left-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
+            initial={{ opacity: 0, y: 30, x: -20 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 30, x: -20 }}
+            transition={{ duration: 0.9, delay: 2.2, type: "spring", stiffness: 70 }}
+            style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
           >
-            <img src={closeUpRemakeRates} alt="Remake rates close-up" className="w-full h-auto" />
+            <img src={closeUpRemakeRates} alt="Remake rates close-up" className="w-full h-auto block" />
           </motion.div>
 
           <motion.div
-            className="absolute -top-6 -right-6 w-56 md:w-72 rounded-xl shadow-2xl border border-white/10 overflow-hidden bg-white z-20"
-            initial={{ opacity: 0, y: -40, x: 16 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: -40, x: 16 }}
-            transition={{ duration: 0.8, delay: 2.5, type: "spring", stiffness: 80 }}
-            style={{ boxShadow: "0 20px 40px -8px rgba(0,0,0,0.5)" }}
+            className="absolute bottom-6 right-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
+            initial={{ opacity: 0, y: 30, x: 20 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 30, x: 20 }}
+            transition={{ duration: 0.9, delay: 2.5, type: "spring", stiffness: 70 }}
+            style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
           >
-            <img src={closeUpSpend} alt="Spend close-up" className="w-full h-auto" />
+            <img src={closeUpSpend} alt="Spend close-up" className="w-full h-auto block" />
           </motion.div>
         </div>
 
