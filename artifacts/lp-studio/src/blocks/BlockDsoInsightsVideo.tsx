@@ -290,25 +290,28 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
         </div>
 
-        {/* ── IMAGE SUBSECTIONS: close-ups with attached callouts ── */}
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+        {/* ── IMAGE SUBSECTIONS: stacked full-width, second offset right ── */}
+        <div className="w-full flex flex-col gap-5 mb-10">
           {[
-            { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0 },
-            { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2 },
-          ].map(({ img, alt, callout, delay }, i) => (
+            { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0, offsetX: "0%" },
+            { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2, offsetX: "8%" },
+          ].map(({ img, alt, callout, delay, offsetX }, i) => (
             <motion.div
               key={i}
               className="rounded-2xl overflow-hidden"
+              style={{
+                marginLeft: offsetX,
+                width: `calc(100% - ${offsetX})`,
+                background: "rgba(255,255,255,0.04)",
+                boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 20px 40px -10px rgba(0,0,0,0.4)",
+              }}
               initial={{ opacity: 0, y: 32 }}
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
               transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
-              style={{ background: "rgba(255,255,255,0.04)", boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 20px 40px -10px rgba(0,0,0,0.4)" }}
             >
-              {/* Image */}
               <div className="w-full overflow-hidden">
                 <img src={img} alt={alt} className="w-full h-auto block" />
               </div>
-              {/* Attached callout */}
               <div className="px-6 py-5 flex items-start gap-4">
                 <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
                   <callout.icon className="w-4 h-4 text-[#B8FF57]" />
