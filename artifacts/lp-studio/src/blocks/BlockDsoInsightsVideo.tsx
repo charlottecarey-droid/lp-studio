@@ -298,19 +298,39 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         {/* ── QUOTE ── */}
         {(props.quote ?? "It would be insane not to use it given the data available.") && (
           <motion.div
-            className="w-full mb-10 text-center"
+            className="w-full mb-10 flex flex-col items-center"
             initial={{ opacity: 0, y: 24 }}
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
             transition={{ duration: 0.9, delay: 2.7 }}
           >
-            <p className="text-[#F2EEE3] text-2xl md:text-3xl lg:text-4xl font-medium italic leading-snug max-w-3xl mx-auto mb-4">
-              "{props.quote || "It would be insane not to use it given the data available."}"
+            {/* Thin rule */}
+            <div className="w-16 h-px bg-[#B8FF57]/30 mb-8" />
+
+            {/* Opening mark */}
+            <span
+              className="block text-[#B8FF57] font-display font-bold leading-none mb-3 select-none"
+              style={{ fontSize: "5rem", lineHeight: 1 }}
+              aria-hidden
+            >
+              &ldquo;
+            </span>
+
+            <p className="text-[#F2EEE3] text-2xl md:text-3xl lg:text-[2.6rem] font-light leading-snug max-w-3xl text-center mb-6" style={{ letterSpacing: "-0.01em" }}>
+              {props.quote || "It would be insane not to use it given the data available."}
             </p>
+
             {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
-              <p className="text-[#B8FF57]/70 text-sm font-medium tracking-widest uppercase">
-                — {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-px bg-[#F2EEE3]/30" />
+                <p className="text-[#F2EEE3]/50 text-xs font-medium tracking-[0.15em] uppercase">
+                  {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
+                </p>
+                <div className="w-5 h-px bg-[#F2EEE3]/30" />
+              </div>
             )}
+
+            {/* Thin rule */}
+            <div className="w-16 h-px bg-[#B8FF57]/30 mt-8" />
           </motion.div>
         )}
 
