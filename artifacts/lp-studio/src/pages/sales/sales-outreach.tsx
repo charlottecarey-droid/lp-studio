@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import {
   Mail,
@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 
 const API_BASE = "/api";
 
@@ -89,6 +90,7 @@ function SingleSendTab() {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const editorRef = useRef<EmailEditorHandle>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []).then(setAccounts);
@@ -118,7 +120,9 @@ function SingleSendTab() {
       if (res.ok) {
         const data = await res.json();
         setSubject(data.subject ?? "");
-        setBodyHtml(data.bodyHtml ?? "");
+        const html = data.bodyHtml ?? "";
+        setBodyHtml(html);
+        editorRef.current?.setContent(html);
       }
     } finally {
       setGenerating(false);
@@ -224,26 +228,13 @@ function SingleSendTab() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Email Body (HTML)</label>
-            <textarea
-              value={bodyHtml}
-              onChange={e => setBodyHtml(e.target.value)}
-              placeholder="Write your email here or use AI to generate…"
-              rows={12}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y"
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Email Body</label>
+            <EmailWYSIWYGEditor
+              ref={editorRef}
+              initialContent={bodyHtml}
+              onChange={setBodyHtml}
+              dandyBannerUrl=""
             />
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Merge variables:</span>
-            {["{{first_name}}", "{{last_name}}", "{{company}}", "{{microsite_url}}", "{{sender_name}}"].map(v => (
-              <button
-                key={v}
-                onClick={() => setBodyHtml(prev => prev + v)}
-                className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-mono hover:bg-blue-200 transition-colors"
-              >
-                {v}
-              </button>
-            ))}
           </div>
         </div>
       </Card>
@@ -475,6 +466,7 @@ function TemplatesTab() {
   const [category, setCategory] = useState("general");
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const editorRef = useRef<EmailEditorHandle>(null);
 
   const fetchTemplates = useCallback(() => {
     fetch(`${API_BASE}/sales/templates`)
@@ -488,6 +480,7 @@ function TemplatesTab() {
 
   function resetForm() {
     setName(""); setTplSubject(""); setBodyHtml(""); setCategory("general"); setEditId(null);
+    setTimeout(() => editorRef.current?.setContent(""), 0);
   }
 
   function startEdit(t: Template) {
@@ -497,6 +490,7 @@ function TemplatesTab() {
     setCategory(t.category);
     setEditId(t.id);
     setShowCreate(true);
+    setTimeout(() => editorRef.current?.setContent(t.bodyHtml), 0);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -538,7 +532,10 @@ function TemplatesTab() {
       if (res.ok) {
         const data = await res.json();
         if (data.subject) setTplSubject(data.subject);
-        if (data.bodyHtml) setBodyHtml(data.bodyHtml);
+        if (data.bodyHtml) {
+          setBodyHtml(data.bodyHtml);
+          editorRef.current?.setContent(data.bodyHtml);
+        }
       }
     } finally {
       setAiGenerating(false);
@@ -598,27 +595,14 @@ function TemplatesTab() {
               <Input value={tplSubject} onChange={e => setTplSubject(e.target.value)} placeholder="Quick question about {{company}}" required />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Body (HTML)</label>
-              <textarea
-                value={bodyHtml}
-                onChange={e => setBodyHtml(e.target.value)}
-                placeholder="Hi {{first_name}}, ..."
-                rows={10}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y"
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Body</label>
+              <EmailWYSIWYGEditor
+                key={editId ?? "new"}
+                ref={editorRef}
+                initialContent={bodyHtml}
+                onChange={setBodyHtml}
+                dandyBannerUrl=""
               />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-              <span>Insert:</span>
-              {["{{first_name}}", "{{last_name}}", "{{company}}", "{{microsite_url}}", "{{sender_name}}"].map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setBodyHtml(prev => prev + v)}
-                  className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-mono hover:bg-blue-200 transition-colors"
-                >
-                  {v}
-                </button>
-              ))}
             </div>
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={saving || !name || !tplSubject}>
