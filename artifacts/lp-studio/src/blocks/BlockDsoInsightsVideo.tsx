@@ -129,7 +129,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         <div className="w-full text-center mb-10 md:mb-12">
           <div className="overflow-hidden mb-2">
             <motion.h2
-              className="text-3xl md:text-5xl lg:text-6xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
+              className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -139,7 +139,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           </div>
           <div className="overflow-hidden mb-4">
             <motion.h3
-              className="text-xl md:text-2xl text-[#B8FF57] font-medium"
+              className="text-2xl md:text-3xl text-[#B8FF57] font-medium"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
@@ -232,9 +232,6 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
               transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
             >
-              <div className="w-full overflow-hidden">
-                <img src={img} alt={alt} className="w-full h-auto block" />
-              </div>
               <div className="px-6 py-5 flex items-start gap-4">
                 <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
                   <callout.icon className="w-4 h-4 text-[#B8FF57]" />
@@ -243,6 +240,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   <h4 className="text-[#F2EEE3] font-semibold text-sm mb-1">{callout.label}</h4>
                   <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
                 </div>
+              </div>
+              <div className="w-full overflow-hidden">
+                <img src={img} alt={alt} className="w-full h-auto block" />
               </div>
             </motion.div>
           ))}
