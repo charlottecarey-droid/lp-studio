@@ -6,6 +6,7 @@ import {
   salesEmailSendsTable,
   salesEmailTemplatesTable,
   salesContactsTable,
+  salesAccountsTable,
   salesSignalsTable,
   salesHotlinksTable,
 } from "@workspace/db";
@@ -378,9 +379,19 @@ router.post("/send-email", async (req, res): Promise<void> => {
     const fromLocal = senderEmail ?? "partnerships";
     const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
 
+    // Fetch account name for {{company}}
+    let companyName = "";
+    if (contact.accountId) {
+      const [account] = await db.select({ name: salesAccountsTable.name })
+        .from(salesAccountsTable)
+        .where(eq(salesAccountsTable.id, contact.accountId));
+      companyName = account?.name ?? "";
+    }
+
     const vars: Record<string, string> = {
       "{{first_name}}": contact.firstName ?? "",
       "{{last_name}}": contact.lastName ?? "",
+      "{{company}}": companyName,
       "{{sender_name}}": fromName,
       "{{email}}": contact.email,
     };

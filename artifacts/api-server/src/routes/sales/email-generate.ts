@@ -37,7 +37,10 @@ router.post("/generate-email", async (req, res): Promise<void> => {
       const [contact] = await db.select().from(salesContactsTable)
         .where(eq(salesContactsTable.id, Number(contactId)));
       if (contact) {
-        contactContext = `Recipient: ${contact.firstName} ${contact.lastName}`;
+        const firstName = contact.firstName ?? "";
+        const lastName = contact.lastName ?? "";
+        const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the recipient";
+        contactContext = `Recipient: ${fullName}`;
         if (contact.title) contactContext += `, ${contact.title}`;
         if (contact.role) contactContext += ` (${contact.role})`;
       }
@@ -58,6 +61,7 @@ router.post("/generate-email", async (req, res): Promise<void> => {
       "Dandy provides digital dental lab services, AI-powered scan review, and practice management tools.",
       "Write concise, personalized B2B sales emails that feel human and genuine — never spammy.",
       "Use merge variables where appropriate: {{first_name}}, {{last_name}}, {{company}}, {{microsite_url}}, {{sender_name}}.",
+      "CRITICAL: Only ever use these exact variable names. NEVER write {{null}}, {{undefined}}, or any other placeholder. If you don't know the recipient's name, omit the variable entirely.",
       "Return JSON with exactly these fields: { subject: string, bodyHtml: string }",
       "The bodyHtml should be clean HTML suitable for email (no <html>/<head>/<body> tags — just the content).",
       "Use <p>, <br>, <strong>, <a> tags. Keep paragraphs short (2-3 sentences max).",
