@@ -577,6 +577,8 @@ async function runMigrations() {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
 
+      ALTER TABLE sales_email_templates ADD COLUMN IF NOT EXISTS format text NOT NULL DEFAULT 'plain';
+
       CREATE TABLE IF NOT EXISTS sales_email_campaigns (
         id serial PRIMARY KEY,
         name text NOT NULL,
