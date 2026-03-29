@@ -1,21 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { assets } from '../utils/assets';
-import { Counter, GlowLine } from '../components/ui';
-
-const stats = [
-  { label: 'Fewer remakes', from: 0, to: 42, suffix: '%', trend: '↓' },
-  { label: 'Saved per location/mo', from: 0, to: 18, suffix: 'K', prefix: '$', trend: '↑' },
-  { label: 'Providers coached', from: 0, to: 100, suffix: '%', trend: '↑' },
-];
+import { GlowLine } from '../components/ui';
 
 export default function Scene5Payoff() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 700);
-    const t2 = setTimeout(() => setPhase(2), 1600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t1 = setTimeout(() => setPhase(1), 1200);
+    return () => clearTimeout(t1);
   }, []);
 
   return (
@@ -55,45 +48,9 @@ export default function Scene5Payoff() {
           <GlowLine delay={0.7} />
         </motion.div>
 
-        {/* Stats row — counter animation */}
-        <AnimatePresence>
-          {phase >= 1 && (
-            <motion.div
-              className="flex items-start justify-center gap-12"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              {stats.map((s, i) => (
-                <motion.div
-                  key={s.label}
-                  className="flex flex-col items-center"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: i * 0.15 }}
-                >
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[#C7E738] text-[1.5vw] font-semibold">{s.trend}</span>
-                    <Counter
-                      from={s.from}
-                      to={s.to}
-                      duration={1.4}
-                      decimals={0}
-                      suffix={s.suffix}
-                      prefix={s.prefix}
-                      className="text-[3.5vw] font-bold text-white tabular-nums"
-                    />
-                  </div>
-                  <p className="text-white/50 text-[1vw] mt-1">{s.label}</p>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {phase >= 2 && (
+        {phase >= 1 && (
           <motion.p
-            className="mt-8 text-white/45 text-[1.35vw] leading-relaxed max-w-2xl"
+            className="text-white/45 text-[1.35vw] leading-relaxed max-w-2xl"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
