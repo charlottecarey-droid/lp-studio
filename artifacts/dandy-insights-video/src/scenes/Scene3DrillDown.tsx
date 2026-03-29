@@ -65,8 +65,8 @@ export default function Scene3DrillDown() {
         ))}
       </motion.div>
 
-      {/* Screenshot */}
-      <div className="relative w-[70vw] flex-shrink-0">
+      {/* Screenshot with overlays */}
+      <div className="relative w-[76vw] flex-shrink-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={level}
@@ -79,6 +79,30 @@ export default function Scene3DrillDown() {
             <img src={current.img} alt={current.label} className="w-full h-auto" />
           </motion.div>
         </AnimatePresence>
+
+        {/* Caption pill — overlaid at bottom of screenshot */}
+        <motion.div
+          className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none z-10"
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.6 }}
+        >
+          <div className="bg-white px-8 py-3.5 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.22)]">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={level}
+                className="text-[1.25vw] tracking-wide text-[#111827]"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.3 }}
+              >
+                {current.caption} —{' '}
+                <span className="text-[#003A30] font-semibold">one unified view.</span>
+              </motion.p>
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
         {/* Floating alert — top right of screenshot */}
         <div className="absolute -top-3 -right-2 w-[24vw] z-20">
@@ -107,30 +131,6 @@ export default function Scene3DrillDown() {
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Caption — in flow, centered below screenshot */}
-      <motion.div
-        className="flex justify-center pointer-events-none flex-shrink-0"
-        initial={{ y: 12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.7, delay: 0.6 }}
-      >
-        <div className="bg-white px-8 py-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={level}
-              className="text-[1.3vw] tracking-wide text-[#111827]"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.3 }}
-            >
-              {current.caption} —{' '}
-              <span className="text-[#003A30] font-semibold">one unified view.</span>
-            </motion.p>
-          </AnimatePresence>
-        </div>
-      </motion.div>
     </motion.div>
   );
 }

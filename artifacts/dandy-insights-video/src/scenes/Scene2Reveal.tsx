@@ -36,9 +36,9 @@ export default function Scene2Reveal() {
         </motion.div>
       )}
 
-      {/* Large centered dashboard */}
+      {/* Dashboard image with caption overlaid on it */}
       <motion.div
-        className="relative w-[74vw] rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] border border-white/10 flex-shrink-0"
+        className="relative w-[80vw] rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] border border-white/10 flex-shrink-0"
         initial={{ y: 40, opacity: 0, scale: 0.97 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
@@ -53,28 +53,28 @@ export default function Scene2Reveal() {
           transition={{ duration: 1.2, delay: 0.9, ease: 'easeInOut' }}
         />
 
-        {/* Live badge on top of image */}
+        {/* Live badge — top right */}
         <div className="absolute top-4 right-4">
           <LiveBadge delay={1.0} />
         </div>
+
+        {/* Caption pill — overlaid at bottom of image */}
+        <motion.div
+          className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none"
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.9 }}
+        >
+          <div className="bg-white px-8 py-3.5 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.22)]">
+            <p className="text-[1.25vw] tracking-wide text-[#111827]">
+              <span className="text-[#003A30] font-semibold">Clinical quality data</span>
+              {' '}across every provider, location, and case.
+            </p>
+          </div>
+        </motion.div>
       </motion.div>
 
-      {/* Caption — in flow, centered */}
-      <motion.div
-        className="flex justify-center pointer-events-none flex-shrink-0"
-        initial={{ y: 12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.7, delay: 0.9 }}
-      >
-        <div className="bg-white px-8 py-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
-          <p className="text-[1.3vw] tracking-wide text-[#111827]">
-            <span className="text-[#003A30] font-semibold">Clinical quality data</span>
-            {' '}across every provider, location, and case.
-          </p>
-        </div>
-      </motion.div>
-
-      {/* Metric pills — in flow, centered */}
+      {/* Metric pills — below the image */}
       <AnimatePresence>
         {phase >= 1 && (
           <motion.div
