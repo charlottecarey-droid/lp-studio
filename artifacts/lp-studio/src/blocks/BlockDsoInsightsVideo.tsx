@@ -80,27 +80,27 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center gap-12 lg:gap-20">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 md:px-10 flex flex-col md:flex-row items-center gap-8 lg:gap-12">
         
-        {/* Left Side: Content (42%) */}
-        <div className="w-full md:w-[42%] flex flex-col justify-center">
+        {/* Left Side: Content (32%) */}
+        <div className="w-full md:w-[32%] flex flex-col justify-center shrink-0">
           
-          <div className="overflow-hidden mb-2">
+          <div className="overflow-hidden mb-1">
             <motion.h2 
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
-              initial={{ y: 100, opacity: 0 }}
-              animate={inView ? { y: 0, opacity: 1 } : { y: 100, opacity: 0 }}
+              className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
+              initial={{ y: 80, opacity: 0 }}
+              animate={inView ? { y: 0, opacity: 1 } : { y: 80, opacity: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.title || "See everything."}
             </motion.h2>
           </div>
           
-          <div className="overflow-hidden mb-6">
+          <div className="overflow-hidden mb-4">
             <motion.h3 
-              className="text-2xl md:text-3xl text-[#B8FF57] font-medium leading-snug"
-              initial={{ y: 50, opacity: 0 }}
-              animate={inView ? { y: 0, opacity: 1 } : { y: 50, opacity: 0 }}
+              className="text-lg md:text-xl text-[#B8FF57] font-medium leading-snug"
+              initial={{ y: 40, opacity: 0 }}
+              animate={inView ? { y: 0, opacity: 1 } : { y: 40, opacity: 0 }}
               transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.subtitle || "Before it becomes a problem."}
@@ -109,7 +109,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
           {(props.description ?? "The only analytics platform purpose-built for modern dental groups.") && (
             <motion.p 
-              className="text-lg text-[#F2EEE3]/80 mb-10 max-w-md"
+              className="text-xs text-[#F2EEE3]/70 mb-6 max-w-xs"
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 1, delay: 1 }}
@@ -118,21 +118,21 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </motion.p>
           )}
 
-          <div className="space-y-6 mb-12">
+          <div className="space-y-3 mb-8">
             {callouts.map((callout, i) => (
               <motion.div 
                 key={i}
-                className="flex items-start gap-4 group"
-                initial={{ opacity: 0, x: -20 }}
-                animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-                transition={{ duration: 0.5, delay: 1.5 + (i * 0.15) }}
+                className="flex items-start gap-3 group"
+                initial={{ opacity: 0, x: -16 }}
+                animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: -16 }}
+                transition={{ duration: 0.5, delay: 1.5 + (i * 0.12) }}
               >
-                <div className="w-8 h-8 rounded-full bg-[#B8FF57]/10 flex items-center justify-center shrink-0 border border-[#B8FF57]/20">
-                  <callout.icon className="w-4 h-4 text-[#B8FF57]" />
+                <div className="w-6 h-6 rounded-full bg-[#B8FF57]/10 flex items-center justify-center shrink-0 border border-[#B8FF57]/20 mt-0.5">
+                  <callout.icon className="w-3 h-3 text-[#B8FF57]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-lg">{callout.label}</h4>
-                  <p className="text-[#F2EEE3]/60 text-sm mt-1">{callout.desc}</p>
+                  <h4 className="text-[#F2EEE3] font-semibold text-sm">{callout.label}</h4>
+                  <p className="text-[#F2EEE3]/55 text-xs mt-0.5 leading-relaxed">{callout.desc}</p>
                 </div>
               </motion.div>
             ))}
@@ -140,32 +140,32 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
           {props.ctaLabel && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 16 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
               transition={{ duration: 0.5, delay: 2.2 }}
             >
               <button
                 onClick={onCtaClick}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
               >
                 {props.ctaLabel}
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </motion.div>
           )}
 
           {(props.quote ?? "It would be insane not to use it given the data available.") && (
             <motion.div 
-              className="mt-12 pl-4 border-l-2 border-[#B8FF57]/30"
+              className="mt-8 pl-3 border-l-2 border-[#B8FF57]/30"
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 1, delay: 4.5 }}
             >
-              <p className="text-[#F2EEE3]/80 italic text-sm md:text-base">
+              <p className="text-[#F2EEE3]/70 italic text-xs leading-relaxed">
                 "{props.quote || "It would be insane not to use it given the data available."}"
               </p>
               {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
-                <p className="text-[#F2EEE3]/50 text-xs mt-2 font-medium tracking-wide uppercase">
+                <p className="text-[#F2EEE3]/40 text-[10px] mt-1.5 font-medium tracking-wide uppercase">
                   — {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
                 </p>
               )}
@@ -174,36 +174,36 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
         </div>
 
-        {/* Right Side: Dashboard Window (58%) */}
-        <div className="w-full md:w-[58%] relative perspective-[2000px]">
+        {/* Right Side: Dashboard Window (68%) */}
+        <div className="w-full md:w-[68%] relative perspective-[2000px]">
           <motion.div 
             className="w-full rounded-xl overflow-hidden shadow-2xl bg-white border border-white/10 ring-1 ring-black/5"
-            initial={{ opacity: 0, y: 150, rotateX: 20, rotateY: -10, scale: 0.9 }}
-            animate={inView ? { opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 } : { opacity: 0, y: 150, rotateX: 20, rotateY: -10, scale: 0.9 }}
+            initial={{ opacity: 0, y: 120, rotateX: 18, rotateY: -8, scale: 0.92 }}
+            animate={inView ? { opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 } : { opacity: 0, y: 120, rotateX: 18, rotateY: -8, scale: 0.92 }}
             transition={{ duration: 1.2, delay: 1.2, type: "spring", stiffness: 60, damping: 15 }}
             style={{ 
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(184, 255, 87, 0.1)"
             }}
           >
             {/* Browser Chrome */}
-            <div className="bg-[#111827] h-10 w-full flex items-center px-4 gap-2 border-b border-white/5">
-              <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
-              <div className="mx-auto bg-white/5 rounded px-3 py-1 flex items-center w-1/2 max-w-sm justify-center">
-                <span className="text-[10px] text-white/40 tracking-wider">insights.meetdandy.com</span>
+            <div className="bg-[#111827] h-8 w-full flex items-center px-3 gap-1.5 border-b border-white/5">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+              <div className="mx-auto bg-white/5 rounded px-3 py-0.5 flex items-center w-1/2 max-w-sm justify-center">
+                <span className="text-[9px] text-white/40 tracking-wider">insights.meetdandy.com</span>
               </div>
             </div>
 
             {/* Content Area */}
-            <div className="relative w-full aspect-[16/10] bg-[#f8fafc] overflow-hidden">
+            <div className="relative w-full aspect-[16/9] bg-[#f8fafc] overflow-hidden">
               <AnimatePresence mode="popLayout">
                 <motion.img 
                   key={currentScreen}
                   src={DASHBOARD_SCREENS[currentScreen]}
                   alt="Dandy Insights Dashboard"
                   className="absolute inset-0 w-full h-full object-cover object-left-top"
-                  initial={{ opacity: 0, scale: 1.05 }}
+                  initial={{ opacity: 0, scale: 1.04 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -214,9 +214,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
           {/* Floating Elements (Close-ups) */}
           <motion.div 
-            className="absolute -bottom-8 -left-12 w-48 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white"
-            initial={{ opacity: 0, y: 50, x: -20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 50, x: -20 }}
+            className="absolute -bottom-6 -left-10 w-56 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white"
+            initial={{ opacity: 0, y: 40, x: -16 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: -16 }}
             transition={{ duration: 0.8, delay: 2.5, type: "spring", stiffness: 80 }}
             style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}
           >
@@ -224,9 +224,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           </motion.div>
 
           <motion.div 
-            className="absolute -top-12 -right-8 w-56 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white z-20"
-            initial={{ opacity: 0, y: -50, x: 20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: -50, x: 20 }}
+            className="absolute -top-10 -right-6 w-64 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white z-20"
+            initial={{ opacity: 0, y: -40, x: 16 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: -40, x: 16 }}
             transition={{ duration: 0.8, delay: 2.8, type: "spring", stiffness: 80 }}
             style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}
           >
