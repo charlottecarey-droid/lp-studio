@@ -3,13 +3,24 @@ import { useParams } from "wouter";
 
 const API_BASE = "/api";
 
-interface ResolveResponse {
+interface LpResolveResponse {
   pageSlug: string;
   pageTitle: string;
   contactName: string;
   token: string;
   linkId: number;
   visitId: number;
+}
+
+interface SalesResolveResponse {
+  pageSlug: string;
+  pageTitle: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  contactName: string | null;
+  token: string;
+  hotlinkId: number;
 }
 
 export default function PersonalizedLinkResolver() {
@@ -19,17 +30,34 @@ export default function PersonalizedLinkResolver() {
   useEffect(() => {
     if (!token) { setError("Invalid link"); return; }
 
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+    // First try the LP personalized links resolver (marketing side)
     fetch(`${API_BASE}/lp/resolve-token/${token}`)
       .then(async res => {
-        if (!res.ok) throw new Error("Link not found");
-        return res.json() as Promise<ResolveResponse>;
+        if (!res.ok) throw new Error("not found");
+        return res.json() as Promise<LpResolveResponse>;
       })
       .then(data => {
-        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
         window.location.replace(`${base}/lp/${data.pageSlug}?_plToken=${encodeURIComponent(data.token)}`);
       })
-      .catch(() => {
-        setError("This link is invalid or has expired.");
+      .catch(async () => {
+        // Fallback: try the Sales Console hotlinks resolver
+        try {
+          const salesRes = await fetch(`${API_BASE}/sales/resolve/${token}`);
+          if (!salesRes.ok) throw new Error("not found");
+          const data = await salesRes.json() as SalesResolveResponse;
+
+          // Build URL with personalization vars so the page can substitute {{company}} etc.
+          const params = new URLSearchParams({ _salesToken: token });
+          if (data.company) params.set("_v_company", data.company);
+          if (data.firstName) params.set("_v_first_name", data.firstName);
+          if (data.lastName) params.set("_v_last_name", data.lastName);
+
+          window.location.replace(`${base}/lp/${data.pageSlug}?${params.toString()}`);
+        } catch {
+          setError("This link is invalid or has expired.");
+        }
       });
   }, [token]);
 

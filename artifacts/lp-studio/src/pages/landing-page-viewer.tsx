@@ -189,6 +189,22 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   DollarSign,
 };
 
+// Deep-replace {{var}} placeholders in any JSON structure (blocks, props, etc.)
+function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
+  if (typeof value === "string") {
+    let result = value;
+    for (const [k, v] of Object.entries(vars)) result = result.split(k).join(v);
+    return result;
+  }
+  if (Array.isArray(value)) return value.map(item => deepApplyVars(item, vars));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, deepApplyVars(v, vars)]),
+    );
+  }
+  return value;
+}
+
 export default function LandingPageViewer() {
   const [match, params] = useRoute("/lp/:slug");
   const slug = params?.slug || "";
@@ -202,6 +218,20 @@ export default function LandingPageViewer() {
 
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
+
+  // Campaign page variables: ?_v_company=XYZ&_v_first_name=Jane etc.
+  // These are injected by the sales hotlink resolver and substituted into block content.
+  const pageVars = (() => {
+    const vars: Record<string, string> = {};
+    for (const [k, v] of searchParams.entries()) {
+      if (k.startsWith("_v_")) {
+        const varKey = k.slice(3); // strip "_v_" prefix
+        vars[`{{${varKey}}}`] = v;
+      }
+    }
+    return vars;
+  })();
+  const hasPageVars = Object.keys(pageVars).length > 0;
   
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
@@ -324,7 +354,11 @@ export default function LandingPageViewer() {
   // Handle builder pages (blocks array format)
   if (isBuilderPageResponse(config)) {
     const builderPage: BuilderPageResponse = config;
-    const blocks = builderPage.blocks ?? [];
+    const rawBlocks = builderPage.blocks ?? [];
+    // Apply {{company}}, {{first_name}} etc. from campaign page URL vars
+    const blocks = hasPageVars
+      ? (deepApplyVars(rawBlocks, pageVars) as typeof rawBlocks)
+      : rawBlocks;
     const customCss = builderPage.customCss ?? "";
     const animationsEnabled = builderPage.animationsEnabled !== false;
 
@@ -399,7 +433,10 @@ export default function LandingPageViewer() {
   const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: LinkedPage | null };
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
-    const blocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
+    const rawLinkedBlocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
+    const blocks = hasPageVars
+      ? (deepApplyVars(rawLinkedBlocks, pageVars) as typeof rawLinkedBlocks)
+      : rawLinkedBlocks;
     const linkedPageCss = linkedPage?.customCss ?? "";
     const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";
     const linkedAnimationsEnabled = (linkedPage as { animationsEnabled?: boolean })?.animationsEnabled !== false;

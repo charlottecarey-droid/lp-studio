@@ -9,6 +9,7 @@ import {
   PlusCircle,
   Paintbrush,
   Plug2,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,6 +86,14 @@ export function SalesSidebar() {
                   <Link href="/sales/pages" className="font-medium">
                     <FileText className="w-4 h-4" />
                     <span>Microsites</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/sales/campaign-pages"}>
+                  <Link href="/sales/campaign-pages" className="font-medium">
+                    <Megaphone className="w-4 h-4" />
+                    <span>Campaign Pages</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

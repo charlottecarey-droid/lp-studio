@@ -34,6 +34,7 @@ import SalesContacts from "@/pages/sales/sales-contacts";
 import SalesPages from "@/pages/sales/sales-pages";
 import SalesOutreach from "@/pages/sales/sales-outreach";
 import SalesSignals from "@/pages/sales/sales-signals";
+import SalesCampaignPages from "@/pages/sales/sales-campaign-pages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ function Router() {
       <Route path="/sales/pages" component={SalesPages} />
       <Route path="/sales/outreach" component={SalesOutreach} />
       <Route path="/sales/signals" component={SalesSignals} />
+      <Route path="/sales/campaign-pages" component={SalesCampaignPages} />
 
       {/* Builder Editor (no app layout — full screen) */}
       <Route path="/builder/:pageId" component={BuilderEditor} />

@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
   salesContactsTable,
+  salesAccountsTable,
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
@@ -160,6 +161,15 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
     const [contact] = await db.select().from(salesContactsTable)
       .where(eq(salesContactsTable.id, hotlink.contactId));
 
+    // Get account info for company name
+    let company = "";
+    if (contact?.accountId) {
+      const [account] = await db.select({ name: salesAccountsTable.name })
+        .from(salesAccountsTable)
+        .where(eq(salesAccountsTable.id, contact.accountId));
+      company = account?.name ?? "";
+    }
+
     // Create page_view signal
     await db.insert(salesSignalsTable).values({
       accountId: contact?.accountId ?? null,
@@ -176,6 +186,9 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
     res.json({
       pageSlug: page.slug,
       pageTitle: page.title,
+      firstName: contact?.firstName ?? "",
+      lastName: contact?.lastName ?? "",
+      company,
       contactName: contact ? `${contact.firstName} ${contact.lastName}` : null,
       token,
       hotlinkId: hotlink.id,
