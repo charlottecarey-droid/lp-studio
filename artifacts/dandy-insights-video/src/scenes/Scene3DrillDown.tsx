@@ -1,24 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
+import { MetricPill, AlertCard } from '../components/ui';
 
 const LEVELS = [
-  { label: 'Doctor', img: assets.doctorView, caption: 'Individual provider performance' },
-  { label: 'Practice', img: assets.practiceView, caption: 'Location-level benchmarks' },
-  { label: 'DSO Group', img: assets.dsoView, caption: 'Network-wide executive summary' },
+  {
+    label: 'Doctor',
+    img: assets.doctorView,
+    caption: 'Individual provider performance',
+    metric: { label: 'Remake rate', value: '6.1%', trend: 'down' as const },
+    alert: { kind: 'warning' as const, title: 'Above network average', sub: 'Coaching recommended' },
+  },
+  {
+    label: 'Practice',
+    img: assets.practiceView,
+    caption: 'Location-level benchmarks',
+    metric: { label: 'Avg scan quality', value: '94%', trend: 'up' as const },
+    alert: { kind: 'success' as const, title: 'On track this quarter', sub: 'All KPIs in range' },
+  },
+  {
+    label: 'DSO Group',
+    img: assets.dsoView,
+    caption: 'Network-wide executive summary',
+    metric: { label: 'Group remake rate', value: '5.3%', trend: 'down' as const },
+    alert: { kind: 'info' as const, title: '12 locations reporting', sub: 'Updated 30 min ago' },
+  },
 ];
 
 export default function Scene3DrillDown() {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLevel(1), 2400);
-    const t2 = setTimeout(() => setLevel(2), 4800);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    const t1 = setTimeout(() => setLevel(1), 2500);
+    const t2 = setTimeout(() => setLevel(2), 5000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
+
+  const current = LEVELS[level];
 
   return (
     <motion.div
@@ -30,46 +48,69 @@ export default function Scene3DrillDown() {
     >
       {/* Level tabs */}
       <motion.div
-        className="flex items-center gap-3 mb-8 z-10"
+        className="flex items-center gap-3 mb-6 z-10"
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.6 }}
       >
         {LEVELS.map((l, i) => (
           <React.Fragment key={l.label}>
-            <div
-              className={`text-[1.4vw] font-semibold transition-all duration-500 ${
-                i === level ? 'text-[#C7E738]' : 'text-white/35'
-              }`}
-            >
+            <div className={`text-[1.4vw] font-semibold transition-all duration-500 ${i === level ? 'text-[#C7E738]' : 'text-white/30'}`}>
               {l.label}
             </div>
             {i < LEVELS.length - 1 && (
-              <div className={`w-8 h-[2px] rounded-full transition-colors duration-500 ${i < level ? 'bg-[#C7E738]/60' : 'bg-white/20'}`} />
+              <div className={`w-8 h-[2px] rounded-full transition-colors duration-700 ${i < level ? 'bg-[#C7E738]/60' : 'bg-white/15'}`} />
             )}
           </React.Fragment>
         ))}
       </motion.div>
 
-      {/* Screenshot — crossfade on level change */}
-      <div className="relative w-[78vw] z-10">
+      {/* Screenshot */}
+      <div className="relative w-[76vw] z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={level}
-            className="w-full rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/20"
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            className="w-full rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/15"
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 1.01 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, y: -14, scale: 1.01 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
-            <img src={LEVELS[level].img} alt={LEVELS[level].label} className="w-full h-auto" />
+            <img src={current.img} alt={current.label} className="w-full h-auto" />
           </motion.div>
         </AnimatePresence>
+
+        {/* Floating alert — top right of screenshot */}
+        <div className="absolute -top-3 -right-2 w-[24vw] z-20">
+          <AnimatePresence mode="wait">
+            <AlertCard
+              key={level}
+              kind={current.alert.kind}
+              title={current.alert.title}
+              sub={current.alert.sub}
+              delay={0.2}
+            />
+          </AnimatePresence>
+        </div>
+
+        {/* Metric pill — bottom left of screenshot */}
+        <div className="absolute -bottom-3 -left-2 z-20">
+          <AnimatePresence mode="wait">
+            <motion.div key={level}>
+              <MetricPill
+                label={current.metric.label}
+                value={current.metric.value}
+                trend={current.metric.trend}
+                delay={0.25}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Caption */}
       <motion.div
-        className="absolute bottom-10 left-0 right-0 flex justify-center pointer-events-none"
+        className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, delay: 0.6 }}
@@ -78,13 +119,13 @@ export default function Scene3DrillDown() {
           <AnimatePresence mode="wait">
             <motion.p
               key={level}
-              className="text-[1.4vw] tracking-wide"
+              className="text-[1.3vw] tracking-wide"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.35 }}
+              transition={{ duration: 0.3 }}
             >
-              {LEVELS[level].caption} —{' '}
+              {current.caption} —{' '}
               <span className="text-[#C7E738]">one unified view.</span>
             </motion.p>
           </AnimatePresence>
