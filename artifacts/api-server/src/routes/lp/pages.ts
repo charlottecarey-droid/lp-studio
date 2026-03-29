@@ -139,6 +139,50 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   }
 });
 
+router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid page ID" });
+    return;
+  }
+  const [source] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, id));
+  if (!source) {
+    res.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const baseSlug = `${source.slug}-copy`;
+  let slug = baseSlug;
+  let suffix = 2;
+  while (true) {
+    const [existing] = await db.select({ id: lpPagesTable.id }).from(lpPagesTable).where(eq(lpPagesTable.slug, slug));
+    if (!existing) break;
+    slug = `${baseSlug}-${suffix++}`;
+  }
+
+  try {
+    const [page] = await db
+      .insert(lpPagesTable)
+      .values({
+        title: `Copy of ${source.title}`,
+        slug,
+        blocks: Array.isArray(source.blocks) ? source.blocks : [],
+        status: "draft",
+        customCss: source.customCss ?? "",
+        metaTitle: source.metaTitle ?? "",
+        metaDescription: source.metaDescription ?? "",
+        ogImage: source.ogImage ?? "",
+        animationsEnabled: source.animationsEnabled ?? true,
+        pageVariables: (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables)) ? source.pageVariables as Record<string, string> : {},
+      })
+      .returning();
+    res.status(201).json(page);
+  } catch (err) {
+    console.error("Clone page error:", err);
+    res.status(500).json({ error: "Failed to clone page" });
+  }
+});
+
 router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {

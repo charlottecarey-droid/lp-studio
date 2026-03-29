@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -230,6 +230,7 @@ export default function PagesGallery() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [cloningPageId, setCloningPageId] = useState<number | null>(null);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
@@ -394,6 +395,20 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
+  const handleClone = async (page: Page) => {
+    setCloningPageId(page.id);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/clone`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to clone page");
+      const cloned = await res.json() as Page;
+      setPages(prev => [...prev, cloned]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCloningPageId(null);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -514,6 +529,18 @@ export default function PagesGallery() {
                         Edit
                       </Button>
                     </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2 hover:text-primary"
+                      title="Duplicate page"
+                      disabled={cloningPageId === page.id}
+                      onClick={() => handleClone(page)}
+                    >
+                      {cloningPageId === page.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
