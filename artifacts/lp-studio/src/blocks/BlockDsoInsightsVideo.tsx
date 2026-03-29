@@ -66,7 +66,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   return (
     <div 
       ref={containerRef} 
-      className="relative w-full min-h-[700px] h-[100vh] max-h-[1000px] flex items-center overflow-hidden bg-[#1B5435] font-sans"
+      className="relative w-full min-h-[900px] h-[110vh] max-h-[1300px] flex items-center overflow-hidden bg-[#1B5435] font-sans"
     >
       <div className="absolute inset-0 z-0">
         <motion.div 
@@ -196,7 +196,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </div>
 
             {/* Content Area */}
-            <div className="relative w-full aspect-[16/9] bg-[#f8fafc] overflow-hidden">
+            <div className="relative w-full aspect-[16/10] bg-[#f8fafc] overflow-hidden">
               <AnimatePresence mode="popLayout">
                 <motion.img 
                   key={currentScreen}
@@ -214,7 +214,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
           {/* Floating Elements (Close-ups) */}
           <motion.div 
-            className="absolute -bottom-6 -left-10 w-56 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white"
+            className="absolute -bottom-8 -left-12 w-64 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white"
             initial={{ opacity: 0, y: 40, x: -16 }}
             animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: -16 }}
             transition={{ duration: 0.8, delay: 2.5, type: "spring", stiffness: 80 }}
@@ -224,7 +224,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           </motion.div>
 
           <motion.div 
-            className="absolute -top-10 -right-6 w-64 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white z-20"
+            className="absolute -top-12 -right-8 w-72 rounded-lg shadow-xl border border-white/10 overflow-hidden bg-white z-20"
             initial={{ opacity: 0, y: -40, x: 16 }}
             animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: -40, x: 16 }}
             transition={{ duration: 0.8, delay: 2.8, type: "spring", stiffness: 80 }}
