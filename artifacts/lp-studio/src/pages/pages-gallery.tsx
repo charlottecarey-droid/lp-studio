@@ -316,10 +316,24 @@ export default function PagesGallery() {
   };
 
   const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null) => {
+    const activeSeg = seg !== undefined ? seg : selectedSegment;
+    const segmentContext = activeSeg ? {
+      name: activeSeg.name,
+      description: activeSeg.description,
+      messagingAngle: activeSeg.messagingAngle,
+      uniqueContext: activeSeg.uniqueContext,
+      valueProps: activeSeg.valueProps,
+      personas: activeSeg.personas?.map((p: { role: string; painPoints: string[] }) => ({ role: p.role, painPoints: p.painPoints })),
+      challenges: activeSeg.challenges?.map((c: { title: string; desc: string }) => ({ title: c.title, desc: c.desc })),
+    } : undefined;
+
     const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt.trim() }),
+      body: JSON.stringify({
+        prompt: prompt.trim(),
+        ...(segmentContext ? { segmentContext } : {}),
+      }),
     });
     if (!genRes.ok) {
       const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
@@ -360,7 +374,7 @@ export default function PagesGallery() {
     setAiGenerating(true);
     setCreateError(null);
     try {
-      await generatePageFromPrompt(aiPrompt);
+      await generatePageFromPrompt(aiPrompt, selectedSegment);
       setShowCreateModal(false);
       setAiPrompt("");
       setCreateMode("template");
@@ -371,8 +385,8 @@ export default function PagesGallery() {
     }
   };
 
-  const handleGeneratePageFromBrief = async (prompt: string) => {
-    await generatePageFromPrompt(prompt);
+  const handleGeneratePageFromBrief = async (prompt: string, seg?: AudienceSegment) => {
+    await generatePageFromPrompt(prompt, seg ?? selectedSegment);
   };
 
   const handleDelete = async (page: Page) => {

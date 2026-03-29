@@ -32,7 +32,7 @@ interface ContentBriefModalProps {
   open: boolean;
   onClose: () => void;
   onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
-  onGeneratePage?: (prompt: string) => Promise<void>;
+  onGeneratePage?: (prompt: string, segment?: AudienceSegment) => Promise<void>;
   initialSegmentId?: string;
   initialCompany?: string;
 }
@@ -227,7 +227,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
     setError(null);
     try {
       const prompt = buildBriefPrompt(brief, briefCompany, briefObjective, selectedSegment);
-      await onGeneratePage(prompt);
+      await onGeneratePage(prompt, selectedSegment ?? undefined);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate page");
