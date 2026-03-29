@@ -676,7 +676,7 @@ function CsvImportModal({
                 <p className="font-semibold text-foreground text-sm">What will happen</p>
                 <ul className="space-y-0.5 list-disc list-inside">
                   <li>Accounts that don't exist yet will be <strong className="text-foreground">created automatically</strong></li>
-                  <li>Existing accounts (matched by name) will be reused — not duplicated</li>
+                  <li>Existing accounts (matched by <strong className="text-foreground">Salesforce ID</strong>) will be updated — not duplicated</li>
                   <li>Contacts with the same email at the same account will be <strong className="text-foreground">skipped</strong></li>
                 </ul>
               </div>
