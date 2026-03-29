@@ -379,6 +379,16 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS dso_cta_submissions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL,
+        source text,
+        microsite_id uuid REFERENCES dso_microsites(id) ON DELETE SET NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_email ON dso_cta_submissions(email);
+      CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_created_at ON dso_cta_submissions(created_at DESC);
+
       CREATE OR REPLACE FUNCTION fn_dso_alert_on_view()
       RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE

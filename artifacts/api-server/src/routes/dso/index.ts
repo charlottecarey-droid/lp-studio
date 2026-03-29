@@ -62,6 +62,7 @@ const ALLOWED_TABLES: Record<string, string> = {
   layout_defaults: "dso_layout_defaults",
   custom_templates: "dso_custom_templates",
   pdf_submissions: "dso_pdf_submissions",
+  cta_submissions: "dso_cta_submissions",
 };
 
 function isValidIdentifier(name: string): boolean {
