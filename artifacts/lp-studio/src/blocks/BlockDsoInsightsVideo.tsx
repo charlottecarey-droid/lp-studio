@@ -128,28 +128,30 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
         {/* ── TOP: Headline + subtitle + description ── */}
         <div className="w-full text-center mb-10 md:mb-12">
-          <div className="overflow-hidden mb-0">
+          <div className="overflow-hidden mb-2">
             <motion.h2
-              className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
+              className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] font-display tracking-tight"
+              style={{ lineHeight: 1.05 }}
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.title || "See everything."}
+              {props.title2 && (
+                <>
+                  <br />
+                  <motion.span
+                    className="text-2xl md:text-4xl lg:text-5xl"
+                    initial={{ opacity: 0 }}
+                    animate={inView ? { opacity: 1 } : { opacity: 0 }}
+                    transition={{ duration: 0.9, delay: 0.15 }}
+                  >
+                    {props.title2}
+                  </motion.span>
+                </>
+              )}
             </motion.h2>
           </div>
-          {props.title2 && (
-            <div className="overflow-hidden mb-0">
-              <motion.h2
-                className="text-2xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
-                initial={{ y: 40, opacity: 0 }}
-                animate={inView ? { y: 0, opacity: 1 } : { y: 40, opacity: 0 }}
-                transition={{ duration: 0.9, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-              >
-                {props.title2}
-              </motion.h2>
-            </div>
-          )}
           <div className="overflow-hidden mb-4">
             <motion.h3
               className="text-2xl md:text-3xl text-[#B8FF57] font-medium"
