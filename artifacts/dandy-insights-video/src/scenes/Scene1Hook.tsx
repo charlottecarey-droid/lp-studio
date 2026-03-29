@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { AlertCard, LiveBadge } from '../components/ui';
 import { Background } from '../components/Background';
+import { SplitText, SplitChars } from '../components/SplitText';
 
 export default function Scene1Hook() {
   const [phase, setPhase] = useState(0);
@@ -67,25 +68,33 @@ export default function Scene1Hook() {
 
       {/* Main headline */}
       <div className="relative z-10 flex flex-col items-center text-center px-12">
-        <motion.p
-          className="text-[#C7E738] text-[1.4vw] font-semibold uppercase tracking-[0.3em] mb-6"
-          initial={{ y: 12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-        >
-          Dandy Insights
-        </motion.p>
+        {/* Eyebrow — character by character */}
+        <div className="mb-6">
+          <SplitChars
+            text="DANDY INSIGHTS"
+            delay={0.2}
+            stagger={0.04}
+            className="text-[#C7E738] text-[1.4vw] font-semibold tracking-[0.35em]"
+          />
+        </div>
 
-        <motion.h1
-          className="text-[5.5vw] font-bold leading-[1.1] tracking-tight text-white"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.9, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          You can't coach
+        {/* Line 1 — word by word */}
+        <h1 className="text-[5.5vw] font-bold leading-[1.15] tracking-tight">
+          <SplitText
+            text="You can't coach"
+            delay={0.45}
+            stagger={0.1}
+            className="text-white"
+          />
           <br />
-          <span className="text-[#C7E738]">what you can't see.</span>
-        </motion.h1>
+          {/* Line 2 — lime, slightly staggered later */}
+          <SplitText
+            text="what you can't see."
+            delay={0.8}
+            stagger={0.09}
+            className="text-[#C7E738]"
+          />
+        </h1>
       </div>
     </motion.div>
   );

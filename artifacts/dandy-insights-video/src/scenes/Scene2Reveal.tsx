@@ -23,18 +23,21 @@ export default function Scene2Reveal() {
     >
       <Background />
 
-      {/* Counter callout — top left, white bg */}
+      {/* Counter callout — top left, white bg with lime accent bar */}
       {phase >= 2 && (
         <motion.div
-          className="absolute top-8 left-10 z-20 flex items-baseline gap-3 bg-white rounded-2xl px-6 py-4 shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
+          className="absolute top-8 left-10 z-20 flex items-stretch bg-white rounded-2xl overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Counter from={8.1} to={5.3} duration={1.2} decimals={1} suffix="%" className="text-[2.5vw] font-bold text-[#003A30]" />
-          <div>
-            <p className="text-[#111827] text-[0.95vw] font-semibold">Remake Rate</p>
-            <p className="text-[#6b7280] text-[0.8vw]">↓ from last quarter</p>
+          <div className="w-1.5 bg-[#C7E738] flex-shrink-0" />
+          <div className="flex items-baseline gap-3 px-5 py-4">
+            <Counter from={8.1} to={5.3} duration={1.2} decimals={1} suffix="%" className="text-[2.5vw] font-bold text-[#003A30]" />
+            <div>
+              <p className="text-[#111827] text-[0.95vw] font-semibold">Remake Rate</p>
+              <p className="text-[#6b7280] text-[0.8vw]">↓ from last quarter</p>
+            </div>
           </div>
         </motion.div>
       )}

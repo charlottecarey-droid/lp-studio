@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { AlertCard, Counter, GlowLine } from '../components/ui';
 import { Background } from '../components/Background';
+import { SplitText, SplitChars } from '../components/SplitText';
 
 export default function Scene4Quality() {
   const [phase, setPhase] = useState(0);
@@ -25,35 +26,32 @@ export default function Scene4Quality() {
 
       {/* Left — big text block */}
       <div className="relative z-10 w-[34vw] flex-shrink-0 pr-[3vw]">
-        <motion.p
-          className="text-[#C7E738] text-[1.2vw] font-semibold uppercase tracking-[0.25em] mb-4"
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-        >
-          Scan Quality Signals
-        </motion.p>
+        {/* Eyebrow */}
+        <div className="mb-4">
+          <SplitChars
+            text="SCAN QUALITY SIGNALS"
+            delay={0.3}
+            stagger={0.03}
+            className="text-[#C7E738] text-[1.2vw] font-semibold tracking-[0.25em]"
+          />
+        </div>
 
-        <motion.h2
-          className="text-[3.8vw] font-bold leading-[1.15] text-white"
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          Catch issues
+        {/* Headline — word by word */}
+        <h2 className="text-[3.8vw] font-bold leading-[1.15]">
+          <SplitText text="Catch issues" delay={0.5} stagger={0.1} className="text-white" />
           <br />
-          <span className="text-[#C7E738]">before remakes</span>
+          <SplitText text="before remakes" delay={0.75} stagger={0.09} className="text-[#C7E738]" />
           <br />
-          happen.
-        </motion.h2>
+          <SplitText text="happen." delay={1.0} stagger={0.1} className="text-white" />
+        </h2>
 
         <motion.div
           className="my-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.9 }}
+          transition={{ delay: 1.2 }}
         >
-          <GlowLine delay={0.9} />
+          <GlowLine delay={1.2} />
         </motion.div>
 
         {/* Animated stat */}
@@ -72,8 +70,8 @@ export default function Scene4Quality() {
         {phase >= 2 && (
           <motion.p
             className="mt-4 text-white/45 text-[1.05vw] leading-relaxed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
             AI-powered scan review surfaces problems days before they become costly.
