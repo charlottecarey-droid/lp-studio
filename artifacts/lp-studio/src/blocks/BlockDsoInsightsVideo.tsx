@@ -137,29 +137,72 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full font-sans py-16 md:py-20"
+      className="relative w-full font-sans py-20 md:py-28 overflow-hidden"
       style={sectionStyle}
     >
       {overlayStyle && <div style={overlayStyle} />}
-      {/* Background glow */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+
+      {/* Ambient glows */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {/* Primary top-center glow */}
         <motion.div
-          className="absolute inset-0"
-          style={{ background: "radial-gradient(circle at 50% 40%, #B8FF57 0%, transparent 65%)" }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: inView ? 0.07 : 0, scale: inView ? 1 : 0.8 }}
+          className="absolute"
+          style={{
+            top: "-10%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "70%",
+            height: "60%",
+            background: "radial-gradient(ellipse at center, #B8FF57 0%, transparent 70%)",
+            filter: "blur(1px)",
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: inView ? 0.055 : 0 }}
           transition={{ duration: 2.5, ease: "easeOut" }}
+        />
+        {/* Secondary bottom-right accent glow */}
+        <motion.div
+          className="absolute"
+          style={{
+            bottom: "5%",
+            right: "10%",
+            width: "35%",
+            height: "40%",
+            background: "radial-gradient(ellipse at center, #B8FF57 0%, transparent 70%)",
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: inView ? 0.03 : 0 }}
+          transition={{ duration: 3, delay: 0.5, ease: "easeOut" }}
         />
       </div>
 
+      {/* Subtle top edge line */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent z-10" />
+
       <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 md:px-10 flex flex-col items-center">
 
-        {/* ── TOP: Headline + subtitle + description ── */}
-        <div className="w-full text-center mb-10 md:mb-12">
-          <div className="overflow-hidden mb-2">
+        {/* ── HEADER ── */}
+        <div className="w-full text-center mb-12 md:mb-16">
+
+          {/* Eyebrow */}
+          <motion.div
+            className="flex items-center justify-center gap-3 mb-6"
+            initial={{ opacity: 0, y: 12 }}
+            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="h-px w-8 bg-[#B8FF57]/40" />
+            <span className="text-[#B8FF57] text-[10px] font-semibold tracking-[0.22em] uppercase">
+              Dandy Insights
+            </span>
+            <div className="h-px w-8 bg-[#B8FF57]/40" />
+          </motion.div>
+
+          {/* Headline */}
+          <div className="overflow-hidden mb-3">
             <motion.h2
               className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] font-display tracking-tight"
-              style={{ lineHeight: 1.15 }}
+              style={{ lineHeight: 1.12, letterSpacing: "-0.02em" }}
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -172,55 +215,61 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               ))}
             </motion.h2>
           </div>
-          <div className="overflow-hidden mt-4 mb-4">
-            <motion.h3
-              className="text-lg md:text-xl text-[#B8FF57] font-medium"
+
+          {/* Accent subtitle */}
+          <div className="overflow-hidden mt-5 mb-5">
+            <motion.p
+              className="text-lg md:text-xl text-[#B8FF57] font-medium tracking-tight"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.subtitle || "Before it becomes a problem."}
-            </motion.h3>
+            </motion.p>
           </div>
+
+          {/* Description */}
           {(props.description ?? "The only analytics platform purpose-built for modern dental groups.") && (
             <motion.p
-              className="text-sm text-[#F2EEE3]/65 max-w-xl mx-auto"
+              className="text-sm md:text-base text-[#F2EEE3]/55 max-w-lg mx-auto leading-relaxed"
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
-              transition={{ duration: 1, delay: 0.7 }}
+              transition={{ duration: 1, delay: 0.6 }}
             >
               {props.description || "The only analytics platform purpose-built for modern dental groups."}
             </motion.p>
           )}
         </div>
 
-        {/* ── MIDDLE: Full-width dashboard window ── */}
-        <div className="w-full max-w-[1100px] relative mb-14 md:mb-16">
-          {/* Dashboard shell entrance */}
+        {/* ── DASHBOARD WINDOW ── */}
+        <div className="w-full max-w-[1100px] relative mb-16 md:mb-20">
           <motion.div
-            className="w-full rounded-2xl overflow-hidden bg-white border border-white/10"
+            className="w-full rounded-2xl overflow-hidden"
             initial={{ opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
             animate={inView ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
             transition={{ duration: 1.3, delay: 0.8, type: "spring", stiffness: 50, damping: 14 }}
             style={{
-              boxShadow: "0 40px 100px -20px rgba(0,0,0,0.65), 0 0 80px rgba(184,255,87,0.07)",
+              boxShadow: "0 50px 120px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), 0 0 60px rgba(184,255,87,0.06)",
               perspective: "2000px",
+              background: "rgba(255,255,255,0.03)",
             }}
           >
             {/* Browser chrome */}
-            <div className="bg-[#0f1623] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/5 shrink-0">
-              <div className="w-3 h-3 rounded-full bg-red-500/80" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-              <div className="w-3 h-3 rounded-full bg-green-500/80" />
-              <div className="mx-auto bg-white/5 rounded-md px-4 py-1 flex items-center gap-2 w-72">
+            <div className="bg-[#0d1620] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/[0.06] shrink-0">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              </div>
+              <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
                 <div className="w-2 h-2 rounded-full bg-[#B8FF57]/60 shrink-0" />
-                <span className="text-[10px] text-white/40 tracking-wider truncate">
+                <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
                   insights.meetdandy.com / dashboard
                 </span>
               </div>
             </div>
 
-            {/* Screenshot area — continuous vertical scroll */}
+            {/* Scrolling screenshots */}
             <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
               <motion.div
                 className="flex flex-col"
@@ -243,18 +292,16 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 ))}
               </motion.div>
 
-              {/* Top + bottom fade for depth */}
-              <div className="absolute inset-x-0 top-0 h-20 pointer-events-none z-10"
+              <div className="absolute inset-x-0 top-0 h-16 pointer-events-none z-10"
                 style={{ background: "linear-gradient(to bottom, #f0f2f5, transparent)" }} />
-              <div className="absolute inset-x-0 bottom-0 h-28 pointer-events-none z-10"
+              <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none z-10"
                 style={{ background: "linear-gradient(to top, #f0f2f5, transparent)" }} />
             </div>
           </motion.div>
-
         </div>
 
-        {/* ── IMAGE SUBSECTIONS: stacked full-width, second offset right ── */}
-        <div className="w-full max-w-3xl flex flex-col gap-5 mb-10">
+        {/* ── IMAGE CARDS ── */}
+        <div className="w-full max-w-3xl flex flex-col gap-6 mb-6">
           {[
             { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0, offsetX: "0%" },
             { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2, offsetX: "8%" },
@@ -265,31 +312,48 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               style={{
                 marginLeft: offsetX,
                 width: `calc(100% - ${offsetX})`,
-                background: "rgba(255,255,255,0.04)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 20px 40px -10px rgba(0,0,0,0.4)",
+                background: "rgba(255,255,255,0.035)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
               }}
-              initial={{ opacity: 0, y: 32 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
-              transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
+              initial={{ opacity: 0, y: 36 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+              transition={{ duration: 0.8, delay, type: "spring", stiffness: 65, damping: 16 }}
             >
+              {/* Lime top accent bar */}
+              <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#B8FF57]/50 to-transparent" />
+
               <div className="px-6 py-5 flex items-start gap-4">
-                <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                <div
+                  className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: "rgba(184,255,87,0.08)",
+                    border: "1px solid rgba(184,255,87,0.2)",
+                    boxShadow: "0 0 12px rgba(184,255,87,0.08)",
+                  }}
+                >
                   <callout.icon className="w-4 h-4 text-[#B8FF57]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
-                  <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
+                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
+                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">{callout.desc}</p>
                 </div>
               </div>
-              <div className="w-full overflow-hidden">
+
+              {/* Image with top inner shadow */}
+              <div className="w-full relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
+                  style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
                 <img src={img} alt={alt} className="w-full h-auto block" />
               </div>
             </motion.div>
           ))}
         </div>
 
-        {/* ── BOTTOM: remaining 2 callouts — staggered like image cards ── */}
-        <div className="w-full max-w-3xl flex flex-col gap-5 mb-14">
+        {/* ── TEXT-ONLY CALLOUTS ── */}
+        <div className="w-full max-w-3xl flex flex-col gap-4 mb-16">
           {callouts.slice(2).map((callout, i) => (
             <motion.div
               key={i}
@@ -297,19 +361,28 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               style={{
                 marginLeft: i === 0 ? "8%" : "16%",
                 width: i === 0 ? "calc(100% - 8%)" : "calc(100% - 16%)",
-                background: "rgba(255,255,255,0.04)",
-                boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
               }}
-              initial={{ opacity: 0, y: 16 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
-              transition={{ duration: 0.6, delay: 2.4 + (i * 0.15) }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              transition={{ duration: 0.6, delay: 2.4 + (i * 0.18) }}
             >
-              <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <div
+                className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                style={{
+                  width: 40,
+                  height: 40,
+                  background: "rgba(184,255,87,0.07)",
+                  border: "1px solid rgba(184,255,87,0.18)",
+                }}
+              >
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
               <div>
-                <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
-                <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
+                <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
+                <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">{callout.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -318,39 +391,39 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         {/* ── QUOTE ── */}
         {(props.quote ?? "It would be insane not to use it given the data available.") && (
           <motion.div
-            className="w-full mb-10 flex flex-col items-center"
+            className="w-full mb-12 flex flex-col items-center"
             initial={{ opacity: 0, y: 24 }}
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
             transition={{ duration: 0.9, delay: 2.7 }}
           >
-            {/* Thin rule */}
-            <div className="w-16 h-px bg-[#B8FF57]/30 mb-8" />
+            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[#B8FF57]/40 to-transparent mb-10" />
 
-            {/* Opening mark */}
             <span
-              className="block text-[#B8FF57] font-display font-bold leading-none mb-3 select-none"
-              style={{ fontSize: "3.5rem", lineHeight: 1 }}
+              className="block text-[#B8FF57] font-display font-bold leading-none mb-4 select-none"
+              style={{ fontSize: "4rem", lineHeight: 0.85, opacity: 0.9 }}
               aria-hidden
             >
               &ldquo;
             </span>
 
-            <p className="text-[#F2EEE3] text-lg md:text-xl lg:text-2xl font-light leading-snug max-w-3xl text-center mb-6" style={{ letterSpacing: "-0.01em" }}>
+            <p
+              className="text-[#F2EEE3] text-xl md:text-2xl lg:text-3xl font-light leading-snug max-w-2xl text-center mb-8"
+              style={{ letterSpacing: "-0.02em" }}
+            >
               {props.quote || "It would be insane not to use it given the data available."}
             </p>
 
             {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-px bg-[#F2EEE3]/30" />
-                <p className="text-[#F2EEE3]/50 text-xs font-medium tracking-[0.15em] uppercase">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-px bg-[#F2EEE3]/25" />
+                <p className="text-[#F2EEE3]/45 text-[11px] font-semibold tracking-[0.18em] uppercase">
                   {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
                 </p>
-                <div className="w-5 h-px bg-[#F2EEE3]/30" />
+                <div className="w-10 h-px bg-[#F2EEE3]/25" />
               </div>
             )}
 
-            {/* Thin rule */}
-            <div className="w-16 h-px bg-[#B8FF57]/30 mt-8" />
+            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[#B8FF57]/40 to-transparent mt-10" />
           </motion.div>
         )}
 
@@ -358,14 +431,15 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         {props.ctaLabel && (
           <motion.div
             className="w-full flex justify-center"
-            initial={{ opacity: 0, y: 12 }}
-            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-            transition={{ duration: 0.5, delay: 3.0 }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            transition={{ duration: 0.6, delay: 3.0 }}
           >
             {props.ctaMode === "chilipiper" ? (
               <ChiliPiperButton
                 url={props.chilipiperUrl || props.ctaUrl || ""}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c8ff72] transition-all duration-200"
+                style={{ boxShadow: "0 8px 32px rgba(184,255,87,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
                 <ChevronRight className="w-4 h-4" />
@@ -373,7 +447,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             ) : (
               <button
                 onClick={onCtaClick}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c8ff72] transition-all duration-200"
+                style={{ boxShadow: "0 8px 32px rgba(184,255,87,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
                 <ChevronRight className="w-4 h-4" />
