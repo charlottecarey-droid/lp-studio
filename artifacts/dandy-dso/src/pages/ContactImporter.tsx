@@ -22,10 +22,13 @@ type ParsedContact = {
   salesforceId?: string;
   abmStage?: string;
   website?: string;
+  address?: string;
   city?: string;
   state?: string;
+  zip?: string;
   country?: string;
   segment?: string;
+  accountOwner?: string;
 };
 
 const FIELD_ALIASES: Record<keyof ParsedContact, string[]> = {
@@ -45,10 +48,13 @@ const FIELD_ALIASES: Record<keyof ParsedContact, string[]> = {
   salesforceId: ["salesforce id", "account id", "sfdc id", "sf id", "id"],
   abmStage: ["abm stage", "abm", "stage", "account stage"],
   website: ["website", "website url", "url", "company website", "account website"],
+  address: ["address", "street", "street address", "billing street", "mailing street", "address line 1", "address line1"],
   city: ["city", "billing city", "mailing city"],
   state: ["state", "billing state", "mailing state", "state province"],
+  zip: ["zip", "zip code", "postal code", "billing zip", "mailing zip", "postal"],
   country: ["country", "billing country", "mailing country"],
   segment: ["segment", "account segment", "tier segment"],
+  accountOwner: ["account owner", "owner", "owner name", "rep", "sales rep", "assigned to", "assigned rep"],
 };
 
 const EXACT_HEADER_MAP = Object.entries(FIELD_ALIASES).reduce((acc, [field, aliases]) => {
@@ -202,10 +208,13 @@ const rowsToContacts = (rawRows: Record<string, unknown>[]) => {
         salesforceId: contact.salesforceId || "",
         abmStage: contact.abmStage || "",
         website: contact.website || "",
+        address: contact.address || "",
         city: contact.city || "",
         state: contact.state || "",
+        zip: contact.zip || "",
         country: contact.country || "",
         segment: contact.segment || "",
+        accountOwner: contact.accountOwner || "",
       });
     }
   }

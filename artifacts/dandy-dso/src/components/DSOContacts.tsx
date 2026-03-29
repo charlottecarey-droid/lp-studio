@@ -43,10 +43,13 @@ type Contact = {
   // Extended fields from importer
   gender: string | null;
   website: string | null;
+  address: string | null;
   city: string | null;
   state: string | null;
+  zip: string | null;
   country: string | null;
   segment: string | null;
+  account_owner: string | null;
 };
 
 type Microsite = {
@@ -407,7 +410,7 @@ export default function DSOContacts() {
               const headers = [
                 "Company","First Name","Last Name","Title","Level","Department","Role",
                 "Email","Phone","LinkedIn","DSO Size","PE Firm","ABM Stage",
-                "Account ID","Website","City","State","Country","Segment","Gender",
+                "Account ID","Account Owner","Website","Address","City","State","Zip","Country","Segment","Gender",
               ];
               const escape = (v: string) => {
                 if (!v) return "";
@@ -417,7 +420,8 @@ export default function DSOContacts() {
                 c.parent_company, c.first_name ?? "", c.last_name ?? "", c.title ?? "",
                 c.title_level ?? "", c.department ?? "", c.contact_role ?? "", c.email ?? "",
                 c.phone ?? "", c.linkedin_url ?? "", c.dso_size ?? "", c.pe_firm ?? "", c.abm_stage ?? "",
-                c.salesforce_id ?? "", c.website ?? "", c.city ?? "", c.state ?? "",
+                c.salesforce_id ?? "", c.account_owner ?? "", c.website ?? "",
+                c.address ?? "", c.city ?? "", c.state ?? "", c.zip ?? "",
                 c.country ?? "", c.segment ?? "", c.gender ?? "",
               ].map(escape).join(","));
               const csv = [headers.join(","), ...rows].join("\n");

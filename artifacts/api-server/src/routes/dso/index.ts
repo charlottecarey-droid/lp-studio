@@ -839,10 +839,13 @@ async function handleImportContacts(req: Request, res: Response, body: any) {
         pe_firm: c.peFirm || c.pe_firm || null,
         abm_stage: c.abmStage || c.abm_stage || null,
         website: c.website || null,
+        address: c.address || null,
         city: c.city || null,
         state: c.state || null,
+        zip: c.zip || null,
         country: c.country || "United States",
         segment: c.segment || null,
+        account_owner: c.accountOwner || c.account_owner || null,
       };
 
       try {
