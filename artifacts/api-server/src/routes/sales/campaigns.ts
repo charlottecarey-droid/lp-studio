@@ -360,7 +360,7 @@ router.get("/track/click", async (req, res): Promise<void> => {
 // ─── Single send (one-off email to a contact) ──────────────
 
 router.post("/send-email", async (req, res): Promise<void> => {
-  const { contactId, subject, bodyHtml, bodyText, senderName, senderEmail } = req.body;
+  const { contactId, subject, bodyHtml, bodyText, senderName, senderEmail, replyTo } = req.body;
   if (!contactId || !subject || (!bodyHtml && !bodyText)) {
     res.status(400).json({ error: "contactId, subject, and either bodyHtml or bodyText are required" });
     return;
@@ -376,6 +376,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     const fromName = senderName ?? "Dandy";
     const fromLocal = senderEmail ?? "partnerships";
+    const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
 
     const vars: Record<string, string> = {
       "{{first_name}}": contact.firstName ?? "",
@@ -402,7 +403,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     const result = await sendViaResend({
       from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
-      reply_to: DEFAULT_REPLY_TO,
+      reply_to: replyToAddress,
       to: [contact.email],
       subject: renderedSubject,
       html: htmlBody,

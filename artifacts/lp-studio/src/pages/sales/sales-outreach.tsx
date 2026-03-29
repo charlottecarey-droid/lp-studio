@@ -244,6 +244,12 @@ function SingleSendTab() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [emailFormat, setEmailFormat] = useState<"plain" | "styled">("plain");
 
+  // Sender & delivery fields
+  const [senderName, setSenderName] = useState("Dandy Partnerships");
+  const [senderEmail, setSenderEmail] = useState("partnerships");
+  const [replyTo, setReplyTo] = useState("sales@meetdandy.com");
+  const [previewText, setPreviewText] = useState("");
+
   // Styled chrome options
   const [showBanner, setShowBanner] = useState(true);
   const [ctaText, setCtaText] = useState("");
@@ -252,6 +258,7 @@ function SingleSendTab() {
 
   const editorRef = useRef<EmailEditorHandle>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const previewTextRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []).then(setAccounts);
@@ -304,10 +311,10 @@ function SingleSendTab() {
   const getFinalHtml = useCallback(() => {
     if (emailFormat === "styled") {
       const html = editorRef.current?.getHTML() || bodyHtml;
-      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature });
+      return buildFullEmailHTML(html, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined });
     }
     return bodyText;
-  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature]);
+  }, [emailFormat, bodyHtml, bodyText, showBanner, ctaText, ctaUrl, showSignature, previewText]);
 
   async function handleSend() {
     const body = emailFormat === "styled" ? getFinalHtml() : bodyText;
@@ -315,9 +322,14 @@ function SingleSendTab() {
     setSending(true);
     setSendError(null);
     try {
-      const payload = emailFormat === "styled"
-        ? { contactId: Number(selectedContactId), subject, bodyHtml: body }
-        : { contactId: Number(selectedContactId), subject, bodyText: body };
+      const payload = {
+        contactId: Number(selectedContactId),
+        subject,
+        senderName: senderName.trim() || "Dandy Partnerships",
+        senderEmail: senderEmail.trim() || "partnerships",
+        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        ...(emailFormat === "styled" ? { bodyHtml: body } : { bodyText: body }),
+      };
       const res = await fetch(`${API_BASE}/sales/send-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -373,6 +385,58 @@ function SingleSendTab() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+      </Card>
+
+      {/* Sender & Delivery */}
+      <Card className="p-6 rounded-2xl border border-border/60">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Sender & Delivery</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Sender Name</label>
+            <Input
+              value={senderName}
+              onChange={e => setSenderName(e.target.value)}
+              placeholder="Dandy Partnerships"
+              className="text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Sender Email</label>
+            <div className="flex items-center">
+              <Input
+                value={senderEmail}
+                onChange={e => setSenderEmail(e.target.value)}
+                placeholder="partnerships"
+                className="text-sm rounded-r-none border-r-0"
+              />
+              <span className="flex items-center h-10 px-3 rounded-r-md border border-input bg-muted text-xs text-muted-foreground whitespace-nowrap">
+                @meetdandy-lp.com
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Reply-To</label>
+            <Input
+              value={replyTo}
+              onChange={e => setReplyTo(e.target.value)}
+              placeholder="sales@meetdandy.com"
+              className="text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Preview Text
+              <span className="text-muted-foreground/60 ml-1 font-normal">(inbox snippet)</span>
+            </label>
+            <Input
+              ref={previewTextRef}
+              value={previewText}
+              onChange={e => setPreviewText(e.target.value)}
+              placeholder="e.g. A quick look at how Dandy can help {{company}}…"
+              className="text-sm"
+            />
           </div>
         </div>
       </Card>
@@ -458,9 +522,12 @@ function SingleSendTab() {
         <Card className="p-6 rounded-2xl border border-border/60">
           <h3 className="text-sm font-semibold text-foreground mb-4">Preview</h3>
           <div className="rounded-lg border border-border bg-white p-6 mb-4 overflow-auto max-h-[500px]">
-            <p className="text-xs text-muted-foreground mb-1">
-              To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}
-            </p>
+            <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+              <p>From: {senderName || "Dandy Partnerships"} &lt;{senderEmail || "partnerships"}@meetdandy-lp.com&gt;</p>
+              <p>Reply-To: {replyTo || "sales@meetdandy.com"}</p>
+              <p>To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}</p>
+              {previewText && <p className="italic">Preview: {previewText}</p>}
+            </div>
             <p className="text-sm font-semibold text-foreground mb-3">
               {subject
                 .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
@@ -469,12 +536,12 @@ function SingleSendTab() {
             {emailFormat === "styled" ? (
               <div
                 dangerouslySetInnerHTML={{
-                  __html: buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature })
+                  __html: buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined })
                     .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                     .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
                     .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
-                    .replace(/\{\{sender_name\}\}/g, "Dandy"),
+                    .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships"),
                 }}
               />
             ) : (
@@ -484,7 +551,7 @@ function SingleSendTab() {
                   .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                   .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
                   .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
-                  .replace(/\{\{sender_name\}\}/g, "Dandy")}
+                  .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships")}
               </pre>
             )}
           </div>
