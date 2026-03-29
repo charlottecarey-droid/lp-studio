@@ -18,7 +18,12 @@ import {
   Eye,
   Sparkles,
   Link2,
+  Filter,
+  Pencil,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
+import AudienceBuilderModal, { type Audience } from "@/components/AudienceBuilderModal";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,21 +105,27 @@ function VariableTag({ tag, onClick }: { tag: string; onClick: (tag: string) => 
 
 function LaunchModal({
   page,
-  contactCount,
+  audiences,
   onClose,
   onLaunch,
+  onCreateAudience,
 }: {
   page: Page;
-  contactCount: number;
+  audiences: Audience[];
   onClose: () => void;
   onLaunch: (opts: {
+    audienceId: number;
     emailSubject: string;
     emailBodyHtml: string;
     senderName: string;
     senderEmail: string;
     sendEmails: boolean;
   }) => Promise<void>;
+  onCreateAudience: () => void;
 }) {
+  const [selectedAudienceId, setSelectedAudienceId] = useState<number | null>(
+    audiences.length === 1 ? audiences[0].id : null
+  );
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
   const [senderName, setSenderName] = useState("Dandy");
@@ -125,6 +136,8 @@ function LaunchModal({
   const [error, setError] = useState<string | null>(null);
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
 
+  const selectedAudience = audiences.find(a => a.id === selectedAudienceId);
+
   function insertVar(tag: string) {
     navigator.clipboard.writeText(tag).then(() => {
       setCopiedVar(tag);
@@ -133,10 +146,14 @@ function LaunchModal({
   }
 
   async function handleLaunch() {
+    if (!selectedAudienceId) {
+      setError("Please select an audience before launching.");
+      return;
+    }
     setLaunching(true);
     setError(null);
     try {
-      await onLaunch({ emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails });
+      await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Launch failed");
     } finally {
@@ -182,13 +199,82 @@ function LaunchModal({
           <div>
             <h2 className="text-lg font-display font-bold">Launch Campaign</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Sending <strong>{page.title}</strong> to{" "}
-              <strong>{contactCount} eligible contacts</strong> across all accounts
+              Sending <strong>{page.title}</strong> to the selected audience
             </p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors mt-0.5">
             <XCircle className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Audience selector */}
+        <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5" />
+              Target Audience *
+            </label>
+            <button
+              type="button"
+              onClick={onCreateAudience}
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              New audience
+            </button>
+          </div>
+          {audiences.length === 0 ? (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">No audiences yet</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                  Create an audience first to define who will receive this campaign.
+                </p>
+                <button
+                  type="button"
+                  onClick={onCreateAudience}
+                  className="mt-2 text-xs font-semibold text-amber-800 dark:text-amber-300 underline"
+                >
+                  Create audience →
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {audiences.map(a => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelectedAudienceId(a.id)}
+                  className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg border transition-all ${
+                    selectedAudienceId === a.id
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-border hover:border-primary/40 bg-background"
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    selectedAudienceId === a.id ? "border-primary" : "border-muted-foreground/40"
+                  }`}>
+                    {selectedAudienceId === a.id && (
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{a.name}</span>
+                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        {a.contact_count} contacts
+                      </span>
+                    </div>
+                    {a.description && (
+                      <p className="text-xs text-muted-foreground truncate">{a.description}</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Variable reference */}
@@ -293,7 +379,7 @@ function LaunchModal({
           </Button>
           <Button
             onClick={handleLaunch}
-            disabled={launching}
+            disabled={launching || !selectedAudienceId || audiences.length === 0}
             className="flex-1 gap-2"
           >
             {launching ? (
@@ -304,7 +390,12 @@ function LaunchModal({
             ) : (
               <>
                 <Rocket className="w-4 h-4" />
-                {sendEmails ? `Send to ${contactCount} contacts` : `Create ${contactCount} links`}
+                {!selectedAudienceId
+                  ? "Select an audience first"
+                  : sendEmails
+                    ? `Send to ${selectedAudience?.contact_count ?? "?"} contacts`
+                    : `Create ${selectedAudience?.contact_count ?? "?"} links`
+                }
               </>
             )}
           </Button>
@@ -317,6 +408,7 @@ function LaunchModal({
 export default function SalesCampaignPages() {
   const [pages, setPages] = useState<Page[]>([]);
   const [eligibleContacts, setEligibleContacts] = useState<EligibleContact[]>([]);
+  const [audiences, setAudiences] = useState<Audience[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [launchingPage, setLaunchingPage] = useState<Page | null>(null);
@@ -325,13 +417,17 @@ export default function SalesCampaignPages() {
   const [pageLinks, setPageLinks] = useState<Record<number, HotlinkEntry[]>>({});
   const [linksLoading, setLinksLoading] = useState<number | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [audienceBuilderOpen, setAudienceBuilderOpen] = useState(false);
+  const [editingAudience, setEditingAudience] = useState<Audience | null>(null);
+  const [deletingAudienceId, setDeletingAudienceId] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/campaign-pages/eligible-contacts`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/audiences`).then(r => r.ok ? r.json() : []),
     ])
-      .then(([p, c]) => { setPages(p); setEligibleContacts(c); })
+      .then(([p, c, a]) => { setPages(p); setEligibleContacts(c); setAudiences(Array.isArray(a) ? a : []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -344,7 +440,16 @@ export default function SalesCampaignPages() {
   const contactCount = eligibleContacts.length;
   const accountCount = new Set(eligibleContacts.map(c => c.accountName).filter(Boolean)).size;
 
+  async function deleteAudience(id: number) {
+    setDeletingAudienceId(id);
+    try {
+      await fetch(`${API_BASE}/sales/audiences/${id}`, { method: "DELETE" });
+      setAudiences(prev => prev.filter(a => a.id !== id));
+    } catch {} finally { setDeletingAudienceId(null); }
+  }
+
   async function handleLaunch(opts: {
+    audienceId: number;
     emailSubject: string;
     emailBodyHtml: string;
     senderName: string;
@@ -398,11 +503,30 @@ export default function SalesCampaignPages() {
 
   return (
     <SalesLayout>
+      {/* Audience Builder Modal */}
+      {(audienceBuilderOpen || editingAudience) && (
+        <AudienceBuilderModal
+          audience={editingAudience}
+          onClose={() => { setAudienceBuilderOpen(false); setEditingAudience(null); }}
+          onSaved={(saved) => {
+            setAudiences(prev => {
+              const exists = prev.find(a => a.id === saved.id);
+              return exists
+                ? prev.map(a => a.id === saved.id ? saved : a)
+                : [saved, ...prev];
+            });
+            setAudienceBuilderOpen(false);
+            setEditingAudience(null);
+          }}
+        />
+      )}
+
       {launchingPage && (
         <LaunchModal
           page={launchingPage}
-          contactCount={contactCount}
+          audiences={audiences}
           onClose={() => setLaunchingPage(null)}
+          onCreateAudience={() => { setLaunchingPage(null); setAudienceBuilderOpen(true); }}
           onLaunch={async (opts) => {
             const result = await handleLaunch(opts);
             if (result) {
@@ -474,6 +598,99 @@ export default function SalesCampaignPages() {
             </Card>
           </div>
         )}
+
+        {/* Audiences section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Audiences</h2>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {audiences.length}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={() => { setEditingAudience(null); setAudienceBuilderOpen(true); }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Audience
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="flex gap-2">
+              {[1, 2].map(i => <Skeleton key={i} className="h-16 flex-1 rounded-xl" />)}
+            </div>
+          ) : audiences.length === 0 ? (
+            <div className="border border-dashed border-border rounded-xl px-5 py-6 text-center">
+              <Users className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground mb-1">No audiences yet</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Create a saved audience to target specific accounts, titles, or departments in your campaigns.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => { setEditingAudience(null); setAudienceBuilderOpen(true); }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Create your first audience
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {audiences.map(a => (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-4 bg-card border border-border/60 rounded-xl px-4 py-3 hover:border-primary/25 transition-all"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">{a.name}</span>
+                      <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        {a.contact_count} contacts
+                      </span>
+                    </div>
+                    {a.description && (
+                      <p className="text-xs text-muted-foreground truncate">{a.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      title="Edit audience"
+                      onClick={() => { setEditingAudience(a); setAudienceBuilderOpen(false); }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      title="Delete audience"
+                      disabled={deletingAudienceId === a.id}
+                      onClick={() => deleteAudience(a.id)}
+                    >
+                      {deletingAudienceId === a.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />
+                      }
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Search */}
         <div className="relative">

@@ -8,6 +8,8 @@ import {
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { resolveContacts } from "./audiences";
 
 const router = Router();
 
@@ -167,11 +169,12 @@ router.get("/campaign-pages/eligible-contacts", async (_req, res): Promise<void>
   }
 });
 
-// ─── Launch a campaign page to all eligible contacts ────────────────────────
+// ─── Launch a campaign page to an audience ───────────────────────────────────
 
 router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
   const {
     pageId,
+    audienceId,
     emailSubject,
     emailBodyHtml,
     senderName = "Dandy",
@@ -183,6 +186,10 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     res.status(400).json({ error: "pageId is required" });
     return;
   }
+  if (!audienceId) {
+    res.status(400).json({ error: "audienceId is required — select an audience before launching" });
+    return;
+  }
 
   try {
     const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, Number(pageId)));
@@ -191,23 +198,17 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
       return;
     }
 
-    const host = `${req.protocol}://${req.get("host")}`;
+    const audResult = await db.execute(sql`
+      SELECT filters FROM sales_audiences WHERE id = ${Number(audienceId)}
+    `);
+    if (!audResult.rows.length) {
+      res.status(404).json({ error: "Audience not found" });
+      return;
+    }
 
-    const contacts = await db
-      .select({
-        id: salesContactsTable.id,
-        firstName: salesContactsTable.firstName,
-        lastName: salesContactsTable.lastName,
-        email: salesContactsTable.email,
-        accountId: salesContactsTable.accountId,
-        accountName: salesAccountsTable.name,
-      })
-      .from(salesContactsTable)
-      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
-      .where(and(
-        isNotNull(salesContactsTable.email),
-        not(eq(salesContactsTable.status, "unsubscribed")),
-      ));
+    const host = `${req.protocol}://${req.get("host")}`;
+    const filters = audResult.rows[0].filters as Record<string, unknown>;
+    const contacts = await resolveContacts(filters);
 
     let sent = 0;
     let failed = 0;

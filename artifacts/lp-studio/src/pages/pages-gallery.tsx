@@ -346,7 +346,6 @@ export default function PagesGallery() {
       blocks: generated.blocks,
       status: "draft",
     });
-    const activeSeg = seg ?? selectedSegment;
     if (activeSeg) {
       setBriefContext({
         company: generated.title,
