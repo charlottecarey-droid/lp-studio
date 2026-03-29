@@ -201,6 +201,13 @@ export interface SpacerBlockProps {
   backgroundColor: string;
 }
 
+export interface DsoInsightsVideoBlockProps {
+  title?: string;
+  subtitle?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}
+
 export interface DsoInsightsDashboardBlockProps {
   eyebrow: string;
   headline: string;
@@ -1001,7 +1008,8 @@ type BlockVariant =
   | { type: "dso-stat-row"; props: DsoStatRowBlockProps }
   | { type: "dso-faq"; props: DsoFaqBlockProps }
   | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps }
-  | { type: "dso-software-showcase"; props: DsoSoftwareShowcaseBlockProps };
+  | { type: "dso-software-showcase"; props: DsoSoftwareShowcaseBlockProps }
+  | { type: "dso-insights-video"; props: DsoInsightsVideoBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
@@ -3019,6 +3027,27 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-insights-video" as const,
+    label: "Insights Video",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoInsightsVideoBlockProps => ({
+      title: "See everything. Before it becomes a problem.",
+      subtitle: "The only analytics platform purpose-built for modern dental groups.",
+      ctaLabel: "Get a demo",
+      ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#1B5435" rx="4" />
+        <rect x="10" y="15" width="40" height="6" rx="2" fill="hsl(48,100%,96%)" opacity="0.9" />
+        <rect x="10" y="25" width="30" height="3" rx="1" fill="hsl(48,100%,96%)" opacity="0.6" />
+        <rect x="10" y="35" width="20" height="2" rx="1" fill="hsl(68,60%,52%)" />
+        <rect x="60" y="15" width="50" height="40" rx="3" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" />
+        <rect x="65" y="20" width="40" height="30" rx="2" fill="rgba(255,255,255,0.8)" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-cta-capture" as const,
     label: "DSO CTA Capture",
     category: "DSO" as BlockCategory,
@@ -3136,6 +3165,7 @@ export function createBlock(type: "dso-stat-row"): Extract<PageBlock, { type: "d
 export function createBlock(type: "dso-faq"): Extract<PageBlock, { type: "dso-faq" }>;
 export function createBlock(type: "dso-split-feature"): Extract<PageBlock, { type: "dso-split-feature" }>;
 export function createBlock(type: "dso-software-showcase"): Extract<PageBlock, { type: "dso-software-showcase" }>;
+export function createBlock(type: "dso-insights-video"): Extract<PageBlock, { type: "dso-insights-video" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -3204,6 +3234,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-faq": return { id, type: "dso-faq", props: props as DsoFaqBlockProps };
     case "dso-split-feature": return { id, type: "dso-split-feature", props: props as DsoSplitFeatureBlockProps };
     case "dso-software-showcase": return { id, type: "dso-software-showcase", props: props as DsoSoftwareShowcaseBlockProps };
+    case "dso-insights-video": return { id, type: "dso-insights-video", props: props as DsoInsightsVideoBlockProps };
   }
 }
 
