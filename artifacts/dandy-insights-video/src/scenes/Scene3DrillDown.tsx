@@ -74,11 +74,11 @@ export default function Scene3DrillDown() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, delay: 0.6 }}
       >
-        <div className="bg-[#0D1F0D]/85 backdrop-blur-md px-8 py-4 rounded-full border border-white/10">
+        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-4 rounded-full border border-white/10">
           <AnimatePresence mode="wait">
             <motion.p
               key={level}
-              className="text-[1.4vw] font-medium tracking-wide"
+              className="text-[1.4vw] tracking-wide"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}

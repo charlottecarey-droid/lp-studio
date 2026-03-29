@@ -15,7 +15,7 @@ export default function Scene1Hook() {
       <motion.div
         className="absolute inset-0"
         initial={{ scale: 1.08, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.12 }}
+        animate={{ scale: 1, opacity: 0.1 }}
         transition={{ duration: 5, ease: 'easeOut' }}
       >
         <img
@@ -26,12 +26,12 @@ export default function Scene1Hook() {
       </motion.div>
 
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1B2E1B]/70 via-[#1B2E1B]/50 to-[#1B2E1B]/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#003A30]/80 via-[#003A30]/60 to-[#003A30]/95" />
 
       {/* Text */}
       <div className="relative z-10 flex flex-col items-center text-center px-12">
         <motion.p
-          className="text-[#C7E738] text-[1.6vw] font-semibold uppercase tracking-[0.25em] mb-6"
+          className="text-[#C7E738] text-[1.5vw] font-semibold uppercase tracking-[0.3em] mb-6"
           initial={{ y: 12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.3 }}

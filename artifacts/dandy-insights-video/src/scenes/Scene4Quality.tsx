@@ -14,7 +14,7 @@ export default function Scene4Quality() {
       {/* Left — big text */}
       <div className="relative z-10 w-[36vw] flex-shrink-0 pr-[4vw]">
         <motion.p
-          className="text-[#C7E738] text-[1.4vw] font-semibold uppercase tracking-[0.2em] mb-5"
+          className="text-[#C7E738] text-[1.3vw] font-semibold uppercase tracking-[0.25em] mb-5"
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.3 }}
@@ -36,7 +36,7 @@ export default function Scene4Quality() {
         </motion.h2>
 
         <motion.p
-          className="mt-6 text-white/55 text-[1.3vw] leading-relaxed"
+          className="mt-6 text-white/55 text-[1.25vw] leading-relaxed"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 1.1 }}

@@ -15,7 +15,7 @@ export default function Scene5Payoff() {
       <motion.div
         className="absolute inset-0"
         initial={{ scale: 1.06, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.1 }}
+        animate={{ scale: 1, opacity: 0.08 }}
         transition={{ duration: 5, ease: 'easeOut' }}
       >
         <img
@@ -24,7 +24,7 @@ export default function Scene5Payoff() {
           className="w-full h-full object-cover object-top"
         />
       </motion.div>
-      <div className="absolute inset-0 bg-[#1B2E1B]/80" />
+      <div className="absolute inset-0 bg-[#003A30]/85" />
 
       {/* Centered payoff copy */}
       <div className="relative z-10 flex flex-col items-center text-center px-12 max-w-4xl">
@@ -40,7 +40,7 @@ export default function Scene5Payoff() {
         </motion.h2>
 
         <motion.p
-          className="mt-8 text-white/60 text-[1.6vw] leading-relaxed max-w-2xl"
+          className="mt-8 text-white/55 text-[1.5vw] leading-relaxed max-w-2xl"
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.9 }}

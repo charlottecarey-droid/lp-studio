@@ -29,9 +29,12 @@ export default function VideoTemplate() {
   const CurrentSceneComponent = SCENES[currentScene].Component;
 
   return (
-    <div className="relative w-full h-full bg-[#1B2E1B] overflow-hidden flex items-center justify-center font-sans text-white">
+    <div
+      className="relative w-full h-full overflow-hidden flex items-center justify-center"
+      style={{ background: '#003A30', fontFamily: "'Bagoss Standard', Arial, Helvetica, sans-serif" }}
+    >
       {/* Subtle noise grain */}
-      <div className="absolute inset-0 opacity-[0.06] pointer-events-none mix-blend-overlay">
+      <div className="absolute inset-0 opacity-[0.05] pointer-events-none mix-blend-overlay">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <filter id="grain">
             <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" />

@@ -1,50 +1,46 @@
 @import "tailwindcss";
 
-/* REPLACE THESE -- define your own palette and fonts for each video */
+@font-face {
+  font-family: 'Bagoss Standard';
+  src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
+       url('./fonts/BagossStandard-Regular.woff') format('woff'),
+       url('./fonts/BagossStandard-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
-  --color-primary: #000000;
-  --color-secondary: #6B7280;
-  --color-accent: #3B82F6;
+  /* Dandy brand colors */
+  --color-primary: #003A30;
+  --color-primary-dark: #001F19;
+  --color-primary-mid: #002B23;
+  --color-accent: #C7E738;
+  --color-accent-dark: #9EB82B;
 
-  --color-bg-light: #FFFFFF;
-  --color-bg-dark: #0F172A;
-  --color-bg-muted: #F8FAFC;
+  --color-bg: #003A30;
+  --color-text-primary: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.5);
 
-  --color-text-primary: #111827;
-  --color-text-secondary: #6B7280;
-  --color-text-muted: #9CA3AF;
-  --color-text-inverse: #FFFFFF;
-
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Bagoss Standard', Arial, Helvetica, sans-serif;
+  --font-body: 'Bagoss Standard', Arial, Helvetica, sans-serif;
 }
 
 @theme inline {
   --color-primary: var(--color-primary);
-  --color-secondary: var(--color-secondary);
   --color-accent: var(--color-accent);
-  --color-bg-light: var(--color-bg-light);
-  --color-bg-dark: var(--color-bg-dark);
-  --color-bg-muted: var(--color-bg-muted);
-  --color-text-primary: var(--color-text-primary);
-  --color-text-secondary: var(--color-text-secondary);
-  --color-text-muted: var(--color-text-muted);
-  --color-text-inverse: var(--color-text-inverse);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-error: var(--color-error);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
 }
