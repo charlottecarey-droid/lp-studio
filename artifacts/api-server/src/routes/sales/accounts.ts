@@ -219,7 +219,8 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
 
     const contactsWithEmail = contacts.filter(c => c.email && c.email.trim() !== "");
 
-    const created: Array<typeof salesHotlinksTable.$inferSelect> = [];
+    const hotlinks: Array<typeof salesHotlinksTable.$inferSelect> = [];
+    let createdCount = 0;
 
     for (const contact of contactsWithEmail) {
       // Skip if hotlink already exists for this contact+page
@@ -231,7 +232,7 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
         .limit(1);
 
       if (existing.length > 0) {
-        created.push(existing[0]);
+        hotlinks.push(existing[0]);
         continue;
       }
 
@@ -241,12 +242,14 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
         contactId: contact.id,
         pageId: Number(pageId),
       }).returning();
-      created.push(hotlink);
+      hotlinks.push(hotlink);
+      createdCount++;
     }
 
     res.status(201).json({
-      count: created.length,
-      hotlinks: created,
+      createdCount,
+      totalCount: hotlinks.length,
+      hotlinks,
     });
   } catch (err) {
     console.error("POST /sales/accounts/:id/microsites error:", err);

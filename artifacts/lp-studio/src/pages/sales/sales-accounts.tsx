@@ -416,11 +416,14 @@ function AccountDetailView({ id }: { id: string }) {
       const page = await pageRes.json() as { id: number; title: string; slug: string };
 
       // 3. Auto-generate hotlinks for all contacts with email
-      await fetch(`${API_BASE}/sales/accounts/${id}/microsites`, {
+      const hotlinkRes = await fetch(`${API_BASE}/sales/accounts/${id}/microsites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId: page.id }),
       });
+      if (!hotlinkRes.ok) {
+        throw new Error("Page was created but failed to generate hotlinks for contacts");
+      }
 
       // 4. Navigate to builder
       navigate(`/builder/${page.id}`);
