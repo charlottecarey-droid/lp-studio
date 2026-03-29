@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Upload, Loader2, Check, AlertTriangle, Database } from "lucide-react";
+import { Upload, Loader2, Check, AlertTriangle, Database, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -261,6 +261,8 @@ const ContactImporter = () => {
   const [result, setResult] = useState<{ inserted: number; errors?: string[] } | null>(null);
   const [clearExisting, setClearExisting] = useState(false);
   const [dbCount, setDbCount] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Check current DB count on mount
   useEffect(() => {
@@ -316,12 +318,32 @@ const ContactImporter = () => {
 
       setResult({ inserted: totalInserted, errors: allErrors.length > 0 ? allErrors : undefined });
       toast.success(`Imported ${totalInserted} contacts total`);
-      const { count } = await supabase.from("target_contacts").select("id", { count: "exact", head: true });
-      setDbCount(count || 0);
+      await refreshCount();
     } catch (err: any) {
       toast.error("Import failed: " + err.message);
     } finally {
       setImporting(false);
+    }
+  };
+
+  const refreshCount = async () => {
+    const { count } = await supabase.from("target_contacts").select("id", { count: "exact", head: true });
+    setDbCount(count || 0);
+  };
+
+  const handleDeleteAll = async () => {
+    setDeleting(true);
+    setShowDeleteConfirm(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-all-contacts", { body: {} });
+      if (error) throw new Error(error.message);
+      toast.success(`Deleted ${data.deleted ?? "all"} contacts`);
+      await refreshCount();
+      setResult(null);
+    } catch (err: any) {
+      toast.error("Delete failed: " + err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -336,12 +358,55 @@ const ContactImporter = () => {
             Upload an XLSX/CSV file to bulk-import contacts into the database.
           </p>
 
-          {/* DB count */}
+          {/* DB count + delete */}
           {dbCount !== null && (
-            <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
-              <Database className="w-4 h-4" />
-              <span>{dbCount} contacts currently in database</span>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="w-4 h-4" />
+                <span>{dbCount.toLocaleString()} contacts currently in database</span>
+              </div>
+              {dbCount > 0 && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  {deleting ? "Deleting…" : "Delete All Contacts"}
+                </button>
+              )}
             </div>
+          )}
+
+          {/* Delete confirmation dialog */}
+          {showDeleteConfirm && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 rounded-xl border border-destructive/40 bg-destructive/5 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Delete all {dbCount?.toLocaleString()} contacts?</p>
+                  <p className="text-xs text-muted-foreground mt-1">This action cannot be undone. All contact records will be permanently removed from the database.</p>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={handleDeleteAll}
+                      className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                    >
+                      Yes, delete all
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           )}
 
           {/* Upload */}
@@ -368,17 +433,6 @@ const ContactImporter = () => {
                   {companies.length > 20 && <div>...and {companies.length - 20} more companies</div>}
                 </div>
               </div>
-
-              {/* Options */}
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={clearExisting}
-                  onChange={(e) => setClearExisting(e.target.checked)}
-                  className="rounded"
-                />
-                Clear existing contacts before import
-              </label>
 
               {/* Import button */}
               <button

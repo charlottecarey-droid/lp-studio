@@ -307,6 +307,7 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
   if (name === "generate-email") return handleGenerateEmail(req, res, body);
   if (name === "account-briefing") return handleAccountBriefing(req, res, body);
   if (name === "import-contacts") return handleImportContacts(req, res, body);
+  if (name === "delete-all-contacts") return handleDeleteAllContacts(req, res, body);
   if (name === "send-marketing-campaign") return handleSendCampaign(req, res, body);
   if (name === "send-test-email") return handleSendTestEmail(req, res, body);
   if (name === "accounts-list") return handleAccountsList(req, res, body);
@@ -799,6 +800,18 @@ async function handleAccountsList(_req: Request, res: Response, _body: any) {
     `);
     return res.json({ success: true, accounts: result.rows });
   } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ─── Handler: delete-all-contacts ────────────────────────────────────────────
+async function handleDeleteAllContacts(_req: Request, res: Response, _body: any) {
+  try {
+    const result = await query(`DELETE FROM "dso_target_contacts"`);
+    const deleted = result.rowCount ?? 0;
+    return res.json({ success: true, deleted });
+  } catch (err: any) {
+    console.error("delete-all-contacts error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
