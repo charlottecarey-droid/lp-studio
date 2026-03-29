@@ -56,6 +56,8 @@ function getSignalIcon(type: string) {
     case "email_open": return <Mail className="w-3.5 h-3.5 text-emerald-500" />;
     case "email_click": return <MousePointerClick className="w-3.5 h-3.5 text-amber-500" />;
     case "form_submit": return <FileText className="w-3.5 h-3.5 text-violet-500" />;
+    case "email_sent": return <Send className="w-3.5 h-3.5 text-primary" />;
+    case "email_replied": return <Mail className="w-3.5 h-3.5 text-violet-500" />;
     default: return <Activity className="w-3.5 h-3.5 text-muted-foreground" />;
   }
 }
@@ -66,7 +68,9 @@ function getSignalLabel(type: string) {
     case "email_open": return "Opened email";
     case "email_click": return "Clicked link";
     case "form_submit": return "Submitted form";
-    default: return type;
+    case "email_sent": return "Email sent";
+    case "email_replied": return "Replied to email";
+    default: return type.replace(/_/g, " ");
   }
 }
 
@@ -81,20 +85,21 @@ export default function SalesDashboard() {
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=8`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/stats`).then(r => r.ok ? r.json() : {}),
     ])
-      .then(([accounts, contacts, recentSignals]) => {
+      .then(([accounts, contacts, recentSignals, statsSummary]) => {
         setStats({
           accounts: accounts.length ?? 0,
           contacts: contacts.length ?? 0,
           activeCampaigns: 0,
           microsites: 0,
-          recentSignals: recentSignals.length ?? 0,
-          emailsSent: 0,
+          recentSignals: statsSummary.signalsToday ?? 0,
+          emailsSent: statsSummary.emailsSent ?? 0,
           opens: 0,
           clicks: 0,
         });
-        setSignals(recentSignals.slice?.(0, 8) ?? []);
+        setSignals(recentSignals ?? []);
       })
       .catch(() => {
         setStats({ accounts: 0, contacts: 0, activeCampaigns: 0, microsites: 0, recentSignals: 0, emailsSent: 0, opens: 0, clicks: 0 });
@@ -324,14 +329,16 @@ export default function SalesDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">
-                          {signal.contactName ?? "Unknown"}{" "}
+                          {signal.contactName ?? signal.accountName ?? "Unknown contact"}{" "}
                           <span className="text-muted-foreground font-normal">
                             {getSignalLabel(signal.type).toLowerCase()}
                           </span>
                         </p>
-                        {signal.source && (
-                          <p className="text-xs text-muted-foreground truncate">{signal.source}</p>
-                        )}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
+                          {signal.accountName && signal.source && <span>·</span>}
+                          {signal.source && <span className="truncate">{signal.source}</span>}
+                        </div>
                       </div>
                       <span className="text-xs text-muted-foreground shrink-0">
                         {format(new Date(signal.createdAt), "MMM d, h:mm a")}

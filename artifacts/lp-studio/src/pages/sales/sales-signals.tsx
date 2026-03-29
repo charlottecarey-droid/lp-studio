@@ -7,6 +7,7 @@ import {
   MousePointerClick,
   FileText,
   Filter,
+  Send,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -32,6 +33,8 @@ function getSignalIcon(type: string) {
     case "email_open": return <Mail className="w-4 h-4 text-emerald-500" />;
     case "email_click": return <MousePointerClick className="w-4 h-4 text-amber-500" />;
     case "form_submit": return <FileText className="w-4 h-4 text-violet-500" />;
+    case "email_sent": return <Send className="w-4 h-4 text-primary" />;
+    case "email_replied": return <Mail className="w-4 h-4 text-violet-500" />;
     default: return <Activity className="w-4 h-4 text-muted-foreground" />;
   }
 }
@@ -42,6 +45,8 @@ function getSignalLabel(type: string) {
     case "email_open": return "Opened email";
     case "email_click": return "Clicked link in email";
     case "form_submit": return "Submitted a form";
+    case "email_sent": return "Email sent";
+    case "email_replied": return "Replied to email";
     default: return type.replace(/_/g, " ");
   }
 }
@@ -62,7 +67,7 @@ export default function SalesSignals() {
       .finally(() => setLoading(false));
   }, [filter]);
 
-  const types = ["page_view", "email_open", "email_click", "form_submit"];
+  const types = ["email_sent", "email_open", "email_click", "email_replied", "page_view", "form_submit"];
 
   return (
     <SalesLayout>
