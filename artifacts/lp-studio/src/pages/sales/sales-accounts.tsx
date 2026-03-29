@@ -6,7 +6,6 @@ import {
   Plus,
   Search,
   ChevronRight,
-  MoreHorizontal,
   Users,
   Mail,
   FileText,
@@ -14,8 +13,11 @@ import {
   ArrowLeft,
   Activity,
   ExternalLink,
-  Pencil,
-  Trash2,
+  Layout,
+  Copy,
+  Check,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { ContentBriefModal } from "@/components/ContentBriefModal";
 
 const API_BASE = "/api";
 
@@ -53,6 +56,21 @@ interface Contact {
   createdAt: string;
 }
 
+interface Microsite {
+  pageId: number;
+  title: string;
+  slug: string;
+  status: string;
+  updatedAt: string;
+  hotlinkCount: number;
+  firstToken: string | null;
+}
+
+interface PageBlock {
+  type: string;
+  [key: string]: unknown;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     prospect: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -63,6 +81,18 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles[status] ?? styles.prospect}`}>
+      {status}
+    </span>
+  );
+}
+
+function PageStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    published: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles[status] ?? styles.draft}`}>
       {status}
     </span>
   );
@@ -285,6 +315,13 @@ function AccountDetailView({ id }: { id: string }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Microsites
+  const [microsites, setMicrosites] = useState<Microsite[]>([]);
+  const [micrositesLoading, setMicrositesLoading] = useState(true);
+  const [showBriefModal, setShowBriefModal] = useState(false);
+  const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFirst, setContactFirst] = useState("");
@@ -307,7 +344,17 @@ function AccountDetailView({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const fetchMicrosites = useCallback(() => {
+    setMicrositesLoading(true);
+    fetch(`${API_BASE}/sales/accounts/${id}/microsites`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setMicrosites)
+      .catch(() => setMicrosites([]))
+      .finally(() => setMicrositesLoading(false));
+  }, [id]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchMicrosites(); }, [fetchMicrosites]);
 
   async function handleCreateContact(e: React.FormEvent) {
     e.preventDefault();
@@ -335,6 +382,59 @@ function AccountDetailView({ id }: { id: string }) {
     } finally {
       setSavingContact(false);
     }
+  }
+
+  async function handleGenerateMicrosite(prompt: string) {
+    setGeneratingMicrosite(true);
+    try {
+      // 1. Generate page blocks from AI
+      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error((err as { error?: string }).error ?? "Generation failed");
+      }
+      const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
+
+      // 2. Create the page
+      const pageRes = await fetch(`${API_BASE}/lp/pages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: generated.title,
+          slug: generated.slug,
+          blocks: generated.blocks,
+          status: "draft",
+        }),
+      });
+      if (!pageRes.ok) {
+        throw new Error("Failed to create page");
+      }
+      const page = await pageRes.json() as { id: number; title: string; slug: string };
+
+      // 3. Auto-generate hotlinks for all contacts with email
+      await fetch(`${API_BASE}/sales/accounts/${id}/microsites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: page.id }),
+      });
+
+      // 4. Navigate to builder
+      navigate(`/builder/${page.id}`);
+    } finally {
+      setGeneratingMicrosite(false);
+    }
+  }
+
+  function handleCopyToken(token: string) {
+    const baseUrl = window.location.origin;
+    navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    });
   }
 
   if (loading) {
@@ -368,17 +468,17 @@ function AccountDetailView({ id }: { id: string }) {
       <div className="flex flex-col gap-6 pb-12">
 
         {/* Back + Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-lg"
+            className="h-8 w-8 rounded-lg mt-1"
             onClick={() => navigate("/sales/accounts")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-display font-bold text-foreground truncate">
                 {account.name}
               </h1>
@@ -395,6 +495,24 @@ function AccountDetailView({ id }: { id: string }) {
               {account.industry && <span>{account.industry}</span>}
             </div>
           </div>
+          <Button
+            onClick={() => setShowBriefModal(true)}
+            disabled={generatingMicrosite}
+            className="gap-2 shrink-0"
+            size="sm"
+          >
+            {generatingMicrosite ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                Generate Microsite
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Quick Actions */}
@@ -530,7 +648,121 @@ function AccountDetailView({ id }: { id: string }) {
             </div>
           )}
         </div>
+
+        {/* Microsites */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
+              <Layout className="w-5 h-5 text-muted-foreground" />
+              Microsites
+              {!micrositesLoading && microsites.length > 0 && (
+                <span className="text-base font-normal text-muted-foreground">({microsites.length})</span>
+              )}
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBriefModal(true)}
+              disabled={generatingMicrosite}
+              className="gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate Microsite
+            </Button>
+          </div>
+
+          {micrositesLoading ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-16 rounded-xl" />
+              <Skeleton className="h-16 rounded-xl" />
+            </div>
+          ) : microsites.length === 0 ? (
+            <Card className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border border-dashed border-border text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+                <Layout className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">No microsites yet</p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
+                  Generate a personalized microsite for this account. Hotlinks will be auto-created for all contacts with an email.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="gap-2 mt-1"
+                onClick={() => setShowBriefModal(true)}
+                disabled={generatingMicrosite}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Generate Microsite
+              </Button>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {microsites.map((site) => (
+                <div
+                  key={site.pageId}
+                  className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+                >
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Layout className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-sm font-medium text-foreground truncate">{site.title}</span>
+                      <PageStatusBadge status={site.status} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{site.hotlinkCount} hotlink{site.hotlinkCount !== 1 ? "s" : ""}</span>
+                      <span>·</span>
+                      <span>Updated {format(new Date(site.updatedAt), "MMM d")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {site.firstToken && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 h-8 px-2.5 text-xs"
+                        onClick={() => handleCopyToken(site.firstToken!)}
+                      >
+                        {copiedToken === site.firstToken ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy Link
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-8 px-2.5 text-xs"
+                      onClick={() => navigate(`/builder/${site.pageId}`)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open Builder
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Content Brief Modal */}
+      <ContentBriefModal
+        open={showBriefModal}
+        onClose={() => setShowBriefModal(false)}
+        onGeneratePage={handleGenerateMicrosite}
+        initialCompany={account.name}
+      />
     </SalesLayout>
   );
 }

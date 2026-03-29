@@ -1,7 +1,12 @@
 import { Router } from "express";
-import { eq, desc, ilike, or } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesAccountsTable } from "@workspace/db";
+import {
+  salesAccountsTable,
+  salesContactsTable,
+  salesHotlinksTable,
+  lpPagesTable,
+} from "@workspace/db";
 
 const router = Router();
 
@@ -113,6 +118,139 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("DELETE /sales/accounts/:id error:", err);
     res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
+// ─── Token generation helper ────────────────────────────────
+function generateToken(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+async function generateUniqueToken(maxAttempts = 5): Promise<string> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const token = generateToken();
+    const existing = await db.select({ id: salesHotlinksTable.id })
+      .from(salesHotlinksTable)
+      .where(eq(salesHotlinksTable.token, token))
+      .limit(1);
+    if (existing.length === 0) return token;
+  }
+  throw new Error("Failed to generate unique token after multiple attempts");
+}
+
+// GET /accounts/:id/microsites — list distinct pages with hotlinks for this account
+router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
+  try {
+    const accountId = Number(req.params.id);
+
+    // Get all contacts for this account
+    const contacts = await db.select({ id: salesContactsTable.id })
+      .from(salesContactsTable)
+      .where(eq(salesContactsTable.accountId, accountId));
+
+    if (contacts.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    // Collect all hotlinks for all contacts
+    const allHotlinks: Array<typeof salesHotlinksTable.$inferSelect> = [];
+    for (const contact of contacts) {
+      const hl = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.contactId, contact.id));
+      allHotlinks.push(...hl);
+    }
+
+    // Get distinct page IDs
+    const pageIdSet = new Set(allHotlinks.map(h => h.pageId));
+    const pageIds = Array.from(pageIdSet);
+
+    if (pageIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    // Fetch page details and aggregate hotlink counts
+    const results = [];
+    for (const pageId of pageIds) {
+      const [page] = await db.select().from(lpPagesTable)
+        .where(eq(lpPagesTable.id, pageId));
+      if (!page) continue;
+
+      const pageHotlinks = allHotlinks.filter(h => h.pageId === pageId);
+      const firstHotlink = pageHotlinks[0];
+
+      results.push({
+        pageId: page.id,
+        title: page.title,
+        slug: page.slug,
+        status: page.status,
+        updatedAt: page.updatedAt,
+        hotlinkCount: pageHotlinks.length,
+        firstToken: firstHotlink?.token ?? null,
+      });
+    }
+
+    // Sort by most recently updated page
+    results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+    res.json(results);
+  } catch (err) {
+    console.error("GET /sales/accounts/:id/microsites error:", err);
+    res.status(500).json({ error: "Failed to load microsites" });
+  }
+});
+
+// POST /accounts/:id/microsites — bulk-create hotlinks for contacts with email on this account
+router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
+  const { pageId } = req.body;
+  if (!pageId) {
+    res.status(400).json({ error: "pageId is required" });
+    return;
+  }
+
+  try {
+    const accountId = Number(req.params.id);
+
+    // Get all contacts for this account that have an email
+    const contacts = await db.select().from(salesContactsTable)
+      .where(eq(salesContactsTable.accountId, accountId));
+
+    const contactsWithEmail = contacts.filter(c => c.email && c.email.trim() !== "");
+
+    const created: Array<typeof salesHotlinksTable.$inferSelect> = [];
+
+    for (const contact of contactsWithEmail) {
+      // Skip if hotlink already exists for this contact+page
+      const existing = await db.select().from(salesHotlinksTable)
+        .where(and(
+          eq(salesHotlinksTable.contactId, contact.id),
+          eq(salesHotlinksTable.pageId, Number(pageId)),
+        ))
+        .limit(1);
+
+      if (existing.length > 0) {
+        created.push(existing[0]);
+        continue;
+      }
+
+      const token = await generateUniqueToken();
+      const [hotlink] = await db.insert(salesHotlinksTable).values({
+        token,
+        contactId: contact.id,
+        pageId: Number(pageId),
+      }).returning();
+      created.push(hotlink);
+    }
+
+    res.status(201).json({
+      count: created.length,
+      hotlinks: created,
+    });
+  } catch (err) {
+    console.error("POST /sales/accounts/:id/microsites error:", err);
+    res.status(500).json({ error: "Failed to create microsites" });
   }
 });
 

@@ -34,6 +34,7 @@ interface ContentBriefModalProps {
   onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
   onGeneratePage?: (prompt: string) => Promise<void>;
   initialSegmentId?: string;
+  initialCompany?: string;
 }
 
 function isDsoPracticesSegment(segment: AudienceSegment | null): boolean {
@@ -101,8 +102,8 @@ function buildBrandContext(brand: BrandConfig | null) {
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
-export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId }: ContentBriefModalProps) {
-  const [company, setCompany] = useState("");
+export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany }: ContentBriefModalProps) {
+  const [company, setCompany] = useState(initialCompany ?? "");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -127,6 +128,10 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
   useEffect(() => {
     if (initialSegmentId !== undefined) setSelectedSegmentId(initialSegmentId);
   }, [initialSegmentId]);
+
+  useEffect(() => {
+    if (initialCompany !== undefined) setCompany(initialCompany);
+  }, [initialCompany]);
 
   const handleGenerate = async () => {
     if (!company.trim() || !objective.trim()) return;
@@ -234,7 +239,7 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
   const handleClose = () => {
     onClose();
     if (!brief) {
-      setCompany("");
+      setCompany(initialCompany ?? "");
       setObjective("");
       setError(null);
     }
