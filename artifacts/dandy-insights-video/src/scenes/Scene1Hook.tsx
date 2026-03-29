@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { AlertCard, LiveBadge } from '../components/ui';
+import { Background } from '../components/Background';
 
 export default function Scene1Hook() {
   const [phase, setPhase] = useState(0);
@@ -20,16 +21,18 @@ export default function Scene1Hook() {
       exit={{ opacity: 0, filter: 'blur(8px)' }}
       transition={{ duration: 0.7 }}
     >
+      <Background />
+
       {/* Screenshot BG texture */}
       <motion.div
         className="absolute inset-0"
         initial={{ scale: 1.06, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.09 }}
+        animate={{ scale: 1, opacity: 0.07 }}
         transition={{ duration: 5, ease: 'easeOut' }}
       >
         <img src={assets.dashboardOverview} alt="" className="w-full h-full object-cover object-top" />
       </motion.div>
-      <div className="absolute inset-0 bg-gradient-to-b from-[#003A30]/85 via-[#003A30]/70 to-[#003A30]/95" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#001a14]/80 via-transparent to-[#001a14]/80" />
 
       {/* Live badge — top left */}
       <div className="absolute top-8 left-10 z-20">

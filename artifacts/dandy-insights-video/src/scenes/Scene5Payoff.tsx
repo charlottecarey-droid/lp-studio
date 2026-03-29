@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { GlowLine } from '../components/ui';
+import { Background } from '../components/Background';
 
 export default function Scene5Payoff() {
   const [phase, setPhase] = useState(0);
@@ -19,16 +20,18 @@ export default function Scene5Payoff() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.8 }}
     >
+      <Background />
+
       {/* Background screenshot, very dimmed */}
       <motion.div
         className="absolute inset-0"
         initial={{ scale: 1.06, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.07 }}
+        animate={{ scale: 1, opacity: 0.06 }}
         transition={{ duration: 5, ease: 'easeOut' }}
       >
         <img src={assets.dsoView} alt="" className="w-full h-full object-cover object-top" />
       </motion.div>
-      <div className="absolute inset-0 bg-[#003A30]/88" />
+      <div className="absolute inset-0 bg-[#001a14]/75" />
 
       <div className="relative z-10 flex flex-col items-center text-center px-12 max-w-5xl w-full">
         {/* Main copy */}

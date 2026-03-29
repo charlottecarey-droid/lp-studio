@@ -1,21 +1,24 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { assets } from '../utils/assets';
+import { Background } from '../components/Background';
 
 export default function Scene6CTA() {
   return (
     <motion.div
       className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
-      style={{ background: '#003A30' }}
+      style={{  }}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Radial glow */}
+      <Background />
+
+      {/* Radial glow on top for CTA depth */}
       <div
         className="absolute inset-0"
-        style={{ background: 'radial-gradient(ellipse at center, #004D40 0%, #003A30 50%, #001F19 100%)' }}
+        style={{ background: 'radial-gradient(ellipse 70% 60% at center, rgba(0,77,64,0.5) 0%, transparent 70%)' }}
       />
 
       {/* Subtle ring animation */}

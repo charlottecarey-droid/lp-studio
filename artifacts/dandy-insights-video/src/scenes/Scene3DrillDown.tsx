@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { MetricPill, AlertCard } from '../components/ui';
+import { Background } from '../components/Background';
 
 const LEVELS = [
   {
@@ -49,6 +50,8 @@ export default function Scene3DrillDown() {
       exit={{ opacity: 0, scale: 1.05, filter: 'blur(12px)' }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
     >
+      <Background />
+
       {/* Level tabs */}
       <motion.div
         className="flex items-center gap-3 flex-shrink-0"

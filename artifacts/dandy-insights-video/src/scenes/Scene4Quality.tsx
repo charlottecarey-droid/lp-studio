@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { AlertCard, Counter, GlowLine } from '../components/ui';
+import { Background } from '../components/Background';
 
 export default function Scene4Quality() {
   const [phase, setPhase] = useState(0);
@@ -20,6 +21,8 @@ export default function Scene4Quality() {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.8 }}
     >
+      <Background />
+
       {/* Left — big text block */}
       <div className="relative z-10 w-[34vw] flex-shrink-0 pr-[3vw]">
         <motion.p

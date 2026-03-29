@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { MetricPill, LiveBadge, Counter } from '../components/ui';
+import { Background } from '../components/Background';
 
 export default function Scene2Reveal() {
   const [phase, setPhase] = useState(0);
@@ -20,6 +21,8 @@ export default function Scene2Reveal() {
       exit={{ opacity: 0, x: '-5vw' }}
       transition={{ duration: 0.8 }}
     >
+      <Background />
+
       {/* Counter callout — top left, white bg */}
       {phase >= 2 && (
         <motion.div
