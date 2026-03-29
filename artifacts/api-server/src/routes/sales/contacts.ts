@@ -41,6 +41,19 @@ router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
   }
 });
 
+// Get single contact by id
+router.get("/contacts/:id", async (req, res): Promise<void> => {
+  try {
+    const [contact] = await db.select().from(salesContactsTable)
+      .where(eq(salesContactsTable.id, Number(req.params.id)));
+    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+    res.json(contact);
+  } catch (err) {
+    console.error("GET /sales/contacts/:id error:", err);
+    res.status(500).json({ error: "Failed to load contact" });
+  }
+});
+
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
   const { accountId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;

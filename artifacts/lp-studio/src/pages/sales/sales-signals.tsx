@@ -51,6 +51,7 @@ export default function SalesSignals() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
 
+  // Initial fetch
   useEffect(() => {
     const url = filter
       ? `${API_BASE}/sales/signals?type=${filter}&limit=50`
@@ -60,6 +61,21 @@ export default function SalesSignals() {
       .then(setSignals)
       .catch(() => setSignals([]))
       .finally(() => setLoading(false));
+  }, [filter]);
+
+  // SSE real-time updates
+  useEffect(() => {
+    const es = new EventSource(`${API_BASE}/sales/signals/stream`);
+    es.onmessage = (event) => {
+      try {
+        const signal = JSON.parse(event.data);
+        if (signal.type === "connected") return;
+        // Only add if it passes current filter
+        if (filter && signal.type !== filter) return;
+        setSignals((prev) => [signal, ...prev].slice(0, 100));
+      } catch {}
+    };
+    return () => es.close();
   }, [filter]);
 
   const types = ["page_view", "email_open", "email_click", "form_submit"];

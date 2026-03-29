@@ -202,10 +202,22 @@ export default function LandingPageViewer() {
 
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
-  
+
+  // Sales hotlink token: ?hl=<token> — resolves contact for signal attribution
+  const hlToken = searchParams.get("hl") ?? null;
+  const [hotlinkData, setHotlinkData] = useState<{ hotlinkId: number; contactId: number; accountId: number; contactName: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!hlToken) return;
+    fetch(`/api/sales/resolve/${hlToken}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setHotlinkData(data); })
+      .catch(() => {});
+  }, [hlToken]);
+
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
-  
+
   const apiParams = isPreviewMode
     ? { previewVariantId }
     : { sessionId };
@@ -251,12 +263,13 @@ export default function LandingPageViewer() {
           sessionId,
           testId: config.testId,
           variantId: config.assignedVariant.id,
-          eventType: "impression"
+          eventType: "impression",
+          ...(hotlinkData ? { hotlinkId: hotlinkData.hotlinkId } : {}),
         }
       });
       setHasTrackedImpression(true);
     }
-  }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode]);
+  }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode, hotlinkData]);
 
   // Personalized link engagement tracking: scroll depth + CTA clicks via _plToken
   useEffect(() => {

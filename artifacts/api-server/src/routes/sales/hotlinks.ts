@@ -7,6 +7,7 @@ import {
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
+import { broadcastSignal } from "./signals";
 
 const router = Router();
 
@@ -161,7 +162,7 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
       .where(eq(salesContactsTable.id, hotlink.contactId));
 
     // Create page_view signal
-    await db.insert(salesSignalsTable).values({
+    const [pvSignal] = await db.insert(salesSignalsTable).values({
       accountId: contact?.accountId ?? null,
       contactId: hotlink.contactId,
       hotlinkId: hotlink.id,
@@ -171,7 +172,8 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
         pageSlug: page.slug,
         ip: req.headers["x-forwarded-for"] ?? req.ip ?? "",
       },
-    });
+    }).returning();
+    broadcastSignal(pvSignal);
 
     res.json({
       pageSlug: page.slug,

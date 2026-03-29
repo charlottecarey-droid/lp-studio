@@ -68,6 +68,7 @@ function Router() {
       <Route path="/sales" component={SalesDashboard} />
       <Route path="/sales/accounts/:id" component={SalesAccounts} />
       <Route path="/sales/accounts" component={SalesAccounts} />
+      <Route path="/sales/contacts/:id" component={SalesContacts} />
       <Route path="/sales/contacts" component={SalesContacts} />
       <Route path="/sales/pages" component={SalesPages} />
       <Route path="/sales/outreach" component={SalesOutreach} />

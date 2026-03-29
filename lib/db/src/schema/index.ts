@@ -18,3 +18,4 @@ export * from "./salesContacts";
 export * from "./salesHotlinks";
 export * from "./salesEmails";
 export * from "./salesSignals";
+export * from "./salesBriefings";
