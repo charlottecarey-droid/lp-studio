@@ -273,8 +273,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
             >
               <div className="px-6 py-5 flex items-start gap-4">
-                <div className="w-11 h-11 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
-                  <callout.icon className="w-5 h-5 text-[#B8FF57]" />
+                <div className="w-13 h-13 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                  <callout.icon className="w-7 h-7 text-[#B8FF57]" />
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
@@ -304,8 +304,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
               transition={{ duration: 0.6, delay: 2.4 + (i * 0.15) }}
             >
-              <div className="w-11 h-11 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
-                <callout.icon className="w-5 h-5 text-[#B8FF57]" />
+              <div className="w-13 h-13 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                <callout.icon className="w-7 h-7 text-[#B8FF57]" />
               </div>
               <div>
                 <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
