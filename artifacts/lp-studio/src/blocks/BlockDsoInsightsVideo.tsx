@@ -6,93 +6,58 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
-import remakeRates from "@assets/Untitled_22_1774755234638.png";
-import orders from "@assets/Untitled_23_1774755563381.png";
-import spend from "@assets/Untitled_24_1774755563381.png";
-import scanTime from "@assets/Untitled_25_1774755563381.png";
-import scanFlags from "@assets/Untitled_26_1774755563381.png";
-import expandTreatment from "@assets/Untitled_27_1774755563382.png";
-import doctorView from "@assets/Untitled_28_1774755563382.png";
-import practiceView from "@assets/Untitled_30_1774755563382.png";
+// Batch 1 (isi–isl)
+import scr_isi from "@assets/isi_1774822643018.png";
+import scr_isj from "@assets/isj_1774822643019.png";
+import scr_isk from "@assets/isk_1774822643019.png";
+import scr_isl from "@assets/isl_1774822643019.png";
+// Batch 2 (isa–ish)
+import scr_isa from "@assets/isa_1774822623873.png";
+import scr_isb from "@assets/isb_1774822623875.png";
+import scr_isc from "@assets/isc_1774822623875.png";
+import scr_isd from "@assets/isd_1774822623875.png";
+import scr_ise from "@assets/ise_1774822623875.png";
+import scr_isf from "@assets/isf_1774822623875.png";
+import scr_isg from "@assets/isg_1774822623876.png";
+import scr_ish from "@assets/ish_1774822623876.png";
+// Batch 3 (is1–is9)
+import scr_is1 from "@assets/is1_1774822602091.png";
+import scr_is2 from "@assets/is2_1774822602095.png";
+import scr_is3 from "@assets/is3_1774822602096.png";
+import scr_is4 from "@assets/is4_1774822602096.png";
+import scr_is5 from "@assets/is5_1774822602096.png";
+import scr_is6 from "@assets/is6_1774822602097.png";
+import scr_is7 from "@assets/is7_1774822602097.png";
+import scr_is8 from "@assets/is8_1774822602097.png";
+import scr_is9 from "@assets/is9_1774822602098.png";
+// Detail cards (unchanged)
 import closeUpRemakeRates from "@assets/Untitled_31_1774755563382.png";
 import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
 import scanQuality from "@assets/scan_quality_1774760745958.png";
 import provPerf from "@assets/provperf_1774760745956.png";
 
 const SCREENS = [
-  {
-    src: remakeRates,
-    label: "Remake Rates",
-    enter: { opacity: 0, x: 60, scale: 1.02 },
-    center: { opacity: 1, x: 0, scale: 1 },
-    exit: { opacity: 0, x: -40, scale: 0.98 },
-    panX: [-4, -16], panY: [0, -6], panScale: [1.04, 1.01],
-    duration: 4.8,
-  },
-  {
-    src: orders,
-    label: "Orders",
-    enter: { opacity: 0, scale: 1.1, filter: "blur(8px)" },
-    center: { opacity: 1, scale: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
-    panX: [8, 0], panY: [0, -4], panScale: [1.02, 1.05],
-    duration: 5.2,
-  },
-  {
-    src: spend,
-    label: "Spend",
-    enter: { opacity: 0, y: 40 },
-    center: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -24 },
-    panX: [0, -10], panY: [-2, -8], panScale: [1.03, 1.06],
-    duration: 4.6,
-  },
-  {
-    src: scanTime,
-    label: "Scan Time",
-    enter: { opacity: 0, x: -50, scale: 1.02 },
-    center: { opacity: 1, x: 0, scale: 1 },
-    exit: { opacity: 0, x: 40, scale: 0.98 },
-    panX: [6, 0], panY: [0, -5], panScale: [1.05, 1.02],
-    duration: 5.0,
-  },
-  {
-    src: scanFlags,
-    label: "Scan Flags",
-    enter: { opacity: 0, scale: 1.08, filter: "blur(6px)" },
-    center: { opacity: 1, scale: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, x: -50, scale: 0.97 },
-    panX: [-6, -14], panY: [-4, 0], panScale: [1.02, 1.05],
-    duration: 4.5,
-    clipRatio: "16/7",
-  },
-  {
-    src: expandTreatment,
-    label: "Treatment",
-    enter: { opacity: 0, y: -30, scale: 1.03 },
-    center: { opacity: 1, y: 0, scale: 1 },
-    exit: { opacity: 0, y: 30, scale: 0.98 },
-    panX: [0, 8], panY: [0, -6], panScale: [1.04, 1.02],
-    duration: 5.1,
-  },
-  {
-    src: doctorView,
-    label: "Doctor View",
-    enter: { opacity: 0, x: 50, filter: "blur(4px)" },
-    center: { opacity: 1, x: 0, filter: "blur(0px)" },
-    exit: { opacity: 0, x: -30, scale: 0.98 },
-    panX: [-8, 0], panY: [-4, -10], panScale: [1.03, 1.06],
-    duration: 4.9,
-  },
-  {
-    src: practiceView,
-    label: "Practice View",
-    enter: { opacity: 0, scale: 1.06, y: 20 },
-    center: { opacity: 1, scale: 1, y: 0 },
-    exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
-    panX: [4, -8], panY: [0, -4], panScale: [1.02, 1.05],
-    duration: 5.0,
-  },
+  { src: scr_isi, label: "Remake Rates" },
+  { src: scr_isj, label: "Remake Rates (Hover)" },
+  { src: scr_isk, label: "Scan Flags" },
+  { src: scr_isl, label: "Expand Treatment" },
+  { src: scr_isa, label: "Scan Time" },
+  { src: scr_isb, label: "Scan Flags DSO" },
+  { src: scr_isc, label: "Expand Treatment DSO" },
+  { src: scr_isd, label: "Spend" },
+  { src: scr_ise, label: "Scan Flags B" },
+  { src: scr_isf, label: "Expand Treatment B" },
+  { src: scr_isg, label: "Orders" },
+  { src: scr_ish, label: "Scan Flags C" },
+  { src: scr_is1, label: "Doctor Remake Rates" },
+  { src: scr_is2, label: "Doctor Scan Flags" },
+  { src: scr_is3, label: "Practice Remake Rates" },
+  { src: scr_is4, label: "Practice Scan Flags" },
+  { src: scr_is5, label: "DSO Scan Flags" },
+  { src: scr_is6, label: "DSO Orders" },
+  { src: scr_is7, label: "DSO Remakes" },
+  { src: scr_is8, label: "DSO Spend" },
+  { src: scr_is9, label: "DSO Scan Time" },
 ];
 
 interface Props {
@@ -276,7 +241,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <motion.div
                 className="flex flex-col"
                 animate={{ y: ["0%", "-50%"] }}
-                transition={{ duration: 42, ease: "linear", repeat: Infinity }}
+                transition={{ duration: 110, ease: "linear", repeat: Infinity }}
               >
                 {[...SCREENS, ...SCREENS].map((s, i) => (
                   <div
