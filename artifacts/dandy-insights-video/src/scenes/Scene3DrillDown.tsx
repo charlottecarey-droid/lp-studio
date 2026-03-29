@@ -80,10 +80,10 @@ export default function Scene3DrillDown() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Caption pill — overlaid at bottom of screenshot */}
+        {/* Caption pill — overlaid at top of screenshot over empty nav area */}
         <motion.div
-          className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none z-10"
-          initial={{ y: 12, opacity: 0 }}
+          className="absolute top-1/4 left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none z-10"
+          initial={{ y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.6 }}
         >

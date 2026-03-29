@@ -58,10 +58,10 @@ export default function Scene2Reveal() {
           <LiveBadge delay={1.0} />
         </div>
 
-        {/* Caption pill — overlaid at bottom of image */}
+        {/* Caption pill — overlaid at top of image over the empty nav area */}
         <motion.div
-          className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none"
-          initial={{ y: 16, opacity: 0 }}
+          className="absolute top-1/4 left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none"
+          initial={{ y: -16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.9 }}
         >
