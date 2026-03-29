@@ -1176,21 +1176,60 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Subheadline</Label>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Primary CTA text</Label>
-              <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v } })} fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary CTA</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA text</Label>
+                <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v } })} fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA mode</Label>
+                <Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
+                    <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(p.primaryCtaMode ?? "link") === "link" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">CTA URL</Label>
+                  <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="#" className="h-8 text-xs" />
+                </div>
+              )}
+              {(p.primaryCtaMode ?? "link") === "chilipiper" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Chili Piper URL</Label>
+                  <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                  <p className="text-[11px] text-muted-foreground">Opens the scheduling popup when the button is clicked.</p>
+                </div>
+              )}
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply Primary CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies the CTA text, URL, and mode above to every section on this page.</p>
+                  <Button
+                    size="sm"
+                    className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white"
+                    onClick={onApplyCtaToAll}
+                    disabled={!p.primaryCtaText && !p.primaryCtaUrl}
+                  >
+                    Apply CTA to All Sections
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Primary CTA URL</Label>
-              <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="#" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Secondary CTA text (optional)</Label>
-              <Input value={p.secondaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value } })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Secondary CTA URL</Label>
-              <Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secondary CTA (optional)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA text</Label>
+                <Input value={p.secondaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA URL</Label>
+                <Input value={p.secondaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaUrl: e.target.value } })} placeholder="#" />
+              </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
