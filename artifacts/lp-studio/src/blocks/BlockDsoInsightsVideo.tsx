@@ -5,49 +5,88 @@ import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 
 import remakeRates from "@assets/Untitled_22_1774755234638.png";
+import orders from "@assets/Untitled_23_1774755563381.png";
 import spend from "@assets/Untitled_24_1774755563381.png";
+import scanTime from "@assets/Untitled_25_1774755563381.png";
+import scanFlags from "@assets/Untitled_26_1774755563381.png";
+import expandTreatment from "@assets/Untitled_27_1774755563382.png";
 import doctorView from "@assets/Untitled_28_1774755563382.png";
 import practiceView from "@assets/Untitled_30_1774755563382.png";
 import closeUpRemakeRates from "@assets/Untitled_31_1774755563382.png";
 import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
 
-// 4 curated screens — each held long enough to absorb
 const SCREENS = [
   {
     src: remakeRates,
     label: "Remake Rates",
-    enter: { opacity: 0, x: 50, scale: 1.02 },
+    enter: { opacity: 0, x: 60, scale: 1.02 },
     center: { opacity: 1, x: 0, scale: 1 },
-    exit: { opacity: 0, x: -30, scale: 0.98 },
-    panX: [-4, -14], panY: [0, -5], panScale: [1.03, 1.01],
-    duration: 8.0,
+    exit: { opacity: 0, x: -40, scale: 0.98 },
+    panX: [-4, -16], panY: [0, -6], panScale: [1.04, 1.01],
+    duration: 4.8,
+  },
+  {
+    src: orders,
+    label: "Orders",
+    enter: { opacity: 0, scale: 1.1, filter: "blur(8px)" },
+    center: { opacity: 1, scale: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
+    panX: [8, 0], panY: [0, -4], panScale: [1.02, 1.05],
+    duration: 5.2,
   },
   {
     src: spend,
     label: "Spend",
-    enter: { opacity: 0, scale: 1.06, filter: "blur(6px)" },
+    enter: { opacity: 0, y: 40 },
+    center: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -24 },
+    panX: [0, -10], panY: [-2, -8], panScale: [1.03, 1.06],
+    duration: 4.6,
+  },
+  {
+    src: scanTime,
+    label: "Scan Time",
+    enter: { opacity: 0, x: -50, scale: 1.02 },
+    center: { opacity: 1, x: 0, scale: 1 },
+    exit: { opacity: 0, x: 40, scale: 0.98 },
+    panX: [6, 0], panY: [0, -5], panScale: [1.05, 1.02],
+    duration: 5.0,
+  },
+  {
+    src: scanFlags,
+    label: "Scan Flags",
+    enter: { opacity: 0, scale: 1.08, filter: "blur(6px)" },
     center: { opacity: 1, scale: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, scale: 0.97, filter: "blur(3px)" },
-    panX: [6, 0], panY: [0, -6], panScale: [1.02, 1.04],
-    duration: 7.5,
+    exit: { opacity: 0, x: -50, scale: 0.97 },
+    panX: [-6, -14], panY: [-4, 0], panScale: [1.02, 1.05],
+    duration: 4.5,
+  },
+  {
+    src: expandTreatment,
+    label: "Treatment",
+    enter: { opacity: 0, y: -30, scale: 1.03 },
+    center: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 30, scale: 0.98 },
+    panX: [0, 8], panY: [0, -6], panScale: [1.04, 1.02],
+    duration: 5.1,
   },
   {
     src: doctorView,
     label: "Doctor View",
-    enter: { opacity: 0, y: 36 },
-    center: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -24 },
-    panX: [-6, 0], panY: [-3, -9], panScale: [1.03, 1.05],
-    duration: 8.5,
+    enter: { opacity: 0, x: 50, filter: "blur(4px)" },
+    center: { opacity: 1, x: 0, filter: "blur(0px)" },
+    exit: { opacity: 0, x: -30, scale: 0.98 },
+    panX: [-8, 0], panY: [-4, -10], panScale: [1.03, 1.06],
+    duration: 4.9,
   },
   {
     src: practiceView,
     label: "Practice View",
-    enter: { opacity: 0, x: -50, scale: 1.02 },
-    center: { opacity: 1, x: 0, scale: 1 },
+    enter: { opacity: 0, scale: 1.06, y: 20 },
+    center: { opacity: 1, scale: 1, y: 0 },
     exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
-    panX: [4, -8], panY: [0, -4], panScale: [1.02, 1.04],
-    duration: 7.0,
+    panX: [4, -8], panY: [0, -4], panScale: [1.02, 1.05],
+    duration: 5.0,
   },
 ];
 
