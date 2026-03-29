@@ -382,10 +382,16 @@ async function runMigrations() {
       CREATE TABLE IF NOT EXISTS dso_cta_submissions (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         email text NOT NULL,
+        first_name text,
+        last_name text,
+        company_name text,
         source text,
         microsite_id uuid REFERENCES dso_microsites(id) ON DELETE SET NULL,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS first_name text;
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS last_name text;
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS company_name text;
       CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_email ON dso_cta_submissions(email);
       CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_created_at ON dso_cta_submissions(created_at DESC);
 
