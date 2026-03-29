@@ -121,12 +121,26 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
       }
     : bgStyle;
 
+  const overlayColor = props.overlayColor ?? "#000000";
+  const overlayOpacity = props.backgroundOverlay ?? 0.55;
+  const overlayStyle: React.CSSProperties | null = props.imageUrl
+    ? {
+        position: "absolute",
+        inset: 0,
+        backgroundColor: overlayColor,
+        opacity: overlayOpacity,
+        zIndex: 0,
+        pointerEvents: "none",
+      }
+    : null;
+
   return (
     <div
       ref={containerRef}
       className="relative w-full font-sans py-16 md:py-20"
       style={sectionStyle}
     >
+      {overlayStyle && <div style={overlayStyle} />}
       {/* Background glow */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <motion.div

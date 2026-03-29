@@ -223,6 +223,8 @@ export interface DsoInsightsVideoBlockProps {
   chilipiperUrl?: string;
   backgroundStyle?: BackgroundStyle;
   imageUrl?: string;
+  backgroundOverlay?: number;
+  overlayColor?: string;
 }
 
 export interface DsoInsightsDashboardBlockProps {
