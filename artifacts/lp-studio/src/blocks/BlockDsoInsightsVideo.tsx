@@ -16,6 +16,8 @@ import doctorView from "@assets/Untitled_28_1774755563382.png";
 import practiceView from "@assets/Untitled_30_1774755563382.png";
 import closeUpRemakeRates from "@assets/Untitled_31_1774755563382.png";
 import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
+import scanQuality from "@assets/scan_quality_1774760745958.png";
+import provPerf from "@assets/provperf_1774760745956.png";
 
 const SCREENS = [
   {
@@ -352,37 +354,51 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           ))}
         </div>
 
-        {/* ── TEXT-ONLY CALLOUTS ── */}
-        <div className="w-full max-w-3xl flex flex-col gap-4 mb-16">
-          {callouts.slice(2).map((callout, i) => (
+        {/* ── IMAGE CARDS (callouts 3 & 4) ── */}
+        <div className="w-full max-w-3xl flex flex-col gap-6 mb-16">
+          {[
+            { img: scanQuality, alt: "Scan quality detail", callout: callouts[2], delay: 2.4, offsetX: "8%" },
+            { img: provPerf, alt: "Provider performance detail", callout: callouts[3], delay: 2.6, offsetX: "16%" },
+          ].map(({ img, alt, callout, delay, offsetX }, i) => (
             <motion.div
               key={i}
-              className="flex items-start gap-4 rounded-2xl px-6 py-5"
+              className="rounded-2xl overflow-hidden"
               style={{
-                marginLeft: i === 0 ? "8%" : "16%",
-                width: i === 0 ? "calc(100% - 8%)" : "calc(100% - 16%)",
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+                marginLeft: offsetX,
+                width: `calc(100% - ${offsetX})`,
+                background: "rgba(255,255,255,0.035)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
               }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 2.4 + (i * 0.18) }}
+              initial={{ opacity: 0, y: 36 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+              transition={{ duration: 0.8, delay, type: "spring", stiffness: 65, damping: 16 }}
             >
-              <div
-                className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: "rgba(184,255,87,0.07)",
-                  border: "1px solid rgba(184,255,87,0.18)",
-                }}
-              >
-                <callout.icon className="w-4 h-4 text-[#B8FF57]" />
+              <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#B8FF57]/50 to-transparent" />
+
+              <div className="px-6 py-5 flex items-start gap-4">
+                <div
+                  className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: "rgba(184,255,87,0.08)",
+                    border: "1px solid rgba(184,255,87,0.2)",
+                    boxShadow: "0 0 12px rgba(184,255,87,0.08)",
+                  }}
+                >
+                  <callout.icon className="w-4 h-4 text-[#B8FF57]" />
+                </div>
+                <div>
+                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
+                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">{callout.desc}</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
-                <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">{callout.desc}</p>
+
+              <div className="w-full relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
+                  style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
+                <img src={img} alt={alt} className="w-full h-auto block" />
               </div>
             </motion.div>
           ))}
