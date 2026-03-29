@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import React, { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -106,29 +106,6 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.2 });
-  const [currentScreen, setCurrentScreen] = useState(0);
-  const screen = SCREENS[currentScreen];
-
-  useEffect(() => {
-    if (!inView) { setCurrentScreen(0); return; }
-    const startDelay = setTimeout(() => {
-      const tick = () => {
-        setCurrentScreen((prev) => (prev + 1) % SCREENS.length);
-      };
-      // Use the current screen's duration for the interval
-      let timeout: ReturnType<typeof setTimeout>;
-      const schedule = (idx: number) => {
-        timeout = setTimeout(() => {
-          const next = (idx + 1) % SCREENS.length;
-          setCurrentScreen(next);
-          schedule(next);
-        }, SCREENS[idx].duration * 1000);
-      };
-      schedule(currentScreen);
-      return () => clearTimeout(timeout);
-    }, 2500);
-    return () => clearTimeout(startDelay);
-  }, [inView]);
 
   return (
     <div
@@ -200,92 +177,39 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <div className="w-3 h-3 rounded-full bg-red-500/80" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
               <div className="w-3 h-3 rounded-full bg-green-500/80" />
-              {/* URL bar that shows current screen label */}
               <div className="mx-auto bg-white/5 rounded-md px-4 py-1 flex items-center gap-2 w-72">
                 <div className="w-2 h-2 rounded-full bg-[#B8FF57]/60 shrink-0" />
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={currentScreen}
-                    className="text-[10px] text-white/40 tracking-wider truncate"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    insights.meetdandy.com / {screen.label.toLowerCase().replace(" ", "-")}
-                  </motion.span>
-                </AnimatePresence>
+                <span className="text-[10px] text-white/40 tracking-wider truncate">
+                  insights.meetdandy.com / dashboard
+                </span>
               </div>
             </div>
 
-            {/* Screenshot area with premium transitions */}
+            {/* Screenshot area — continuous vertical scroll */}
             <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key={currentScreen}
-                  className="absolute inset-0"
-                  initial={screen.enter}
-                  animate={screen.center}
-                  exit={screen.exit}
-                  transition={{
-                    opacity: { duration: 0.7, ease: "easeInOut" },
-                    x: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-                    y: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-                    scale: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-                    filter: { duration: 0.6, ease: "easeOut" },
-                  }}
-                >
-                  {/* Ken Burns inner pan — runs while screen is held */}
-                  <motion.div
-                    className="absolute inset-0"
-                    initial={{ scale: screen.panScale[0], x: screen.panX[0], y: screen.panY[0] }}
-                    animate={{ scale: screen.panScale[1], x: screen.panX[1], y: screen.panY[1] }}
-                    transition={{ duration: screen.duration - 0.8, ease: "linear", delay: 0.7 }}
-                  >
-                    <img
-                      src={screen.src}
-                      alt={`Dandy Insights — ${screen.label}`}
-                      className="w-full h-full object-cover object-left-top"
-                      draggable={false}
-                    />
-                  </motion.div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Vignette overlay for depth */}
-              <div
-                className="absolute inset-0 pointer-events-none z-10"
-                style={{ background: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.15) 100%)" }}
-              />
-            </div>
-
-            {/* Progress bar at bottom of browser window */}
-            <div className="bg-[#0f1623] h-1 w-full relative overflow-hidden">
               <motion.div
-                key={currentScreen}
-                className="absolute left-0 top-0 h-full bg-[#B8FF57]/70"
-                initial={{ width: "0%" }}
-                animate={{ width: "100%" }}
-                transition={{ duration: screen.duration, ease: "linear" }}
-              />
+                className="flex flex-col"
+                animate={{ y: ["0%", "-50%"] }}
+                transition={{ duration: 42, ease: "linear", repeat: Infinity }}
+              >
+                {[...SCREENS, ...SCREENS].map((s, i) => (
+                  <img
+                    key={i}
+                    src={s.src}
+                    alt={`Dandy Insights — ${s.label}`}
+                    className="w-full h-auto block shrink-0"
+                    draggable={false}
+                  />
+                ))}
+              </motion.div>
+
+              {/* Top + bottom fade for depth */}
+              <div className="absolute inset-x-0 top-0 h-20 pointer-events-none z-10"
+                style={{ background: "linear-gradient(to bottom, #f0f2f5, transparent)" }} />
+              <div className="absolute inset-x-0 bottom-0 h-28 pointer-events-none z-10"
+                style={{ background: "linear-gradient(to top, #f0f2f5, transparent)" }} />
             </div>
           </motion.div>
-
-          {/* Slide indicator dots */}
-          <div className="flex items-center justify-center gap-1.5 mt-4">
-            {SCREENS.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentScreen(i)}
-                className="transition-all duration-300 rounded-full"
-                style={{
-                  width: i === currentScreen ? 20 : 6,
-                  height: 6,
-                  background: i === currentScreen ? "#B8FF57" : "rgba(242,238,227,0.25)",
-                }}
-              />
-            ))}
-          </div>
 
         </div>
 
