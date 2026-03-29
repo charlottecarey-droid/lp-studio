@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import Analytics from "@/pages/analytics";
 import ContentLibrary from "@/pages/content-library";
 import BlockDefaultsPage from "@/pages/block-defaults";
@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import PersonalizedLinkResolver from "@/pages/personalized-link-resolver";
-import { ModeProvider } from "@/lib/mode-context";
+import { ModeProvider, getSavedMode } from "@/lib/mode-context";
 
 import Dashboard from "@/pages/dashboard";
 import CreateTest from "@/pages/create-test";
@@ -47,8 +47,8 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      {/* Platform Routes */}
-      <Route path="/" component={Dashboard} />
+      {/* Root: redirect to Sales if user last chose Sales mode */}
+      <Route path="/">{getSavedMode() === "sales" ? <Redirect to="/sales" /> : <Dashboard />}</Route>
       <Route path="/live-pages" component={LivePages} />
       <Route path="/tests/new" component={CreateTest} />
       <Route path="/tests/:testId" component={TestDetail} />
