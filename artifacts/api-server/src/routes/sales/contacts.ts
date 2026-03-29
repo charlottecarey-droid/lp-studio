@@ -115,6 +115,17 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
   }
 });
 
+// Delete ALL contacts
+router.delete("/contacts", async (_req, res): Promise<void> => {
+  try {
+    const deleted = await db.delete(salesContactsTable).returning({ id: salesContactsTable.id });
+    res.json({ ok: true, deleted: deleted.length });
+  } catch (err) {
+    console.error("DELETE /sales/contacts error:", err);
+    res.status(500).json({ error: "Failed to delete contacts" });
+  }
+});
+
 // ─── Bulk CSV Import ─────────────────────────────────────────
 // Accepts an array of mapped rows; finds-or-creates accounts by name,
 // deduplicates contacts by email+accountId, returns result counts.

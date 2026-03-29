@@ -14,6 +14,7 @@ import {
   ArrowRight,
   FileText,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -348,6 +349,7 @@ function CsvImportModal({
   const [rows, setRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<TargetField[]>([]);
   const [importing, setImporting] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -435,21 +437,41 @@ function CsvImportModal({
   const hasAccount = mapping.includes("accountName") || mapping.includes("sfdcAccountId");
   const canProceed = hasFirstName && hasLastName && hasAccount;
 
+  const BATCH_SIZE = 100;
+
   async function handleImport() {
     setImporting(true);
+    setBatchProgress(null);
+    const allMapped = buildMappedRows();
+    const batches: Record<string, string>[][] = [];
+    for (let i = 0; i < allMapped.length; i += BATCH_SIZE) {
+      batches.push(allMapped.slice(i, i + BATCH_SIZE));
+    }
+
+    const totals: ImportResult = { created: 0, skipped: 0, errors: [], total: allMapped.length };
+
     try {
-      const allMapped = buildMappedRows();
-      const res = await fetch(`${API_BASE}/sales/import/contacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: allMapped }),
-      });
-      const data = await res.json() as ImportResult;
-      setResult(data);
+      for (let b = 0; b < batches.length; b++) {
+        setBatchProgress({ done: b * BATCH_SIZE, total: allMapped.length });
+        const res = await fetch(`${API_BASE}/sales/import/contacts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: batches[b] }),
+        });
+        const data = await res.json() as { summary: { created: number; updated: number; skipped: number; errors: { row: number; reason: string }[] } };
+        totals.created += data.summary?.created ?? 0;
+        totals.skipped += (data.summary?.skipped ?? 0) + (data.summary?.updated ?? 0);
+        if (data.summary?.errors?.length) {
+          totals.errors.push(...data.summary.errors.map(e => ({ row: e.row + b * BATCH_SIZE, message: e.reason })));
+        }
+      }
+      setBatchProgress({ done: allMapped.length, total: allMapped.length });
+      setResult(totals);
       setStep("result");
-      if (data.created > 0) onImported();
+      if (totals.created > 0) onImported();
     } finally {
       setImporting(false);
+      setBatchProgress(null);
     }
   }
 
@@ -740,6 +762,8 @@ export default function SalesContacts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchContacts = useCallback(() => {
     setLoading(true);
@@ -751,6 +775,17 @@ export default function SalesContacts() {
   }, []);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  async function handleDeleteAll() {
+    setDeleting(true);
+    try {
+      await fetch(`${API_BASE}/sales/contacts`, { method: "DELETE" });
+      setContacts([]);
+      setDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const filtered = contacts.filter(
     (c) =>
@@ -771,10 +806,42 @@ export default function SalesContacts() {
               All contacts across your accounts
             </p>
           </div>
-          <Button onClick={() => setShowImport(true)} className="gap-2">
-            <Upload className="w-4 h-4" />
-            Import CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            {deleteConfirm ? (
+              <>
+                <span className="text-sm text-muted-foreground">Delete all {contacts.length} contacts?</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleting}
+                  onClick={handleDeleteAll}
+                  className="gap-1.5"
+                >
+                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {deleting ? "Deleting…" : "Confirm"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+              </>
+            ) : (
+              <>
+                {contacts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteConfirm(true)}
+                    className="gap-1.5 text-destructive hover:text-destructive hover:border-destructive/50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete All
+                  </Button>
+                )}
+                <Button onClick={() => setShowImport(true)} className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Import CSV
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Search */}
