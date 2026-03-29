@@ -226,7 +226,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── IMAGE SUBSECTIONS: stacked full-width, second offset right ── */}
-        <div className="w-full flex flex-col gap-5 mb-10">
+        <div className="w-full max-w-2xl flex flex-col gap-5 mb-10">
           {[
             { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0, offsetX: "0%" },
             { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2, offsetX: "8%" },
@@ -261,7 +261,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── BOTTOM: remaining 2 callouts — staggered like image cards ── */}
-        <div className="w-full flex flex-col gap-5 mb-14">
+        <div className="w-full max-w-2xl flex flex-col gap-5 mb-14">
           {callouts.slice(2).map((callout, i) => (
             <motion.div
               key={i}
