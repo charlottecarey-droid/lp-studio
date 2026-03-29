@@ -965,20 +965,66 @@ export default function BuilderEditor() {
     if (!selectedBlock) return;
     const p = selectedBlock.props as Record<string, unknown>;
 
-    // DSO Practice Hero: copy primaryCta → ctaText/ctaUrl/ctaMode on all DSO blocks
-    if (selectedBlock.type === "dso-practice-hero") {
+    // DSO Hero blocks (heartland + practice): copy primaryCta → ctaText/ctaUrl/ctaMode on all DSO blocks
+    if (selectedBlock.type === "dso-practice-hero" || selectedBlock.type === "dso-heartland-hero") {
       const ctaText = (p.primaryCtaText ?? "") as string;
       const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
       const ctaMode = (p.primaryCtaMode ?? "link") as string;
-      const DSO_CTA_BLOCKS = new Set([
+      const DSO_CTAURL_BLOCKS = new Set([
         "dso-split-feature", "dso-software-showcase", "dso-activation-steps", "dso-meet-team",
         "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
         "dso-products-grid", "dso-promises", "dso-testimonials",
-        "dso-stat-row", "dso-faq",
+        "dso-stat-row", "dso-faq", "dso-scroll-story-hero", "dso-success-stories", "dso-promo-cards",
       ]);
       setBlocks(prev => prev.map(b => {
         if (b.id === selectedBlock.id) return b;
-        if (!DSO_CTA_BLOCKS.has(b.type)) return b;
+        // dso-final-cta uses primaryCta* naming
+        if (b.type === "dso-final-cta") {
+          return { ...b, props: { ...b.props, primaryCtaText: ctaText, primaryCtaUrl: ctaUrl, primaryCtaMode: ctaMode } };
+        }
+        if (!DSO_CTAURL_BLOCKS.has(b.type)) return b;
+        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
+      }));
+      return;
+    }
+
+    // DSO content blocks that use ctaText/ctaUrl/ctaMode: propagate to all other DSO CTA blocks
+    const DSO_CONTENT_CTA_BLOCKS = new Set([
+      "dso-split-feature", "dso-software-showcase", "dso-activation-steps",
+      "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
+      "dso-products-grid", "dso-promises", "dso-testimonials",
+      "dso-stat-row", "dso-faq", "dso-scroll-story-hero", "dso-success-stories", "dso-promo-cards",
+    ]);
+    if (DSO_CONTENT_CTA_BLOCKS.has(selectedBlock.type)) {
+      const ctaText = (p.ctaText ?? "") as string;
+      const ctaUrl  = (p.ctaUrl  ?? "") as string;
+      const ctaMode = (p.ctaMode ?? "link") as string;
+      setBlocks(prev => prev.map(b => {
+        if (b.id === selectedBlock.id) return b;
+        // dso-final-cta uses primaryCta* naming
+        if (b.type === "dso-final-cta") {
+          return { ...b, props: { ...b.props, primaryCtaText: ctaText, primaryCtaUrl: ctaUrl, primaryCtaMode: ctaMode } };
+        }
+        if (!DSO_CONTENT_CTA_BLOCKS.has(b.type)) return b;
+        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
+      }));
+      return;
+    }
+
+    // dso-final-cta: propagate its primaryCta* to all DSO content blocks
+    if (selectedBlock.type === "dso-final-cta") {
+      const ctaText = (p.primaryCtaText ?? "") as string;
+      const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
+      const ctaMode = (p.primaryCtaMode ?? "link") as string;
+      const DSO_CTAURL_BLOCKS = new Set([
+        "dso-split-feature", "dso-software-showcase", "dso-activation-steps",
+        "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
+        "dso-products-grid", "dso-promises", "dso-testimonials",
+        "dso-stat-row", "dso-faq", "dso-scroll-story-hero", "dso-success-stories", "dso-promo-cards",
+      ]);
+      setBlocks(prev => prev.map(b => {
+        if (b.id === selectedBlock.id) return b;
+        if (!DSO_CTAURL_BLOCKS.has(b.type)) return b;
         return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
       }));
       return;

@@ -940,6 +940,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Input value={p.primaryCtaUrl} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="#" />
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs">Primary CTA mode</Label>
+              <Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
+                  <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.primaryCtaText && !p.primaryCtaUrl}>
+                  Apply CTA to All Sections
+                </Button>
+              </div>
+            )}
+            <div className="space-y-1.5">
               <Label className="text-xs">Secondary CTA text</Label>
               <Input value={p.secondaryCtaText} onChange={e => onChange({ ...block, props: { ...p, secondaryCtaText: e.target.value } })} />
             </div>
@@ -1866,6 +1885,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">CTA URL</Label>
               <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value } })} placeholder="https://…" />
             </div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>
+                  Apply CTA to All Sections
+                </Button>
+              </div>
+            )}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chapters (2–4)</Label>
@@ -2039,6 +2067,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2188,6 +2223,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2238,6 +2280,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "secondary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2334,6 +2383,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2369,6 +2425,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">CTA Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+              </div>
+            )}
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Steps</Label><Button variant="ghost" size="sm" onClick={addStep} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
@@ -2432,6 +2495,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2482,6 +2552,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2597,6 +2674,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "secondary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2646,6 +2730,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "secondary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
+              {onApplyCtaToAll && (
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                  <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                  <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2681,6 +2772,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-xs">CTA Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+              </div>
+            )}
             <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Image Position</Label><Select value={p.imagePosition ?? "right"} onValueChange={v => onChange({ ...block, props: { ...p, imagePosition: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>
@@ -2730,6 +2828,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="space-y-1.5"><Label className="text-xs">CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
+            {onApplyCtaToAll && (
+              <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-800">Apply CTA to All Blocks</p>
+                <p className="text-xs text-emerald-700 leading-snug">Copies this CTA text, URL, and mode to every other section on this page.</p>
+                <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
+              </div>
+            )}
             <div className="space-y-1.5"><Label className="text-xs">Screenshot URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered</SelectItem><SelectItem value="split" className="text-xs">Split</SelectItem></SelectContent></Select></div>
