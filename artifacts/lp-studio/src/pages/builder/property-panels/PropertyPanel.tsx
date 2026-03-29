@@ -352,6 +352,58 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-insights-video": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Input value={p.title ?? ""} onChange={e => onChange({ ...block, props: { ...p, title: e.target.value } })} placeholder="See everything." className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Accent Line</Label>
+              <Input value={p.subtitle ?? ""} onChange={e => onChange({ ...block, props: { ...p, subtitle: e.target.value } })} placeholder="Before it becomes a problem." className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Textarea rows={2} value={p.description ?? ""} onChange={e => onChange({ ...block, props: { ...p, description: e.target.value } })} placeholder="The only analytics platform…" className="text-xs" />
+            </div>
+            <div className="border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Feature Callouts</Label>
+              <div className="space-y-3">
+                {([
+                  { lKey: "callout1Label" as const, dKey: "callout1Desc" as const, ph: "Remake Rates", phd: "Track quality by provider…" },
+                  { lKey: "callout2Label" as const, dKey: "callout2Desc" as const, ph: "Spend Tracking", phd: "Know where every dollar goes…" },
+                  { lKey: "callout3Label" as const, dKey: "callout3Desc" as const, ph: "Scan Quality", phd: "Catch clinical issues before…" },
+                  { lKey: "callout4Label" as const, dKey: "callout4Desc" as const, ph: "Provider Performance", phd: "Coach with data, not instinct" },
+                ] as const).map(({ lKey, dKey, ph, phd }, i) => (
+                  <div key={i} className="border rounded-lg p-2 space-y-1.5 bg-slate-50">
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Callout {i + 1}</span>
+                    <Input value={p[lKey] ?? ""} onChange={e => onChange({ ...block, props: { ...p, [lKey]: e.target.value } })} placeholder={ph} className="h-7 text-xs" />
+                    <Input value={p[dKey] ?? ""} onChange={e => onChange({ ...block, props: { ...p, [dKey]: e.target.value } })} placeholder={phd} className="h-7 text-xs" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Quote</Label>
+              <Textarea rows={2} value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} placeholder="It would be insane not to use it…" className="text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quote Attribution</Label>
+              <Input value={p.quoteAttribution ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} placeholder="Dr. Eller, Clinical Leader" className="h-8 text-xs" />
+            </div>
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">CTA Label</Label>
+              <Input value={p.ctaLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaLabel: e.target.value || undefined } })} placeholder="Get a demo" className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CTA URL</Label>
+              <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://…" className="h-8 text-xs" />
+            </div>
+          </div>
+        );
+      }
       case "dso-lab-tour": {
         const p = block.props;
         return (

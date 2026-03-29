@@ -204,6 +204,17 @@ export interface SpacerBlockProps {
 export interface DsoInsightsVideoBlockProps {
   title?: string;
   subtitle?: string;
+  description?: string;
+  callout1Label?: string;
+  callout1Desc?: string;
+  callout2Label?: string;
+  callout2Desc?: string;
+  callout3Label?: string;
+  callout3Desc?: string;
+  callout4Label?: string;
+  callout4Desc?: string;
+  quote?: string;
+  quoteAttribution?: string;
   ctaLabel?: string;
   ctaUrl?: string;
 }
@@ -3031,8 +3042,19 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     label: "Insights Video",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoInsightsVideoBlockProps => ({
-      title: "See everything. Before it becomes a problem.",
-      subtitle: "The only analytics platform purpose-built for modern dental groups.",
+      title: "See everything.",
+      subtitle: "Before it becomes a problem.",
+      description: "The only analytics platform purpose-built for modern dental groups.",
+      callout1Label: "Remake Rates",
+      callout1Desc: "Track quality by provider, not just practice",
+      callout2Label: "Spend Tracking",
+      callout2Desc: "Know where every dollar goes across all locations",
+      callout3Label: "Scan Quality",
+      callout3Desc: "Catch clinical issues before they become remakes",
+      callout4Label: "Provider Performance",
+      callout4Desc: "Coach with data, not instinct",
+      quote: "It would be insane not to use it given the data available.",
+      quoteAttribution: "Dr. Eller, Clinical Leader",
       ctaLabel: "Get a demo",
       ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
     }),

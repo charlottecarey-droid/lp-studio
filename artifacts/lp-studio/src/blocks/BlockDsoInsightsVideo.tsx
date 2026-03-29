@@ -35,14 +35,13 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-const CALLOUTS = [
-  { icon: LineChart, label: "Remake Rates", desc: "Track quality by provider, not just practice" },
-  { icon: DollarSign, label: "Spend Tracking", desc: "Know where every dollar goes across all locations" },
-  { icon: Stethoscope, label: "Scan Quality", desc: "Catch clinical issues before they become remakes" },
-  { icon: Activity, label: "Provider Performance", desc: "Coach with data, not instinct" }
-];
-
 export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
+  const callouts = [
+    { icon: LineChart, label: props.callout1Label || "Remake Rates", desc: props.callout1Desc || "Track quality by provider, not just practice" },
+    { icon: DollarSign, label: props.callout2Label || "Spend Tracking", desc: props.callout2Desc || "Know where every dollar goes across all locations" },
+    { icon: Stethoscope, label: props.callout3Label || "Scan Quality", desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
+    { icon: Activity, label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
+  ];
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.3 });
   const [currentScreen, setCurrentScreen] = useState(0);
@@ -108,17 +107,19 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </motion.h3>
           </div>
 
-          <motion.p 
-            className="text-lg text-[#F2EEE3]/80 mb-10 max-w-md"
-            initial={{ opacity: 0 }}
-            animate={inView ? { opacity: 1 } : { opacity: 0 }}
-            transition={{ duration: 1, delay: 1 }}
-          >
-            The only analytics platform purpose-built for modern dental groups.
-          </motion.p>
+          {(props.description ?? "The only analytics platform purpose-built for modern dental groups.") && (
+            <motion.p 
+              className="text-lg text-[#F2EEE3]/80 mb-10 max-w-md"
+              initial={{ opacity: 0 }}
+              animate={inView ? { opacity: 1 } : { opacity: 0 }}
+              transition={{ duration: 1, delay: 1 }}
+            >
+              {props.description || "The only analytics platform purpose-built for modern dental groups."}
+            </motion.p>
+          )}
 
           <div className="space-y-6 mb-12">
-            {CALLOUTS.map((callout, i) => (
+            {callouts.map((callout, i) => (
               <motion.div 
                 key={i}
                 className="flex items-start gap-4 group"
@@ -153,19 +154,23 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </motion.div>
           )}
 
-          <motion.div 
-            className="mt-12 pl-4 border-l-2 border-[#B8FF57]/30"
-            initial={{ opacity: 0 }}
-            animate={inView ? { opacity: 1 } : { opacity: 0 }}
-            transition={{ duration: 1, delay: 4.5 }}
-          >
-            <p className="text-[#F2EEE3]/80 italic text-sm md:text-base">
-              "It would be insane not to use it given the data available."
-            </p>
-            <p className="text-[#F2EEE3]/50 text-xs mt-2 font-medium tracking-wide uppercase">
-              — Dr. Eller, Clinical Leader
-            </p>
-          </motion.div>
+          {(props.quote ?? "It would be insane not to use it given the data available.") && (
+            <motion.div 
+              className="mt-12 pl-4 border-l-2 border-[#B8FF57]/30"
+              initial={{ opacity: 0 }}
+              animate={inView ? { opacity: 1 } : { opacity: 0 }}
+              transition={{ duration: 1, delay: 4.5 }}
+            >
+              <p className="text-[#F2EEE3]/80 italic text-sm md:text-base">
+                "{props.quote || "It would be insane not to use it given the data available."}"
+              </p>
+              {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
+                <p className="text-[#F2EEE3]/50 text-xs mt-2 font-medium tracking-wide uppercase">
+                  — {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
+                </p>
+              )}
+            </motion.div>
+          )}
 
         </div>
 
