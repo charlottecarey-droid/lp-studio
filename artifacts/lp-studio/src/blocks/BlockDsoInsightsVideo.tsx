@@ -254,7 +254,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── IMAGE SUBSECTIONS: stacked full-width, second offset right ── */}
-        <div className="w-full max-w-2xl flex flex-col gap-5 mb-10">
+        <div className="w-full max-w-3xl flex flex-col gap-5 mb-10">
           {[
             { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0, offsetX: "0%" },
             { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2, offsetX: "8%" },
@@ -273,8 +273,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
             >
               <div className="px-6 py-5 flex items-start gap-4">
-                <div className="w-13 h-13 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
-                  <callout.icon className="w-7 h-7 text-[#B8FF57]" />
+                <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                  <callout.icon className="w-4 h-4 text-[#B8FF57]" />
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
@@ -289,7 +289,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── BOTTOM: remaining 2 callouts — staggered like image cards ── */}
-        <div className="w-full max-w-2xl flex flex-col gap-5 mb-14">
+        <div className="w-full max-w-3xl flex flex-col gap-5 mb-14">
           {callouts.slice(2).map((callout, i) => (
             <motion.div
               key={i}
@@ -304,8 +304,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
               transition={{ duration: 0.6, delay: 2.4 + (i * 0.15) }}
             >
-              <div className="w-13 h-13 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
-                <callout.icon className="w-7 h-7 text-[#B8FF57]" />
+              <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
               <div>
                 <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
