@@ -18,6 +18,7 @@ export * from "./salesContacts";
 export * from "./salesHotlinks";
 export * from "./salesEmails";
 export * from "./salesSignals";
+export * from "./salesInbound";
 
 // Multi-tenant identity tables
 export * from "./tenants";

@@ -15,6 +15,10 @@ import {
   Monitor,
   Smartphone,
   X,
+  Inbox,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -219,12 +223,13 @@ interface Account {
 
 // ─── Tab types ──────────────────────────────────────────────
 
-type TabId = "send" | "campaigns" | "templates";
+type TabId = "send" | "campaigns" | "templates" | "inbox";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "send", label: "Single Send", icon: <Send className="w-3.5 h-3.5" /> },
   { id: "campaigns", label: "Campaigns", icon: <Mail className="w-3.5 h-3.5" /> },
   { id: "templates", label: "Templates", icon: <FileText className="w-3.5 h-3.5" /> },
+  { id: "inbox", label: "Inbox", icon: <Inbox className="w-3.5 h-3.5" /> },
 ];
 
 // ─── Single Send Tab ────────────────────────────────────────
@@ -1097,6 +1102,179 @@ function TemplatesTab() {
   );
 }
 
+// ─── Inbox Tab ───────────────────────────────────────────────
+
+type InboundEmail = {
+  id: number;
+  contactId: number | null;
+  accountId: number | null;
+  fromEmail: string;
+  fromName: string | null;
+  toEmail: string;
+  subject: string | null;
+  bodyText: string | null;
+  isRead: string;
+  receivedAt: string;
+  contactFirstName: string | null;
+  contactLastName: string | null;
+};
+
+function InboxTab() {
+  const [emails, setEmails] = useState<InboundEmail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
+
+  const webhookUrl = `${window.location.protocol}//${window.location.host.replace(/:\d+$/, ":8080")}/api/sales/inbound`;
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/inbound`);
+      if (res.ok) setEmails(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleExpand(email: InboundEmail) {
+    if (expandedId === email.id) { setExpandedId(null); return; }
+    setExpandedId(email.id);
+    if (email.isRead === "false") {
+      await fetch(`${API_BASE}/sales/inbound/${email.id}/read`, { method: "PATCH" });
+      setEmails(prev => prev.map(e => e.id === email.id ? { ...e, isRead: "true" } : e));
+    }
+  }
+
+  const unread = emails.filter(e => e.isRead === "false").length;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Webhook setup card */}
+      <Card className="p-6 rounded-2xl border border-border/60">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Inbound Email Setup</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Connect your Resend inbound domain to receive replies here</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowSetup(!showSetup)} className="gap-1.5">
+            {showSetup ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {showSetup ? "Hide" : "Setup Guide"}
+          </Button>
+        </div>
+
+        {showSetup && (
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-3">
+              <p className="font-medium text-foreground">Step 1 — Add your inbound domain in Resend</p>
+              <p className="text-muted-foreground">Go to <a href="https://resend.com/inbound" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">resend.com/inbound</a> and add <code className="bg-muted px-1 rounded text-xs">meetdandy-lp.com</code> as an inbound domain. Resend will give you MX records to add to your DNS.</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-3">
+              <p className="font-medium text-foreground">Step 2 — Add MX records to your DNS</p>
+              <p className="text-muted-foreground">In your domain's DNS settings (wherever <code className="bg-muted px-1 rounded text-xs">meetdandy-lp.com</code> is registered), add the MX record Resend provides. This routes incoming email through Resend.</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-3">
+              <p className="font-medium text-foreground">Step 3 — Set your webhook URL in Resend</p>
+              <p className="text-muted-foreground mb-2">In Resend's inbound settings, paste this webhook URL:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-background border border-border rounded px-3 py-2 text-xs break-all font-mono">{webhookUrl}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigator.clipboard.writeText(webhookUrl)}
+                  className="shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-2">
+              <p className="font-medium text-foreground">Step 4 — Done</p>
+              <p className="text-muted-foreground">Once DNS propagates (usually 5–30 min), any email sent to <code className="bg-muted px-1 rounded text-xs">@meetdandy-lp.com</code> will appear in your inbox below. Replies from known contacts are automatically linked to their account.</p>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Inbox list */}
+      <Card className="p-6 rounded-2xl border border-border/60">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">Received Emails</h3>
+            {unread > 0 && (
+              <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                {unread}
+              </span>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="gap-1.5 text-muted-foreground">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+          </div>
+        ) : emails.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Inbox className="w-10 h-10 text-muted-foreground/40 mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">No emails yet</p>
+            <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
+              Once you complete the setup above and contacts start replying, their emails will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {emails.map(email => (
+              <div key={email.id} className="py-3">
+                <button
+                  className="w-full text-left flex items-start gap-3"
+                  onClick={() => handleExpand(email)}
+                >
+                  <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${email.isRead === "false" ? "bg-primary" : "bg-transparent"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm truncate ${email.isRead === "false" ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
+                        {email.fromName ? `${email.fromName} <${email.fromEmail}>` : email.fromEmail}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {format(new Date(email.receivedAt), "MMM d, h:mm a")}
+                      </span>
+                    </div>
+                    <p className={`text-sm truncate ${email.isRead === "false" ? "text-foreground" : "text-muted-foreground"}`}>
+                      {email.subject ?? "(no subject)"}
+                    </p>
+                    {(email.contactFirstName || email.contactLastName) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Matched: {email.contactFirstName} {email.contactLastName}
+                      </p>
+                    )}
+                  </div>
+                  {expandedId === email.id
+                    ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
+                    : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />}
+                </button>
+
+                {expandedId === email.id && (
+                  <div className="mt-3 ml-5 rounded-lg border border-border bg-muted/30 p-4">
+                    <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+                      {email.bodyText ?? "(no body)"}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────
 
 export default function SalesOutreach() {
@@ -1132,6 +1310,7 @@ export default function SalesOutreach() {
         {activeTab === "send" && <SingleSendTab />}
         {activeTab === "campaigns" && <CampaignsTab />}
         {activeTab === "templates" && <TemplatesTab />}
+        {activeTab === "inbox" && <InboxTab />}
       </div>
     </SalesLayout>
   );

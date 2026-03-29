@@ -613,6 +613,25 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_page ON sales_hotlinks(page_id);
       CREATE INDEX IF NOT EXISTS idx_sales_signals_contact ON sales_signals(contact_id);
       CREATE INDEX IF NOT EXISTS idx_sales_signals_type ON sales_signals(type);
+
+      CREATE TABLE IF NOT EXISTS sales_inbound_emails (
+        id serial PRIMARY KEY,
+        contact_id integer,
+        account_id integer,
+        message_id text,
+        in_reply_to text,
+        from_email text NOT NULL,
+        from_name text,
+        to_email text NOT NULL,
+        subject text,
+        body_text text,
+        body_html text,
+        is_read text NOT NULL DEFAULT 'false',
+        metadata jsonb DEFAULT '{}',
+        received_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_inbound_contact ON sales_inbound_emails(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_inbound_received ON sales_inbound_emails(received_at DESC);
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

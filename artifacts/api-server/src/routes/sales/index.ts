@@ -6,6 +6,7 @@ import templatesRouter from "./templates";
 import campaignsRouter from "./campaigns";
 import hotlinksRouter from "./hotlinks";
 import emailGenerateRouter from "./email-generate";
+import inboundRouter from "./inbound";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use(templatesRouter);
 router.use(campaignsRouter);
 router.use(hotlinksRouter);
 router.use(emailGenerateRouter);
+router.use("/inbound", inboundRouter);
 
 export default router;
