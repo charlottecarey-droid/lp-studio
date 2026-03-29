@@ -65,9 +65,9 @@ export default function Scene2Reveal() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.9 }}
         >
-          <div className="bg-white px-8 py-3.5 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.22)]">
-            <p className="text-[1.25vw] tracking-wide text-[#111827]">
-              <span className="text-[#003A30] font-semibold">Clinical quality data</span>
+          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10">
+            <p className="text-[1.25vw] tracking-wide text-white">
+              <span className="text-[#C7E738] font-semibold">Clinical quality data</span>
               {' '}across every provider, location, and case.
             </p>
           </div>

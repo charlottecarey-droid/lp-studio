@@ -87,18 +87,18 @@ export default function Scene3DrillDown() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.6 }}
         >
-          <div className="bg-white px-8 py-3.5 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.22)]">
+          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10">
             <AnimatePresence mode="wait">
               <motion.p
                 key={level}
-                className="text-[1.25vw] tracking-wide text-[#111827]"
+                className="text-[1.25vw] tracking-wide text-white"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.3 }}
               >
                 {current.caption} —{' '}
-                <span className="text-[#003A30] font-semibold">one unified view.</span>
+                <span className="text-[#C7E738] font-semibold">one unified view.</span>
               </motion.p>
             </AnimatePresence>
           </div>
