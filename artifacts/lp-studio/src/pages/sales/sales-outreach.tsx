@@ -241,6 +241,7 @@ function SingleSendTab() {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [emailFormat, setEmailFormat] = useState<"plain" | "styled">("plain");
 
   // Styled chrome options
@@ -312,6 +313,7 @@ function SingleSendTab() {
     const body = emailFormat === "styled" ? getFinalHtml() : bodyText;
     if (!selectedContactId || !subject || !body) return;
     setSending(true);
+    setSendError(null);
     try {
       const payload = emailFormat === "styled"
         ? { contactId: Number(selectedContactId), subject, bodyHtml: body }
@@ -323,8 +325,14 @@ function SingleSendTab() {
       });
       if (res.ok) {
         setSent(true);
+        setSendError(null);
         setTimeout(() => setSent(false), 3000);
+      } else {
+        const errData = await res.json().catch(() => ({ error: "Failed to send email" }));
+        setSendError((errData as { error?: string }).error ?? "Failed to send email");
       }
+    } catch {
+      setSendError("Network error — could not reach the server");
     } finally {
       setSending(false);
     }
@@ -490,6 +498,9 @@ function SingleSendTab() {
               {sending ? "Sending…" : sent ? "Sent!" : "Send Email"}
             </Button>
             {sent && <span className="text-xs text-emerald-600 font-medium">Email sent successfully</span>}
+            {sendError && (
+              <span className="text-xs text-red-600 font-medium max-w-xs leading-snug">{sendError}</span>
+            )}
           </div>
         </Card>
       )}

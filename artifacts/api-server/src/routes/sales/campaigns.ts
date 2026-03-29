@@ -360,9 +360,9 @@ router.get("/track/click", async (req, res): Promise<void> => {
 // ─── Single send (one-off email to a contact) ──────────────
 
 router.post("/send-email", async (req, res): Promise<void> => {
-  const { contactId, subject, bodyHtml, senderName, senderEmail } = req.body;
-  if (!contactId || !subject || !bodyHtml) {
-    res.status(400).json({ error: "contactId, subject, and bodyHtml are required" });
+  const { contactId, subject, bodyHtml, bodyText, senderName, senderEmail } = req.body;
+  if (!contactId || !subject || (!bodyHtml && !bodyText)) {
+    res.status(400).json({ error: "contactId, subject, and either bodyHtml or bodyText are required" });
     return;
   }
 
@@ -393,18 +393,30 @@ router.post("/send-email", async (req, res): Promise<void> => {
     }
 
     const renderedSubject = replaceVars(subject, vars);
-    const renderedBody = replaceVars(bodyHtml, vars);
+
+    // Support both HTML and plain-text bodies
+    const htmlBody = bodyHtml
+      ? replaceVars(bodyHtml, vars)
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${replaceVars(bodyText, vars)}</div>`;
+    const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
       from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
       reply_to: DEFAULT_REPLY_TO,
       to: [contact.email],
       subject: renderedSubject,
-      html: renderedBody,
+      html: htmlBody,
+      ...(textBody ? { text: textBody } : {}),
     });
 
     if (!result.ok) {
-      res.status(500).json({ error: "Failed to send email", detail: result.error });
+      // Parse Resend error for a cleaner message
+      let userMessage = "Failed to send email";
+      try {
+        const parsed = JSON.parse(result.error ?? "");
+        if (parsed.message) userMessage = parsed.message;
+      } catch { /* leave default */ }
+      res.status(500).json({ error: userMessage, detail: result.error });
       return;
     }
 
