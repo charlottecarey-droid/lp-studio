@@ -144,7 +144,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               ))}
             </motion.h2>
           </div>
-          <div className="overflow-hidden mb-4">
+          <div className="overflow-hidden mt-4 mb-4">
             <motion.h3
               className="text-2xl md:text-3xl text-[#B8FF57] font-medium"
               initial={{ y: 30, opacity: 0 }}
