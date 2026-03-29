@@ -131,7 +131,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           <div className="overflow-hidden mb-2">
             <motion.h2
               className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] font-display tracking-tight"
-              style={{ lineHeight: 0.92 }}
+              style={{ lineHeight: 1.15 }}
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
