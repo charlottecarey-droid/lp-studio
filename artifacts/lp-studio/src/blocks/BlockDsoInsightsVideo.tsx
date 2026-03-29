@@ -167,7 +167,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── MIDDLE: Full-width dashboard window ── */}
-        <div className="w-full relative mb-14 md:mb-16">
+        <div className="w-full max-w-5xl relative mb-14 md:mb-16">
           {/* Dashboard shell entrance */}
           <motion.div
             className="w-full rounded-2xl overflow-hidden bg-white border border-white/10"
