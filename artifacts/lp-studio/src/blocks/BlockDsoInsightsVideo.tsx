@@ -237,8 +237,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   <callout.icon className="w-4 h-4 text-[#B8FF57]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-sm mb-1">{callout.label}</h4>
-                  <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
+                  <h4 className="text-[#F2EEE3] font-semibold text-xl mb-1">{callout.label}</h4>
+                  <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
                 </div>
               </div>
               <div className="w-full overflow-hidden">
@@ -262,8 +262,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
               <div>
-                <h4 className="text-[#F2EEE3] font-semibold text-sm mb-1">{callout.label}</h4>
-                <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
+                <h4 className="text-[#F2EEE3] font-semibold text-xl mb-1">{callout.label}</h4>
+                <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
               </div>
             </motion.div>
           ))}
