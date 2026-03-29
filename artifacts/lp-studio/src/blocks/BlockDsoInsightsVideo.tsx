@@ -3,6 +3,8 @@ import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 import remakeRates from "@assets/Untitled_22_1774755234638.png";
 import orders from "@assets/Untitled_23_1774755563381.png";
@@ -108,10 +110,22 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.2 });
 
+  const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
+  const dark = isDarkBg(props.backgroundStyle ?? "dandy-green");
+  const sectionStyle: React.CSSProperties = props.imageUrl
+    ? {
+        backgroundImage: `url(${props.imageUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }
+    : bgStyle;
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-[#1B5435] font-sans py-16 md:py-20"
+      className="relative w-full font-sans py-16 md:py-20"
+      style={sectionStyle}
     >
       {/* Background glow */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -334,13 +348,23 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
             transition={{ duration: 0.5, delay: 3.0 }}
           >
-            <button
-              onClick={onCtaClick}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
-            >
-              {props.ctaLabel}
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {props.ctaMode === "chilipiper" ? (
+              <ChiliPiperButton
+                url={props.chilipiperUrl || props.ctaUrl || ""}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+              >
+                {props.ctaLabel}
+                <ChevronRight className="w-4 h-4" />
+              </ChiliPiperButton>
+            ) : (
+              <button
+                onClick={onCtaClick}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+              >
+                {props.ctaLabel}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
           </motion.div>
         )}
 

@@ -218,6 +218,11 @@ export interface DsoInsightsVideoBlockProps {
   quoteAttribution?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
+  chilipiperUrl?: string;
+  backgroundStyle?: BackgroundStyle;
+  imageUrl?: string;
 }
 
 export interface DsoInsightsDashboardBlockProps {
@@ -3058,6 +3063,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       quoteAttribution: "Dr. Eller, Clinical Leader",
       ctaLabel: "Get a demo",
       ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
+      ctaMode: "link" as CtaMode,
+      ctaVariant: "primary" as const,
+      backgroundStyle: "dark" as BackgroundStyle,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

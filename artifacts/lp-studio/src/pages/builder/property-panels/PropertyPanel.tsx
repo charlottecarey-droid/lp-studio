@@ -356,18 +356,38 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
+            {/* Background */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline <span className="text-muted-foreground font-normal">(press Enter for new line)</span></Label>
-              <Textarea rows={3} value={p.title ?? ""} onChange={e => onChange({ ...block, props: { ...p, title: e.target.value } })} placeholder={"See everything.\nDo anything."} className="text-xs" />
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background Image</Label>
+              <p className="text-[11px] text-muted-foreground">Overrides the background color above.</p>
+              <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
+            </div>
+
+            {/* AI refresh */}
+            <DsoRefreshRow fields={["title", "subtitle", "description", "quote", "quoteAttribution", "ctaLabel"]} values={{ title: p.title ?? "", subtitle: p.subtitle ?? "", description: p.description ?? "", quote: p.quote ?? "", quoteAttribution: p.quoteAttribution ?? "", ctaLabel: p.ctaLabel ?? "" }} />
+
+            {/* Copy */}
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Headline <span className="text-muted-foreground font-normal">(Enter = new line)</span></Label>
+              <AiTextField type="textarea" rows={3} value={p.title ?? ""} onChange={v => onChange({ ...block, props: { ...p, title: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "title", p.title ?? "", { subtitle: p.subtitle ?? "" })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Accent Line</Label>
-              <Input value={p.subtitle ?? ""} onChange={e => onChange({ ...block, props: { ...p, subtitle: e.target.value } })} placeholder="Before it becomes a problem." className="h-8 text-xs" />
+              <AiTextField type="input" value={p.subtitle ?? ""} onChange={v => onChange({ ...block, props: { ...p, subtitle: v } })} fieldLabel="Accent Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subtitle", p.subtitle ?? "", { title: p.title ?? "" })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Description</Label>
-              <Textarea rows={2} value={p.description ?? ""} onChange={e => onChange({ ...block, props: { ...p, description: e.target.value } })} placeholder="The only analytics platform…" className="text-xs" />
+              <AiTextField type="textarea" rows={2} value={p.description ?? ""} onChange={v => onChange({ ...block, props: { ...p, description: v } })} fieldLabel="Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "description", p.description ?? "", { title: p.title ?? "" })} />
             </div>
+
+            {/* Callouts */}
             <div className="border-t pt-3">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Feature Callouts</Label>
               <div className="space-y-3">
@@ -385,22 +405,66 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 ))}
               </div>
             </div>
+
+            {/* Quote */}
             <div className="border-t pt-3 space-y-1.5">
               <Label className="text-xs">Quote</Label>
-              <Textarea rows={2} value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} placeholder="It would be insane not to use it…" className="text-xs" />
+              <AiTextField type="textarea" rows={2} value={p.quote ?? ""} onChange={v => onChange({ ...block, props: { ...p, quote: v } })} fieldLabel="Quote" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "quote", p.quote ?? "", { title: p.title ?? "" })} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Quote Attribution</Label>
               <Input value={p.quoteAttribution ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} placeholder="Dr. Eller, Clinical Leader" className="h-8 text-xs" />
             </div>
-            <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">CTA Label</Label>
-              <Input value={p.ctaLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaLabel: e.target.value || undefined } })} placeholder="Get a demo" className="h-8 text-xs" />
+
+            {/* CTA */}
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to Action</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA Label</Label>
+                <Input value={p.ctaLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaLabel: e.target.value || undefined } })} placeholder="Get a demo" className="h-8 text-xs" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Mode</Label>
+                  <Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="link" className="text-xs">Link</SelectItem>
+                      <SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Style</Label>
+                  <Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="primary" className="text-xs">Primary</SelectItem>
+                      <SelectItem value="secondary" className="text-xs">Outline</SelectItem>
+                      <SelectItem value="link" className="text-xs">Link →</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {(p.ctaMode ?? "link") === "link" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">CTA URL</Label>
+                  <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://…" className="h-8 text-xs" />
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">CTA URL</Label>
-              <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://…" className="h-8 text-xs" />
-            </div>
+
+            {/* Chili Piper */}
+            {(p.ctaMode ?? "link") === "chilipiper" && (
+              <div className="border-t pt-3 space-y-3">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chili Piper</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Chili Piper URL</Label>
+                  <Input value={p.chilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, chilipiperUrl: e.target.value || undefined } })} placeholder="https://meetdandy.chilipiper.com/..." className="h-8 text-xs" />
+                  <p className="text-[11px] text-muted-foreground">When mode is set to Chili Piper, this URL opens the scheduling popup.</p>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
