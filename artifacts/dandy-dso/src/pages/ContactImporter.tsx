@@ -200,6 +200,12 @@ const rowsToContacts = (rawRows: Record<string, unknown>[]) => {
         dsoSize: contact.dsoSize || "",
         peFirm: contact.peFirm || "",
         salesforceId: contact.salesforceId || "",
+        abmStage: contact.abmStage || "",
+        website: contact.website || "",
+        city: contact.city || "",
+        state: contact.state || "",
+        country: contact.country || "",
+        segment: contact.segment || "",
       });
     }
   }
