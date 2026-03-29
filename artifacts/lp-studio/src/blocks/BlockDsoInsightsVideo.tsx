@@ -288,43 +288,57 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             ))}
           </div>
 
-          {/* Floating close-up cards */}
-          <motion.div
-            className="absolute bottom-10 left-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
-            initial={{ opacity: 0, y: 40, x: -20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: -20 }}
-            transition={{ duration: 1, delay: 2.2, type: "spring", stiffness: 65 }}
-            style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
-          >
-            <img src={closeUpRemakeRates} alt="Remake rates close-up" className="w-full h-auto block" />
-          </motion.div>
-
-          <motion.div
-            className="absolute bottom-10 right-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
-            initial={{ opacity: 0, y: 40, x: 20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: 20 }}
-            transition={{ duration: 1, delay: 2.6, type: "spring", stiffness: 65 }}
-            style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
-          >
-            <img src={closeUpSpend} alt="Spend close-up" className="w-full h-auto block" />
-          </motion.div>
         </div>
 
-        {/* ── BOTTOM: 4-column callouts ── */}
-        <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-          {callouts.map((callout, i) => (
+        {/* ── IMAGE SUBSECTIONS: close-ups with attached callouts ── */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+          {[
+            { img: closeUpRemakeRates, alt: "Remake rates detail", callout: callouts[0], delay: 2.0 },
+            { img: closeUpSpend, alt: "Spend tracking detail", callout: callouts[1], delay: 2.2 },
+          ].map(({ img, alt, callout, delay }, i) => (
             <motion.div
               key={i}
-              className="flex flex-col gap-2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.6, delay: 2.0 + (i * 0.1) }}
+              className="rounded-2xl overflow-hidden"
+              initial={{ opacity: 0, y: 32 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
+              transition={{ duration: 0.7, delay, type: "spring", stiffness: 70 }}
+              style={{ background: "rgba(255,255,255,0.04)", boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 20px 40px -10px rgba(0,0,0,0.4)" }}
             >
-              <div className="w-8 h-8 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0">
+              {/* Image */}
+              <div className="w-full overflow-hidden">
+                <img src={img} alt={alt} className="w-full h-auto block" />
+              </div>
+              {/* Attached callout */}
+              <div className="px-6 py-5 flex items-start gap-4">
+                <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
+                  <callout.icon className="w-4 h-4 text-[#B8FF57]" />
+                </div>
+                <div>
+                  <h4 className="text-[#F2EEE3] font-semibold text-sm mb-1">{callout.label}</h4>
+                  <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* ── BOTTOM: remaining 2 callouts ── */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          {callouts.slice(2).map((callout, i) => (
+            <motion.div
+              key={i}
+              className="flex items-start gap-4"
+              initial={{ opacity: 0, y: 16 }}
+              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+              transition={{ duration: 0.6, delay: 2.4 + (i * 0.1) }}
+            >
+              <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0">
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
-              <h4 className="text-[#F2EEE3] font-semibold text-sm">{callout.label}</h4>
-              <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
+              <div>
+                <h4 className="text-[#F2EEE3] font-semibold text-sm mb-1">{callout.label}</h4>
+                <p className="text-[#F2EEE3]/55 text-xs leading-relaxed">{callout.desc}</p>
+              </div>
             </motion.div>
           ))}
         </div>
