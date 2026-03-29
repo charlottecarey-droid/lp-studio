@@ -16,6 +16,11 @@ export const salesAccountsTable = pgTable("sales_accounts", {
   parentAccountId: integer("parent_account_id"),  // for DSO → practice hierarchy
   status: text("status").notNull().default("prospect"),  // prospect | qualified | active | churned
   owner: text("owner"),                      // sales rep assigned
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  country: text("country"),
   notes: text("notes"),
   metadata: jsonb("metadata").default({}),   // flexible KV for custom fields
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

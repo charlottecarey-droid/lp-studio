@@ -111,6 +111,11 @@ type TargetField =
   | "accountName"
   | "sfdcAccountId"
   | "accountOwner"
+  | "accountAddress"
+  | "accountCity"
+  | "accountState"
+  | "accountZip"
+  | "accountCountry"
   | "accountDomain"
   | "accountSegment"
   | "accountIndustry"
@@ -128,6 +133,11 @@ const TARGET_FIELDS: { value: TargetField; label: string; required?: boolean }[]
   { value: "accountName", label: "Account Name" },
   { value: "sfdcAccountId", label: "SFDC Account ID" },
   { value: "accountOwner", label: "Account Owner" },
+  { value: "accountAddress", label: "Address" },
+  { value: "accountCity", label: "City" },
+  { value: "accountState", label: "State" },
+  { value: "accountZip", label: "Zip / Postal Code" },
+  { value: "accountCountry", label: "Country" },
   { value: "accountDomain", label: "Account Domain" },
   { value: "accountSegment", label: "Account Segment" },
   { value: "accountIndustry", label: "Account Industry" },
@@ -188,6 +198,26 @@ const AUTO_MAP: Record<string, TargetField> = {
   "sales rep": "accountOwner",
   sales_rep: "accountOwner",
   rep: "accountOwner",
+  address: "accountAddress",
+  "billing street": "accountAddress",
+  billing_street: "accountAddress",
+  street: "accountAddress",
+  "mailing street": "accountAddress",
+  city: "accountCity",
+  "billing city": "accountCity",
+  billing_city: "accountCity",
+  state: "accountState",
+  "billing state": "accountState",
+  billing_state: "accountState",
+  province: "accountState",
+  zip: "accountZip",
+  "zip code": "accountZip",
+  "postal code": "accountZip",
+  "billing zip": "accountZip",
+  billing_zip: "accountZip",
+  country: "accountCountry",
+  "billing country": "accountCountry",
+  billing_country: "accountCountry",
   domain: "accountDomain",
   website: "accountDomain",
   "account domain": "accountDomain",
@@ -407,7 +437,7 @@ function CsvImportModal({
                   Contact and account fields are auto-detected. Salesforce and HubSpot export formats are supported. Column names are flexible — you can re-map anything manually.
                 </p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {["First Name", "Last Name", "Email", "Job Title", "SFDC Contact ID", "Account Name", "SFDC Account ID", "Account Owner", "Domain", "Segment", "Industry"].map((f) => (
+                  {["First Name", "Last Name", "Email", "Job Title", "SFDC Contact ID", "Account Name", "SFDC Account ID", "Account Owner", "Address", "City", "State", "Zip", "Country", "Domain", "Segment", "Industry"].map((f) => (
                     <span key={f} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">{f}</span>
                   ))}
                 </div>

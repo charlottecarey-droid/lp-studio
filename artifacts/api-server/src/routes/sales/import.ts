@@ -66,6 +66,11 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       sfdcAccountId,
       accountName,
       accountOwner,
+      accountAddress,
+      accountCity,
+      accountState,
+      accountZip,
+      accountCountry,
       accountDomain,
       accountSegment,
       accountIndustry,
@@ -96,13 +101,18 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       if (existingAccount) {
         accountId = existingAccount.id;
         // Optionally update account fields if provided
-        if (accountName || accountDomain || accountSegment || accountIndustry || accountOwner) {
+        if (accountName || accountDomain || accountSegment || accountIndustry || accountOwner || accountAddress || accountCity || accountState || accountZip || accountCountry) {
           const accountUpdates: Record<string, unknown> = {};
           if (accountName) accountUpdates.name = accountName;
           if (accountDomain) accountUpdates.domain = accountDomain;
           if (accountSegment) accountUpdates.segment = accountSegment;
           if (accountIndustry) accountUpdates.industry = accountIndustry;
           if (accountOwner) accountUpdates.owner = accountOwner;
+          if (accountAddress) accountUpdates.address = accountAddress;
+          if (accountCity) accountUpdates.city = accountCity;
+          if (accountState) accountUpdates.state = accountState;
+          if (accountZip) accountUpdates.zip = accountZip;
+          if (accountCountry) accountUpdates.country = accountCountry;
           await db
             .update(salesAccountsTable)
             .set(accountUpdates)
@@ -114,11 +124,16 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
           .insert(salesAccountsTable)
           .values({
             sfdcId: sfdcAccountId,
-            name: accountName ?? sfdcAccountId, // fallback to sfdcId if no name
+            name: accountName ?? sfdcAccountId,
             domain: accountDomain ?? null,
             segment: accountSegment ?? null,
             industry: accountIndustry ?? null,
             owner: accountOwner ?? null,
+            address: accountAddress ?? null,
+            city: accountCity ?? null,
+            state: accountState ?? null,
+            zip: accountZip ?? null,
+            country: accountCountry ?? null,
             status: "prospect",
           })
           .returning({ id: salesAccountsTable.id });
