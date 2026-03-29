@@ -295,8 +295,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               key={i}
               className="flex items-start gap-4 rounded-2xl px-6 py-5"
               style={{
-                marginLeft: i === 0 ? "0%" : "8%",
-                width: i === 0 ? "100%" : "calc(100% - 8%)",
+                marginLeft: i === 0 ? "8%" : "16%",
+                width: i === 0 ? "calc(100% - 8%)" : "calc(100% - 16%)",
                 background: "rgba(255,255,255,0.04)",
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
               }}
