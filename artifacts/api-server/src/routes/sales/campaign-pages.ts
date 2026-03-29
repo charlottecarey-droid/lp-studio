@@ -70,6 +70,41 @@ async function getOrCreateHotlink(contactId: number, pageId: number): Promise<ty
   return hotlink;
 }
 
+// ─── List all hotlinks for a page (enriched with contact + account) ─────────
+
+router.get("/campaign-pages/links/:pageId", async (req, res): Promise<void> => {
+  try {
+    const pageId = Number(req.params.pageId);
+    const host = `${req.protocol}://${req.get("host")}`;
+
+    const links = await db
+      .select({
+        id: salesHotlinksTable.id,
+        token: salesHotlinksTable.token,
+        isActive: salesHotlinksTable.isActive,
+        createdAt: salesHotlinksTable.createdAt,
+        firstName: salesContactsTable.firstName,
+        lastName: salesContactsTable.lastName,
+        email: salesContactsTable.email,
+        accountName: salesAccountsTable.name,
+        accountId: salesContactsTable.accountId,
+      })
+      .from(salesHotlinksTable)
+      .leftJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
+      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+      .where(eq(salesHotlinksTable.pageId, pageId))
+      .orderBy(salesAccountsTable.name, salesContactsTable.lastName);
+
+    res.json(links.map(l => ({
+      ...l,
+      url: `${host}/p/${l.token}`,
+    })));
+  } catch (err) {
+    console.error("GET /sales/campaign-pages/links/:pageId error:", err);
+    res.status(500).json({ error: "Failed to load links" });
+  }
+});
+
 // ─── Get stats for a campaign page (hotlink count, account reach) ────────────
 
 router.get("/campaign-pages/stats/:pageId", async (req, res): Promise<void> => {

@@ -13,9 +13,11 @@ import {
   Copy,
   Check,
   ChevronRight,
+  ChevronDown,
   Variable,
   Eye,
   Sparkles,
+  Link2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -57,6 +59,19 @@ interface LaunchResult {
   failed: number;
   total: number;
   hotlinksCreated: number;
+}
+
+interface HotlinkEntry {
+  id: number;
+  token: string;
+  url: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  accountName: string | null;
+  accountId: number | null;
+  isActive: boolean;
+  createdAt: string;
 }
 
 const DEFAULT_SUBJECT = "We built something for {{company}}";
@@ -306,6 +321,10 @@ export default function SalesCampaignPages() {
   const [search, setSearch] = useState("");
   const [launchingPage, setLaunchingPage] = useState<Page | null>(null);
   const [launchResults, setLaunchResults] = useState<Record<number, LaunchResult>>({});
+  const [expandedPageId, setExpandedPageId] = useState<number | null>(null);
+  const [pageLinks, setPageLinks] = useState<Record<number, HotlinkEntry[]>>({});
+  const [linksLoading, setLinksLoading] = useState<number | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -347,7 +366,34 @@ export default function SalesCampaignPages() {
 
     const result = await res.json() as LaunchResult;
     setLaunchResults(prev => ({ ...prev, [launchingPage.id]: result }));
+    // Refresh links panel if it was open for this page
+    if (expandedPageId === launchingPage.id) {
+      setPageLinks(prev => { const next = { ...prev }; delete next[launchingPage.id]; return next; });
+    }
     return result;
+  }
+
+  async function toggleLinks(pageId: number) {
+    if (expandedPageId === pageId) {
+      setExpandedPageId(null);
+      return;
+    }
+    setExpandedPageId(pageId);
+    if (pageLinks[pageId]) return; // already loaded
+    setLinksLoading(pageId);
+    try {
+      const res = await fetch(`${API_BASE}/sales/campaign-pages/links/${pageId}`);
+      const data: HotlinkEntry[] = await res.json();
+      setPageLinks(prev => ({ ...prev, [pageId]: data }));
+    } catch {}
+    finally { setLinksLoading(null); }
+  }
+
+  function copyUrl(url: string) {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedUrl(url);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    });
   }
 
   return (
@@ -471,62 +517,150 @@ export default function SalesCampaignPages() {
           <div className="flex flex-col gap-2.5">
             {filtered.map(page => {
               const result = launchResults[page.id];
+              const isExpanded = expandedPageId === page.id;
+              const links = pageLinks[page.id];
+              const isLoadingLinks = linksLoading === page.id;
 
               return (
                 <div
                   key={page.id}
-                  className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 transition-all"
+                  className="bg-card border border-border/60 rounded-2xl overflow-hidden hover:border-primary/25 transition-all"
                 >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Megaphone className="w-5 h-5 text-primary" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-semibold text-foreground text-sm">{page.title}</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        page.status === "published"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {page.status}
-                      </span>
+                  {/* Page row */}
+                  <div className="flex items-center gap-4 px-5 py-4">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Megaphone className="w-5 h-5 text-primary" />
                     </div>
-                    <code className="text-xs text-muted-foreground font-mono">/{page.slug}</code>
-                    {result && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          ✓ {result.sent} sent, {result.failed} failed
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-semibold text-foreground text-sm">{page.title}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          page.status === "published"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {page.status}
                         </span>
                       </div>
-                    )}
+                      <code className="text-xs text-muted-foreground font-mono">/{page.slug}</code>
+                      {result && (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            ✓ {result.sent} sent, {result.failed} failed
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleLinks(page.id)}
+                        className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {isLoadingLinks ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Link2 className="w-3.5 h-3.5" />
+                        )}
+                        Links
+                        {isExpanded
+                          ? <ChevronDown className="w-3 h-3" />
+                          : <ChevronRight className="w-3 h-3" />
+                        }
+                      </Button>
+                      <a
+                        href={`/lp/${page.slug}?_v_company=Acme+Dental&_v_first_name=Sarah`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Preview with sample vars">
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                      </a>
+                      <Link href={`/builder/${page.id}`}>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
+                          Edit
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        onClick={() => setLaunchingPage(page)}
+                        className="gap-1.5"
+                      >
+                        <Rocket className="w-3.5 h-3.5" />
+                        Launch
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <a
-                      href={`/lp/${page.slug}?_v_company=Acme+Dental&_v_first_name=Sarah`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Preview with sample vars">
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
-                    </a>
-                    <Link href={`/builder/${page.id}`}>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
-                        Edit
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      onClick={() => setLaunchingPage(page)}
-                      className="gap-1.5"
-                    >
-                      <Rocket className="w-3.5 h-3.5" />
-                      Launch
-                    </Button>
-                  </div>
+                  {/* Links panel */}
+                  {isExpanded && (
+                    <div className="border-t border-border/60 bg-muted/30 px-5 py-3">
+                      {isLoadingLinks ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading links…
+                        </div>
+                      ) : !links || links.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">
+                          No links generated yet. Use <strong>Launch</strong> to create personalized links for all contacts.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                              {links.length} personalized link{links.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="flex flex-col divide-y divide-border/50">
+                            {links.map(link => (
+                              <div key={link.id} className="flex items-center gap-3 py-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {[link.firstName, link.lastName].filter(Boolean).join(" ") || "Unknown contact"}
+                                    </span>
+                                    {link.accountName && (
+                                      <span className="text-xs text-muted-foreground">· {link.accountName}</span>
+                                    )}
+                                  </div>
+                                  {link.email && (
+                                    <span className="text-xs text-muted-foreground">{link.email}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <code className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded hidden sm:block">
+                                    /p/{link.token}
+                                  </code>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    title="Copy link"
+                                    onClick={() => copyUrl(link.url)}
+                                  >
+                                    {copiedUrl === link.url
+                                      ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                      : <Copy className="w-3.5 h-3.5" />
+                                    }
+                                  </Button>
+                                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Open link">
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
