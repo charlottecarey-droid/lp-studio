@@ -130,7 +130,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         <div className="w-full text-center mb-10 md:mb-12">
           <div className="overflow-hidden mb-2">
             <motion.h2
-              className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] font-display tracking-tight"
+              className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] font-display tracking-tight"
               style={{ lineHeight: 1.15 }}
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
@@ -146,7 +146,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           </div>
           <div className="overflow-hidden mt-4 mb-4">
             <motion.h3
-              className="text-2xl md:text-3xl text-[#B8FF57] font-medium"
+              className="text-lg md:text-xl text-[#B8FF57] font-medium"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
@@ -249,7 +249,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   <callout.icon className="w-4 h-4 text-[#B8FF57]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-xl mb-1">{callout.label}</h4>
+                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
                   <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
                 </div>
               </div>
@@ -280,7 +280,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
               <div>
-                <h4 className="text-[#F2EEE3] font-semibold text-xl mb-1">{callout.label}</h4>
+                <h4 className="text-[#F2EEE3] font-semibold text-base mb-1">{callout.label}</h4>
                 <p className="text-[#F2EEE3]/55 text-sm leading-relaxed">{callout.desc}</p>
               </div>
             </motion.div>
@@ -301,13 +301,13 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             {/* Opening mark */}
             <span
               className="block text-[#B8FF57] font-display font-bold leading-none mb-3 select-none"
-              style={{ fontSize: "5rem", lineHeight: 1 }}
+              style={{ fontSize: "3.5rem", lineHeight: 1 }}
               aria-hidden
             >
               &ldquo;
             </span>
 
-            <p className="text-[#F2EEE3] text-2xl md:text-3xl lg:text-[2.6rem] font-light leading-snug max-w-3xl text-center mb-6" style={{ letterSpacing: "-0.01em" }}>
+            <p className="text-[#F2EEE3] text-lg md:text-xl lg:text-2xl font-light leading-snug max-w-3xl text-center mb-6" style={{ letterSpacing: "-0.01em" }}>
               {props.quote || "It would be insane not to use it given the data available."}
             </p>
 
