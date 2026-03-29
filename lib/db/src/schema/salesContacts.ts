@@ -16,6 +16,11 @@ export const salesContactsTable = pgTable("sales_contacts", {
   title: text("title"),                  // job title
   role: text("role"),                    // buyer persona: CEO, CDO, VP Ops, etc.
   phone: text("phone"),
+  tier: text("tier"),                    // ABM contact tier: ENT, IW, LENT
+  titleLevel: text("title_level"),       // seniority: C Suite, VP Level, Director Level, etc.
+  contactRole: text("contact_role"),     // functional role: CEO / President, COO / VP of Operations, etc.
+  department: text("department"),        // C Suite, Operations, Finance, Sales and Marketing, etc.
+  linkedinUrl: text("linkedin_url"),     // LinkedIn profile URL
   status: text("status").notNull().default("active"), // active | unsubscribed | bounced
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

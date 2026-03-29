@@ -101,6 +101,7 @@ function parseCsv(text: string): { headers: string[]; rows: string[][] } {
 
 // ─── Column mapping ────────────────────────────────────────────
 type TargetField =
+  // Contact core
   | "firstName"
   | "lastName"
   | "email"
@@ -108,6 +109,13 @@ type TargetField =
   | "role"
   | "phone"
   | "sfdcContactId"
+  // Contact ABM / enrichment
+  | "tier"
+  | "titleLevel"
+  | "contactRole"
+  | "department"
+  | "linkedinUrl"
+  // Account linking
   | "accountName"
   | "sfdcAccountId"
   | "accountOwner"
@@ -119,28 +127,54 @@ type TargetField =
   | "accountDomain"
   | "accountSegment"
   | "accountIndustry"
+  // Account ABM / enrichment
+  | "accountAbmTier"
+  | "accountAbmStage"
+  | "accountPracticeSegment"
+  | "accountNumLocations"
+  | "accountMsaSigned"
+  | "accountEnterprisePilot"
+  | "accountDsoSize"
+  | "accountPrivateEquityFirm"
   | "(skip)";
 
-const TARGET_FIELDS: { value: TargetField; label: string; required?: boolean }[] = [
+const TARGET_FIELDS: { value: TargetField; label: string; group?: string; required?: boolean }[] = [
   { value: "(skip)", label: "— Skip this column —" },
-  { value: "firstName", label: "First Name", required: true },
-  { value: "lastName", label: "Last Name", required: true },
-  { value: "email", label: "Email" },
-  { value: "title", label: "Job Title" },
-  { value: "role", label: "Buyer Role" },
-  { value: "phone", label: "Phone" },
-  { value: "sfdcContactId", label: "SFDC Contact ID" },
-  { value: "accountName", label: "Account Name" },
-  { value: "sfdcAccountId", label: "SFDC Account ID" },
-  { value: "accountOwner", label: "Account Owner" },
-  { value: "accountAddress", label: "Address" },
-  { value: "accountCity", label: "City" },
-  { value: "accountState", label: "State" },
-  { value: "accountZip", label: "Zip / Postal Code" },
-  { value: "accountCountry", label: "Country" },
-  { value: "accountDomain", label: "Account Domain" },
-  { value: "accountSegment", label: "Account Segment" },
-  { value: "accountIndustry", label: "Account Industry" },
+  // Contact — core
+  { value: "firstName", label: "First Name", group: "Contact", required: true },
+  { value: "lastName", label: "Last Name", group: "Contact", required: true },
+  { value: "email", label: "Email", group: "Contact" },
+  { value: "title", label: "Job Title", group: "Contact" },
+  { value: "role", label: "Buyer Role", group: "Contact" },
+  { value: "phone", label: "Phone / Direct Dial", group: "Contact" },
+  { value: "sfdcContactId", label: "SFDC Contact ID", group: "Contact" },
+  // Contact — ABM enrichment
+  { value: "tier", label: "Contact Tier (ENT/IW/LENT)", group: "Contact" },
+  { value: "titleLevel", label: "Title Level (C Suite, VP…)", group: "Contact" },
+  { value: "contactRole", label: "Contact Role (CEO/President…)", group: "Contact" },
+  { value: "department", label: "Department", group: "Contact" },
+  { value: "linkedinUrl", label: "LinkedIn URL", group: "Contact" },
+  // Account — core
+  { value: "accountName", label: "Account Name", group: "Account" },
+  { value: "sfdcAccountId", label: "SFDC Account ID", group: "Account" },
+  { value: "accountOwner", label: "Account Owner", group: "Account" },
+  { value: "accountDomain", label: "Account Domain", group: "Account" },
+  { value: "accountSegment", label: "Account Segment", group: "Account" },
+  { value: "accountIndustry", label: "Account Industry", group: "Account" },
+  { value: "accountAddress", label: "Address", group: "Account" },
+  { value: "accountCity", label: "City", group: "Account" },
+  { value: "accountState", label: "State", group: "Account" },
+  { value: "accountZip", label: "Zip / Postal Code", group: "Account" },
+  { value: "accountCountry", label: "Country", group: "Account" },
+  // Account — ABM enrichment
+  { value: "accountAbmTier", label: "ABM Org Tier (Tier 1/2/3)", group: "Account" },
+  { value: "accountAbmStage", label: "ABM Org Stage (Mapped, Engaged…)", group: "Account" },
+  { value: "accountPracticeSegment", label: "Practice Profile Segment", group: "Account" },
+  { value: "accountNumLocations", label: "Number of Locations", group: "Account" },
+  { value: "accountMsaSigned", label: "Enterprise MSA Signed", group: "Account" },
+  { value: "accountEnterprisePilot", label: "Enterprise Pilot", group: "Account" },
+  { value: "accountDsoSize", label: "DSO Size", group: "Account" },
+  { value: "accountPrivateEquityFirm", label: "Private Equity Firm", group: "Account" },
 ];
 
 const AUTO_MAP: Record<string, TargetField> = {
@@ -153,6 +187,8 @@ const AUTO_MAP: Record<string, TargetField> = {
   last_name: "lastName",
   lastname: "lastName",
   last: "lastName",
+  "full name": "(skip)",  // skip — we use first+last separately
+  full_name: "(skip)",
   // Contact info
   email: "email",
   "email address": "email",
@@ -169,6 +205,8 @@ const AUTO_MAP: Record<string, TargetField> = {
   mobile: "phone",
   telephone: "phone",
   "phone number": "phone",
+  "direct dial": "phone",
+  direct_dial: "phone",
   // SFDC IDs
   "contact id": "sfdcContactId",
   contact_id: "sfdcContactId",
@@ -176,6 +214,8 @@ const AUTO_MAP: Record<string, TargetField> = {
   sfdc_contact_id: "sfdcContactId",
   "sfdc contact id": "sfdcContactId",
   "salesforce contact id": "sfdcContactId",
+  "salesforce id": "sfdcAccountId",  // this CSV uses "Salesforce ID" for the account ID
+  salesforce_id: "sfdcAccountId",
   "account id": "sfdcAccountId",
   account_id: "sfdcAccountId",
   accountid: "sfdcAccountId",
@@ -183,6 +223,21 @@ const AUTO_MAP: Record<string, TargetField> = {
   sfdc_account_id: "sfdcAccountId",
   "sfdc account id": "sfdcAccountId",
   "salesforce account id": "sfdcAccountId",
+  // Contact ABM enrichment
+  tier: "tier",
+  "contact tier": "tier",
+  contact_tier: "tier",
+  "title level": "titleLevel",
+  title_level: "titleLevel",
+  seniority: "titleLevel",
+  "contact role": "contactRole",
+  contact_role: "contactRole",
+  function: "contactRole",
+  department: "department",
+  "linkedin url": "linkedinUrl",
+  linkedin_url: "linkedinUrl",
+  linkedin: "linkedinUrl",
+  "linkedin profile": "linkedinUrl",
   // Account info
   "account name": "accountName",
   account_name: "accountName",
@@ -228,6 +283,39 @@ const AUTO_MAP: Record<string, TargetField> = {
   industry: "accountIndustry",
   "account industry": "accountIndustry",
   account_industry: "accountIndustry",
+  // Account ABM enrichment
+  "abm org tier": "accountAbmTier",
+  abm_org_tier: "accountAbmTier",
+  "abm tier": "accountAbmTier",
+  abm_tier: "accountAbmTier",
+  "abm org stage": "accountAbmStage",
+  abm_org_stage: "accountAbmStage",
+  "abm stage": "accountAbmStage",
+  abm_stage: "accountAbmStage",
+  "practice profile segment": "accountPracticeSegment",
+  practice_profile_segment: "accountPracticeSegment",
+  "practice segment": "accountPracticeSegment",
+  "number of practice locations": "accountNumLocations",
+  number_of_practice_locations: "accountNumLocations",
+  "# locations": "accountNumLocations",
+  locations: "accountNumLocations",
+  "enterprise msa signed": "accountMsaSigned",
+  enterprise_msa_signed: "accountMsaSigned",
+  "msa signed": "accountMsaSigned",
+  msa_signed: "accountMsaSigned",
+  "enterprise pilot": "accountEnterprisePilot",
+  enterprise_pilot: "accountEnterprisePilot",
+  pilot: "accountEnterprisePilot",
+  "dso size": "accountDsoSize",
+  dso_size: "accountDsoSize",
+  "org size": "accountDsoSize",
+  "private equity firm": "accountPrivateEquityFirm",
+  private_equity_firm: "accountPrivateEquityFirm",
+  "pe firm": "accountPrivateEquityFirm",
+  pe_firm: "accountPrivateEquityFirm",
+  "private equity": "accountPrivateEquityFirm",
+  "equity firm": "accountPrivateEquityFirm",
+  "investor": "accountPrivateEquityFirm",
 };
 
 function autoDetectMapping(headers: string[]): TargetField[] {
@@ -431,15 +519,24 @@ function CsvImportModal({
                 </div>
               )}
 
-              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Expected columns</p>
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supported columns (auto-detected)</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Contact and account fields are auto-detected. Salesforce and HubSpot export formats are supported. Column names are flexible — you can re-map anything manually.
+                  Salesforce, HubSpot, and custom export formats are supported. Column names are flexible — you can re-map anything manually in the next step.
                 </p>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {["First Name", "Last Name", "Email", "Job Title", "SFDC Contact ID", "Account Name", "SFDC Account ID", "Account Owner", "Address", "City", "State", "Zip", "Country", "Domain", "Segment", "Industry"].map((f) => (
-                    <span key={f} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">{f}</span>
-                  ))}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Contact</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["First Name", "Last Name", "Email", "Job Title", "Buyer Role", "Phone / Direct Dial", "SFDC Contact ID", "Contact Tier", "Title Level", "Contact Role", "Department", "LinkedIn URL"].map((f) => (
+                      <span key={f} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">{f}</span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1">Account</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Account Name", "SFDC Account ID", "Account Owner", "Domain", "Segment", "Industry", "ABM Org Tier", "ABM Org Stage", "Practice Profile Segment", "# Locations", "MSA Signed", "Enterprise Pilot", "DSO Size", "Private Equity Firm", "Address", "City", "State", "Zip", "Country"].map((f) => (
+                      <span key={f} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">{f}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -482,9 +579,17 @@ function CsvImportModal({
                             setMapping(next);
                           }}
                         >
-                          {TARGET_FIELDS.map((f) => (
-                            <option key={f.value} value={f.value}>{f.label}</option>
-                          ))}
+                          <option value="(skip)">— Skip this column —</option>
+                          <optgroup label="── Contact ──">
+                            {TARGET_FIELDS.filter(f => f.group === "Contact").map((f) => (
+                              <option key={f.value} value={f.value}>{f.label}{f.required ? " *" : ""}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="── Account ──">
+                            {TARGET_FIELDS.filter(f => f.group === "Account").map((f) => (
+                              <option key={f.value} value={f.value}>{f.label}</option>
+                            ))}
+                          </optgroup>
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                       </div>
