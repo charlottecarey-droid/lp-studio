@@ -1172,8 +1172,44 @@ function InboxTab() {
               <p className="text-muted-foreground">Go to <a href="https://resend.com/inbound" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">resend.com/inbound</a> and add <code className="bg-muted px-1 rounded text-xs">meetdandy-lp.com</code> as an inbound domain. Resend will give you MX records to add to your DNS.</p>
             </div>
             <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-3">
-              <p className="font-medium text-foreground">Step 2 — Add MX records to your DNS</p>
-              <p className="text-muted-foreground">In your domain's DNS settings (wherever <code className="bg-muted px-1 rounded text-xs">meetdandy-lp.com</code> is registered), add the MX record Resend provides. This routes incoming email through Resend.</p>
+              <p className="font-medium text-foreground">Step 2 — Add these DNS records to your domain</p>
+              <p className="text-muted-foreground mb-2">Log in to wherever <code className="bg-muted px-1 rounded text-xs">meetdandy-lp.com</code> is registered (GoDaddy, Cloudflare, Namecheap, etc.) and add the following record:</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border border-border rounded-lg overflow-hidden">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">Type</th>
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">Name / Host</th>
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">Value / Points to</th>
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">Priority</th>
+                      <th className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">TTL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="bg-background">
+                      <td className="px-3 py-2 font-mono font-semibold text-foreground">MX</td>
+                      <td className="px-3 py-2 font-mono text-foreground">@</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-foreground">inbound-smtp.resend.com</span>
+                          <button
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => navigator.clipboard.writeText("inbound-smtp.resend.com")}
+                            title="Copy"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-foreground">10</td>
+                      <td className="px-3 py-2 text-muted-foreground">Auto / 3600</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                <strong className="text-foreground">Note:</strong> Some DNS providers call "Name" the "Host" field, and some require you to enter <code className="bg-muted px-1 rounded">@</code> for the root domain, while others leave it blank. If you already have MX records for this domain (e.g. Google Workspace), check with Resend — you may want to use a subdomain like <code className="bg-muted px-1 rounded">inbound.meetdandy-lp.com</code> instead.
+              </p>
             </div>
             <div className="rounded-lg bg-muted/50 border border-border p-4 text-sm space-y-3">
               <p className="font-medium text-foreground">Step 3 — Set your webhook URL in Resend</p>
