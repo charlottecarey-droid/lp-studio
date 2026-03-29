@@ -203,6 +203,7 @@ export interface SpacerBlockProps {
 
 export interface DsoInsightsVideoBlockProps {
   title?: string;
+  title2?: string;
   subtitle?: string;
   description?: string;
   callout1Label?: string;

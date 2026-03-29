@@ -138,6 +138,18 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               {props.title || "See everything."}
             </motion.h2>
           </div>
+          {props.title2 && (
+            <div className="overflow-hidden mb-2">
+              <motion.h2
+                className="text-2xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
+                initial={{ y: 40, opacity: 0 }}
+                animate={inView ? { y: 0, opacity: 1 } : { y: 40, opacity: 0 }}
+                transition={{ duration: 0.9, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {props.title2}
+              </motion.h2>
+            </div>
+          )}
           <div className="overflow-hidden mb-4">
             <motion.h3
               className="text-2xl md:text-3xl text-[#B8FF57] font-medium"
