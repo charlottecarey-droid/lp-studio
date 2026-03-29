@@ -909,10 +909,10 @@ function injectTrackingPixel(html: string, trackUrl: string): string {
   return html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 }
 
-const SENDER_DOMAIN = "dso.meetdandy.com";
+const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "meetdandy-lp.com";
 const DEFAULT_SENDER_NAME = "Dandy DSO Partnerships";
 const DEFAULT_SENDER_LOCAL = "partnerships";
-const DEFAULT_REPLY_TO = "sales@meetdandy.com";
+const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 async function sendViaResend(payload: any, resendKey: string): Promise<{ status: "sent" | "failed" | "bounced" }> {
   try {
