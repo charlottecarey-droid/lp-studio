@@ -107,8 +107,10 @@ type TargetField =
   | "title"
   | "role"
   | "phone"
+  | "sfdcContactId"
   | "accountName"
-  | "accountId"
+  | "sfdcAccountId"
+  | "accountOwner"
   | "accountDomain"
   | "accountSegment"
   | "accountIndustry"
@@ -122,14 +124,17 @@ const TARGET_FIELDS: { value: TargetField; label: string; required?: boolean }[]
   { value: "title", label: "Job Title" },
   { value: "role", label: "Buyer Role" },
   { value: "phone", label: "Phone" },
+  { value: "sfdcContactId", label: "SFDC Contact ID" },
   { value: "accountName", label: "Account Name" },
-  { value: "accountId", label: "Account ID" },
+  { value: "sfdcAccountId", label: "SFDC Account ID" },
+  { value: "accountOwner", label: "Account Owner" },
   { value: "accountDomain", label: "Account Domain" },
   { value: "accountSegment", label: "Account Segment" },
   { value: "accountIndustry", label: "Account Industry" },
 ];
 
 const AUTO_MAP: Record<string, TargetField> = {
+  // Contact name
   "first name": "firstName",
   first_name: "firstName",
   firstname: "firstName",
@@ -138,6 +143,7 @@ const AUTO_MAP: Record<string, TargetField> = {
   last_name: "lastName",
   lastname: "lastName",
   last: "lastName",
+  // Contact info
   email: "email",
   "email address": "email",
   email_address: "email",
@@ -153,6 +159,21 @@ const AUTO_MAP: Record<string, TargetField> = {
   mobile: "phone",
   telephone: "phone",
   "phone number": "phone",
+  // SFDC IDs
+  "contact id": "sfdcContactId",
+  contact_id: "sfdcContactId",
+  salesforce_contact_id: "sfdcContactId",
+  sfdc_contact_id: "sfdcContactId",
+  "sfdc contact id": "sfdcContactId",
+  "salesforce contact id": "sfdcContactId",
+  "account id": "sfdcAccountId",
+  account_id: "sfdcAccountId",
+  accountid: "sfdcAccountId",
+  salesforce_account_id: "sfdcAccountId",
+  sfdc_account_id: "sfdcAccountId",
+  "sfdc account id": "sfdcAccountId",
+  "salesforce account id": "sfdcAccountId",
+  // Account info
   "account name": "accountName",
   account_name: "accountName",
   accountname: "accountName",
@@ -161,9 +182,12 @@ const AUTO_MAP: Record<string, TargetField> = {
   organization: "accountName",
   organisation: "accountName",
   account: "accountName",
-  "account id": "accountId",
-  account_id: "accountId",
-  accountid: "accountId",
+  "account owner": "accountOwner",
+  account_owner: "accountOwner",
+  owner: "accountOwner",
+  "sales rep": "accountOwner",
+  sales_rep: "accountOwner",
+  rep: "accountOwner",
   domain: "accountDomain",
   website: "accountDomain",
   "account domain": "accountDomain",
@@ -290,14 +314,14 @@ function CsvImportModal({
 
   const hasFirstName = mapping.includes("firstName");
   const hasLastName = mapping.includes("lastName");
-  const hasAccount = mapping.includes("accountName") || mapping.includes("accountId");
+  const hasAccount = mapping.includes("accountName") || mapping.includes("sfdcAccountId");
   const canProceed = hasFirstName && hasLastName && hasAccount;
 
   async function handleImport() {
     setImporting(true);
     try {
       const allMapped = buildMappedRows();
-      const res = await fetch(`${API_BASE}/sales/contacts/import`, {
+      const res = await fetch(`${API_BASE}/sales/import/contacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows: allMapped }),
@@ -380,11 +404,10 @@ function CsvImportModal({
               <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Expected columns</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your CSV should include contact info (first name, last name, email, title, role, phone) and account info (account name, domain, segment, industry).
-                  Common Salesforce and HubSpot export formats are auto-detected.
+                  Contact and account fields are auto-detected. Salesforce and HubSpot export formats are supported. Column names are flexible — you can re-map anything manually.
                 </p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {["First Name", "Last Name", "Email", "Job Title", "Account Name", "Domain", "Segment", "Industry"].map((f) => (
+                  {["First Name", "Last Name", "Email", "Job Title", "SFDC Contact ID", "Account Name", "SFDC Account ID", "Account Owner", "Domain", "Segment", "Industry"].map((f) => (
                     <span key={f} className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">{f}</span>
                   ))}
                 </div>
@@ -405,7 +428,7 @@ function CsvImportModal({
                 <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                   <span>
-                    Map <strong>First Name</strong>, <strong>Last Name</strong>, and <strong>Account Name</strong> (or Account ID) to continue.
+                    Map <strong>First Name</strong>, <strong>Last Name</strong>, and <strong>Account Name</strong> (or SFDC Account ID) to continue.
                   </span>
                 </div>
               )}
@@ -467,7 +490,7 @@ function CsvImportModal({
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-muted/50 border-b border-border">
-                        {["First Name", "Last Name", "Email", "Title", "Account", "Segment"].map((h) => (
+                        {["First Name", "Last Name", "Email", "Title", "SFDC Contact ID", "Account", "SFDC Account ID", "Owner"].map((h) => (
                           <th key={h} className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                             {h}
                           </th>
@@ -481,8 +504,10 @@ function CsvImportModal({
                           <td className="px-3 py-2 text-foreground">{row.lastName || <span className="text-red-400 italic">missing</span>}</td>
                           <td className="px-3 py-2 text-muted-foreground">{row.email || "—"}</td>
                           <td className="px-3 py-2 text-muted-foreground">{row.title || "—"}</td>
-                          <td className="px-3 py-2 text-foreground font-medium">{row.accountName || row.accountId || <span className="text-red-400 italic">missing</span>}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{row.accountSegment || "—"}</td>
+                          <td className="px-3 py-2 text-muted-foreground font-mono text-[11px]">{row.sfdcContactId || "—"}</td>
+                          <td className="px-3 py-2 text-foreground font-medium">{row.accountName || <span className="text-muted-foreground">—</span>}</td>
+                          <td className="px-3 py-2 text-muted-foreground font-mono text-[11px]">{row.sfdcAccountId || "—"}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{row.accountOwner || "—"}</td>
                         </tr>
                       ))}
                     </tbody>

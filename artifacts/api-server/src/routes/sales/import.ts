@@ -65,6 +65,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       phone,
       sfdcAccountId,
       accountName,
+      accountOwner,
       accountDomain,
       accountSegment,
       accountIndustry,
@@ -95,12 +96,13 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       if (existingAccount) {
         accountId = existingAccount.id;
         // Optionally update account fields if provided
-        if (accountName || accountDomain || accountSegment || accountIndustry) {
+        if (accountName || accountDomain || accountSegment || accountIndustry || accountOwner) {
           const accountUpdates: Record<string, unknown> = {};
           if (accountName) accountUpdates.name = accountName;
           if (accountDomain) accountUpdates.domain = accountDomain;
           if (accountSegment) accountUpdates.segment = accountSegment;
           if (accountIndustry) accountUpdates.industry = accountIndustry;
+          if (accountOwner) accountUpdates.owner = accountOwner;
           await db
             .update(salesAccountsTable)
             .set(accountUpdates)
@@ -116,6 +118,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
             domain: accountDomain ?? null,
             segment: accountSegment ?? null,
             industry: accountIndustry ?? null,
+            owner: accountOwner ?? null,
             status: "prospect",
           })
           .returning({ id: salesAccountsTable.id });
