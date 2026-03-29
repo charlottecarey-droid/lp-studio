@@ -357,12 +357,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
-              <Input value={p.title ?? ""} onChange={e => onChange({ ...block, props: { ...p, title: e.target.value } })} placeholder="See everything." className="h-8 text-xs" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Headline 2 (optional)</Label>
-              <Input value={p.title2 ?? ""} onChange={e => onChange({ ...block, props: { ...p, title2: e.target.value } })} placeholder="Second headline line…" className="h-8 text-xs" />
+              <Label className="text-xs">Headline <span className="text-muted-foreground font-normal">(press Enter for new line)</span></Label>
+              <Textarea rows={3} value={p.title ?? ""} onChange={e => onChange({ ...block, props: { ...p, title: e.target.value } })} placeholder={"See everything.\nDo anything."} className="text-xs" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Accent Line</Label>

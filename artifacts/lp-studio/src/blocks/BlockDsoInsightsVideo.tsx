@@ -136,20 +136,12 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
-              {props.title || "See everything."}
-              {props.title2 && (
-                <>
-                  <br />
-                  <motion.span
-                    className="text-2xl md:text-4xl lg:text-5xl"
-                    initial={{ opacity: 0 }}
-                    animate={inView ? { opacity: 1 } : { opacity: 0 }}
-                    transition={{ duration: 0.9, delay: 0.15 }}
-                  >
-                    {props.title2}
-                  </motion.span>
-                </>
-              )}
+              {(props.title || "See everything.\nDo anything.").split("\n").map((line, i, arr) => (
+                <React.Fragment key={i}>
+                  {line}
+                  {i < arr.length - 1 && <br />}
+                </React.Fragment>
+              ))}
             </motion.h2>
           </div>
           <div className="overflow-hidden mb-4">
