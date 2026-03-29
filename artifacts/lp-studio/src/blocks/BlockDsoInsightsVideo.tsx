@@ -128,7 +128,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
         {/* ── TOP: Headline + subtitle + description ── */}
         <div className="w-full text-center mb-10 md:mb-12">
-          <div className="overflow-hidden mb-2">
+          <div className="overflow-hidden mb-0">
             <motion.h2
               className="text-4xl md:text-6xl lg:text-7xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
               initial={{ y: 60, opacity: 0 }}
@@ -139,7 +139,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             </motion.h2>
           </div>
           {props.title2 && (
-            <div className="overflow-hidden mb-2">
+            <div className="overflow-hidden mb-0">
               <motion.h2
                 className="text-2xl md:text-4xl lg:text-5xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
                 initial={{ y: 40, opacity: 0 }}
