@@ -8,12 +8,13 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesContactsTable = pgTable("sales_contacts", {
   id: serial("id").primaryKey(),
+  sfdcId: text("sfdc_id"),               // Salesforce Contact ID — unique key for SFDC sync
   accountId: integer("account_id").notNull().references(() => salesAccountsTable.id, { onDelete: "cascade" }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email"),
-  title: text("title"),          // job title
-  role: text("role"),            // buyer persona: CEO, CDO, VP Ops, etc.
+  title: text("title"),                  // job title
+  role: text("role"),                    // buyer persona: CEO, CDO, VP Ops, etc.
   phone: text("phone"),
   status: text("status").notNull().default("active"), // active | unsubscribed | bounced
   metadata: jsonb("metadata").default({}),

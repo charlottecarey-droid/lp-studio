@@ -43,7 +43,7 @@ router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
 
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
-  const { accountId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
+  const { accountId, sfdcId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
   if (!accountId || !firstName || !lastName) {
     res.status(400).json({ error: "accountId, firstName, and lastName are required" });
     return;
@@ -52,6 +52,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
     const [contact] = await db
       .insert(salesContactsTable)
       .values({
+        sfdcId: sfdcId ?? null,
         accountId: Number(accountId),
         firstName,
         lastName,
@@ -74,7 +75,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
 router.patch("/contacts/:id", async (req, res): Promise<void> => {
   try {
     const updates: Record<string, unknown> = {};
-    const fields = ["firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
+    const fields = ["sfdcId", "firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
     for (const f of fields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     }

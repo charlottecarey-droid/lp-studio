@@ -44,7 +44,7 @@ router.get("/accounts/:id", async (req, res): Promise<void> => {
 
 // Create account
 router.post("/accounts", async (req, res): Promise<void> => {
-  const { name, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
+  const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
     return;
@@ -53,6 +53,7 @@ router.post("/accounts", async (req, res): Promise<void> => {
     const [account] = await db
       .insert(salesAccountsTable)
       .values({
+        sfdcId: sfdcId ?? null,
         name,
         domain: domain ?? null,
         industry: industry ?? null,
@@ -74,9 +75,10 @@ router.post("/accounts", async (req, res): Promise<void> => {
 // Update account
 router.patch("/accounts/:id", async (req, res): Promise<void> => {
   try {
-    const { name, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
+    const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
+    if (sfdcId !== undefined) updates.sfdcId = sfdcId;
     if (domain !== undefined) updates.domain = domain;
     if (industry !== undefined) updates.industry = industry;
     if (segment !== undefined) updates.segment = segment;

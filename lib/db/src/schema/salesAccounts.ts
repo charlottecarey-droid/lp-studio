@@ -8,13 +8,14 @@ import { z } from "zod/v4";
  */
 export const salesAccountsTable = pgTable("sales_accounts", {
   id: serial("id").primaryKey(),
+  sfdcId: text("sfdc_id"),                   // Salesforce Account ID (18-char) — unique key for SFDC sync
   name: text("name").notNull(),
   domain: text("domain"),
   industry: text("industry"),
-  segment: text("segment"),          // e.g. "DSO", "DSO Practice", "Independent"
+  segment: text("segment"),                  // e.g. "DSO", "DSO Practice", "Independent"
   parentAccountId: integer("parent_account_id"),  // for DSO → practice hierarchy
   status: text("status").notNull().default("prospect"),  // prospect | qualified | active | churned
-  owner: text("owner"),              // sales rep assigned
+  owner: text("owner"),                      // sales rep assigned
   notes: text("notes"),
   metadata: jsonb("metadata").default({}),   // flexible KV for custom fields
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
