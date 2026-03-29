@@ -18,6 +18,7 @@ import {
   Check,
   Loader2,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -25,7 +26,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
-import { ContentBriefModal } from "@/components/ContentBriefModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const API_BASE = "/api";
 
@@ -307,6 +314,159 @@ function AccountListView() {
   );
 }
 
+/* ─── Generate Microsite Modal ───────────────────────────────── */
+
+function GenerateMicrositeModal({
+  open,
+  onClose,
+  accountName,
+  accountId,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accountName: string;
+  accountId: string;
+  onCreated: () => void;
+}) {
+  const [objective, setObjective] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [, navigate] = useLocation();
+
+  function handleClose() {
+    if (generating) return;
+    setObjective("");
+    setError(null);
+    onClose();
+  }
+
+  async function handleGenerate() {
+    if (!objective.trim()) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const prompt = `Create a personalized sales microsite for "${accountName}". Campaign goal: ${objective.trim()}. Use DSO-specific blocks and Dandy brand messaging. Make it compelling and specific to this account.`;
+
+      // 1. Generate page blocks from AI
+      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error((err as { error?: string }).error ?? "AI generation failed");
+      }
+      const generated = await genRes.json() as { title: string; slug: string; blocks: unknown[] };
+
+      // 2. Create the page
+      const pageRes = await fetch(`${API_BASE}/lp/pages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: generated.title,
+          slug: generated.slug,
+          blocks: generated.blocks,
+          status: "draft",
+        }),
+      });
+      if (!pageRes.ok) throw new Error("Failed to save the generated page");
+      const page = await pageRes.json() as { id: number };
+
+      // 3. Create hotlinks for all contacts on this account
+      const hotlinkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: page.id }),
+      });
+      if (!hotlinkRes.ok) throw new Error("Page created but hotlinks failed — open the builder to finish");
+
+      onCreated();
+      onClose();
+      navigate(`/builder/${page.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong — please try again");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </div>
+            Generate Microsite
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-1">
+          {/* Account (read-only) */}
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</Label>
+            <div className="mt-1.5 px-3 py-2 text-sm rounded-md border border-input bg-muted/40 text-foreground">
+              {accountName}
+            </div>
+          </div>
+
+          {/* Objective */}
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Campaign Goal
+            </Label>
+            <Input
+              className="mt-1.5"
+              placeholder="e.g. Book a discovery call, Introduce Dandy's DSO platform, Drive pilot sign-up"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && objective.trim() && !generating) handleGenerate(); }}
+              disabled={generating}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              AI will generate a full personalized page with blocks, copy, and imagery. You can edit everything in the builder.
+            </p>
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !objective.trim()}
+              className="gap-2 flex-1"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Generating microsite…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Generate Microsite
+                </>
+              )}
+            </Button>
+            <Button variant="ghost" onClick={handleClose} disabled={generating}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ─── Account Detail View ────────────────────────────────────── */
 
 function AccountDetailView({ id }: { id: string }) {
@@ -318,8 +478,7 @@ function AccountDetailView({ id }: { id: string }) {
   // Microsites
   const [microsites, setMicrosites] = useState<Microsite[]>([]);
   const [micrositesLoading, setMicrositesLoading] = useState(true);
-  const [showBriefModal, setShowBriefModal] = useState(false);
-  const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
+  const [showMicrositeModal, setShowMicrositeModal] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   // New contact form
@@ -384,53 +543,6 @@ function AccountDetailView({ id }: { id: string }) {
     }
   }
 
-  async function handleGenerateMicrosite(prompt: string) {
-    setGeneratingMicrosite(true);
-    try {
-      // 1. Generate page blocks from AI
-      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error((err as { error?: string }).error ?? "Generation failed");
-      }
-      const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[] };
-
-      // 2. Create the page
-      const pageRes = await fetch(`${API_BASE}/lp/pages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: generated.title,
-          slug: generated.slug,
-          blocks: generated.blocks,
-          status: "draft",
-        }),
-      });
-      if (!pageRes.ok) {
-        throw new Error("Failed to create page");
-      }
-      const page = await pageRes.json() as { id: number; title: string; slug: string };
-
-      // 3. Auto-generate hotlinks for all contacts with email
-      const hotlinkRes = await fetch(`${API_BASE}/sales/accounts/${id}/microsites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId: page.id }),
-      });
-      if (!hotlinkRes.ok) {
-        throw new Error("Page was created but failed to generate hotlinks for contacts");
-      }
-
-      // 4. Navigate to builder
-      navigate(`/builder/${page.id}`);
-    } finally {
-      setGeneratingMicrosite(false);
-    }
-  }
 
   function handleCopyToken(token: string) {
     const baseUrl = window.location.origin;
@@ -499,29 +611,19 @@ function AccountDetailView({ id }: { id: string }) {
             </div>
           </div>
           <Button
-            onClick={() => setShowBriefModal(true)}
-            disabled={generatingMicrosite}
+            onClick={() => setShowMicrositeModal(true)}
             className="gap-2 shrink-0"
             size="sm"
           >
-            {generatingMicrosite ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5" />
-                Generate Microsite
-              </>
-            )}
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate Microsite
           </Button>
         </div>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, href: "/sales/pages" },
+            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => setShowMicrositeModal(true) },
             { label: "Send Email", icon: <Mail className="w-4 h-4" />, href: "/sales/outreach" },
             { label: "View Signals", icon: <Activity className="w-4 h-4" />, href: "/sales/signals" },
             { label: "Add Contact", icon: <Users className="w-4 h-4" />, onClick: () => setShowContactForm(true) },
@@ -665,8 +767,7 @@ function AccountDetailView({ id }: { id: string }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowBriefModal(true)}
-              disabled={generatingMicrosite}
+              onClick={() => setShowMicrositeModal(true)}
               className="gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -693,8 +794,7 @@ function AccountDetailView({ id }: { id: string }) {
               <Button
                 size="sm"
                 className="gap-2 mt-1"
-                onClick={() => setShowBriefModal(true)}
-                disabled={generatingMicrosite}
+                onClick={() => setShowMicrositeModal(true)}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Generate Microsite
@@ -759,12 +859,12 @@ function AccountDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Content Brief Modal */}
-      <ContentBriefModal
-        open={showBriefModal}
-        onClose={() => setShowBriefModal(false)}
-        onGeneratePage={handleGenerateMicrosite}
-        initialCompany={account.name}
+      <GenerateMicrositeModal
+        open={showMicrositeModal}
+        onClose={() => setShowMicrositeModal(false)}
+        accountName={account.name}
+        accountId={id}
+        onCreated={fetchMicrosites}
       />
     </SalesLayout>
   );
