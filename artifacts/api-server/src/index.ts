@@ -560,6 +560,41 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS sales_email_campaigns (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        template_id integer NOT NULL REFERENCES sales_email_templates(id),
+        account_id integer REFERENCES sales_accounts(id),
+        status text NOT NULL DEFAULT 'draft',
+        scheduled_at timestamptz,
+        sent_at timestamptz,
+        recipient_count integer DEFAULT 0,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_email_sends (
+        id serial PRIMARY KEY,
+        campaign_id integer REFERENCES sales_email_campaigns(id) ON DELETE CASCADE,
+        contact_id integer NOT NULL,
+        hotlink_id integer,
+        email text NOT NULL,
+        status text NOT NULL DEFAULT 'queued',
+        sent_at timestamptz,
+        opened_at timestamptz,
+        clicked_at timestamptz,
+        bounced_at timestamptz,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_email_sends_campaign ON sales_email_sends(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_email_sends_contact ON sales_email_sends(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_contact ON sales_hotlinks(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_page ON sales_hotlinks(page_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_contact ON sales_signals(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_type ON sales_signals(type);
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
