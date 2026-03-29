@@ -8,6 +8,7 @@ const LEVELS = [
     label: 'Doctor',
     img: assets.doctorView,
     caption: 'Individual provider performance',
+    captionPos: 'top-1/4',
     metric: { label: 'Remake rate', value: '6.1%', trend: 'down' as const },
     alert: { kind: 'warning' as const, title: 'Above network average', sub: 'Coaching recommended' },
   },
@@ -15,6 +16,7 @@ const LEVELS = [
     label: 'Practice',
     img: assets.practiceView,
     caption: 'Location-level benchmarks',
+    captionPos: 'top-[67%]',
     metric: { label: 'Avg scan quality', value: '94%', trend: 'up' as const },
     alert: { kind: 'success' as const, title: 'On track this quarter', sub: 'All KPIs in range' },
   },
@@ -22,6 +24,7 @@ const LEVELS = [
     label: 'DSO Group',
     img: assets.dsoView,
     caption: 'Network-wide executive summary',
+    captionPos: 'top-1/4',
     metric: { label: 'Group remake rate', value: '5.3%', trend: 'down' as const },
     alert: { kind: 'info' as const, title: '12 locations reporting', sub: 'Updated 30 min ago' },
   },
@@ -82,7 +85,7 @@ export default function Scene3DrillDown() {
 
         {/* Caption pill — overlaid at top of screenshot over empty nav area */}
         <motion.div
-          className="absolute top-1/4 left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none z-10"
+          className={`absolute ${current.captionPos} left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none z-10`}
           initial={{ y: -12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.6 }}
