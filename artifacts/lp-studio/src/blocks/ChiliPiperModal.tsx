@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { usePageContext } from "@/lib/page-context";
 
@@ -125,7 +126,7 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
     return () => window.removeEventListener("message", handler);
   }, [url, pageId, variantId, sessionId]);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
@@ -148,6 +149,7 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
           title="Schedule a meeting"
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
