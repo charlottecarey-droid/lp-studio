@@ -60,6 +60,7 @@ const SCREENS = [
     exit: { opacity: 0, x: -50, scale: 0.97 },
     panX: [-6, -14], panY: [-4, 0], panScale: [1.02, 1.05],
     duration: 4.5,
+    clipRatio: "16/7",
   },
   {
     src: expandTreatment,
@@ -193,13 +194,18 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 transition={{ duration: 42, ease: "linear", repeat: Infinity }}
               >
                 {[...SCREENS, ...SCREENS].map((s, i) => (
-                  <img
+                  <div
                     key={i}
-                    src={s.src}
-                    alt={`Dandy Insights — ${s.label}`}
-                    className="w-full h-auto block shrink-0"
-                    draggable={false}
-                  />
+                    className="w-full shrink-0 overflow-hidden"
+                    style={s.clipRatio ? { aspectRatio: s.clipRatio } : undefined}
+                  >
+                    <img
+                      src={s.src}
+                      alt={`Dandy Insights — ${s.label}`}
+                      className="w-full h-auto block"
+                      draggable={false}
+                    />
+                  </div>
                 ))}
               </motion.div>
 
