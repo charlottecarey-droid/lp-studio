@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesAccountsTable,
@@ -141,22 +141,17 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
   throw new Error("Failed to generate unique token after multiple attempts");
 }
 
-// GET /accounts/:id/microsites — list distinct pages with hotlinks for this account
+// GET /accounts/:id/microsites — list distinct pages for this account
+// Found via: (a) hotlinks on account contacts, OR (b) pageVariables.salesAccountId tag
 router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
   try {
     const accountId = Number(req.params.id);
 
-    // Get all contacts for this account
+    // Path A: pages found through hotlinks on this account's contacts
     const contacts = await db.select({ id: salesContactsTable.id })
       .from(salesContactsTable)
       .where(eq(salesContactsTable.accountId, accountId));
 
-    if (contacts.length === 0) {
-      res.json([]);
-      return;
-    }
-
-    // Collect all hotlinks for all contacts
     const allHotlinks: Array<typeof salesHotlinksTable.$inferSelect> = [];
     for (const contact of contacts) {
       const hl = await db.select().from(salesHotlinksTable)
@@ -164,20 +159,27 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
       allHotlinks.push(...hl);
     }
 
-    // Get distinct page IDs
-    const pageIdSet = new Set(allHotlinks.map(h => h.pageId));
-    const pageIds = Array.from(pageIdSet);
+    const hotlinkPageIds = new Set(allHotlinks.map(h => h.pageId));
 
-    if (pageIds.length === 0) {
+    // Path B: pages tagged with salesAccountId in pageVariables
+    const taggedPages = await db.select().from(lpPagesTable)
+      .where(sql`${lpPagesTable.pageVariables}->>'salesAccountId' = ${String(accountId)}`);
+
+    const taggedPageIds = new Set(taggedPages.map(p => p.id));
+
+    // Merge all distinct page IDs
+    const allPageIds = new Set([...hotlinkPageIds, ...taggedPageIds]);
+
+    if (allPageIds.size === 0) {
       res.json([]);
       return;
     }
 
     // Fetch page details and aggregate hotlink counts
     const results = [];
-    for (const pageId of pageIds) {
-      const [page] = await db.select().from(lpPagesTable)
-        .where(eq(lpPagesTable.id, pageId));
+    for (const pageId of allPageIds) {
+      const page = taggedPages.find(p => p.id === pageId) ??
+        (await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId)))[0];
       if (!page) continue;
 
       const pageHotlinks = allHotlinks.filter(h => h.pageId === pageId);

@@ -369,6 +369,7 @@ function GenerateMicrositeModal({
           slug: generated.slug,
           blocks: generated.blocks,
           status: "draft",
+          pageVariables: { salesAccountId: String(accountId), salesAccountName: accountName },
         }),
       });
       if (!pageRes.ok) throw new Error("Failed to save the generated page");
