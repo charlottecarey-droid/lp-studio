@@ -4,7 +4,6 @@ import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight } from "luci
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 
-// --- Assets ---
 import remakeRates from "@assets/Untitled_22_1774755234638.png";
 import orders from "@assets/Untitled_23_1774755563381.png";
 import spend from "@assets/Untitled_24_1774755563381.png";
@@ -16,15 +15,80 @@ import practiceView from "@assets/Untitled_30_1774755563382.png";
 import closeUpRemakeRates from "@assets/Untitled_31_1774755563382.png";
 import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
 
-const DASHBOARD_SCREENS = [
-  remakeRates,
-  orders,
-  spend,
-  scanTime,
-  scanFlags,
-  expandTreatment,
-  doctorView,
-  practiceView,
+// Each screen gets its own entrance style and Ken Burns drift direction
+const SCREENS = [
+  {
+    src: remakeRates,
+    label: "Remake Rates",
+    enter: { opacity: 0, x: 60, scale: 1.02 },
+    center: { opacity: 1, x: 0, scale: 1 },
+    exit: { opacity: 0, x: -40, scale: 0.98 },
+    panX: [-4, -16], panY: [0, -6], panScale: [1.04, 1.01],
+    duration: 4.8,
+  },
+  {
+    src: orders,
+    label: "Orders",
+    enter: { opacity: 0, scale: 1.1, filter: "blur(8px)" },
+    center: { opacity: 1, scale: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
+    panX: [8, 0], panY: [0, -4], panScale: [1.02, 1.05],
+    duration: 5.2,
+  },
+  {
+    src: spend,
+    label: "Spend",
+    enter: { opacity: 0, y: 40 },
+    center: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -24 },
+    panX: [0, -10], panY: [-2, -8], panScale: [1.03, 1.06],
+    duration: 4.6,
+  },
+  {
+    src: scanTime,
+    label: "Scan Time",
+    enter: { opacity: 0, x: -50, scale: 1.02 },
+    center: { opacity: 1, x: 0, scale: 1 },
+    exit: { opacity: 0, x: 40, scale: 0.98 },
+    panX: [6, 0], panY: [0, -5], panScale: [1.05, 1.02],
+    duration: 5.0,
+  },
+  {
+    src: scanFlags,
+    label: "Scan Flags",
+    enter: { opacity: 0, scale: 1.08, filter: "blur(6px)" },
+    center: { opacity: 1, scale: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, x: -50, scale: 0.97 },
+    panX: [-6, -14], panY: [-4, 0], panScale: [1.02, 1.05],
+    duration: 4.5,
+  },
+  {
+    src: expandTreatment,
+    label: "Treatment",
+    enter: { opacity: 0, y: -30, scale: 1.03 },
+    center: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 30, scale: 0.98 },
+    panX: [0, 8], panY: [0, -6], panScale: [1.04, 1.02],
+    duration: 5.1,
+  },
+  {
+    src: doctorView,
+    label: "Doctor View",
+    enter: { opacity: 0, x: 50, filter: "blur(4px)" },
+    center: { opacity: 1, x: 0, filter: "blur(0px)" },
+    exit: { opacity: 0, x: -30, scale: 0.98 },
+    panX: [-8, 0], panY: [-4, -10], panScale: [1.03, 1.06],
+    duration: 4.9,
+  },
+  {
+    src: practiceView,
+    label: "Practice View",
+    enter: { opacity: 0, scale: 1.06, y: 20 },
+    center: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 0.97, filter: "blur(4px)" },
+    panX: [4, -8], panY: [0, -4], panScale: [1.02, 1.05],
+    duration: 5.0,
+  },
 ];
 
 interface Props {
@@ -44,15 +108,26 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.2 });
   const [currentScreen, setCurrentScreen] = useState(0);
+  const screen = SCREENS[currentScreen];
 
   useEffect(() => {
     if (!inView) { setCurrentScreen(0); return; }
     const startDelay = setTimeout(() => {
-      const interval = setInterval(() => {
-        setCurrentScreen((prev) => (prev + 1) % DASHBOARD_SCREENS.length);
-      }, 2500);
-      return () => clearInterval(interval);
-    }, 3000);
+      const tick = () => {
+        setCurrentScreen((prev) => (prev + 1) % SCREENS.length);
+      };
+      // Use the current screen's duration for the interval
+      let timeout: ReturnType<typeof setTimeout>;
+      const schedule = (idx: number) => {
+        timeout = setTimeout(() => {
+          const next = (idx + 1) % SCREENS.length;
+          setCurrentScreen(next);
+          schedule(next);
+        }, SCREENS[idx].duration * 1000);
+      };
+      schedule(currentScreen);
+      return () => clearTimeout(timeout);
+    }, 2500);
     return () => clearTimeout(startDelay);
   }, [inView]);
 
@@ -67,8 +142,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           className="absolute inset-0"
           style={{ background: "radial-gradient(circle at 50% 40%, #B8FF57 0%, transparent 65%)" }}
           initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: inView ? 0.08 : 0, scale: inView ? 1 : 0.8 }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          animate={{ opacity: inView ? 0.07 : 0, scale: inView ? 1 : 0.8 }}
+          transition={{ duration: 2.5, ease: "easeOut" }}
         />
       </div>
 
@@ -81,7 +156,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               className="text-3xl md:text-5xl lg:text-6xl font-bold text-[#F2EEE3] leading-tight font-display tracking-tight"
               initial={{ y: 60, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.title || "See everything."}
             </motion.h2>
@@ -91,7 +166,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               className="text-xl md:text-2xl text-[#B8FF57] font-medium"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
-              transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               {props.subtitle || "Before it becomes a problem."}
             </motion.h3>
@@ -109,56 +184,126 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── MIDDLE: Full-width dashboard window ── */}
-        <div className="w-full relative perspective-[2000px] mb-10 md:mb-12">
+        <div className="w-full relative mb-14 md:mb-16">
+          {/* Dashboard shell entrance */}
           <motion.div
             className="w-full rounded-2xl overflow-hidden bg-white border border-white/10"
-            initial={{ opacity: 0, y: 100, rotateX: 14, scale: 0.94 }}
-            animate={inView ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 100, rotateX: 14, scale: 0.94 }}
-            transition={{ duration: 1.2, delay: 1, type: "spring", stiffness: 55, damping: 14 }}
-            style={{ boxShadow: "0 30px 80px -12px rgba(0,0,0,0.6), 0 0 60px rgba(184,255,87,0.08)" }}
+            initial={{ opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
+            animate={inView ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
+            transition={{ duration: 1.3, delay: 0.8, type: "spring", stiffness: 50, damping: 14 }}
+            style={{
+              boxShadow: "0 40px 100px -20px rgba(0,0,0,0.65), 0 0 80px rgba(184,255,87,0.07)",
+              perspective: "2000px",
+            }}
           >
             {/* Browser chrome */}
-            <div className="bg-[#111827] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/5 shrink-0">
+            <div className="bg-[#0f1623] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/5 shrink-0">
               <div className="w-3 h-3 rounded-full bg-red-500/80" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
               <div className="w-3 h-3 rounded-full bg-green-500/80" />
-              <div className="mx-auto bg-white/5 rounded px-4 py-0.5 flex items-center w-80 justify-center">
-                <span className="text-[10px] text-white/40 tracking-wider">insights.meetdandy.com</span>
+              {/* URL bar that shows current screen label */}
+              <div className="mx-auto bg-white/5 rounded-md px-4 py-1 flex items-center gap-2 w-72">
+                <div className="w-2 h-2 rounded-full bg-[#B8FF57]/60 shrink-0" />
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={currentScreen}
+                    className="text-[10px] text-white/40 tracking-wider truncate"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    insights.meetdandy.com / {screen.label.toLowerCase().replace(" ", "-")}
+                  </motion.span>
+                </AnimatePresence>
               </div>
             </div>
-            {/* Screenshot */}
-            <div className="relative w-full aspect-[16/9] bg-[#f8fafc] overflow-hidden">
+
+            {/* Screenshot area with premium transitions */}
+            <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
               <AnimatePresence mode="popLayout">
-                <motion.img
+                <motion.div
                   key={currentScreen}
-                  src={DASHBOARD_SCREENS[currentScreen]}
-                  alt="Dandy Insights Dashboard"
-                  className="absolute inset-0 w-full h-full object-cover object-left-top"
-                  initial={{ opacity: 0, scale: 1.03 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.8, ease: "easeInOut" }}
-                />
+                  className="absolute inset-0"
+                  initial={screen.enter}
+                  animate={screen.center}
+                  exit={screen.exit}
+                  transition={{
+                    opacity: { duration: 0.7, ease: "easeInOut" },
+                    x: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
+                    y: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
+                    scale: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
+                    filter: { duration: 0.6, ease: "easeOut" },
+                  }}
+                >
+                  {/* Ken Burns inner pan — runs while screen is held */}
+                  <motion.div
+                    className="absolute inset-0"
+                    initial={{ scale: screen.panScale[0], x: screen.panX[0], y: screen.panY[0] }}
+                    animate={{ scale: screen.panScale[1], x: screen.panX[1], y: screen.panY[1] }}
+                    transition={{ duration: screen.duration - 0.8, ease: "linear", delay: 0.7 }}
+                  >
+                    <img
+                      src={screen.src}
+                      alt={`Dandy Insights — ${screen.label}`}
+                      className="w-full h-full object-cover object-left-top"
+                      draggable={false}
+                    />
+                  </motion.div>
+                </motion.div>
               </AnimatePresence>
+
+              {/* Vignette overlay for depth */}
+              <div
+                className="absolute inset-0 pointer-events-none z-10"
+                style={{ background: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.15) 100%)" }}
+              />
+            </div>
+
+            {/* Progress bar at bottom of browser window */}
+            <div className="bg-[#0f1623] h-1 w-full relative overflow-hidden">
+              <motion.div
+                key={currentScreen}
+                className="absolute left-0 top-0 h-full bg-[#B8FF57]/70"
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: screen.duration, ease: "linear" }}
+              />
             </div>
           </motion.div>
 
-          {/* Floating close-up cards — overlaid at bottom corners of dashboard */}
+          {/* Slide indicator dots */}
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            {SCREENS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentScreen(i)}
+                className="transition-all duration-300 rounded-full"
+                style={{
+                  width: i === currentScreen ? 20 : 6,
+                  height: 6,
+                  background: i === currentScreen ? "#B8FF57" : "rgba(242,238,227,0.25)",
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Floating close-up cards */}
           <motion.div
-            className="absolute bottom-6 left-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
-            initial={{ opacity: 0, y: 30, x: -20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 30, x: -20 }}
-            transition={{ duration: 0.9, delay: 2.2, type: "spring", stiffness: 70 }}
+            className="absolute bottom-10 left-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
+            initial={{ opacity: 0, y: 40, x: -20 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: -20 }}
+            transition={{ duration: 1, delay: 2.2, type: "spring", stiffness: 65 }}
             style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
           >
             <img src={closeUpRemakeRates} alt="Remake rates close-up" className="w-full h-auto block" />
           </motion.div>
 
           <motion.div
-            className="absolute bottom-6 right-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
-            initial={{ opacity: 0, y: 30, x: 20 }}
-            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 30, x: 20 }}
-            transition={{ duration: 0.9, delay: 2.5, type: "spring", stiffness: 70 }}
+            className="absolute bottom-10 right-6 w-72 md:w-96 rounded-xl overflow-hidden z-20"
+            initial={{ opacity: 0, y: 40, x: 20 }}
+            animate={inView ? { opacity: 1, y: 0, x: 0 } : { opacity: 0, y: 40, x: 20 }}
+            transition={{ duration: 1, delay: 2.6, type: "spring", stiffness: 65 }}
             style={{ boxShadow: "0 24px 48px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)" }}
           >
             <img src={closeUpSpend} alt="Spend close-up" className="w-full h-auto block" />
@@ -173,7 +318,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               className="flex flex-col gap-2"
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.5, delay: 2.0 + (i * 0.1) }}
+              transition={{ duration: 0.6, delay: 2.0 + (i * 0.1) }}
             >
               <div className="w-8 h-8 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0">
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
@@ -201,7 +346,6 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               </button>
             </motion.div>
           )}
-
           {(props.quote ?? "It would be insane not to use it given the data available.") && (
             <motion.div
               className="pl-4 border-l-2 border-[#B8FF57]/30 max-w-md"
