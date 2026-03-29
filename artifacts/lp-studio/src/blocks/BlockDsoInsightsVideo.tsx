@@ -254,17 +254,23 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           ))}
         </div>
 
-        {/* ── BOTTOM: remaining 2 callouts ── */}
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        {/* ── BOTTOM: remaining 2 callouts — staggered like image cards ── */}
+        <div className="w-full flex flex-col gap-5 mb-14">
           {callouts.slice(2).map((callout, i) => (
             <motion.div
               key={i}
-              className="flex items-start gap-4"
+              className="flex items-start gap-4 rounded-2xl px-6 py-5"
+              style={{
+                marginLeft: i === 0 ? "0%" : "8%",
+                width: i === 0 ? "100%" : "calc(100% - 8%)",
+                background: "rgba(255,255,255,0.04)",
+                boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
+              }}
               initial={{ opacity: 0, y: 16 }}
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
-              transition={{ duration: 0.6, delay: 2.4 + (i * 0.1) }}
+              transition={{ duration: 0.6, delay: 2.4 + (i * 0.15) }}
             >
-              <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#B8FF57]/10 border border-[#B8FF57]/25 flex items-center justify-center shrink-0 mt-0.5">
                 <callout.icon className="w-4 h-4 text-[#B8FF57]" />
               </div>
               <div>
@@ -275,41 +281,42 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           ))}
         </div>
 
-        {/* CTA + Quote row */}
-        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
-          {props.ctaLabel && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-              transition={{ duration: 0.5, delay: 2.6 }}
-            >
-              <button
-                onClick={onCtaClick}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
-              >
-                {props.ctaLabel}
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </motion.div>
-          )}
-          {(props.quote ?? "It would be insane not to use it given the data available.") && (
-            <motion.div
-              className="pl-4 border-l-2 border-[#B8FF57]/30 max-w-md"
-              initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 1 } : { opacity: 0 }}
-              transition={{ duration: 1, delay: 3 }}
-            >
-              <p className="text-[#F2EEE3]/70 italic text-xs leading-relaxed">
-                "{props.quote || "It would be insane not to use it given the data available."}"
+        {/* ── QUOTE ── */}
+        {(props.quote ?? "It would be insane not to use it given the data available.") && (
+          <motion.div
+            className="w-full mb-10 text-center"
+            initial={{ opacity: 0, y: 24 }}
+            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+            transition={{ duration: 0.9, delay: 2.7 }}
+          >
+            <p className="text-[#F2EEE3] text-2xl md:text-3xl lg:text-4xl font-medium italic leading-snug max-w-3xl mx-auto mb-4">
+              "{props.quote || "It would be insane not to use it given the data available."}"
+            </p>
+            {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
+              <p className="text-[#B8FF57]/70 text-sm font-medium tracking-widest uppercase">
+                — {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
               </p>
-              {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
-                <p className="text-[#F2EEE3]/40 text-[10px] mt-1.5 font-medium tracking-wide uppercase">
-                  — {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
-                </p>
-              )}
-            </motion.div>
-          )}
-        </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ── CTA ── */}
+        {props.ctaLabel && (
+          <motion.div
+            className="w-full flex justify-center"
+            initial={{ opacity: 0, y: 12 }}
+            animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+            transition={{ duration: 0.5, delay: 3.0 }}
+          >
+            <button
+              onClick={onCtaClick}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#B8FF57] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#c4ff75] transition-colors"
+            >
+              {props.ctaLabel}
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
 
       </div>
     </div>
