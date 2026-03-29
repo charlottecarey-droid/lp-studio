@@ -492,6 +492,74 @@ async function runMigrations() {
 
       -- LP Studio page variables (personalization tokens)
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS page_variables jsonb DEFAULT '{}';
+
+      -- Sales Console tables
+      CREATE TABLE IF NOT EXISTS sales_accounts (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        domain text,
+        industry text,
+        segment text,
+        parent_account_id integer,
+        status text NOT NULL DEFAULT 'prospect',
+        owner text,
+        notes text,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_contacts (
+        id serial PRIMARY KEY,
+        account_id integer NOT NULL REFERENCES sales_accounts(id) ON DELETE CASCADE,
+        first_name text NOT NULL,
+        last_name text NOT NULL,
+        email text,
+        title text,
+        role text,
+        phone text,
+        status text NOT NULL DEFAULT 'active',
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_contacts_account ON sales_contacts(account_id);
+
+      CREATE TABLE IF NOT EXISTS sales_signals (
+        id serial PRIMARY KEY,
+        account_id integer REFERENCES sales_accounts(id) ON DELETE CASCADE,
+        contact_id integer,
+        hotlink_id integer,
+        type text NOT NULL,
+        source text,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_account ON sales_signals(account_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_created ON sales_signals(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS sales_hotlinks (
+        id serial PRIMARY KEY,
+        token text NOT NULL UNIQUE,
+        contact_id integer NOT NULL REFERENCES sales_contacts(id) ON DELETE CASCADE,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_token ON sales_hotlinks(token);
+
+      CREATE TABLE IF NOT EXISTS sales_email_templates (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        subject text NOT NULL,
+        body_html text NOT NULL,
+        body_text text,
+        merge_vars jsonb DEFAULT '[]',
+        category text DEFAULT 'general',
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
