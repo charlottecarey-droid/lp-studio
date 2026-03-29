@@ -227,17 +227,25 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
       const micrositeUrl = `${host}/p/${hotlink.token}`;
 
       if (sendEmails && emailSubject && emailBodyHtml) {
+        // Wrap the personalized link with click tracking
+        const trackedMicrositeUrl = `${host}/api/sales/track/click-hotlink?h=${hotlink.id}&url=${encodeURIComponent(micrositeUrl)}`;
+
         const vars: Record<string, string> = {
           "{{first_name}}": contact.firstName ?? "",
           "{{last_name}}": contact.lastName ?? "",
           "{{company}}": contact.accountName ?? "",
-          "{{microsite_url}}": micrositeUrl,
+          "{{microsite_url}}": trackedMicrositeUrl,
           "{{sender_name}}": senderName,
           "{{email}}": contact.email!,
         };
 
         const subject = replaceVars(emailSubject, vars);
-        const html = replaceVars(emailBodyHtml, vars);
+        let html = replaceVars(emailBodyHtml, vars);
+
+        // Inject open tracking pixel
+        const pixelUrl = `${host}/api/sales/track/open-hotlink?h=${hotlink.id}`;
+        const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="" />`;
+        html = html.includes("</body>") ? html.replace("</body>", pixel + "</body>") : html + pixel;
 
         const result = await sendViaResend({
           from: `${senderName} <${senderEmail}@${SENDER_DOMAIN}>`,

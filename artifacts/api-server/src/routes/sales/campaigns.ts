@@ -10,6 +10,7 @@ import {
   salesSignalsTable,
   salesHotlinksTable,
 } from "@workspace/db";
+import { lpPagesTable } from "@workspace/db";
 
 const router = Router();
 
@@ -353,6 +354,71 @@ router.get("/track/click", async (req, res): Promise<void> => {
       }
     } catch (err) {
       console.error("Click tracking error:", err);
+    }
+  }
+  res.redirect(302, destination);
+});
+
+// ─── Hotlink-based email open tracking (for Campaign Pages) ──────────────────
+
+router.get("/track/open-hotlink", async (req, res): Promise<void> => {
+  const hotlinkId = req.query.h as string;
+  if (hotlinkId) {
+    try {
+      const [hotlink] = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
+      if (hotlink) {
+        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          .from(salesContactsTable)
+          .where(eq(salesContactsTable.id, hotlink.contactId));
+        const [page] = await db.select({ title: lpPagesTable.title })
+          .from(lpPagesTable)
+          .where(eq(lpPagesTable.id, hotlink.pageId));
+        await db.insert(salesSignalsTable).values({
+          accountId: contact?.accountId ?? null,
+          contactId: hotlink.contactId,
+          hotlinkId: hotlink.id,
+          type: "email_open",
+          source: page?.title ?? "Campaign Page",
+          metadata: { pageId: hotlink.pageId },
+        });
+      }
+    } catch (err) {
+      console.error("Hotlink open tracking error:", err);
+    }
+  }
+  res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
+  res.send(PIXEL);
+});
+
+// ─── Hotlink-based email click tracking (for Campaign Pages) ─────────────────
+
+router.get("/track/click-hotlink", async (req, res): Promise<void> => {
+  const { h: hotlinkId, url: destination } = req.query as Record<string, string>;
+  if (!destination) { res.status(400).send("Missing url"); return; }
+
+  if (hotlinkId) {
+    try {
+      const [hotlink] = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
+      if (hotlink) {
+        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          .from(salesContactsTable)
+          .where(eq(salesContactsTable.id, hotlink.contactId));
+        const [page] = await db.select({ title: lpPagesTable.title })
+          .from(lpPagesTable)
+          .where(eq(lpPagesTable.id, hotlink.pageId));
+        await db.insert(salesSignalsTable).values({
+          accountId: contact?.accountId ?? null,
+          contactId: hotlink.contactId,
+          hotlinkId: hotlink.id,
+          type: "email_click",
+          source: page?.title ?? "Campaign Page",
+          metadata: { pageId: hotlink.pageId, destination },
+        });
+      }
+    } catch (err) {
+      console.error("Hotlink click tracking error:", err);
     }
   }
   res.redirect(302, destination);
