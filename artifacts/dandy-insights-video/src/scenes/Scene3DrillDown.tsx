@@ -40,7 +40,7 @@ export default function Scene3DrillDown() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-5 w-full h-full overflow-hidden px-8"
       initial={{ opacity: 0, x: '6vw' }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, scale: 1.05, filter: 'blur(12px)' }}
@@ -48,7 +48,7 @@ export default function Scene3DrillDown() {
     >
       {/* Level tabs */}
       <motion.div
-        className="flex items-center gap-3 mb-6 z-10"
+        className="flex items-center gap-3 flex-shrink-0"
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.6 }}
@@ -66,7 +66,7 @@ export default function Scene3DrillDown() {
       </motion.div>
 
       {/* Screenshot */}
-      <div className="relative w-[76vw] z-10">
+      <div className="relative w-[70vw] flex-shrink-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={level}
@@ -108,25 +108,25 @@ export default function Scene3DrillDown() {
         </div>
       </div>
 
-      {/* Caption */}
+      {/* Caption — in flow, centered below screenshot */}
       <motion.div
-        className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none"
-        initial={{ y: 20, opacity: 0 }}
+        className="flex justify-center pointer-events-none flex-shrink-0"
+        initial={{ y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, delay: 0.6 }}
       >
-        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-4 rounded-full border border-white/10">
+        <div className="bg-white px-8 py-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
           <AnimatePresence mode="wait">
             <motion.p
               key={level}
-              className="text-[1.3vw] tracking-wide"
+              className="text-[1.3vw] tracking-wide text-[#111827]"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.3 }}
             >
               {current.caption} —{' '}
-              <span className="text-[#C7E738]">one unified view.</span>
+              <span className="text-[#003A30] font-semibold">one unified view.</span>
             </motion.p>
           </AnimatePresence>
         </div>

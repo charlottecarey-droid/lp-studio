@@ -38,11 +38,11 @@ export function Counter({ from, to, duration = 1.4, decimals = 0, suffix = '', p
 // ─── Alert / notification card ────────────────────────────────────────────────
 type AlertKind = 'warning' | 'success' | 'info' | 'critical';
 
-const kindStyles: Record<AlertKind, { dot: string; border: string; icon: string }> = {
-  warning:  { dot: 'bg-amber-400',    border: 'border-amber-400/30',  icon: '⚠' },
-  success:  { dot: 'bg-[#C7E738]',    border: 'border-[#C7E738]/30',  icon: '✓' },
-  info:     { dot: 'bg-sky-400',      border: 'border-sky-400/25',    icon: 'i' },
-  critical: { dot: 'bg-red-500',      border: 'border-red-500/30',    icon: '!' },
+const kindStyles: Record<AlertKind, { dot: string; leftBar: string; valueColor: string }> = {
+  warning:  { dot: 'bg-amber-400',  leftBar: 'bg-amber-400',  valueColor: '#92400e' },
+  success:  { dot: 'bg-emerald-500', leftBar: 'bg-emerald-500', valueColor: '#065f46' },
+  info:     { dot: 'bg-sky-500',    leftBar: 'bg-sky-500',    valueColor: '#0c4a6e' },
+  critical: { dot: 'bg-red-500',    leftBar: 'bg-red-500',    valueColor: '#991b1b' },
 };
 
 interface AlertCardProps {
@@ -57,28 +57,37 @@ export function AlertCard({ kind = 'info', title, sub, value, delay = 0, classNa
   const s = kindStyles[kind];
   return (
     <motion.div
-      className={`flex items-start gap-3 bg-[#001F19]/95 backdrop-blur-xl border ${s.border} rounded-2xl px-5 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ${className}`}
+      className={`flex items-stretch bg-white rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.18)] ${className}`}
       initial={{ opacity: 0, y: 16, scale: 0.93 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
       transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Status dot */}
-      <div className="mt-[3px] flex-shrink-0 relative">
-        <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
-        <motion.div
-          className={`absolute inset-0 rounded-full ${s.dot} opacity-50`}
-          animate={{ scale: [1, 2.2], opacity: [0.5, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
-        />
+      {/* Colored left accent bar */}
+      <div className={`w-1 flex-shrink-0 ${s.leftBar}`} />
+
+      <div className="flex items-start gap-3 px-4 py-3 flex-1">
+        {/* Status dot with pulse */}
+        <div className="mt-[5px] flex-shrink-0 relative">
+          <div className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+          <motion.div
+            className={`absolute inset-0 rounded-full ${s.dot}`}
+            animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[#111827] text-[1.05vw] font-semibold leading-tight">{title}</p>
+          {sub && <p className="text-[#6b7280] text-[0.88vw] mt-0.5">{sub}</p>}
+        </div>
+
+        {value && (
+          <span className="flex-shrink-0 text-[1.15vw] font-bold tabular-nums ml-2" style={{ color: s.valueColor }}>
+            {value}
+          </span>
+        )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white text-[1.1vw] font-semibold leading-tight">{title}</p>
-        {sub && <p className="text-white/50 text-[0.9vw] mt-0.5">{sub}</p>}
-      </div>
-      {value && (
-        <span className="flex-shrink-0 text-[#C7E738] text-[1.2vw] font-bold tabular-nums">{value}</span>
-      )}
     </motion.div>
   );
 }
@@ -91,17 +100,17 @@ interface MetricPillProps {
   delay?: number;
 }
 export function MetricPill({ label, value, trend = 'neutral', delay = 0 }: MetricPillProps) {
-  const trendColor = trend === 'up' ? 'text-[#C7E738]' : trend === 'down' ? 'text-red-400' : 'text-white/70';
+  const trendColor = trend === 'up' ? '#059669' : trend === 'down' ? '#dc2626' : '#374151';
   const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '';
   return (
     <motion.div
-      className="flex items-center gap-2 bg-[#001F19]/90 backdrop-blur-md border border-white/10 rounded-full px-4 py-2"
+      className="flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, delay, type: 'spring', bounce: 0.4 }}
     >
-      <span className="text-white/55 text-[0.9vw]">{label}</span>
-      <span className={`text-[1vw] font-bold ${trendColor}`}>
+      <span className="text-[#6b7280] text-[0.9vw]">{label}</span>
+      <span className="text-[1vw] font-bold tabular-nums" style={{ color: trendColor }}>
         {arrow}{value}
       </span>
     </motion.div>
@@ -112,17 +121,17 @@ export function MetricPill({ label, value, trend = 'neutral', delay = 0 }: Metri
 export function LiveBadge({ label = 'Live', delay = 0 }: { label?: string; delay?: number }) {
   return (
     <motion.div
-      className="flex items-center gap-2 bg-[#001F19]/90 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5"
+      className="flex items-center gap-2 bg-white rounded-full px-3 py-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, delay }}
     >
       <motion.div
-        className="w-2 h-2 rounded-full bg-[#C7E738]"
+        className="w-2 h-2 rounded-full bg-emerald-500"
         animate={{ opacity: [1, 0.3, 1] }}
         transition={{ duration: 1.5, repeat: Infinity }}
       />
-      <span className="text-white/70 text-[0.85vw] font-medium tracking-wide uppercase">{label}</span>
+      <span className="text-[#374151] text-[0.85vw] font-semibold tracking-wide uppercase">{label}</span>
     </motion.div>
   );
 }

@@ -14,15 +14,31 @@ export default function Scene2Reveal() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-5 w-full h-full overflow-hidden px-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, x: '-5vw' }}
       transition={{ duration: 0.8 }}
     >
+      {/* Counter callout — top left, white bg */}
+      {phase >= 2 && (
+        <motion.div
+          className="absolute top-8 left-10 z-20 flex items-baseline gap-3 bg-white rounded-2xl px-6 py-4 shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <Counter from={8.1} to={5.3} duration={1.2} decimals={1} suffix="%" className="text-[2.5vw] font-bold text-[#003A30]" />
+          <div>
+            <p className="text-[#111827] text-[0.95vw] font-semibold">Remake Rate</p>
+            <p className="text-[#6b7280] text-[0.8vw]">↓ from last quarter</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Large centered dashboard */}
       <motion.div
-        className="relative w-[80vw] rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] border border-white/10"
+        className="relative w-[74vw] rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] border border-white/10 flex-shrink-0"
         initial={{ y: 40, opacity: 0, scale: 0.97 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
@@ -43,11 +59,26 @@ export default function Scene2Reveal() {
         </div>
       </motion.div>
 
-      {/* Metric pills below — animated in sequence */}
+      {/* Caption — in flow, centered */}
+      <motion.div
+        className="flex justify-center pointer-events-none flex-shrink-0"
+        initial={{ y: 12, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.7, delay: 0.9 }}
+      >
+        <div className="bg-white px-8 py-4 rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+          <p className="text-[1.3vw] tracking-wide text-[#111827]">
+            <span className="text-[#003A30] font-semibold">Clinical quality data</span>
+            {' '}across every provider, location, and case.
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Metric pills — in flow, centered */}
       <AnimatePresence>
         {phase >= 1 && (
           <motion.div
-            className="flex items-center gap-4 mt-6"
+            className="flex items-center gap-4 flex-shrink-0"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -58,37 +89,6 @@ export default function Scene2Reveal() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Counter highlight */}
-      {phase >= 2 && (
-        <motion.div
-          className="absolute top-8 left-10 z-20 flex items-baseline gap-2 bg-[#001F19]/90 backdrop-blur-md border border-[#C7E738]/25 rounded-2xl px-6 py-4"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <Counter from={8.1} to={5.3} duration={1.2} decimals={1} suffix="%" className="text-[2.5vw] font-bold text-[#C7E738]" />
-          <div>
-            <p className="text-white text-[0.95vw] font-semibold">Remake Rate</p>
-            <p className="text-white/45 text-[0.8vw]">↓ from last quarter</p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Caption */}
-      <motion.div
-        className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.7, delay: 0.9 }}
-      >
-        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-4 rounded-full border border-white/10">
-          <p className="text-[1.3vw] tracking-wide">
-            <span className="text-[#C7E738] font-semibold">Clinical quality data</span>
-            {' '}across every provider, location, and case.
-          </p>
-        </div>
-      </motion.div>
     </motion.div>
   );
 }
