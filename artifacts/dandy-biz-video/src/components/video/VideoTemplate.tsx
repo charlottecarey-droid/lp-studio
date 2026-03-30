@@ -4,6 +4,7 @@ import BizHook from '../../scenes/BizHook';
 import BizBlackBox from '../../scenes/BizBlackBox';
 import BizReveal from '../../scenes/BizReveal';
 import BizNetwork from '../../scenes/BizNetwork';
+import BizDoctors from '../../scenes/BizDoctors';
 import BizPayoff from '../../scenes/BizPayoff';
 import BizCTA from '../../scenes/BizCTA';
 
@@ -12,8 +13,9 @@ const SCENES = [
   { id: 2, duration: 4500,  Component: BizBlackBox },
   { id: 3, duration: 6500,  Component: BizReveal },
   { id: 4, duration: 6500,  Component: BizNetwork },
-  { id: 5, duration: 5500,  Component: BizPayoff },
-  { id: 6, duration: 5500,  Component: BizCTA },
+  { id: 5, duration: 7000,  Component: BizDoctors },
+  { id: 6, duration: 5500,  Component: BizPayoff },
+  { id: 7, duration: 5500,  Component: BizCTA },
 ];
 
 const TOTAL_MS = SCENES.reduce((sum, s) => sum + s.duration, 0);
