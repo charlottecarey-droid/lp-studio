@@ -23,6 +23,7 @@ import {
   List,
   LayoutList,
   ExternalLink,
+  Download,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -119,6 +120,52 @@ function getEngagementScore(signals: Signal[]): { label: string; color: string; 
 
 /* ─── CSV Import Modal ───────────────────────────────────────── */
 
+const CSV_TEMPLATE_HEADERS = [
+  "sfdcAccountId",   // REQUIRED — Salesforce Account ID (join key to accounts)
+  "salesforceId",    // SFDC Contact ID (003…) — optional
+  "firstName",
+  "lastName",
+  "email",
+  "title",           // job title
+  "role",            // buyer persona label
+  "phone",
+  "tier",            // ENT | IW | LENT | STRAT
+  "titleLevel",      // C Suite | VP Level | Director Level | Manager Level | Individual Contributor
+  "contactRole",     // Decision Maker | Champion | Influencer | Other
+  "department",      // C Suite | Operations | Finance | Sales and Marketing
+  "linkedinUrl",
+  "status",          // active | unsubscribed | bounced  (defaults to "active")
+];
+
+const CSV_TEMPLATE_EXAMPLE = [
+  "0015d00003WBzFNAA1",  // sfdcAccountId
+  "0035d00003XCzGOAA2",  // salesforceId
+  "Jane",
+  "Smith",
+  "jane.smith@acmedental.com",
+  "Chief Executive Officer",
+  "CEO",
+  "555-123-4567",
+  "ENT",
+  "C Suite",
+  "Decision Maker",
+  "C Suite",
+  "https://linkedin.com/in/janesmith",
+  "active",
+];
+
+function downloadCsvTemplate() {
+  const rows = [CSV_TEMPLATE_HEADERS, CSV_TEMPLATE_EXAMPLE];
+  const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "contacts_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -164,12 +211,18 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mb-2">
-          Upload a CSV with columns: <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">firstName, lastName, email, title, role, sfdcAccountId</span>
-        </p>
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
           <span className="font-semibold">sfdcAccountId (Salesforce Account ID) is required</span> — this is the join key used to link each contact to their account. Contacts without a matching SFDC Account ID will be skipped.
         </p>
+        {/* Template download */}
+        <button
+          onClick={downloadCsvTemplate}
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors"
+        >
+          <Download className="w-4 h-4 shrink-0" />
+          <span>Download CSV Template</span>
+          <span className="ml-auto text-xs text-primary/60 font-normal">{CSV_TEMPLATE_HEADERS.length} columns</span>
+        </button>
         {error && <p className="text-sm text-destructive mb-4">{error}</p>}
         <div className="flex flex-col gap-3">
           <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} className="hidden" id="csv-upload" />
