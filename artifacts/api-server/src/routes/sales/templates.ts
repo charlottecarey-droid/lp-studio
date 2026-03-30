@@ -39,7 +39,7 @@ router.get("/templates/:id", async (req, res): Promise<void> => {
 
 // Create template
 router.post("/templates", async (req, res): Promise<void> => {
-  const { name, subject, bodyHtml, bodyText, mergeVars, category } = req.body;
+  const { name, subject, bodyHtml, bodyText, mergeVars, category, format } = req.body;
   if (!name || !subject) {
     res.status(400).json({ error: "name and subject are required" });
     return;
@@ -54,6 +54,7 @@ router.post("/templates", async (req, res): Promise<void> => {
         bodyText: bodyText ?? null,
         mergeVars: mergeVars ?? [],
         category: category ?? "general",
+        format: format ?? "plain",
       })
       .returning();
     res.status(201).json(template);
@@ -67,7 +68,7 @@ router.post("/templates", async (req, res): Promise<void> => {
 router.patch("/templates/:id", async (req, res): Promise<void> => {
   try {
     const updates: Record<string, unknown> = {};
-    const fields = ["name", "subject", "bodyHtml", "bodyText", "mergeVars", "category", "isActive"];
+    const fields = ["name", "subject", "bodyHtml", "bodyText", "mergeVars", "category", "format", "isActive"];
     for (const f of fields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     }

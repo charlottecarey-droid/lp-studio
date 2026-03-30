@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
-import { X, Calendar, CheckCircle2, Loader2 } from "lucide-react";
+import { X, Calendar, CheckCircle2, Loader2, ArrowRight, ChevronLeft } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 
@@ -16,23 +16,32 @@ interface Props {
   props: DsoCtaCaptureBlockProps;
   pageId?: number;
   variantId?: number;
+  prefillCompany?: string;
 }
 
-type FormState = "idle" | "loading" | "success" | "error";
+type FormState = "idle" | "loading" | "success";
+type FormStep = 1 | 2;
 
-function buildChiliPiperUrl(base: string, email: string): string {
+function buildChiliPiperUrl(base: string, email: string, firstName: string, lastName: string, company: string): string {
   if (!base) return "";
   try {
     const url = new URL(base);
     url.searchParams.set("email", email);
+    if (firstName) url.searchParams.set("firstName", firstName);
+    if (lastName)  url.searchParams.set("lastName", lastName);
+    if (company)   url.searchParams.set("company", company);
     return url.toString();
   } catch {
     const sep = base.includes("?") ? "&" : "?";
-    return `${base}${sep}email=${encodeURIComponent(email)}`;
+    const params = new URLSearchParams({ email });
+    if (firstName) params.set("firstName", firstName);
+    if (lastName)  params.set("lastName", lastName);
+    if (company)   params.set("company", company);
+    return `${base}${sep}${params.toString()}`;
   }
 }
 
-export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
+export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }: Props) {
   const {
     eyebrow       = "Get Started Today",
     headline      = "See what Dandy can\ndo for your group.",
@@ -52,10 +61,21 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-8%" });
-  const [focused, setFocused] = useState(false);
+
+  const [step, setStep] = useState<FormStep>(1);
+  const [focused1, setFocused1] = useState(false);
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState(prefillCompany ?? "");
+  const hasCompanyPrefill = Boolean(prefillCompany);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+
   const [formState, setFormState] = useState<FormState>("idle");
-  const [errorMsg, setErrorMsg] = useState("");
   const [cpOpen, setCpOpen] = useState(false);
   const [cpUrl, setCpUrl] = useState("");
 
@@ -63,16 +83,30 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
   const imgOnLeft = imagePosition === "left";
   const trusts = [trust1, trust2, trust3].filter(Boolean);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleStep1(e: React.FormEvent) {
     e.preventDefault();
-
     const trimmed = email.trim();
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setErrorMsg("Please enter a valid work email.");
+      setEmailError("Please enter a valid work email.");
       return;
     }
-    setErrorMsg("");
+    setEmailError("");
+    setStep(2);
+  }
+
+  async function handleStep2(e: React.FormEvent) {
+    e.preventDefault();
+    let hasError = false;
+    if (!firstName.trim()) { setFirstNameError("Required"); hasError = true; }
+    if (!lastName.trim())  { setLastNameError("Required");  hasError = true; }
+    if (hasError) return;
+    setFirstNameError("");
+    setLastNameError("");
     setFormState("loading");
+
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const co = company.trim();
 
     try {
       if (pageId) {
@@ -82,17 +116,25 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
           body: JSON.stringify({
             pageId,
             variantId,
-            fields: { email: trimmed, source: "dso-cta-capture" },
+            fields: {
+              email: email.trim(),
+              name: `${fn} ${ln}`,
+              firstName: fn,
+              lastName: ln,
+              organization: co || undefined,
+              source: "dso-cta-capture",
+            },
           }),
         });
       }
     } catch {
+      // silently continue
     }
 
     setFormState("success");
 
     if (chilipiperUrl) {
-      const url = buildChiliPiperUrl(chilipiperUrl, trimmed);
+      const url = buildChiliPiperUrl(chilipiperUrl, email.trim(), fn, ln, co);
       setCpUrl(url);
       setCpOpen(true);
     }
@@ -101,12 +143,51 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
   const isLoading = formState === "loading";
   const isSuccess = formState === "success";
 
+  function fieldStyle(key: string, hasError = false): React.CSSProperties {
+    const isFocused = focusedField === key;
+    return {
+      width: "100%",
+      background: "rgba(255,255,255,0.05)",
+      border: `1px solid ${hasError ? "rgba(239,68,68,0.6)" : isFocused ? "rgba(199,231,56,0.5)" : "rgba(199,231,56,0.18)"}`,
+      borderRadius: 10,
+      padding: "11px 16px",
+      color: PFG,
+      fontSize: "0.9375rem",
+      fontFamily: "inherit",
+      outline: "none",
+      transition: "border-color 0.2s, box-shadow 0.2s",
+      boxShadow: isFocused ? "0 0 0 3px rgba(199,231,56,0.08)" : "none",
+      boxSizing: "border-box",
+    };
+  }
+
+  const stepDots = (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
+      <div style={{ display: "flex", gap: 5 }}>
+        {([1, 2] as FormStep[]).map(s => (
+          <div
+            key={s}
+            style={{
+              height: 4, borderRadius: 999,
+              width: s === step ? 22 : 8,
+              background: s <= step ? AW : "rgba(199,231,56,0.2)",
+              transition: "width 0.35s cubic-bezier(0.16,1,0.3,1), background 0.25s",
+            }}
+          />
+        ))}
+      </div>
+      <span style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.06em", color: MUTED }}>
+        STEP {step} OF 2
+      </span>
+    </div>
+  );
+
   return (
     <section
       ref={sectionRef}
       style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle("dandy-green") }}
     >
-      {/* Atmospheric lime radial glow */}
+      {/* Atmospheric glow */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: imgOnLeft
@@ -208,7 +289,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
             initial={{ opacity: 0, y: 16 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
-            style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: MUTED, maxWidth: 420, marginBottom: "2.5rem" }}
+            style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: MUTED, maxWidth: 420, marginBottom: "2rem" }}
           >
             {body}
           </motion.p>
@@ -220,9 +301,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.625rem",
+                display: "flex", flexDirection: "column", gap: "0.625rem",
                 maxWidth: 480,
                 background: "rgba(199,231,56,0.07)",
                 border: "1px solid rgba(199,231,56,0.22)",
@@ -238,14 +317,11 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               {chilipiperUrl && (
                 <button
                   type="button"
-                  onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim())); setCpOpen(true); }}
+                  onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim(), firstName.trim(), lastName.trim(), company.trim())); setCpOpen(true); }}
                   style={{
-                    alignSelf: "flex-start",
-                    marginTop: "0.25rem",
-                    background: AW, color: BG,
-                    border: "none", borderRadius: 999,
-                    padding: "9px 20px",
-                    fontWeight: 700, fontSize: "0.8125rem",
+                    alignSelf: "flex-start", marginTop: "0.25rem",
+                    background: AW, color: BG, border: "none", borderRadius: 999,
+                    padding: "9px 20px", fontWeight: 700, fontSize: "0.8125rem",
                     cursor: "pointer", fontFamily: DISPLAY_FONT,
                     display: "flex", alignItems: "center", gap: "0.4rem",
                   }}
@@ -256,84 +332,188 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               )}
             </motion.div>
           ) : (
-            <>
-              {/* Input label */}
-              {inputLabel && (
-                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(199,231,56,0.6)", marginBottom: "0.65rem" }}>
-                  {inputLabel}
-                </p>
-              )}
-
-              {/* Pill input + CTA */}
-              <motion.form
-                onSubmit={handleSubmit}
-                noValidate
-                initial={{ opacity: 0, y: 12 }}
-                animate={inView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "rgba(255,255,255,0.04)",
-                  border: `1px solid ${focused ? "rgba(199,231,56,0.5)" : errorMsg ? "rgba(239,68,68,0.5)" : "rgba(199,231,56,0.2)"}`,
-                  borderRadius: 999,
-                  padding: "5px 5px 5px 22px",
-                  gap: 8,
-                  backdropFilter: "blur(12px)",
-                  boxShadow: focused ? "0 0 0 3px rgba(199,231,56,0.08), 0 0 24px rgba(199,231,56,0.06)" : "none",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  maxWidth: 480,
-                }}
-              >
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); if (errorMsg) setErrorMsg(""); }}
-                  placeholder={inputPlaceholder}
-                  onFocus={() => setFocused(true)}
-                  onBlur={() => setFocused(false)}
-                  disabled={isLoading}
-                  style={{
-                    flex: 1, minWidth: 0,
-                    background: "none", border: "none", outline: "none",
-                    color: PFG, fontSize: "0.9375rem",
-                    fontFamily: "inherit",
-                    opacity: isLoading ? 0.5 : 1,
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  style={{
-                    background: AW,
-                    color: "#050e08",
-                    border: "none", borderRadius: 999,
-                    padding: "13px 26px",
-                    fontWeight: 800, fontSize: "0.875rem",
-                    cursor: isLoading ? "not-allowed" : "pointer",
-                    whiteSpace: "nowrap",
-                    fontFamily: DISPLAY_FONT,
-                    letterSpacing: "-0.01em",
-                    flexShrink: 0,
-                    opacity: isLoading ? 0.75 : 1,
-                    transition: "opacity 0.15s",
-                    display: "flex", alignItems: "center", gap: "0.4rem",
-                  }}
-                  onMouseEnter={e => !isLoading && (e.currentTarget.style.opacity = "0.88")}
-                  onMouseLeave={e => !isLoading && (e.currentTarget.style.opacity = "1")}
+            <AnimatePresence mode="wait">
+              {step === 1 ? (
+                /* ── STEP 1: Email ── */
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ maxWidth: 480 }}
                 >
-                  {isLoading && <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />}
-                  {ctaLabel}
-                </button>
-              </motion.form>
+                  {stepDots}
 
-              {/* Error message */}
-              {errorMsg && (
-                <p style={{ fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.5rem", marginLeft: "1rem" }}>
-                  {errorMsg}
-                </p>
+                  {inputLabel && (
+                    <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(199,231,56,0.6)", marginBottom: "0.65rem" }}>
+                      {inputLabel}
+                    </p>
+                  )}
+
+                  <form
+                    onSubmit={handleStep1}
+                    noValidate
+                    style={{
+                      display: "flex", alignItems: "center",
+                      background: "rgba(255,255,255,0.04)",
+                      border: `1px solid ${focused1 ? "rgba(199,231,56,0.5)" : emailError ? "rgba(239,68,68,0.5)" : "rgba(199,231,56,0.2)"}`,
+                      borderRadius: 999,
+                      padding: "5px 5px 5px 22px",
+                      gap: 8,
+                      backdropFilter: "blur(12px)",
+                      boxShadow: focused1 ? "0 0 0 3px rgba(199,231,56,0.08), 0 0 24px rgba(199,231,56,0.06)" : "none",
+                      transition: "border-color 0.2s, box-shadow 0.2s",
+                    }}
+                  >
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); if (emailError) setEmailError(""); }}
+                      placeholder={inputPlaceholder}
+                      onFocus={() => setFocused1(true)}
+                      onBlur={() => setFocused1(false)}
+                      style={{
+                        flex: 1, minWidth: 0,
+                        background: "none", border: "none", outline: "none",
+                        color: PFG, fontSize: "0.9375rem", fontFamily: "inherit",
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        background: AW, color: BG, border: "none", borderRadius: 999,
+                        padding: "13px 22px", fontWeight: 800, fontSize: "0.875rem",
+                        cursor: "pointer", whiteSpace: "nowrap",
+                        fontFamily: DISPLAY_FONT, letterSpacing: "-0.01em",
+                        flexShrink: 0, display: "flex", alignItems: "center", gap: "0.4rem",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+                    >
+                      Continue
+                      <ArrowRight style={{ width: 14, height: 14 }} />
+                    </button>
+                  </form>
+
+                  {emailError && (
+                    <p style={{ fontSize: "0.75rem", color: "rgba(239,68,68,0.85)", marginTop: "0.5rem", marginLeft: "1rem" }}>
+                      {emailError}
+                    </p>
+                  )}
+                </motion.div>
+              ) : (
+                /* ── STEP 2: Details ── */
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 30 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ maxWidth: 480 }}
+                >
+                  {stepDots}
+
+                  {/* Back + email display */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      style={{
+                        background: "none", border: "1px solid rgba(199,231,56,0.2)",
+                        borderRadius: 999, padding: "4px 12px",
+                        color: MUTED, fontSize: "0.75rem", cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit",
+                      }}
+                    >
+                      <ChevronLeft style={{ width: 12, height: 12 }} />
+                      Back
+                    </button>
+                    <span style={{ fontSize: "0.8125rem", color: MUTED }}>{email}</span>
+                  </div>
+
+                  <form
+                    onSubmit={handleStep2}
+                    noValidate
+                    style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+                  >
+                    {/* First name | Last name */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                      <div>
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={e => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(""); }}
+                          placeholder="First name *"
+                          required
+                          onFocus={() => setFocusedField("firstName")}
+                          onBlur={() => setFocusedField(null)}
+                          disabled={isLoading}
+                          style={fieldStyle("firstName", Boolean(firstNameError))}
+                        />
+                        {firstNameError && (
+                          <p style={{ fontSize: "0.7rem", color: "rgba(239,68,68,0.85)", marginTop: "0.25rem", marginLeft: "0.25rem" }}>
+                            {firstNameError}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={e => { setLastName(e.target.value); if (lastNameError) setLastNameError(""); }}
+                          placeholder="Last name *"
+                          required
+                          onFocus={() => setFocusedField("lastName")}
+                          onBlur={() => setFocusedField(null)}
+                          disabled={isLoading}
+                          style={fieldStyle("lastName", Boolean(lastNameError))}
+                        />
+                        {lastNameError && (
+                          <p style={{ fontSize: "0.7rem", color: "rgba(239,68,68,0.85)", marginTop: "0.25rem", marginLeft: "0.25rem" }}>
+                            {lastNameError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Company name — hidden when already personalized */}
+                    {!hasCompanyPrefill && (
+                      <input
+                        type="text"
+                        value={company}
+                        onChange={e => setCompany(e.target.value)}
+                        placeholder="DSO / Practice group name"
+                        onFocus={() => setFocusedField("company")}
+                        onBlur={() => setFocusedField(null)}
+                        disabled={isLoading}
+                        style={fieldStyle("company")}
+                      />
+                    )}
+
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      style={{
+                        background: AW, color: BG, border: "none", borderRadius: 999,
+                        padding: "15px 32px", fontWeight: 800, fontSize: "0.9375rem",
+                        cursor: isLoading ? "not-allowed" : "pointer",
+                        fontFamily: DISPLAY_FONT, letterSpacing: "-0.02em",
+                        opacity: isLoading ? 0.75 : 1, transition: "opacity 0.15s",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+                        marginTop: "0.25rem",
+                      }}
+                      onMouseEnter={e => !isLoading && (e.currentTarget.style.opacity = "0.88")}
+                      onMouseLeave={e => !isLoading && (e.currentTarget.style.opacity = "1")}
+                    >
+                      {isLoading && <Loader2 style={{ width: 15, height: 15, animation: "spin 1s linear infinite" }} />}
+                      {ctaLabel}
+                    </button>
+                  </form>
+                </motion.div>
               )}
-            </>
+            </AnimatePresence>
           )}
 
           {/* Trust strip */}
@@ -342,10 +522,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : {}}
               transition={{ duration: 0.5, delay: 0.45 }}
-              style={{
-                display: "flex", flexWrap: "wrap", gap: "1.25rem 2rem",
-                marginTop: "1.75rem", alignItems: "center",
-              }}
+              style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem 2rem", marginTop: "1.75rem", alignItems: "center" }}
             >
               {trusts.map((t, i) => (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
@@ -375,10 +552,8 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
         <div
           style={{
             position: "fixed", inset: 0,
-            background: "rgba(0,0,0,0.72)",
-            backdropFilter: "blur(4px)",
-            zIndex: 9999,
-            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)",
+            zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
             padding: "1.5rem",
           }}
           onClick={e => { if (e.target === e.currentTarget) setCpOpen(false); }}
@@ -388,18 +563,14 @@ export function BlockDsoCtaCapture({ props, pageId, variantId }: Props) {
               position: "relative", width: "100%",
               maxWidth: 880, height: "min(90vh, 720px)",
               background: "#fff", borderRadius: "1.25rem",
-              overflow: "hidden",
-              boxShadow: "0 30px 70px rgba(0,0,0,0.45)",
+              overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,0.45)",
               display: "flex", flexDirection: "column",
             }}
           >
             <div
               style={{
-                display: "flex", alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0.875rem 1.25rem",
-                borderBottom: "1px solid #e5e7eb",
-                flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "0.875rem 1.25rem", borderBottom: "1px solid #e5e7eb", flexShrink: 0,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

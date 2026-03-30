@@ -189,6 +189,22 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   DollarSign,
 };
 
+// Deep-replace {{var}} placeholders in any JSON structure (blocks, props, etc.)
+function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
+  if (typeof value === "string") {
+    let result = value;
+    for (const [k, v] of Object.entries(vars)) result = result.split(k).join(v);
+    return result;
+  }
+  if (Array.isArray(value)) return value.map(item => deepApplyVars(item, vars));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, deepApplyVars(v, vars)]),
+    );
+  }
+  return value;
+}
+
 export default function LandingPageViewer() {
   const [match, params] = useRoute("/lp/:slug");
   const slug = params?.slug || "";
@@ -203,6 +219,7 @@ export default function LandingPageViewer() {
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
 
+<<<<<<< HEAD
   // Sales hotlink token: ?hl=<token> — resolves contact for signal attribution
   const hlToken = searchParams.get("hl") ?? null;
   const [hotlinkData, setHotlinkData] = useState<{ hotlinkId: number; contactId: number; accountId: number; contactName: string | null } | null>(null);
@@ -215,6 +232,34 @@ export default function LandingPageViewer() {
       .catch(() => {});
   }, [hlToken]);
 
+=======
+  // Campaign page variables — substituted into block content at render time.
+  // Stored in sessionStorage (keyed by slug) so the URL stays clean with no visible params.
+  // URL params (_v_*) are still supported as a fallback for direct links.
+  const pageVars = (() => {
+    const vars: Record<string, string> = {};
+    // 1. Read from sessionStorage (set by the personalized link resolver)
+    try {
+      const stored = sessionStorage.getItem(`pv:${slug}`);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, string>;
+        Object.assign(vars, parsed);
+      }
+    } catch {
+      // sessionStorage unavailable — ignore
+    }
+    // 2. Also check URL _v_* params (lower priority, for dev/preview use)
+    for (const [k, v] of searchParams.entries()) {
+      if (k.startsWith("_v_")) {
+        const varKey = k.slice(3);
+        vars[`{{${varKey}}}`] = v;
+      }
+    }
+    return vars;
+  })();
+  const hasPageVars = Object.keys(pageVars).length > 0;
+  
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
 
@@ -337,7 +382,11 @@ export default function LandingPageViewer() {
   // Handle builder pages (blocks array format)
   if (isBuilderPageResponse(config)) {
     const builderPage: BuilderPageResponse = config;
-    const blocks = builderPage.blocks ?? [];
+    const rawBlocks = builderPage.blocks ?? [];
+    // Apply {{company}}, {{first_name}} etc. from campaign page URL vars
+    const blocks = hasPageVars
+      ? (deepApplyVars(rawBlocks, pageVars) as typeof rawBlocks)
+      : rawBlocks;
     const customCss = builderPage.customCss ?? "";
     const animationsEnabled = builderPage.animationsEnabled !== false;
 
@@ -376,7 +425,7 @@ export default function LandingPageViewer() {
               style={block.blockSettings?.animationStyle ?? "fade-up"}
               enabled={animationsEnabled}
             >
-              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} />
+              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
             </ScrollReveal>
           );
         })}
@@ -412,7 +461,10 @@ export default function LandingPageViewer() {
   const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: LinkedPage | null };
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
-    const blocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
+    const rawLinkedBlocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
+    const blocks = hasPageVars
+      ? (deepApplyVars(rawLinkedBlocks, pageVars) as typeof rawLinkedBlocks)
+      : rawLinkedBlocks;
     const linkedPageCss = linkedPage?.customCss ?? "";
     const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";
     const linkedAnimationsEnabled = (linkedPage as { animationsEnabled?: boolean })?.animationsEnabled !== false;
@@ -479,7 +531,7 @@ export default function LandingPageViewer() {
                   style={block.blockSettings?.animationStyle ?? "fade-up"}
                   enabled={linkedAnimationsEnabled}
                 >
-                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} />
+                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
                 </ScrollReveal>
               );
             })

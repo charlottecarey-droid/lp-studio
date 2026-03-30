@@ -14,6 +14,7 @@ export const salesEmailTemplatesTable = pgTable("sales_email_templates", {
   bodyText: text("body_text"),
   mergeVars: jsonb("merge_vars").default([]),   // list of {{var}} names used
   category: text("category").default("general"), // general | follow-up | intro | case-study
+  format: text("format").notNull().default("plain"), // plain | styled
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

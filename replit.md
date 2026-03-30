@@ -139,6 +139,20 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 - `src/pages/builder/property-panels/` — per-block property editor panels
 - `src/pages/pages-gallery.tsx` — pages list + create modal
 
+### Multi-tenant Identity Schema
+
+Three tables establish the SaaS identity layer. All live in the shared PostgreSQL database.
+
+| Table | Purpose |
+|---|---|
+| `tenants` | One row per customer organisation. **Dandy = Tenant #1** (slug `dandy`, domain `meetdandy.com`, plan `enterprise`). |
+| `app_users` | Human accounts. `tenant_id` is NULL for superadmins; set for all other roles. `google_id` = Google OAuth `sub` claim. Roles: `superadmin` / `admin` / `rep` / `viewer`. |
+| `app_sessions` | Server-side session store. `sid` is stored as an httpOnly cookie; `sess` holds user snapshot (id, role, tenantId) so auth middleware avoids a DB hit per request. |
+
+Schema files: `lib/db/src/schema/tenants.ts`, `lib/db/src/schema/appUsers.ts`, `lib/db/src/schema/appSessions.ts`.
+
+**Migration plan**: existing LP/Sales data tables will get a `tenant_id` FK column pointing to `tenants.id` when multi-tenancy is activated (after the DSO → LP Studio Sales Console migration is complete).
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

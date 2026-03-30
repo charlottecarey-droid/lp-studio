@@ -6,11 +6,16 @@ import {
   salesEmailSendsTable,
   salesEmailTemplatesTable,
   salesContactsTable,
+  salesAccountsTable,
   salesSignalsTable,
   salesHotlinksTable,
 } from "@workspace/db";
+<<<<<<< HEAD
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
+=======
+import { lpPagesTable } from "@workspace/db";
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
 const router = Router();
 
@@ -375,12 +380,77 @@ router.get("/track/click", async (req, res): Promise<void> => {
   res.redirect(302, destination);
 });
 
+// ─── Hotlink-based email open tracking (for Campaign Pages) ──────────────────
+
+router.get("/track/open-hotlink", async (req, res): Promise<void> => {
+  const hotlinkId = req.query.h as string;
+  if (hotlinkId) {
+    try {
+      const [hotlink] = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
+      if (hotlink) {
+        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          .from(salesContactsTable)
+          .where(eq(salesContactsTable.id, hotlink.contactId));
+        const [page] = await db.select({ title: lpPagesTable.title })
+          .from(lpPagesTable)
+          .where(eq(lpPagesTable.id, hotlink.pageId));
+        await db.insert(salesSignalsTable).values({
+          accountId: contact?.accountId ?? null,
+          contactId: hotlink.contactId,
+          hotlinkId: hotlink.id,
+          type: "email_open",
+          source: page?.title ?? "Campaign Page",
+          metadata: { pageId: hotlink.pageId },
+        });
+      }
+    } catch (err) {
+      console.error("Hotlink open tracking error:", err);
+    }
+  }
+  res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
+  res.send(PIXEL);
+});
+
+// ─── Hotlink-based email click tracking (for Campaign Pages) ─────────────────
+
+router.get("/track/click-hotlink", async (req, res): Promise<void> => {
+  const { h: hotlinkId, url: destination } = req.query as Record<string, string>;
+  if (!destination) { res.status(400).send("Missing url"); return; }
+
+  if (hotlinkId) {
+    try {
+      const [hotlink] = await db.select().from(salesHotlinksTable)
+        .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
+      if (hotlink) {
+        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          .from(salesContactsTable)
+          .where(eq(salesContactsTable.id, hotlink.contactId));
+        const [page] = await db.select({ title: lpPagesTable.title })
+          .from(lpPagesTable)
+          .where(eq(lpPagesTable.id, hotlink.pageId));
+        await db.insert(salesSignalsTable).values({
+          accountId: contact?.accountId ?? null,
+          contactId: hotlink.contactId,
+          hotlinkId: hotlink.id,
+          type: "email_click",
+          source: page?.title ?? "Campaign Page",
+          metadata: { pageId: hotlink.pageId, destination },
+        });
+      }
+    } catch (err) {
+      console.error("Hotlink click tracking error:", err);
+    }
+  }
+  res.redirect(302, destination);
+});
+
 // ─── Single send (one-off email to a contact) ──────────────
 
 router.post("/send-email", async (req, res): Promise<void> => {
-  const { contactId, subject, bodyHtml, senderName, senderEmail } = req.body;
-  if (!contactId || !subject || !bodyHtml) {
-    res.status(400).json({ error: "contactId, subject, and bodyHtml are required" });
+  const { contactId, subject, bodyHtml, bodyText, senderName, senderEmail, replyTo } = req.body;
+  if (!contactId || !subject || (!bodyHtml && !bodyText)) {
+    res.status(400).json({ error: "contactId, subject, and either bodyHtml or bodyText are required" });
     return;
   }
 
@@ -394,10 +464,21 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     const fromName = senderName ?? "Dandy";
     const fromLocal = senderEmail ?? "partnerships";
+    const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
+
+    // Fetch account name for {{company}}
+    let companyName = "";
+    if (contact.accountId) {
+      const [account] = await db.select({ name: salesAccountsTable.name })
+        .from(salesAccountsTable)
+        .where(eq(salesAccountsTable.id, contact.accountId));
+      companyName = account?.name ?? "";
+    }
 
     const vars: Record<string, string> = {
       "{{first_name}}": contact.firstName ?? "",
       "{{last_name}}": contact.lastName ?? "",
+      "{{company}}": companyName,
       "{{sender_name}}": fromName,
       "{{email}}": contact.email,
     };
@@ -411,18 +492,30 @@ router.post("/send-email", async (req, res): Promise<void> => {
     }
 
     const renderedSubject = replaceVars(subject, vars);
-    const renderedBody = replaceVars(bodyHtml, vars);
+
+    // Support both HTML and plain-text bodies
+    const htmlBody = bodyHtml
+      ? replaceVars(bodyHtml, vars)
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${replaceVars(bodyText, vars)}</div>`;
+    const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
 
     const result = await sendViaResend({
       from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
-      reply_to: DEFAULT_REPLY_TO,
+      reply_to: replyToAddress,
       to: [contact.email],
       subject: renderedSubject,
-      html: renderedBody,
+      html: htmlBody,
+      ...(textBody ? { text: textBody } : {}),
     });
 
     if (!result.ok) {
-      res.status(500).json({ error: "Failed to send email", detail: result.error });
+      // Parse Resend error for a cleaner message
+      let userMessage = "Failed to send email";
+      try {
+        const parsed = JSON.parse(result.error ?? "");
+        if (parsed.message) userMessage = parsed.message;
+      } catch { /* leave default */ }
+      res.status(500).json({ error: userMessage, detail: result.error });
       return;
     }
 

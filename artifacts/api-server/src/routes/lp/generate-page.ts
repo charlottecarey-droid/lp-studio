@@ -560,8 +560,36 @@ RULES:
 10. When the user provides specific numbers or stats, use those EXACT numbers.
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.`;
 
+interface SegmentContext {
+  name?: string;
+  description?: string;
+  messagingAngle?: string;
+  uniqueContext?: string;
+  valueProps?: string[];
+  personas?: { role: string; painPoints: string[] }[];
+  challenges?: { title: string; desc: string }[];
+}
+
+function buildSegmentSection(seg: SegmentContext): string {
+  const parts: string[] = [];
+  if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
+  if (seg.description) parts.push(`Segment Description: ${seg.description}`);
+  if (seg.messagingAngle) parts.push(`Messaging Angle: ${seg.messagingAngle}`);
+  if (seg.uniqueContext) parts.push(`Unique Context: ${seg.uniqueContext}`);
+  if (seg.valueProps?.length) parts.push(`Segment Value Props:\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
+  if (seg.personas?.length) {
+    const ps = seg.personas.map(p => `${p.role}: ${p.painPoints.join(", ")}`).join("\n");
+    parts.push(`Known Personas:\n${ps}`);
+  }
+  if (seg.challenges?.length) {
+    const cs = seg.challenges.map(c => `${c.title}: ${c.desc}`).join("\n");
+    parts.push(`Key Challenges:\n${cs}`);
+  }
+  return parts.join("\n");
+}
+
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
-  const { prompt } = req.body as { prompt?: string };
+  const { prompt, segmentContext } = req.body as { prompt?: string; segmentContext?: SegmentContext };
 
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     res.status(400).json({ error: "prompt is required" });
@@ -579,14 +607,21 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const [brand, mediaCatalog] = await Promise.all([fetchBrand(), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
 
-  const useDsoPractices = isDsoPracticesPrompt(prompt);
-  const useDso = !useDsoPractices && isDsoPrompt(prompt);
+  const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
+  const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const systemPrompt = useDsoPractices ? DSO_PRACTICES_SYSTEM_PROMPT : useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
-  console.log(`[generate-page] prompt path: ${promptPath} | first 120 chars: ${prompt.slice(0, 120).replace(/\n/g, " ")}`);
+  console.log(`[generate-page] prompt path: ${promptPath} | segment: ${segmentContext?.name ?? "none"} | first 120 chars: ${prompt.slice(0, 120).replace(/\n/g, " ")}`);
+
+  const segmentSection = segmentContext && typeof segmentContext === "object" ? buildSegmentSection(segmentContext) : "";
 
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
+  if (segmentSection) {
+    userPromptParts.push(
+      `AUDIENCE SEGMENT — IMPORTANT: You MUST tailor all copy, headlines, value props, personas, and CTAs specifically to this segment. Do NOT use generic messaging.\n${segmentSection}`
+    );
+  }
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(

@@ -62,6 +62,7 @@ const ALLOWED_TABLES: Record<string, string> = {
   layout_defaults: "dso_layout_defaults",
   custom_templates: "dso_custom_templates",
   pdf_submissions: "dso_pdf_submissions",
+  cta_submissions: "dso_cta_submissions",
 };
 
 function isValidIdentifier(name: string): boolean {
@@ -306,6 +307,7 @@ router.post("/functions/:name", async (req: Request, res: Response) => {
   if (name === "generate-email") return handleGenerateEmail(req, res, body);
   if (name === "account-briefing") return handleAccountBriefing(req, res, body);
   if (name === "import-contacts") return handleImportContacts(req, res, body);
+  if (name === "delete-all-contacts") return handleDeleteAllContacts(req, res, body);
   if (name === "send-marketing-campaign") return handleSendCampaign(req, res, body);
   if (name === "send-test-email") return handleSendTestEmail(req, res, body);
   if (name === "accounts-list") return handleAccountsList(req, res, body);
@@ -802,6 +804,18 @@ async function handleAccountsList(_req: Request, res: Response, _body: any) {
   }
 }
 
+// ─── Handler: delete-all-contacts ────────────────────────────────────────────
+async function handleDeleteAllContacts(_req: Request, res: Response, _body: any) {
+  try {
+    const result = await query(`DELETE FROM "dso_target_contacts"`);
+    const deleted = result.rowCount ?? 0;
+    return res.json({ success: true, deleted });
+  } catch (err: any) {
+    console.error("delete-all-contacts error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 // ─── Handler: import-contacts ─────────────────────────────────────────────────
 async function handleImportContacts(req: Request, res: Response, body: any) {
   const { contacts, clearExisting } = body;
@@ -838,10 +852,13 @@ async function handleImportContacts(req: Request, res: Response, body: any) {
         pe_firm: c.peFirm || c.pe_firm || null,
         abm_stage: c.abmStage || c.abm_stage || null,
         website: c.website || null,
+        address: c.address || null,
         city: c.city || null,
         state: c.state || null,
+        zip: c.zip || null,
         country: c.country || "United States",
         segment: c.segment || null,
+        account_owner: c.accountOwner || c.account_owner || null,
       };
 
       try {

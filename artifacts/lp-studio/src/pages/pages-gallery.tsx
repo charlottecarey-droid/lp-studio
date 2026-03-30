@@ -12,8 +12,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+<<<<<<< HEAD
 import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+=======
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy } from "lucide-react";
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -280,6 +284,7 @@ export default function PagesGallery() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [cloningPageId, setCloningPageId] = useState<number | null>(null);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
@@ -370,10 +375,24 @@ export default function PagesGallery() {
   };
 
   const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null) => {
+    const activeSeg = seg !== undefined ? seg : selectedSegment;
+    const segmentContext = activeSeg ? {
+      name: activeSeg.name,
+      description: activeSeg.description,
+      messagingAngle: activeSeg.messagingAngle,
+      uniqueContext: activeSeg.uniqueContext,
+      valueProps: activeSeg.valueProps,
+      personas: activeSeg.personas?.map((p: { role: string; painPoints: string[] }) => ({ role: p.role, painPoints: p.painPoints })),
+      challenges: activeSeg.challenges?.map((c: { title: string; desc: string }) => ({ title: c.title, desc: c.desc })),
+    } : undefined;
+
     const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt.trim() }),
+      body: JSON.stringify({
+        prompt: prompt.trim(),
+        ...(segmentContext ? { segmentContext } : {}),
+      }),
     });
     if (!genRes.ok) {
       const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
@@ -386,7 +405,6 @@ export default function PagesGallery() {
       blocks: generated.blocks,
       status: "draft",
     });
-    const activeSeg = seg ?? selectedSegment;
     if (activeSeg) {
       setBriefContext({
         company: generated.title,
@@ -414,7 +432,7 @@ export default function PagesGallery() {
     setAiGenerating(true);
     setCreateError(null);
     try {
-      await generatePageFromPrompt(aiPrompt);
+      await generatePageFromPrompt(aiPrompt, selectedSegment);
       setShowCreateModal(false);
       setAiPrompt("");
       setCreateMode("template");
@@ -425,8 +443,8 @@ export default function PagesGallery() {
     }
   };
 
-  const handleGeneratePageFromBrief = async (prompt: string) => {
-    await generatePageFromPrompt(prompt);
+  const handleGeneratePageFromBrief = async (prompt: string, seg?: AudienceSegment) => {
+    await generatePageFromPrompt(prompt, seg ?? selectedSegment);
   };
 
   const handleDelete = async (page: Page) => {
@@ -435,6 +453,7 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
+<<<<<<< HEAD
   // Determine if a page is "live" (published or running as a test)
   const isPageLive = (pageId: number) => {
     const page = pages.find(p => p.id === pageId);
@@ -461,6 +480,22 @@ export default function PagesGallery() {
     return true;
   });
 
+=======
+  const handleClone = async (page: Page) => {
+    setCloningPageId(page.id);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/clone`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to clone page");
+      const cloned = await res.json() as Page;
+      setPages(prev => [...prev, cloned]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCloningPageId(null);
+    }
+  };
+
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -632,6 +667,18 @@ export default function PagesGallery() {
                         Edit
                       </Button>
                     </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2 hover:text-primary"
+                      title="Duplicate page"
+                      disabled={cloningPageId === page.id}
+                      onClick={() => handleClone(page)}
+                    >
+                      {cloningPageId === page.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

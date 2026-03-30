@@ -40,6 +40,16 @@ type Contact = {
   pe_firm: string | null;
   abm_stage: string | null;
   salesforce_id: string | null;
+  // Extended fields from importer
+  gender: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  segment: string | null;
+  account_owner: string | null;
 };
 
 type Microsite = {
@@ -397,7 +407,11 @@ export default function DSOContacts() {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              const headers = ["Company","First Name","Last Name","Title","Level","Department","Role","Email","Phone","LinkedIn","DSO Size","PE Firm","ABM Stage"];
+              const headers = [
+                "Company","First Name","Last Name","Title","Level","Department","Role",
+                "Email","Phone","LinkedIn","DSO Size","PE Firm","ABM Stage",
+                "Account ID","Account Owner","Website","Address","City","State","Zip","Country","Segment","Gender",
+              ];
               const escape = (v: string) => {
                 if (!v) return "";
                 return v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
@@ -406,6 +420,9 @@ export default function DSOContacts() {
                 c.parent_company, c.first_name ?? "", c.last_name ?? "", c.title ?? "",
                 c.title_level ?? "", c.department ?? "", c.contact_role ?? "", c.email ?? "",
                 c.phone ?? "", c.linkedin_url ?? "", c.dso_size ?? "", c.pe_firm ?? "", c.abm_stage ?? "",
+                c.salesforce_id ?? "", c.account_owner ?? "", c.website ?? "",
+                c.address ?? "", c.city ?? "", c.state ?? "", c.zip ?? "",
+                c.country ?? "", c.segment ?? "", c.gender ?? "",
               ].map(escape).join(","));
               const csv = [headers.join(","), ...rows].join("\n");
               const blob = new Blob([csv], { type: "text/csv" });

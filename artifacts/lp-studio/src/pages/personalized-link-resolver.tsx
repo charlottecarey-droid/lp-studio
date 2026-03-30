@@ -3,13 +3,24 @@ import { useParams } from "wouter";
 
 const API_BASE = "/api";
 
-interface ResolveResponse {
+interface LpResolveResponse {
   pageSlug: string;
   pageTitle: string;
   contactName: string;
   token: string;
   linkId: number;
   visitId: number;
+}
+
+interface SalesResolveResponse {
+  pageSlug: string;
+  pageTitle: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  contactName: string | null;
+  token: string;
+  hotlinkId: number;
 }
 
 export default function PersonalizedLinkResolver() {
@@ -19,17 +30,40 @@ export default function PersonalizedLinkResolver() {
   useEffect(() => {
     if (!token) { setError("Invalid link"); return; }
 
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+    // First try the LP personalized links resolver (marketing side)
     fetch(`${API_BASE}/lp/resolve-token/${token}`)
       .then(async res => {
-        if (!res.ok) throw new Error("Link not found");
-        return res.json() as Promise<ResolveResponse>;
+        if (!res.ok) throw new Error("not found");
+        return res.json() as Promise<LpResolveResponse>;
       })
       .then(data => {
-        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+        // LP links use _plToken for engagement tracking — no vars in URL
         window.location.replace(`${base}/lp/${data.pageSlug}?_plToken=${encodeURIComponent(data.token)}`);
       })
-      .catch(() => {
-        setError("This link is invalid or has expired.");
+      .catch(async () => {
+        // Fallback: try the Sales Console hotlinks resolver
+        try {
+          const salesRes = await fetch(`${API_BASE}/sales/resolve/${token}`);
+          if (!salesRes.ok) throw new Error("not found");
+          const data = await salesRes.json() as SalesResolveResponse;
+
+          // Store personalization vars in sessionStorage — keeps the URL clean.
+          // The prospect sees meetdandy-lp.com/lp/page-name with nothing revealing in the address bar.
+          const vars: Record<string, string> = {};
+          if (data.company) vars["{{company}}"] = data.company;
+          if (data.firstName) vars["{{first_name}}"] = data.firstName;
+          if (data.lastName) vars["{{last_name}}"] = data.lastName;
+          if (Object.keys(vars).length > 0) {
+            sessionStorage.setItem(`pv:${data.pageSlug}`, JSON.stringify(vars));
+          }
+
+          // Redirect to a clean URL — no query params
+          window.location.replace(`${base}/lp/${data.pageSlug}`);
+        } catch {
+          setError("This link is invalid or has expired.");
+        }
       });
   }, [token]);
 

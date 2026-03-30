@@ -9,6 +9,7 @@ import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
+import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 
 interface Props {
   blockType: string;
@@ -29,7 +30,10 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>
-          <DtrTokenInserter onInsert={(token) => set("headline", props.headline + token)} />
+          <div className="flex items-center gap-1">
+            <CampaignVarInserter onInsert={(token) => set("headline", props.headline + token)} />
+            <DtrTokenInserter onInsert={(token) => set("headline", props.headline + token)} />
+          </div>
         </div>
         <AiTextField
           type="textarea"

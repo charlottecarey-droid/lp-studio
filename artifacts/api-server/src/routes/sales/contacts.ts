@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
@@ -56,7 +56,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
 
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
-  const { accountId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
+  const { accountId, sfdcId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
   if (!accountId || !firstName || !lastName) {
     res.status(400).json({ error: "accountId, firstName, and lastName are required" });
     return;
@@ -65,6 +65,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
     const [contact] = await db
       .insert(salesContactsTable)
       .values({
+        sfdcId: sfdcId ?? null,
         accountId: Number(accountId),
         firstName,
         lastName,
@@ -87,7 +88,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
 router.patch("/contacts/:id", async (req, res): Promise<void> => {
   try {
     const updates: Record<string, unknown> = {};
-    const fields = ["firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
+    const fields = ["sfdcId", "firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
     for (const f of fields) {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     }
@@ -125,6 +126,131 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
     console.error("DELETE /sales/contacts/:id error:", err);
     res.status(500).json({ error: "Failed to delete contact" });
   }
+});
+
+// Delete ALL contacts
+router.delete("/contacts", async (_req, res): Promise<void> => {
+  try {
+    const deleted = await db.delete(salesContactsTable).returning({ id: salesContactsTable.id });
+    res.json({ ok: true, deleted: deleted.length });
+  } catch (err) {
+    console.error("DELETE /sales/contacts error:", err);
+    res.status(500).json({ error: "Failed to delete contacts" });
+  }
+});
+
+// ─── Bulk CSV Import ─────────────────────────────────────────
+// Accepts an array of mapped rows; finds-or-creates accounts by name,
+// deduplicates contacts by email+accountId, returns result counts.
+interface ImportRow {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  title?: string;
+  role?: string;
+  phone?: string;
+  accountName?: string;
+  accountId?: number;
+  accountDomain?: string;
+  accountSegment?: string;
+  accountIndustry?: string;
+}
+
+router.post("/contacts/import", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: ImportRow[] };
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required and must not be empty" });
+    return;
+  }
+
+  let created = 0;
+  let skipped = 0;
+  const errors: Array<{ row: number; message: string }> = [];
+
+  // Cache account lookups within the request to avoid redundant queries
+  const accountCache = new Map<string, number>();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      if (!row.firstName?.trim() || !row.lastName?.trim()) {
+        errors.push({ row: i + 1, message: "Missing first or last name" });
+        continue;
+      }
+
+      let accountId = row.accountId ? Number(row.accountId) : null;
+
+      // Find or create account by name if no accountId provided
+      if (!accountId && row.accountName?.trim()) {
+        const normalizedName = row.accountName.trim().toLowerCase();
+        if (accountCache.has(normalizedName)) {
+          accountId = accountCache.get(normalizedName)!;
+        } else {
+          const [existing] = await db
+            .select({ id: salesAccountsTable.id })
+            .from(salesAccountsTable)
+            .where(ilike(salesAccountsTable.name, row.accountName.trim()))
+            .limit(1);
+
+          if (existing) {
+            accountId = existing.id;
+          } else {
+            const [newAccount] = await db
+              .insert(salesAccountsTable)
+              .values({
+                name: row.accountName.trim(),
+                domain: row.accountDomain?.trim() || null,
+                segment: row.accountSegment?.trim() || null,
+                industry: row.accountIndustry?.trim() || null,
+                status: "prospect",
+              })
+              .returning({ id: salesAccountsTable.id });
+            accountId = newAccount.id;
+          }
+          accountCache.set(normalizedName, accountId);
+        }
+      }
+
+      if (!accountId) {
+        errors.push({ row: i + 1, message: "No account name or accountId provided" });
+        continue;
+      }
+
+      // Deduplicate by email + accountId
+      if (row.email?.trim()) {
+        const [dupCheck] = await db
+          .select({ id: salesContactsTable.id })
+          .from(salesContactsTable)
+          .where(and(
+            eq(salesContactsTable.accountId, accountId),
+            ilike(salesContactsTable.email, row.email.trim()),
+          ))
+          .limit(1);
+
+        if (dupCheck) {
+          skipped++;
+          continue;
+        }
+      }
+
+      await db.insert(salesContactsTable).values({
+        accountId,
+        firstName: row.firstName.trim(),
+        lastName: row.lastName.trim(),
+        email: row.email?.trim() || null,
+        title: row.title?.trim() || null,
+        role: row.role?.trim() || null,
+        phone: row.phone?.trim() || null,
+        status: "active",
+      });
+      created++;
+    } catch (err) {
+      errors.push({ row: i + 1, message: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+
+  res.status(201).json({ created, skipped, errors, total: rows.length });
 });
 
 export default router;

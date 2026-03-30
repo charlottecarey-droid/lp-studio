@@ -6,7 +6,6 @@ import {
   Plus,
   Search,
   ChevronRight,
-  MoreHorizontal,
   Users,
   Mail,
   FileText,
@@ -14,6 +13,7 @@ import {
   ArrowLeft,
   Activity,
   ExternalLink,
+<<<<<<< HEAD
   Pencil,
   Trash2,
   Brain,
@@ -29,6 +29,14 @@ import {
   Clock,
   Eye,
   MousePointerClick,
+=======
+  Layout,
+  Copy,
+  Check,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -36,6 +44,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const API_BASE = "/api";
 
@@ -66,6 +81,21 @@ interface Contact {
   createdAt: string;
 }
 
+interface Microsite {
+  pageId: number;
+  title: string;
+  slug: string;
+  status: string;
+  updatedAt: string;
+  hotlinkCount: number;
+  firstToken: string | null;
+}
+
+interface PageBlock {
+  type: string;
+  [key: string]: unknown;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     prospect: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -76,6 +106,18 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles[status] ?? styles.prospect}`}>
+      {status}
+    </span>
+  );
+}
+
+function PageStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    published: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles[status] ?? styles.draft}`}>
       {status}
     </span>
   );
@@ -332,6 +374,7 @@ function AccountListView() {
   );
 }
 
+<<<<<<< HEAD
 /* ─── Briefing Panel ─────────────────────────────────────────── */
 
 interface BriefingData {
@@ -399,11 +442,88 @@ function BriefingPanel({ accountId }: { accountId: number }) {
       }
     } catch {
       // silently fail
+=======
+/* ─── Generate Microsite Modal ───────────────────────────────── */
+
+function GenerateMicrositeModal({
+  open,
+  onClose,
+  accountName,
+  accountId,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accountName: string;
+  accountId: string;
+  onCreated: () => void;
+}) {
+  const [objective, setObjective] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [, navigate] = useLocation();
+
+  function handleClose() {
+    if (generating) return;
+    setObjective("");
+    setError(null);
+    onClose();
+  }
+
+  async function handleGenerate() {
+    if (!objective.trim()) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const prompt = `Create a personalized sales microsite for "${accountName}". Campaign goal: ${objective.trim()}. Use DSO-specific blocks and Dandy brand messaging. Make it compelling and specific to this account.`;
+
+      // 1. Generate page blocks from AI
+      const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error((err as { error?: string }).error ?? "AI generation failed");
+      }
+      const generated = await genRes.json() as { title: string; slug: string; blocks: unknown[] };
+
+      // 2. Create the page
+      const pageRes = await fetch(`${API_BASE}/lp/pages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: generated.title,
+          slug: generated.slug,
+          blocks: generated.blocks,
+          status: "draft",
+          pageVariables: { salesAccountId: String(accountId), salesAccountName: accountName },
+        }),
+      });
+      if (!pageRes.ok) throw new Error("Failed to save the generated page");
+      const page = await pageRes.json() as { id: number };
+
+      // 3. Create hotlinks for all contacts on this account
+      const hotlinkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: page.id }),
+      });
+      if (!hotlinkRes.ok) throw new Error("Page created but hotlinks failed — open the builder to finish");
+
+      onCreated();
+      onClose();
+      navigate(`/builder/${page.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong — please try again");
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
     } finally {
       setGenerating(false);
     }
   }
 
+<<<<<<< HEAD
   if (loading) {
     return <Skeleton className="h-[120px] rounded-2xl" />;
   }
@@ -900,6 +1020,80 @@ function ContactImportWizard({ accountId, onImported }: { accountId: number; onI
         )}
       </div>
     </Card>
+=======
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </div>
+            Generate Microsite
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-1">
+          {/* Account (read-only) */}
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Account</Label>
+            <div className="mt-1.5 px-3 py-2 text-sm rounded-md border border-input bg-muted/40 text-foreground">
+              {accountName}
+            </div>
+          </div>
+
+          {/* Objective */}
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Campaign Goal
+            </Label>
+            <Input
+              className="mt-1.5"
+              placeholder="e.g. Book a discovery call, Introduce Dandy's DSO platform, Drive pilot sign-up"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && objective.trim() && !generating) handleGenerate(); }}
+              disabled={generating}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              AI will generate a full personalized page with blocks, copy, and imagery. You can edit everything in the builder.
+            </p>
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !objective.trim()}
+              className="gap-2 flex-1"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Generating microsite…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Generate Microsite
+                </>
+              )}
+            </Button>
+            <Button variant="ghost" onClick={handleClose} disabled={generating}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   );
 }
 
@@ -911,8 +1105,16 @@ function AccountDetailView({ id }: { id: string }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
+<<<<<<< HEAD
   // AI microsite generation
   const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
+=======
+  // Microsites
+  const [microsites, setMicrosites] = useState<Microsite[]>([]);
+  const [micrositesLoading, setMicrositesLoading] = useState(true);
+  const [showMicrositeModal, setShowMicrositeModal] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
@@ -936,7 +1138,17 @@ function AccountDetailView({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const fetchMicrosites = useCallback(() => {
+    setMicrositesLoading(true);
+    fetch(`${API_BASE}/sales/accounts/${id}/microsites`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setMicrosites)
+      .catch(() => setMicrosites([]))
+      .finally(() => setMicrositesLoading(false));
+  }, [id]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchMicrosites(); }, [fetchMicrosites]);
 
   async function handleCreateContact(e: React.FormEvent) {
     e.preventDefault();
@@ -964,6 +1176,15 @@ function AccountDetailView({ id }: { id: string }) {
     } finally {
       setSavingContact(false);
     }
+  }
+
+
+  function handleCopyToken(token: string) {
+    const baseUrl = window.location.origin;
+    navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    });
   }
 
   if (loading) {
@@ -997,17 +1218,17 @@ function AccountDetailView({ id }: { id: string }) {
       <div className="flex flex-col gap-6 pb-12">
 
         {/* Back + Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-lg"
+            className="h-8 w-8 rounded-lg mt-1"
             onClick={() => navigate("/sales/accounts")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-display font-bold text-foreground truncate">
                 {account.name}
               </h1>
@@ -1024,11 +1245,20 @@ function AccountDetailView({ id }: { id: string }) {
               {account.industry && <span>{account.industry}</span>}
             </div>
           </div>
+          <Button
+            onClick={() => setShowMicrositeModal(true)}
+            className="gap-2 shrink-0"
+            size="sm"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate Microsite
+          </Button>
         </div>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
+<<<<<<< HEAD
             {
               label: generatingMicrosite ? "Generating…" : "AI Microsite",
               icon: generatingMicrosite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />,
@@ -1051,6 +1281,9 @@ function AccountDetailView({ id }: { id: string }) {
               },
             },
             { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, href: "/sales/pages" },
+=======
+            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => setShowMicrositeModal(true) },
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
             { label: "Send Email", icon: <Mail className="w-4 h-4" />, href: "/sales/outreach" },
             { label: "View Signals", icon: <Activity className="w-4 h-4" />, href: "/sales/signals" },
             { label: "Add Contact", icon: <Users className="w-4 h-4" />, onClick: () => setShowContactForm(true) },
@@ -1192,7 +1425,119 @@ function AccountDetailView({ id }: { id: string }) {
             </div>
           )}
         </div>
+
+        {/* Microsites */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
+              <Layout className="w-5 h-5 text-muted-foreground" />
+              Microsites
+              {!micrositesLoading && microsites.length > 0 && (
+                <span className="text-base font-normal text-muted-foreground">({microsites.length})</span>
+              )}
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMicrositeModal(true)}
+              className="gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate Microsite
+            </Button>
+          </div>
+
+          {micrositesLoading ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-16 rounded-xl" />
+              <Skeleton className="h-16 rounded-xl" />
+            </div>
+          ) : microsites.length === 0 ? (
+            <Card className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border border-dashed border-border text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+                <Layout className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground text-sm">No microsites yet</p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
+                  Generate a personalized microsite for this account. Hotlinks will be auto-created for all contacts with an email.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="gap-2 mt-1"
+                onClick={() => setShowMicrositeModal(true)}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Generate Microsite
+              </Button>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {microsites.map((site) => (
+                <div
+                  key={site.pageId}
+                  className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+                >
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Layout className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-sm font-medium text-foreground truncate">{site.title}</span>
+                      <PageStatusBadge status={site.status} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{site.hotlinkCount} hotlink{site.hotlinkCount !== 1 ? "s" : ""}</span>
+                      <span>·</span>
+                      <span>Updated {format(new Date(site.updatedAt), "MMM d")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {site.firstToken && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 h-8 px-2.5 text-xs"
+                        onClick={() => handleCopyToken(site.firstToken!)}
+                      >
+                        {copiedToken === site.firstToken ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy Link
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-8 px-2.5 text-xs"
+                      onClick={() => navigate(`/builder/${site.pageId}`)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open Builder
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      <GenerateMicrositeModal
+        open={showMicrositeModal}
+        onClose={() => setShowMicrositeModal(false)}
+        accountName={account.name}
+        accountId={id}
+        onCreated={fetchMicrosites}
+      />
     </SalesLayout>
   );
 }

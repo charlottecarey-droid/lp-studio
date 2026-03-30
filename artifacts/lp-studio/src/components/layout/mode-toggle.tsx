@@ -3,12 +3,15 @@ import { useLocation } from "wouter";
 import { Megaphone, Target } from "lucide-react";
 
 export function ModeToggle() {
-  const { mode, setMode } = useAppMode();
-  const [, navigate] = useLocation();
+  const { setMode } = useAppMode();
+  const [location, navigate] = useLocation();
+
+  // Derive active mode from the URL — single source of truth so the
+  // toggle is always in sync regardless of how the user navigated here.
+  const isSales = location === "/sales" || location.startsWith("/sales/");
 
   function handleSwitch(newMode: AppMode) {
     setMode(newMode);
-    // Navigate to the appropriate home when switching modes
     if (newMode === "sales") {
       navigate("/sales");
     } else {
@@ -19,13 +22,13 @@ export function ModeToggle() {
   return (
     <div className="flex items-center bg-muted/60 rounded-lg p-0.5 gap-0.5">
       <ModeButton
-        active={mode === "marketing"}
+        active={!isSales}
         onClick={() => handleSwitch("marketing")}
         icon={<Megaphone className="w-3.5 h-3.5" />}
         label="Marketing"
       />
       <ModeButton
-        active={mode === "sales"}
+        active={isSales}
         onClick={() => handleSwitch("sales")}
         icon={<Target className="w-3.5 h-3.5" />}
         label="Sales"

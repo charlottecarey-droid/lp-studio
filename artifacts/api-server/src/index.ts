@@ -379,6 +379,22 @@ async function runMigrations() {
         created_at timestamptz NOT NULL DEFAULT now()
       );
 
+      CREATE TABLE IF NOT EXISTS dso_cta_submissions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL,
+        first_name text,
+        last_name text,
+        company_name text,
+        source text,
+        microsite_id uuid REFERENCES dso_microsites(id) ON DELETE SET NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS first_name text;
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS last_name text;
+      ALTER TABLE dso_cta_submissions ADD COLUMN IF NOT EXISTS company_name text;
+      CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_email ON dso_cta_submissions(email);
+      CREATE INDEX IF NOT EXISTS idx_dso_cta_submissions_created_at ON dso_cta_submissions(created_at DESC);
+
       CREATE OR REPLACE FUNCTION fn_dso_alert_on_view()
       RETURNS trigger LANGUAGE plpgsql AS $$
       DECLARE
@@ -492,6 +508,130 @@ async function runMigrations() {
 
       -- LP Studio page variables (personalization tokens)
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS page_variables jsonb DEFAULT '{}';
+
+      -- Sales Console tables
+      CREATE TABLE IF NOT EXISTS sales_accounts (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        domain text,
+        industry text,
+        segment text,
+        parent_account_id integer,
+        status text NOT NULL DEFAULT 'prospect',
+        owner text,
+        notes text,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_contacts (
+        id serial PRIMARY KEY,
+        account_id integer NOT NULL REFERENCES sales_accounts(id) ON DELETE CASCADE,
+        first_name text NOT NULL,
+        last_name text NOT NULL,
+        email text,
+        title text,
+        role text,
+        phone text,
+        status text NOT NULL DEFAULT 'active',
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_contacts_account ON sales_contacts(account_id);
+
+      CREATE TABLE IF NOT EXISTS sales_signals (
+        id serial PRIMARY KEY,
+        account_id integer REFERENCES sales_accounts(id) ON DELETE CASCADE,
+        contact_id integer,
+        hotlink_id integer,
+        type text NOT NULL,
+        source text,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_account ON sales_signals(account_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_created ON sales_signals(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS sales_hotlinks (
+        id serial PRIMARY KEY,
+        token text NOT NULL UNIQUE,
+        contact_id integer NOT NULL REFERENCES sales_contacts(id) ON DELETE CASCADE,
+        page_id integer NOT NULL REFERENCES lp_pages(id) ON DELETE CASCADE,
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_token ON sales_hotlinks(token);
+
+      CREATE TABLE IF NOT EXISTS sales_email_templates (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        subject text NOT NULL,
+        body_html text NOT NULL,
+        body_text text,
+        merge_vars jsonb DEFAULT '[]',
+        category text DEFAULT 'general',
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      ALTER TABLE sales_email_templates ADD COLUMN IF NOT EXISTS format text NOT NULL DEFAULT 'plain';
+
+      CREATE TABLE IF NOT EXISTS sales_email_campaigns (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        template_id integer NOT NULL REFERENCES sales_email_templates(id),
+        account_id integer REFERENCES sales_accounts(id),
+        status text NOT NULL DEFAULT 'draft',
+        scheduled_at timestamptz,
+        sent_at timestamptz,
+        recipient_count integer DEFAULT 0,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_email_sends (
+        id serial PRIMARY KEY,
+        campaign_id integer REFERENCES sales_email_campaigns(id) ON DELETE CASCADE,
+        contact_id integer NOT NULL,
+        hotlink_id integer,
+        email text NOT NULL,
+        status text NOT NULL DEFAULT 'queued',
+        sent_at timestamptz,
+        opened_at timestamptz,
+        clicked_at timestamptz,
+        bounced_at timestamptz,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_email_sends_campaign ON sales_email_sends(campaign_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_email_sends_contact ON sales_email_sends(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_contact ON sales_hotlinks(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_page ON sales_hotlinks(page_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_contact ON sales_signals(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_signals_type ON sales_signals(type);
+
+      CREATE TABLE IF NOT EXISTS sales_inbound_emails (
+        id serial PRIMARY KEY,
+        contact_id integer,
+        account_id integer,
+        message_id text,
+        in_reply_to text,
+        from_email text NOT NULL,
+        from_name text,
+        to_email text NOT NULL,
+        subject text,
+        body_text text,
+        body_html text,
+        is_read text NOT NULL DEFAULT 'false',
+        metadata jsonb DEFAULT '{}',
+        received_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_inbound_contact ON sales_inbound_emails(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_inbound_received ON sales_inbound_emails(received_at DESC);
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

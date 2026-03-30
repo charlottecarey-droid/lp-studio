@@ -2,6 +2,16 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 
 export type AppMode = "marketing" | "sales";
 
+const STORAGE_KEY = "lp-studio-mode";
+
+export function getSavedMode(): AppMode {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "sales" ? "sales" : "marketing";
+  } catch {
+    return "marketing";
+  }
+}
+
 interface ModeContextValue {
   mode: AppMode;
   setMode: (mode: AppMode) => void;
@@ -11,18 +21,11 @@ interface ModeContextValue {
 const ModeContext = createContext<ModeContextValue | undefined>(undefined);
 
 export function ModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<AppMode>(() => {
-    try {
-      const saved = window.sessionStorage.getItem("lp-studio-mode");
-      return saved === "sales" ? "sales" : "marketing";
-    } catch {
-      return "marketing";
-    }
-  });
+  const [mode, setModeState] = useState<AppMode>(getSavedMode);
 
   const setMode = useCallback((m: AppMode) => {
     setModeState(m);
-    try { window.sessionStorage.setItem("lp-studio-mode", m); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, m); } catch {}
   }, []);
 
   const toggleMode = useCallback(() => {

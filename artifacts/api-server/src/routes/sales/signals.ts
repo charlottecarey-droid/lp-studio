@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Router, type Response } from "express";
 import { eq, desc, gte } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -17,26 +18,88 @@ function broadcastSignal(signal: Record<string, unknown>) {
 }
 
 // List signals with optional filters
+=======
+import { Router } from "express";
+import { eq, desc, and, gte, count } from "drizzle-orm";
+import { db } from "@workspace/db";
+import {
+  salesSignalsTable,
+  salesAccountsTable,
+  salesContactsTable,
+  salesEmailSendsTable,
+} from "@workspace/db";
+
+const router = Router();
+
+// ─── GET /sales/stats — dashboard summary counts ────────────
+
+router.get("/stats", async (req, res): Promise<void> => {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [[{ signalsToday }], [{ emailsSent }]] = await Promise.all([
+      db.select({ signalsToday: count() })
+        .from(salesSignalsTable)
+        .where(gte(salesSignalsTable.createdAt, todayStart)),
+      db.select({ emailsSent: count() })
+        .from(salesEmailSendsTable)
+        .where(eq(salesEmailSendsTable.status, "sent")),
+    ]);
+
+    res.json({ signalsToday, emailsSent });
+  } catch (err) {
+    console.error("GET /sales/stats error:", err);
+    res.status(500).json({ error: "Failed to load stats" });
+  }
+});
+
+// ─── GET /sales/signals — list signals with names ───────────
+
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 router.get("/signals", async (req, res): Promise<void> => {
   try {
     const { type, accountId, contactId, limit: limitStr } = req.query;
     const limit = Math.min(Number(limitStr) || 50, 200);
 
-    let query = db.select().from(salesSignalsTable);
-
+    const conditions: ReturnType<typeof eq>[] = [];
     if (type && typeof type === "string") {
-      query = query.where(eq(salesSignalsTable.type, type)) as typeof query;
+      conditions.push(eq(salesSignalsTable.type, type));
     }
     if (accountId) {
-      query = query.where(eq(salesSignalsTable.accountId, Number(accountId))) as typeof query;
+      conditions.push(eq(salesSignalsTable.accountId, Number(accountId)));
     }
     if (contactId) {
       query = query.where(eq(salesSignalsTable.contactId, Number(contactId))) as typeof query;
     }
 
-    const signals = await query
+    const rows = await db
+      .select({
+        id: salesSignalsTable.id,
+        accountId: salesSignalsTable.accountId,
+        contactId: salesSignalsTable.contactId,
+        hotlinkId: salesSignalsTable.hotlinkId,
+        type: salesSignalsTable.type,
+        source: salesSignalsTable.source,
+        metadata: salesSignalsTable.metadata,
+        createdAt: salesSignalsTable.createdAt,
+        accountName: salesAccountsTable.name,
+        contactFirstName: salesContactsTable.firstName,
+        contactLastName: salesContactsTable.lastName,
+        contactEmail: salesContactsTable.email,
+      })
+      .from(salesSignalsTable)
+      .leftJoin(salesAccountsTable, eq(salesSignalsTable.accountId, salesAccountsTable.id))
+      .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(salesSignalsTable.createdAt))
       .limit(limit);
+
+    const signals = rows.map((s) => ({
+      ...s,
+      accountName: s.accountName ?? null,
+      contactName: [s.contactFirstName, s.contactLastName].filter(Boolean).join(" ") || null,
+    }));
 
     res.json(signals);
   } catch (err) {
@@ -45,6 +108,7 @@ router.get("/signals", async (req, res): Promise<void> => {
   }
 });
 
+<<<<<<< HEAD
 // SSE stream for real-time signal updates
 router.get("/signals/stream", (req, res): void => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -67,6 +131,10 @@ router.get("/signals/stream", (req, res): void => {
 });
 
 // Create a signal (used internally by tracking endpoints)
+=======
+// ─── POST /sales/signals — create a signal ──────────────────
+
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 router.post("/signals", async (req, res): Promise<void> => {
   const { accountId, contactId, hotlinkId, type, source, metadata } = req.body;
   if (!type) {
