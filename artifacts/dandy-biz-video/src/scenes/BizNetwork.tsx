@@ -43,7 +43,7 @@ export default function BizNetwork() {
             />
           </h2>
           <motion.p
-            className="text-white/50 text-[1.3vw]"
+            className="text-white/50 text-[1.8vw]"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0, duration: 0.5 }}
