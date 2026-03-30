@@ -50,7 +50,7 @@ function DoctorRow({ doc, index, visible }: { doc: Doctor; index: number; visibl
     >
       {/* Avatar */}
       <div
-        className="w-[2.8vw] h-[2.8vw] rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-[0.85vw]"
+        className="w-[2.8vw] h-[2.8vw] rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-[1vw]"
         style={{ background: doc.color }}
       >
         {doc.initials}
@@ -58,13 +58,13 @@ function DoctorRow({ doc, index, visible }: { doc: Doctor; index: number; visibl
 
       {/* Name + practice */}
       <div className="flex-1 min-w-0">
-        <p className="text-white text-[1vw] font-medium leading-tight truncate">{doc.name}</p>
-        <p className="text-white/40 text-[0.78vw] truncate">{doc.practice}</p>
+        <p className="text-white text-[1.1vw] font-medium leading-tight truncate">{doc.name}</p>
+        <p className="text-white/40 text-[1vw] truncate">{doc.practice}</p>
       </div>
 
       {/* Scan quality bar */}
       <div className="flex flex-col items-end gap-1 w-[7vw]">
-        <span className="text-white/40 text-[0.72vw] uppercase tracking-wider">Scan Quality</span>
+        <span className="text-white/40 text-[1vw] uppercase tracking-wider">Scan Quality</span>
         <div className="flex items-center gap-2 w-full">
           <div className="flex-1 h-[5px] bg-white/10 rounded-full overflow-hidden">
             <motion.div
@@ -75,7 +75,7 @@ function DoctorRow({ doc, index, visible }: { doc: Doctor; index: number; visibl
               transition={{ delay: index * 0.11 + 0.3, duration: 0.6, ease: EASE }}
             />
           </div>
-          <span className="text-[0.82vw] font-bold tabular-nums flex-shrink-0" style={{ color: qc }}>
+          <span className="text-[1.05vw] font-bold tabular-nums flex-shrink-0" style={{ color: qc }}>
             {doc.scanQuality}
           </span>
         </div>
@@ -83,14 +83,14 @@ function DoctorRow({ doc, index, visible }: { doc: Doctor; index: number; visibl
 
       {/* Remake rate */}
       <div className="flex flex-col items-end w-[4.5vw]">
-        <span className="text-white/40 text-[0.72vw] uppercase tracking-wider">Remakes</span>
-        <span className="text-[0.95vw] font-bold tabular-nums" style={{ color: rc }}>{doc.remakeRate}</span>
+        <span className="text-white/40 text-[1vw] uppercase tracking-wider">Remakes</span>
+        <span className="text-[1.1vw] font-bold tabular-nums" style={{ color: rc }}>{doc.remakeRate}</span>
       </div>
 
       {/* Orders */}
       <div className="flex flex-col items-end w-[4vw]">
-        <span className="text-white/40 text-[0.72vw] uppercase tracking-wider">Orders</span>
-        <span className="text-[0.95vw] font-bold text-white/80 tabular-nums">{doc.orders}</span>
+        <span className="text-white/40 text-[1vw] uppercase tracking-wider">Orders</span>
+        <span className="text-[1.1vw] font-bold text-white/80 tabular-nums">{doc.orders}</span>
       </div>
     </motion.div>
   );
@@ -129,7 +129,7 @@ export default function BizDoctors() {
               text="PROVIDER LEVEL VIEW"
               delay={0.1}
               stagger={0.02}
-              className="text-[#C7E738] text-[0.9vw] font-semibold tracking-[0.3em] uppercase"
+              className="text-[#C7E738] text-[1.1vw] font-semibold tracking-[0.3em] uppercase"
             />
           </motion.div>
 
@@ -172,7 +172,7 @@ export default function BizDoctors() {
             {[['#22c55e', 'On track'], ['#f59e0b', 'Watch'], ['#ef4444', 'Needs coaching']].map(([color, label]) => (
               <div key={label} className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                <span className="text-white/40 text-[0.75vw]">{label}</span>
+                <span className="text-white/40 text-[1vw]">{label}</span>
               </div>
             ))}
           </motion.div>
@@ -186,7 +186,7 @@ export default function BizDoctors() {
 
           {/* Footer note */}
           <motion.p
-            className="text-white/25 text-[0.75vw] text-right mt-1"
+            className="text-white/25 text-[1vw] text-right mt-1"
             initial={{ opacity: 0 }}
             animate={rowsVisible ? { opacity: 1 } : { opacity: 0 }}
             transition={{ delay: 0.9, duration: 0.4 }}

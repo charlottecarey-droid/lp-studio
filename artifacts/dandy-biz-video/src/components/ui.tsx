@@ -53,7 +53,7 @@ export function MetricPill({ label, value, trend = 'neutral', delay = 0, large =
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, delay, type: 'spring', bounce: 0.4 }}
     >
-      <span className={`text-[#6b7280] ${large ? 'text-[1.15vw]' : 'text-[0.9vw]'}`}>{label}</span>
+      <span className={`text-[#6b7280] ${large ? 'text-[1.15vw]' : 'text-[1.1vw]'}`}>{label}</span>
       <span className={`font-bold tabular-nums ${large ? 'text-[1.45vw]' : 'text-[1vw]'}`} style={{ color: trendColor }}>
         {arrow}{value}
       </span>
@@ -85,11 +85,11 @@ export function KpiCard({ label, value, sub, trend = 'neutral', delay = 0, dark 
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
     >
-      <span className={`text-[0.85vw] font-medium uppercase tracking-wider ${dark ? 'text-white/50' : 'text-[#6b7280]'}`}>{label}</span>
+      <span className={`text-[1.05vw] font-medium uppercase tracking-wider ${dark ? 'text-white/50' : 'text-[#6b7280]'}`}>{label}</span>
       <span className={`text-[2vw] font-bold tabular-nums leading-none ${dark ? 'text-white' : 'text-[#111827]'}`}>
         {arrow && <span style={{ color: dark ? trendColorDark : trendColor }}>{arrow} </span>}{value}
       </span>
-      {sub && <span className={`text-[0.78vw] ${dark ? 'text-white/35' : 'text-[#9ca3af]'}`}>{sub}</span>}
+      {sub && <span className={`text-[1vw] ${dark ? 'text-white/35' : 'text-[#9ca3af]'}`}>{sub}</span>}
     </motion.div>
   );
 }
@@ -108,7 +108,7 @@ export function LiveBadge({ label = 'Live Data', delay = 0 }: { label?: string; 
         animate={{ opacity: [1, 0.3, 1] }}
         transition={{ duration: 1.5, repeat: Infinity }}
       />
-      <span className="text-[#374151] text-[0.85vw] font-semibold tracking-wide uppercase">{label}</span>
+      <span className="text-[#374151] text-[1.05vw] font-semibold tracking-wide uppercase">{label}</span>
     </motion.div>
   );
 }
@@ -146,7 +146,7 @@ export function LocationRow({ name, chairs, margin, trend, delay = 0 }: Location
       <div className="flex items-center gap-3">
         <div className="w-2 h-2 rounded-full" style={{ background: trendColor }} />
         <span className="text-[#111827] text-[1vw] font-semibold">{name}</span>
-        <span className="text-[#9ca3af] text-[0.82vw]">{chairs} chairs</span>
+        <span className="text-[#9ca3af] text-[1vw]">{chairs} chairs</span>
       </div>
       <span className="text-[1.1vw] font-bold tabular-nums" style={{ color: trendColor }}>
         {arrow} {margin}

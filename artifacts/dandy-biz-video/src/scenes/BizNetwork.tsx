@@ -69,7 +69,7 @@ export default function BizNetwork() {
 
             {/* Footer label */}
             <motion.p
-              className="text-white/30 text-[0.85vw] text-right mt-1"
+              className="text-white/30 text-[1.05vw] text-right mt-1"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8, duration: 0.5 }}
