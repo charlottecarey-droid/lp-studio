@@ -87,7 +87,7 @@ export function ResultsTab({
   }));
 
   // Daily CVR trend data
-  const dailyCvrData = dailySeries.map((d) => {
+  const dailyCvrData = dailySeries.map((d: Record<string, string | number>) => {
     const entry: Record<string, string | number> = {
       day: (d.day as string).slice(5), // MM-DD
     };

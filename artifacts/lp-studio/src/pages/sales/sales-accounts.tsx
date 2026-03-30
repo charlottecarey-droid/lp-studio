@@ -13,12 +13,30 @@ import {
   ArrowLeft,
   Activity,
   ExternalLink,
+<<<<<<< HEAD
+  Pencil,
+  Trash2,
+  Brain,
+  RefreshCw,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  MapPin,
+  TrendingUp,
+  MessageSquare,
+  Upload,
+  Clock,
+  Eye,
+  MousePointerClick,
+=======
   Layout,
   Copy,
   Check,
   Loader2,
   Sparkles,
   AlertCircle,
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -113,6 +131,8 @@ function AccountListView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // New account form state
   const [newName, setNewName] = useState("");
@@ -122,11 +142,18 @@ function AccountListView() {
   const [saving, setSaving] = useState(false);
 
   const fetchAccounts = useCallback(() => {
+    setIsSyncing(true);
     fetch(`${API_BASE}/sales/accounts`)
       .then((r) => (r.ok ? r.json() : []))
-      .then(setAccounts)
+      .then((data) => {
+        setAccounts(data);
+        setLastSyncTime(new Date());
+      })
       .catch(() => setAccounts([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setIsSyncing(false);
+      });
   }, []);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
@@ -246,6 +273,39 @@ function AccountListView() {
           />
         </div>
 
+        {/* Sync Status */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/40">
+          <div className="flex-1">
+            <Link href="/sales/sfdc" className="text-muted-foreground hover:text-foreground transition-colors">
+              Data synced from Salesforce
+            </Link>
+            {lastSyncTime && (
+              <span className="text-muted-foreground/70">
+                {" "} · Last updated: {format(lastSyncTime, "MMM d, h:mm a")}
+              </span>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              setIsSyncing(true);
+              try {
+                await fetch(`${API_BASE}/sales/sfdc/sync/accounts`, { method: "POST" });
+                fetchAccounts();
+              } catch (error) {
+                console.error("Failed to sync accounts:", error);
+                setIsSyncing(false);
+              }
+            }}
+            disabled={isSyncing}
+            className="h-7 w-7 p-0"
+            title="Sync accounts from Salesforce"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
         {/* Account List */}
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -314,6 +374,75 @@ function AccountListView() {
   );
 }
 
+<<<<<<< HEAD
+/* ─── Briefing Panel ─────────────────────────────────────────── */
+
+interface BriefingData {
+  companyName?: string;
+  overview?: string;
+  tier?: string;
+  organizationalModel?: string;
+  leadership?: { name: string; title: string }[];
+  sizeAndLocations?: {
+    locationCount?: string | null;
+    regions?: string[];
+    headquarters?: string | null;
+    estimatedRevenue?: string | null;
+    ownership?: string | null;
+  };
+  recentNews?: { headline: string; summary: string; date?: string | null }[];
+  buyingCommittee?: { role: string; painPoints: string; recommendedMessage: string }[];
+  fitAnalysis?: {
+    primaryValueProp?: string;
+    keyPainPoints?: string[];
+    proofPoints?: string[];
+    potentialObjections?: string[];
+    recommendedApproach?: string;
+  };
+  talkingPoints?: string[];
+  pageRecommendations?: {
+    heroHeadline?: string;
+    contentFocus?: string;
+    ctaStrategy?: string;
+  };
+  sources?: string[];
+}
+
+interface Briefing {
+  id: number;
+  accountId: number;
+  briefingData: BriefingData;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function BriefingPanel({ accountId }: { accountId: number }) {
+  const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/sales/accounts/${accountId}/briefing`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setBriefing)
+      .catch(() => setBriefing(null))
+      .finally(() => setLoading(false));
+  }, [accountId]);
+
+  async function generateBriefing() {
+    setGenerating(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/accounts/${accountId}/briefing`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setBriefing(data);
+        setExpanded(true);
+      }
+    } catch {
+      // silently fail
+=======
 /* ─── Generate Microsite Modal ───────────────────────────────── */
 
 function GenerateMicrositeModal({
@@ -388,11 +517,510 @@ function GenerateMicrositeModal({
       navigate(`/builder/${page.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong — please try again");
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
     } finally {
       setGenerating(false);
     }
   }
 
+<<<<<<< HEAD
+  if (loading) {
+    return <Skeleton className="h-[120px] rounded-2xl" />;
+  }
+
+  const data = briefing?.briefingData;
+
+  // No briefing yet — show generate CTA
+  if (!briefing || !data?.overview || data.overview.includes("not yet available")) {
+    return (
+      <Card className="p-5 rounded-2xl border border-dashed border-primary/30 bg-primary/5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Brain className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-foreground text-sm">AI Account Briefing</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Generate an AI-powered research briefing with leadership, news, pain points, and recommended approach
+            </p>
+          </div>
+          <Button onClick={generateBriefing} disabled={generating} className="gap-2">
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Researching…
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Generate Briefing
+              </>
+            )}
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  // Briefing exists — show expandable summary
+  return (
+    <Card className="rounded-2xl border border-border/60 overflow-hidden">
+      {/* Header — always visible */}
+      <div
+        className="flex items-center gap-4 p-5 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Brain className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-foreground text-sm">AI Briefing</p>
+            {data.tier && data.tier !== "Unknown" && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                {data.tier}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{data.overview}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={(e) => { e.stopPropagation(); generateBriefing(); }}
+          disabled={generating}
+          title="Refresh briefing"
+        >
+          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+        </Button>
+        {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </div>
+
+      {/* Expanded Content */}
+      {expanded && (
+        <div className="px-5 pb-5 flex flex-col gap-5 border-t border-border/40 pt-5">
+
+          {/* Overview */}
+          {data.overview && (
+            <div>
+              <p className="text-sm text-foreground leading-relaxed">{data.overview}</p>
+            </div>
+          )}
+
+          {/* Size & Locations */}
+          {data.sizeAndLocations && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {data.sizeAndLocations.locationCount && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Locations</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{data.sizeAndLocations.locationCount}</p>
+                </div>
+              )}
+              {data.sizeAndLocations.headquarters && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">HQ</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{data.sizeAndLocations.headquarters}</p>
+                </div>
+              )}
+              {data.sizeAndLocations.estimatedRevenue && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Revenue</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{data.sizeAndLocations.estimatedRevenue}</p>
+                </div>
+              )}
+              {data.sizeAndLocations.ownership && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Ownership</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{data.sizeAndLocations.ownership}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Leadership */}
+          {data.leadership && data.leadership.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Leadership</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {data.leadership.map((person, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {person.name?.[0] ?? "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{person.name}</p>
+                      <p className="text-xs text-muted-foreground">{person.title}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Fit Analysis */}
+          {data.fitAnalysis && data.fitAnalysis.primaryValueProp && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Dandy Fit Analysis</h4>
+              <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/60 dark:border-emerald-900/30">
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{data.fitAnalysis.primaryValueProp}</p>
+                {data.fitAnalysis.keyPainPoints && data.fitAnalysis.keyPainPoints.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {data.fitAnalysis.keyPainPoints.map((pt, i) => (
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        {pt}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {data.fitAnalysis.recommendedApproach && (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-3">
+                    <span className="font-semibold">Approach:</span> {data.fitAnalysis.recommendedApproach}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Buying Committee */}
+          {data.buyingCommittee && data.buyingCommittee.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Buying Committee</h4>
+              <div className="flex flex-col gap-2">
+                {data.buyingCommittee.map((person, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-muted/30">
+                    <p className="text-sm font-medium text-foreground">{person.role}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{person.painPoints}</p>
+                    <p className="text-xs text-primary mt-1 italic">{person.recommendedMessage}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Talking Points */}
+          {data.talkingPoints && data.talkingPoints.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Talking Points</h4>
+              <div className="flex flex-col gap-1.5">
+                {data.talkingPoints.map((pt, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm text-foreground">
+                    <MessageSquare className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                    <span>{pt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent News */}
+          {data.recentNews && data.recentNews.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Recent News</h4>
+              <div className="flex flex-col gap-2">
+                {data.recentNews.map((news, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">{news.headline}</p>
+                      {news.date && <span className="text-[10px] text-muted-foreground">{news.date}</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{news.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Page Recommendations */}
+          {data.pageRecommendations && data.pageRecommendations.heroHeadline && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Microsite Recommendations</h4>
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-sm font-medium text-foreground">"{data.pageRecommendations.heroHeadline}"</p>
+                {data.pageRecommendations.contentFocus && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <span className="font-semibold">Focus:</span> {data.pageRecommendations.contentFocus}
+                  </p>
+                )}
+                {data.pageRecommendations.ctaStrategy && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="font-semibold">CTA:</span> {data.pageRecommendations.ctaStrategy}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {data.sources && data.sources.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sources</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {data.sources.map((src, i) => (
+                  <a
+                    key={i}
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-muted/40 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    {new URL(src).hostname.replace("www.", "")}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Updated timestamp */}
+          {briefing?.updatedAt && (
+            <p className="text-[10px] text-muted-foreground text-right">
+              Last updated {format(new Date(briefing.updatedAt), "MMM d, yyyy 'at' h:mm a")}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─── Activity Timeline ──────────────────────────────────────── */
+
+interface Signal {
+  id: number;
+  accountId: number | null;
+  contactId: number | null;
+  type: string;
+  source: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+const signalConfig: Record<string, { icon: typeof Activity; label: string; color: string }> = {
+  page_view: { icon: Eye, label: "Page View", color: "text-blue-500" },
+  email_open: { icon: Mail, label: "Email Opened", color: "text-amber-500" },
+  email_click: { icon: MousePointerClick, label: "Email Clicked", color: "text-emerald-500" },
+  form_submit: { icon: FileText, label: "Form Submitted", color: "text-purple-500" },
+};
+
+function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts: Contact[] }) {
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/sales/signals?accountId=${accountId}&limit=20`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setSignals)
+      .catch(() => setSignals([]))
+      .finally(() => setLoading(false));
+  }, [accountId]);
+
+  if (loading) return <Skeleton className="h-[120px] rounded-2xl" />;
+  if (signals.length === 0) {
+    return (
+      <Card className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border">
+        <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center">
+          <Activity className="w-5 h-5 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="font-semibold text-foreground text-sm">No activity yet</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Signals will appear here when contacts engage with microsites and emails
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const contactMap = new Map(contacts.map((c) => [c.id, c]));
+
+  return (
+    <div className="flex flex-col gap-2">
+      {signals.map((signal) => {
+        const config = signalConfig[signal.type] ?? { icon: Activity, label: signal.type, color: "text-muted-foreground" };
+        const Icon = config.icon;
+        const contact = signal.contactId ? contactMap.get(signal.contactId) : null;
+
+        return (
+          <div key={signal.id} className="flex items-start gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl">
+            <div className={`mt-0.5 ${config.color}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-foreground">
+                <span className="font-medium">{config.label}</span>
+                {contact && (
+                  <span className="text-muted-foreground"> by {contact.firstName} {contact.lastName}</span>
+                )}
+              </p>
+              {signal.source && (
+                <p className="text-xs text-muted-foreground mt-0.5">{signal.source}</p>
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              {format(new Date(signal.createdAt), "MMM d, h:mm a")}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Contact Import (CSV) ───────────────────────────────────── */
+
+function ContactImportWizard({ accountId, onImported }: { accountId: number; onImported: () => void }) {
+  const [show, setShow] = useState(false);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ imported: number; errors: number } | null>(null);
+
+  const targetFields = ["firstName", "lastName", "email", "title", "role", "phone"];
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length < 2) return;
+      const hdrs = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+      setHeaders(hdrs);
+      // Auto-map by common names
+      const autoMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {
+        "first_name": "firstName", "first name": "firstName", "firstname": "firstName",
+        "last_name": "lastName", "last name": "lastName", "lastname": "lastName",
+        "email": "email", "email_address": "email",
+        "title": "title", "job_title": "title", "job title": "title",
+        "role": "role", "buyer_role": "role",
+        "phone": "phone", "phone_number": "phone",
+      };
+      hdrs.forEach((h) => {
+        const key = h.toLowerCase().trim();
+        if (nameMap[key]) autoMap[h] = nameMap[key];
+      });
+      setMapping(autoMap);
+
+      const rows = lines.slice(1).map((line) => {
+        const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+        const row: Record<string, string> = {};
+        hdrs.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+        return row;
+      });
+      setCsvRows(rows);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    let imported = 0;
+    let errors = 0;
+
+    for (const row of csvRows) {
+      const contact: Record<string, unknown> = { accountId };
+      for (const [csvCol, field] of Object.entries(mapping)) {
+        if (field && row[csvCol]) contact[field] = row[csvCol];
+      }
+      if (!contact.firstName || !contact.lastName) { errors++; continue; }
+
+      try {
+        const res = await fetch(`${API_BASE}/sales/contacts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(contact),
+        });
+        if (res.ok) imported++;
+        else errors++;
+      } catch {
+        errors++;
+      }
+    }
+
+    setResult({ imported, errors });
+    setImporting(false);
+    if (imported > 0) onImported();
+  }
+
+  if (!show) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setShow(true)} className="gap-1.5">
+        <Upload className="w-3.5 h-3.5" />
+        Import CSV
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="p-5 rounded-2xl border border-primary/30 bg-primary/5">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Import Contacts from CSV</h3>
+          <Button variant="ghost" size="sm" onClick={() => { setShow(false); setCsvRows([]); setResult(null); }}>Cancel</Button>
+        </div>
+
+        {result ? (
+          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10">
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              Imported {result.imported} contacts{result.errors > 0 ? `, ${result.errors} skipped` : ""}
+            </p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => { setShow(false); setCsvRows([]); setResult(null); }}>
+              Done
+            </Button>
+          </div>
+        ) : csvRows.length === 0 ? (
+          <div>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+            <p className="text-xs text-muted-foreground mt-2">CSV should have headers: first_name, last_name, email, title, role</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-muted-foreground">{csvRows.length} rows found. Map CSV columns to contact fields:</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {headers.map((h) => (
+                <div key={h}>
+                  <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground block mb-1">
+                    {h}
+                  </label>
+                  <select
+                    value={mapping[h] ?? ""}
+                    onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value }))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                  >
+                    <option value="">— skip —</option>
+                    {targetFields.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleImport} disabled={importing || !mapping.firstName || !mapping.lastName}>
+                {importing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Importing…</>
+                ) : (
+                  `Import ${csvRows.length} Contacts`
+                )}
+              </Button>
+              {(!mapping.firstName || !mapping.lastName) && (
+                <p className="text-xs text-red-500">Map at least firstName and lastName</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+=======
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-md">
@@ -465,6 +1093,7 @@ function GenerateMicrositeModal({
         </div>
       </DialogContent>
     </Dialog>
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   );
 }
 
@@ -476,11 +1105,16 @@ function AccountDetailView({ id }: { id: string }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
+<<<<<<< HEAD
+  // AI microsite generation
+  const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
+=======
   // Microsites
   const [microsites, setMicrosites] = useState<Microsite[]>([]);
   const [micrositesLoading, setMicrositesLoading] = useState(true);
   const [showMicrositeModal, setShowMicrositeModal] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
@@ -622,9 +1256,34 @@ function AccountDetailView({ id }: { id: string }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
+<<<<<<< HEAD
+            {
+              label: generatingMicrosite ? "Generating…" : "AI Microsite",
+              icon: generatingMicrosite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />,
+              onClick: async () => {
+                if (generatingMicrosite) return;
+                setGeneratingMicrosite(true);
+                try {
+                  const res = await fetch(`${API_BASE}/sales/accounts/${id}/generate-microsite`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({}),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    navigate(`/pages/${data.page.id}`);
+                  }
+                } finally {
+                  setGeneratingMicrosite(false);
+                }
+              },
+            },
+            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, href: "/sales/pages" },
+=======
             { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => setShowMicrositeModal(true) },
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
             { label: "Send Email", icon: <Mail className="w-4 h-4" />, href: "/sales/outreach" },
             { label: "View Signals", icon: <Activity className="w-4 h-4" />, href: "/sales/signals" },
             { label: "Add Contact", icon: <Users className="w-4 h-4" />, onClick: () => setShowContactForm(true) },
@@ -653,6 +1312,9 @@ function AccountDetailView({ id }: { id: string }) {
           ))}
         </div>
 
+        {/* AI Briefing */}
+        <BriefingPanel accountId={Number(id)} />
+
         {/* Notes */}
         {account.notes && (
           <Card className="p-5 rounded-2xl border border-border/60">
@@ -661,16 +1323,25 @@ function AccountDetailView({ id }: { id: string }) {
           </Card>
         )}
 
+        {/* Activity Timeline */}
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-display font-bold text-foreground">Activity</h2>
+          <ActivityTimeline accountId={Number(id)} contacts={contacts} />
+        </div>
+
         {/* Contacts */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-display font-bold text-foreground">
               Contacts ({contacts.length})
             </h2>
-            <Button variant="outline" size="sm" onClick={() => setShowContactForm(!showContactForm)} className="gap-1.5">
-              <Plus className="w-3.5 h-3.5" />
-              Add Contact
-            </Button>
+            <div className="flex items-center gap-2">
+              <ContactImportWizard accountId={Number(id)} onImported={fetchData} />
+              <Button variant="outline" size="sm" onClick={() => setShowContactForm(!showContactForm)} className="gap-1.5">
+                <Plus className="w-3.5 h-3.5" />
+                Add Contact
+              </Button>
+            </div>
           </div>
 
           {/* New Contact Form */}

@@ -173,7 +173,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
           name: `Variant ${test.variants.length + 1}`,
           isControl: test.variants.length === 0,
           trafficWeight: newVariantWeight,
-          config: templateVideoHero.config as Record<string, unknown>,
+          config: templateVideoHero.config as unknown as Record<string, unknown>,
           builderPageId: pageId,
         }
       },

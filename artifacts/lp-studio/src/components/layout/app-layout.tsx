@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, Radio, Paintbrush, LayoutGrid, CheckCircle2, BarChart2, BookOpen, Blocks, Settings2, Users, FormInput, Plug2 } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, LayoutGrid, CheckCircle2, BarChart2, Paintbrush, Blocks, FormInput } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/layout/mode-toggle";
@@ -42,10 +42,10 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/live-pages"}>
-                  <Link href="/live-pages" className="font-medium">
-                    <Radio className="w-4 h-4" />
-                    <span>Live Pages</span>
+                <SidebarMenuButton asChild isActive={location === "/pages" || location.startsWith("/builder/")}>
+                  <Link href="/pages" className="font-medium">
+                    <LayoutGrid className="w-4 h-4" />
+                    <span>Pages</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -54,14 +54,6 @@ export function AppSidebar() {
                   <Link href="/tests" className="font-medium">
                     <FlaskConical className="w-4 h-4" />
                     <span>Experiments</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/pages" || location.startsWith("/builder/")}>
-                  <Link href="/pages" className="font-medium">
-                    <LayoutGrid className="w-4 h-4" />
-                    <span>Pages</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -82,18 +74,10 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/leads"}>
-                  <Link href="/leads" className="font-medium">
-                    <Users className="w-4 h-4" />
-                    <span>Leads</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/forms"}>
-                  <Link href="/forms" className="font-medium">
+                <SidebarMenuButton asChild isActive={location === "/forms-and-leads" || location === "/leads" || location === "/forms" || location === "/integrations"}>
+                  <Link href="/forms-and-leads" className="font-medium">
                     <FormInput className="w-4 h-4" />
-                    <span>Forms</span>
+                    <span>Forms & Leads</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -106,42 +90,18 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/brand"}>
+                <SidebarMenuButton asChild isActive={location === "/brand" || location === "/library"}>
                   <Link href="/brand" className="font-medium">
                     <Paintbrush className="w-4 h-4" />
-                    <span>Brand Settings</span>
+                    <span>Brand & Content</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/library"}>
-                  <Link href="/library" className="font-medium">
-                    <BookOpen className="w-4 h-4" />
-                    <span>Content Library</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/block-defaults"}>
-                  <Link href="/block-defaults" className="font-medium">
-                    <Settings2 className="w-4 h-4" />
-                    <span>Block Defaults</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/custom-blocks"}>
-                  <Link href="/custom-blocks" className="font-medium">
+                <SidebarMenuButton asChild isActive={location === "/blocks" || location === "/block-defaults" || location === "/custom-blocks"}>
+                  <Link href="/blocks" className="font-medium">
                     <Blocks className="w-4 h-4" />
-                    <span>Custom Blocks</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/integrations"}>
-                  <Link href="/integrations" className="font-medium">
-                    <Plug2 className="w-4 h-4" />
-                    <span>Integrations</span>
+                    <span>Blocks</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

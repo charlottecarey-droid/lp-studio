@@ -225,7 +225,7 @@ const ResizableImage = Image.extend({
     ];
   },
   addNodeView() {
-    return ReactNodeViewRenderer(ResizableImageView as Parameters<typeof ReactNodeViewRenderer>[0]);
+    return ReactNodeViewRenderer(ResizableImageView as unknown as any);
   },
 });
 

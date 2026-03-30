@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +14,9 @@ export const lpPagesTable = pgTable("lp_pages", {
   ogImage: text("og_image").notNull().default(""),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
   pageVariables: jsonb("page_variables").default({}),
+  accountId: integer("account_id"),       // links page to a sales account (nullable)
+  mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"
+  createdBy: text("created_by"),          // user/rep identifier
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

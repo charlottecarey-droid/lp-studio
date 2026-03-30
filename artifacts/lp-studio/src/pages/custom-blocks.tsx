@@ -37,6 +37,14 @@ interface EditorState {
 }
 
 export default function CustomBlocksPage() {
+  return (
+    <AppLayout>
+      <CustomBlocksContent />
+    </AppLayout>
+  );
+}
+
+export function CustomBlocksContent() {
   const [blocks, setBlocks] = useState<CustomBlock[]>([]);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -129,108 +137,106 @@ export default function CustomBlocksPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        {/* Page header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Custom Blocks</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Build reusable blocks with the Rich Text editor or custom HTML. Assign them to the Blocks tab (Core) or a segment-specific tab.
-            </p>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Custom Blocks</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Build reusable blocks with the Rich Text editor or custom HTML. Assign them to the Blocks tab (Core) or a segment-specific tab.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="gap-2 shrink-0">
+          <Plus className="w-4 h-4" />
+          New Block
+        </Button>
+      </div>
+
+      {/* Block list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : blocks.length === 0 ? (
+        <div className="border border-dashed border-border rounded-xl py-16 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 mx-auto">
+            <Blocks className="w-7 h-7 text-primary" />
           </div>
-          <Button onClick={openCreate} className="gap-2 shrink-0">
+          <h3 className="text-base font-semibold text-foreground mb-1">No custom blocks yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4 leading-relaxed">
+            Create your first block using the Rich Text editor or paste custom HTML.
+          </p>
+          <Button onClick={openCreate} variant="outline" className="gap-2">
             <Plus className="w-4 h-4" />
-            New Block
+            Create Custom Block
           </Button>
         </div>
-
-        {/* Block list */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : blocks.length === 0 ? (
-          <div className="border border-dashed border-border rounded-xl py-16 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 mx-auto">
-              <Blocks className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-1">No custom blocks yet</h3>
-            <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-4 leading-relaxed">
-              Create your first block using the Rich Text editor or paste custom HTML.
-            </p>
-            <Button onClick={openCreate} variant="outline" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create Custom Block
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {blocks.map(block => (
-              <div
-                key={block.id}
-                className="group border border-border rounded-xl bg-background p-4 flex flex-col gap-3 hover:border-primary/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-foreground truncate">{block.name}</p>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                      {block.block_type === "rich-text" ? (
-                        <Badge variant="secondary" className="gap-1 text-xs">
-                          <Type className="w-3 h-3" />
-                          Rich Text
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="gap-1 text-xs font-mono">
-                          <Code2 className="w-3 h-3" />
-                          HTML
-                        </Badge>
-                      )}
-                      <Badge
-                        variant={(!block.segment || block.segment === "core") ? "outline" : "secondary"}
-                        className={cn(
-                          "gap-1 text-xs",
-                          (!block.segment || block.segment === "core") && "text-muted-foreground",
-                          block.segment && block.segment !== "core" && isKnownSegment(block.segment) && "bg-primary/8 text-primary border-primary/20",
-                          block.segment && block.segment !== "core" && !isKnownSegment(block.segment) && "text-amber-600 border-amber-200 bg-amber-50"
-                        )}
-                      >
-                        <LayoutGrid className="w-3 h-3" />
-                        {segmentLabel(block.segment)}
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {blocks.map(block => (
+            <div
+              key={block.id}
+              className="group border border-border rounded-xl bg-background p-4 flex flex-col gap-3 hover:border-primary/40 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground truncate">{block.name}</p>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    {block.block_type === "rich-text" ? (
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Type className="w-3 h-3" />
+                        Rich Text
                       </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(block)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(block)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1 text-xs font-mono">
+                        <Code2 className="w-3 h-3" />
+                        HTML
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={(!block.segment || block.segment === "core") ? "outline" : "secondary"}
+                      className={cn(
+                        "gap-1 text-xs",
+                        (!block.segment || block.segment === "core") && "text-muted-foreground",
+                        block.segment && block.segment !== "core" && isKnownSegment(block.segment) && "bg-primary/8 text-primary border-primary/20",
+                        block.segment && block.segment !== "core" && !isKnownSegment(block.segment) && "text-amber-600 border-amber-200 bg-amber-50"
+                      )}
+                    >
+                      <LayoutGrid className="w-3 h-3" />
+                      {segmentLabel(block.segment)}
+                    </Badge>
                   </div>
                 </div>
-
-                {/* Content preview */}
-                <div
-                  className="text-xs text-muted-foreground border border-border rounded-md p-2.5 bg-muted/30 min-h-[60px] max-h-[80px] overflow-hidden relative"
-                >
-                  {block.block_type === "rich-text" ? (
-                    <div
-                      className="prose prose-xs max-w-none line-clamp-3"
-                      dangerouslySetInnerHTML={{ __html: block.props?.html || "<em>Empty</em>" }}
-                    />
-                  ) : (
-                    <code className="text-[10px] font-mono text-muted-foreground line-clamp-3 whitespace-pre-wrap break-all">
-                      {block.props?.html || "(empty)"}
-                    </code>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/30 to-transparent pointer-events-none" />
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(block)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(block)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+              {/* Content preview */}
+              <div
+                className="text-xs text-muted-foreground border border-border rounded-md p-2.5 bg-muted/30 min-h-[60px] max-h-[80px] overflow-hidden relative"
+              >
+                {block.block_type === "rich-text" ? (
+                  <div
+                    className="prose prose-xs max-w-none line-clamp-3"
+                    dangerouslySetInnerHTML={{ __html: block.props?.html || "<em>Empty</em>" }}
+                  />
+                ) : (
+                  <code className="text-[10px] font-mono text-muted-foreground line-clamp-3 whitespace-pre-wrap break-all">
+                    {block.props?.html || "(empty)"}
+                  </code>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/30 to-transparent pointer-events-none" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create / Edit dialog */}
       <Dialog open={editorOpen} onOpenChange={v => { if (!v) setEditorOpen(false); }}>
@@ -370,6 +376,6 @@ export default function CustomBlocksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </div>
   );
 }

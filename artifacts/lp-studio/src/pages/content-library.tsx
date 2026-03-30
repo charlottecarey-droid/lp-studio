@@ -346,13 +346,13 @@ function MediaTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchImages = useCallback(async (pg = page) => {
+  const fetchImages = useCallback(async (pg?: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (activeTag) params.set("tag", activeTag);
-      params.set("page", String(pg));
+      params.set("page", String(pg ?? page));
       params.set("limit", String(MEDIA_PAGE_SIZE));
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed");
@@ -369,13 +369,13 @@ function MediaTab() {
     }
   }, [query, activeTag, page]);
 
-  useEffect(() => { fetchImages(); }, [fetchImages]);
+  useEffect(() => { fetchImages(page); }, [fetchImages, page]);
 
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
     setQuery(value);
     setPage(1);
-    clearTimeout(searchTimeout.current);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => fetchImages(1), 300);
   };
 
@@ -1076,14 +1076,47 @@ const ALL_TABS: { id: ActiveTab; label: string; description: string; icon?: Reac
   { id: "media", label: "Media", description: "Upload and manage images. AI auto-tags on upload — subfolders become tags when uploading a folder.", icon: <Image className="w-3.5 h-3.5" /> },
 ];
 
-export default function ContentLibrary() {
+export function ContentLibraryContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("product_showcase");
 
   const activeTabMeta = ALL_TABS.find(t => t.id === activeTab)!;
 
   return (
+    <div className="max-w-5xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl">
+          {ALL_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === tab.id
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab.icon}{tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-4">
+          <p className="text-xs text-slate-500">{activeTabMeta.description}</p>
+        </div>
+
+        {activeTab === "media"
+          ? <MediaTab />
+          : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
+        }
+      </motion.div>
+    </div>
+  );
+}
+
+export default function ContentLibrary() {
+  return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="px-6 py-10">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -1095,30 +1128,7 @@ export default function ContentLibrary() {
             </p>
           </div>
 
-          <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl">
-            {ALL_TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === tab.id
-                    ? "bg-white shadow-sm text-slate-900"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                {tab.icon}{tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mb-4">
-            <p className="text-xs text-slate-500">{activeTabMeta.description}</p>
-          </div>
-
-          {activeTab === "media"
-            ? <MediaTab />
-            : <LibraryTab key={activeTab} type={activeTab as LibraryType} />
-          }
+          <ContentLibraryContent />
         </motion.div>
       </div>
     </AppLayout>

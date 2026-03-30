@@ -8,6 +8,8 @@ import {
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
+import { broadcastSignal } from "./signals";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
@@ -171,7 +173,7 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
     }
 
     // Create page_view signal
-    await db.insert(salesSignalsTable).values({
+    const [pvSignal] = await db.insert(salesSignalsTable).values({
       accountId: contact?.accountId ?? null,
       contactId: hotlink.contactId,
       hotlinkId: hotlink.id,
@@ -181,7 +183,21 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
         pageSlug: page.slug,
         ip: req.headers["x-forwarded-for"] ?? req.ip ?? "",
       },
-    });
+    }).returning();
+    broadcastSignal(pvSignal);
+
+    // SFDC write-back: log microsite view as Activity (fire-and-forget)
+    if (contact?.salesforceId) {
+      sfdcService.getActiveConnection().then(conn => {
+        if (conn) {
+          sfdcService.logMicrositeView(conn.id, {
+            contactSalesforceId: contact.salesforceId!,
+            pageTitle: page.title,
+            pageUrl: `/lp/${page.slug}`,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
 
     res.json({
       pageSlug: page.slug,

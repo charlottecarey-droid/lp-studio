@@ -8,8 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ContentLibraryContent } from "@/pages/content-library";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2,
@@ -908,8 +910,8 @@ export default function BrandSettings() {
 
         <div className="flex items-end justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Brand Settings</h1>
-            <p className="text-muted-foreground mt-2 text-lg">Global styles applied consistently across every landing page.</p>
+            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Brand & Content</h1>
+            <p className="text-muted-foreground mt-2 text-lg">Configure your brand identity and manage reusable content library.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
@@ -923,8 +925,16 @@ export default function BrandSettings() {
           </div>
         </div>
 
-        {/* Live preview strip */}
-        <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
+        <Tabs defaultValue="brand-settings" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
+            <TabsTrigger value="content-library">Content Library</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="brand-settings" className="space-y-8">
+
+            {/* Live preview strip */}
+            <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
           <div style={{ backgroundColor: config.navBgColor }} className="px-6 pt-1 pb-[7px] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-16 h-3 rounded-full opacity-80" style={{ backgroundColor: config.accentColor }} />
@@ -955,10 +965,10 @@ export default function BrandSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* SECTION 1 — COLORS */}
-          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+              {/* SECTION 1 — COLORS */}
+              <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
             <div className="flex items-center gap-2 mb-1">
               <Palette className="w-4 h-4 text-primary" />
               <h2 className="font-display font-semibold text-lg">Colors</h2>
@@ -1608,18 +1618,24 @@ export default function BrandSettings() {
             )}
           </Card>
 
-        </div>
+            </div>
 
-        {/* Sticky save bar */}
-        <div className="sticky bottom-4 flex justify-end">
+            {/* Sticky save bar */}
+            <div className="sticky bottom-4 flex justify-end">
           <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">
             <p className="text-sm text-muted-foreground">Changes apply to all active landing pages immediately after saving.</p>
             <Button onClick={handleSave} disabled={saving || hasHexErrors} className="gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Changes
             </Button>
-          </div>
-        </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="content-library" className="space-y-8">
+            <ContentLibraryContent />
+          </TabsContent>
+        </Tabs>
 
       </div>
 

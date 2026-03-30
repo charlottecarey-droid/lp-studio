@@ -10,7 +10,12 @@ import {
   salesSignalsTable,
   salesHotlinksTable,
 } from "@workspace/db";
+<<<<<<< HEAD
+import { broadcastSignal } from "./signals";
+import { sfdcService } from "../../lib/sfdc-service";
+=======
 import { lpPagesTable } from "@workspace/db";
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
 const router = Router();
 
@@ -252,14 +257,28 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
       if (result.ok) {
         sent++;
         // Create signal for email sent
-        await db.insert(salesSignalsTable).values({
+        const [sig1] = await db.insert(salesSignalsTable).values({
           accountId: contact.accountId,
           contactId: contact.id,
           hotlinkId: hotlink?.id ?? null,
           type: "email_sent",
           source: `Campaign: ${campaign.name}`,
           metadata: { campaignId, templateId: template.id },
-        });
+        }).returning();
+        broadcastSignal(sig1);
+
+        // SFDC write-back: log email as Activity (fire-and-forget)
+        if (contact.salesforceId) {
+          sfdcService.getActiveConnection().then(conn => {
+            if (conn) {
+              sfdcService.logEmailActivity(conn.id, {
+                contactSalesforceId: contact.salesforceId!,
+                subject,
+                campaignName: campaign.name,
+              }).catch(() => {/* non-blocking */});
+            }
+          }).catch(() => {/* non-blocking */});
+        }
       } else {
         failed++;
       }
@@ -315,13 +334,14 @@ router.get("/track/open", async (req, res): Promise<void> => {
       const [send] = await db.select().from(salesEmailSendsTable)
         .where(eq(salesEmailSendsTable.id, Number(id)));
       if (send) {
-        await db.insert(salesSignalsTable).values({
+        const [sig2] = await db.insert(salesSignalsTable).values({
           contactId: send.contactId,
           hotlinkId: send.hotlinkId,
           type: "email_open",
           source: `Send #${send.id}`,
           metadata: { campaignId: send.campaignId, email: send.email },
-        });
+        }).returning();
+        broadcastSignal(sig2);
       }
     } catch (err) {
       console.error("Tracking pixel error:", err);
@@ -344,13 +364,14 @@ router.get("/track/click", async (req, res): Promise<void> => {
       const [send] = await db.select().from(salesEmailSendsTable)
         .where(eq(salesEmailSendsTable.id, Number(sendId)));
       if (send) {
-        await db.insert(salesSignalsTable).values({
+        const [sig3] = await db.insert(salesSignalsTable).values({
           contactId: send.contactId,
           hotlinkId: send.hotlinkId,
           type: "email_click",
           source: destination,
           metadata: { campaignId: send.campaignId, email: send.email },
-        });
+        }).returning();
+        broadcastSignal(sig3);
       }
     } catch (err) {
       console.error("Click tracking error:", err);
@@ -508,14 +529,27 @@ router.post("/send-email", async (req, res): Promise<void> => {
     }).returning();
 
     // Create signal
-    await db.insert(salesSignalsTable).values({
+    const [sig4] = await db.insert(salesSignalsTable).values({
       accountId: contact.accountId,
       contactId: contact.id,
       hotlinkId: hotlink?.id ?? null,
       type: "email_sent",
       source: renderedSubject,
       metadata: { single: true },
-    });
+    }).returning();
+    broadcastSignal(sig4);
+
+    // SFDC write-back: log single email as Activity (fire-and-forget)
+    if (contact.salesforceId) {
+      sfdcService.getActiveConnection().then(conn => {
+        if (conn) {
+          sfdcService.logEmailActivity(conn.id, {
+            contactSalesforceId: contact.salesforceId!,
+            subject: renderedSubject,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
 
     res.json({ ok: true, sendId: sendRecord.id });
   } catch (err) {

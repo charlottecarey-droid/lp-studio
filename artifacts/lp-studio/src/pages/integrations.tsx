@@ -45,7 +45,7 @@ function TestBanner({ result }: { result: TestResult | null }) {
   );
 }
 
-export default function IntegrationsPage() {
+export function IntegrationsContent() {
   const [loading, setLoading] = useState(true);
 
   // Google Sheets state
@@ -126,22 +126,19 @@ export default function IntegrationsPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          <span className="text-sm">Loading…</span>
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+        <span className="text-sm">Loading…</span>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-sm text-muted-foreground mt-1">Connect LP Studio to external services. Leads are synced automatically after each form submission.</p>
-        </div>
+    <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
+        <p className="text-sm text-muted-foreground mt-1">Connect LP Studio to external services. Leads are synced automatically after each form submission.</p>
+      </div>
 
         {/* ── Google Sheets ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
@@ -290,7 +287,14 @@ export default function IntegrationsPage() {
           <p className="text-sm font-medium text-muted-foreground">More integrations coming soon</p>
           <p className="text-xs text-muted-foreground/60 mt-1">HubSpot, Slack notifications, and more</p>
         </div>
-      </div>
+    </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <AppLayout>
+      <IntegrationsContent />
     </AppLayout>
   );
 }

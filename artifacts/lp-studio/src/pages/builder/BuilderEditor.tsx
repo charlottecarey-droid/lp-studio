@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useRef, useCallback, type ReactNode, type RefObject } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
 import {
@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -726,7 +726,7 @@ export default function BuilderEditor() {
   const displayName = getAuthorName() || "Builder User";
   const { viewers } = usePresence(pageIdNum, displayName);
 
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [capturingOg, setCapturingOg] = useState(false);
   const [ogLibraryOpen, setOgLibraryOpen] = useState(false);
@@ -978,6 +978,10 @@ export default function BuilderEditor() {
       ]);
       setBlocks(prev => prev.map(b => {
         if (b.id === selectedBlock.id) return b;
+<<<<<<< HEAD
+        if (!DSO_CTA_BLOCKS.has(b.type)) return b;
+        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } } as PageBlock;
+=======
         // dso-final-cta uses primaryCta* naming
         if (b.type === "dso-final-cta") {
           return { ...b, props: { ...b.props, primaryCtaText: ctaText, primaryCtaUrl: ctaUrl, primaryCtaMode: ctaMode } };
@@ -1026,6 +1030,7 @@ export default function BuilderEditor() {
         if (b.id === selectedBlock.id) return b;
         if (!DSO_CTAURL_BLOCKS.has(b.type)) return b;
         return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
       }));
       return;
     }
@@ -1044,7 +1049,7 @@ export default function BuilderEditor() {
       else updates.ctaAction = ctaAction;
       if ("ctaUrl" in bp) updates.ctaUrl = ctaUrl;
       else if ("url" in bp) updates.url = ctaUrl;
-      return { ...b, props: { ...bp, ...updates } };
+      return { ...b, props: { ...bp, ...updates } } as PageBlock;
     }));
   };
 
@@ -1086,6 +1091,8 @@ export default function BuilderEditor() {
     }
   };
 
+  const [showOutreachBanner, setShowOutreachBanner] = useState(false);
+
   const handlePublish = async () => {
     const isPublished = status === "published";
     const confirmMsg = isPublished
@@ -1099,6 +1106,10 @@ export default function BuilderEditor() {
       setStatus(newStatus);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
+      // Show outreach banner after publishing (not unpublishing)
+      if (newStatus === "published") {
+        setShowOutreachBanner(true);
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update status");
     } finally {
@@ -1209,7 +1220,7 @@ export default function BuilderEditor() {
       {/* Top Bar */}
       <BuilderTopBar
         title={title}
-        titleRef={titleRef}
+        titleRef={titleRef as RefObject<HTMLInputElement>}
         status={status}
         isMobile={isMobile}
         isSaving={isSaving}
@@ -1226,6 +1237,32 @@ export default function BuilderEditor() {
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
         onShareForReview={() => setShareModalOpen(true)}
       />
+
+      {/* Post-publish outreach banner */}
+      {showOutreachBanner && (
+        <div className="relative mx-4 mt-2 flex items-center gap-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 px-5 py-3.5 animate-in slide-in-from-top-2">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+            <Mail className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Page published! Send tracked links to your contacts?</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">Generate hotlinks and send personalized outreach for this microsite.</p>
+          </div>
+          <a
+            href="/sales/outreach"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shrink-0"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Send Outreach
+          </a>
+          <button
+            onClick={() => setShowOutreachBanner(false)}
+            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <Dialog open={abTestModalOpen} onOpenChange={setAbTestModalOpen}>
         <DialogContent className="max-w-md">
@@ -2132,7 +2169,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     try {
       if (block.type === "zigzag-features") {
         type ZigRow = { headline: string; body: string; [key: string]: unknown };
-        const rows = ((block.props as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
+        const rows = ((block.props as unknown as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
         const updatedRows = await Promise.all(
           rows.map(async (row) => {
             const updated = await refreshBlockCopy("zigzag-features", ["headline", "body"], {
@@ -2142,7 +2179,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
             return { ...row, ...updated };
           }),
         );
-        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } });
+        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } } as unknown as PageBlock);
       } else {
         const currentValues: Record<string, string> = {};
         for (const f of blockCopyFields!) {
@@ -2151,7 +2188,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         }
         const updated = await refreshBlockCopy(block.type, blockCopyFields!, currentValues);
         if (Object.keys(updated).length > 0) {
-          onBlockChange({ ...block, props: { ...block.props, ...updated } });
+          onBlockChange({ ...block, props: { ...block.props, ...updated } } as PageBlock);
         }
       }
     } catch (err) {

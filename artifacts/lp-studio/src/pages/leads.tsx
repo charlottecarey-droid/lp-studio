@@ -177,15 +177,13 @@ function PageLeadsView({ page, onBack }: PageLeadsViewProps) {
   );
 }
 
-export default function LeadsPage() {
+export function LeadsContent() {
   const { pages, loading, reload } = usePageSummary();
   const [selectedPage, setSelectedPage] = useState<PageSummary | null>(null);
 
   if (selectedPage) {
     return (
-      <AppLayout>
-        <PageLeadsView page={selectedPage} onBack={() => setSelectedPage(null)} />
-      </AppLayout>
+      <PageLeadsView page={selectedPage} onBack={() => setSelectedPage(null)} />
     );
   }
 
@@ -193,81 +191,87 @@ export default function LeadsPage() {
   const pagesWithLeads = pages.filter(p => p.leadCount > 0);
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Leads</h1>
-            <p className="text-muted-foreground text-sm mt-1">Form submissions from your live landing pages</p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={reload}>
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Leads</h1>
+          <p className="text-muted-foreground text-sm mt-1">Form submissions from your live landing pages</p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-3xl font-bold">{totalLeads.toLocaleString()}</div>
-              <p className="text-sm text-muted-foreground mt-1">Total leads captured</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-3xl font-bold">{pagesWithLeads.length}</div>
-              <p className="text-sm text-muted-foreground mt-1">Pages with submissions</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-3xl font-bold">{pages.length}</div>
-              <p className="text-sm text-muted-foreground mt-1">Total pages</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Loading…</div>
-        ) : pages.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p className="font-medium text-base">No pages yet</p>
-            <p className="text-sm mt-1 mb-4">Create a page and add a Form block to start capturing leads.</p>
-            <Link href="/pages">
-              <Button variant="outline" size="sm">Go to Pages</Button>
-            </Link>
-          </div>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Pages</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {pages.map(page => (
-                  <div
-                    key={page.id}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer group"
-                    onClick={() => setSelectedPage(page)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">{page.title}</div>
-                      <div className="text-xs text-muted-foreground">/lp/{page.slug}</div>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0 ml-4">
-                      <div className="text-right">
-                        <div className="text-sm font-bold">{page.leadCount.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">leads</div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={reload}>
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </Button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold">{totalLeads.toLocaleString()}</div>
+            <p className="text-sm text-muted-foreground mt-1">Total leads captured</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold">{pagesWithLeads.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Pages with submissions</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold">{pages.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Total pages</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Loading…</div>
+      ) : pages.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
+          <p className="font-medium text-base">No pages yet</p>
+          <p className="text-sm mt-1 mb-4">Create a page and add a Form block to start capturing leads.</p>
+          <Link href="/pages">
+            <Button variant="outline" size="sm">Go to Pages</Button>
+          </Link>
+        </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pages</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {pages.map(page => (
+                <div
+                  key={page.id}
+                  className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer group"
+                  onClick={() => setSelectedPage(page)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm truncate">{page.title}</div>
+                    <div className="text-xs text-muted-foreground">/lp/{page.slug}</div>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0 ml-4">
+                    <div className="text-right">
+                      <div className="text-sm font-bold">{page.leadCount.toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">leads</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <AppLayout>
+      <LeadsContent />
     </AppLayout>
   );
 }

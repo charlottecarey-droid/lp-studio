@@ -26,8 +26,8 @@ export default function TestDetail() {
   const [, params] = useRoute("/tests/:testId");
   const testId = params ? parseInt(params.testId, 10) : 0;
   
-  const { data: test, isLoading } = useGetTest(testId, { query: { enabled: !!testId } });
-  const { data: results } = useGetTestResults(testId, { query: { enabled: !!testId } });
+  const { data: test, isLoading } = useGetTest(testId, { query: { enabled: !!testId, queryKey: ["test", testId] } });
+  const { data: results } = useGetTestResults(testId, { query: { enabled: !!testId, queryKey: ["testResults", testId] } });
   
   const updateMutation = useUpdateTest();
   const queryClient = useQueryClient();

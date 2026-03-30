@@ -8,7 +8,11 @@ import { z } from "zod/v4";
  */
 export const salesAccountsTable = pgTable("sales_accounts", {
   id: serial("id").primaryKey(),
+<<<<<<< HEAD
+  salesforceId: text("salesforce_id").unique(),  // SFDC Account ID (001...)
+=======
   sfdcId: text("sfdc_id"),                   // Salesforce Account ID (18-char) — unique key for SFDC sync
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   name: text("name").notNull(),
   domain: text("domain"),
   industry: text("industry"),
@@ -31,6 +35,7 @@ export const salesAccountsTable = pgTable("sales_accounts", {
   country: text("country"),
   notes: text("notes"),
   metadata: jsonb("metadata").default({}),   // flexible KV for custom fields
+  sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

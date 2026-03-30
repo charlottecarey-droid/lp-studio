@@ -63,7 +63,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
     try {
       const types = currentTiles.length > 0 ? currentTiles.map(t => t.type) : ["stat", "stat", "stat", "photo", "quote", "feature"];
       const tiles = await refreshBentoTiles(types);
-      onChange({ ...block, props: { ...block.props, tiles } });
+      onChange({ ...block, props: { ...block.props, tiles } } as PageBlock);
     } catch (e) {
       console.error("Bento tiles refresh failed", e);
     } finally {
@@ -75,7 +75,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
     setDsoRefreshing(true);
     try {
       const updated = await refreshBlockCopy(block.type, fields, currentValues);
-      onChange({ ...block, props: { ...block.props, ...updated } });
+      onChange({ ...block, props: { ...block.props, ...updated } } as PageBlock);
     } catch (e) {
       console.error("DSO copy refresh failed", e);
     } finally {
@@ -780,12 +780,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 {challenges.length === 0 && (
                   <div className="text-center py-3 space-y-2">
                     <p className="text-xs text-slate-400">No challenges yet.</p>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ challenges: [
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...block.props, challenges: [
                       { title: "Same-Store Growth Pressure", desc: "Acquisition pipelines have slowed. With rising costs and tighter financing, DSOs must unlock more revenue from existing practices to protect EBITDA — and the dental lab is one of the most overlooked levers." },
                       { title: "Fragmented Lab Relationships", desc: "If every dentist chooses their own lab, you never get a volume advantage. Disconnected vendors across regions create data silos, quality variance, and zero negotiating leverage." },
                       { title: "Standards That Don't Survive Growth", desc: "Most DSOs don't fail because they grow too fast — they fail because their standards don't scale. Variability creeps in, outcomes drift, and operational discipline erodes with every new location." },
                       { title: "Capital Constraints", desc: "Scanner requests pile up every year — $40K–$75K per operatory adds up fast. DSOs need a partner that eliminates CAPEX, includes premium hardware, and proves ROI within months." },
-                    ] })}>
+                    ] } } as PageBlock)}>
                       Load defaults
                     </Button>
                   </div>
@@ -1639,7 +1639,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "dso-particle-mesh": {
         const p = block.props;
-        const urlsStr = (p.imageUrls ?? []).join("\n");
+        const urlsStr = (p.imageUrl ? [p.imageUrl] : []).join("\n");
         return (
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "body"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "" }} />
@@ -2084,7 +2084,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+              <Select value={String((p as Record<string, unknown>).backgroundStyle ?? "dandy-green")} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } } as PageBlock)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
               </Select>
@@ -2377,11 +2377,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="border-t pt-3 space-y-2">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Section CTA</Label>
-              <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} placeholder="See All Products" className="h-8 text-xs" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">CTA Text</Label><Input value={String((p as unknown as Record<string, unknown>).ctaText ?? "")} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } } as PageBlock)} placeholder="See All Products" className="h-8 text-xs" /></div>
+              <div className="space-y-1.5"><Label className="text-xs">CTA URL</Label><Input value={String((p as unknown as Record<string, unknown>).ctaUrl ?? "")} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } } as PageBlock)} placeholder="https://..." className="h-8 text-xs" /></div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
-                <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={p.ctaVariant ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
+                <div className="space-y-1"><Label className="text-xs">Mode</Label><Select value={String((p as unknown as Record<string, unknown>).ctaMode ?? "link")} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } } as PageBlock)}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper</SelectItem></SelectContent></Select></div>
+                <div className="space-y-1"><Label className="text-xs">Style</Label><Select value={String((p as unknown as Record<string, unknown>).ctaVariant ?? "link")} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } } as PageBlock)}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
               </div>
               {onApplyCtaToAll && (
                 <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200 space-y-1.5">

@@ -219,6 +219,20 @@ export default function LandingPageViewer() {
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
 
+<<<<<<< HEAD
+  // Sales hotlink token: ?hl=<token> — resolves contact for signal attribution
+  const hlToken = searchParams.get("hl") ?? null;
+  const [hotlinkData, setHotlinkData] = useState<{ hotlinkId: number; contactId: number; accountId: number; contactName: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!hlToken) return;
+    fetch(`/api/sales/resolve/${hlToken}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setHotlinkData(data); })
+      .catch(() => {});
+  }, [hlToken]);
+
+=======
   // Campaign page variables — substituted into block content at render time.
   // Stored in sessionStorage (keyed by slug) so the URL stays clean with no visible params.
   // URL params (_v_*) are still supported as a fallback for direct links.
@@ -245,17 +259,18 @@ export default function LandingPageViewer() {
   })();
   const hasPageVars = Object.keys(pageVars).length > 0;
   
+>>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   const sessionId = useVisitorSession(slug);
   const trackEvent = useTrackEvent();
-  
+
   const apiParams = isPreviewMode
     ? { previewVariantId }
     : { sessionId };
 
   const { data: config, isLoading, error } = useGetPageConfig(
-    slug, 
+    slug,
     apiParams,
-    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false } }
+    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false, queryKey: ["pageConfig", slug, apiParams] } }
   );
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
@@ -293,12 +308,13 @@ export default function LandingPageViewer() {
           sessionId,
           testId: config.testId,
           variantId: config.assignedVariant.id,
-          eventType: "impression"
+          eventType: "impression",
+          ...(hotlinkData ? { hotlinkId: hotlinkData.hotlinkId } : {}),
         }
       });
       setHasTrackedImpression(true);
     }
-  }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode]);
+  }, [config, sessionId, hasTrackedImpression, trackEvent, isPreviewMode, hotlinkData]);
 
   // Personalized link engagement tracking: scroll depth + CTA clicks via _plToken
   useEffect(() => {

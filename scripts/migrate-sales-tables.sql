@@ -101,6 +101,24 @@ CREATE TABLE IF NOT EXISTS sales_signals (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Sales Briefings (AI-generated account research)
+CREATE TABLE IF NOT EXISTS sales_briefings (
+  id SERIAL PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES sales_accounts(id) ON DELETE CASCADE,
+  briefing_data JSONB NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'complete',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Add sales columns to lp_pages (safe if already exist)
+DO $$ BEGIN
+  ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS account_id INTEGER;
+  ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'marketing';
+  ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS created_by TEXT;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_sales_contacts_account ON sales_contacts(account_id);
 CREATE INDEX IF NOT EXISTS idx_sales_hotlinks_contact ON sales_hotlinks(contact_id);
@@ -112,3 +130,6 @@ CREATE INDEX IF NOT EXISTS idx_sales_signals_account ON sales_signals(account_id
 CREATE INDEX IF NOT EXISTS idx_sales_signals_contact ON sales_signals(contact_id);
 CREATE INDEX IF NOT EXISTS idx_sales_signals_type ON sales_signals(type);
 CREATE INDEX IF NOT EXISTS idx_sales_signals_created ON sales_signals(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_briefings_account ON sales_briefings(account_id);
+CREATE INDEX IF NOT EXISTS idx_lp_pages_account ON lp_pages(account_id);
+CREATE INDEX IF NOT EXISTS idx_lp_pages_mode ON lp_pages(mode);

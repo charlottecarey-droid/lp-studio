@@ -271,7 +271,6 @@ export default function ReviewShell() {
               block={block}
               brand={brand}
               onCtaClick={() => {}}
-              isPreview={false}
             />
           ))}
         </div>
