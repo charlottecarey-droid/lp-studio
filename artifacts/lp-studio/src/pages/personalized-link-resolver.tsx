@@ -21,6 +21,8 @@ interface SalesResolveResponse {
   contactName: string | null;
   token: string;
   hotlinkId: number;
+  contactId: number;
+  accountId: number | null;
 }
 
 export default function PersonalizedLinkResolver() {
@@ -58,6 +60,14 @@ export default function PersonalizedLinkResolver() {
           if (Object.keys(vars).length > 0) {
             sessionStorage.setItem(`pv:${data.pageSlug}`, JSON.stringify(vars));
           }
+
+          // Store hotlink context so form submissions can fire a sales signal
+          sessionStorage.setItem("hl_ctx", JSON.stringify({
+            hotlinkId: data.hotlinkId,
+            contactId: data.contactId,
+            accountId: data.accountId,
+            token: data.token,
+          }));
 
           // Redirect to a clean URL — no query params
           window.location.replace(`${base}/lp/${data.pageSlug}`);

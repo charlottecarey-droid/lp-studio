@@ -265,6 +265,31 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
             }),
           });
         } catch {}
+
+        // Fire a sales signal if this page was opened via a hotlink
+        try {
+          const hlRaw = sessionStorage.getItem("hl_ctx");
+          if (hlRaw) {
+            const hlCtx = JSON.parse(hlRaw) as {
+              hotlinkId: number;
+              contactId: number;
+              accountId: number | null;
+              token: string;
+            };
+            await fetch(`${API_BASE}/sales/signals`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "form_submit",
+                source: "microsite",
+                hotlinkId: hlCtx.hotlinkId,
+                contactId: hlCtx.contactId,
+                accountId: hlCtx.accountId,
+                metadata: { pageId, fields: Object.keys(allFields) },
+              }),
+            });
+          }
+        } catch {}
       }
 
       setSubmitted(true);

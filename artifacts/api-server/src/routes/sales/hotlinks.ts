@@ -223,6 +223,8 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
       contactName: contact ? `${contact.firstName} ${contact.lastName}` : null,
       token,
       hotlinkId: hotlink.id,
+      contactId: hotlink.contactId,
+      accountId: contact?.accountId ?? null,
     });
   } catch (err) {
     console.error("GET /sales/resolve/:token error:", err);
