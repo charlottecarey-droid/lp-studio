@@ -38,6 +38,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import DraftEmailModal from "./DraftEmailModal";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import {
   Dialog,
@@ -969,6 +970,9 @@ function AccountDetailView({ id }: { id: string }) {
   const [hotlinks, setHotlinks] = useState<Hotlink[]>([]);
   const [copiedContactId, setCopiedContactId] = useState<number | null>(null);
 
+  // AI email draft
+  const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
+
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFirst, setContactFirst] = useState("");
@@ -1313,6 +1317,15 @@ function AccountDetailView({ id }: { id: string }) {
                           )}
                         </button>
                       )}
+                      <button
+                        onClick={() => setDraftEmailContact(contact)}
+                        title="Draft AI email"
+                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-foreground hover:opacity-90 transition-all"
+                        style={{ background: "#003A30" }}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span className="hidden sm:inline">Draft email</span>
+                      </button>
                     </div>
                   );
                 });
@@ -1433,6 +1446,15 @@ function AccountDetailView({ id }: { id: string }) {
         accountId={id}
         onCreated={() => { fetchMicrosites(); fetchHotlinks(); }}
       />
+
+      {draftEmailContact && (
+        <DraftEmailModal
+          contact={draftEmailContact}
+          accountId={Number(id)}
+          accountName={account.name}
+          onClose={() => setDraftEmailContact(null)}
+        />
+      )}
     </SalesLayout>
   );
 }
