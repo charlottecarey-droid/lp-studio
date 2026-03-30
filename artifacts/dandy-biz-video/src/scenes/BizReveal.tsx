@@ -67,7 +67,7 @@ export default function BizReveal() {
       </div>
 
       {/* ── Dashboard image fills the rest ── */}
-      <div className="relative flex-1 flex items-start justify-center mt-[10px] pb-0">
+      <div className="relative flex-1 flex items-start justify-center mt-[10px] overflow-hidden">
         <motion.div
           className="w-[82vw]"
           initial={{ opacity: 0, y: 60 }}
@@ -82,7 +82,7 @@ export default function BizReveal() {
               src={dashboardImg}
               alt="Dandy Insights network dashboard"
               className="w-full block"
-              style={{ maxHeight: '62vh', objectFit: 'cover', objectPosition: 'top' }}
+              style={{ display: 'block' }}
             />
             {/* Fade bottom edge into background */}
             <div
