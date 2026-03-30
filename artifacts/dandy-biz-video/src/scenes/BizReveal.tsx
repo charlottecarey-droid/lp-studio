@@ -57,7 +57,7 @@ export default function BizReveal() {
 
         {/* Headline fades from white → dark as dashboard slides in */}
         <motion.h1
-          className="text-[5.5vw] font-normal leading-none tracking-tight"
+          className="text-[5.5vw] font-normal leading-[1.3] tracking-tight"
           animate={{ color: phase >= 1 ? '#111827' : '#ffffff' }}
           transition={{ duration: 0.7, ease: 'easeInOut' }}
         >
