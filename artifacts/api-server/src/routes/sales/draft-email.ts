@@ -164,10 +164,11 @@ router.post("/draft-email", async (req, res): Promise<void> => {
       ? `A personalized microsite for ${accountName} is already live. Reference it naturally in the email using the exact placeholder [MICROSITE_URL] where the link should appear — do not write a real URL. Example: "I put together a quick look at how that works for ${accountName} — [MICROSITE_URL]"`
       : "No microsite exists for this company yet. Do not mention a microsite or link.";
 
-    // ─── 5. Dual Perplexity research (parallel) ─────────────────
+    // ─── 5. Triple Perplexity research (parallel) ────────────────
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
     let newsResearch = "";
     let siteResearch = "";
+    let linkedinResearch = "";
 
     if (PERPLEXITY_KEY && accountName) {
       const newsQuery = `Research this person and company for a B2B sales team at Dandy (a dental lab platform for DSOs):
@@ -176,7 +177,7 @@ Person: ${fullName}${title ? `, ${title}` : ""}
 Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE: ${privateEquityFirm}` : ""}
 
 Search for:
-- "${fullName} ${accountName}" — news, conference talks, quotes, LinkedIn posts, press mentions
+- "${fullName} ${accountName}" — news, conference talks, quotes, press mentions
 - "${accountName} expansion acquisition growth 2025 2026" — press releases, DSO news, job postings
 - Any recent (last 6 months) hook: new location, acquisition, leadership hire, partnership, award
 
@@ -194,9 +195,30 @@ Return ONLY what you find. If nothing relevant, say "No recent news found." Be b
 Be factual and specific. Only include what's on the site.`
         : "";
 
-      [newsResearch, siteResearch] = await Promise.all([
+      // LinkedIn profile research — use actual URL if available, fall back to name search
+      const linkedinQuery = linkedinUrl
+        ? `Look up this person's LinkedIn profile and summarize what you find:
+LinkedIn: ${linkedinUrl}
+Name: ${fullName}
+Company: ${accountName}
+Title: ${title || "unknown"}
+
+Extract:
+- Current role and how long they've been there
+- Career background (previous companies, roles, industries)
+- Any recent posts, articles, or public activity (last 6 months)
+- Education, certifications, or associations
+- Any stated interests, priorities, or professional focus areas
+
+Be specific and factual. Only report what you can find. Skip sections with no data.`
+        : `Search LinkedIn for ${fullName} at ${accountName}${title ? `, ${title}` : ""}.
+Extract career background, current role, any public posts or shared content, and professional interests.
+Only report what you can confirm.`;
+
+      [newsResearch, siteResearch, linkedinResearch] = await Promise.all([
         perplexitySearch(PERPLEXITY_KEY, newsQuery),
         domain ? perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]) : Promise.resolve(""),
+        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]),
       ]);
     }
 
@@ -204,6 +226,9 @@ Be factual and specific. Only include what's on the site.`
       newsResearch && newsResearch !== "No recent news found."
         ? `WEB NEWS:\n${newsResearch}`
         : "WEB NEWS: No recent news found. Lead with a pain point.",
+      linkedinResearch
+        ? `LINKEDIN PROFILE (${fullName}):\n${linkedinResearch}`
+        : "",
       siteResearch
         ? `COMPANY WEBSITE (${domain}):\n${siteResearch}`
         : domain
