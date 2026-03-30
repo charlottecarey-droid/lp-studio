@@ -37,8 +37,8 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
   const subC      = dark ? "rgba(255,255,255,0.60)" : "#6b7280";
 
   // Old Way
-  const oldCardBg  = dark ? "rgba(255,255,255,0.04)" : "#ffffff";
-  const oldCardBor = dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #e2e8e2";
+  const oldCardBg  = dark ? "rgba(255,255,255,0.04)" : "#e8ece8";
+  const oldCardBor = dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #d4d9d4";
   const oldSubC    = dark ? "rgba(255,255,255,0.40)" : "#9ca3af";
   const oldHeadC   = dark ? "rgba(255,255,255,0.65)" : "#374151";
   const oldItemC   = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
