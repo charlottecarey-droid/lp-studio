@@ -16,6 +16,10 @@ import {
   Upload,
   Loader2,
   X,
+  Sparkles,
+  Filter,
+  UsersRound,
+  ChevronDown,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -29,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import DraftEmailModal from "./DraftEmailModal";
 
 const API_BASE = "/api";
 
@@ -172,6 +177,90 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
   );
 }
 
+/* ─── Save as Audience Modal ─────────────────────────────────── */
+
+function SaveAudienceModal({
+  open, onClose, contactIds, defaultName,
+}: { open: boolean; onClose: () => void; contactIds: number[]; defaultName: string }) {
+  const [name, setName] = useState(defaultName);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (open) { setName(defaultName); setDone(false); setError(null); } }, [open, defaultName]);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/audiences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), filters: { contactIds } }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save audience");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <UsersRound className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-display font-bold text-foreground">Save as Audience</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-6">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <UsersRound className="w-6 h-6 text-primary" />
+            </div>
+            <p className="font-semibold text-foreground">Audience saved!</p>
+            <p className="text-sm text-muted-foreground mt-1">{contactIds.length} contacts added to "{name}"</p>
+            <Button className="mt-4" onClick={onClose}>Done</Button>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground mb-5">
+              {contactIds.length} filtered contact{contactIds.length !== 1 ? "s" : ""} will be saved to this audience.
+            </p>
+            {error && <p className="text-sm text-destructive mb-3">{error}</p>}
+            <div className="flex flex-col gap-3">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Audience name…"
+                onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+                <Button onClick={handleSave} disabled={saving || !name.trim()} className="flex-1 gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UsersRound className="w-4 h-4" />}
+                  {saving ? "Saving…" : "Save Audience"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Contact List View ──────────────────────────────────────── */
 
 function ContactListView() {
@@ -179,10 +268,14 @@ function ContactListView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [contactSignals, setContactSignals] = useState<Record<number, Signal[]>>({});
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showAudience, setShowAudience] = useState(false);
+  const [draftContact, setDraftContact] = useState<Contact | null>(null);
 
   const fetchContacts = useCallback(() => {
     setLoading(true);
@@ -218,12 +311,27 @@ function ContactListView() {
     }
   }
 
-  const filtered = contacts.filter(
-    (c) =>
+  // Unique roles for filter dropdown
+  const uniqueRoles = Array.from(new Set(contacts.map((c) => c.role).filter(Boolean))) as string[];
+  const uniqueStatuses = Array.from(new Set(contacts.map((c) => c.status).filter(Boolean))) as string[];
+
+  const isFiltered = !!(search || roleFilter || statusFilter);
+
+  const filtered = contacts.filter((c) => {
+    const matchesSearch =
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
       (c.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (c.title ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+      (c.title ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchesRole = !roleFilter || c.role === roleFilter;
+    const matchesStatus = !statusFilter || c.status === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const audienceName = [
+    roleFilter || "",
+    statusFilter || "",
+    search ? `"${search}"` : "",
+  ].filter(Boolean).join(" · ") || "Filtered Contacts";
 
   return (
     <SalesLayout>
@@ -234,20 +342,14 @@ function ContactListView() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Contacts</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              All contacts across your accounts
+              {contacts.length} contact{contacts.length !== 1 ? "s" : ""} across your accounts
             </p>
           </div>
           <div className="flex items-center gap-2">
             {deleteConfirm ? (
               <>
                 <span className="text-sm text-muted-foreground">Delete all {contacts.length} contacts?</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={deleting}
-                  onClick={handleDeleteAll}
-                  className="gap-1.5"
-                >
+                <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDeleteAll} className="gap-1.5">
                   {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   {deleting ? "Deleting…" : "Confirm"}
                 </Button>
@@ -256,12 +358,7 @@ function ContactListView() {
             ) : (
               <>
                 {contacts.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeleteConfirm(true)}
-                    className="gap-1.5 text-destructive hover:text-destructive hover:border-destructive/50"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(true)} className="gap-1.5 text-destructive hover:text-destructive hover:border-destructive/50">
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete All
                   </Button>
@@ -275,15 +372,59 @@ function ContactListView() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contacts…"
-            className="pl-10"
-          />
+        {/* Search + Filters */}
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts…" className="pl-10" />
+            </div>
+            {/* Role filter */}
+            {uniqueRoles.length > 0 && (
+              <div className="relative">
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                >
+                  <option value="">All Roles</option>
+                  {uniqueRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {/* Status filter */}
+            {uniqueStatuses.length > 1 && (
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer capitalize"
+                >
+                  <option value="">All Statuses</option>
+                  {uniqueStatuses.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+          </div>
+
+          {/* Filtered result bar + Save Audience */}
+          {isFiltered && filtered.length > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="w-3.5 h-3.5" />
+                <span>{filtered.length} contact{filtered.length !== 1 ? "s" : ""} match your filters</span>
+                <button onClick={() => { setSearch(""); setRoleFilter(""); setStatusFilter(""); }} className="text-xs text-primary hover:underline ml-1">
+                  Clear
+                </button>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setShowAudience(true)} className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5">
+                <UsersRound className="w-3.5 h-3.5" />
+                Save as Audience
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* List */}
@@ -298,13 +439,17 @@ function ContactListView() {
             </div>
             <div>
               <p className="font-semibold text-foreground">
-                {search ? "No contacts match your search" : "No contacts yet"}
+                {isFiltered ? "No contacts match your filters" : "No contacts yet"}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {search ? "Try a different search term" : "Import a CSV or add contacts from an account page"}
+                {isFiltered ? "Try adjusting your filters" : "Import a CSV or add contacts from an account page"}
               </p>
             </div>
-            {!search && (
+            {isFiltered ? (
+              <Button variant="outline" onClick={() => { setSearch(""); setRoleFilter(""); setStatusFilter(""); }}>
+                Clear Filters
+              </Button>
+            ) : (
               <Button onClick={() => setShowImport(true)} className="gap-2">
                 <Upload className="w-4 h-4" />
                 Import CSV
@@ -348,7 +493,16 @@ function ContactListView() {
                       {contact.role}
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground">
+                  {/* Draft Email button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
+                    className="hidden group-hover:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/8 hover:bg-primary/15 text-primary text-xs font-medium transition-all shrink-0"
+                    title="Draft AI email"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Draft Email
+                  </button>
+                  <span className="text-xs text-muted-foreground shrink-0">
                     {format(new Date(contact.createdAt), "MMM d")}
                   </span>
                 </div>
@@ -363,6 +517,22 @@ function ContactListView() {
         onClose={() => setShowImport(false)}
         onImported={fetchContacts}
       />
+
+      <SaveAudienceModal
+        open={showAudience}
+        onClose={() => setShowAudience(false)}
+        contactIds={filtered.map((c) => c.id)}
+        defaultName={audienceName}
+      />
+
+      {draftContact && (
+        <DraftEmailModal
+          contact={draftContact}
+          accountId={draftContact.accountId}
+          accountName={draftContact.accountName ?? ""}
+          onClose={() => setDraftContact(null)}
+        />
+      )}
     </SalesLayout>
   );
 }

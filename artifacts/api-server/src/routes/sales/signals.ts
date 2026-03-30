@@ -59,7 +59,7 @@ router.get("/signals", async (req, res): Promise<void> => {
       conditions.push(eq(salesSignalsTable.accountId, Number(accountId)));
     }
     if (contactId) {
-      query = query.where(eq(salesSignalsTable.contactId, Number(contactId))) as typeof query;
+      conditions.push(eq(salesSignalsTable.contactId, Number(contactId)));
     }
 
     const rows = await db
