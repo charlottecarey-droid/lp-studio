@@ -12,7 +12,7 @@ const SCENES = [
   { id: 1, duration: 4500,  Component: Scene1Hook },
   { id: 2, duration: 4000,  Component: SceneChairs },
   { id: 3, duration: 6500,  Component: Scene2Reveal },
-  { id: 4, duration: 7500,  Component: Scene3DrillDown },
+  { id: 4, duration: 10500, Component: Scene3DrillDown },
   { id: 5, duration: 6000,  Component: Scene4Quality },
   { id: 6, duration: 5000,  Component: Scene5Payoff },
   { id: 7, duration: 4500,  Component: Scene6CTA },

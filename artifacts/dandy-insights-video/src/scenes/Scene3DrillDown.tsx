@@ -136,8 +136,8 @@ export default function Scene3DrillDown() {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLevel(1), 2800);
-    const t2 = setTimeout(() => setLevel(2), 5600);
+    const t1 = setTimeout(() => setLevel(1), 3500);
+    const t2 = setTimeout(() => setLevel(2), 7000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
