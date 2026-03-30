@@ -17,6 +17,171 @@ function getOpenAIClient(): OpenAI | null {
   return null;
 }
 
+type AiBlock = Record<string, unknown>;
+
+/**
+ * Normalize an AI-generated block into the { id, type, props } structure
+ * that the block renderer expects. Handles both the new (correct) format and
+ * the legacy flat format the AI sometimes produces.
+ */
+function normalizeBlock(raw: AiBlock, index: number): AiBlock {
+  const type = (raw.type as string) ?? "hero";
+
+  // If the block already has a proper `props` object, just ensure it has an id
+  if (raw.props && typeof raw.props === "object") {
+    return {
+      id: raw.id ?? `${type}-${index}`,
+      type,
+      props: mergeWithDefaults(type, raw.props as AiBlock),
+    };
+  }
+
+  // Legacy flat format — lift all non-type/id keys into props, fill defaults
+  const { type: _t, id: _id, ...rest } = raw;
+  return {
+    id: `${type}-${index}`,
+    type,
+    props: mergeWithDefaults(type, rest),
+  };
+}
+
+function mergeWithDefaults(type: string, aiProps: AiBlock): AiBlock {
+  switch (type) {
+    case "hero":
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "See What Dandy Can Do For You",
+        subheadline: aiProps.subheadline ?? aiProps.subheading ?? aiProps.subtitle ?? "Digital-first lab workflows that save time, reduce remakes, and delight your patients.",
+        ctaText: aiProps.ctaText ?? "Book a Demo",
+        ctaUrl: aiProps.ctaUrl ?? "#",
+        ctaColor: aiProps.ctaColor ?? "#C7E738",
+        ctaTextColor: aiProps.ctaTextColor ?? "#001a14",
+        heroType: aiProps.heroType ?? "static-image",
+        layout: aiProps.layout ?? "centered",
+        backgroundStyle: aiProps.backgroundStyle ?? "dark",
+        showSocialProof: aiProps.showSocialProof ?? true,
+        socialProofText: aiProps.socialProofText ?? "Trusted by 12,000+ dental practices across the US",
+        imageUrl: aiProps.imageUrl ?? "",
+        mediaUrl: aiProps.mediaUrl ?? "",
+      };
+
+    case "benefits-grid":
+    case "features": {
+      const rawItems = (aiProps.items ?? aiProps.features ?? aiProps.benefits ?? []) as AiBlock[];
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "Why practices choose Dandy",
+        columns: aiProps.columns ?? 3,
+        items: rawItems.length > 0
+          ? rawItems.map((f) => ({
+              icon: f.icon ?? "Zap",
+              title: f.title ?? f.name ?? "",
+              description: f.description ?? f.body ?? "",
+            }))
+          : [
+              { icon: "Zap", title: "Faster Turnaround", description: "5-day crown delivery with real-time case tracking." },
+              { icon: "RefreshCcw", title: "Free Remakes", description: "If a case doesn't fit, we remake it at no charge." },
+              { icon: "HeadphonesIcon", title: "Dedicated Support", description: "A real person answers your calls and knows your preferences." },
+            ],
+      };
+    }
+
+    case "trust-bar":
+    case "stats": {
+      const rawStats = (aiProps.items ?? aiProps.stats ?? []) as AiBlock[];
+      return {
+        items: rawStats.length > 0
+          ? rawStats.map((s) => ({ value: s.value ?? "", label: s.label ?? "" }))
+          : [
+              { value: "12,000+", label: "Dental Practices" },
+              { value: "48 hrs", label: "Avg. Turnaround" },
+              { value: "99.2%", label: "Perfect Fit Rate" },
+            ],
+      };
+    }
+
+    case "stat-callout":
+      return {
+        stat: aiProps.stat ?? aiProps.value ?? "89%",
+        description: aiProps.description ?? aiProps.label ?? "Average reduction in remakes when partnering with Dandy",
+        footnote: aiProps.footnote ?? "",
+      };
+
+    case "testimonial":
+    case "testimonials": {
+      const rawList = (aiProps.testimonials ?? []) as AiBlock[];
+      if (rawList.length > 0) {
+        const t = rawList[0];
+        return {
+          quote: t.quote ?? t.body ?? "",
+          author: t.author ?? t.name ?? "Dental Practice Owner",
+          role: t.role ?? t.title ?? "Dentist",
+          practiceName: t.practiceName ?? t.company ?? "",
+        };
+      }
+      return {
+        quote: aiProps.quote ?? "",
+        author: aiProps.author ?? "Dental Practice Owner",
+        role: aiProps.role ?? "Dentist",
+        practiceName: aiProps.practiceName ?? aiProps.company ?? "",
+      };
+    }
+
+    case "bottom-cta":
+    case "cta":
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "Ready to upgrade your lab — with zero risk?",
+        subheadline: aiProps.subheadline ?? aiProps.subheading ?? "No contracts. No setup fees. Free shipping both ways.",
+        ctaText: aiProps.ctaText ?? "Book a Demo",
+        ctaUrl: aiProps.ctaUrl ?? "#",
+        backgroundStyle: aiProps.backgroundStyle ?? "dark",
+      };
+
+    case "how-it-works": {
+      const rawSteps = (aiProps.steps ?? []) as AiBlock[];
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "Simple to start.",
+        steps: rawSteps.length > 0
+          ? rawSteps.map((s, i) => ({
+              number: s.number ?? `0${i + 1}`,
+              title: s.title ?? s.name ?? "",
+              description: s.description ?? s.body ?? "",
+            }))
+          : [
+              { number: "01", title: "Scan & Send", description: "Take an intraoral scan and send it to Dandy in seconds." },
+              { number: "02", title: "We Manufacture", description: "Your case enters Dandy's digital lab immediately." },
+              { number: "03", title: "Delivered to Your Door", description: "Your restoration arrives in 5 business days." },
+            ],
+      };
+    }
+
+    case "comparison":
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "A paradigm shift for your practice.",
+        ctaText: aiProps.ctaText ?? "Get Started Free",
+        ctaUrl: aiProps.ctaUrl ?? "#",
+        oldWayLabel: aiProps.oldWayLabel ?? "Traditional Lab",
+        oldWayBullets: aiProps.oldWayBullets ?? ["Long wait times", "Inconsistent fits", "Opaque pricing"],
+        newWayLabel: aiProps.newWayLabel ?? "Dandy",
+        newWayBullets: aiProps.newWayBullets ?? ["5-day crowns", "Free remakes", "Transparent pricing"],
+      };
+
+    case "pas-section":
+      return {
+        headline: aiProps.headline ?? aiProps.heading ?? "Your lab is costing you more than money.",
+        body: aiProps.body ?? aiProps.description ?? "",
+        bullets: Array.isArray(aiProps.bullets) ? aiProps.bullets : [],
+      };
+
+    case "rich-text":
+      return {
+        content: aiProps.content ?? aiProps.body ?? aiProps.html ?? "",
+        maxWidth: aiProps.maxWidth ?? "prose",
+      };
+
+    default:
+      return { ...aiProps };
+  }
+}
+
 /**
  * POST /sales/accounts/:accountId/generate-microsite
  *
@@ -30,12 +195,10 @@ router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise
   const { prompt: userPrompt } = req.body as { prompt?: string };
 
   try {
-    // Load account
     const [account] = await db.select().from(salesAccountsTable)
       .where(eq(salesAccountsTable.id, accountId));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
-    // Load briefing if available
     const [briefing] = await db.select().from(salesBriefingsTable)
       .where(eq(salesBriefingsTable.accountId, accountId))
       .orderBy(desc(salesBriefingsTable.updatedAt))
@@ -44,25 +207,32 @@ router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
 
-    // Build context-rich prompt
     const briefingData = briefing?.briefingData as Record<string, unknown> | undefined;
 
     const systemPrompt = [
       "You are an expert B2B landing page copywriter for Dandy, a dental technology company.",
       "You create personalized microsites for specific dental accounts (DSOs, independent practices, etc.).",
-      "Return ONLY valid JSON with this structure: { title, slug, blocks }",
-      "where blocks is an array of landing page block objects.",
       "",
-      "Each block must have a `type` field. Common types:",
-      '- "hero": { type, heading, subheading, ctaText, ctaUrl, backgroundStyle, imageUrl }',
-      '- "features": { type, heading, features: [{ title, description, icon }] }',
-      '- "stats": { type, stats: [{ value, label }] }',
-      '- "testimonials": { type, heading, testimonials: [{ quote, author, role, company }] }',
-      '- "cta": { type, heading, subheading, ctaText, ctaUrl, backgroundStyle }',
+      "Return ONLY valid JSON with this exact structure:",
+      "{ \"title\": string, \"slug\": string, \"blocks\": Block[] }",
       "",
-      "Make the copy feel personalized to the specific company — reference their segment, size, challenges.",
-      "Use Dandy's value props: digital workflows, chairside efficiency, lab-quality results, easy onboarding.",
-      "Keep language warm, professional, and specific. Avoid generic marketing fluff.",
+      "Each Block MUST follow this exact format: { \"type\": string, \"props\": { ...props } }",
+      "The props object contains all the block's content. Never put content fields at the top level of a block.",
+      "",
+      "Available block types and their required props:",
+      "",
+      "\"hero\": { headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
+      "\"benefits-grid\": { headline, columns (2 or 3), items: [{ icon (lucide name), title, description }] }",
+      "\"trust-bar\": { items: [{ value, label }] }",
+      "\"testimonial\": { quote, author, role, practiceName }",
+      "\"how-it-works\": { headline, steps: [{ number (\"01\"), title, description }] }",
+      "\"comparison\": { headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
+      "\"bottom-cta\": { headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
+      "\"pas-section\": { headline, body, bullets: string[] }",
+      "",
+      "Build a page with 4-6 blocks. Always start with a hero block.",
+      "Use clear, bold, specific Dandy value props — never filler or generic marketing language.",
+      "Reference the account's name, size, and pain points throughout the copy.",
     ].join("\n");
 
     const contextParts: string[] = [];
@@ -139,17 +309,20 @@ router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise
     // Sanitize slug
     parsed.slug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+    // Normalize blocks to the { id, type, props } structure the renderer expects
+    const normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i));
+
     // Save as a new page linked to the account
     const [page] = await db.insert(lpPagesTable).values({
       title: parsed.title,
       slug: parsed.slug,
-      blocks: parsed.blocks,
+      blocks: normalizedBlocks,
       status: "draft",
       mode: "sales",
       accountId,
     }).returning();
 
-    res.json({ page, blocks: parsed.blocks });
+    res.json({ page, blocks: normalizedBlocks });
   } catch (err) {
     console.error("Generate microsite error:", err);
     res.status(500).json({ error: "Failed to generate microsite" });

@@ -188,7 +188,15 @@ function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefine
   return url;
 }
 
-export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars }: Props) {
+export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars }: Props) {
+  // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
+  // Ensure `block.props` always exists so child components don't crash on prop access.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const block: typeof rawBlock = (rawBlock as any).props
+    ? rawBlock
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    : ({ ...(rawBlock as any), props: {} } as typeof rawBlock);
+
   const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
     ? PADDING_X_PX[block.blockSettings.paddingX]
     : undefined;
