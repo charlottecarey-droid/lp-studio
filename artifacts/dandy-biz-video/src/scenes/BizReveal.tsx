@@ -15,7 +15,7 @@ export default function BizReveal() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
+      className="absolute inset-0 flex flex-col w-full h-full overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
@@ -23,68 +23,29 @@ export default function BizReveal() {
     >
       <Background />
 
-      {/* ── Dashboard screenshot – angled perspective mockup ── */}
-      <motion.div
-        className="absolute"
-        style={{
-          bottom: '-4%',
-          left: '50%',
-          width: '78vw',
-          transformOrigin: 'bottom center',
-          perspective: '1200px',
-        }}
-        initial={{ opacity: 0, y: 80, rotateX: 14, x: '-50%' }}
-        animate={{ opacity: 1, y: 0, rotateX: 8, x: '-50%' }}
-        transition={{ delay: 0.55, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {/* Subtle lime border glow */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{
-            boxShadow: '0 0 0 1.5px rgba(199,231,56,0.25), 0 32px 80px rgba(0,0,0,0.55)',
-          }}
-        >
-          <img
-            src={dashboardImg}
-            alt="Dandy Insights network dashboard"
-            className="w-full block"
-            style={{ borderRadius: '0.75rem' }}
+      {/* ── Top section: headline sits cleanly above everything ── */}
+      <div className="relative z-10 flex flex-col items-center pt-[6vh] gap-4">
+        <LiveBadge label="Network Live" delay={0.2} />
+
+        <h1 className="text-[5.5vw] font-normal leading-none tracking-tight">
+          <SplitText
+            text="Not anymore."
+            delay={0.3}
+            stagger={0.1}
+            duration={0.65}
+            className="text-white"
           />
-          {/* Dark gradient overlay at bottom so KPI cards read cleanly */}
-          <div
-            className="absolute inset-0 rounded-xl"
-            style={{
-              background:
-                'linear-gradient(to top, rgba(0,26,20,0.85) 0%, rgba(0,26,20,0.35) 40%, transparent 70%)',
-            }}
-          />
-        </div>
-      </motion.div>
+        </h1>
 
-      {/* ── Foreground content ── */}
-      <div className="relative z-10 w-full flex flex-col items-center gap-5" style={{ marginTop: '-18vh' }}>
-        {/* Badge + headline */}
-        <div className="flex flex-col items-center gap-3">
-          <LiveBadge label="Network Live" delay={0.2} />
-
-          <h1 className="text-[5.5vw] font-normal leading-none tracking-tight">
-            <SplitText
-              text="Not anymore."
-              delay={0.3}
-              stagger={0.1}
-              duration={0.65}
-              className="text-white"
-            />
-          </h1>
-
+        <div className="w-[40vw]">
           <GlowLine delay={0.9} />
         </div>
 
-        {/* KPI cards row */}
+        {/* KPI cards sit just below the headline, above the dashboard */}
         {phase >= 1 && (
           <motion.div
-            className="flex items-stretch gap-4 justify-center flex-wrap"
-            initial={{ opacity: 0, y: 14 }}
+            className="flex items-stretch gap-4 justify-center flex-wrap mt-1"
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -95,6 +56,36 @@ export default function BizReveal() {
           </motion.div>
         )}
       </div>
+
+      {/* ── Dashboard screenshot fills the lower portion ── */}
+      <motion.div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80vw]"
+        style={{ transformOrigin: 'bottom center', perspective: '1200px' }}
+        initial={{ opacity: 0, y: 60, rotateX: 14 }}
+        animate={{ opacity: 1, y: 0, rotateX: 7 }}
+        transition={{ delay: 0.5, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div
+          className="rounded-t-xl overflow-hidden relative"
+          style={{
+            boxShadow: '0 0 0 1.5px rgba(199,231,56,0.25), 0 -24px 60px rgba(0,0,0,0.4)',
+          }}
+        >
+          <img
+            src={dashboardImg}
+            alt="Dandy Insights network dashboard"
+            className="w-full block"
+          />
+          {/* Fade out the bottom edge into background */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom, transparent 50%, rgba(0,26,20,0.95) 100%)',
+            }}
+          />
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
