@@ -37,7 +37,7 @@ export default function DownloadButton() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'dandy-insights-business.webm';
+      a.download = 'dandy-insights-business.mp4';
       a.click();
       URL.revokeObjectURL(url);
 
