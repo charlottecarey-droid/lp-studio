@@ -11,6 +11,10 @@ import {
   Check,
   Loader2,
   TrendingUp,
+  AlignLeft,
+  Type,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";

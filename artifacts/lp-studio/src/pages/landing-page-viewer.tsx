@@ -250,6 +250,17 @@ export default function LandingPageViewer() {
   const [dtrParams] = useState(() => getDtrParams());
   const [chilipiperUrl, setChilipiperUrl] = useState<string | null>(null);
 
+  // Personalization vars written by the hotlink resolver into sessionStorage (key: `pv:<slug>`)
+  const [pageVars] = useState<Record<string, string>>(() => {
+    try {
+      const raw = sessionStorage.getItem(`pv:${slug}`);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const hasPageVars = Object.keys(pageVars).length > 0;
+
   // Derive pageId for heatmap tracking across all render paths
   const heatmapPageId = (() => {
     if (!config) return undefined;
