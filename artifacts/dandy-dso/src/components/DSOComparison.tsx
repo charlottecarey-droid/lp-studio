@@ -34,7 +34,7 @@ const DSOComparison = () => {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1, duration: 0.7 }} className="rounded-2xl overflow-hidden bg-background" style={{ boxShadow: 'var(--shadow-elevated)' }}>
-          <div className="grid grid-cols-3 bg-primary">
+          <div className="grid grid-cols-3 bg-primary divide-x divide-primary-foreground/10">
             <div className="p-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">What Your DSO Needs</div>
             <div className="p-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-accent-warm">Dandy</div>
             <div className="p-5 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">Traditional Labs</div>
@@ -42,7 +42,7 @@ const DSOComparison = () => {
 
           {rows.map((row, i) =>
           <motion.div key={row.need} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}
-          className="grid grid-cols-3 border-t border-border/50 hover:bg-secondary/40 transition-colors duration-200">
+          className="grid grid-cols-3 border-t border-border/50 divide-x divide-border/50 hover:bg-secondary/40 transition-colors duration-200">
               <div className="p-5 text-sm font-medium text-foreground">{row.need}</div>
               <div className="p-5 flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
