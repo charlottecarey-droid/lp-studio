@@ -32,15 +32,13 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
-  const eyebrowC   = dark ? LIME : BRAND;
-  const headlineC  = dark ? "#fff" : BRAND;
-  const subC       = dark ? "rgba(255,255,255,0.70)" : "#6b7280";
-  const oldCardBg  = dark ? "rgba(255,255,255,0.03)" : "#fafafa";
+  const eyebrowC  = dark ? LIME : BRAND;
+  const headlineC = dark ? "#fff" : BRAND;
+  const subC      = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
+  const oldCardBg = dark ? "rgba(255,255,255,0.03)" : "#fafafa";
   const oldCardBor = dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e5e7eb";
-  const newCardBg  = dark ? "rgba(194,229,58,0.06)" : "#f0fdf4";
+  const newCardBg = dark ? "rgba(194,229,58,0.06)" : "#f0fdf4";
   const newCardBor = dark ? `1px solid ${LIME}35` : `1px solid ${BRAND}30`;
-  // Old Way item text: min 60% on dark (≥4.5:1) / muted gray on light
-  const oldItemC   = dark ? "rgba(255,255,255,0.62)" : "#9ca3af";
 
   return (
     <section style={sectionBg} className="py-24 md:py-32">
@@ -95,14 +93,14 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.5rem" }}>
-              <div aria-hidden="true" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(239,68,68,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <X style={{ width: 16, height: 16, color: "#ef4444", strokeWidth: 2.5 }} />
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(239,68,68,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X style={{ width: 14, height: 14, color: "#ef4444" }} />
               </div>
-              <span style={{ fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 600, color: dark ? "rgba(255,255,255,0.80)" : "#6b7280" }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 600, color: dark ? "rgba(255,255,255,0.7)" : "#6b7280" }}>
                 {oldWayLabel}
               </span>
             </div>
-            <ul style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }} aria-label={oldWayLabel}>
+            <ul style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
               {oldWayItems.map((item, i) => (
                 <motion.li
                   key={i}
@@ -110,12 +108,10 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.05 + i * 0.06 }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.5 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: dark ? "rgba(255,255,255,0.50)" : "#9ca3af", lineHeight: 1.5 }}
                 >
-                  <div aria-hidden="true" style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(239,68,68,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                    <X style={{ width: 12, height: 12, color: "#ef4444", strokeWidth: 2.5 }} />
-                  </div>
-                  <span>{item}</span>
+                  <X style={{ width: 14, height: 14, color: "#ef4444", flexShrink: 0, marginTop: 2 }} />
+                  <span style={{ textDecoration: "line-through", opacity: 0.8 }}>{item}</span>
                 </motion.li>
               ))}
             </ul>
@@ -135,14 +131,14 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.5rem" }}>
-              <div aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "50%", background: dark ? `${LIME}25` : `${BRAND}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: dark ? `${LIME}25` : `${BRAND}15`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check style={{ width: 14, height: 14, color: dark ? LIME : BRAND }} />
               </div>
               <span style={{ fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 600, color: dark ? LIME : BRAND }}>
                 {newWayLabel}
               </span>
             </div>
-            <ul style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }} aria-label={newWayLabel}>
+            <ul style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
               {newWayItems.map((item, i) => (
                 <motion.li
                   key={i}
@@ -150,11 +146,9 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 + i * 0.06 }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: "0.9375rem", color: dark ? "rgba(255,255,255,0.90)" : BRAND, lineHeight: 1.5, fontWeight: 500 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: dark ? "rgba(255,255,255,0.80)" : BRAND, lineHeight: 1.5, fontWeight: 500 }}
                 >
-                  <div aria-hidden="true" style={{ width: 22, height: 22, borderRadius: "50%", background: dark ? `${LIME}28` : `${BRAND}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                    <Check style={{ width: 12, height: 12, color: dark ? LIME : BRAND, strokeWidth: 2.5 }} />
-                  </div>
+                  <Check style={{ width: 14, height: 14, color: dark ? LIME : BRAND, flexShrink: 0, marginTop: 2 }} />
                   <span>{item}</span>
                 </motion.li>
               ))}
