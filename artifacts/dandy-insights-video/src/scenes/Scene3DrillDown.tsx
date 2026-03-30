@@ -11,7 +11,6 @@ const LEVELS = [
     img: assets.doctorView,
     caption: 'Track performance',
     captionAccent: 'by individual provider.',
-    captionPos: 'top-1/4',
     metric: { label: 'Remake rate', value: '6.1%', trend: 'down' as const },
     alert: { kind: 'warning' as const, title: 'Above network average', sub: 'Coaching recommended' },
   },
@@ -20,7 +19,6 @@ const LEVELS = [
     img: assets.practiceView,
     caption: 'Compare locations',
     captionAccent: 'across every site.',
-    captionPos: 'top-[67%]',
     metric: { label: 'Avg scan quality', value: '94%', trend: 'up' as const },
     alert: { kind: 'success' as const, title: 'On track this quarter', sub: 'All KPIs in range' },
   },
@@ -29,7 +27,6 @@ const LEVELS = [
     img: assets.dsoView,
     caption: 'Command the network',
     captionAccent: 'from a single view.',
-    captionPos: 'top-1/4',
     metric: { label: 'Group remake rate', value: '5.3%', trend: 'down' as const },
     alert: { kind: 'info' as const, title: '12 locations reporting', sub: 'Updated 30 min ago' },
   },
@@ -48,7 +45,7 @@ export default function Scene3DrillDown() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-5 w-full h-full overflow-hidden px-8"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-4 w-full h-full overflow-hidden px-8"
       initial={{ opacity: 0, x: '6vw' }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, scale: 1.05, filter: 'blur(12px)' }}
@@ -90,43 +87,6 @@ export default function Scene3DrillDown() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Caption pill — overlaid at top of screenshot over empty nav area */}
-        <motion.div
-          className={`absolute ${current.captionPos} left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none z-10`}
-          initial={{ y: -12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, delay: 0.6 }}
-        >
-          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={level}
-                className="flex flex-wrap items-baseline"
-                style={{ gap: '0.28em' }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2 }}
-              >
-                <SplitText
-                  text={current.caption}
-                  delay={0}
-                  stagger={0.07}
-                  duration={0.45}
-                  className="text-[1.25vw] tracking-wide text-white"
-                />
-                <SplitText
-                  text={'— ' + current.captionAccent}
-                  delay={current.caption.split(' ').length * 0.07 + 0.05}
-                  stagger={0.06}
-                  duration={0.4}
-                  className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
-                />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
         {/* Floating alert — top right of screenshot */}
         <div className="absolute -top-3 -right-2 w-[24vw] z-20">
           <AnimatePresence mode="wait">
@@ -149,6 +109,38 @@ export default function Scene3DrillDown() {
                 value={current.metric.value}
                 trend={current.metric.trend}
                 delay={0.25}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Caption pill — below the dashboard */}
+      <div className="flex justify-center flex-shrink-0">
+        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={level}
+              className="flex flex-wrap items-baseline justify-center"
+              style={{ gap: '0.28em' }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+            >
+              <SplitText
+                text={current.caption}
+                delay={0}
+                stagger={0.07}
+                duration={0.45}
+                className="text-[1.25vw] tracking-wide text-white"
+              />
+              <SplitText
+                text={'— ' + current.captionAccent}
+                delay={current.caption.split(' ').length * 0.07 + 0.05}
+                stagger={0.06}
+                duration={0.4}
+                className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
               />
             </motion.div>
           </AnimatePresence>
