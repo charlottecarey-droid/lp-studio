@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesContactsTable, salesAccountsTable, salesHotlinksTable } from "@workspace/db";
+import { salesContactsTable, salesAccountsTable, salesHotlinksTable, salesBriefingsTable } from "@workspace/db";
 
 const router = Router();
 
@@ -124,7 +124,32 @@ router.post("/draft-email", async (req, res): Promise<void> => {
       }
     }
 
-    // ─── 3. Hotlink check ────────────────────────────────────────
+    // ─── 3. Load account briefing ───────────────────────────────
+    type BriefingData = {
+      overview?: string;
+      tier?: string;
+      organizationalModel?: string;
+      leadership?: Array<{ name: string; title: string }>;
+      sizeAndLocations?: { locationCount?: string; regions?: string[]; headquarters?: string; ownership?: string };
+      recentNews?: Array<{ headline: string; summary: string; date?: string }>;
+      buyingCommittee?: Array<{ role: string; painPoints: string; recommendedMessage: string }>;
+      fitAnalysis?: { primaryValueProp?: string; keyPainPoints?: string[]; proofPoints?: string[]; potentialObjections?: string[]; recommendedApproach?: string };
+      talkingPoints?: string[];
+      pageRecommendations?: { heroHeadline?: string; contentFocus?: string; ctaStrategy?: string };
+    };
+
+    let briefing: BriefingData | null = null;
+    if (accountId) {
+      const [br] = await db.select().from(salesBriefingsTable)
+        .where(eq(salesBriefingsTable.accountId, Number(accountId)))
+        .orderBy(desc(salesBriefingsTable.updatedAt))
+        .limit(1);
+      if (br?.briefingData && (br.briefingData as Record<string, unknown>).overview) {
+        briefing = br.briefingData as BriefingData;
+      }
+    }
+
+    // ─── 4. Hotlink check ────────────────────────────────────────
     let hasMicrosite = false;
     if (contactId) {
       const hotlinks = await db.select({ id: salesHotlinksTable.id })
@@ -139,7 +164,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
       ? `A personalized microsite for ${accountName} is already live. Reference it naturally in the email using the exact placeholder [MICROSITE_URL] where the link should appear — do not write a real URL. Example: "I put together a quick look at how that works for ${accountName} — [MICROSITE_URL]"`
       : "No microsite exists for this company yet. Do not mention a microsite or link.";
 
-    // ─── 4. Dual Perplexity research (parallel) ─────────────────
+    // ─── 5. Dual Perplexity research (parallel) ─────────────────
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
     let newsResearch = "";
     let siteResearch = "";
@@ -186,7 +211,7 @@ Be factual and specific. Only include what's on the site.`
           : "",
     ].filter(Boolean).join("\n\n");
 
-    // ─── 5. Build the contact/account context ────────────────────
+    // ─── 6. Build the contact/account context ────────────────────
     const locationStr = [city, state].filter(Boolean).join(", ");
     const accountContext = [
       `Company: ${accountName}`,
@@ -208,11 +233,62 @@ Be factual and specific. Only include what's on the site.`
       linkedinUrl           && `LinkedIn: ${linkedinUrl}`,
     ].filter(Boolean).join("\n");
 
-    // ─── 6. Write the email ──────────────────────────────────────
+    // ─── 7. Write the email ──────────────────────────────────────
+
+    // Build briefing block from stored account intelligence
+    const briefingBlock = (() => {
+      if (!briefing) return null;
+      const parts: string[] = [];
+      if (briefing.overview) parts.push(`Overview: ${briefing.overview}`);
+      const sl = briefing.sizeAndLocations;
+      if (sl) {
+        if (sl.locationCount) parts.push(`Locations: ${sl.locationCount}`);
+        if (sl.headquarters) parts.push(`HQ: ${sl.headquarters}`);
+        if (sl.regions?.length) parts.push(`Regions: ${sl.regions.join(", ")}`);
+        if (sl.ownership) parts.push(`Ownership structure: ${sl.ownership}`);
+      }
+      if (briefing.organizationalModel) parts.push(`Org model: ${briefing.organizationalModel}`);
+      if (briefing.leadership?.length) {
+        parts.push(`Leadership: ${briefing.leadership.map(l => `${l.name} (${l.title})`).join(", ")}`);
+      }
+      if (briefing.recentNews?.length) {
+        parts.push("\nRECENT NEWS (use only if < 6 months old):");
+        briefing.recentNews.slice(0, 3).forEach(n => {
+          parts.push(`- ${n.headline}${n.date ? ` (${n.date})` : ""}: ${n.summary}`);
+        });
+      }
+      const fit = briefing.fitAnalysis;
+      if (fit) {
+        if (fit.primaryValueProp) parts.push(`\nPrimary value prop for this account: ${fit.primaryValueProp}`);
+        if (fit.keyPainPoints?.length) parts.push(`Key pain points: ${fit.keyPainPoints.join(" | ")}`);
+        if (fit.proofPoints?.length) parts.push(`Proof points for this account: ${fit.proofPoints.join(" | ")}`);
+        if (fit.recommendedApproach) parts.push(`Recommended approach: ${fit.recommendedApproach}`);
+      }
+      if (briefing.talkingPoints?.length) {
+        parts.push(`\nTalking points:\n${briefing.talkingPoints.map(t => `- ${t}`).join("\n")}`);
+      }
+      // Find the committee entry most relevant to this contact's title/role
+      if (briefing.buyingCommittee?.length) {
+        const persona = [titleLevel, contactRole, title].filter(Boolean).join(" ").toLowerCase();
+        let matched = briefing.buyingCommittee[0];
+        for (const m of briefing.buyingCommittee) {
+          if (persona && m.role.toLowerCase().split(/[\s,/]+/).some(w => persona.includes(w))) {
+            matched = m;
+            break;
+          }
+        }
+        parts.push(`\nFor this persona (${matched.role}):`);
+        parts.push(`  Pain points: ${matched.painPoints}`);
+        parts.push(`  Recommended message: ${matched.recommendedMessage}`);
+      }
+      return parts.join("\n");
+    })();
+
     const prompt = `You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.
 
 === RESEARCH FINDINGS ===
 ${researchBlock}
+${briefingBlock ? `\n=== ACCOUNT INTELLIGENCE (pre-generated briefing) ===\n${briefingBlock}` : ""}
 
 === CONTACT ===
 ${contactContext}
