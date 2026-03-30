@@ -8,11 +8,7 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesContactsTable = pgTable("sales_contacts", {
   id: serial("id").primaryKey(),
-<<<<<<< HEAD
   salesforceId: text("salesforce_id").unique(),  // SFDC Contact ID (003...)
-=======
-  sfdcId: text("sfdc_id"),               // Salesforce Contact ID — unique key for SFDC sync
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   accountId: integer("account_id").notNull().references(() => salesAccountsTable.id, { onDelete: "cascade" }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),

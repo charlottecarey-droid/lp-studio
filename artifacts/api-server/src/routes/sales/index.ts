@@ -8,14 +8,11 @@ import hotlinksRouter from "./hotlinks";
 import campaignPagesRouter from "./campaign-pages";
 import audiencesRouter from "./audiences";
 import emailGenerateRouter from "./email-generate";
-<<<<<<< HEAD
 import briefingsRouter from "./briefings";
 import generateMicrositeRouter from "./generate-microsite";
 import sfdcRouter from "./sfdc";
-=======
 import inboundRouter from "./inbound";
 import importRouter from "./import";
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
 const router = Router();
 
@@ -28,13 +25,10 @@ router.use(hotlinksRouter);
 router.use(campaignPagesRouter);
 router.use(audiencesRouter);
 router.use(emailGenerateRouter);
-<<<<<<< HEAD
 router.use(briefingsRouter);
 router.use(generateMicrositeRouter);
 router.use(sfdcRouter);
-=======
 router.use("/inbound", inboundRouter);
 router.use(importRouter);
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
 export default router;

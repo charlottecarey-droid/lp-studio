@@ -1,8 +1,12 @@
-<<<<<<< HEAD
 import { Router, type Response } from "express";
-import { eq, desc, gte } from "drizzle-orm";
+import { eq, desc, and, gte, count } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesSignalsTable, salesContactsTable } from "@workspace/db";
+import {
+  salesSignalsTable,
+  salesAccountsTable,
+  salesContactsTable,
+  salesEmailSendsTable,
+} from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
@@ -16,20 +20,6 @@ function broadcastSignal(signal: Record<string, unknown>) {
     try { client.write(data); } catch { sseClients.delete(client); }
   }
 }
-
-// List signals with optional filters
-=======
-import { Router } from "express";
-import { eq, desc, and, gte, count } from "drizzle-orm";
-import { db } from "@workspace/db";
-import {
-  salesSignalsTable,
-  salesAccountsTable,
-  salesContactsTable,
-  salesEmailSendsTable,
-} from "@workspace/db";
-
-const router = Router();
 
 // ─── GET /sales/stats — dashboard summary counts ────────────
 
@@ -56,7 +46,6 @@ router.get("/stats", async (req, res): Promise<void> => {
 
 // ─── GET /sales/signals — list signals with names ───────────
 
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 router.get("/signals", async (req, res): Promise<void> => {
   try {
     const { type, accountId, contactId, limit: limitStr } = req.query;
@@ -108,7 +97,6 @@ router.get("/signals", async (req, res): Promise<void> => {
   }
 });
 
-<<<<<<< HEAD
 // SSE stream for real-time signal updates
 router.get("/signals/stream", (req, res): void => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -130,11 +118,8 @@ router.get("/signals/stream", (req, res): void => {
   });
 });
 
-// Create a signal (used internally by tracking endpoints)
-=======
 // ─── POST /sales/signals — create a signal ──────────────────
 
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 router.post("/signals", async (req, res): Promise<void> => {
   const { accountId, contactId, hotlinkId, type, source, metadata } = req.body;
   if (!type) {

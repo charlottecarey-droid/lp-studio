@@ -10,12 +10,9 @@ import {
   salesSignalsTable,
   salesHotlinksTable,
 } from "@workspace/db";
-<<<<<<< HEAD
+import { lpPagesTable } from "@workspace/db";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
-=======
-import { lpPagesTable } from "@workspace/db";
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
 const router = Router();
 

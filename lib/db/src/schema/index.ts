@@ -18,16 +18,13 @@ export * from "./salesContacts";
 export * from "./salesHotlinks";
 export * from "./salesEmails";
 export * from "./salesSignals";
-<<<<<<< HEAD
 export * from "./salesBriefings";
+export * from "./salesInbound";
 
 // Salesforce Integration
 export * from "./sfdcIntegration";
-=======
-export * from "./salesInbound";
 
 // Multi-tenant identity tables
 export * from "./tenants";
 export * from "./appUsers";
 export * from "./appSessions";
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
