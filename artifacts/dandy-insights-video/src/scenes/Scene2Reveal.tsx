@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
 import { MetricPill, LiveBadge, Counter } from '../components/ui';
 import { Background } from '../components/Background';
+import { SplitText } from '../components/SplitText';
 
 export default function Scene2Reveal() {
   const [phase, setPhase] = useState(0);
@@ -71,11 +72,23 @@ export default function Scene2Reveal() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.9 }}
         >
-          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10">
-            <p className="text-[1.25vw] tracking-wide text-white">
-              <span className="text-[#C7E738] font-semibold">Clinical quality data</span>
-              {' '}across every provider, location, and case.
-            </p>
+          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
+            <div className="flex flex-wrap items-baseline" style={{ gap: '0.28em' }}>
+              <SplitText
+                text="Clinical quality data"
+                delay={0}
+                stagger={0.07}
+                duration={0.45}
+                className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
+              />
+              <SplitText
+                text="across every provider, location, and case."
+                delay={0.35}
+                stagger={0.055}
+                duration={0.4}
+                className="text-[1.25vw] tracking-wide text-white"
+              />
+            </div>
           </div>
         </motion.div>
       </motion.div>
