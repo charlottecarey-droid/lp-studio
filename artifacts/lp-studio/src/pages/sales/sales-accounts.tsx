@@ -84,6 +84,12 @@ interface Contact {
   role: string | null;
   status: string;
   createdAt: string;
+  // Enriched fields from CSV import
+  tier: string | null;
+  titleLevel: string | null;
+  contactRole: string | null;
+  department: string | null;
+  linkedinUrl: string | null;
 }
 
 interface Microsite {
@@ -1323,71 +1329,106 @@ function AccountDetailView({ id }: { id: string }) {
               </div>
             </Card>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
               {(() => {
-                // Build a map: contactId → most recent hotlink token
+                // Build hotlink map: contactId → most recent token
                 const latestByContact = new Map<number, string>();
                 for (const hl of hotlinks) {
                   if (!latestByContact.has(hl.contactId)) {
                     latestByContact.set(hl.contactId, hl.token);
                   }
                 }
-                return contacts.map((contact) => {
-                  const token = latestByContact.get(contact.id);
-                  return (
-                    <div
-                      key={contact.id}
-                      className="flex items-center gap-4 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
-                    >
-                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
-                        {contact.firstName[0]}{contact.lastName[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">
-                          {contact.firstName} {contact.lastName}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {contact.title && <span>{contact.title}</span>}
-                          {contact.title && contact.email && <span>·</span>}
-                          {contact.email && <span>{contact.email}</span>}
-                        </div>
-                      </div>
-                      {contact.role && (
-                        <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                          {contact.role}
-                        </span>
-                      )}
-                      {token && (
-                        <button
-                          onClick={() => handleCopyContactLink(contact.id, token)}
-                          title="Copy personalized link"
-                          className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
-                        >
-                          {copiedContactId === contact.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-green-500" />
-                              <span className="text-green-500 font-medium">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Link2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Link</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setDraftEmailContact(contact)}
-                        title="Draft AI email"
-                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-foreground hover:opacity-90 transition-all"
-                        style={{ background: "#003A30" }}
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span className="hidden sm:inline">Draft email</span>
-                      </button>
-                    </div>
-                  );
+
+                // Group contacts by contactRole (persona)
+                const PERSONA_ORDER = ["Decision Maker", "Champion", "Influencer", "Other"];
+                const grouped = new Map<string, Contact[]>();
+                for (const c of contacts) {
+                  const key = c.contactRole ?? c.role ?? "Other";
+                  const bucket = grouped.get(key) ?? [];
+                  bucket.push(c);
+                  grouped.set(key, bucket);
+                }
+                // Sort groups by persona order, then alphabetically
+                const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => {
+                  const ai = PERSONA_ORDER.indexOf(a);
+                  const bi = PERSONA_ORDER.indexOf(b);
+                  if (ai !== -1 && bi !== -1) return ai - bi;
+                  if (ai !== -1) return -1;
+                  if (bi !== -1) return 1;
+                  return a.localeCompare(b);
                 });
+
+                const personaBadgeStyle: Record<string, string> = {
+                  "Decision Maker": "bg-primary/15 text-primary",
+                  "Champion": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                  "Influencer": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                };
+
+                return sortedGroups.map(([role, groupContacts]) => (
+                  <div key={role} className="flex flex-col gap-1.5">
+                    {/* Group header */}
+                    <div className="flex items-center gap-2 px-1">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${personaBadgeStyle[role] ?? "bg-muted text-muted-foreground"}`}>
+                        {role}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    {/* Contacts in this group */}
+                    {groupContacts.map((contact) => {
+                      const token = latestByContact.get(contact.id);
+                      return (
+                        <div key={contact.id} className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
+                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                            {contact.firstName[0]}{contact.lastName[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium text-foreground">{contact.firstName} {contact.lastName}</p>
+                              {contact.titleLevel && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{contact.titleLevel}</span>
+                              )}
+                              {contact.tier && contact.tier !== "0.0" && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase">{contact.tier}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap mt-0.5">
+                              {contact.title && <span>{contact.title}</span>}
+                              {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
+                              {contact.linkedinUrl && (
+                                <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-0.5 hover:text-primary transition-colors"
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <ExternalLink className="w-3 h-3" />LinkedIn
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setDraftEmailContact(contact)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
+                            title="Draft AI email"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Draft Email</span>
+                          </button>
+                          {token && (
+                            <button
+                              onClick={() => handleCopyContactLink(contact.id, token)}
+                              title="Copy personalized link"
+                              className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
+                            >
+                              {copiedContactId === contact.id ? (
+                                <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
+                              ) : (
+                                <><Link2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Link</span></>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
               })()}
             </div>
           )}
