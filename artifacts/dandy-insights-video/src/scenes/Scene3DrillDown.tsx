@@ -1,132 +1,154 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { assets } from '../utils/assets';
-import { MetricPill, AlertCard } from '../components/ui';
+import { AlertCard } from '../components/ui';
 import { Background } from '../components/Background';
 import { SplitText } from '../components/SplitText';
 
 const LEVELS = [
   {
-    label: 'Doctor',
     img: assets.doctorView,
-    caption: 'Track performance',
-    captionAccent: 'by individual provider.',
-    metric: { label: 'Remake rate', value: '6.1%', trend: 'down' as const },
+    headlineA: 'Track performance',
+    headlineB: 'by individual provider.',
     alert: { kind: 'warning' as const, title: 'Above network average', sub: 'Coaching recommended' },
+    // headline LEFT, dashboard RIGHT
+    layout: 'left' as const,
+    headlineFrom: { x: -40, y: 0 },
   },
   {
-    label: 'Practice',
     img: assets.practiceView,
-    caption: 'Compare locations',
-    captionAccent: 'across every site.',
-    metric: { label: 'Avg scan quality', value: '94%', trend: 'up' as const },
+    headlineA: 'Compare locations',
+    headlineB: 'across every site.',
     alert: { kind: 'success' as const, title: 'On track this quarter', sub: 'All KPIs in range' },
+    // headline TOP, dashboard BELOW
+    layout: 'top' as const,
+    headlineFrom: { x: 0, y: -40 },
   },
   {
-    label: 'DSO Group',
     img: assets.dsoView,
-    caption: 'Command the network',
-    captionAccent: 'from a single view.',
-    metric: { label: 'Group remake rate', value: '5.3%', trend: 'down' as const },
+    headlineA: 'Command the network',
+    headlineB: 'from a single view.',
     alert: { kind: 'info' as const, title: '12 locations reporting', sub: 'Updated 30 min ago' },
+    // headline RIGHT, dashboard LEFT
+    layout: 'right' as const,
+    headlineFrom: { x: 40, y: 0 },
   },
 ];
+
+function LevelContent({ level }: { level: number }) {
+  const current = LEVELS[level];
+  const { layout, headlineFrom } = current;
+
+  const isTop = layout === 'top';
+  const isRight = layout === 'right';
+
+  const headline = (
+    <motion.div
+      className={`relative z-10 flex-shrink-0 flex flex-col gap-3 ${isTop ? 'w-full text-center items-center' : 'w-[30vw]'}`}
+      initial={{ opacity: 0, x: headlineFrom.x, y: headlineFrom.y }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <h2 className={`font-bold leading-[1.2] tracking-tight ${isTop ? 'text-[3vw]' : 'text-[2.6vw]'}`}>
+        <SplitText
+          text={current.headlineA}
+          delay={0.1}
+          stagger={0.08}
+          duration={0.5}
+          className="text-[#C7E738]"
+        />
+        <br />
+        <SplitText
+          text={current.headlineB}
+          delay={0.4}
+          stagger={0.07}
+          duration={0.5}
+          className="text-white"
+        />
+      </h2>
+    </motion.div>
+  );
+
+  const dashboard = (
+    <motion.div
+      className={`relative z-10 flex-shrink-0 rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/15 ${isTop ? 'w-[72vw]' : 'w-[58vw]'}`}
+      initial={{ opacity: 0, scale: 0.97, y: 16 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+    >
+      <img src={current.img} alt="" className="w-full h-auto" />
+
+      {/* Alert card — top right */}
+      <div className="absolute -top-3 -right-2 w-[22vw] z-20">
+        <AlertCard
+          kind={current.alert.kind}
+          title={current.alert.title}
+          sub={current.alert.sub}
+          delay={0.3}
+        />
+      </div>
+    </motion.div>
+  );
+
+  if (isTop) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2.5vw] px-[6vw]">
+        <Background />
+        {headline}
+        {dashboard}
+      </div>
+    );
+  }
+
+  if (isRight) {
+    return (
+      <div className="absolute inset-0 flex flex-row-reverse items-center justify-center gap-[4vw] px-[4vw]">
+        <Background />
+        {headline}
+        {dashboard}
+      </div>
+    );
+  }
+
+  // default: left
+  return (
+    <div className="absolute inset-0 flex flex-row items-center justify-center gap-[4vw] px-[4vw]">
+      <Background />
+      {headline}
+      {dashboard}
+    </div>
+  );
+}
 
 export default function Scene3DrillDown() {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLevel(1), 2500);
-    const t2 = setTimeout(() => setLevel(2), 5000);
+    const t1 = setTimeout(() => setLevel(1), 2800);
+    const t2 = setTimeout(() => setLevel(2), 5600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  const current = LEVELS[level];
-
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-4 w-full h-full overflow-hidden px-8"
+      className="absolute inset-0 w-full h-full overflow-hidden"
       initial={{ opacity: 0, x: '6vw' }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, scale: 1.05, filter: 'blur(12px)' }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
     >
-      <Background />
-
-      {/* Screenshot with overlays */}
-      <div className="relative w-[76vw] flex-shrink-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={level}
-            className="w-full rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/15"
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -14, scale: 1.01 }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <img src={current.img} alt={current.label} className="w-full h-auto" />
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Floating alert — top right of screenshot */}
-        <div className="absolute -top-3 -right-2 w-[24vw] z-20">
-          <AnimatePresence mode="wait">
-            <AlertCard
-              key={level}
-              kind={current.alert.kind}
-              title={current.alert.title}
-              sub={current.alert.sub}
-              delay={0.2}
-            />
-          </AnimatePresence>
-        </div>
-
-        {/* Metric pill — bottom left of screenshot */}
-        <div className="absolute -bottom-3 -left-2 z-20">
-          <AnimatePresence mode="wait">
-            <motion.div key={level}>
-              <MetricPill
-                label={current.metric.label}
-                value={current.metric.value}
-                trend={current.metric.trend}
-                delay={0.25}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Caption pill — below the dashboard */}
-      <div className="flex justify-center flex-shrink-0">
-        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={level}
-              className="flex flex-wrap items-baseline justify-center"
-              style={{ gap: '0.28em' }}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25 }}
-            >
-              <SplitText
-                text={current.caption}
-                delay={0}
-                stagger={0.07}
-                duration={0.45}
-                className="text-[1.25vw] tracking-wide text-white"
-              />
-              <SplitText
-                text={'— ' + current.captionAccent}
-                delay={current.caption.split(' ').length * 0.07 + 0.05}
-                stagger={0.06}
-                duration={0.4}
-                className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={level}
+          className="absolute inset-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <LevelContent level={level} />
+        </motion.div>
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -43,7 +43,7 @@ export default function Scene1Hook() {
       {/* Floating alert cards */}
       <AnimatePresence>
         {phase >= 1 && (
-          <div className="absolute left-[6vw] top-[28vh] z-20 w-[26vw]">
+          <div key="alert-warning" className="absolute left-[6vw] top-[28vh] z-20 w-[26vw]">
             <AlertCard
               kind="warning"
               title="Remake rate above threshold"
@@ -54,7 +54,7 @@ export default function Scene1Hook() {
           </div>
         )}
         {phase >= 2 && (
-          <div className="absolute right-[6vw] bottom-[28vh] z-20 w-[26vw]">
+          <div key="alert-success" className="absolute right-[6vw] bottom-[28vh] z-20 w-[26vw]">
             <AlertCard
               kind="success"
               title="Best scan quality in network"
