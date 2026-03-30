@@ -51,7 +51,7 @@ export default function SceneChairs() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
             <motion.span
-              className="text-white/50 text-[2vw] font-medium"
+              className="text-white/60 text-[4vw] font-bold"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.4 }}
@@ -64,7 +64,7 @@ export default function SceneChairs() {
             </span>
 
             <motion.span
-              className="text-white/50 text-[2vw] font-medium"
+              className="text-white/60 text-[4vw] font-bold"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.4 }}
