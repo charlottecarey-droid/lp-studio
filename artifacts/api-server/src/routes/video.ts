@@ -66,14 +66,19 @@ function transcodeToMp4(webmPath: string, mp4Path: string): void {
       "-y",
       "-i", webmPath,
       "-c:v", "libx264",
-      "-crf", "18",
-      "-preset", "medium",
+      "-crf", "15",
+      "-preset", "slow",
       "-pix_fmt", "yuv420p",
+      // Subtle grain breaks up color banding on dark gradient backgrounds
+      "-vf", "noise=alls=2:allf=t",
+      "-colorspace", "bt709",
+      "-color_primaries", "bt709",
+      "-color_trc", "bt709",
       "-movflags", "+faststart",
       "-an",
       mp4Path,
     ],
-    { timeout: 120_000 },
+    { timeout: 180_000 },
   );
 
   if (result.status !== 0) {
@@ -115,10 +120,14 @@ router.get("/video/render", async (req, res) => {
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-gpu",
+        // Use SwiftShader (software GPU) instead of disabling GPU entirely —
+        // gives more accurate gradient/radial-gradient rendering
+        "--use-gl=swiftshader",
+        "--enable-unsafe-swiftshader",
         "--disable-dev-shm-usage",
         "--disable-web-security",
         "--autoplay-policy=no-user-gesture-required",
+        "--force-color-profile=srgb",
       ],
     });
 
