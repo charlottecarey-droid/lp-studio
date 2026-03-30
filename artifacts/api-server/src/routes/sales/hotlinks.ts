@@ -13,6 +13,78 @@ import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
+// ─── GET /microsites/overview — account-grouped microsites + hotlinks ──────
+router.get("/microsites/overview", async (_req, res): Promise<void> => {
+  try {
+    // Single JOIN query: hotlinks → contacts → accounts + pages
+    const rows = await db
+      .select({
+        hotlinkId: salesHotlinksTable.id,
+        token: salesHotlinksTable.token,
+        isActive: salesHotlinksTable.isActive,
+        contactId: salesContactsTable.id,
+        contactFirst: salesContactsTable.firstName,
+        contactLast: salesContactsTable.lastName,
+        accountId: salesAccountsTable.id,
+        accountName: salesAccountsTable.name,
+        pageId: lpPagesTable.id,
+        pageTitle: lpPagesTable.title,
+        pageSlug: lpPagesTable.slug,
+        pageStatus: lpPagesTable.status,
+        pageUpdatedAt: lpPagesTable.updatedAt,
+      })
+      .from(salesHotlinksTable)
+      .innerJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
+      .innerJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+      .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
+      .where(eq(salesHotlinksTable.isActive, true))
+      .orderBy(salesAccountsTable.name, lpPagesTable.updatedAt, salesContactsTable.lastName);
+
+    // Group into: accountId → pageId → hotlinks[]
+    type HotlinkEntry = { hotlinkId: number; token: string; contactId: number; contactName: string };
+    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkEntry[] };
+    type AccountEntry = { accountId: number; accountName: string; pages: Map<number, PageEntry> };
+
+    const accountMap = new Map<number, AccountEntry>();
+    for (const row of rows) {
+      if (!accountMap.has(row.accountId)) {
+        accountMap.set(row.accountId, { accountId: row.accountId, accountName: row.accountName, pages: new Map() });
+      }
+      const acct = accountMap.get(row.accountId)!;
+      if (!acct.pages.has(row.pageId)) {
+        acct.pages.set(row.pageId, {
+          pageId: row.pageId,
+          pageTitle: row.pageTitle,
+          pageSlug: row.pageSlug,
+          pageStatus: row.pageStatus,
+          pageUpdatedAt: row.pageUpdatedAt,
+          hotlinks: [],
+        });
+      }
+      acct.pages.get(row.pageId)!.hotlinks.push({
+        hotlinkId: row.hotlinkId,
+        token: row.token,
+        contactId: row.contactId,
+        contactName: `${row.contactFirst} ${row.contactLast}`.trim(),
+      });
+    }
+
+    const result = Array.from(accountMap.values()).map(acct => ({
+      accountId: acct.accountId,
+      accountName: acct.accountName,
+      pages: Array.from(acct.pages.values()).map(p => ({
+        ...p,
+        pageUpdatedAt: p.pageUpdatedAt,
+      })),
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error("GET /sales/microsites/overview error:", err);
+    res.status(500).json({ error: "Failed to load microsites overview" });
+  }
+});
+
 // ─── Token generation (matches existing LP Studio pattern) ──
 
 function generateToken(): string {
