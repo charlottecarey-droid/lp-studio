@@ -6,8 +6,6 @@ export function ModeToggle() {
   const { setMode } = useAppMode();
   const [location, navigate] = useLocation();
 
-  // Derive active mode from the URL — single source of truth so the
-  // toggle is always in sync regardless of how the user navigated here.
   const isSales = location === "/sales" || location.startsWith("/sales/");
 
   function handleSwitch(newMode: AppMode) {
@@ -20,7 +18,12 @@ export function ModeToggle() {
   }
 
   return (
-    <div className="flex items-center bg-muted/60 rounded-lg p-0.5 gap-0.5">
+    <div className="relative flex items-center bg-black/30 border border-white/10 rounded-xl p-1 gap-0.5 w-full">
+      {/* Sliding pill */}
+      <div
+        className="absolute top-1 bottom-1 w-[calc(50%-2px)] rounded-[10px] bg-[#C7E738] shadow-lg transition-all duration-250 ease-out"
+        style={{ left: isSales ? "calc(50% + 2px)" : "4px" }}
+      />
       <ModeButton
         active={!isSales}
         onClick={() => handleSwitch("marketing")}
@@ -46,10 +49,10 @@ function ModeButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${
+      className={`relative z-10 flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-[10px] text-xs font-bold tracking-wide transition-colors duration-200 ${
         active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground"
+          ? "text-[#001a14]"
+          : "text-white/50 hover:text-white/80"
       }`}
     >
       {icon}
