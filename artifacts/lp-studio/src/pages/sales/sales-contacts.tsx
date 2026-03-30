@@ -164,8 +164,11 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mb-5">
-          Upload a CSV with columns: <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">firstName, lastName, email, title, role, accountId</span>
+        <p className="text-sm text-muted-foreground mb-2">
+          Upload a CSV with columns: <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">firstName, lastName, email, title, role, sfdcAccountId</span>
+        </p>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          <span className="font-semibold">sfdcAccountId (Salesforce Account ID) is required</span> — this is the join key used to link each contact to their account. Contacts without a matching SFDC Account ID will be skipped.
         </p>
         {error && <p className="text-sm text-destructive mb-4">{error}</p>}
         <div className="flex flex-col gap-3">
