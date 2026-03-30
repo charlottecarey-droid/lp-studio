@@ -39,7 +39,7 @@ export default function BizHook() {
       {/* Line 1 */}
       <h1 className="relative z-10 text-[4.8vw] font-normal leading-[1.12] tracking-tight text-center">
         <SplitText
-          text="You built your entire"
+          text="You built a thriving"
           delay={0.4}
           stagger={0.09}
           duration={0.6}
