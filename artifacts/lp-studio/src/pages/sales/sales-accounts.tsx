@@ -1151,32 +1151,22 @@ function AccountDetailView({ id }: { id: string }) {
                 }
               },
             },
-            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, href: "/sales/pages" },
-            { label: "Send Email", icon: <Mail className="w-4 h-4" />, href: "/sales/outreach" },
-            { label: "View Signals", icon: <Activity className="w-4 h-4" />, href: "/sales/signals" },
+            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => navigate("/sales/pages") },
+            { label: "Send Email", icon: <Mail className="w-4 h-4" />, onClick: () => navigate("/sales/outreach") },
+            { label: "View Signals", icon: <Activity className="w-4 h-4" />, onClick: () => navigate("/sales/signals") },
             { label: "Add Contact", icon: <Users className="w-4 h-4" />, onClick: () => setShowContactForm(true) },
           ].map((action) => (
-            <Card
+            <button
               key={action.label}
-              className="flex items-center gap-3 p-4 rounded-xl border border-border/60 cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all"
-              onClick={action.onClick ?? (() => {})}
+              type="button"
+              className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left w-full"
+              onClick={action.onClick}
             >
-              {action.href ? (
-                <Link href={action.href} className="flex items-center gap-3 w-full">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    {action.icon}
-                  </div>
-                  <span className="text-sm font-medium text-foreground">{action.label}</span>
-                </Link>
-              ) : (
-                <>
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    {action.icon}
-                  </div>
-                  <span className="text-sm font-medium text-foreground">{action.label}</span>
-                </>
-              )}
-            </Card>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                {action.icon}
+              </div>
+              <span className="text-sm font-medium text-foreground">{action.label}</span>
+            </button>
           ))}
         </div>
 
