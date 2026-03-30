@@ -17,7 +17,7 @@ export default function BizCTA() {
       <div className="relative z-10 flex flex-col items-center text-center gap-8">
         {/* Headline */}
         <div className="flex flex-col items-center gap-2">
-          <h1 className="text-[5vw] font-bold leading-[1.1] tracking-tight">
+          <h1 className="text-[5vw] font-normal leading-[1.1] tracking-tight">
             <SplitText
               text="See inside every operatory."
               delay={0.2}
@@ -26,7 +26,7 @@ export default function BizCTA() {
               className="text-white"
             />
           </h1>
-          <h2 className="text-[5vw] font-bold leading-[1.1] tracking-tight mt-1">
+          <h2 className="text-[5vw] font-normal leading-[1.1] tracking-tight mt-1">
             <SplitText
               text="Dandy Insights."
               delay={0.85}

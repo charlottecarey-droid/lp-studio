@@ -33,7 +33,7 @@ export default function BizNetwork() {
       <div className="relative z-10 w-full max-w-[72vw] flex flex-col gap-6">
         {/* Headline */}
         <div className="flex flex-col gap-2">
-          <h2 className="text-[3.6vw] font-bold leading-tight">
+          <h2 className="text-[3.6vw] font-normal leading-tight">
             <SplitText
               text="See across your entire network."
               delay={0.2}

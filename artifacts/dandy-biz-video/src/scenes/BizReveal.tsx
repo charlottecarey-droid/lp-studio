@@ -27,7 +27,7 @@ export default function BizReveal() {
         <div className="flex flex-col items-center gap-3">
           <LiveBadge label="Network Live" delay={0.2} />
 
-          <h1 className="text-[5.5vw] font-bold leading-none tracking-tight">
+          <h1 className="text-[5.5vw] font-normal leading-none tracking-tight">
             <SplitText
               text="Not anymore."
               delay={0.35}

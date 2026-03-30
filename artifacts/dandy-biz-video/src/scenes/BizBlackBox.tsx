@@ -65,7 +65,7 @@ export default function BizBlackBox() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
-              <h2 className="text-[2.4vw] font-bold">
+              <h2 className="text-[2.4vw] font-normal">
                 <SplitText
                   text="Zero visibility."
                   delay={0.1}

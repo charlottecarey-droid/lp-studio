@@ -17,7 +17,7 @@ export default function BizPayoff() {
 
       <div className="relative z-10 flex flex-col items-center text-center px-16 gap-7">
         {/* Main statement */}
-        <h1 className="text-[5.2vw] font-bold leading-[1.12] tracking-tight">
+        <h1 className="text-[5.2vw] font-normal leading-[1.12] tracking-tight">
           <SplitText
             text="Real-time visibility."
             delay={0.2}

@@ -37,7 +37,7 @@ export default function BizHook() {
       </motion.div>
 
       {/* Line 1 */}
-      <h1 className="relative z-10 text-[4.8vw] font-bold leading-[1.12] tracking-tight text-center">
+      <h1 className="relative z-10 text-[4.8vw] font-normal leading-[1.12] tracking-tight text-center">
         <SplitText
           text="You built a multi-location"
           delay={0.4}
@@ -58,7 +58,7 @@ export default function BizHook() {
       {/* Line 2 — punches in after a beat */}
       {phase >= 1 && (
         <motion.h2
-          className="relative z-10 mt-6 text-[2.8vw] font-medium text-white/60 text-center leading-snug"
+          className="relative z-10 mt-6 text-[2.8vw] font-normal text-white/60 text-center leading-snug"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
