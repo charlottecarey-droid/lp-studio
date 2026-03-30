@@ -28,6 +28,9 @@ import {
   Clock,
   Eye,
   MousePointerClick,
+  Layout,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -947,6 +950,12 @@ function AccountDetailView({ id }: { id: string }) {
   // AI microsite generation
   const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
 
+  // Microsites
+  const [microsites, setMicrosites] = useState<Microsite[]>([]);
+  const [micrositesLoading, setMicrositesLoading] = useState(false);
+  const [showMicrositeModal, setShowMicrositeModal] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFirst, setContactFirst] = useState("");
@@ -1366,6 +1375,181 @@ function AccountDetailView({ id }: { id: string }) {
         onCreated={fetchMicrosites}
       />
     </SalesLayout>
+  );
+}
+
+/* ─── Generate Microsite Modal ───────────────────────────────── */
+
+function GenerateMicrositeModal({
+  open,
+  onClose,
+  accountName,
+  accountId,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accountName: string;
+  accountId: string;
+  onCreated: () => void;
+}) {
+  const [, navigate] = useLocation();
+  const [prompt, setPrompt] = useState("");
+  const [step, setStep] = useState<"idle" | "generating" | "linking" | "done" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [createdPageId, setCreatedPageId] = useState<number | null>(null);
+  const [hotlinkCount, setHotlinkCount] = useState(0);
+
+  function reset() {
+    setPrompt("");
+    setStep("idle");
+    setErrorMsg("");
+    setCreatedPageId(null);
+    setHotlinkCount(0);
+  }
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
+  async function handleGenerate() {
+    setStep("generating");
+    setErrorMsg("");
+    try {
+      // Step 1: AI-generate the page
+      const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim() || undefined }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error(err.error ?? "Generation failed");
+      }
+      const { page } = await genRes.json();
+
+      setCreatedPageId(page.id);
+
+      // Step 2: Bulk-create hotlinks for all contacts with email
+      setStep("linking");
+      const linkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: page.id }),
+      });
+      if (!linkRes.ok) throw new Error("Failed to create hotlinks");
+      const { totalCount } = await linkRes.json();
+      setHotlinkCount(totalCount);
+
+      setStep("done");
+      onCreated();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
+      setStep("error");
+    }
+  }
+
+  const busy = step === "generating" || step === "linking";
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) handleClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Generate Microsite
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "done" ? (
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Check className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Microsite created!</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {hotlinkCount > 0
+                  ? `${hotlinkCount} personalised hotlink${hotlinkCount !== 1 ? "s" : ""} created for contacts with email.`
+                  : "No contacts with email found — add contacts to generate hotlinks."}
+              </p>
+            </div>
+            <div className="flex gap-2 w-full">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleClose}
+              >
+                Close
+              </Button>
+              {createdPageId && (
+                <Button
+                  className="flex-1 gap-1.5"
+                  onClick={() => { handleClose(); navigate(`/builder/${createdPageId}`); }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open Builder
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : step === "error" ? (
+          <div className="flex flex-col gap-4 py-2">
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              {errorMsg}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleClose}>Cancel</Button>
+              <Button className="flex-1" onClick={() => setStep("idle")}>Try Again</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 py-2">
+            <div className="text-sm text-muted-foreground">
+              Dandy AI will create a personalised landing page for <strong>{accountName}</strong> and
+              generate unique hotlinks for each contact with an email address.
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ms-prompt" className="text-xs font-medium">
+                Additional instructions <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <textarea
+                id="ms-prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="e.g. Focus on their enterprise expansion, emphasise ROI and onboarding speed…"
+                rows={3}
+                disabled={busy}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+              />
+            </div>
+
+            {busy && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                {step === "generating" ? "Generating personalised copy…" : "Creating contact hotlinks…"}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
+                Cancel
+              </Button>
+              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy}>
+                {busy ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                Generate
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
