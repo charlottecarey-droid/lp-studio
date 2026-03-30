@@ -278,8 +278,6 @@ function ContactListView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [contactSignals, setContactSignals] = useState<Record<number, Signal[]>>({});
   const [tierFilter, setTierFilter] = useState("");
   const [titleLevelFilter, setTitleLevelFilter] = useState("");
