@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
@@ -34,12 +34,27 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
 
 // ─── CRUD ───────────────────────────────────────────────────
 
-// List hotlinks (optionally filter by contactId or pageId)
+// List hotlinks (optionally filter by contactId, pageId, or accountId)
 router.get("/hotlinks", async (req, res): Promise<void> => {
   try {
-    const { contactId, pageId } = req.query;
+    const { contactId, pageId, accountId } = req.query;
     let hotlinks;
-    if (contactId) {
+    if (accountId) {
+      // All hotlinks for an account — join through contacts
+      const contacts = await db
+        .select({ id: salesContactsTable.id })
+        .from(salesContactsTable)
+        .where(eq(salesContactsTable.accountId, Number(accountId)));
+      if (contacts.length === 0) {
+        res.json([]);
+        return;
+      }
+      hotlinks = await db
+        .select()
+        .from(salesHotlinksTable)
+        .where(inArray(salesHotlinksTable.contactId, contacts.map(c => c.id)))
+        .orderBy(desc(salesHotlinksTable.createdAt));
+    } else if (contactId) {
       hotlinks = await db.select().from(salesHotlinksTable)
         .where(eq(salesHotlinksTable.contactId, Number(contactId)))
         .orderBy(desc(salesHotlinksTable.createdAt));

@@ -31,6 +31,7 @@ import {
   Layout,
   Copy,
   Check,
+  Link2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -83,6 +84,14 @@ interface Microsite {
   updatedAt: string;
   hotlinkCount: number;
   firstToken: string | null;
+}
+
+interface Hotlink {
+  id: number;
+  contactId: number;
+  pageId: number;
+  token: string;
+  isActive: boolean;
 }
 
 interface PageBlock {
@@ -956,6 +965,10 @@ function AccountDetailView({ id }: { id: string }) {
   const [showMicrositeModal, setShowMicrositeModal] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
+  // Hotlinks (per-contact personalized links for this account)
+  const [hotlinks, setHotlinks] = useState<Hotlink[]>([]);
+  const [copiedContactId, setCopiedContactId] = useState<number | null>(null);
+
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFirst, setContactFirst] = useState("");
@@ -987,8 +1000,15 @@ function AccountDetailView({ id }: { id: string }) {
       .finally(() => setMicrositesLoading(false));
   }, [id]);
 
+  const fetchHotlinks = useCallback(() => {
+    fetch(`${API_BASE}/sales/hotlinks?accountId=${id}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setHotlinks)
+      .catch(() => setHotlinks([]));
+  }, [id]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { fetchMicrosites(); }, [fetchMicrosites]);
+  useEffect(() => { fetchMicrosites(); fetchHotlinks(); }, [fetchMicrosites, fetchHotlinks]);
 
   async function handleCreateContact(e: React.FormEvent) {
     e.preventDefault();
@@ -1024,6 +1044,14 @@ function AccountDetailView({ id }: { id: string }) {
     navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
       setCopiedToken(token);
       setTimeout(() => setCopiedToken(null), 2000);
+    });
+  }
+
+  function handleCopyContactLink(contactId: number, token: string) {
+    const baseUrl = window.location.origin;
+    navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
+      setCopiedContactId(contactId);
+      setTimeout(() => setCopiedContactId(null), 2000);
     });
   }
 
@@ -1233,31 +1261,62 @@ function AccountDetailView({ id }: { id: string }) {
             </Card>
           ) : (
             <div className="flex flex-col gap-2">
-              {contacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="flex items-center gap-4 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
-                >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
-                    {contact.firstName[0]}{contact.lastName[0]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {contact.firstName} {contact.lastName}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {contact.title && <span>{contact.title}</span>}
-                      {contact.title && contact.email && <span>·</span>}
-                      {contact.email && <span>{contact.email}</span>}
+              {(() => {
+                // Build a map: contactId → most recent hotlink token
+                const latestByContact = new Map<number, string>();
+                for (const hl of hotlinks) {
+                  if (!latestByContact.has(hl.contactId)) {
+                    latestByContact.set(hl.contactId, hl.token);
+                  }
+                }
+                return contacts.map((contact) => {
+                  const token = latestByContact.get(contact.id);
+                  return (
+                    <div
+                      key={contact.id}
+                      className="flex items-center gap-4 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+                    >
+                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                        {contact.firstName[0]}{contact.lastName[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {contact.firstName} {contact.lastName}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {contact.title && <span>{contact.title}</span>}
+                          {contact.title && contact.email && <span>·</span>}
+                          {contact.email && <span>{contact.email}</span>}
+                        </div>
+                      </div>
+                      {contact.role && (
+                        <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
+                          {contact.role}
+                        </span>
+                      )}
+                      {token && (
+                        <button
+                          onClick={() => handleCopyContactLink(contact.id, token)}
+                          title="Copy personalized link"
+                          className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
+                        >
+                          {copiedContactId === contact.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-green-500" />
+                              <span className="text-green-500 font-medium">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Link2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Link</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  {contact.role && (
-                    <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                      {contact.role}
-                    </span>
-                  )}
-                </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
@@ -1324,7 +1383,7 @@ function AccountDetailView({ id }: { id: string }) {
                       <PageStatusBadge status={site.status} />
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{site.hotlinkCount} hotlink{site.hotlinkCount !== 1 ? "s" : ""}</span>
+                      <span>{site.hotlinkCount} personalized link{site.hotlinkCount !== 1 ? "s" : ""}</span>
                       <span>·</span>
                       <span>Updated {format(new Date(site.updatedAt), "MMM d")}</span>
                     </div>
@@ -1372,7 +1431,7 @@ function AccountDetailView({ id }: { id: string }) {
         onClose={() => setShowMicrositeModal(false)}
         accountName={account.name}
         accountId={id}
-        onCreated={fetchMicrosites}
+        onCreated={() => { fetchMicrosites(); fetchHotlinks(); }}
       />
     </SalesLayout>
   );
