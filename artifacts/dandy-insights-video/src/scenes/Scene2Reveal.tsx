@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { assets } from '../utils/assets';
-import { MetricPill, LiveBadge, Counter } from '../components/ui';
+import { LiveBadge, Counter } from '../components/ui';
 import { Background } from '../components/Background';
 import { SplitText } from '../components/SplitText';
 
 export default function Scene2Reveal() {
-  const [phase, setPhase] = useState(0);
+  const [showCounter, setShowCounter] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1400);
-    const t2 = setTimeout(() => setPhase(2), 2600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t1 = setTimeout(() => setShowCounter(true), 2600);
+    return () => clearTimeout(t1);
   }, []);
 
   return (
@@ -24,8 +23,8 @@ export default function Scene2Reveal() {
     >
       <Background />
 
-      {/* Counter callout — top left, white bg with lime accent bar */}
-      {phase >= 2 && (
+      {/* Counter callout — top left */}
+      {showCounter && (
         <motion.div
           className="absolute top-8 left-10 z-20 flex items-stretch bg-white rounded-2xl overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
           initial={{ opacity: 0, x: -20 }}
@@ -65,7 +64,7 @@ export default function Scene2Reveal() {
           <LiveBadge delay={1.0} />
         </div>
 
-        {/* Caption pill — overlaid at top of image over the empty nav area */}
+        {/* Caption pill — overlaid at top of image */}
         <motion.div
           className="absolute top-1/4 left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none"
           initial={{ y: -16, opacity: 0 }}
@@ -92,22 +91,6 @@ export default function Scene2Reveal() {
           </div>
         </motion.div>
       </motion.div>
-
-      {/* Metric pills — below the image */}
-      <AnimatePresence>
-        {phase >= 1 && (
-          <motion.div
-            className="flex items-center gap-4 flex-shrink-0"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <MetricPill label="Providers tracked" value="47" trend="up" delay={0} large />
-            <MetricPill label="Avg remake rate" value="5.3%" trend="down" delay={0.1} large />
-            <MetricPill label="Locations" value="12" trend="neutral" delay={0.2} large />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
