@@ -95,8 +95,8 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.5rem" }}>
-              <div aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(239,68,68,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <X style={{ width: 14, height: 14, color: "#ef4444" }} />
+              <div aria-hidden="true" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(239,68,68,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X style={{ width: 16, height: 16, color: "#ef4444", strokeWidth: 2.5 }} />
               </div>
               <span style={{ fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 600, color: dark ? "rgba(255,255,255,0.80)" : "#6b7280" }}>
                 {oldWayLabel}
@@ -110,10 +110,12 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.05 + i * 0.06 }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.5 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.5 }}
                 >
-                  <X aria-hidden="true" style={{ width: 14, height: 14, color: "#ef4444", flexShrink: 0, marginTop: 2 }} />
-                  <span style={{ textDecoration: "line-through" }}>{item}</span>
+                  <div aria-hidden="true" style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(239,68,68,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    <X style={{ width: 12, height: 12, color: "#ef4444", strokeWidth: 2.5 }} />
+                  </div>
+                  <span>{item}</span>
                 </motion.li>
               ))}
             </ul>
@@ -148,9 +150,11 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 + i * 0.06 }}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.9375rem", color: dark ? "rgba(255,255,255,0.90)" : BRAND, lineHeight: 1.5, fontWeight: 500 }}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: "0.9375rem", color: dark ? "rgba(255,255,255,0.90)" : BRAND, lineHeight: 1.5, fontWeight: 500 }}
                 >
-                  <Check aria-hidden="true" style={{ width: 14, height: 14, color: dark ? LIME : BRAND, flexShrink: 0, marginTop: 2 }} />
+                  <div aria-hidden="true" style={{ width: 22, height: 22, borderRadius: "50%", background: dark ? `${LIME}28` : `${BRAND}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    <Check style={{ width: 12, height: 12, color: dark ? LIME : BRAND, strokeWidth: 2.5 }} />
+                  </div>
                   <span>{item}</span>
                 </motion.li>
               ))}
