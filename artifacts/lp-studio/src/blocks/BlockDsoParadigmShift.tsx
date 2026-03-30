@@ -32,15 +32,15 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
   const headlineC   = dark ? "#fff" : BRAND;
   const subC        = dark ? "rgba(255,255,255,0.65)" : "#6b7280";
 
-  // Old Way card
-  const oldCardBg   = dark ? "rgba(255,255,255,0.04)" : "#fff";
-  const oldCardBor  = dark ? "1px solid rgba(255,255,255,0.10)" : "1px solid #e5e7eb";
-  const oldLabelC   = dark ? "rgba(255,255,255,0.75)" : "#374151";
-  const oldItemC    = dark ? "rgba(255,255,255,0.65)" : "#6b7280";
+  // Old Way card — no border, just a faint background
+  const oldCardBg   = dark ? "rgba(255,255,255,0.03)" : "#f9fafb";
+  const oldCardBor  = dark ? "1px solid transparent" : "1px solid transparent";
+  const oldLabelC   = dark ? "rgba(255,255,255,0.55)" : "#9ca3af";
+  const oldItemC    = dark ? "rgba(255,255,255,0.50)" : "#9ca3af";
 
-  // New Way card
-  const newCardBg   = dark ? `${LIME}10` : `${BRAND}08`;
-  const newCardBor  = dark ? `2px solid ${LIME}50` : `2px solid ${BRAND}30`;
+  // New Way card — prominent lime/brand outline
+  const newCardBg   = dark ? "rgba(199,231,56,0.06)" : "rgba(0,58,48,0.04)";
+  const newCardBor  = dark ? "2px solid rgba(199,231,56,0.55)" : `2px solid rgba(0,58,48,0.30)`;
   const newLabelC   = dark ? LIME : BRAND;
   const newItemC    = dark ? "rgba(255,255,255,0.90)" : BRAND;
 
