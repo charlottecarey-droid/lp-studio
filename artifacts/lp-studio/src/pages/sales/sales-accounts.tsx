@@ -1127,40 +1127,33 @@ function AccountDetailView({ id }: { id: string }) {
           </Button>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            {
-              label: "AI Microsite",
-              icon: <Sparkles className="w-4 h-4" />,
-              onClick: () => setShowMicrositeModal(true),
-            },
-            { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => navigate("/sales/pages") },
-            { label: "Send Email", icon: <Mail className="w-4 h-4" />, onClick: () => navigate("/sales/outreach") },
-            { label: "View Signals", icon: <Activity className="w-4 h-4" />, onClick: () => navigate("/sales/signals") },
-            {
-              label: "Add Contact",
-              icon: <Users className="w-4 h-4" />,
-              onClick: () => {
-                setShowContactForm(true);
-                setTimeout(() => {
-                  contactsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }, 50);
-              },
-            },
-          ].map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left w-full"
-              onClick={action.onClick}
-            >
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                {action.icon}
-              </div>
-              <span className="text-sm font-medium text-foreground">{action.label}</span>
-            </button>
-          ))}
+        {/* Quick Actions — account-specific only */}
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left"
+            onClick={() => setShowMicrositeModal(true)}
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-medium text-foreground">AI Microsite</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left"
+            onClick={() => {
+              setShowContactForm(true);
+              setTimeout(() => {
+                contactsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 50);
+            }}
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-medium text-foreground">Add Contact</span>
+          </button>
         </div>
 
         {/* AI Briefing */}
