@@ -140,6 +140,7 @@ function getEngagementScore(signals: Signal[]): { label: string; color: string; 
 const CSV_TEMPLATE_HEADERS = [
   "sfdcAccountId",   // Salesforce Account ID — preferred join key
   "accountName",     // Account name — used if sfdcAccountId is blank
+  "accountOwner",    // Account owner / rep name
   "salesforceId",    // SFDC Contact ID (003…) — optional
   "firstName",
   "lastName",
@@ -158,6 +159,7 @@ const CSV_TEMPLATE_HEADERS = [
 const CSV_TEMPLATE_EXAMPLE = [
   "0015d00003WBzFNAA1",  // sfdcAccountId
   "Acme Dental Group",   // accountName
+  "Jane Doe",            // accountOwner
   "0035d00003XCzGOAA2",  // salesforceId
   "Jane",
   "Smith",
@@ -189,6 +191,7 @@ function downloadCsvTemplate() {
 const DB_FIELD_ALIASES: Record<string, string[]> = {
   sfdcAccountId:  ["sfdcaccountid", "sfdc_account_id", "account_id", "accountid", "salesforce_account_id", "salesforceaccountid"],
   accountName:    ["accountname", "account_name", "account", "organization", "practice", "practicename", "practice_name", "company", "companyname", "company_name"],
+  accountOwner:   ["accountowner", "account_owner", "owner", "rep", "ownername", "owner_name", "accountrep", "account_rep"],
   salesforceId:   ["salesforceid", "sfdc_id", "sfdcid", "salesforce_contact_id", "contact_sfdc_id", "salesforceid"],
   firstName:      ["firstname", "first_name", "first"],
   lastName:       ["lastname", "last_name", "last"],
@@ -207,6 +210,7 @@ const DB_FIELD_ALIASES: Record<string, string[]> = {
 const DB_FIELD_LABELS: Record<string, string> = {
   sfdcAccountId: "SFDC Account ID ★",
   accountName:   "Account Name ★",
+  accountOwner:  "Account Owner",
   salesforceId:  "SFDC Contact ID",
   firstName:     "First Name",
   lastName:      "Last Name",
