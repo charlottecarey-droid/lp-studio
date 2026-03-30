@@ -157,9 +157,9 @@ export default function BizDoctors() {
             animate={headlineVisible ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 1.0, duration: 0.55 }}
           >
-            Scan quality. Remake rate. Monthly volume.
+            See where the margin is slipping away,
             <br />
-            Know who's excelling — and who needs support.
+            and where to double down.
           </motion.p>
 
           {/* Legend */}
