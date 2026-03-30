@@ -67,26 +67,27 @@ export default function BizReveal() {
       </div>
 
       {/* ── Dashboard image fills the rest ── */}
-      <div className="relative flex-1 overflow-hidden mt-4">
+      <div className="relative flex-1 flex items-end justify-center mt-4 pb-0">
         <motion.div
-          className="absolute inset-x-0 bottom-0 flex justify-center"
+          className="w-[82vw]"
           initial={{ opacity: 0, y: 60 }}
           animate={showDash ? { opacity: 1, y: 0 } : { opacity: 0, y: 60 }}
           transition={{ duration: 1.0, ease: EASE }}
         >
           <div
-            className="w-[82vw] rounded-t-xl overflow-hidden relative"
+            className="rounded-xl overflow-hidden relative"
             style={{ boxShadow: '0 0 0 1.5px rgba(199,231,56,0.22), 0 -20px 50px rgba(0,0,0,0.5)' }}
           >
             <img
               src={dashboardImg}
               alt="Dandy Insights network dashboard"
               className="w-full block"
+              style={{ maxHeight: '44vh', objectFit: 'cover', objectPosition: 'top' }}
             />
             {/* Fade bottom edge into background */}
             <div
               className="absolute inset-0"
-              style={{ background: 'linear-gradient(to bottom, transparent 60%, rgba(0,26,20,0.9) 100%)' }}
+              style={{ background: 'linear-gradient(to bottom, transparent 50%, rgba(0,26,20,0.92) 100%)' }}
             />
           </div>
         </motion.div>
