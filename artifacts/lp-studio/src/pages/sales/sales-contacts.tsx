@@ -138,7 +138,8 @@ function getEngagementScore(signals: Signal[]): { label: string; color: string; 
 /* ─── CSV Import Modal ───────────────────────────────────────── */
 
 const CSV_TEMPLATE_HEADERS = [
-  "sfdcAccountId",   // REQUIRED — Salesforce Account ID (join key to accounts)
+  "sfdcAccountId",   // Salesforce Account ID — preferred join key
+  "accountName",     // Account name — used if sfdcAccountId is blank
   "salesforceId",    // SFDC Contact ID (003…) — optional
   "firstName",
   "lastName",
@@ -156,6 +157,7 @@ const CSV_TEMPLATE_HEADERS = [
 
 const CSV_TEMPLATE_EXAMPLE = [
   "0015d00003WBzFNAA1",  // sfdcAccountId
+  "Acme Dental Group",   // accountName
   "0035d00003XCzGOAA2",  // salesforceId
   "Jane",
   "Smith",
@@ -186,6 +188,7 @@ function downloadCsvTemplate() {
 /* Auto-map CSV header → DB field name */
 const DB_FIELD_ALIASES: Record<string, string[]> = {
   sfdcAccountId:  ["sfdcaccountid", "sfdc_account_id", "account_id", "accountid", "salesforce_account_id", "salesforceaccountid"],
+  accountName:    ["accountname", "account_name", "account", "organization", "practice", "practicename", "practice_name", "company", "companyname", "company_name"],
   salesforceId:   ["salesforceid", "sfdc_id", "sfdcid", "salesforce_contact_id", "contact_sfdc_id", "salesforceid"],
   firstName:      ["firstname", "first_name", "first"],
   lastName:       ["lastname", "last_name", "last"],
@@ -203,6 +206,7 @@ const DB_FIELD_ALIASES: Record<string, string[]> = {
 
 const DB_FIELD_LABELS: Record<string, string> = {
   sfdcAccountId: "SFDC Account ID ★",
+  accountName:   "Account Name ★",
   salesforceId:  "SFDC Contact ID",
   firstName:     "First Name",
   lastName:      "Last Name",
@@ -300,16 +304,17 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
           if (dbField && row[csvCol]) contact[dbField] = row[csvCol];
         });
         return contact;
-      }).filter(c => c.sfdcAccountId); // must have join key
+      }).filter(c => c.sfdcAccountId || c.accountName); // must have at least one join key
 
-      const res = await fetch(`${API_BASE}/sales/contacts/import`, {
+      const res = await fetch(`${API_BASE}/sales/import/contacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contacts }),
+        body: JSON.stringify({ rows: contacts }),
       });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json().catch(() => ({}));
-      setResult({ imported: json.imported ?? contacts.length, skipped: csvRows.length - contacts.length });
+      const summary = json.summary ?? {};
+      setResult({ imported: (summary.created ?? 0) + (summary.updated ?? 0), skipped: (summary.skipped ?? 0) + (csvRows.length - contacts.length) });
       setStep("done");
       onImported();
     } catch (err) {
@@ -318,11 +323,12 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
     }
   }
 
-  const sfdcMapped = Object.values(mapping).includes("sfdcAccountId");
+  const joinKeyMapped = Object.values(mapping).includes("sfdcAccountId") || Object.values(mapping).includes("accountName");
   const mappedCount = Object.values(mapping).filter(Boolean).length;
   const willImport = csvRows.filter(row => {
     const sfdcCol = csvHeaders.find(h => mapping[h] === "sfdcAccountId");
-    return sfdcCol && row[sfdcCol];
+    const nameCol = csvHeaders.find(h => mapping[h] === "accountName");
+    return (sfdcCol && row[sfdcCol]) || (nameCol && row[nameCol]);
   }).length;
 
   if (!open) return null;
@@ -364,7 +370,7 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
           {step === "pick" && (
             <div className="flex flex-col gap-4">
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <span className="font-semibold">sfdcAccountId (Salesforce Account ID) is required</span> — used to link contacts to their account. Contacts without a match will be skipped.
+                <span className="font-semibold">sfdcAccountId or accountName is required</span> — used to link contacts to their account. Rows with neither will be skipped.
               </p>
               <button onClick={downloadCsvTemplate}
                 className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors">
@@ -390,9 +396,9 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
                 <p className="text-sm text-muted-foreground">
                   <span className="font-semibold text-foreground">{csvRows.length} rows</span> · {csvHeaders.length} columns detected · {mappedCount} mapped
                 </p>
-                {!sfdcMapped && (
+                {!joinKeyMapped && (
                   <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
-                    ★ sfdcAccountId not mapped
+                    ★ No account join key mapped
                   </span>
                 )}
               </div>
@@ -437,8 +443,8 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
                 </div>
               </div>
 
-              {!sfdcMapped && (
-                <p className="text-xs text-amber-700">Map a column to "SFDC Account ID ★" to enable import.</p>
+              {!joinKeyMapped && (
+                <p className="text-xs text-amber-700">Map a column to "SFDC Account ID ★" or "Account Name ★" to enable import.</p>
               )}
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
@@ -476,7 +482,7 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
               <Button variant="outline" onClick={reset}>← Back</Button>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">{willImport} of {csvRows.length} rows will import</span>
-                <Button onClick={handleImport} disabled={!sfdcMapped} className="gap-2">
+                <Button onClick={handleImport} disabled={!joinKeyMapped} className="gap-2">
                   <Upload className="w-4 h-4" />
                   Import {willImport} Contacts
                 </Button>

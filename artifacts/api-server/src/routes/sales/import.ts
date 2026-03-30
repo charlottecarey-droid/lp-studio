@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesAccountsTable, salesContactsTable } from "@workspace/db";
 
@@ -37,8 +37,9 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const {
-      // Contact core
-      sfdcContactId,
+      // Contact core — accept salesforceId as alias for sfdcContactId
+      sfdcContactId: _sfdcContactId,
+      salesforceId,
       firstName,
       lastName,
       email,
@@ -74,9 +75,12 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       accountPrivateEquityFirm,
     } = row;
 
-    // sfdcAccountId is required — it's the linking key
-    if (!sfdcAccountId || typeof sfdcAccountId !== "string") {
-      results.errors.push({ row: i + 1, reason: "sfdcAccountId is required" });
+    // Merge sfdcContactId aliases
+    const sfdcContactId = _sfdcContactId ?? salesforceId;
+
+    // Either sfdcAccountId or accountName is required as join key
+    if ((!sfdcAccountId || typeof sfdcAccountId !== "string") && (!accountName || typeof accountName !== "string")) {
+      results.errors.push({ row: i + 1, reason: "sfdcAccountId or accountName is required" });
       results.skipped++;
       continue;
     }
@@ -88,13 +92,23 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     }
 
     try {
-      // Step 1: find or create the account by sfdcId
+      // Step 1: find or create the account
       let accountId: number;
+      let existingAccount: { id: number } | undefined;
 
-      const [existingAccount] = await db
-        .select({ id: salesAccountsTable.id })
-        .from(salesAccountsTable)
-        .where(eq(salesAccountsTable.sfdcId, sfdcAccountId));
+      if (sfdcAccountId && typeof sfdcAccountId === "string") {
+        // Preferred: look up by Salesforce Account ID
+        [existingAccount] = await db
+          .select({ id: salesAccountsTable.id })
+          .from(salesAccountsTable)
+          .where(eq(salesAccountsTable.sfdcId, sfdcAccountId));
+      } else if (accountName) {
+        // Fallback: look up by account name (case-insensitive)
+        [existingAccount] = await db
+          .select({ id: salesAccountsTable.id })
+          .from(salesAccountsTable)
+          .where(ilike(salesAccountsTable.name, accountName.trim()));
+      }
 
       const accountFields = {
         ...(accountName ? { name: accountName } : {}),
@@ -129,8 +143,8 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
         const [newAccount] = await db
           .insert(salesAccountsTable)
           .values({
-            sfdcId: sfdcAccountId,
-            name: accountName ?? sfdcAccountId,
+            sfdcId: sfdcAccountId ?? null,
+            name: accountName ?? sfdcAccountId ?? "Unknown Account",
             status: "prospect",
             ...accountFields,
           })

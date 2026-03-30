@@ -172,7 +172,14 @@ interface ImportRow {
   title?: string;
   role?: string;
   phone?: string;
-  accountName?: string;
+  tier?: string;
+  titleLevel?: string;
+  contactRole?: string;
+  department?: string;
+  linkedinUrl?: string;
+  status?: string;
+  sfdcAccountId?: string;  // Salesforce Account ID — preferred join key
+  accountName?: string;    // Account name — fallback join key
   accountId?: number;
   accountDomain?: string;
   accountSegment?: string;
