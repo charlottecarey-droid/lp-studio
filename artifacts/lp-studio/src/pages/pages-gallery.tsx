@@ -477,20 +477,18 @@ export default function PagesGallery() {
     });
   };
 
-  // Filter pages based on selected status
-  const filteredPages = pages.filter(page => {
-    if (filterStatus === "All") return true;
-    if (filterStatus === "Draft") return page.status === "draft";
-    if (filterStatus === "Published") return page.status === "published";
-    if (filterStatus === "Running") {
-      // Show pages that have running tests
-      return runningTests.some(t => {
-        // Check if page slug matches test slug (simplified logic)
-        return t.slug === page.slug;
-      });
-    }
-    return true;
-  });
+  // Filter pages based on selected status, sorted newest first
+  const filteredPages = pages
+    .filter(page => {
+      if (filterStatus === "All") return true;
+      if (filterStatus === "Draft") return page.status === "draft";
+      if (filterStatus === "Published") return page.status === "published";
+      if (filterStatus === "Running") {
+        return runningTests.some(t => t.slug === page.slug);
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const pagesPag = usePagination(filteredPages, 12);
 
