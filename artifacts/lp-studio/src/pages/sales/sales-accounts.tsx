@@ -63,6 +63,15 @@ interface Account {
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  // ABM / segmentation fields from CSV import
+  abmTier: string | null;
+  abmStage: string | null;
+  practiceSegment: string | null;
+  dsoSize: string | null;
+  numLocations: number | null;
+  privateEquityFirm: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 interface Contact {
@@ -134,6 +143,10 @@ function AccountListView() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [abmTierFilter, setAbmTierFilter] = useState("");
+  const [abmStageFilter, setAbmStageFilter] = useState("");
+  const [segmentFilter, setSegmentFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -162,11 +175,28 @@ function AccountListView() {
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
-  const filtered = accounts.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    (a.domain ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (a.segment ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const uniqueAbmTiers    = Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[];
+  const uniqueAbmStages   = Array.from(new Set(accounts.map(a => a.abmStage).filter(Boolean))).sort() as string[];
+  const uniqueSegments    = Array.from(new Set(accounts.map(a => a.practiceSegment).filter(Boolean))).sort() as string[];
+  const uniqueOwners      = Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[];
+
+  const isFiltered = !!(search || abmTierFilter || abmStageFilter || segmentFilter || ownerFilter);
+
+  const filtered = accounts.filter((a) => {
+    const q = search.toLowerCase();
+    const matchesSearch = !search ||
+      a.name.toLowerCase().includes(q) ||
+      (a.domain ?? "").toLowerCase().includes(q) ||
+      (a.owner ?? "").toLowerCase().includes(q) ||
+      (a.practiceSegment ?? "").toLowerCase().includes(q);
+    const matchesTier    = !abmTierFilter  || a.abmTier === abmTierFilter;
+    const matchesStage   = !abmStageFilter || a.abmStage === abmStageFilter;
+    const matchesSegment = !segmentFilter  || a.practiceSegment === segmentFilter;
+    const matchesOwner   = !ownerFilter    || a.owner === ownerFilter;
+    return matchesSearch && matchesTier && matchesStage && matchesSegment && matchesOwner;
+  });
+
+  function clearFilters() { setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilter(""); }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -266,15 +296,61 @@ function AccountListView() {
           </Card>
         )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search accounts…"
-            className="pl-10"
-          />
+        {/* Search + Filters */}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts, owner…" className="pl-10" />
+            </div>
+            {uniqueAbmTiers.length > 0 && (
+              <div className="relative">
+                <select value={abmTierFilter} onChange={(e) => setAbmTierFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All ABM Tiers</option>
+                  {uniqueAbmTiers.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {uniqueAbmStages.length > 0 && (
+              <div className="relative">
+                <select value={abmStageFilter} onChange={(e) => setAbmStageFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All ABM Stages</option>
+                  {uniqueAbmStages.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {uniqueSegments.length > 0 && (
+              <div className="relative">
+                <select value={segmentFilter} onChange={(e) => setSegmentFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Segments</option>
+                  {uniqueSegments.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {uniqueOwners.length > 0 && (
+              <div className="relative">
+                <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Owners</option>
+                  {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+          </div>
+          {isFiltered && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg text-sm text-muted-foreground">
+              <ChevronDown className="w-3.5 h-3.5 shrink-0 rotate-0 opacity-50" />
+              <span>{filtered.length} account{filtered.length !== 1 ? "s" : ""} match your filters</span>
+              <button onClick={clearFilters} className="text-xs text-primary hover:underline ml-1">Clear all</button>
+            </div>
+          )}
         </div>
 
         {/* Sync Status */}
@@ -346,21 +422,28 @@ function AccountListView() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="font-semibold text-foreground text-sm">{account.name}</span>
-                    {account.segment && (
+                    {account.abmTier && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        {account.abmTier}
+                      </span>
+                    )}
+                    {account.abmStage && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
-                        {account.segment}
+                        {account.abmStage}
                       </span>
                     )}
                     <StatusBadge status={account.status} />
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                    {account.practiceSegment && <span>{account.practiceSegment}</span>}
                     {account.domain && (
                       <span className="flex items-center gap-1">
                         <Globe className="w-3 h-3" />
                         {account.domain}
                       </span>
                     )}
-                    {account.industry && <span>{account.industry}</span>}
+                    {account.numLocations && <span>{account.numLocations} locations</span>}
+                    {account.owner && <span>· {account.owner}</span>}
                   </div>
                 </div>
 
