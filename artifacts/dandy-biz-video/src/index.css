@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Bagoss Standard';
+  src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
+       url('./fonts/BagossStandard-Regular.woff') format('woff'),
+       url('./fonts/BagossStandard-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --color-primary: #003A30;
+  --color-secondary: #C7E738;
+  --color-accent: #C7E738;
+
+  --color-bg-light: #001a14;
+  --color-bg-dark: #001a14;
+  --color-bg-muted: #002a20;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255,255,255,0.7);
+  --color-text-muted: rgba(255,255,255,0.4);
+  --color-text-inverse: #001a14;
+
+  --color-success: #C7E738;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  --font-display: 'Bagoss Standard', 'Space Grotesk', sans-serif;
+  --font-body: 'Bagoss Standard', 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
+  --color-bg-light: var(--color-bg-light);
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-muted: var(--color-bg-muted);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #001a14;
+}
