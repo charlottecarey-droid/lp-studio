@@ -32,6 +32,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { usePagination } from "@/hooks/use-pagination";
 
 const API_BASE = "/api";
 
@@ -437,6 +439,8 @@ export default function SalesCampaignPages() {
     p.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  const campPagesPag = usePagination(filtered, 15);
+
   const contactCount = eligibleContacts.length;
   const accountCount = new Set(eligibleContacts.map(c => c.accountName).filter(Boolean)).size;
 
@@ -732,7 +736,7 @@ export default function SalesCampaignPages() {
           </Card>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {filtered.map(page => {
+            {campPagesPag.pageItems.map(page => {
               const result = launchResults[page.id];
               const isExpanded = expandedPageId === page.id;
               const links = pageLinks[page.id];
@@ -881,6 +885,11 @@ export default function SalesCampaignPages() {
                 </div>
               );
             })}
+            <PaginationBar
+              page={campPagesPag.page} totalPages={campPagesPag.totalPages}
+              from={campPagesPag.from} to={campPagesPag.to} total={campPagesPag.total}
+              onPage={campPagesPag.setPage} label="pages"
+            />
           </div>
         )}
       </div>

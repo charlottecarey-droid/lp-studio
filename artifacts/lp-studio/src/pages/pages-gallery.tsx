@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import { useReviews } from "@/hooks/use-collaboration";
 import { scorePageSeoGeo, gradeBgColor, type ScoreResult } from "@/lib/seo-scoring";
 import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
 import { ContentBriefModal } from "@/components/ContentBriefModal";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { usePagination } from "@/hooks/use-pagination";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { setBriefContext } from "@/lib/brief-context";
 import { useListTests } from "@workspace/api-client-react";
@@ -490,6 +492,8 @@ export default function PagesGallery() {
     return true;
   });
 
+  const pagesPag = usePagination(filteredPages, 12);
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -557,7 +561,7 @@ export default function PagesGallery() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredPages.map(page => {
+            {pagesPag.pageItems.map(page => {
               const isPublished = page.status === "published";
               const isRunning = runningTests.some(t => t.slug === page.slug);
               const liveUrl = isPublished || isRunning ? `${base}/lp/${page.slug}` : null;
@@ -724,6 +728,11 @@ export default function PagesGallery() {
               </div>
             );
             })}
+            <PaginationBar
+              page={pagesPag.page} totalPages={pagesPag.totalPages}
+              from={pagesPag.from} to={pagesPag.to} total={pagesPag.total}
+              onPage={pagesPag.setPage} label="pages"
+            />
           </div>
         )}
       </div>

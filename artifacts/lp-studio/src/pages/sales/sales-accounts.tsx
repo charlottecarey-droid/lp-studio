@@ -40,6 +40,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import DraftEmailModal from "./DraftEmailModal";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { usePagination } from "@/hooks/use-pagination";
 import {
   Dialog,
   DialogContent,
@@ -203,6 +205,8 @@ function AccountListView() {
   });
 
   function clearFilters() { setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilter(""); }
+
+  const accPag = usePagination(filtered, 25);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -415,7 +419,7 @@ function AccountListView() {
           </Card>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {filtered.map((account) => (
+            {accPag.pageItems.map((account) => (
               <div
                 key={account.id}
                 onClick={() => navigate(`/sales/accounts/${account.id}`)}
@@ -460,6 +464,11 @@ function AccountListView() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </div>
             ))}
+            <PaginationBar
+              page={accPag.page} totalPages={accPag.totalPages}
+              from={accPag.from} to={accPag.to} total={accPag.total}
+              onPage={accPag.setPage} label="accounts"
+            />
           </div>
         )}
       </div>

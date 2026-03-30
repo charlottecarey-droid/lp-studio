@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { format } from "date-fns";
 import {
@@ -38,8 +38,25 @@ import {
 } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import DraftEmailModal from "./DraftEmailModal";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { usePagination } from "@/hooks/use-pagination";
 
 const API_BASE = "/api";
+
+const TIER_COLORS: Record<string, string> = {
+  ENT: "bg-purple-100 text-purple-700",
+  STRAT: "bg-primary/10 text-primary",
+  IW: "bg-blue-100 text-blue-700",
+  LENT: "bg-amber-100 text-amber-700",
+};
+const STAGE_COLORS: Record<string, string> = {
+  Prospect: "bg-slate-100 text-slate-600",
+  Discovery: "bg-blue-100 text-blue-700",
+  Evaluation: "bg-violet-100 text-violet-700",
+  Champion: "bg-emerald-100 text-emerald-700",
+  "Closed Won": "bg-green-100 text-green-700",
+  "Closed Lost": "bg-red-100 text-red-600",
+};
 
 interface Contact {
   id: number;
@@ -638,6 +655,21 @@ function ContactListView() {
     tierFilter, titleLevelFilter, stageFilter, ownerFilter, search ? `"${search}"` : "",
   ].filter(Boolean).join(" · ") || "Filtered Contacts";
 
+  const accountGroups = useMemo(() => {
+    const groups = new Map<number, { accountId: number; accountName: string; abmTier: string | null; abmStage: string | null; contacts: Contact[] }>();
+    for (const c of filtered) {
+      const key = c.accountId;
+      if (!groups.has(key)) {
+        groups.set(key, { accountId: key, accountName: c.accountName ?? "Unknown Account", abmTier: c.abmTier ?? null, abmStage: c.abmStage ?? null, contacts: [] });
+      }
+      groups.get(key)!.contacts.push(c);
+    }
+    return Array.from(groups.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
+  }, [filtered]);
+
+  const flatPag = usePagination(filtered, 25);
+  const groupedPag = usePagination(accountGroups, 20);
+
   return (
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
@@ -796,110 +828,85 @@ function ContactListView() {
           </Card>
         ) : viewMode === "grouped" ? (
           /* ── Grouped by Account ── */
-          (() => {
-            // Build groups: accountId → { meta, contacts[] }
-            const groups = new Map<number, { accountId: number; accountName: string; abmTier: string | null; abmStage: string | null; contacts: Contact[] }>();
-            for (const c of filtered) {
-              const key = c.accountId;
-              if (!groups.has(key)) {
-                groups.set(key, { accountId: key, accountName: c.accountName ?? "Unknown Account", abmTier: c.abmTier ?? null, abmStage: c.abmStage ?? null, contacts: [] });
-              }
-              groups.get(key)!.contacts.push(c);
-            }
-            // Sort accounts alphabetically
-            const sortedGroups = Array.from(groups.values()).sort((a, b) => a.accountName.localeCompare(b.accountName));
-
-            const tierColors: Record<string, string> = {
-              ENT: "bg-purple-100 text-purple-700",
-              STRAT: "bg-primary/10 text-primary",
-              IW: "bg-blue-100 text-blue-700",
-              LENT: "bg-amber-100 text-amber-700",
-            };
-            const stageColors: Record<string, string> = {
-              Prospect: "bg-slate-100 text-slate-600",
-              Discovery: "bg-blue-100 text-blue-700",
-              Evaluation: "bg-violet-100 text-violet-700",
-              Champion: "bg-emerald-100 text-emerald-700",
-              "Closed Won": "bg-green-100 text-green-700",
-              "Closed Lost": "bg-red-100 text-red-600",
-            };
-
-            return (
-              <div className="flex flex-col gap-5">
-                {sortedGroups.map(({ accountId, accountName, abmTier, abmStage, contacts: groupContacts }) => (
-                  <div key={accountId} className="flex flex-col gap-1.5">
-                    {/* Account header */}
-                    <Link href={`/sales/accounts/${accountId}`}>
-                      <div className="flex items-center gap-2.5 px-1 py-1 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors group/acct">
-                        <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Building2 className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                        <span className="font-semibold text-sm text-foreground group-hover/acct:text-primary transition-colors">
-                          {accountName}
-                        </span>
-                        {abmTier && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${tierColors[abmTier] ?? "bg-muted text-muted-foreground"}`}>
-                            {abmTier}
-                          </span>
-                        )}
-                        {abmStage && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${stageColors[abmStage] ?? "bg-muted text-muted-foreground"}`}>
-                            {abmStage}
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground ml-1">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
-                        <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/acct:opacity-100 transition-opacity ml-auto" />
-                      </div>
-                    </Link>
-                    {/* Contact rows */}
-                    {groupContacts.map((contact) => {
-                      const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
-                      const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" : engagementScore.label === "Warm" ? "bg-amber-500" : engagementScore.label === "Cool" ? "bg-blue-500" : "bg-slate-300";
-                      return (
-                        <div
-                          key={contact.id}
-                          onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                          className="group/row flex items-center gap-3 pl-10 pr-5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
-                        >
-                          <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-bold text-primary uppercase">
-                            {contact.firstName[0]}{contact.lastName[0]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-semibold text-foreground">{contact.firstName} {contact.lastName}</p>
-                              {contact.contactRole && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium hidden md:inline">{contact.contactRole}</span>
-                              )}
-                              {contact.titleLevel && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground font-medium hidden lg:inline">{contact.titleLevel}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              {contact.title && <span>{contact.title}</span>}
-                              {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
-                            title="Draft AI email"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Draft Email</span>
-                          </button>
-                        </div>
-                      );
-                    })}
+          <div className="flex flex-col gap-5">
+            {groupedPag.pageItems.map(({ accountId, accountName, abmTier, abmStage, contacts: groupContacts }) => (
+              <div key={accountId} className="flex flex-col gap-1.5">
+                {/* Account header */}
+                <Link href={`/sales/accounts/${accountId}`}>
+                  <div className="flex items-center gap-2.5 px-1 py-1 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors group/acct">
+                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Building2 className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <span className="font-semibold text-sm text-foreground group-hover/acct:text-primary transition-colors">
+                      {accountName}
+                    </span>
+                    {abmTier && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${TIER_COLORS[abmTier] ?? "bg-muted text-muted-foreground"}`}>
+                        {abmTier}
+                      </span>
+                    )}
+                    {abmStage && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${STAGE_COLORS[abmStage] ?? "bg-muted text-muted-foreground"}`}>
+                        {abmStage}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-1">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
+                    <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover/acct:opacity-100 transition-opacity ml-auto" />
                   </div>
-                ))}
+                </Link>
+                {/* Contact rows */}
+                {groupContacts.map((contact) => {
+                  const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
+                  const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" : engagementScore.label === "Warm" ? "bg-amber-500" : engagementScore.label === "Cool" ? "bg-blue-500" : "bg-slate-300";
+                  return (
+                    <div
+                      key={contact.id}
+                      onClick={() => navigate(`/sales/contacts/${contact.id}`)}
+                      className="group/row flex items-center gap-3 pl-10 pr-5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
+                    >
+                      <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-bold text-primary uppercase">
+                        {contact.firstName[0]}{contact.lastName[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">{contact.firstName} {contact.lastName}</p>
+                          {contact.contactRole && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium hidden md:inline">{contact.contactRole}</span>
+                          )}
+                          {contact.titleLevel && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground font-medium hidden lg:inline">{contact.titleLevel}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {contact.title && <span>{contact.title}</span>}
+                          {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
+                        title="Draft AI email"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Draft Email</span>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })()
+            ))}
+            <PaginationBar
+              page={groupedPag.page} totalPages={groupedPag.totalPages}
+              from={groupedPag.from} to={groupedPag.to} total={groupedPag.total}
+              onPage={groupedPag.setPage} label="accounts"
+            />
+          </div>
         ) : (
           /* ── Flat List ── */
           <div className="flex flex-col gap-2">
-            {filtered.map((contact) => {
+            {flatPag.pageItems.map((contact) => {
+
               const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
               const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" :
                                     engagementScore.label === "Warm" ? "bg-amber-500" :
@@ -954,6 +961,11 @@ function ContactListView() {
                 </div>
               );
             })}
+            <PaginationBar
+              page={flatPag.page} totalPages={flatPag.totalPages}
+              from={flatPag.from} to={flatPag.to} total={flatPag.total}
+              onPage={flatPag.setPage} label="contacts"
+            />
           </div>
         )}
       </div>

@@ -27,6 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { PaginationBar } from "@/components/ui/pagination-bar";
+import { usePagination } from "@/hooks/use-pagination";
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 
 const API_BASE = "/api";
@@ -649,6 +651,8 @@ function CampaignsTab() {
     }
   }
 
+  const campaignsPag = usePagination(campaigns, 25);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -718,7 +722,7 @@ function CampaignsTab() {
         </Card>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {campaigns.map(c => (
+          {campaignsPag.pageItems.map(c => (
             <div key={c.id} className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Mail className="w-5 h-5 text-primary" />
@@ -745,6 +749,11 @@ function CampaignsTab() {
               </div>
             </div>
           ))}
+          <PaginationBar
+            page={campaignsPag.page} totalPages={campaignsPag.totalPages}
+            from={campaignsPag.from} to={campaignsPag.to} total={campaignsPag.total}
+            onPage={campaignsPag.setPage} label="campaigns"
+          />
         </div>
       )}
     </div>
@@ -891,6 +900,8 @@ function TemplatesTab() {
   }
 
   const hasBody = emailFormat === "styled" ? !!bodyHtml : !!bodyText;
+
+  const templatesPag = usePagination(templates, 25);
 
   return (
     <div className="flex flex-col gap-6">
@@ -1069,7 +1080,7 @@ function TemplatesTab() {
         </Card>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {templates.map(t => (
+          {templatesPag.pageItems.map(t => (
             <div key={t.id} className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-primary" />
@@ -1097,6 +1108,11 @@ function TemplatesTab() {
               </div>
             </div>
           ))}
+          <PaginationBar
+            page={templatesPag.page} totalPages={templatesPag.totalPages}
+            from={templatesPag.from} to={templatesPag.to} total={templatesPag.total}
+            onPage={templatesPag.setPage} label="templates"
+          />
         </div>
       )}
     </div>
@@ -1183,6 +1199,8 @@ function SentTab() {
     { id: "individual", label: `Individual (${counts.individual})` },
   ];
 
+  const sendsPag = usePagination(filtered, 25);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
@@ -1232,7 +1250,7 @@ function SentTab() {
         </Card>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {filtered.map(send => {
+          {sendsPag.pageItems.map(send => {
             const status = sendStatusConfig(send);
             const name = [send.contactFirstName, send.contactLastName].filter(Boolean).join(" ") || send.email;
             const avatar = initials(send.contactFirstName, send.contactLastName, send.email);
@@ -1292,14 +1310,12 @@ function SentTab() {
               </div>
             );
           })}
+          <PaginationBar
+            page={sendsPag.page} totalPages={sendsPag.totalPages}
+            from={sendsPag.from} to={sendsPag.to} total={sendsPag.total}
+            onPage={sendsPag.setPage} label="sends"
+          />
         </div>
-      )}
-
-      {/* Total count */}
-      {!loading && filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center pt-1">
-          Showing {filtered.length} of {sends.length} sends
-        </p>
       )}
     </div>
   );
