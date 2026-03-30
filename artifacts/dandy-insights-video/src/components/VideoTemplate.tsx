@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Scene1Hook from '../scenes/Scene1Hook';
 import SceneChairs from '../scenes/SceneChairs';
@@ -18,40 +18,82 @@ const SCENES = [
   { id: 7, duration: 4500,  Component: Scene6CTA },
 ];
 
-export default function VideoTemplate() {
-  const [currentScene, setCurrentScene] = useState(0);
+// Isolated progress bar — owns its own state so the scene never re-renders on tick
+const SceneProgressBar = memo(function SceneProgressBar({
+  sceneIndex,
+  duration,
+}: {
+  sceneIndex: number;
+  duration: number;
+}) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     setProgress(0);
-    const duration = SCENES[currentScene].duration;
     const interval = 50;
     let elapsed = 0;
     const tick = setInterval(() => {
       elapsed += interval;
       setProgress(Math.min(elapsed / duration, 1));
     }, interval);
+    return () => clearInterval(tick);
+  }, [sceneIndex, duration]);
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/8 z-50">
+      <div
+        className="h-full bg-[#C7E738]"
+        style={{ width: `${progress * 100}%`, opacity: 0.7, transition: 'width 0.05s linear' }}
+      />
+    </div>
+  );
+});
+
+// Isolated dots — reads sceneIndex only, no per-tick state
+const SceneDots = memo(function SceneDots({ sceneIndex }: { sceneIndex: number }) {
+  return (
+    <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-2 z-50">
+      {SCENES.map((_, i) => (
+        <motion.div
+          key={i}
+          className="rounded-full"
+          animate={{
+            width: i === sceneIndex ? 20 : 6,
+            backgroundColor: i === sceneIndex ? '#C7E738' : 'rgba(255,255,255,0.2)',
+          }}
+          style={{ height: 6 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        />
+      ))}
+    </div>
+  );
+});
+
+export default function VideoTemplate() {
+  const [currentScene, setCurrentScene] = useState(0);
+
+  useEffect(() => {
+    const duration = SCENES[currentScene].duration;
     const timer = setTimeout(() => {
-      clearInterval(tick);
       setCurrentScene((prev) => (prev + 1) % SCENES.length);
     }, duration);
-    return () => { clearTimeout(timer); clearInterval(tick); };
+    return () => clearTimeout(timer);
   }, [currentScene]);
 
-  const CurrentSceneComponent = SCENES[currentScene].Component;
+  const { Component: CurrentSceneComponent, duration } = SCENES[currentScene];
 
   return (
     <div
       className="relative w-full h-full overflow-hidden flex items-center justify-center"
       style={{ background: '#001a14', fontFamily: "'Bagoss Standard', Arial, Helvetica, sans-serif" }}
     >
-      {/* Subtle noise grain */}
+      {/* Subtle noise grain — static, never re-renders */}
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none mix-blend-overlay">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-          <filter id="grain">
+          <filter id="grain-clinical">
             <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" />
           </filter>
-          <rect width="100%" height="100%" filter="url(#grain)" />
+          <rect width="100%" height="100%" filter="url(#grain-clinical)" />
         </svg>
       </div>
 
@@ -59,30 +101,9 @@ export default function VideoTemplate() {
         <CurrentSceneComponent key={currentScene} />
       </AnimatePresence>
 
-      {/* Scene progress — thin bar at very bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/8 z-50">
-        <motion.div
-          className="h-full bg-[#C7E738]"
-          style={{ width: `${progress * 100}%`, opacity: 0.7 }}
-          transition={{ ease: 'linear' }}
-        />
-      </div>
-
-      {/* Scene dots */}
-      <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-2 z-50">
-        {SCENES.map((_, i) => (
-          <motion.div
-            key={i}
-            className="rounded-full"
-            animate={{
-              width: i === currentScene ? 20 : 6,
-              backgroundColor: i === currentScene ? '#C7E738' : 'rgba(255,255,255,0.2)',
-            }}
-            style={{ height: 6 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          />
-        ))}
-      </div>
+      {/* Progress bar lives in its own component — scene is NOT re-rendered on each tick */}
+      <SceneProgressBar sceneIndex={currentScene} duration={duration} />
+      <SceneDots sceneIndex={currentScene} />
     </div>
   );
 }

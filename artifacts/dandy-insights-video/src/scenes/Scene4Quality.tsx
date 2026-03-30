@@ -100,7 +100,7 @@ export default function Scene4Quality() {
         {/* Floating alert cards on the screenshot */}
         <AnimatePresence>
           {phase >= 1 && (
-            <div className="absolute -top-3 -right-4 w-[23vw] z-20">
+            <div key="alert-top" className="absolute -top-3 -right-4 w-[23vw] z-20">
               <AlertCard
                 kind="critical"
                 title="4 scans flagged this week"
@@ -110,7 +110,7 @@ export default function Scene4Quality() {
             </div>
           )}
           {phase >= 2 && (
-            <div className="absolute -bottom-3 -left-4 w-[22vw] z-20">
+            <div key="alert-bottom" className="absolute -bottom-3 -left-4 w-[22vw] z-20">
               <AlertCard
                 kind="success"
                 title="Scan quality improving"
