@@ -26,16 +26,16 @@ export default function BizBlackBox() {
     >
       <Background />
 
-      <div className="relative z-10 flex flex-col items-center gap-8">
+      <div className="relative z-10 flex flex-col items-center gap-10">
         {/* Grid of "blacked out" chairs */}
         <div
-          className="grid gap-[6px]"
+          className="grid gap-[9px]"
           style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
         >
           {Array.from({ length: TOTAL }).map((_, i) => (
             <motion.div
               key={i}
-              className="w-[2.8vw] h-[1.4vw] rounded-sm"
+              className="w-[3.6vw] h-[1.8vw] rounded-sm"
               style={{ background: 'rgba(199,231,56,0.08)', border: '1px solid rgba(199,231,56,0.12)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -52,10 +52,10 @@ export default function BizBlackBox() {
         {/* Stat line */}
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-baseline gap-5">
-            <span className="text-[4vw] font-bold text-[#C7E738] tabular-nums">
+            <span className="text-[5.2vw] font-bold text-[#C7E738] tabular-nums">
               <Counter from={0} to={2973} duration={1.0} decimals={0} />
             </span>
-            <span className="text-white/60 text-[2.2vw] font-semibold">chairs.</span>
+            <span className="text-white/60 text-[2.9vw] font-semibold">chairs.</span>
           </div>
 
           {phase >= 1 && (
@@ -65,7 +65,7 @@ export default function BizBlackBox() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
-              <h2 className="text-[2.4vw] font-normal">
+              <h2 className="text-[3.1vw] font-normal">
                 <SplitText
                   text="Zero visibility."
                   delay={0.1}
