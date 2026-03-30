@@ -24,7 +24,7 @@ export default function SceneChairs() {
 
       <div className="relative z-10 flex flex-col items-center text-center px-12">
         {/* Main headline — word by word */}
-        <h2 className="text-[6.5vw] font-bold leading-[1.15] tracking-tight">
+        <h2 className="text-[8vw] font-bold leading-[1.15] tracking-tight">
           <SplitText
             text="See what's happening"
             delay={0.25}
@@ -45,13 +45,13 @@ export default function SceneChairs() {
         {/* "All 2,973 of them." — punches in after a beat */}
         {phase >= 1 && (
           <motion.div
-            className="mt-14 flex items-baseline justify-center gap-10"
+            className="mt-16 flex items-baseline justify-center gap-12"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
             <motion.span
-              className="text-white/60 text-[4.2vw] font-bold"
+              className="text-white/60 text-[5.2vw] font-bold"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.4 }}
@@ -59,12 +59,12 @@ export default function SceneChairs() {
               All
             </motion.span>
 
-            <span className="text-[5vw] font-bold text-[#C7E738] tabular-nums">
+            <span className="text-[6.2vw] font-bold text-[#C7E738] tabular-nums">
               <Counter from={0} to={2973} duration={1.1} decimals={0} />
             </span>
 
             <motion.span
-              className="text-white/60 text-[4.2vw] font-bold"
+              className="text-white/60 text-[5.2vw] font-bold"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.4 }}
