@@ -68,22 +68,28 @@ interface KpiCardProps {
   sub?: string;
   trend?: 'up' | 'down' | 'neutral';
   delay?: number;
+  dark?: boolean;
 }
-export function KpiCard({ label, value, sub, trend = 'neutral', delay = 0 }: KpiCardProps) {
+export function KpiCard({ label, value, sub, trend = 'neutral', delay = 0, dark = false }: KpiCardProps) {
   const trendColor = trend === 'up' ? '#059669' : trend === 'down' ? '#dc2626' : '#6b7280';
+  const trendColorDark = trend === 'up' ? '#C7E738' : trend === 'down' ? '#f87171' : '#9ca3af';
   const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '';
   return (
     <motion.div
-      className="bg-white/95 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.22)] px-6 py-5 flex flex-col gap-1 min-w-[12vw]"
+      className={`rounded-2xl px-6 py-5 flex flex-col gap-1 min-w-[12vw] ${
+        dark
+          ? 'bg-[#001a14]/80 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.45)] border border-white/10'
+          : 'bg-white/95 shadow-[0_8px_32px_rgba(0,0,0,0.22)]'
+      }`}
       initial={{ opacity: 0, y: 20, scale: 0.93 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
     >
-      <span className="text-[#6b7280] text-[0.85vw] font-medium uppercase tracking-wider">{label}</span>
-      <span className="text-[#111827] text-[2vw] font-bold tabular-nums leading-none">
-        {arrow && <span style={{ color: trendColor }}>{arrow} </span>}{value}
+      <span className={`text-[0.85vw] font-medium uppercase tracking-wider ${dark ? 'text-white/50' : 'text-[#6b7280]'}`}>{label}</span>
+      <span className={`text-[2vw] font-bold tabular-nums leading-none ${dark ? 'text-white' : 'text-[#111827]'}`}>
+        {arrow && <span style={{ color: dark ? trendColorDark : trendColor }}>{arrow} </span>}{value}
       </span>
-      {sub && <span className="text-[#9ca3af] text-[0.78vw]">{sub}</span>}
+      {sub && <span className={`text-[0.78vw] ${dark ? 'text-white/35' : 'text-[#9ca3af]'}`}>{sub}</span>}
     </motion.div>
   );
 }

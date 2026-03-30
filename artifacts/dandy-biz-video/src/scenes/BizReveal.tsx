@@ -81,10 +81,10 @@ export default function BizReveal() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <KpiCard label="Net Production" value="$4.2M" sub="This month · 43 sites" trend="up" delay={0.0} />
-            <KpiCard label="Avg Case Acceptance" value="68.4%" sub="↑ 9pts vs. last quarter" trend="up" delay={0.1} />
-            <KpiCard label="Scan Quality Score" value="91.2" sub="Network avg · 2,973 chairs" trend="up" delay={0.2} />
-            <KpiCard label="Sites Below Target" value="7" sub="Requires attention" trend="down" delay={0.3} />
+            <KpiCard label="Net Production" value="$4.2M" sub="This month · 43 sites" trend="up" delay={0.0} dark />
+            <KpiCard label="Avg Case Acceptance" value="68.4%" sub="↑ 9pts vs. last quarter" trend="up" delay={0.1} dark />
+            <KpiCard label="Scan Quality Score" value="91.2" sub="Network avg · 2,973 chairs" trend="up" delay={0.2} dark />
+            <KpiCard label="Sites Below Target" value="7" sub="Requires attention" trend="down" delay={0.3} dark />
           </motion.div>
         )}
       </div>
