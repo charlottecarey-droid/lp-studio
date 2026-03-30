@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { format } from "date-fns";
 import {
@@ -957,9 +957,6 @@ function AccountDetailView({ id }: { id: string }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // AI microsite generation
-  const [generatingMicrosite, setGeneratingMicrosite] = useState(false);
-
   // Microsites
   const [microsites, setMicrosites] = useState<Microsite[]>([]);
   const [micrositesLoading, setMicrositesLoading] = useState(false);
@@ -972,6 +969,9 @@ function AccountDetailView({ id }: { id: string }) {
 
   // AI email draft
   const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
+
+  // Contacts section ref for scrolling
+  const contactsSectionRef = useRef<HTMLDivElement>(null);
 
   // New contact form
   const [showContactForm, setShowContactForm] = useState(false);
@@ -1131,30 +1131,23 @@ function AccountDetailView({ id }: { id: string }) {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             {
-              label: generatingMicrosite ? "Generating…" : "AI Microsite",
-              icon: generatingMicrosite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />,
-              onClick: async () => {
-                if (generatingMicrosite) return;
-                setGeneratingMicrosite(true);
-                try {
-                  const res = await fetch(`${API_BASE}/sales/accounts/${id}/generate-microsite`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({}),
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
-                    navigate(`/pages/${data.page.id}`);
-                  }
-                } finally {
-                  setGeneratingMicrosite(false);
-                }
-              },
+              label: "AI Microsite",
+              icon: <Sparkles className="w-4 h-4" />,
+              onClick: () => setShowMicrositeModal(true),
             },
             { label: "Create Microsite", icon: <FileText className="w-4 h-4" />, onClick: () => navigate("/sales/pages") },
             { label: "Send Email", icon: <Mail className="w-4 h-4" />, onClick: () => navigate("/sales/outreach") },
             { label: "View Signals", icon: <Activity className="w-4 h-4" />, onClick: () => navigate("/sales/signals") },
-            { label: "Add Contact", icon: <Users className="w-4 h-4" />, onClick: () => setShowContactForm(true) },
+            {
+              label: "Add Contact",
+              icon: <Users className="w-4 h-4" />,
+              onClick: () => {
+                setShowContactForm(true);
+                setTimeout(() => {
+                  contactsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 50);
+              },
+            },
           ].map((action) => (
             <button
               key={action.label}
@@ -1188,7 +1181,7 @@ function AccountDetailView({ id }: { id: string }) {
         </div>
 
         {/* Contacts */}
-        <div className="flex flex-col gap-4">
+        <div ref={contactsSectionRef} className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-display font-bold text-foreground">
               Contacts ({contacts.length})
