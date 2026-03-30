@@ -46,9 +46,19 @@ interface Contact {
   title: string | null;
   role: string | null;
   phone?: string | null;
+  tier?: string | null;
+  titleLevel?: string | null;
+  contactRole?: string | null;
+  department?: string | null;
   status: string;
   createdAt: string;
-  accountName?: string;
+  // From accounts join
+  accountName?: string | null;
+  abmTier?: string | null;
+  abmStage?: string | null;
+  practiceSegment?: string | null;
+  accountOwner?: string | null;
+  dsoSize?: string | null;
 }
 
 interface Signal {
@@ -271,6 +281,10 @@ function ContactListView() {
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [contactSignals, setContactSignals] = useState<Record<number, Signal[]>>({});
+  const [tierFilter, setTierFilter] = useState("");
+  const [titleLevelFilter, setTitleLevelFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -311,26 +325,32 @@ function ContactListView() {
     }
   }
 
-  // Unique roles for filter dropdown
-  const uniqueRoles = Array.from(new Set(contacts.map((c) => c.role).filter(Boolean))) as string[];
-  const uniqueStatuses = Array.from(new Set(contacts.map((c) => c.status).filter(Boolean))) as string[];
+  // Unique values for filter dropdowns (derived from loaded contacts)
+  const uniqueTiers       = Array.from(new Set(contacts.map(c => c.tier).filter(Boolean))).sort() as string[];
+  const uniqueTitleLevels = Array.from(new Set(contacts.map(c => c.titleLevel).filter(Boolean))).sort() as string[];
+  const uniqueStages      = Array.from(new Set(contacts.map(c => c.abmStage).filter(Boolean))).sort() as string[];
+  const uniqueOwners      = Array.from(new Set(contacts.map(c => c.accountOwner).filter(Boolean))).sort() as string[];
 
-  const isFiltered = !!(search || roleFilter || statusFilter);
+  const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter);
 
   const filtered = contacts.filter((c) => {
-    const matchesSearch =
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (c.title ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchesRole = !roleFilter || c.role === roleFilter;
-    const matchesStatus = !statusFilter || c.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
+    const q = search.toLowerCase();
+    const matchesSearch = !search ||
+      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.title ?? "").toLowerCase().includes(q) ||
+      (c.accountName ?? "").toLowerCase().includes(q);
+    const matchesTier       = !tierFilter       || c.tier === tierFilter;
+    const matchesTitleLevel = !titleLevelFilter || c.titleLevel === titleLevelFilter;
+    const matchesStage      = !stageFilter      || c.abmStage === stageFilter;
+    const matchesOwner      = !ownerFilter      || c.accountOwner === ownerFilter;
+    return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner;
   });
 
+  function clearFilters() { setSearch(""); setTierFilter(""); setTitleLevelFilter(""); setStageFilter(""); setOwnerFilter(""); }
+
   const audienceName = [
-    roleFilter || "",
-    statusFilter || "",
-    search ? `"${search}"` : "",
+    tierFilter, titleLevelFilter, stageFilter, ownerFilter, search ? `"${search}"` : "",
   ].filter(Boolean).join(" · ") || "Filtered Contacts";
 
   return (
@@ -374,55 +394,72 @@ function ContactListView() {
 
         {/* Search + Filters */}
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          {/* Row 1: search + primary filters */}
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts…" className="pl-10" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, title, account…" className="pl-10" />
             </div>
-            {/* Role filter */}
-            {uniqueRoles.length > 0 && (
+            {/* Tier (ENT / IW / LENT / STRAT) */}
+            {uniqueTiers.length > 0 && (
               <div className="relative">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-                >
-                  <option value="">All Roles</option>
-                  {uniqueRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+                <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Tiers</option>
+                  {uniqueTiers.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
             )}
-            {/* Status filter */}
-            {uniqueStatuses.length > 1 && (
+            {/* Title Level (C Suite, VP, etc.) */}
+            {uniqueTitleLevels.length > 0 && (
               <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer capitalize"
-                >
-                  <option value="">All Statuses</option>
-                  {uniqueStatuses.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
+                <select value={titleLevelFilter} onChange={(e) => setTitleLevelFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Levels</option>
+                  {uniqueTitleLevels.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {/* ABM Stage */}
+            {uniqueStages.length > 0 && (
+              <div className="relative">
+                <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Stages</option>
+                  {uniqueStages.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+            {/* Account Owner */}
+            {uniqueOwners.length > 0 && (
+              <div className="relative">
+                <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                  <option value="">All Owners</option>
+                  {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
             )}
           </div>
 
-          {/* Filtered result bar + Save Audience */}
-          {isFiltered && filtered.length > 0 && (
+          {/* Active filter bar */}
+          {isFiltered && (
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Filter className="w-3.5 h-3.5" />
+                <Filter className="w-3.5 h-3.5 shrink-0" />
                 <span>{filtered.length} contact{filtered.length !== 1 ? "s" : ""} match your filters</span>
-                <button onClick={() => { setSearch(""); setRoleFilter(""); setStatusFilter(""); }} className="text-xs text-primary hover:underline ml-1">
-                  Clear
-                </button>
+                <button onClick={clearFilters} className="text-xs text-primary hover:underline ml-1">Clear all</button>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setShowAudience(true)} className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5">
-                <UsersRound className="w-3.5 h-3.5" />
-                Save as Audience
-              </Button>
+              {filtered.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setShowAudience(true)} className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 shrink-0">
+                  <UsersRound className="w-3.5 h-3.5" />
+                  Save as Audience
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -493,14 +530,14 @@ function ContactListView() {
                       {contact.role}
                     </span>
                   )}
-                  {/* Draft Email button */}
+                  {/* Draft Email button — always visible */}
                   <button
                     onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
-                    className="hidden group-hover:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/8 hover:bg-primary/15 text-primary text-xs font-medium transition-all shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
                     title="Draft AI email"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    Draft Email
+                    <span className="hidden sm:inline">Draft Email</span>
                   </button>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {format(new Date(contact.createdAt), "MMM d")}

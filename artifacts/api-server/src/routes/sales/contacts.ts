@@ -5,20 +5,43 @@ import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
 const router = Router();
 
-// List all contacts (optionally filter by accountId)
+// List all contacts (optionally filter by accountId) — joins accounts for segment/stage/owner
 router.get("/contacts", async (req, res): Promise<void> => {
   try {
     const { accountId } = req.query;
-    const query = db.select().from(salesContactsTable);
+    const baseQuery = db
+      .select({
+        id: salesContactsTable.id,
+        salesforceId: salesContactsTable.salesforceId,
+        accountId: salesContactsTable.accountId,
+        firstName: salesContactsTable.firstName,
+        lastName: salesContactsTable.lastName,
+        email: salesContactsTable.email,
+        title: salesContactsTable.title,
+        role: salesContactsTable.role,
+        phone: salesContactsTable.phone,
+        tier: salesContactsTable.tier,
+        titleLevel: salesContactsTable.titleLevel,
+        contactRole: salesContactsTable.contactRole,
+        department: salesContactsTable.department,
+        linkedinUrl: salesContactsTable.linkedinUrl,
+        status: salesContactsTable.status,
+        createdAt: salesContactsTable.createdAt,
+        // From accounts join
+        accountName: salesAccountsTable.name,
+        abmTier: salesAccountsTable.abmTier,
+        abmStage: salesAccountsTable.abmStage,
+        practiceSegment: salesAccountsTable.practiceSegment,
+        accountOwner: salesAccountsTable.owner,
+        dsoSize: salesAccountsTable.dsoSize,
+      })
+      .from(salesContactsTable)
+      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id));
 
-    let contacts;
-    if (accountId) {
-      contacts = await query
-        .where(eq(salesContactsTable.accountId, Number(accountId)))
-        .orderBy(desc(salesContactsTable.createdAt));
-    } else {
-      contacts = await query.orderBy(desc(salesContactsTable.createdAt));
-    }
+    const contacts = accountId
+      ? await baseQuery.where(eq(salesContactsTable.accountId, Number(accountId))).orderBy(desc(salesContactsTable.createdAt))
+      : await baseQuery.orderBy(desc(salesContactsTable.createdAt));
+
     res.json(contacts);
   } catch (err) {
     console.error("GET /sales/contacts error:", err);
