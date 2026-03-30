@@ -409,6 +409,49 @@ router.get("/track/open-hotlink", async (req, res): Promise<void> => {
   res.send(PIXEL);
 });
 
+// ─── All sends (with contact + campaign info joined) ─────────────────────────
+
+router.get("/sends", async (req, res): Promise<void> => {
+  const campaignIdFilter = req.query.campaignId ? Number(req.query.campaignId) : undefined;
+  const limitNum = Math.min(Number(req.query.limit ?? 300), 500);
+
+  try {
+    const rows = await db
+      .select({
+        id: salesEmailSendsTable.id,
+        campaignId: salesEmailSendsTable.campaignId,
+        contactId: salesEmailSendsTable.contactId,
+        email: salesEmailSendsTable.email,
+        status: salesEmailSendsTable.status,
+        sentAt: salesEmailSendsTable.sentAt,
+        openedAt: salesEmailSendsTable.openedAt,
+        clickedAt: salesEmailSendsTable.clickedAt,
+        bouncedAt: salesEmailSendsTable.bouncedAt,
+        createdAt: salesEmailSendsTable.createdAt,
+        contactFirstName: salesContactsTable.firstName,
+        contactLastName: salesContactsTable.lastName,
+        accountId: salesAccountsTable.id,
+        accountName: salesAccountsTable.name,
+        campaignName: salesEmailCampaignsTable.name,
+      })
+      .from(salesEmailSendsTable)
+      .leftJoin(salesContactsTable, eq(salesEmailSendsTable.contactId, salesContactsTable.id))
+      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+      .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
+      .orderBy(desc(salesEmailSendsTable.createdAt))
+      .limit(limitNum);
+
+    const filtered = campaignIdFilter
+      ? rows.filter(r => r.campaignId === campaignIdFilter)
+      : rows;
+
+    res.json(filtered);
+  } catch (err) {
+    console.error("GET /sales/sends error:", err);
+    res.status(500).json({ error: "Failed to load sends" });
+  }
+});
+
 // ─── Hotlink-based email click tracking (for Campaign Pages) ─────────────────
 
 router.get("/track/click-hotlink", async (req, res): Promise<void> => {

@@ -15,6 +15,10 @@ import {
   Type,
   Monitor,
   Smartphone,
+  Search,
+  Inbox,
+  MousePointerClick,
+  Eye,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -219,11 +223,12 @@ interface Account {
 
 // ─── Tab types ──────────────────────────────────────────────
 
-type TabId = "send" | "campaigns" | "templates" | "performance";
+type TabId = "send" | "campaigns" | "sent" | "templates" | "performance";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "send", label: "Single Send", icon: <Send className="w-3.5 h-3.5" /> },
   { id: "campaigns", label: "Campaigns", icon: <Mail className="w-3.5 h-3.5" /> },
+  { id: "sent", label: "Sent Emails", icon: <Inbox className="w-3.5 h-3.5" /> },
   { id: "templates", label: "Templates", icon: <FileText className="w-3.5 h-3.5" /> },
   { id: "performance", label: "Performance", icon: <TrendingUp className="w-3.5 h-3.5" /> },
 ];
@@ -1098,6 +1103,208 @@ function TemplatesTab() {
   );
 }
 
+// ─── Sent Emails Tab ────────────────────────────────────────
+
+interface EmailSend {
+  id: number;
+  campaignId: number | null;
+  contactId: number;
+  email: string;
+  status: string;
+  sentAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+  bouncedAt: string | null;
+  createdAt: string;
+  contactFirstName: string | null;
+  contactLastName: string | null;
+  accountId: number | null;
+  accountName: string | null;
+  campaignName: string | null;
+}
+
+type SendFilter = "all" | "campaign" | "individual";
+
+function initials(first: string | null, last: string | null, email: string): string {
+  if (first || last) {
+    return `${(first ?? "").charAt(0)}${(last ?? "").charAt(0)}`.toUpperCase();
+  }
+  return email.charAt(0).toUpperCase();
+}
+
+function sendStatusConfig(send: EmailSend) {
+  if (send.clickedAt) return { label: "Clicked", color: "bg-violet-100 text-violet-700", icon: <MousePointerClick className="w-3 h-3" /> };
+  if (send.openedAt) return { label: "Opened", color: "bg-sky-100 text-sky-700", icon: <Eye className="w-3 h-3" /> };
+  if (send.status === "failed" || send.bouncedAt) return { label: "Failed", color: "bg-red-100 text-red-700", icon: null };
+  if (send.status === "sent" || send.sentAt) return { label: "Sent", color: "bg-emerald-100 text-emerald-700", icon: <Check className="w-3 h-3" /> };
+  return { label: send.status, color: "bg-muted text-muted-foreground", icon: null };
+}
+
+function SentTab() {
+  const [sends, setSends] = useState<EmailSend[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<SendFilter>("all");
+
+  useEffect(() => {
+    fetch(`${API_BASE}/sales/sends?limit=300`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setSends)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    let list = sends;
+    if (filter === "campaign") list = list.filter(s => s.campaignId !== null);
+    if (filter === "individual") list = list.filter(s => s.campaignId === null);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter(s =>
+        s.email.toLowerCase().includes(q) ||
+        (s.contactFirstName ?? "").toLowerCase().includes(q) ||
+        (s.contactLastName ?? "").toLowerCase().includes(q) ||
+        (s.accountName ?? "").toLowerCase().includes(q) ||
+        (s.campaignName ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [sends, filter, query]);
+
+  const counts = useMemo(() => ({
+    all: sends.length,
+    campaign: sends.filter(s => s.campaignId !== null).length,
+    individual: sends.filter(s => s.campaignId === null).length,
+  }), [sends]);
+
+  const FILTER_OPTIONS: { id: SendFilter; label: string }[] = [
+    { id: "all", label: `All (${counts.all})` },
+    { id: "campaign", label: `Campaign (${counts.campaign})` },
+    { id: "individual", label: `Individual (${counts.individual})` },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search by name, email, account…"
+            className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
+          {FILTER_OPTIONS.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setFilter(opt.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                filter === opt.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex flex-col gap-2.5">
+          {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-[60px] rounded-xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="flex items-center gap-4 p-6 rounded-2xl border border-dashed border-border">
+          <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+            <Inbox className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">No sent emails{query ? " matching your search" : ""}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {query ? "Try a different search term" : "Emails will appear here after you send them"}
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {filtered.map(send => {
+            const status = sendStatusConfig(send);
+            const name = [send.contactFirstName, send.contactLastName].filter(Boolean).join(" ") || send.email;
+            const avatar = initials(send.contactFirstName, send.contactLastName, send.email);
+            const dateStr = send.sentAt ?? send.createdAt;
+
+            return (
+              <div
+                key={send.id}
+                className="flex items-center gap-4 px-4 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/20 transition-colors"
+              >
+                {/* Avatar */}
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                  {avatar}
+                </div>
+
+                {/* Contact + account */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-sm font-semibold text-foreground truncate">{name}</span>
+                    {send.accountName && (
+                      <>
+                        <span className="text-muted-foreground/40 text-xs">·</span>
+                        <span className="text-xs text-muted-foreground truncate">{send.accountName}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">{send.email}</div>
+                </div>
+
+                {/* Campaign or individual */}
+                <div className="hidden sm:block w-40 flex-shrink-0">
+                  {send.campaignName ? (
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground truncate">{send.campaignName}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Send className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground">Individual</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status */}
+                <div className="flex-shrink-0">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${status.color}`}>
+                    {status.icon}
+                    {status.label}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="hidden md:block flex-shrink-0 text-xs text-muted-foreground text-right w-28">
+                  {dateStr ? format(new Date(dateStr), "MMM d, h:mm a") : "—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Total count */}
+      {!loading && filtered.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center pt-1">
+          Showing {filtered.length} of {sends.length} sends
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Performance Tab ────────────────────────────────────────
 
 interface Signal {
@@ -1258,6 +1465,7 @@ export default function SalesOutreach() {
         {/* Tab content */}
         {activeTab === "send" && <SingleSendTab />}
         {activeTab === "campaigns" && <CampaignsTab />}
+        {activeTab === "sent" && <SentTab />}
         {activeTab === "templates" && <TemplatesTab />}
         {activeTab === "performance" && <PerformanceTab />}
       </div>
