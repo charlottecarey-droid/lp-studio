@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { format } from "date-fns";
 import {
@@ -11,9 +11,11 @@ import {
   Eye,
   MousePointerClick,
   FileText,
-  Globe,
   Phone,
-  Pencil,
+  Trash2,
+  Upload,
+  Loader2,
+  X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -97,6 +99,79 @@ function getEngagementScore(signals: Signal[]): { label: string; color: string; 
   return { label: "Cold", color: "text-slate-500 bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-900/50", score: finalScore };
 }
 
+/* ─── CSV Import Modal ───────────────────────────────────────── */
+
+function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.trim().split("\n");
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/"/g, ""));
+      const rows = lines.slice(1).map((line) => {
+        const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
+      });
+      const res = await fetch(`${API_BASE}/sales/contacts/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contacts: rows }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      onImported();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-display font-bold text-foreground">Import Contacts</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Upload a CSV with columns: <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">firstName, lastName, email, title, role, accountId</span>
+        </p>
+        {error && <p className="text-sm text-destructive mb-4">{error}</p>}
+        <div className="flex flex-col gap-3">
+          <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} className="hidden" id="csv-upload" />
+          <label
+            htmlFor="csv-upload"
+            className="flex items-center justify-center gap-2 w-full py-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all"
+          >
+            {uploading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            ) : (
+              <>
+                <Upload className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to choose a CSV file</span>
+              </>
+            )}
+          </label>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Contact List View ──────────────────────────────────────── */
 
 function ContactListView() {
@@ -105,17 +180,18 @@ function ContactListView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [contactSignals, setContactSignals] = useState<Record<number, Signal[]>>({});
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
-  useEffect(() => {
+  const fetchContacts = useCallback(() => {
+    setLoading(true);
     Promise.all([
-      fetch(`${API_BASE}/sales/contacts`)
-        .then((r) => (r.ok ? r.json() : [])),
-      fetch(`${API_BASE}/sales/signals?limit=500`)
-        .then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/contacts`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([contacts, signals]) => {
-        setContacts(contacts);
-        // Group signals by contact
+      .then(([cts, signals]) => {
+        setContacts(cts);
         const grouped: Record<number, Signal[]> = {};
         (signals || []).forEach((sig: Signal) => {
           if (sig.contactId) {
