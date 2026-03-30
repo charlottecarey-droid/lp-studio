@@ -70,24 +70,36 @@ function LevelContent({ level }: { level: number }) {
   );
 
   const dashboard = (
-    <motion.div
-      className={`relative z-10 flex-shrink-0 rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/15 ${isTop ? 'w-[72vw]' : 'w-[58vw]'}`}
-      initial={{ opacity: 0, scale: 0.97, y: 16 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
-    >
-      <img src={current.img} alt="" className="w-full h-auto" />
+    <div className={`relative z-10 flex-shrink-0 ${isTop ? 'w-[72vw]' : 'w-[58vw]'}`}>
+      {/* Image — overflow-hidden for rounded corners */}
+      <motion.div
+        className="w-full rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.55)] border border-[#C7E738]/15"
+        initial={{ opacity: 0, scale: 0.97, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+      >
+        <img src={current.img} alt="" className="w-full h-auto" />
+      </motion.div>
 
-      {/* Alert card — top right */}
-      <div className="absolute -top-3 -right-2 w-[22vw] z-20">
-        <AlertCard
-          kind={current.alert.kind}
-          title={current.alert.title}
-          sub={current.alert.sub}
-          delay={0.3}
-        />
-      </div>
-    </motion.div>
+      {/* Alert card — outside overflow-hidden so it shows above the frame */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={level}
+          className="absolute -top-4 -right-4 w-[22vw] z-20"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+        >
+          <AlertCard
+            kind={current.alert.kind}
+            title={current.alert.title}
+            sub={current.alert.sub}
+            delay={0}
+          />
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 
   if (isTop) {
