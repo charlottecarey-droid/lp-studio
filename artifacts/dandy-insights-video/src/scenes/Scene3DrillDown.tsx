@@ -53,25 +53,6 @@ export default function Scene3DrillDown() {
     >
       <Background />
 
-      {/* Level tabs */}
-      <motion.div
-        className="flex items-center gap-3 flex-shrink-0"
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-      >
-        {LEVELS.map((l, i) => (
-          <React.Fragment key={l.label}>
-            <div className={`text-[1.4vw] font-semibold transition-all duration-500 ${i === level ? 'text-[#C7E738]' : 'text-white/30'}`}>
-              {l.label}
-            </div>
-            {i < LEVELS.length - 1 && (
-              <div className={`w-8 h-[2px] rounded-full transition-colors duration-700 ${i < level ? 'bg-[#C7E738]/60' : 'bg-white/15'}`} />
-            )}
-          </React.Fragment>
-        ))}
-      </motion.div>
-
       {/* Screenshot with overlays */}
       <div className="relative w-[76vw] flex-shrink-0">
         <AnimatePresence mode="wait">
