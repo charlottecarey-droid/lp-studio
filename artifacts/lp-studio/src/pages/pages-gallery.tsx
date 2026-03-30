@@ -449,6 +449,21 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
+  const handleClone = async (page: Page) => {
+    setCloningPageId(page.id);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/clone`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to clone page");
+      const cloned = await res.json() as Page;
+      setPages(prev => [cloned, ...prev]);
+    } catch (err) {
+      console.error("Clone error:", err);
+      alert("Failed to duplicate the page. Please try again.");
+    } finally {
+      setCloningPageId(null);
+    }
+  };
+
   // Determine if a page is "live" (published or running as a test)
   const isPageLive = (pageId: number) => {
     const page = pages.find(p => p.id === pageId);
