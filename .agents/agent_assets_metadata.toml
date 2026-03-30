@@ -18,3 +18,9 @@ id = "JK-DIJx3-H6ZrMq2an_7d"
 uri = "file://.local/lp-studio-guide.md"
 type = "text"
 title = "Dandy LP Studio — User Guide (with Integrations)"
+
+[[outputs]]
+id = "X-s4TMrZi_ZGGfCBStiuk"
+uri = "file://.backups/lp-studio-backup-20260330.tar.gz"
+type = "unspecified"
+title = "LP Studio Backup — March 30, 2026"
