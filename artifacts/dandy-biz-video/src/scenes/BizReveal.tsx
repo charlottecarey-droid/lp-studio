@@ -82,7 +82,7 @@ export default function BizReveal() {
               src={dashboardImg}
               alt="Dandy Insights network dashboard"
               className="w-full block"
-              style={{ maxHeight: '44vh', objectFit: 'cover', objectPosition: 'top' }}
+              style={{ maxHeight: '62vh', objectFit: 'cover', objectPosition: 'top' }}
             />
             {/* Fade bottom edge into background */}
             <div
