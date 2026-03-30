@@ -85,7 +85,6 @@ export default function SalesDashboard() {
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
-<<<<<<< HEAD
       fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : []),
@@ -107,21 +106,6 @@ export default function SalesDashboard() {
           emailsSent,
           opens,
           clicks,
-=======
-      fetch(`${API_BASE}/sales/signals?limit=8`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/stats`).then(r => r.ok ? r.json() : {}),
-    ])
-      .then(([accounts, contacts, recentSignals, statsSummary]) => {
-        setStats({
-          accounts: accounts.length ?? 0,
-          contacts: contacts.length ?? 0,
-          activeCampaigns: 0,
-          microsites: 0,
-          recentSignals: statsSummary.signalsToday ?? 0,
-          emailsSent: statsSummary.emailsSent ?? 0,
-          opens: 0,
-          clicks: 0,
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
         });
         setSignals(recentSignals ?? []);
       })

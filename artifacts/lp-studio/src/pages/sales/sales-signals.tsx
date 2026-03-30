@@ -68,7 +68,6 @@ export default function SalesSignals() {
       .finally(() => setLoading(false));
   }, [filter]);
 
-<<<<<<< HEAD
   // SSE real-time updates
   useEffect(() => {
     const es = new EventSource(`${API_BASE}/sales/signals/stream`);
@@ -85,9 +84,6 @@ export default function SalesSignals() {
   }, [filter]);
 
   const types = ["page_view", "email_open", "email_click", "form_submit"];
-=======
-  const types = ["email_sent", "email_open", "email_click", "email_replied", "page_view", "form_submit"];
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 
   return (
     <SalesLayout>

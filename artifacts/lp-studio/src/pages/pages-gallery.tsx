@@ -12,12 +12,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-<<<<<<< HEAD
 import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-=======
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy } from "lucide-react";
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -453,7 +449,6 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
-<<<<<<< HEAD
   // Determine if a page is "live" (published or running as a test)
   const isPageLive = (pageId: number) => {
     const page = pages.find(p => p.id === pageId);
@@ -480,22 +475,6 @@ export default function PagesGallery() {
     return true;
   });
 
-=======
-  const handleClone = async (page: Page) => {
-    setCloningPageId(page.id);
-    try {
-      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/clone`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to clone page");
-      const cloned = await res.json() as Page;
-      setPages(prev => [...prev, cloned]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCloningPageId(null);
-    }
-  };
-
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
   return (
     <AppLayout>
       <div className="space-y-8">

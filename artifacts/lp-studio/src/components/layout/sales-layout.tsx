@@ -9,11 +9,7 @@ import {
   PlusCircle,
   Paintbrush,
   Plug2,
-<<<<<<< HEAD
   Cloud,
-=======
-  Megaphone,
->>>>>>> 7652a239985921fda5c638e2aaacd8363b9025f6
 } from "lucide-react";
 import {
   Sidebar,
