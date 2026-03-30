@@ -166,80 +166,307 @@ function downloadCsvTemplate() {
   URL.revokeObjectURL(url);
 }
 
+/* Auto-map CSV header → DB field name */
+const DB_FIELD_ALIASES: Record<string, string[]> = {
+  sfdcAccountId:  ["sfdcaccountid", "sfdc_account_id", "account_id", "accountid", "salesforce_account_id", "salesforceaccountid"],
+  salesforceId:   ["salesforceid", "sfdc_id", "sfdcid", "salesforce_contact_id", "contact_sfdc_id", "salesforceid"],
+  firstName:      ["firstname", "first_name", "first"],
+  lastName:       ["lastname", "last_name", "last"],
+  email:          ["email", "emailaddress", "email_address"],
+  title:          ["title", "jobtitle", "job_title"],
+  role:           ["role", "persona", "buyer_persona"],
+  phone:          ["phone", "phonenumber", "phone_number", "mobile", "cell"],
+  tier:           ["tier", "abmtier", "abm_tier", "contact_tier"],
+  titleLevel:     ["titlelevel", "title_level", "seniority", "seniorlevel", "seniority_level"],
+  contactRole:    ["contactrole", "contact_role", "buyerrole", "buyer_role", "buyingcommitteerole"],
+  department:     ["department", "dept"],
+  linkedinUrl:    ["linkedinurl", "linkedin_url", "linkedin", "linkedinprofile", "linkedin_profile"],
+  status:         ["status"],
+};
+
+const DB_FIELD_LABELS: Record<string, string> = {
+  sfdcAccountId: "SFDC Account ID ★",
+  salesforceId:  "SFDC Contact ID",
+  firstName:     "First Name",
+  lastName:      "Last Name",
+  email:         "Email",
+  title:         "Job Title",
+  role:          "Role / Persona",
+  phone:         "Phone",
+  tier:          "Tier (ENT/IW/LENT)",
+  titleLevel:    "Title Level",
+  contactRole:   "Contact Role",
+  department:    "Department",
+  linkedinUrl:   "LinkedIn URL",
+  status:        "Status",
+};
+
+function autoDetectField(csvHeader: string): string {
+  const normalized = csvHeader.toLowerCase().replace(/[\s_-]/g, "");
+  for (const [field, aliases] of Object.entries(DB_FIELD_ALIASES)) {
+    if (aliases.includes(normalized)) return field;
+  }
+  // Exact camelCase match
+  if (normalized in DB_FIELD_LABELS) return normalized;
+  return "";
+}
+
+// Parse CSV text robustly (handles quoted fields with commas)
+function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
+  const lines = text.trim().split(/\r?\n/);
+  const parseRow = (line: string): string[] => {
+    const vals: string[] = [];
+    let cur = "";
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; continue; }
+      if (ch === "," && !inQuote) { vals.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    vals.push(cur.trim());
+    return vals;
+  };
+  const headers = parseRow(lines[0]);
+  const rows = lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = parseRow(line);
+    return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
+  });
+  return { headers, rows };
+}
+
 function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [step, setStep] = useState<"pick" | "map" | "importing" | "done">("pick");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({}); // csvHeader → dbField
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function reset() {
+    setStep("pick");
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setMapping({});
+    setResult(null);
+    setError(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function handleClose() { reset(); onClose(); }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
-    setUploading(true);
+    file.text().then((text) => {
+      const { headers, rows } = parseCsv(text);
+      const autoMap: Record<string, string> = {};
+      headers.forEach(h => { autoMap[h] = autoDetectField(h); });
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+      setMapping(autoMap);
+      setStep("map");
+    }).catch(() => setError("Could not read file"));
+  }
+
+  async function handleImport() {
+    setStep("importing");
+    setError(null);
     try {
-      const text = await file.text();
-      const lines = text.trim().split("\n");
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/"/g, ""));
-      const rows = lines.slice(1).map((line) => {
-        const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
-        return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
-      });
+      // Apply mapping: transform rows using the column map
+      const contacts = csvRows.map(row => {
+        const contact: Record<string, string> = {};
+        csvHeaders.forEach(csvCol => {
+          const dbField = mapping[csvCol];
+          if (dbField && row[csvCol]) contact[dbField] = row[csvCol];
+        });
+        return contact;
+      }).filter(c => c.sfdcAccountId); // must have join key
+
       const res = await fetch(`${API_BASE}/sales/contacts/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contacts: rows }),
+        body: JSON.stringify({ contacts }),
       });
       if (!res.ok) throw new Error(await res.text());
+      const json = await res.json().catch(() => ({}));
+      setResult({ imported: json.imported ?? contacts.length, skipped: csvRows.length - contacts.length });
+      setStep("done");
       onImported();
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setStep("map");
     }
   }
+
+  const sfdcMapped = Object.values(mapping).includes("sfdcAccountId");
+  const mappedCount = Object.values(mapping).filter(Boolean).length;
+  const willImport = csvRows.filter(row => {
+    const sfdcCol = csvHeaders.find(h => mapping[h] === "sfdcAccountId");
+    return sfdcCol && row[sfdcCol];
+  }).length;
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-display font-bold text-foreground">Import Contacts</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-display font-bold text-foreground">Import Contacts</h2>
+            {/* Step indicators */}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {(["pick", "map", "importing", "done"] as const).map((s, i) => {
+                const labels = ["Pick File", "Map Columns", "Import", "Done"];
+                const isDone = ["pick", "map", "importing", "done"].indexOf(step) > i;
+                const isActive = step === s;
+                return (
+                  <span key={s} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-border">›</span>}
+                    <span className={`${isActive ? "text-primary font-semibold" : isDone ? "text-foreground" : "text-muted-foreground"}`}>
+                      {labels[i]}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-          <span className="font-semibold">sfdcAccountId (Salesforce Account ID) is required</span> — this is the join key used to link each contact to their account. Contacts without a matching SFDC Account ID will be skipped.
-        </p>
-        {/* Template download */}
-        <button
-          onClick={downloadCsvTemplate}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 mb-4 rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors"
-        >
-          <Download className="w-4 h-4 shrink-0" />
-          <span>Download CSV Template</span>
-          <span className="ml-auto text-xs text-primary/60 font-normal">{CSV_TEMPLATE_HEADERS.length} columns</span>
-        </button>
-        {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-        <div className="flex flex-col gap-3">
-          <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} className="hidden" id="csv-upload" />
-          <label
-            htmlFor="csv-upload"
-            className="flex items-center justify-center gap-2 w-full py-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all"
-          >
-            {uploading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            ) : (
-              <>
-                <Upload className="w-5 h-5 text-muted-foreground" />
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+
+          {/* ── Step: Pick ── */}
+          {step === "pick" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <span className="font-semibold">sfdcAccountId (Salesforce Account ID) is required</span> — used to link contacts to their account. Contacts without a match will be skipped.
+              </p>
+              <button onClick={downloadCsvTemplate}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition-colors">
+                <Download className="w-4 h-4 shrink-0" />
+                <span>Download CSV Template</span>
+                <span className="ml-auto text-xs text-primary/60 font-normal">{CSV_TEMPLATE_HEADERS.length} columns</span>
+              </button>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" id="csv-upload" />
+              <label htmlFor="csv-upload"
+                className="flex flex-col items-center justify-center gap-2 w-full py-12 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all">
+                <Upload className="w-6 h-6 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Click to choose a CSV file</span>
-              </>
-            )}
-          </label>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+                <span className="text-xs text-muted-foreground/60">or drag and drop</span>
+              </label>
+            </div>
+          )}
+
+          {/* ── Step: Map ── */}
+          {step === "map" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">{csvRows.length} rows</span> · {csvHeaders.length} columns detected · {mappedCount} mapped
+                </p>
+                {!sfdcMapped && (
+                  <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full">
+                    ★ sfdcAccountId not mapped
+                  </span>
+                )}
+              </div>
+
+              {/* Sample preview row */}
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="grid grid-cols-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40 px-3 py-2 border-b border-border">
+                  <span>CSV Column</span>
+                  <span>Sample Value</span>
+                  <span>Maps To</span>
+                </div>
+                <div className="divide-y divide-border max-h-[340px] overflow-y-auto">
+                  {csvHeaders.map((csvCol) => {
+                    const sample = csvRows[0]?.[csvCol] ?? "";
+                    const mapped = mapping[csvCol] ?? "";
+                    const isRequired = mapped === "sfdcAccountId";
+                    const isDuplicate = mapped && Object.entries(mapping).filter(([k, v]) => v === mapped && k !== csvCol).length > 0;
+                    return (
+                      <div key={csvCol} className={`grid grid-cols-3 items-center gap-2 px-3 py-2 text-sm ${isDuplicate ? "bg-amber-50/50" : ""}`}>
+                        <span className="font-mono text-xs text-foreground truncate" title={csvCol}>{csvCol}</span>
+                        <span className="text-xs text-muted-foreground truncate" title={sample}>{sample || <em className="opacity-40">empty</em>}</span>
+                        <div className="relative">
+                          <select
+                            value={mapped}
+                            onChange={(e) => setMapping(prev => ({ ...prev, [csvCol]: e.target.value }))}
+                            className={`w-full text-xs appearance-none pl-2 pr-6 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer ${
+                              isRequired ? "border-primary text-primary font-semibold" :
+                              mapped ? "border-border text-foreground" :
+                              "border-dashed border-muted-foreground/40 text-muted-foreground"
+                            }`}
+                          >
+                            <option value="">— Skip —</option>
+                            {Object.entries(DB_FIELD_LABELS).map(([field, label]) => (
+                              <option key={field} value={field}>{label}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {!sfdcMapped && (
+                <p className="text-xs text-amber-700">Map a column to "SFDC Account ID ★" to enable import.</p>
+              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+          )}
+
+          {/* ── Step: Importing ── */}
+          {step === "importing" && (
+            <div className="flex flex-col items-center justify-center gap-4 py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Importing contacts…</p>
+            </div>
+          )}
+
+          {/* ── Step: Done ── */}
+          {step === "done" && result && (
+            <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="w-7 h-7 text-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{result.imported} contacts imported</p>
+                {result.skipped > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">{result.skipped} rows skipped (no matching SFDC Account ID)</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-border shrink-0">
+          {step === "pick" && <Button variant="outline" onClick={handleClose}>Cancel</Button>}
+          {step === "map" && (
+            <>
+              <Button variant="outline" onClick={reset}>← Back</Button>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{willImport} of {csvRows.length} rows will import</span>
+                <Button onClick={handleImport} disabled={!sfdcMapped} className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Import {willImport} Contacts
+                </Button>
+              </div>
+            </>
+          )}
+          {step === "done" && <Button onClick={handleClose} className="ml-auto">Done</Button>}
         </div>
       </div>
     </div>
