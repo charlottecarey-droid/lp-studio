@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, LayoutGrid, CheckCircle2, BarChart2, Paintbrush, Blocks, FormInput } from "lucide-react";
+import { LayoutDashboard, FlaskConical, PlusCircle, LayoutGrid, CheckCircle2, BarChart2, Paintbrush, Blocks, FormInput, Users } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/layout/mode-toggle";
@@ -78,6 +78,22 @@ export function AppSidebar() {
                   <Link href="/forms-and-leads" className="font-medium">
                     <FormInput className="w-4 h-4" />
                     <span>Forms & Leads</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sales</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.startsWith("/sales")}>
+                  <Link href="/sales/accounts" className="font-medium">
+                    <Users className="w-4 h-4" />
+                    <span>Sales Console</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
