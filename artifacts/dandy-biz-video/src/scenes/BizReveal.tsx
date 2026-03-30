@@ -67,7 +67,7 @@ export default function BizReveal() {
       </div>
 
       {/* ── Dashboard image fills the rest ── */}
-      <div className="relative flex-1 flex items-end justify-center mt-1 pb-0">
+      <div className="relative flex-1 flex items-start justify-center mt-1 pb-0">
         <motion.div
           className="w-[82vw]"
           initial={{ opacity: 0, y: 60 }}
