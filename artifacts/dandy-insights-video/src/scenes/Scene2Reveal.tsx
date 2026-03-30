@@ -64,32 +64,33 @@ export default function Scene2Reveal() {
           <LiveBadge delay={1.0} />
         </div>
 
-        {/* Caption pill — overlaid at top of image */}
-        <motion.div
-          className="absolute top-1/4 left-0 right-0 flex justify-center -translate-y-1/2 pointer-events-none"
-          initial={{ y: -16, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, delay: 0.9 }}
-        >
-          <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
-            <div className="flex flex-wrap items-baseline" style={{ gap: '0.28em' }}>
-              <SplitText
-                text="Clinical quality data"
-                delay={0}
-                stagger={0.07}
-                duration={0.45}
-                className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
-              />
-              <SplitText
-                text="across every provider, location, and case."
-                delay={0.35}
-                stagger={0.055}
-                duration={0.4}
-                className="text-[1.25vw] tracking-wide text-white"
-              />
-            </div>
+      </motion.div>
+
+      {/* Caption pill — below the dashboard */}
+      <motion.div
+        className="flex justify-center flex-shrink-0"
+        initial={{ y: 16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.7, delay: 0.9 }}
+      >
+        <div className="bg-[#001F19]/90 backdrop-blur-md px-8 py-3.5 rounded-full border border-white/10 overflow-hidden">
+          <div className="flex flex-wrap items-baseline justify-center" style={{ gap: '0.28em' }}>
+            <SplitText
+              text="Clinical quality data"
+              delay={0}
+              stagger={0.07}
+              duration={0.45}
+              className="text-[1.25vw] tracking-wide text-[#C7E738] font-semibold"
+            />
+            <SplitText
+              text="across every provider, location, and case."
+              delay={0.35}
+              stagger={0.055}
+              duration={0.4}
+              className="text-[1.25vw] tracking-wide text-white"
+            />
           </div>
-        </motion.div>
+        </div>
       </motion.div>
     </motion.div>
   );
