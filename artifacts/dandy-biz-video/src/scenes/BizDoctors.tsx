@@ -157,9 +157,9 @@ export default function BizDoctors() {
             animate={headlineVisible ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 1.0, duration: 0.55 }}
           >
-            See where the margin is slipping away,
+            Know which providers are driving margin —
             <br />
-            and where to double down.
+            and which ones are quietly bleeding it.
           </motion.p>
 
           {/* Legend */}
