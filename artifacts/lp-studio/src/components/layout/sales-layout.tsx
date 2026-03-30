@@ -10,6 +10,7 @@ import {
   Paintbrush,
   Plug2,
   Cloud,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,

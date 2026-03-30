@@ -35,6 +35,7 @@ const SalesPages = lazy(() => import("@/pages/sales/sales-pages"));
 const SalesOutreach = lazy(() => import("@/pages/sales/sales-outreach"));
 const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
+const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
 
 // Legacy routes (redirect to consolidated pages)
 const LeadsPage = lazy(() => import("@/pages/leads"));
@@ -96,6 +97,7 @@ function Router() {
         <Route path="/sales/contacts/:id" component={SalesContacts} />
         <Route path="/sales/contacts" component={SalesContacts} />
         <Route path="/sales/pages" component={SalesPages} />
+        <Route path="/sales/campaign-pages" component={SalesCampaignPages} />
         <Route path="/sales/outreach" component={SalesOutreach} />
         <Route path="/sales/signals" component={SalesSignals} />
         <Route path="/sales/sfdc" component={SfdcSettings} />
