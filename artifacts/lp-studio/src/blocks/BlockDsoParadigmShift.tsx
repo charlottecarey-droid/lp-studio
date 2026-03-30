@@ -32,9 +32,9 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
   const headlineC   = dark ? "#fff" : BRAND;
   const subC        = dark ? "rgba(255,255,255,0.65)" : "#6b7280";
 
-  // Old Way card — no border, just a faint background
+  // Old Way card — subtle border for balance
   const oldCardBg   = dark ? "rgba(255,255,255,0.03)" : "#f9fafb";
-  const oldCardBor  = dark ? "1px solid transparent" : "1px solid transparent";
+  const oldCardBor  = dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #e5e7eb";
   const oldLabelC   = dark ? "rgba(255,255,255,0.55)" : "#9ca3af";
   const oldItemC    = dark ? "rgba(255,255,255,0.50)" : "#9ca3af";
 
