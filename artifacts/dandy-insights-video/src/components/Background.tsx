@@ -1,62 +1,51 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 export function Background() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {/* Deep base */}
+      {/* Base dark fill */}
       <div className="absolute inset-0" style={{ background: '#001a14' }} />
 
-      {/* Multi-stop radial gradient mesh */}
+      {/* Static gradient mesh */}
       <div className="absolute inset-0" style={{
         background: [
           'radial-gradient(ellipse 90% 70% at 15% 25%, #004D40 0%, transparent 65%)',
           'radial-gradient(ellipse 70% 55% at 85% 75%, #003830 0%, transparent 60%)',
           'radial-gradient(ellipse 50% 40% at 60% 10%, #002e26 0%, transparent 55%)',
+          'radial-gradient(ellipse 60% 50% at 80% 15%, rgba(199,231,56,0.06) 0%, transparent 60%)',
+          'radial-gradient(ellipse 40% 35% at 10% 80%, rgba(0,77,64,0.45) 0%, transparent 55%)',
         ].join(', '),
       }} />
 
-      {/* Large lime orb — top right, drifts slowly */}
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: '55vw',
-          height: '55vw',
-          top: '-20%',
-          right: '-10%',
-          background: 'radial-gradient(circle, rgba(199,231,56,0.07) 0%, transparent 70%)',
-        }}
-        animate={{ x: [0, 40, -25, 0], y: [0, -30, 40, 0] }}
-        transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
-      />
+      {/* CSS-animated orb — top right */}
+      <div style={{
+        position: 'absolute',
+        width: '55vw', height: '55vw',
+        top: '-20%', right: '-10%',
+        background: 'radial-gradient(circle, rgba(199,231,56,0.07) 0%, transparent 70%)',
+        borderRadius: '50%',
+        animation: 'orbFloat1 22s ease-in-out infinite',
+      }} />
 
-      {/* Smaller lime orb — bottom left */}
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: '35vw',
-          height: '35vw',
-          bottom: '-8%',
-          left: '-5%',
-          background: 'radial-gradient(circle, rgba(199,231,56,0.05) 0%, transparent 70%)',
-        }}
-        animate={{ x: [0, -30, 25, 0], y: [0, 35, -20, 0] }}
-        transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }}
-      />
+      {/* CSS-animated orb — bottom left */}
+      <div style={{
+        position: 'absolute',
+        width: '35vw', height: '35vw',
+        bottom: '-8%', left: '-5%',
+        background: 'radial-gradient(circle, rgba(199,231,56,0.05) 0%, transparent 70%)',
+        borderRadius: '50%',
+        animation: 'orbFloat2 28s ease-in-out infinite',
+      }} />
 
-      {/* Teal accent orb — center */}
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: '25vw',
-          height: '25vw',
-          top: '35%',
-          left: '40%',
-          background: 'radial-gradient(circle, rgba(0,77,64,0.4) 0%, transparent 70%)',
-        }}
-        animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-      />
+      {/* CSS-animated centre pulse */}
+      <div style={{
+        position: 'absolute',
+        width: '25vw', height: '25vw',
+        top: '35%', left: '40%',
+        background: 'radial-gradient(circle, rgba(0,77,64,0.4) 0%, transparent 70%)',
+        borderRadius: '50%',
+        animation: 'orbPulse 18s ease-in-out infinite',
+      }} />
 
       {/* Dot grid */}
       <div className="absolute inset-0" style={{
@@ -64,10 +53,30 @@ export function Background() {
         backgroundSize: '36px 36px',
       }} />
 
-      {/* Very subtle vignette */}
+      {/* Edge vignette */}
       <div className="absolute inset-0" style={{
         background: 'radial-gradient(ellipse 120% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.35) 100%)',
       }} />
+
+      <style>{`
+        @keyframes orbFloat1 {
+          0%   { transform: translate(0px, 0px); }
+          33%  { transform: translate(40px, -30px); }
+          66%  { transform: translate(-25px, 40px); }
+          100% { transform: translate(0px, 0px); }
+        }
+        @keyframes orbFloat2 {
+          0%   { transform: translate(0px, 0px); }
+          33%  { transform: translate(-30px, 35px); }
+          66%  { transform: translate(25px, -20px); }
+          100% { transform: translate(0px, 0px); }
+        }
+        @keyframes orbPulse {
+          0%   { transform: scale(1);    opacity: 0.6; }
+          50%  { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1);    opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
