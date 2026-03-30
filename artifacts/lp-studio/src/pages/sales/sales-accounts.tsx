@@ -1380,6 +1380,14 @@ function AccountDetailView({ id }: { id: string }) {
 
 /* ─── Generate Microsite Modal ───────────────────────────────── */
 
+type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
+
+const AUDIENCE_OPTIONS: { value: MicrositeAudience; label: string; sub: string }[] = [
+  { value: "dso-corporate", label: "DSO Leadership", sub: "VPs, CFOs, Chief Dental Officers" },
+  { value: "dso-practice", label: "DSO Practice", sub: "Dentists & office managers in a network" },
+  { value: "independent", label: "Independent Practice", sub: "Solo or small group practices" },
+];
+
 function GenerateMicrositeModal({
   open,
   onClose,
@@ -1394,6 +1402,7 @@ function GenerateMicrositeModal({
   onCreated: () => void;
 }) {
   const [, navigate] = useLocation();
+  const [audience, setAudience] = useState<MicrositeAudience | null>(null);
   const [prompt, setPrompt] = useState("");
   const [step, setStep] = useState<"idle" | "generating" | "linking" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -1401,6 +1410,7 @@ function GenerateMicrositeModal({
   const [hotlinkCount, setHotlinkCount] = useState(0);
 
   function reset() {
+    setAudience(null);
     setPrompt("");
     setStep("idle");
     setErrorMsg("");
@@ -1414,6 +1424,7 @@ function GenerateMicrositeModal({
   }
 
   async function handleGenerate() {
+    if (!audience) return;
     setStep("generating");
     setErrorMsg("");
     try {
@@ -1421,7 +1432,7 @@ function GenerateMicrositeModal({
       const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() || undefined }),
+        body: JSON.stringify({ audience, prompt: prompt.trim() || undefined }),
       });
       if (!genRes.ok) {
         const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
@@ -1512,6 +1523,33 @@ function GenerateMicrositeModal({
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">
+                Who is this page for? <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex flex-col gap-2">
+                {AUDIENCE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setAudience(opt.value)}
+                    className={[
+                      "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                      audience === opt.value
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border bg-background hover:border-primary/40",
+                      busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                    ].join(" ")}
+                  >
+                    <span className="text-sm font-medium leading-tight">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{opt.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="ms-prompt" className="text-xs font-medium">
                 Additional instructions <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
@@ -1520,7 +1558,7 @@ function GenerateMicrositeModal({
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="e.g. Focus on their enterprise expansion, emphasise ROI and onboarding speed…"
-                rows={3}
+                rows={2}
                 disabled={busy}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
               />
@@ -1537,7 +1575,7 @@ function GenerateMicrositeModal({
               <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
                 Cancel
               </Button>
-              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy}>
+              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience}>
                 {busy ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
