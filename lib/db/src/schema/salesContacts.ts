@@ -8,6 +8,7 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesContactsTable = pgTable("sales_contacts", {
   id: serial("id").primaryKey(),
+  salesforceId: text("salesforce_id").unique(),  // SFDC Contact ID (003...)
   accountId: integer("account_id").notNull().references(() => salesAccountsTable.id, { onDelete: "cascade" }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
@@ -17,6 +18,7 @@ export const salesContactsTable = pgTable("sales_contacts", {
   phone: text("phone"),
   status: text("status").notNull().default("active"), // active | unsubscribed | bounced
   metadata: jsonb("metadata").default({}),
+  sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

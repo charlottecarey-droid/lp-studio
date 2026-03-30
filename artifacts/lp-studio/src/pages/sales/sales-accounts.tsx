@@ -27,6 +27,8 @@ import {
   MessageSquare,
   Upload,
   Clock,
+  Eye,
+  MousePointerClick,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -87,6 +89,8 @@ function AccountListView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // New account form state
   const [newName, setNewName] = useState("");
@@ -96,11 +100,18 @@ function AccountListView() {
   const [saving, setSaving] = useState(false);
 
   const fetchAccounts = useCallback(() => {
+    setIsSyncing(true);
     fetch(`${API_BASE}/sales/accounts`)
       .then((r) => (r.ok ? r.json() : []))
-      .then(setAccounts)
+      .then((data) => {
+        setAccounts(data);
+        setLastSyncTime(new Date());
+      })
       .catch(() => setAccounts([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setIsSyncing(false);
+      });
   }, []);
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
@@ -218,6 +229,39 @@ function AccountListView() {
             placeholder="Search accounts…"
             className="pl-10"
           />
+        </div>
+
+        {/* Sync Status */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/40">
+          <div className="flex-1">
+            <Link href="/sales/sfdc" className="text-muted-foreground hover:text-foreground transition-colors">
+              Data synced from Salesforce
+            </Link>
+            {lastSyncTime && (
+              <span className="text-muted-foreground/70">
+                {" "} · Last updated: {format(lastSyncTime, "MMM d, h:mm a")}
+              </span>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={async () => {
+              setIsSyncing(true);
+              try {
+                await fetch(`${API_BASE}/sales/sfdc/sync/accounts`, { method: "POST" });
+                fetchAccounts();
+              } catch (error) {
+                console.error("Failed to sync accounts:", error);
+                setIsSyncing(false);
+              }
+            }}
+            disabled={isSyncing}
+            className="h-7 w-7 p-0"
+            title="Sync accounts from Salesforce"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+          </Button>
         </div>
 
         {/* Account List */}
@@ -638,8 +682,6 @@ const signalConfig: Record<string, { icon: typeof Activity; label: string; color
   email_click: { icon: MousePointerClick, label: "Email Clicked", color: "text-emerald-500" },
   form_submit: { icon: FileText, label: "Form Submitted", color: "text-purple-500" },
 };
-
-import { Eye, MousePointerClick } from "lucide-react";
 
 function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts: Contact[] }) {
   const [signals, setSignals] = useState<Signal[]>([]);

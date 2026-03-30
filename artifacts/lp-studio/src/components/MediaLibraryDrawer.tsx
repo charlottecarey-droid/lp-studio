@@ -46,13 +46,13 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
-  const fetchImages = useCallback(async (pg = page) => {
+  const fetchImages = useCallback(async (pg?: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (activeTag) params.set("tag", activeTag);
-      params.set("page", String(pg));
+      params.set("page", String(pg ?? page));
       params.set("limit", String(DRAWER_PAGE_SIZE));
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed to load");
@@ -70,15 +70,15 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect }: MediaLibrar
   }, [query, activeTag, page]);
 
   useEffect(() => {
-    if (open) fetchImages();
-  }, [open, fetchImages]);
+    if (open) fetchImages(page);
+  }, [open, fetchImages, page]);
 
   // Debounced search — reset to page 1
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = (value: string) => {
     setQuery(value);
     setPage(1);
-    clearTimeout(searchTimeout.current);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => fetchImages(1), 300);
   };
 

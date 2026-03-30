@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useRef, useCallback, type ReactNode, type RefObject } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
 import {
@@ -726,7 +726,7 @@ export default function BuilderEditor() {
   const displayName = getAuthorName() || "Builder User";
   const { viewers } = usePresence(pageIdNum, displayName);
 
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [capturingOg, setCapturingOg] = useState(false);
   const [ogLibraryOpen, setOgLibraryOpen] = useState(false);
@@ -979,7 +979,7 @@ export default function BuilderEditor() {
       setBlocks(prev => prev.map(b => {
         if (b.id === selectedBlock.id) return b;
         if (!DSO_CTA_BLOCKS.has(b.type)) return b;
-        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } };
+        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } } as PageBlock;
       }));
       return;
     }
@@ -998,7 +998,7 @@ export default function BuilderEditor() {
       else updates.ctaAction = ctaAction;
       if ("ctaUrl" in bp) updates.ctaUrl = ctaUrl;
       else if ("url" in bp) updates.url = ctaUrl;
-      return { ...b, props: { ...bp, ...updates } };
+      return { ...b, props: { ...bp, ...updates } } as PageBlock;
     }));
   };
 
@@ -1169,7 +1169,7 @@ export default function BuilderEditor() {
       {/* Top Bar */}
       <BuilderTopBar
         title={title}
-        titleRef={titleRef}
+        titleRef={titleRef as RefObject<HTMLInputElement>}
         status={status}
         isMobile={isMobile}
         isSaving={isSaving}
@@ -2118,7 +2118,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     try {
       if (block.type === "zigzag-features") {
         type ZigRow = { headline: string; body: string; [key: string]: unknown };
-        const rows = ((block.props as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
+        const rows = ((block.props as unknown as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
         const updatedRows = await Promise.all(
           rows.map(async (row) => {
             const updated = await refreshBlockCopy("zigzag-features", ["headline", "body"], {
@@ -2128,7 +2128,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
             return { ...row, ...updated };
           }),
         );
-        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } });
+        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } } as unknown as PageBlock);
       } else {
         const currentValues: Record<string, string> = {};
         for (const f of blockCopyFields!) {
@@ -2137,7 +2137,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         }
         const updated = await refreshBlockCopy(block.type, blockCopyFields!, currentValues);
         if (Object.keys(updated).length > 0) {
-          onBlockChange({ ...block, props: { ...block.props, ...updated } });
+          onBlockChange({ ...block, props: { ...block.props, ...updated } } as PageBlock);
         }
       }
     } catch (err) {

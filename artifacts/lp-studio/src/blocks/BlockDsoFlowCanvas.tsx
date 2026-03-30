@@ -54,6 +54,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
     if (!ctx) return;
 
     function resize() {
+      if (!canvas) return;
       const p = canvas.parentElement;
       if (!p) return;
       canvas.width  = p.offsetWidth;
@@ -65,6 +66,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
 
     let start: number | null = null;
     function loop(ts: number) {
+      if (!canvas || !ctx) return;
       if (!start) start = ts;
       const t = (ts - start) / 1000;
       const W = canvas.width, H = canvas.height;

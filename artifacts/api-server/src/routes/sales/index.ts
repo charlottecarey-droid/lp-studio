@@ -8,6 +8,7 @@ import hotlinksRouter from "./hotlinks";
 import emailGenerateRouter from "./email-generate";
 import briefingsRouter from "./briefings";
 import generateMicrositeRouter from "./generate-microsite";
+import sfdcRouter from "./sfdc";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use(hotlinksRouter);
 router.use(emailGenerateRouter);
 router.use(briefingsRouter);
 router.use(generateMicrositeRouter);
+router.use(sfdcRouter);
 
 export default router;

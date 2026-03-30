@@ -192,7 +192,7 @@ const ThemedTooltip = ({ active, payload, label, t }: { active?: boolean; payloa
 /* ── Animated counter ───────────────────────────────────── */
 const useCountUp = (end: number, duration = 1200, decimals = 0, started = false) => {
   const [count, setCount] = useState(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!started) { setCount(0); return; }
     const startTime = performance.now();
@@ -204,7 +204,7 @@ const useCountUp = (end: number, duration = 1200, decimals = 0, started = false)
       if (progress < 1) rafRef.current = requestAnimationFrame(animate);
     };
     rafRef.current = requestAnimationFrame(animate);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
   }, [end, duration, decimals, started]);
   return count;
 };
@@ -236,6 +236,7 @@ const KPICard = ({
       const id = setTimeout(() => setFlashing(false), 900);
       return () => clearTimeout(id);
     }
+    return;
   }, [flash]);
 
   return (

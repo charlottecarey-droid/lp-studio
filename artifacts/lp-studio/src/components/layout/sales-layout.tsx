@@ -9,6 +9,7 @@ import {
   PlusCircle,
   Paintbrush,
   Plug2,
+  Cloud,
 } from "lucide-react";
 import {
   Sidebar,
@@ -114,6 +115,14 @@ export function SalesSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/sales/sfdc"}>
+                  <Link href="/sales/sfdc" className="font-medium">
+                    <Cloud className="w-4 h-4" />
+                    <span>Salesforce</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location === "/brand"}>
                   <Link href="/brand" className="font-medium">

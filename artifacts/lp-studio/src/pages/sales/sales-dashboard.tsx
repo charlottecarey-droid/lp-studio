@@ -82,17 +82,26 @@ export default function SalesDashboard() {
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
     ])
-      .then(([accounts, contacts, recentSignals]) => {
+      .then(([accounts, contacts, recentSignals, campaigns, allSignals, pages]) => {
+        const activeCampaigns = campaigns.filter((c: any) => c.status === "sending" || c.status === "sent").length;
+        const emailsSent = campaigns.reduce((sum: number, c: any) => sum + (c.recipientCount ?? 0), 0);
+        const opens = allSignals.filter((s: any) => s.type === "email_open").length;
+        const clicks = allSignals.filter((s: any) => s.type === "email_click").length;
+        const publishedMicrosites = pages.filter((p: any) => p.status === "published").length;
+
         setStats({
           accounts: accounts.length ?? 0,
           contacts: contacts.length ?? 0,
-          activeCampaigns: 0,
-          microsites: 0,
+          activeCampaigns,
+          microsites: publishedMicrosites,
           recentSignals: recentSignals.length ?? 0,
-          emailsSent: 0,
-          opens: 0,
-          clicks: 0,
+          emailsSent,
+          opens,
+          clicks,
         });
         setSignals(recentSignals.slice?.(0, 8) ?? []);
       })
@@ -131,6 +140,42 @@ export default function SalesDashboard() {
       color: "text-foreground",
       accent: false,
       href: "/sales/outreach",
+    },
+    {
+      label: "Opens",
+      value: stats?.opens ?? null,
+      icon: <Eye className="w-3.5 h-3.5" />,
+      bigIcon: <Eye className="w-5 h-5 text-muted-foreground/20" />,
+      color: "text-emerald-600",
+      accent: false,
+      href: "/sales/signals",
+    },
+    {
+      label: "Clicks",
+      value: stats?.clicks ?? null,
+      icon: <MousePointerClick className="w-3.5 h-3.5" />,
+      bigIcon: <MousePointerClick className="w-5 h-5 text-muted-foreground/20" />,
+      color: "text-amber-600",
+      accent: false,
+      href: "/sales/signals",
+    },
+    {
+      label: "Active Campaigns",
+      value: stats?.activeCampaigns ?? null,
+      icon: <Send className="w-3.5 h-3.5" />,
+      bigIcon: <Send className="w-5 h-5 text-muted-foreground/20" />,
+      color: "text-foreground",
+      accent: false,
+      href: "/sales/outreach",
+    },
+    {
+      label: "Microsites",
+      value: stats?.microsites ?? null,
+      icon: <FileText className="w-3.5 h-3.5" />,
+      bigIcon: <FileText className="w-5 h-5 text-muted-foreground/20" />,
+      color: "text-foreground",
+      accent: false,
+      href: "/sales/pages",
     },
     {
       label: "Signals Today",
@@ -189,7 +234,7 @@ export default function SalesDashboard() {
         </div>
 
         {/* Stat tiles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {statTiles.map((stat) => (
             <Link href={stat.href} key={stat.label}>
               <Card

@@ -73,7 +73,8 @@ class Parser {
 
   parseAddSub(): number {
     let left = this.parseMulDiv();
-    while (this.peek()?.kind === "op" && (this.peek()?.val === "+" || this.peek()?.val === "-")) {
+    const t = this.peek();
+    while (t?.kind === "op" && (t.val === "+" || t.val === "-")) {
       const op = (this.consume() as { kind: "op"; val: string }).val;
       const right = this.parseMulDiv();
       left = op === "+" ? left + right : left - right;
@@ -83,7 +84,8 @@ class Parser {
 
   parseMulDiv(): number {
     let left = this.parseUnary();
-    while (this.peek()?.kind === "op" && (this.peek()?.val === "*" || this.peek()?.val === "/" || this.peek()?.val === "%")) {
+    const t = this.peek();
+    while (t?.kind === "op" && (t.val === "*" || t.val === "/" || t.val === "%")) {
       const op = (this.consume() as { kind: "op"; val: string }).val;
       const right = this.parseUnary();
       if (op === "*") left = left * right;
@@ -94,7 +96,8 @@ class Parser {
   }
 
   parseUnary(): number {
-    if (this.peek()?.kind === "op" && this.peek()?.val === "-") {
+    const t = this.peek();
+    if (t?.kind === "op" && t.val === "-") {
       this.consume();
       return -this.parsePrimary();
     }

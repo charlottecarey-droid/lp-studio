@@ -17,6 +17,7 @@ import {
   Eye,
   MousePointerClick,
   Loader2,
+  TrendingUp,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -68,12 +69,13 @@ interface Account {
 
 // ─── Tab types ──────────────────────────────────────────────
 
-type TabId = "send" | "campaigns" | "templates";
+type TabId = "send" | "campaigns" | "templates" | "performance";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "send", label: "Single Send", icon: <Send className="w-3.5 h-3.5" /> },
   { id: "campaigns", label: "Campaigns", icon: <Mail className="w-3.5 h-3.5" /> },
   { id: "templates", label: "Templates", icon: <FileText className="w-3.5 h-3.5" /> },
+  { id: "performance", label: "Performance", icon: <TrendingUp className="w-3.5 h-3.5" /> },
 ];
 
 // ─── Single Send Tab ────────────────────────────────────────
@@ -678,6 +680,132 @@ function TemplatesTab() {
   );
 }
 
+// ─── Performance Tab ────────────────────────────────────────
+
+interface Signal {
+  id: number;
+  type: string;
+  campaignId?: number;
+}
+
+interface CampaignPerformance {
+  id: number;
+  name: string;
+  status: string;
+  recipientCount: number;
+  sentAt: string | null;
+  opens: number;
+  clicks: number;
+  formSubmits: number;
+}
+
+function PerformanceTab() {
+  const [campaigns, setCampaigns] = useState<CampaignPerformance[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : []),
+    ])
+      .then(([campaignList, signals]) => {
+        const campaignMap = new Map<number, CampaignPerformance>();
+
+        campaignList.forEach((c: Campaign) => {
+          campaignMap.set(c.id, {
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            recipientCount: c.recipientCount,
+            sentAt: c.sentAt,
+            opens: 0,
+            clicks: 0,
+            formSubmits: 0,
+          });
+        });
+
+        signals.forEach((s: Signal) => {
+          if (s.campaignId && campaignMap.has(s.campaignId)) {
+            const perf = campaignMap.get(s.campaignId)!;
+            if (s.type === "email_open") perf.opens++;
+            else if (s.type === "email_click") perf.clicks++;
+            else if (s.type === "form_submit") perf.formSubmits++;
+          }
+        });
+
+        setCampaigns(Array.from(campaignMap.values()));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-[64px] rounded-xl" />)}
+        </div>
+      ) : campaigns.length === 0 ? (
+        <Card className="flex items-center gap-4 p-6 rounded-2xl border border-dashed border-border">
+          <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">No campaigns yet</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Create and send campaigns to see performance analytics</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/60">
+                <th className="text-left font-semibold text-foreground px-4 py-3">Campaign Name</th>
+                <th className="text-left font-semibold text-foreground px-4 py-3">Status</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Recipients</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Opens</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Open Rate</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Clicks</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Click Rate</th>
+                <th className="text-right font-semibold text-foreground px-4 py-3">Sent Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaigns.map(c => {
+                const openRate = c.recipientCount > 0 ? ((c.opens / c.recipientCount) * 100).toFixed(1) : "—";
+                const clickRate = c.recipientCount > 0 ? ((c.clicks / c.recipientCount) * 100).toFixed(1) : "—";
+
+                return (
+                  <tr key={c.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 text-foreground font-medium">{c.name}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        c.status === "draft" ? "bg-muted text-muted-foreground" :
+                        c.status === "sending" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{c.recipientCount}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{c.opens}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{openRate}%</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{c.clicks}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{clickRate}%</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      {c.sentAt ? format(new Date(c.sentAt), "MMM d, yyyy") : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Outreach Page ─────────────────────────────────────
 
 export default function SalesOutreach() {
@@ -715,6 +843,7 @@ export default function SalesOutreach() {
         {activeTab === "send" && <SingleSendTab />}
         {activeTab === "campaigns" && <CampaignsTab />}
         {activeTab === "templates" && <TemplatesTab />}
+        {activeTab === "performance" && <PerformanceTab />}
       </div>
     </SalesLayout>
   );

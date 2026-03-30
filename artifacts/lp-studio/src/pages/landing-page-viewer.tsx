@@ -223,9 +223,9 @@ export default function LandingPageViewer() {
     : { sessionId };
 
   const { data: config, isLoading, error } = useGetPageConfig(
-    slug, 
+    slug,
     apiParams,
-    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false } }
+    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false, queryKey: ["pageConfig", slug, apiParams] } }
   );
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);

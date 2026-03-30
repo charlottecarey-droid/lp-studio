@@ -319,6 +319,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, varian
       const timer = setTimeout(() => setVisible(true), (p.triggerValue || 5) * 1000);
       return () => clearTimeout(timer);
     }
+    return;
   }, [p.trigger, p.triggerValue, p.showOnce, dismissed, storageKey, isEditing]);
 
   // ── EDITOR MODE ───────────────────────────────────────────────────────────

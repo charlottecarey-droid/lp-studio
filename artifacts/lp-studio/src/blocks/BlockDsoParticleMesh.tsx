@@ -53,6 +53,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
     const DIST = isMobile ? 95 : 130;
 
     function resize() {
+      if (!canvas) return;
       const parent = canvas.parentElement;
       if (!parent) return;
       canvas.width  = parent.offsetWidth;
@@ -64,7 +65,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
     function loop() {
-      if (!ctx || !canvas) return;
+      if (!canvas || !ctx) return;
       const W = canvas.width, H = canvas.height;
       const ps = pRef.current;
 

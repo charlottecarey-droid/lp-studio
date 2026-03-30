@@ -360,7 +360,7 @@ export function BlockRenderer({ block, brand, onCtaClick, onBlockChange, animati
             blockId={block.id}
             isEditing={!!onBlockChange}
             pageId={pageId}
-            variantId={variantId}
+            variantId={variantId ? String(variantId) : undefined}
             sessionId={sessionId}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
           />

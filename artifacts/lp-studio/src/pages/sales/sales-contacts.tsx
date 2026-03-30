@@ -64,6 +64,33 @@ const signalConfig: Record<string, { icon: typeof Activity; label: string; color
   form_submit: { icon: FileText, label: "Submitted Form", color: "text-purple-500" },
 };
 
+function getEngagementScore(signals: Signal[]): { label: string; color: string; score: number } {
+  if (signals.length === 0) return { label: "No activity", color: "text-muted-foreground bg-muted/50", score: 0 };
+
+  // Score based on recency and frequency
+  const now = Date.now();
+  const recentSignals = signals.filter(s => now - new Date(s.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000); // last 7 days
+  const formSubmits = signals.filter(s => s.type === "form_submit").length;
+  const emailClicks = signals.filter(s => s.type === "email_click").length;
+
+  // Weighted score: form submits worth 5, clicks worth 3, opens worth 2, views worth 1
+  const score = signals.reduce((sum, s) => {
+    if (s.type === "form_submit") return sum + 5;
+    if (s.type === "email_click") return sum + 3;
+    if (s.type === "email_open") return sum + 2;
+    return sum + 1;
+  }, 0);
+
+  // Boost for recent activity
+  const recencyBoost = recentSignals.length > 0 ? 1.5 : 1;
+  const finalScore = Math.round(score * recencyBoost);
+
+  if (finalScore >= 15 || formSubmits > 0) return { label: "Hot", color: "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50", score: finalScore };
+  if (finalScore >= 8 || emailClicks > 0) return { label: "Warm", color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50", score: finalScore };
+  if (finalScore >= 3) return { label: "Cool", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50", score: finalScore };
+  return { label: "Cold", color: "text-slate-500 bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-900/50", score: finalScore };
+}
+
 /* ─── Contact List View ──────────────────────────────────────── */
 
 function ContactListView() {
@@ -71,11 +98,27 @@ function ContactListView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [contactSignals, setContactSignals] = useState<Record<number, Signal[]>>({});
 
   useEffect(() => {
-    fetch(`${API_BASE}/sales/contacts`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setContacts)
+    Promise.all([
+      fetch(`${API_BASE}/sales/contacts`)
+        .then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/signals?limit=500`)
+        .then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([contacts, signals]) => {
+        setContacts(contacts);
+        // Group signals by contact
+        const grouped: Record<number, Signal[]> = {};
+        (signals || []).forEach((sig: Signal) => {
+          if (sig.contactId) {
+            if (!grouped[sig.contactId]) grouped[sig.contactId] = [];
+            grouped[sig.contactId].push(sig);
+          }
+        });
+        setContactSignals(grouped);
+      })
       .catch(() => setContacts([]))
       .finally(() => setLoading(false));
   }, []);
@@ -127,39 +170,47 @@ function ContactListView() {
           </Card>
         ) : (
           <div className="flex flex-col gap-2">
-            {filtered.map((contact) => (
-              <div
-                key={contact.id}
-                onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                className="group flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
-              >
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
-                  {contact.firstName[0]}{contact.lastName[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {contact.firstName} {contact.lastName}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {contact.title && <span>{contact.title}</span>}
-                    {contact.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {contact.email}
-                      </span>
-                    )}
+            {filtered.map((contact) => {
+              const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
+              const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" :
+                                    engagementScore.label === "Warm" ? "bg-amber-500" :
+                                    engagementScore.label === "Cool" ? "bg-blue-500" :
+                                    "bg-slate-300";
+              return (
+                <div
+                  key={contact.id}
+                  onClick={() => navigate(`/sales/contacts/${contact.id}`)}
+                  className="group flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
+                >
+                  <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} />
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                    {contact.firstName[0]}{contact.lastName[0]}
                   </div>
-                </div>
-                {contact.role && (
-                  <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                    {contact.role}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      {contact.firstName} {contact.lastName}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {contact.title && <span>{contact.title}</span>}
+                      {contact.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {contact.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {contact.role && (
+                    <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
+                      {contact.role}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(contact.createdAt), "MMM d")}
                   </span>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {format(new Date(contact.createdAt), "MMM d")}
-                </span>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -245,9 +296,19 @@ function ContactDetailView({ id }: { id: string }) {
                 {contact.firstName[0]}{contact.lastName[0]}
               </div>
               <div>
-                <h1 className="text-2xl font-display font-bold text-foreground">
-                  {contact.firstName} {contact.lastName}
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-display font-bold text-foreground">
+                    {contact.firstName} {contact.lastName}
+                  </h1>
+                  {(() => {
+                    const engagementScore = getEngagementScore(signals);
+                    return (
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${engagementScore.color}`}>
+                        {engagementScore.label === "No activity" ? engagementScore.label : `${engagementScore.label} (${engagementScore.score})`}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                   {contact.title && <span>{contact.title}</span>}
                   {contact.role && (

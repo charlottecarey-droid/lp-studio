@@ -476,7 +476,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   );
 }
 
-export default function FormsPage() {
+export function FormsContent() {
   const [forms, setForms] = useState<GlobalForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<GlobalForm | null>(null);
@@ -516,73 +516,77 @@ export default function FormsPage() {
 
   if (selected) {
     return (
-      <AppLayout>
-        <div className="flex h-screen flex-col">
-          <div className="px-6 py-3 border-b bg-background flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setSelected(null)}>
-              <ArrowLeft className="w-4 h-4" /> Forms
-            </Button>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <FormEditor form={selected} onSaved={handleSaved} onDelete={handleDelete} />
-          </div>
+      <div className="flex h-screen flex-col">
+        <div className="px-6 py-3 border-b bg-background flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setSelected(null)}>
+            <ArrowLeft className="w-4 h-4" /> Forms
+          </Button>
         </div>
-      </AppLayout>
+        <div className="flex-1 overflow-hidden">
+          <FormEditor form={selected} onSaved={handleSaved} onDelete={handleDelete} />
+        </div>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Forms</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Create global forms once, link them to any landing page block. Manage fields and integrations in one place.
-            </p>
-          </div>
+    <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Forms</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Create global forms once, link them to any landing page block. Manage fields and integrations in one place.
+          </p>
         </div>
-
-        <div className="flex gap-2 mb-6">
-          <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Form name (e.g. Demo Request)"
-            className="max-w-xs" onKeyDown={e => { if (e.key === "Enter") createForm(); }} />
-          <Button onClick={createForm} disabled={creating || !newName.trim()} className="gap-1.5">
-            <Plus className="w-4 h-4" /> Create Form
-          </Button>
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : forms.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <p className="font-medium mb-1">No forms yet</p>
-              <p className="text-xs">Create your first global form above, then link it to a Form block in the builder.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {forms.map(form => (
-              <button key={form.id} onClick={() => setSelected(form)}
-                className="w-full text-left border rounded-lg px-4 py-3 bg-background hover:bg-muted/40 transition-colors flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{form.name}</p>
-                  {form.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{form.description}</p>}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {form.steps.reduce((n, s) => n + s.fields.length, 0)} field{form.steps.reduce((n, s) => n + s.fields.length, 0) !== 1 ? "s" : ""}
-                    {form.multiStep ? ` · ${form.steps.length} steps` : ""}
-                    {(form.salesforceConfig || form.marketoConfig) ? " · CRM connected" : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5 font-mono">ID {form.id}</span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+      <div className="flex gap-2 mb-6">
+        <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Form name (e.g. Demo Request)"
+          className="max-w-xs" onKeyDown={e => { if (e.key === "Enter") createForm(); }} />
+        <Button onClick={createForm} disabled={creating || !newName.trim()} className="gap-1.5">
+          <Plus className="w-4 h-4" /> Create Form
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : forms.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <p className="font-medium mb-1">No forms yet</p>
+            <p className="text-xs">Create your first global form above, then link it to a Form block in the builder.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {forms.map(form => (
+            <button key={form.id} onClick={() => setSelected(form)}
+              className="w-full text-left border rounded-lg px-4 py-3 bg-background hover:bg-muted/40 transition-colors flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{form.name}</p>
+                {form.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{form.description}</p>}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.steps.reduce((n, s) => n + s.fields.length, 0)} field{form.steps.reduce((n, s) => n + s.fields.length, 0) !== 1 ? "s" : ""}
+                  {form.multiStep ? ` · ${form.steps.length} steps` : ""}
+                  {(form.salesforceConfig || form.marketoConfig) ? " · CRM connected" : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5 font-mono">ID {form.id}</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function FormsPage() {
+  return (
+    <AppLayout>
+      <FormsContent />
     </AppLayout>
   );
 }

@@ -44,6 +44,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-charts": ["recharts"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-editor": ["@tiptap/core", "@tiptap/react", "@tiptap/starter-kit"],
+          "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-popover", "@radix-ui/react-select", "@radix-ui/react-tooltip", "@radix-ui/react-tabs"],
+          "vendor-dnd": ["@dnd-kit/core", "@dnd-kit/utilities", "@dnd-kit/sortable"],
+        },
+      },
+    },
   },
   server: {
     port,

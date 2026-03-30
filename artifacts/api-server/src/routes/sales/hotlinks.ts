@@ -8,6 +8,7 @@ import {
   lpPagesTable,
 } from "@workspace/db";
 import { broadcastSignal } from "./signals";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
@@ -174,6 +175,19 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
       },
     }).returning();
     broadcastSignal(pvSignal);
+
+    // SFDC write-back: log microsite view as Activity (fire-and-forget)
+    if (contact?.salesforceId) {
+      sfdcService.getActiveConnection().then(conn => {
+        if (conn) {
+          sfdcService.logMicrositeView(conn.id, {
+            contactSalesforceId: contact.salesforceId!,
+            pageTitle: page.title,
+            pageUrl: `/lp/${page.slug}`,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
 
     res.json({
       pageSlug: page.slug,

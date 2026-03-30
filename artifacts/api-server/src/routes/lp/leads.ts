@@ -11,6 +11,7 @@ import {
   type SalesforceConfig,
 } from "../../lib/notifications";
 import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
@@ -113,6 +114,22 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
         variantName: payload.variantName,
         fields: payload.fields,
       });
+
+      // SFDC write-back: create Lead in Salesforce from form submission
+      const conn = await sfdcService.getActiveConnection();
+      if (conn) {
+        const f = fields as Record<string, string>;
+        await sfdcService.createLead(conn.id, {
+          firstName: f.first_name || f.firstName || f.First_Name || undefined,
+          lastName: f.last_name || f.lastName || f.Last_Name || "Unknown",
+          email: f.email || f.Email || f.work_email || undefined,
+          company: f.company || f.Company || f.practice_name || f.organization || undefined,
+          title: f.title || f.Title || f.job_title || undefined,
+          phone: f.phone || f.Phone || f.phone_number || undefined,
+          leadSource: `LP Studio: ${page.title}`,
+          description: `Form submission from page "${page.title}" (${page.slug}) at ${lead.createdAt.toISOString()}`,
+        }).catch(err => console.error("SFDC Lead creation error:", err));
+      }
     } catch (err) {
       console.error("Error processing lead notifications:", err);
     }

@@ -10,6 +10,7 @@ import {
   salesHotlinksTable,
 } from "@workspace/db";
 import { broadcastSignal } from "./signals";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
@@ -260,6 +261,19 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
           metadata: { campaignId, templateId: template.id },
         }).returning();
         broadcastSignal(sig1);
+
+        // SFDC write-back: log email as Activity (fire-and-forget)
+        if (contact.salesforceId) {
+          sfdcService.getActiveConnection().then(conn => {
+            if (conn) {
+              sfdcService.logEmailActivity(conn.id, {
+                contactSalesforceId: contact.salesforceId!,
+                subject,
+                campaignName: campaign.name,
+              }).catch(() => {/* non-blocking */});
+            }
+          }).catch(() => {/* non-blocking */});
+        }
       } else {
         failed++;
       }
@@ -431,6 +445,18 @@ router.post("/send-email", async (req, res): Promise<void> => {
       metadata: { single: true },
     }).returning();
     broadcastSignal(sig4);
+
+    // SFDC write-back: log single email as Activity (fire-and-forget)
+    if (contact.salesforceId) {
+      sfdcService.getActiveConnection().then(conn => {
+        if (conn) {
+          sfdcService.logEmailActivity(conn.id, {
+            contactSalesforceId: contact.salesforceId!,
+            subject: renderedSubject,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
 
     res.json({ ok: true, sendId: sendRecord.id });
   } catch (err) {

@@ -19,3 +19,6 @@ export * from "./salesHotlinks";
 export * from "./salesEmails";
 export * from "./salesSignals";
 export * from "./salesBriefings";
+
+// Salesforce Integration
+export * from "./sfdcIntegration";

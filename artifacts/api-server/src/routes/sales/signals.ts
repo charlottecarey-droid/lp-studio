@@ -1,7 +1,8 @@
 import { Router, type Response } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gte } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesSignalsTable } from "@workspace/db";
+import { salesSignalsTable, salesContactsTable } from "@workspace/db";
+import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
 
@@ -88,12 +89,70 @@ router.post("/signals", async (req, res): Promise<void> => {
     // Broadcast to all connected SSE clients
     broadcastSignal(signal);
 
+    // SFDC write-back: recalculate engagement score and push to SFDC (fire-and-forget)
+    if (signal.contactId) {
+      pushEngagementScoreToSfdc(signal.contactId).catch(() => {/* non-blocking */});
+    }
+
     res.status(201).json(signal);
   } catch (err) {
     console.error("POST /sales/signals error:", err);
     res.status(500).json({ error: "Failed to create signal" });
   }
 });
+
+/**
+ * Recalculate a contact's engagement score from their signals and push to SFDC.
+ * Score weights: form_submit=5, email_click/link_click=3, email_open=2, page_view=1
+ * Recency boost: 1.5x for signals within 7 days
+ */
+async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
+  try {
+    // Get the contact to check for salesforceId
+    const [contact] = await db.select().from(salesContactsTable)
+      .where(eq(salesContactsTable.id, contactId));
+    if (!contact?.salesforceId) return;
+
+    const conn = await sfdcService.getActiveConnection();
+    if (!conn) return;
+
+    // Get all signals for this contact
+    const signals = await db.select().from(salesSignalsTable)
+      .where(eq(salesSignalsTable.contactId, contactId));
+
+    const weights: Record<string, number> = {
+      form_submit: 5,
+      email_click: 3,
+      link_click: 3,
+      email_open: 2,
+      page_view: 1,
+      email_sent: 0, // outbound action, doesn't count for engagement
+    };
+
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    let score = 0;
+
+    for (const sig of signals) {
+      const weight = weights[sig.type] ?? 1;
+      const isRecent = sig.createdAt && new Date(sig.createdAt).getTime() > sevenDaysAgo;
+      score += weight * (isRecent ? 1.5 : 1);
+    }
+
+    // Determine label
+    let label: string;
+    if (score >= 15) label = "Hot";
+    else if (score >= 8) label = "Warm";
+    else if (score >= 3) label = "Cool";
+    else label = "Cold";
+
+    await sfdcService.pushEngagementScore(conn.id, contact.salesforceId, {
+      label,
+      numericScore: Math.round(score),
+    });
+  } catch {
+    // Non-blocking — don't let SFDC errors affect signal creation
+  }
+}
 
 export { broadcastSignal };
 export default router;

@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -24,6 +25,8 @@ import PersonalizedLinksPanel from "@/components/PersonalizedLinksPanel";
 import { ContentBriefModal } from "@/components/ContentBriefModal";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { setBriefContext } from "@/lib/brief-context";
+import { useListTests } from "@workspace/api-client-react";
+import { getLpPublicBase } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -40,10 +43,57 @@ interface Page {
   updatedAt: string;
 }
 
+interface Test {
+  id: number;
+  name: string;
+  slug: string;
+  status: string;
+  testType: string;
+  variantCount?: number;
+}
+
+type FilterStatus = "All" | "Draft" | "Published" | "Running";
+
+function CopyButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/60"
+    >
+      {copied ? (
+        <><Check className="w-3.5 h-3.5 text-green-500" /> Copied</>
+      ) : (
+        <><Copy className="w-3.5 h-3.5" /> Copy URL</>
+      )}
+    </button>
+  );
+}
+
 async function fetchPages(): Promise<Page[]> {
   const res = await fetch(`${API_BASE}/lp/pages`);
   if (!res.ok) throw new Error("Failed to fetch pages");
   return res.json() as Promise<Page[]>;
+}
+
+function useRunningTests() {
+  return useQuery<Test[]>({
+    queryKey: ["lp-tests-running"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/lp/tests`);
+      if (!res.ok) throw new Error("Failed to fetch tests");
+      const all: Test[] = await res.json();
+      return all.filter(t => t.status === "running");
+    },
+  });
 }
 
 interface CreatePageData {
@@ -233,10 +283,14 @@ export default function PagesGallery() {
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
+
+  const { data: runningTests = [], isLoading: testsLoading } = useRunningTests();
 
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
 
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
+  const base = getLpPublicBase();
 
   const load = () => {
     setIsLoading(true);
@@ -381,6 +435,32 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
+  // Determine if a page is "live" (published or running as a test)
+  const isPageLive = (pageId: number) => {
+    const page = pages.find(p => p.id === pageId);
+    if (page?.status === "published") return true;
+    return runningTests.some(t => {
+      // Check if this test has a variant using this page
+      // For now, we'll assume running tests are "live" pages
+      return t.status === "running";
+    });
+  };
+
+  // Filter pages based on selected status
+  const filteredPages = pages.filter(page => {
+    if (filterStatus === "All") return true;
+    if (filterStatus === "Draft") return page.status === "draft";
+    if (filterStatus === "Published") return page.status === "published";
+    if (filterStatus === "Running") {
+      // Show pages that have running tests
+      return runningTests.some(t => {
+        // Check if page slug matches test slug (simplified logic)
+        return t.slug === page.slug;
+      });
+    }
+    return true;
+  });
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -401,6 +481,26 @@ export default function PagesGallery() {
           </div>
         </div>
 
+        {/* Status Filter Tabs */}
+        {!isLoading && pages.length > 0 && (
+          <div className="flex gap-2">
+            {(["All", "Draft", "Published", "Running"] as const).map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                  filterStatus === status
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
@@ -417,9 +517,22 @@ export default function PagesGallery() {
               Create Page
             </Button>
           </div>
+        ) : filteredPages.length === 0 ? (
+          <div className="text-center py-20 border-2 border-dashed border-border rounded-2xl">
+            <FileText className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No {filterStatus === "All" ? "pages" : filterStatus.toLowerCase() + " pages"}</h3>
+            <p className="text-muted-foreground mb-6 text-sm">Try a different filter or create a new page.</p>
+            <Button onClick={() => setFilterStatus("All")} className="gap-2">
+              View all pages
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pages.map(page => (
+            {filteredPages.map(page => {
+              const isPublished = page.status === "published";
+              const isRunning = runningTests.some(t => t.slug === page.slug);
+              const liveUrl = isPublished || isRunning ? `${base}/lp/${page.slug}` : null;
+              return (
               <div
                 key={page.id}
                 className="group relative bg-background rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 overflow-hidden flex flex-col"
@@ -431,6 +544,12 @@ export default function PagesGallery() {
                     <div className="h-1.5 w-1/2 bg-[#003A30]/60 rounded" />
                     <div className="h-4 w-20 bg-[#C7E738] rounded-full mt-1" />
                   </div>
+                  {/* Green pulse dot for published/running pages */}
+                  {(isPublished || isRunning) && (
+                    <div className="absolute top-2 left-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50" />
+                    </div>
+                  )}
                   <div className="absolute top-2 right-2">
                     <Badge
                       className={cn(
@@ -442,6 +561,8 @@ export default function PagesGallery() {
                     >
                       {page.status === "published" ? (
                         <><Globe className="w-2.5 h-2.5 mr-1 inline" />Live</>
+                      ) : isRunning ? (
+                        <><Globe className="w-2.5 h-2.5 mr-1 inline" />Running</>
                       ) : (
                         <><Clock className="w-2.5 h-2.5 mr-1 inline" />Draft</>
                       )}
@@ -469,6 +590,16 @@ export default function PagesGallery() {
                     <h3 className="font-semibold text-foreground text-sm leading-tight line-clamp-1">{page.title}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5 font-mono">/lp/{page.slug}</p>
                   </div>
+
+                  {/* Copy URL section for published/running pages */}
+                  {liveUrl && (
+                    <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                      <code className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md font-mono truncate max-w-xs">
+                        {liveUrl}
+                      </code>
+                      <CopyButton url={liveUrl} />
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-0.5">
@@ -550,7 +681,8 @@ export default function PagesGallery() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
