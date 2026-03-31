@@ -965,21 +965,18 @@ export default function BuilderEditor() {
     if (!selectedBlock) return;
     const p = selectedBlock.props as Record<string, unknown>;
 
-    // DSO Hero blocks (heartland + practice): copy primaryCta → ctaText/ctaUrl/ctaMode on all DSO blocks
+    // DSO Hero blocks (heartland + practice): copy primaryCta → ctaText/ctaUrl/ctaMode on all blocks
+    // that already have ctaText or ctaUrl props (dynamic check — no hardcoded allowlist needed)
     if (selectedBlock.type === "dso-practice-hero" || selectedBlock.type === "dso-heartland-hero") {
       const ctaText = (p.primaryCtaText ?? "") as string;
       const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
       const ctaMode = (p.primaryCtaMode ?? "link") as string;
-      const DSO_CTAURL_BLOCKS = new Set([
-        "dso-split-feature", "dso-software-showcase", "dso-activation-steps", "dso-meet-team",
-        "dso-bento-outcomes", "dso-paradigm-shift", "dso-partnership-perks",
-        "dso-products-grid", "dso-promises", "dso-testimonials",
-        "dso-stat-row", "dso-faq", "dso-scroll-story-hero", "dso-success-stories", "dso-promo-cards",
-      ]);
       setBlocks(prev => prev.map(b => {
         if (b.id === selectedBlock.id) return b;
-        if (!DSO_CTAURL_BLOCKS.has(b.type)) return b;
-        return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } } as PageBlock;
+        const bp = b.props as Record<string, unknown>;
+        // Apply to any block that has ctaText or ctaUrl fields
+        if (!("ctaText" in bp) && !("ctaUrl" in bp)) return b;
+        return { ...b, props: { ...bp, ctaText, ctaUrl, ctaMode } } as PageBlock;
       }));
       return;
     }
