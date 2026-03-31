@@ -5,7 +5,7 @@ import { salesAccountsTable, salesContactsTable } from "@workspace/db";
 
 const router = Router();
 
-const CHUNK = 200; // max rows per batch insert
+const CHUNK = 100; // max rows per batch insert
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
