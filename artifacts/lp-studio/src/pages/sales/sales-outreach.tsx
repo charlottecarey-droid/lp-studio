@@ -19,6 +19,7 @@ import {
   Inbox,
   MousePointerClick,
   Eye,
+  X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -92,7 +93,7 @@ function buildFullEmailHTML(
 
 const MERGE_VARS = ["{{first_name}}", "{{last_name}}", "{{company}}", "{{microsite_url}}"];
 
-function MergeVarChips({ bodyRef, body, setBody }: { bodyRef: React.RefObject<HTMLTextAreaElement>; body: string; setBody: (v: string) => void }) {
+function MergeVarChips({ bodyRef, body, setBody }: { bodyRef: React.RefObject<HTMLTextAreaElement | null>; body: string; setBody: (v: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1 mb-2">
       {MERGE_VARS.map(v => (
