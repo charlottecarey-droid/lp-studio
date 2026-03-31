@@ -458,10 +458,15 @@ The five messaging pillars (pick the most relevant to this contact's role):
 
 === PROOF POINTS BY PERSONA ===
 
-CFO / Finance: remake math ($780 lost value per crown), APEX 29% remake reduction, zero scanner CAPEX, month-to-month terms
-COO / Operations: DCA 400+ lab relationships consolidated, Dandy Hub dashboard, preferred program without forcing doctors
-CDO / Clinical: APEX zero remakes within a year, DCA ~1% remake rate, AI margin detection
-CEO / President: APEX 12.5% revenue increase, low-risk entry with free scanners
+IMPORTANT — customer name rules:
+- "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs" (Apex is one DSO, not multiple)
+- "Dental Care Alliance" or "DCA" — when referring to their practices, say "DCA practices"
+- Never pluralize a single DSO name with "DSOs"
+
+CFO / Finance: remake math ($780 lost value per crown), Apex Dental Partners saw a 29% remake reduction, zero scanner CAPEX, month-to-month terms
+COO / Operations: DCA consolidated 400+ lab relationships, Dandy Hub dashboard, preferred program without forcing doctors
+CDO / Clinical: Apex Dental Partners reached near-zero remakes within a year, DCA practices hit ~1% remake rate, AI margin detection
+CEO / President: Apex Dental Partners saw a 12.5% revenue increase, low-risk entry with free scanners
 Growth / M&A: eliminates $40–75K capital barrier, scales from 10 to 200+ locations
 
 === EMAIL FORMAT ===
