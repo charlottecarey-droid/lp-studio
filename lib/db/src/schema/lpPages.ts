@@ -17,6 +17,10 @@ export const lpPagesTable = pgTable("lp_pages", {
   accountId: integer("account_id"),       // links page to a sales account (nullable)
   mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"
   createdBy: text("created_by"),          // user/rep identifier
+  // Template fields — marketing can mark any page as a microsite template
+  isTemplate: boolean("is_template").notNull().default(false),
+  templateLabel: text("template_label"),
+  templateDescription: text("template_description"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

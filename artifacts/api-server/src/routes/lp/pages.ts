@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 
@@ -27,8 +27,26 @@ router.get("/lp/pages", async (_req, res): Promise<void> => {
   }
 });
 
+// List all marketing-defined templates (pages with isTemplate = true)
+router.get("/lp/templates", async (_req, res): Promise<void> => {
+  try {
+    const templates = await db
+      .select()
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.isTemplate, true))
+      .orderBy(asc(lpPagesTable.templateLabel));
+    res.json(templates);
+  } catch (err) {
+    console.error("GET /lp/templates error:", String(err));
+    res.status(500).json({ error: "Failed to load templates" });
+  }
+});
+
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables } = req.body as {
+  const {
+    title, slug, blocks, status, customCss, metaTitle, metaDescription,
+    ogImage, animationsEnabled, pageVariables, fromTemplateId,
+  } = req.body as {
     title?: unknown;
     slug?: unknown;
     blocks?: unknown;
@@ -39,6 +57,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     ogImage?: unknown;
     animationsEnabled?: unknown;
     pageVariables?: unknown;
+    fromTemplateId?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -48,19 +67,33 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     res.status(400).json({ error: "slug is required" });
     return;
   }
+
+  // If fromTemplateId is provided, copy blocks/css from that template page
+  let sourceBlocks: unknown[] = [];
+  let sourceCss = "";
+  let sourceAnimationsEnabled = true;
+  if (typeof fromTemplateId === "number") {
+    const [source] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, fromTemplateId));
+    if (source) {
+      sourceBlocks = Array.isArray(source.blocks) ? source.blocks : [];
+      sourceCss = source.customCss ?? "";
+      sourceAnimationsEnabled = source.animationsEnabled ?? true;
+    }
+  }
+
   try {
     const [page] = await db
       .insert(lpPagesTable)
       .values({
         title,
         slug,
-        blocks: Array.isArray(blocks) ? blocks : [],
+        blocks: Array.isArray(blocks) ? blocks : sourceBlocks,
         status: typeof status === "string" ? status : "draft",
-        customCss: typeof customCss === "string" ? customCss : "",
+        customCss: typeof customCss === "string" ? customCss : sourceCss,
         metaTitle: typeof metaTitle === "string" ? metaTitle : "",
         metaDescription: typeof metaDescription === "string" ? metaDescription : "",
         ogImage: typeof ogImage === "string" ? ogImage : "",
-        animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : true,
+        animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : sourceAnimationsEnabled,
         pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables)) ? pageVariables as Record<string, string> : {},
       })
       .returning();
@@ -136,6 +169,40 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     } else {
       res.status(500).json({ error: "Failed to update page" });
     }
+  }
+});
+
+// Mark or unmark a page as a microsite template
+router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid page ID" });
+    return;
+  }
+  const { isTemplate, templateLabel, templateDescription } = req.body as {
+    isTemplate?: boolean;
+    templateLabel?: string;
+    templateDescription?: string;
+  };
+
+  try {
+    const [page] = await db
+      .update(lpPagesTable)
+      .set({
+        isTemplate: typeof isTemplate === "boolean" ? isTemplate : true,
+        templateLabel: typeof templateLabel === "string" ? templateLabel.trim() : null,
+        templateDescription: typeof templateDescription === "string" ? templateDescription.trim() : null,
+      })
+      .where(eq(lpPagesTable.id, id))
+      .returning();
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    res.json(page);
+  } catch (err) {
+    console.error("mark-template error:", err);
+    res.status(500).json({ error: "Failed to update template status" });
   }
 });
 

@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -41,6 +41,9 @@ interface Page {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  isTemplate?: boolean;
+  templateLabel?: string | null;
+  templateDescription?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,7 +57,7 @@ interface Test {
   variantCount?: number;
 }
 
-type FilterStatus = "All" | "Draft" | "Published" | "Running";
+type FilterStatus = "All" | "Draft" | "Published" | "Running" | "Templates";
 
 function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -144,6 +147,84 @@ function getTemplateBlocks(templateId: string): PageBlock[] {
   return templateToBlocks(templateId);
 }
 
+function SaveTemplateDialog({
+  page,
+  onClose,
+  onSaved,
+}: {
+  page: Page;
+  onClose: () => void;
+  onSaved: (updated: Page) => void;
+}) {
+  const [label, setLabel] = useState(page.templateLabel ?? page.title);
+  const [description, setDescription] = useState(page.templateDescription ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/mark-template`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTemplate: true, templateLabel: label.trim() || page.title, templateDescription: description.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const updated: Page = await res.json();
+      onSaved(updated);
+      onClose();
+    } catch {
+      alert("Failed to save template. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-amber-500" />
+            Save as Template
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            This page will appear in the sales team's template picker when they create a new microsite.
+          </p>
+          <div>
+            <Label className="text-sm font-medium">Template Name</Label>
+            <Input
+              className="mt-1.5"
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              placeholder="e.g. DSO Heartland Skin"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <textarea
+              className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              rows={2}
+              placeholder="e.g. Dark-mode enterprise skin for large regional DSOs"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !label.trim()} className="gap-2">
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />}
+            {saving ? "Saving…" : "Save Template"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PageActionsMenu({
   page,
   cloningPageId,
@@ -152,16 +233,19 @@ function PageActionsMenu({
   onLinks,
   onShare,
   onDelete,
+  onTemplateSaved,
 }: {
-  page: { id: number; title: string; slug: string };
+  page: Page;
   cloningPageId: number | null;
   onClone: () => void;
   onAbTest: () => void;
   onLinks: () => void;
   onShare: () => void;
   onDelete: () => void;
+  onTemplateSaved: (updated: Page) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -171,6 +255,23 @@ function PageActionsMenu({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleRemoveTemplate = async () => {
+    setOpen(false);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${page.id}/mark-template`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTemplate: false, templateLabel: null, templateDescription: null }),
+      });
+      if (res.ok) {
+        const updated: Page = await res.json();
+        onTemplateSaved(updated);
+      }
+    } catch {
+      alert("Failed to remove template. Please try again.");
+    }
+  };
 
   const items = [
     {
@@ -197,43 +298,73 @@ function PageActionsMenu({
   ];
 
   return (
-    <div className="relative" ref={ref}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="px-2"
-        title="More actions"
-        onClick={() => setOpen(v => !v)}
-      >
-        <MoreHorizontal className="w-4 h-4" />
-      </Button>
+    <>
+      <div className="relative" ref={ref}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="px-2"
+          title="More actions"
+          onClick={() => setOpen(v => !v)}
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
 
-      {open && (
-        <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[180px] bg-popover border border-border rounded-xl shadow-xl overflow-hidden">
-          {items.map(item => (
+        {open && (
+          <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[200px] bg-popover border border-border rounded-xl shadow-xl overflow-hidden">
+            {items.map(item => (
+              <button
+                key={item.label}
+                type="button"
+                disabled={item.disabled}
+                onClick={item.onClick}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <span className="text-muted-foreground">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+            <div className="h-px bg-border mx-2 my-1" />
+            {page.isTemplate ? (
+              <button
+                type="button"
+                onClick={handleRemoveTemplate}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                Remove from Templates
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setShowTemplateDialog(true); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+              >
+                <Star className="w-3.5 h-3.5" />
+                Save as Template
+              </button>
+            )}
+            <div className="h-px bg-border mx-2 my-1" />
             <button
-              key={item.label}
               type="button"
-              disabled={item.disabled}
-              onClick={item.onClick}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              onClick={() => { setOpen(false); onDelete(); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
             >
-              <span className="text-muted-foreground">{item.icon}</span>
-              {item.label}
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
             </button>
-          ))}
-          <div className="h-px bg-border mx-2 my-1" />
-          <button
-            type="button"
-            onClick={() => { setOpen(false); onDelete(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
-          </button>
-        </div>
+          </div>
+        )}
+      </div>
+
+      {showTemplateDialog && (
+        <SaveTemplateDialog
+          page={page}
+          onClose={() => setShowTemplateDialog(false)}
+          onSaved={onTemplateSaved}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -545,6 +676,10 @@ export default function PagesGallery() {
     setPages(prev => prev.filter(p => p.id !== page.id));
   };
 
+  const handleTemplateSaved = (updated: Page) => {
+    setPages(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+  };
+
   const handleClone = async (page: Page) => {
     setCloningPageId(page.id);
     try {
@@ -577,6 +712,7 @@ export default function PagesGallery() {
       if (filterStatus === "Draft" && page.status !== "draft") return false;
       if (filterStatus === "Published" && page.status !== "published") return false;
       if (filterStatus === "Running" && !runningTests.some(t => t.slug === page.slug)) return false;
+      if (filterStatus === "Templates" && !page.isTemplate) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return page.title.toLowerCase().includes(q) || page.slug.toLowerCase().includes(q);
@@ -610,18 +746,21 @@ export default function PagesGallery() {
         {/* Filter bar */}
         {!isLoading && pages.length > 0 && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex gap-2">
-              {(["All", "Draft", "Published", "Running"] as const).map(status => (
+            <div className="flex gap-2 flex-wrap">
+              {(["All", "Draft", "Published", "Running", "Templates"] as const).map(status => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
                     filterStatus === status
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? status === "Templates"
+                        ? "bg-amber-500 text-white shadow-sm"
+                        : "bg-primary text-primary-foreground shadow-sm"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
                   )}
                 >
+                  {status === "Templates" && <Star className="w-3.5 h-3.5" />}
                   {status}
                 </button>
               ))}
@@ -733,8 +872,18 @@ export default function PagesGallery() {
                 {/* Page info */}
                 <div className="p-4 flex-1 flex flex-col gap-3">
                   <div>
-                    <h3 className="font-semibold text-foreground text-sm leading-tight line-clamp-1">{page.title}</h3>
+                    <div className="flex items-start gap-1.5">
+                      <h3 className="font-semibold text-foreground text-sm leading-tight line-clamp-1 flex-1">{page.title}</h3>
+                      {page.isTemplate && (
+                        <span title={`Template: ${page.templateLabel ?? page.title}`}>
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5 font-mono">/lp/{page.slug}</p>
+                    {page.isTemplate && page.templateLabel && page.templateLabel !== page.title && (
+                      <p className="text-[11px] text-amber-600 mt-0.5 font-medium">{page.templateLabel}</p>
+                    )}
                   </div>
 
                   {/* Copy URL section for published/running pages */}
@@ -795,6 +944,7 @@ export default function PagesGallery() {
                       onLinks={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
                       onShare={() => setSharePageId({ id: page.id, title: page.title })}
                       onDelete={() => handleDelete(page)}
+                      onTemplateSaved={handleTemplateSaved}
                     />
                   </div>
                 </div>

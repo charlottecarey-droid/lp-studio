@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Megaphone,
   Plus,
@@ -22,18 +22,31 @@ import {
   Pencil,
   Trash2,
   AlertCircle,
+  Star,
+  Building2,
+  FileText,
+  X,
 } from "lucide-react";
 import AudienceBuilderModal, { type Audience } from "@/components/AudienceBuilderModal";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
+import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
+import { cn } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -407,6 +420,233 @@ function LaunchModal({
   );
 }
 
+interface MarketingTemplate {
+  id: number;
+  title: string;
+  templateLabel: string | null;
+  templateDescription: string | null;
+}
+
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function TemplatePicker({ onClose }: { onClose: () => void }) {
+  const [, navigate] = useLocation();
+  const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
+  const [selected, setSelected] = useState<{ type: "marketing"; id: number; label: string } | { type: "builtin"; id: string; label: string } | { type: "blank" } | null>(null);
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/templates`)
+      .then(r => r.json())
+      .then((data: MarketingTemplate[]) => setMarketingTemplates(data))
+      .catch(() => {})
+      .finally(() => setLoadingTemplates(false));
+  }, []);
+
+  const handleTitleChange = (v: string) => {
+    setTitle(v);
+    setSlug(slugify(v));
+  };
+
+  const handleCreate = async () => {
+    if (!title.trim() || !slug.trim() || !selected) return;
+    setCreating(true);
+    setError(null);
+    try {
+      let blocks: unknown[] = [];
+      let fromTemplateId: number | undefined;
+
+      if (selected.type === "marketing") {
+        fromTemplateId = selected.id;
+      } else if (selected.type === "builtin") {
+        const tpl = MICROSITE_TEMPLATES.find(t => t.id === selected.id);
+        blocks = tpl ? tpl.buildBlocks() : [];
+      }
+
+      const body: Record<string, unknown> = {
+        title: title.trim(),
+        slug: slug.trim(),
+        blocks,
+        status: "draft",
+      };
+      if (fromTemplateId !== undefined) body.fromTemplateId = fromTemplateId;
+
+      const res = await fetch(`${API_BASE}/lp/pages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error((err as { error?: string }).error ?? "Failed to create page");
+      }
+      const page = await res.json() as { id: number };
+      onClose();
+      navigate(`/builder/${page.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create page");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const hasSelection = selected !== null;
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-primary" />
+            New Microsite
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-5 py-2 pr-1">
+          {/* Page name + slug — shown once a template is picked */}
+          {hasSelection && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Page Name</Label>
+                <Input
+                  className="mt-1.5"
+                  placeholder="e.g. Pacific Dental Campaign"
+                  value={title}
+                  onChange={e => handleTitleChange(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">URL Slug</Label>
+                <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                  <span className="px-2 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                  <input
+                    className="flex-1 px-2 py-2 text-sm bg-transparent focus:outline-none font-mono"
+                    placeholder="page-slug"
+                    value={slug}
+                    onChange={e => setSlug(slugify(e.target.value))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Start Blank */}
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quick Start</p>
+            <button
+              onClick={() => setSelected({ type: "blank" })}
+              className={cn(
+                "w-full text-left p-3 rounded-xl border text-sm transition-all flex items-center gap-3",
+                selected?.type === "blank"
+                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  : "border-border hover:border-primary/30 hover:bg-muted/50"
+              )}
+            >
+              <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="font-medium text-xs text-foreground">Blank Canvas</p>
+                <p className="text-[11px] text-muted-foreground">Start from scratch in the page builder</p>
+              </div>
+            </button>
+          </div>
+
+          {/* Marketing-owned templates */}
+          {(loadingTemplates || marketingTemplates.length > 0) && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Marketing Templates</p>
+              </div>
+              {loadingTemplates ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {[1, 2].map(i => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {marketingTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelected({ type: "marketing", id: t.id, label: t.templateLabel ?? t.title })}
+                      className={cn(
+                        "text-left p-3 rounded-xl border text-sm transition-all",
+                        selected?.type === "marketing" && selected.id === t.id
+                          ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20 ring-1 ring-amber-400"
+                          : "border-border hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/10"
+                      )}
+                    >
+                      <div className="flex items-start gap-1.5">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-xs text-foreground">{t.templateLabel ?? t.title}</p>
+                          {t.templateDescription && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.templateDescription}</p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Built-in templates (hardcoded skins) */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Building2 className="w-3 h-3 text-primary" />
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Built-in Skins</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {MICROSITE_TEMPLATES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelected({ type: "builtin", id: t.id, label: t.name })}
+                  className={cn(
+                    "text-left p-3 rounded-xl border text-sm transition-all relative overflow-hidden",
+                    selected?.type === "builtin" && selected.id === t.id
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border hover:border-primary/30 hover:bg-muted/50"
+                  )}
+                >
+                  <div
+                    className="absolute top-0 right-0 w-6 h-6 rounded-bl-lg opacity-70"
+                    style={{ background: t.accentColor }}
+                  />
+                  <p className="font-medium text-xs text-foreground pr-5">{t.name}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          )}
+        </div>
+
+        <div className="flex justify-between items-center pt-4 border-t border-border mt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={!hasSelection || !title.trim() || !slug.trim() || creating}
+            className="gap-2"
+          >
+            {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {creating ? "Creating…" : "Create & Edit"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SalesCampaignPages() {
   const [pages, setPages] = useState<Page[]>([]);
   const [eligibleContacts, setEligibleContacts] = useState<EligibleContact[]>([]);
@@ -422,6 +662,7 @@ export default function SalesCampaignPages() {
   const [audienceBuilderOpen, setAudienceBuilderOpen] = useState(false);
   const [editingAudience, setEditingAudience] = useState<Audience | null>(null);
   const [deletingAudienceId, setDeletingAudienceId] = useState<number | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -550,12 +791,10 @@ export default function SalesCampaignPages() {
               Send one page to all accounts with company names auto-filled in every version
             </p>
           </div>
-          <Link href="/pages/new">
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              New Page
-            </Button>
-          </Link>
+          <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
+            <Plus className="w-4 h-4" />
+            New Page
+          </Button>
         </div>
 
         {/* How it works */}
@@ -728,12 +967,10 @@ export default function SalesCampaignPages() {
                 : "Create a page in the builder, add {{company}} or {{first_name}} anywhere in the content, then launch it here."}
             </p>
             {!search && (
-              <Link href="/pages/new" className="mt-4">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create a Page
-                </Button>
-              </Link>
+              <Button className="mt-4" onClick={() => setShowTemplatePicker(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create a Page
+              </Button>
             )}
           </Card>
         ) : (
@@ -895,6 +1132,10 @@ export default function SalesCampaignPages() {
           </div>
         )}
       </div>
+
+      {showTemplatePicker && (
+        <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
+      )}
     </SalesLayout>
   );
 }
