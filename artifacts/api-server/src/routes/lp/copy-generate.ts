@@ -116,19 +116,19 @@ interface BriefContext {
 
 function buildBriefContextPrompt(brief: BriefContext): string {
   const parts: string[] = [];
-  if (brief.company) parts.push(`Target company/audience: ${brief.company}`);
+  if (brief.company) parts.push(`This copy is for: ${brief.company}`);
   if (brief.objective) parts.push(`Campaign objective: ${brief.objective}`);
   if (brief.suggestedHeadline) parts.push(`Suggested headline direction: "${brief.suggestedHeadline}"`);
-  if (brief.valueProps?.length) parts.push(`Key value props to emphasize: ${brief.valueProps.join("; ")}`);
+  if (brief.valueProps?.length) parts.push(`Key value props to emphasize:\n${brief.valueProps.map(v => `- ${v}`).join("\n")}`);
   if (brief.toneGuidance) parts.push(`Tone guidance: ${brief.toneGuidance}`);
 
   const seg = brief.segmentContext;
   if (seg?.name) {
-    const segParts: string[] = [`Target audience segment: ${seg.name}`];
-    if (seg.description) segParts.push(`Segment description: ${seg.description}`);
+    const segParts: string[] = [`Audience segment: ${seg.name}`];
+    if (seg.description) segParts.push(`Description: ${seg.description}`);
     if (seg.messagingAngle) segParts.push(`Messaging angle: ${seg.messagingAngle}`);
     if (seg.uniqueContext) segParts.push(`Unique context: ${seg.uniqueContext}`);
-    if (seg.valueProps?.length) segParts.push(`Segment value props: ${seg.valueProps.join("; ")}`);
+    if (seg.valueProps?.length) segParts.push(`Segment value props:\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
     if (seg.personas?.length) {
       const ps = seg.personas.map((p) => `${p.role} (pain points: ${p.painPoints.join(", ")})`).join("; ");
       segParts.push(`Key personas: ${ps}`);
@@ -141,7 +141,12 @@ function buildBriefContextPrompt(brief: BriefContext): string {
   }
 
   if (parts.length === 0) return "";
-  return `\n\nCampaign Brief Context:\n${parts.join("\n")}\nUse this campaign context to make the copy highly relevant and targeted to this specific audience.`;
+  return [
+    "ACTIVE CAMPAIGN BRIEF — This overrides any general audience guidance above.",
+    "Write copy SPECIFICALLY for this brief. Do not fall back to generic dental practice copy.",
+    parts.join("\n"),
+    "Every word should reflect this specific audience, objective, and value props — not a generic alternative.",
+  ].join("\n");
 }
 
 // ── Media library helpers (shared with generate-page) ───────────────────
@@ -259,13 +264,13 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 
     const systemPrompt = [
       brandPrompt,
-      briefPrompt,
       dsoContext,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
       `Keep each value under 200 characters unless it is a body/description field (max 400 chars).`,
       `Do not include any explanation, markdown, or extra text — only the JSON object.`,
+      briefPrompt,
     ].filter(Boolean).join("\n");
 
     const userPrompt = contextParts.length > 0
@@ -330,7 +335,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
 Generate exactly ${requestedTypes.length} tiles in this order: ${requestedTypes.join(", ")}.
 Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "tiles": [...] } — no markdown.`;
 
-    const systemPrompt = [brandPrompt, briefPrompt, dsoContext, tileSchemaDesc].filter(Boolean).join("\n\n");
+    const systemPrompt = [brandPrompt, dsoContext, tileSchemaDesc, briefPrompt].filter(Boolean).join("\n\n");
     const userPrompt = `Generate ${requestedTypes.length} bento outcome tiles for the dso-bento-outcomes block. Types in order: ${requestedTypes.join(", ")}. Make every stat specific and credible.`;
 
     try {
@@ -394,12 +399,12 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
 
   const systemPrompt = [
     brandPrompt,
-    briefPrompt,
     dsoContext,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
     `Generate exactly ${safeCount} distinct alternatives. Each must be a non-empty string under 300 characters.`,
     `Return ONLY a valid JSON array of strings — no markdown, no explanation, no wrapper object.`,
     `Example format: ["Option 1", "Option 2", "Option 3"]`,
+    briefPrompt,
   ].filter(Boolean).join("\n");
 
   const userLines = [`Current "${field}": "${currentValue}"`];
