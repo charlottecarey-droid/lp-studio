@@ -374,9 +374,22 @@ Be factual and specific. Only include what's on the site.`;
     })();
 
     // ─── 8. Build the prompt ──────────────────────────────────────
+    const today = new Date();
+    const cutoff = new Date(today);
+    cutoff.setMonth(cutoff.getMonth() - 6);
+    const todayStr  = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const cutoffStr = cutoff.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
     const prompt = `You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.
 
-The research below was gathered before writing. Use it to find a specific, recent hook if one exists.
+⚠️ RECENCY RULE — READ THIS BEFORE LOOKING AT THE RESEARCH:
+Today's date is ${todayStr}. The 6-month cutoff is ${cutoffStr}.
+ANY news, event, quote, hire, or announcement that occurred BEFORE ${cutoffStr} must be completely ignored as a hook.
+If you are not certain something happened after ${cutoffStr}, do NOT use it as a hook.
+When in doubt, lead with a pain point tailored to their role instead.
+This rule is absolute — do not use old information even if it seems relevant.
+
+The research below was gathered before writing. Only use items that clearly fall after ${cutoffStr}.
 
 === RESEARCH FINDINGS ===
 ${researchBlock}
@@ -431,7 +444,7 @@ Best,
 === EMAIL RULES ===
 - 3 sentences max in the body. One sentence per line. Blank line between each.
 - Sound like a real person, not a sales rep
-- RECENCY RULE: Only use something as a hook if it happened within the last 6 months. Anything older — ignore it and lead with a pain point instead.
+- RECENCY RULE: Only use something as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — ignore it completely and lead with a pain point instead.
 - Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
 - No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
 - Don't over-explain Dandy
