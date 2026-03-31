@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
+import { PasswordGate } from "@/components/PasswordGate";
 
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
@@ -127,12 +128,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ModeProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </ModeProvider>
-        <Toaster />
+        <PasswordGate>
+          <ModeProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+          </ModeProvider>
+          <Toaster />
+        </PasswordGate>
       </TooltipProvider>
     </QueryClientProvider>
   );

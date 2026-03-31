@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import { PasswordGate } from "@/components/PasswordGate";
 import Analytics from "@/pages/analytics";
 import ContentLibrary from "@/pages/content-library";
 import BlockDefaultsPage from "@/pages/block-defaults";
@@ -78,10 +79,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
+        <PasswordGate>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </PasswordGate>
       </TooltipProvider>
     </QueryClientProvider>
   );
