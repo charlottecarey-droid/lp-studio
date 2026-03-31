@@ -464,8 +464,9 @@ export default function AudienceBuilderModal({ audience, onClose, onSaved }: Pro
                           </div>
                         </button>
                       );
-                    })
-                  )}
+                    })}
+                    </>);
+                  })()}
                 </div>
               )}
             </div>
