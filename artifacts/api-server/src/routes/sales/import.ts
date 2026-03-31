@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { eq, ilike, inArray } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesContactsTable } from "@workspace/db";
 
 const router = Router();
@@ -112,26 +112,25 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   const sfdcKeys = [...new Set(validRows.map(r => r.accountKey).filter(k => !k.startsWith("name:")))];
   const nameKeys = [...new Set(validRows.map(r => r.accountKey).filter(k => k.startsWith("name:")))];
 
-  // Batch lookup by salesforceId
+  // Batch lookup by salesforceId (raw SQL to avoid Drizzle query-builder issues with large arrays)
   if (sfdcKeys.length > 0) {
-    const found = await db
-      .select({ id: salesAccountsTable.id, salesforceId: salesAccountsTable.salesforceId })
-      .from(salesAccountsTable)
-      .where(inArray(salesAccountsTable.salesforceId, sfdcKeys));
-    for (const acc of found) {
-      if (acc.salesforceId) accountIdMap.set(acc.salesforceId, acc.id);
+    const { rows: foundAccs } = await pool.query<{ id: number; salesforce_id: string }>(
+      `SELECT id, salesforce_id FROM sales_accounts WHERE salesforce_id = ANY($1::text[])`,
+      [sfdcKeys]
+    );
+    for (const acc of foundAccs) {
+      if (acc.salesforce_id) accountIdMap.set(acc.salesforce_id, acc.id);
     }
   }
 
-  // Name lookups (can't batch ilike easily — do one query per unique name, but names are few relative to contacts)
+  // Name lookups (raw SQL case-insensitive match)
   for (const nameKey of nameKeys) {
     const name = nameKey.slice(5); // strip "name:" prefix
-    const [found] = await db
-      .select({ id: salesAccountsTable.id })
-      .from(salesAccountsTable)
-      .where(ilike(salesAccountsTable.name, name))
-      .limit(1);
-    if (found) accountIdMap.set(nameKey, found.id);
+    const { rows } = await pool.query<{ id: number }>(
+      `SELECT id FROM sales_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+      [name]
+    );
+    if (rows[0]) accountIdMap.set(nameKey, rows[0].id);
   }
 
   // Create missing accounts
@@ -183,17 +182,17 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   const upsertRows = validRows.filter(r => r.sfdcContactId);
   const insertRows = validRows.filter(r => !r.sfdcContactId);
 
-  // Batch lookup existing contacts by sfdcId
+  // Batch lookup existing contacts by sfdcId (raw SQL)
   const existingContactMap = new Map<string, number>(); // sfdcId → id
   if (upsertRows.length > 0) {
     const sfdcContactIds = upsertRows.map(r => r.sfdcContactId!);
     for (const batch of chunk(sfdcContactIds, 500)) {
-      const found = await db
-        .select({ id: salesContactsTable.id, salesforceId: salesContactsTable.salesforceId })
-        .from(salesContactsTable)
-        .where(inArray(salesContactsTable.salesforceId, batch));
-      for (const c of found) {
-        if (c.salesforceId) existingContactMap.set(c.salesforceId, c.id);
+      const { rows: foundContacts } = await pool.query<{ id: number; salesforce_id: string }>(
+        `SELECT id, salesforce_id FROM sales_contacts WHERE salesforce_id = ANY($1::text[])`,
+        [batch]
+      );
+      for (const c of foundContacts) {
+        if (c.salesforce_id) existingContactMap.set(c.salesforce_id, c.id);
       }
     }
   }
