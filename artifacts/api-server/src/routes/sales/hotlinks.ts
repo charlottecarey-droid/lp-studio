@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
@@ -12,6 +12,71 @@ import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
+
+// ─── Visit alert email ──────────────────────────────────────────────────────
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function sendVisitAlert(
+  recipients: string[],
+  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string },
+): Promise<void> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey || recipients.length === 0) return;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
+  <div style="background:#003A30;padding:24px 32px">
+    <h1 style="margin:0;color:#C7E738;font-size:20px">Personalized Link Visited</h1>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:14px">${escapeHtml(opts.pageTitle)}</p>
+  </div>
+  <div style="padding:24px 32px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tbody>
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Contact</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.contactName)}</td>
+        </tr>
+        ${opts.company ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Company</td><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.company)}</td></tr>` : ""}
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Page</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.pageSlug)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:#003A30;white-space:nowrap">Visited At</td>
+          <td style="padding:8px 12px;color:#333">${new Date(opts.visitedAt).toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>`;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "LP Studio <notifications@lpstudio.app>",
+        to: recipients,
+        subject: `${opts.contactName} just viewed your page`,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to send visit alert email:", err);
+  }
+}
 
 // ─── GET /microsites/overview — account-grouped microsites + hotlinks ──────
 router.get("/microsites/overview", async (_req, res): Promise<void> => {
@@ -272,6 +337,28 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
       },
     }).returning();
     broadcastSignal(pvSignal);
+
+    // Send visit alert email (fire-and-forget)
+    setImmediate(async () => {
+      try {
+        const alertResult = await db.execute(sql`
+          SELECT email FROM lp_page_alert_emails WHERE page_id = ${hotlink.pageId}
+        `);
+        const recipients = (alertResult.rows as { email: string }[]).map(r => r.email).filter(Boolean);
+        if (recipients.length > 0) {
+          const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Unknown";
+          await sendVisitAlert(recipients, {
+            contactName,
+            company,
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            visitedAt: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to process visit alert for hotlink:", err);
+      }
+    });
 
     // SFDC write-back: log microsite view as Activity (fire-and-forget)
     if (contact?.salesforceId) {
