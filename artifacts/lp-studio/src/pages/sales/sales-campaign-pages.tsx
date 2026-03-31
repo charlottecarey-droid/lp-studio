@@ -434,10 +434,12 @@ export default function SalesCampaignPages() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = pages.filter(p =>
-    p.title.toLowerCase().includes(search.toLowerCase()) ||
-    p.slug.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = pages
+    .filter(p =>
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.slug.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   const campPagesPag = usePagination(filtered, 15);
 
