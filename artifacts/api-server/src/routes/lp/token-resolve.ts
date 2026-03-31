@@ -73,21 +73,27 @@ async function sendVisitAlert(
 </html>`;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "LP Studio <notifications@lpstudio.app>",
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@meetdandy.com>",
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,
       }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "(unreadable)");
+      logger.error({ status: res.status, body, recipients }, "Resend rejected visit alert email");
+    } else {
+      logger.info({ recipients, contactName: opts.contactName }, "Visit alert email sent");
+    }
   } catch (err) {
-    logger.error({ err }, "Failed to send visit alert");
+    logger.error({ err }, "Failed to send visit alert (network error)");
   }
 }
 
@@ -138,7 +144,10 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
           SELECT email FROM lp_page_alert_emails WHERE page_id = ${link.page_id}
         `);
         const recipients = (alertResult.rows as AlertEmailRow[]).map(r => r.email).filter(Boolean);
-        if (recipients.length > 0) {
+        logger.info({ pageId: link.page_id, recipients }, "Visit alert: checking recipients");
+        if (!process.env["RESEND_API_KEY"]) {
+          logger.warn("Visit alert skipped: RESEND_API_KEY is not set");
+        } else if (recipients.length > 0) {
           await sendVisitAlert(recipients, {
             contactName: link.contact_name,
             company: link.company,

@@ -113,7 +113,7 @@ async function sendPersonalizedLinkVisitAlert(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "LP Studio <notifications@lpstudio.app>",
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@meetdandy.com>",
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,

@@ -60,21 +60,27 @@ async function sendVisitAlert(
 </html>`;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "LP Studio <notifications@lpstudio.app>",
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@meetdandy.com>",
         to: recipients,
         subject: `${opts.contactName} just viewed your page`,
         html,
       }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "(unreadable)");
+      console.error(`Resend rejected visit alert: HTTP ${res.status}`, body, { recipients });
+    } else {
+      console.log(`Visit alert sent to ${recipients.join(", ")} for ${opts.contactName}`);
+    }
   } catch (err) {
-    console.error("Failed to send visit alert email:", err);
+    console.error("Failed to send visit alert email (network error):", err);
   }
 }
 
