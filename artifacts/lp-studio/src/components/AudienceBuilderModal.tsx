@@ -416,8 +416,30 @@ export default function AudienceBuilderModal({ audience, onClose, onSaved }: Pro
                 <div className="border border-border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                   {filteredContacts.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-muted-foreground text-center">No contacts found</div>
-                  ) : (
-                    filteredContacts.slice(0, 200).map(c => {
+                  ) : (() => {
+                    const visibleIds = filteredContacts.slice(0, 200).map(c => c.id);
+                    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedContactIds.includes(id));
+                    return (<>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (allVisibleSelected) {
+                            updateFilters({ contactIds: selectedContactIds.filter(id => !visibleIds.includes(id)) });
+                          } else {
+                            const merged = [...new Set([...selectedContactIds, ...visibleIds])];
+                            updateFilters({ contactIds: merged });
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium border-b border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left text-muted-foreground"
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${allVisibleSelected ? "bg-primary border-primary" : "border-input"}`}>
+                          {allVisibleSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                        </div>
+                        {allVisibleSelected
+                          ? `Deselect all ${visibleIds.length} ${contactSearch ? "results" : "contacts"}`
+                          : `Select all ${visibleIds.length} ${contactSearch ? "results" : "contacts"}`}
+                      </button>
+                    {filteredContacts.slice(0, 200).map(c => {
                       const isSelected = selectedContactIds.includes(c.id);
                       return (
                         <button

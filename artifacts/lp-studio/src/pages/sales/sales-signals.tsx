@@ -6,14 +6,16 @@ import {
   Mail,
   MousePointerClick,
   FileText,
-  Filter,
   Send,
+  Trash2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 
 const API_BASE = "/api";
 
@@ -55,18 +57,25 @@ export default function SalesSignals() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  // Initial fetch
-  useEffect(() => {
+  const pag = usePagination(signals, 25);
+
+  function fetchSignals() {
+    setLoading(true);
     const url = filter
-      ? `${API_BASE}/sales/signals?type=${filter}&limit=50`
-      : `${API_BASE}/sales/signals?limit=50`;
+      ? `${API_BASE}/sales/signals?type=${filter}&limit=500`
+      : `${API_BASE}/sales/signals?limit=500`;
     fetch(url)
       .then((r) => (r.ok ? r.json() : []))
       .then(setSignals)
       .catch(() => setSignals([]))
       .finally(() => setLoading(false));
-  }, [filter]);
+  }
+
+  // Initial fetch
+  useEffect(() => { fetchSignals(); }, [filter]);
 
   // SSE real-time updates
   useEffect(() => {
@@ -75,24 +84,68 @@ export default function SalesSignals() {
       try {
         const signal = JSON.parse(event.data);
         if (signal.type === "connected") return;
-        // Only add if it passes current filter
         if (filter && signal.type !== filter) return;
-        setSignals((prev) => [signal, ...prev].slice(0, 100));
+        setSignals((prev) => [signal, ...prev]);
       } catch {}
     };
     return () => es.close();
   }, [filter]);
+
+  async function handleClearAll() {
+    setClearing(true);
+    try {
+      await fetch(`${API_BASE}/sales/signals`, { method: "DELETE" });
+      setSignals([]);
+      setConfirmClear(false);
+    } catch {
+      // silently ignore
+    } finally {
+      setClearing(false);
+    }
+  }
 
   const types = ["page_view", "email_open", "email_click", "form_submit"];
 
   return (
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Signals</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time engagement feed across all accounts
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground">Signals</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time engagement feed across all accounts
+            </p>
+          </div>
+          {signals.length > 0 && (
+            confirmClear ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm text-muted-foreground">Clear all {signals.length} signals?</span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleClearAll}
+                  disabled={clearing}
+                  className="gap-1.5 text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {clearing ? "Clearing…" : "Yes, clear all"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmClear(false)} className="text-xs">
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setConfirmClear(true)}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear all
+              </Button>
+            )
+          )}
         </div>
 
         {/* Filter bar */}
@@ -135,33 +188,36 @@ export default function SalesSignals() {
             </p>
           </Card>
         ) : (
-          <div className="flex flex-col gap-2">
-            {signals.map((signal) => (
-              <div
-                key={signal.id}
-                className="flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
-              >
-                <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
-                  {getSignalIcon(signal.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {signal.contactName ?? "Anonymous"}{" "}
-                    <span className="text-muted-foreground font-normal">
-                      {getSignalLabel(signal.type).toLowerCase()}
-                    </span>
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
-                    {signal.source && <span className="truncate">{signal.source}</span>}
+          <>
+            <div className="flex flex-col gap-2">
+              {pag.pageItems.map((signal) => (
+                <div
+                  key={signal.id}
+                  className="flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+                >
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
+                    {getSignalIcon(signal.type)}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {signal.contactName ?? "Anonymous"}{" "}
+                      <span className="text-muted-foreground font-normal">
+                        {getSignalLabel(signal.type).toLowerCase()}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
+                      {signal.source && <span className="truncate">{signal.source}</span>}
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {format(new Date(signal.createdAt), "MMM d, h:mm a")}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {format(new Date(signal.createdAt), "MMM d, h:mm a")}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <PaginationBar {...pag} />
+          </>
         )}
       </div>
     </SalesLayout>

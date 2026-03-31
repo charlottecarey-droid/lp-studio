@@ -49,7 +49,7 @@ router.get("/stats", async (req, res): Promise<void> => {
 router.get("/signals", async (req, res): Promise<void> => {
   try {
     const { type, accountId, contactId, limit: limitStr } = req.query;
-    const limit = Math.min(Number(limitStr) || 50, 200);
+    const limit = Math.min(Number(limitStr) || 50, 500);
 
     const conditions: ReturnType<typeof eq>[] = [];
     if (type && typeof type === "string") {
@@ -116,6 +116,17 @@ router.get("/signals/stream", (req, res): void => {
     clearInterval(heartbeat);
     sseClients.delete(res);
   });
+});
+
+// ─── DELETE /sales/signals — clear all signals ──────────────
+router.delete("/signals", async (_req, res): Promise<void> => {
+  try {
+    const deleted = await db.delete(salesSignalsTable).returning({ id: salesSignalsTable.id });
+    res.json({ ok: true, deleted: deleted.length });
+  } catch (err) {
+    console.error("DELETE /sales/signals error:", err);
+    res.status(500).json({ error: "Failed to clear signals" });
+  }
 });
 
 // ─── POST /sales/signals — create a signal ──────────────────
