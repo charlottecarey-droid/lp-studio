@@ -24,6 +24,7 @@ import {
   LayoutList,
   ExternalLink,
   Download,
+  Linkedin,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -80,6 +81,7 @@ interface Contact {
   practiceSegment?: string | null;
   accountOwner?: string | null;
   dsoSize?: string | null;
+  linkedinUrl?: string | null;
 }
 
 interface Signal {
@@ -1127,19 +1129,40 @@ function ContactDetailView({ id }: { id: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {contact.email && (
               <div className="flex items-center gap-3">
-                <Mail className="w-4 h-4 text-muted-foreground" />
+                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                  <Mail className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                </a>
                 <div>
                   <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Email</p>
-                  <p className="text-sm text-foreground">{contact.email}</p>
+                  <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} className="text-sm text-foreground hover:text-primary hover:underline transition-colors">
+                    {contact.email}
+                  </a>
                 </div>
               </div>
             )}
             {contact.phone && (
               <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-muted-foreground" />
+                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                  <Phone className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                </a>
                 <div>
                   <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Phone</p>
-                  <p className="text-sm text-foreground">{contact.phone}</p>
+                  <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} className="text-sm text-foreground hover:text-primary hover:underline transition-colors">
+                    {contact.phone}
+                  </a>
+                </div>
+              </div>
+            )}
+            {contact.linkedinUrl && (
+              <div className="flex items-center gap-3">
+                <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                  <Linkedin className="w-4 h-4 text-muted-foreground hover:text-[#0A66C2] transition-colors" />
+                </a>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">LinkedIn</p>
+                  <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-sm text-foreground hover:text-primary hover:underline transition-colors truncate block max-w-[200px]">
+                    View Profile
+                  </a>
                 </div>
               </div>
             )}
