@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -142,6 +142,99 @@ function getTemplateBlocks(templateId: string): PageBlock[] {
     return tpl ? tpl.buildBlocks() : [];
   }
   return templateToBlocks(templateId);
+}
+
+function PageActionsMenu({
+  page,
+  cloningPageId,
+  onClone,
+  onAbTest,
+  onLinks,
+  onShare,
+  onDelete,
+}: {
+  page: { id: number; title: string; slug: string };
+  cloningPageId: number | null;
+  onClone: () => void;
+  onAbTest: () => void;
+  onLinks: () => void;
+  onShare: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const items = [
+    {
+      icon: <Copy className="w-3.5 h-3.5" />,
+      label: cloningPageId === page.id ? "Duplicating…" : "Duplicate",
+      onClick: () => { setOpen(false); onClone(); },
+      disabled: cloningPageId === page.id,
+    },
+    {
+      icon: <FlaskConical className="w-3.5 h-3.5" />,
+      label: "A/B Test",
+      onClick: () => { setOpen(false); onAbTest(); },
+    },
+    {
+      icon: <Link2 className="w-3.5 h-3.5" />,
+      label: "Personalized Links",
+      onClick: () => { setOpen(false); onLinks(); },
+    },
+    {
+      icon: <Share2 className="w-3.5 h-3.5" />,
+      label: "Share for Review",
+      onClick: () => { setOpen(false); onShare(); },
+    },
+  ];
+
+  return (
+    <div className="relative" ref={ref}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="px-2"
+        title="More actions"
+        onClick={() => setOpen(v => !v)}
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </Button>
+
+      {open && (
+        <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[180px] bg-popover border border-border rounded-xl shadow-xl overflow-hidden">
+          {items.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              disabled={item.disabled}
+              onClick={item.onClick}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <span className="text-muted-foreground">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+          <div className="h-px bg-border mx-2 my-1" />
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onDelete(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ShareModalWrapper({ pageId, pageTitle, onClose }: { pageId: number; pageTitle: string; onClose: () => void }) {
@@ -663,64 +756,24 @@ export default function PagesGallery() {
                         Edit
                       </Button>
                     </Link>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-2 hover:text-primary"
-                      title="Duplicate page"
-                      disabled={cloningPageId === page.id}
-                      onClick={() => handleClone(page)}
-                    >
-                      {cloningPageId === page.id
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Copy className="w-3.5 h-3.5" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-2 gap-1 hover:text-primary text-xs"
-                      title="A/B Test this page"
-                      onClick={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
-                    >
-                      <FlaskConical className="w-3.5 h-3.5" />
-                      <span className="hidden lg:inline">A/B Test</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-2 hover:text-primary"
-                      title="Personalized links"
-                      onClick={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
-                    >
-                      <Link2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-2 hover:text-primary"
-                      title="Share for review"
-                      onClick={() => setSharePageId({ id: page.id, title: page.title })}
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                    </Button>
                     <a
                       href={`/lp/${page.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Button variant="ghost" size="sm" className="px-2" title="Preview">
+                      <Button variant="ghost" size="sm" className="px-2" title="Open preview">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Button>
                     </a>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-2 text-muted-foreground hover:text-red-500"
-                      title="Delete"
-                      onClick={() => handleDelete(page)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    <PageActionsMenu
+                      page={page}
+                      cloningPageId={cloningPageId}
+                      onClone={() => handleClone(page)}
+                      onAbTest={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
+                      onLinks={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
+                      onShare={() => setSharePageId({ id: page.id, title: page.title })}
+                      onDelete={() => handleDelete(page)}
+                    />
                   </div>
                 </div>
               </div>
