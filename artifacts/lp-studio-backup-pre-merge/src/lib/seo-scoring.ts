@@ -42,6 +42,7 @@ function getBlocksByType(blocks: PageBlock[], type: string): PageBlock[] {
 function getTextFromBlocks(blocks: PageBlock[]): string {
   const texts: string[] = [];
   for (const block of blocks) {
+    if (!block.props) continue;
     const p = block.props as Record<string, unknown>;
     for (const key of ["headline", "subheadline", "body", "quote", "description", "ctaText"]) {
       if (typeof p[key] === "string" && (p[key] as string).trim()) {
@@ -181,7 +182,7 @@ export function scorePageSeoGeo(
 
   // 7. Headline length
   const heroBlocks = [...getBlocksByType(blocks, "hero"), ...getBlocksByType(blocks, "full-bleed-hero")];
-  const heroHeadline = heroBlocks.length > 0 ? ((heroBlocks[0].props as Record<string, unknown>).headline as string ?? "") : "";
+  const heroHeadline = heroBlocks.length > 0 ? (((heroBlocks[0].props ?? {}) as Record<string, unknown>).headline as string ?? "") : "";
   const headlineWords = wordCount(heroHeadline);
   checks.push({
     id: "headline-length",
