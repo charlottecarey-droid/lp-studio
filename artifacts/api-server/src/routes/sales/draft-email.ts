@@ -418,6 +418,15 @@ If you are not certain something happened after ${cutoffStr}, do NOT use it as a
 When in doubt, lead with a pain point tailored to their role instead.
 This rule is absolute — do not use old information even if it seems relevant.
 
+⚠️ LOCATION MILESTONE RULE:
+Our database shows ${accountName} currently has ${numLocations ?? "an unknown number of"} locations.
+If research mentions them "opening their Nth location" and N is less than or equal to ${numLocations ?? 0}, that milestone is CLEARLY OLD — they've grown past it. Do NOT use it as a hook under any circumstances. Treat it as outdated regardless of how it's dated.
+
+⚠️ LINKEDIN PROFILE RULE:
+LinkedIn profile pages are NOT news sources. Career history, "About" sections, job descriptions, and company milestones listed on a LinkedIn profile are biographical, not current events — they can be years old.
+Do NOT use a LinkedIn profile page as evidence that something happened recently.
+Only use LinkedIn as a source if the research contains a specific, dated post or article by the person published after ${cutoffStr}.
+
 The research below was gathered before writing. Only use items that clearly fall after ${cutoffStr}.
 
 HOOK PRIORITY ORDER (always follow this):
