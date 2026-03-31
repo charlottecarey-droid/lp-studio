@@ -2265,7 +2265,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 {perks.map((perk, i) => (
                   <div key={i} className="border rounded-lg p-3 space-y-2 bg-slate-50">
                     <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500">Perk {i + 1}</span><button onClick={() => removePerk(i)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button></div>
-                    <Input value={perk.icon} onChange={e => updatePerk(i, { icon: e.target.value })} placeholder="Icon (e.g. gift, star, shield)" className="h-8 text-xs" />
+                    <Select value={perk.icon ?? "star"} onValueChange={v => updatePerk(i, { icon: v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Icon" /></SelectTrigger><SelectContent>{[["gift","Gift"],["star","Star"],["shield","Shield"],["sparkles","Sparkles"],["zap","Zap"],["users","Users"],["clock","Clock"],["trending-up","Trending Up"],["check-circle","Check Circle"],["award","Award"],["heart","Heart"],["layers","Layers"]].map(([val, label]) => <SelectItem key={val} value={val} className="text-xs">{label}</SelectItem>)}</SelectContent></Select>
                     <Input value={perk.title} onChange={e => updatePerk(i, { title: e.target.value })} placeholder="Perk title" className="h-8 text-xs" />
                     <Textarea value={perk.desc} onChange={e => updatePerk(i, { desc: e.target.value })} placeholder="Description" rows={2} className="text-xs resize-none" />
                   </div>
