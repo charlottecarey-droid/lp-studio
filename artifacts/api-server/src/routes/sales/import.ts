@@ -112,14 +112,14 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   const sfdcKeys = [...new Set(validRows.map(r => r.accountKey).filter(k => !k.startsWith("name:")))];
   const nameKeys = [...new Set(validRows.map(r => r.accountKey).filter(k => k.startsWith("name:")))];
 
-  // Batch lookup by sfdcId
+  // Batch lookup by salesforceId
   if (sfdcKeys.length > 0) {
     const found = await db
-      .select({ id: salesAccountsTable.id, sfdcId: salesAccountsTable.sfdcId })
+      .select({ id: salesAccountsTable.id, salesforceId: salesAccountsTable.salesforceId })
       .from(salesAccountsTable)
-      .where(inArray(salesAccountsTable.sfdcId, sfdcKeys));
+      .where(inArray(salesAccountsTable.salesforceId, sfdcKeys));
     for (const acc of found) {
-      if (acc.sfdcId) accountIdMap.set(acc.sfdcId, acc.id);
+      if (acc.salesforceId) accountIdMap.set(acc.salesforceId, acc.id);
     }
   }
 
@@ -150,7 +150,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       const [newAcc] = await db
         .insert(salesAccountsTable)
         .values({
-          sfdcId: isSfdc ? key : null,
+          salesforceId: isSfdc ? key : null,
           name,
           status: "prospect",
           ...(rep.accountDomain ? { domain: rep.accountDomain } : {}),
@@ -189,11 +189,11 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     const sfdcContactIds = upsertRows.map(r => r.sfdcContactId!);
     for (const batch of chunk(sfdcContactIds, 500)) {
       const found = await db
-        .select({ id: salesContactsTable.id, sfdcId: salesContactsTable.sfdcId })
+        .select({ id: salesContactsTable.id, salesforceId: salesContactsTable.salesforceId })
         .from(salesContactsTable)
-        .where(inArray(salesContactsTable.sfdcId, batch));
+        .where(inArray(salesContactsTable.salesforceId, batch));
       for (const c of found) {
-        if (c.sfdcId) existingContactMap.set(c.sfdcId, c.id);
+        if (c.salesforceId) existingContactMap.set(c.salesforceId, c.id);
       }
     }
   }
@@ -230,7 +230,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   // Batch insert all new contacts (pure inserts + upsert rows that didn't exist)
   type ContactInsert = {
     accountId: number;
-    sfdcId: string | null;
+    salesforceId: string | null;
     firstName: string;
     lastName: string;
     email: string | null;
@@ -254,7 +254,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       : "active";
     toInsert.push({
       accountId,
-      sfdcId: r.sfdcContactId ?? null,
+      salesforceId: r.sfdcContactId ?? null,
       firstName: r.firstName,
       lastName: r.lastName,
       email: r.email ?? null,
