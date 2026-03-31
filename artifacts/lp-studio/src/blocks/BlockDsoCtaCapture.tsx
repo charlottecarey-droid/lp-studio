@@ -3,14 +3,21 @@ import { motion, useInView, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { X, Calendar, CheckCircle2, Loader2, ArrowRight, ChevronLeft } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
-import { getBgStyle } from "@/lib/bg-styles";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
-const PFG   = "hsl(48,100%,96%)";
-const AW    = "hsl(68,60%,52%)";
-const MUTED = "hsla(48,100%,96%,0.50)";
-const BG    = "#050e08";
+const AW = "hsl(68,60%,52%)";
 const API_BASE = "/api";
+
+const BG_HEX: Record<string, string> = {
+  "dark":        "#1a1a1a",
+  "dandy-green": "#003A30",
+  "black":       "#000000",
+  "gradient":    "#000000",
+  "white":       "#ffffff",
+  "light-gray":  "#f8fafc",
+  "muted":       "#f5f0e8",
+};
 
 interface Props {
   props: DsoCtaCaptureBlockProps;
@@ -57,7 +64,16 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
     chilipiperUrl = "",
     successHeadline = "You're on the list!",
     successBody = "Check your inbox — we'll be in touch shortly to schedule your demo.",
+    backgroundStyle = "dandy-green",
   } = props;
+
+  const dark          = isDarkBg(backgroundStyle);
+  const pfg           = dark ? "hsl(48,100%,96%)"       : "#003A30";
+  const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgba(0,58,48,0.55)";
+  const bgHex         = BG_HEX[backgroundStyle] ?? "#003A30";
+  const borderDefault = dark ? "rgba(199,231,56,0.18)"  : "rgba(0,58,48,0.20)";
+  const borderFocused = dark ? "rgba(199,231,56,0.50)"  : "rgba(0,58,48,0.40)";
+  const inputBgColor  = dark ? "rgba(255,255,255,0.05)" : "rgba(0,58,48,0.04)";
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-8%" });
@@ -147,16 +163,16 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
     const isFocused = focusedField === key;
     return {
       width: "100%",
-      background: "rgba(255,255,255,0.05)",
-      border: `1px solid ${hasError ? "rgba(239,68,68,0.6)" : isFocused ? "rgba(199,231,56,0.5)" : "rgba(199,231,56,0.18)"}`,
+      background: inputBgColor,
+      border: `1px solid ${hasError ? "rgba(239,68,68,0.6)" : isFocused ? borderFocused : borderDefault}`,
       borderRadius: 10,
       padding: "11px 16px",
-      color: PFG,
+      color: pfg,
       fontSize: "0.9375rem",
       fontFamily: "inherit",
       outline: "none",
       transition: "border-color 0.2s, box-shadow 0.2s",
-      boxShadow: isFocused ? "0 0 0 3px rgba(199,231,56,0.08)" : "none",
+      boxShadow: isFocused ? `0 0 0 3px ${dark ? "rgba(199,231,56,0.08)" : "rgba(0,58,48,0.06)"}` : "none",
       boxSizing: "border-box",
     };
   }
@@ -170,13 +186,13 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
             style={{
               height: 4, borderRadius: 999,
               width: s === step ? 22 : 8,
-              background: s <= step ? AW : "rgba(199,231,56,0.2)",
+              background: s <= step ? AW : borderDefault,
               transition: "width 0.35s cubic-bezier(0.16,1,0.3,1), background 0.25s",
             }}
           />
         ))}
       </div>
-      <span style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.06em", color: MUTED }}>
+      <span style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.06em", color: muted }}>
         STEP {step} OF 2
       </span>
     </div>
@@ -185,7 +201,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
   return (
     <section
       ref={sectionRef}
-      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle("dandy-green") }}
+      style={{ position: "relative", overflow: "hidden", minHeight: "80vh", display: "flex", alignItems: "stretch", ...getBgStyle(backgroundStyle) }}
     >
       {/* Atmospheric glow */}
       <div style={{
@@ -221,12 +237,12 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
           <div style={{
             position: "absolute", inset: 0,
             background: imgOnLeft
-              ? `linear-gradient(to right, transparent 52%, ${BG} 100%)`
-              : `linear-gradient(to left,  transparent 52%, ${BG} 100%)`,
+              ? `linear-gradient(to right, transparent 52%, ${bgHex} 100%)`
+              : `linear-gradient(to left,  transparent 52%, ${bgHex} 100%)`,
           }} />
           <div style={{
             position: "absolute", inset: 0,
-            background: `linear-gradient(to bottom, ${BG} 0%, transparent 10%, transparent 90%, ${BG} 100%)`,
+            background: `linear-gradient(to bottom, ${bgHex} 0%, transparent 10%, transparent 90%, ${bgHex} 100%)`,
           }} />
         </div>
       )}
@@ -260,7 +276,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
           >
             <span style={{
               display: "inline-block", width: 7, height: 7, borderRadius: "50%",
-              background: AW, boxShadow: "0 0 0 3px rgba(199,231,56,0.18)",
+              background: AW, boxShadow: `0 0 0 3px ${dark ? "rgba(199,231,56,0.18)" : "rgba(0,58,48,0.12)"}`,
               flexShrink: 0,
             }} />
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0 }}>
@@ -276,7 +292,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
             style={{
               fontFamily: DISPLAY_FONT,
               fontSize: "clamp(2.25rem, 5vw, 4.5rem)",
-              fontWeight: 800, color: PFG,
+              fontWeight: 800, color: pfg,
               letterSpacing: "-0.045em", lineHeight: 0.95,
               marginBottom: "1.5rem", whiteSpace: "pre-line",
             }}
@@ -289,7 +305,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
             initial={{ opacity: 0, y: 16 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
-            style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: MUTED, maxWidth: 420, marginBottom: "2rem" }}
+            style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem" }}
           >
             {body}
           </motion.p>
@@ -303,24 +319,24 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
               style={{
                 display: "flex", flexDirection: "column", gap: "0.625rem",
                 maxWidth: 480,
-                background: "rgba(199,231,56,0.07)",
-                border: "1px solid rgba(199,231,56,0.22)",
+                background: dark ? "rgba(199,231,56,0.07)" : "rgba(0,58,48,0.06)",
+                border: `1px solid ${dark ? "rgba(199,231,56,0.22)" : "rgba(0,58,48,0.20)"}`,
                 borderRadius: "1rem",
                 padding: "1.25rem 1.5rem",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <CheckCircle2 style={{ width: 18, height: 18, color: AW, flexShrink: 0 }} />
-                <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: PFG }}>{successHeadline}</span>
+                <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: pfg }}>{successHeadline}</span>
               </div>
-              <p style={{ fontSize: "0.875rem", color: MUTED, margin: 0, lineHeight: 1.6 }}>{successBody}</p>
+              <p style={{ fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6 }}>{successBody}</p>
               {chilipiperUrl && (
                 <button
                   type="button"
                   onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim(), firstName.trim(), lastName.trim(), company.trim())); setCpOpen(true); }}
                   style={{
                     alignSelf: "flex-start", marginTop: "0.25rem",
-                    background: AW, color: BG, border: "none", borderRadius: 999,
+                    background: AW, color: "#003A30", border: "none", borderRadius: 999,
                     padding: "9px 20px", fontWeight: 700, fontSize: "0.8125rem",
                     cursor: "pointer", fontFamily: DISPLAY_FONT,
                     display: "flex", alignItems: "center", gap: "0.4rem",
@@ -346,7 +362,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                   {stepDots}
 
                   {inputLabel && (
-                    <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(199,231,56,0.6)", marginBottom: "0.65rem" }}>
+                    <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgba(199,231,56,0.6)" : "rgba(0,58,48,0.55)", marginBottom: "0.65rem" }}>
                       {inputLabel}
                     </p>
                   )}
@@ -356,13 +372,13 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                     noValidate
                     style={{
                       display: "flex", alignItems: "center",
-                      background: "rgba(255,255,255,0.04)",
-                      border: `1px solid ${focused1 ? "rgba(199,231,56,0.5)" : emailError ? "rgba(239,68,68,0.5)" : "rgba(199,231,56,0.2)"}`,
+                      background: inputBgColor,
+                      border: `1px solid ${focused1 ? borderFocused : emailError ? "rgba(239,68,68,0.5)" : borderDefault}`,
                       borderRadius: 999,
                       padding: "5px 5px 5px 22px",
                       gap: 8,
                       backdropFilter: "blur(12px)",
-                      boxShadow: focused1 ? "0 0 0 3px rgba(199,231,56,0.08), 0 0 24px rgba(199,231,56,0.06)" : "none",
+                      boxShadow: focused1 ? `0 0 0 3px ${dark ? "rgba(199,231,56,0.08)" : "rgba(0,58,48,0.06)"}` : "none",
                       transition: "border-color 0.2s, box-shadow 0.2s",
                     }}
                   >
@@ -376,13 +392,13 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                       style={{
                         flex: 1, minWidth: 0,
                         background: "none", border: "none", outline: "none",
-                        color: PFG, fontSize: "0.9375rem", fontFamily: "inherit",
+                        color: pfg, fontSize: "0.9375rem", fontFamily: "inherit",
                       }}
                     />
                     <button
                       type="submit"
                       style={{
-                        background: AW, color: BG, border: "none", borderRadius: 999,
+                        background: AW, color: "#003A30", border: "none", borderRadius: 999,
                         padding: "13px 22px", fontWeight: 800, fontSize: "0.875rem",
                         cursor: "pointer", whiteSpace: "nowrap",
                         fontFamily: DISPLAY_FONT, letterSpacing: "-0.01em",
@@ -420,16 +436,16 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                       type="button"
                       onClick={() => setStep(1)}
                       style={{
-                        background: "none", border: "1px solid rgba(199,231,56,0.2)",
+                        background: "none", border: `1px solid ${borderDefault}`,
                         borderRadius: 999, padding: "4px 12px",
-                        color: MUTED, fontSize: "0.75rem", cursor: "pointer",
+                        color: muted, fontSize: "0.75rem", cursor: "pointer",
                         display: "flex", alignItems: "center", gap: 4, fontFamily: "inherit",
                       }}
                     >
                       <ChevronLeft style={{ width: 12, height: 12 }} />
                       Back
                     </button>
-                    <span style={{ fontSize: "0.8125rem", color: MUTED }}>{email}</span>
+                    <span style={{ fontSize: "0.8125rem", color: muted }}>{email}</span>
                   </div>
 
                   <form
@@ -496,7 +512,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                       type="submit"
                       disabled={isLoading}
                       style={{
-                        background: AW, color: BG, border: "none", borderRadius: 999,
+                        background: AW, color: "#003A30", border: "none", borderRadius: 999,
                         padding: "15px 32px", fontWeight: 800, fontSize: "0.9375rem",
                         cursor: isLoading ? "not-allowed" : "pointer",
                         fontFamily: DISPLAY_FONT, letterSpacing: "-0.02em",
@@ -527,10 +543,10 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
               {trusts.map((t, i) => (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                    <circle cx="6.5" cy="6.5" r="6" stroke="rgba(199,231,56,0.35)" strokeWidth="1" />
+                    <circle cx="6.5" cy="6.5" r="6" stroke={dark ? "rgba(199,231,56,0.35)" : "rgba(0,58,48,0.25)"} strokeWidth="1" />
                     <path d="M3.5 6.5l2 2 4-4" stroke={AW} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span style={{ fontSize: "0.8125rem", color: MUTED, fontWeight: 500 }}>{t}</span>
+                  <span style={{ fontSize: "0.8125rem", color: muted, fontWeight: 500 }}>{t}</span>
                 </span>
               ))}
             </motion.div>

@@ -232,6 +232,7 @@ export interface DsoCtaCaptureBlockProps {
   chilipiperUrl?: string;
   successHeadline?: string;
   successBody?: string;
+  backgroundStyle?: BackgroundStyle;
 }
 
 // DSO Practices segment: 8 net-new blocks
