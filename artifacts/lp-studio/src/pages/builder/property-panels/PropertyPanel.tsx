@@ -2327,7 +2327,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <Input value={prod.price} onChange={e => updateProduct(i, { price: e.target.value })} placeholder="From $109" className="h-8 text-xs" />
                     <Input value={prod.icon ?? ""} onChange={e => updateProduct(i, { icon: e.target.value || undefined })} placeholder="Icon key (crown, smile, moon…)" className="h-8 text-xs" />
                     <Input value={prod.imageKey ?? ""} onChange={e => updateProduct(i, { imageKey: e.target.value || undefined })} placeholder="Image key (posterior-crowns, dentures…)" className="h-8 text-xs" />
-                    <Input value={prod.imageUrl ?? ""} onChange={e => updateProduct(i, { imageUrl: e.target.value || undefined })} placeholder="Image URL (overrides key)" className="h-8 text-xs" />
+                    <ImagePicker label="Image (overrides key)" value={prod.imageUrl ?? ""} onChange={v => updateProduct(i, { imageUrl: v || undefined })} />
                   </div>
                 ))}
               </div>
@@ -2619,7 +2619,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout & Image</Label>
               <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" | "bg-image" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered (no image)</SelectItem><SelectItem value="split" className="text-xs">Split — content left, image right</SelectItem><SelectItem value="bg-image" className="text-xs">Background image</SelectItem></SelectContent></Select></div>
               {(p.layout === "split" || p.layout === "bg-image") && <>
-                <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+                <ImagePicker label="Image" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
                 <div className="space-y-1.5"><Label className="text-xs">Image Alt Text</Label><Input value={p.imageAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageAlt: e.target.value || undefined } })} placeholder="Doctor reviewing a case" className="h-8 text-xs" /></div>
               </>}
               {p.layout === "split" && (
@@ -2779,7 +2779,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
               </div>
             )}
-            <div className="space-y-1.5"><Label className="text-xs">Image URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <ImagePicker label="Image" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Image Position</Label><Select value={p.imagePosition ?? "right"} onValueChange={v => onChange({ ...block, props: { ...p, imagePosition: v as "left" | "right" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="left" className="text-xs">Left</SelectItem><SelectItem value="right" className="text-xs">Right</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2835,7 +2835,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Button size="sm" className="w-full h-8 text-xs mt-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onApplyCtaToAll} disabled={!p.ctaText && !p.ctaUrl}>Apply CTA to All Sections</Button>
               </div>
             )}
-            <div className="space-y-1.5"><Label className="text-xs">Screenshot URL</Label><Input value={p.imageUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
+            <ImagePicker label="Screenshot" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered</SelectItem><SelectItem value="split" className="text-xs">Split</SelectItem></SelectContent></Select></div>
               <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dandy-green"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
