@@ -217,7 +217,8 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
     const FIRECRAWL_KEY  = process.env.FIRECRAWL_API_KEY;
 
-    let newsResearch     = "";
+    let personResearch   = "";
+    let companyResearch  = "";
     let linkedinResearch = "";
     let siteResearch     = "";
     const allCitations: string[] = [];
@@ -225,39 +226,55 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     const researchTasks: Promise<void>[] = [];
 
     if (PERPLEXITY_KEY && accountName) {
-      const newsQuery = `Research this person and company for a B2B sales team at Dandy (a dental lab platform for DSOs):
+      // ── Person-specific search: talks, quotes, interviews, articles ──
+      const personQuery = `Find public professional information about this specific person for a B2B sales outreach:
 
-Person: ${fullName}${title ? `, ${title}` : ""}
-Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE: ${privateEquityFirm}` : ""}
+Name: ${fullName}
+Title: ${title || "unknown"}
+Company: ${accountName}
+
+Search broadly across the web for:
+- "${fullName}" conference talk, keynote, panel, or presentation (dental industry, DSO, healthcare ops)
+- "${fullName}" quoted or interviewed in: Dental Economics, DSO News, Group Dentistry Now, Dentistry Today, podcasts, industry blogs
+- "${fullName}" authored article, LinkedIn post, or published content
+- "${fullName}" award, recognition, or leadership mention
+- Any professional achievement, career move, or public statement from the last 6 months
+
+Be specific. Include exact quotes, dates, and sources when found. If nothing found, say "No person-level information found."`;
+
+      // ── Company news search: expansion, acquisition, growth signals ──
+      const companyQuery = `Find recent company news about ${accountName} for a B2B sales team:
+
+Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE-backed by ${privateEquityFirm}` : ""}
 
 Search for:
-- "${fullName} ${accountName}" — news, conference talks, quotes, press mentions, industry publications (Dental Economics, DSO News, Group Dentistry Now)
-- "${accountName} expansion acquisition growth 2025 2026" — press releases, DSO news, PE announcements, job postings
-- If nothing found, try: "${accountName} dental group news" or "${fullName} dental"
+- "${accountName}" expansion, new locations, acquisition, merger — 2025 or 2026
+- "${accountName}" press release, funding, leadership hire, partnership
+- "${accountName}" DSO news, dental group news, job postings signaling growth
 
-Return ONLY what you find. If nothing relevant in the last 6 months, say "No recent news found." Be brief and specific.`;
+Return ONLY recent news (last 6 months). If nothing found, say "No recent company news found." Be brief.`;
 
+      // ── LinkedIn: broad web search for this person's profile + activity ──
       const linkedinQuery = linkedinUrl
-        ? `Look up this person's LinkedIn profile and summarize what you find:
-LinkedIn: ${linkedinUrl}
-Name: ${fullName}
-Company: ${accountName}
-Title: ${title || "unknown"}
+        ? `Look up ${fullName}'s LinkedIn profile at ${linkedinUrl} and also search the web for any of their recent LinkedIn posts, comments, or professional activity.
+
+Also search: "${fullName}" site:linkedin.com OR "${fullName}" "${accountName}" LinkedIn
 
 Extract:
-- Current role and how long they've been there
-- Career background (previous companies, roles)
-- Any recent posts, articles, or public activity (last 6 months)
-- Stated interests, priorities, or professional focus areas
+- How long they've been in their current role and what they did before
+- Any recent posts, shared articles, or comments (last 6 months) — what topics do they engage with?
+- Career trajectory and stated professional priorities
+- Any shared content about DSO growth, operations, technology, or dental industry trends
 
-Be specific and factual. Only report what you can find.`
-        : `Search LinkedIn for ${fullName} at ${accountName}${title ? `, ${title}` : ""}.
-Extract career background, current role, any public posts, and professional interests.
-Only report what you can confirm.`;
+Be specific. If LinkedIn content is behind a paywall, report what's visible from search snippets.`
+        : `Search for "${fullName}" "${accountName}" on LinkedIn and across the web.
+Find their career background, current role details, any public posts or professional activity, and stated interests.
+Only report what you can confirm from public sources.`;
 
       researchTasks.push(
-        perplexitySearch(PERPLEXITY_KEY, newsQuery).then(r => { newsResearch = r.content; allCitations.push(...r.citations); }),
-        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]).then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
+        perplexitySearch(PERPLEXITY_KEY, personQuery).then(r => { personResearch = r.content; allCitations.push(...r.citations); }),
+        perplexitySearch(PERPLEXITY_KEY, companyQuery).then(r => { companyResearch = r.content; allCitations.push(...r.citations); }),
+        perplexitySearch(PERPLEXITY_KEY, linkedinQuery).then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
 
@@ -281,19 +298,31 @@ Be factual and specific. Only include what's on the site.`;
 
     await Promise.all(researchTasks);
 
+    const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
+    const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
+
     const researchBlock = [
-      newsResearch && newsResearch !== "No recent news found."
-        ? `WEB NEWS & PERSON RESEARCH:\n${newsResearch}`
-        : "WEB NEWS: No recent news found in last 6 months. Lead with a pain point instead.",
+      `=== PERSON RESEARCH: ${fullName} ===`,
+      noPersonInfo
+        ? `No public information found for ${fullName}. Do NOT invent person-level hooks.`
+        : personResearch,
+      "",
+      `=== LINKEDIN / PROFESSIONAL PRESENCE: ${fullName} ===`,
       linkedinResearch
-        ? `LINKEDIN PROFILE (${fullName}):\n${linkedinResearch}`
-        : "",
+        ? linkedinResearch
+        : `No LinkedIn activity found for ${fullName}.`,
+      "",
+      `=== COMPANY NEWS: ${accountName} ===`,
+      noCompanyNews
+        ? `No recent company news found for ${accountName} (last 6 months). Use a pain point hook instead.`
+        : companyResearch,
+      "",
       siteResearch
-        ? `COMPANY WEBSITE (${domain}):\n${siteResearch}`
+        ? `=== COMPANY WEBSITE (${domain}) ===\n${siteResearch}`
         : domain
-          ? `COMPANY WEBSITE: Could not retrieve content from ${domain}.`
+          ? `=== COMPANY WEBSITE ===\nCould not retrieve content from ${domain}.`
           : "",
-    ].filter(Boolean).join("\n\n");
+    ].filter(Boolean).join("\n");
 
     // ─── 6. Build contact/account context ────────────────────────
     const locationStr = [city, state].filter(Boolean).join(", ");
@@ -390,6 +419,13 @@ When in doubt, lead with a pain point tailored to their role instead.
 This rule is absolute — do not use old information even if it seems relevant.
 
 The research below was gathered before writing. Only use items that clearly fall after ${cutoffStr}.
+
+HOOK PRIORITY ORDER (always follow this):
+1. BEST: A specific, recent (post-${cutoffStr}) fact about ${firstName} personally — a talk they gave, a quote, a post, a career move, a published article
+2. GOOD: A specific, recent (post-${cutoffStr}) company event — acquisition, expansion, new market, leadership hire
+3. FALLBACK: A pain point directly relevant to their role — use this if research yields nothing recent and verifiable
+
+Do NOT mix these levels. If you found a person-level hook, use that. Do not also mention company news.
 
 === RESEARCH FINDINGS ===
 ${researchBlock}
@@ -507,7 +543,7 @@ Output only the email. Nothing else.`;
       body,
       hasMicrosite,
       contactEmail,
-      researchUsed:   !!(newsResearch && newsResearch !== "No recent news found."),
+      researchUsed:   !noPersonInfo || !noCompanyNews || !!linkedinResearch,
       siteResearched: !!siteResearch,
       siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,
       sources,
