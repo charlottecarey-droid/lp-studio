@@ -978,7 +978,7 @@ export default function BuilderEditor() {
       ]);
       setBlocks(prev => prev.map(b => {
         if (b.id === selectedBlock.id) return b;
-        if (!DSO_CTA_BLOCKS.has(b.type)) return b;
+        if (!DSO_CTAURL_BLOCKS.has(b.type)) return b;
         return { ...b, props: { ...b.props, ctaText, ctaUrl, ctaMode } } as PageBlock;
       }));
       return;
