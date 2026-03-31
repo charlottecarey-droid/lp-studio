@@ -24,10 +24,10 @@ async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs: numbe
   }
 }
 
-// POST /sales/person-brief
+// POST /person-brief  (mounted under /api/sales by the parent router)
 // Accepts the research text already gathered by draft-email and generates
 // a structured call-prep brief for a specific contact.
-router.post("/sales/person-brief", async (req, res) => {
+router.post("/person-brief", async (req, res) => {
   try {
     const ai = getAIClient();
     if (!ai) return res.status(503).json({ error: "No AI client configured" });
