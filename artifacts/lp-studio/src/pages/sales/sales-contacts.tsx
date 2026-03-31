@@ -274,7 +274,7 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({}); // csvHeader → dbField
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; noAccountKey: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
@@ -326,7 +326,8 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json().catch(() => ({}));
       const summary = json.summary ?? {};
-      setResult({ imported: (summary.created ?? 0) + (summary.updated ?? 0), skipped: (summary.skipped ?? 0) + (csvRows.length - contacts.length) });
+      const noAccountKey = csvRows.length - contacts.length;
+      setResult({ imported: (summary.created ?? 0) + (summary.updated ?? 0), skipped: summary.skipped ?? 0, noAccountKey });
       setStep("done");
       onImported();
     } catch (err) {
@@ -478,8 +479,11 @@ function CsvImportModal({ open, onClose, onImported }: { open: boolean; onClose:
               </div>
               <div>
                 <p className="text-xl font-bold text-foreground">{result.imported} contacts imported</p>
+                {result.noAccountKey > 0 && (
+                  <p className="text-sm text-amber-600 mt-1">{result.noAccountKey} rows skipped — no SFDC Account ID or Account Name in that row</p>
+                )}
                 {result.skipped > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">{result.skipped} rows skipped (no matching SFDC Account ID)</p>
+                  <p className="text-sm text-muted-foreground mt-1">{result.skipped} rows skipped — account couldn't be created or matched</p>
                 )}
               </div>
             </div>
