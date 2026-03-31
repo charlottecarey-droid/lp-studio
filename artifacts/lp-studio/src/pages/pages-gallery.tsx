@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -380,6 +380,7 @@ export default function PagesGallery() {
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: runningTests = [], isLoading: testsLoading } = useRunningTests();
 
@@ -573,11 +574,12 @@ export default function PagesGallery() {
   // Filter pages based on selected status, sorted newest first
   const filteredPages = pages
     .filter(page => {
-      if (filterStatus === "All") return true;
-      if (filterStatus === "Draft") return page.status === "draft";
-      if (filterStatus === "Published") return page.status === "published";
-      if (filterStatus === "Running") {
-        return runningTests.some(t => t.slug === page.slug);
+      if (filterStatus === "Draft" && page.status !== "draft") return false;
+      if (filterStatus === "Published" && page.status !== "published") return false;
+      if (filterStatus === "Running" && !runningTests.some(t => t.slug === page.slug)) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return page.title.toLowerCase().includes(q) || page.slug.toLowerCase().includes(q);
       }
       return true;
     })
@@ -605,23 +607,43 @@ export default function PagesGallery() {
           </div>
         </div>
 
-        {/* Status Filter Tabs */}
+        {/* Filter bar */}
         {!isLoading && pages.length > 0 && (
-          <div className="flex gap-2">
-            {(["All", "Draft", "Published", "Running"] as const).map(status => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  filterStatus === status
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                {status}
-              </button>
-            ))}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex gap-2">
+              {(["All", "Draft", "Published", "Running"] as const).map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                    filterStatus === status
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <div className="relative sm:ml-auto w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search pages…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 text-sm border border-input rounded-lg bg-background outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
