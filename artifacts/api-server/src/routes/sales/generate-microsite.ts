@@ -317,9 +317,12 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
         perks: perks.length > 0
           ? perks.map(pk => ({ icon: pk.icon ?? "star", title: pk.title ?? pk.name ?? "", desc: pk.desc ?? pk.description ?? "" }))
           : [
-              { icon: "gift", title: "$1,500 Lab Credit", desc: "Get $1,500 toward your first cases — experience Dandy quality risk-free." },
-              { icon: "zap", title: "AI Scan Review", desc: "Real-time AI flags margin issues while your patient is still in the chair." },
-              { icon: "star", title: "Dedicated DSO Support", desc: "Your own account team. Direct line, same-day response." },
+              { icon: "gift",     title: "$1,500 Lab Credit",         desc: "Get $1,500 toward your first cases — experience Dandy quality risk-free." },
+              { icon: "zap",      title: "AI Scan Review",            desc: "Real-time AI flags margin issues while your patient is still in the chair." },
+              { icon: "star",     title: "Dedicated DSO Support",     desc: "Your own account team. Direct line, same-day response." },
+              { icon: "shield",   title: "Free CE Credits",           desc: "Accredited courses on digital dentistry, scan technique, and restorative workflows." },
+              { icon: "users",    title: "Live Clinical Collaboration", desc: "Chat directly with Dandy lab technicians in real time to dial in your preps." },
+              { icon: "sparkles", title: "$100 UberEats Gift Card",   desc: "Book a lunch-and-learn for your team — we'll cover the food and walk you through going digital." },
             ],
         backgroundStyle: p.backgroundStyle ?? "dark",
       };
@@ -474,7 +477,7 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
       "AVAILABLE BLOCKS (use only these, in this order):",
       "1. \"dso-practice-hero\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
       "2. \"dso-stat-row\": { eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
-      "3. \"dso-partnership-perks\": { eyebrow, headline, subheadline, perks: [{ icon, title, desc }], backgroundStyle } — list the exclusive DSO partnership benefits",
+      "3. \"dso-partnership-perks\": { eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle } — list the exclusive DSO partnership benefits",
       "4. \"dso-split-feature\": { eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle } — highlight AI Scan Review",
       "5. \"dso-software-showcase\": { eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
       "6. \"dso-faq\": { eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions practices actually ask",
