@@ -472,10 +472,13 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
       const body: Record<string, unknown> = {
         title: title.trim(),
         slug: slug.trim(),
-        blocks,
         status: "draft",
       };
-      if (fromTemplateId !== undefined) body.fromTemplateId = fromTemplateId;
+      if (fromTemplateId !== undefined) {
+        body.fromTemplateId = fromTemplateId;
+      } else {
+        body.blocks = blocks;
+      }
 
       const res = await fetch(`${API_BASE}/lp/pages`, {
         method: "POST",

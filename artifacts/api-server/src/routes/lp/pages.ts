@@ -87,9 +87,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
       .values({
         title,
         slug,
-        blocks: Array.isArray(blocks) ? blocks : sourceBlocks,
+        // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
+        blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
         status: typeof status === "string" ? status : "draft",
-        customCss: typeof customCss === "string" ? customCss : sourceCss,
+        customCss: (typeof customCss === "string" && customCss.length > 0) ? customCss : sourceCss,
         metaTitle: typeof metaTitle === "string" ? metaTitle : "",
         metaDescription: typeof metaDescription === "string" ? metaDescription : "",
         ogImage: typeof ogImage === "string" ? ogImage : "",
