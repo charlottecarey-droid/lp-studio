@@ -68,16 +68,26 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     return;
   }
 
-  // If fromTemplateId is provided, copy blocks/css from that template page
+  // If fromTemplateId is provided, copy all settings from that template page
   let sourceBlocks: unknown[] = [];
   let sourceCss = "";
   let sourceAnimationsEnabled = true;
+  let sourceMetaTitle = "";
+  let sourceMetaDescription = "";
+  let sourceOgImage = "";
+  let sourcePageVariables: Record<string, string> = {};
   if (typeof fromTemplateId === "number") {
     const [source] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, fromTemplateId));
     if (source) {
       sourceBlocks = Array.isArray(source.blocks) ? source.blocks : [];
       sourceCss = source.customCss ?? "";
       sourceAnimationsEnabled = source.animationsEnabled ?? true;
+      sourceMetaTitle = source.metaTitle ?? "";
+      sourceMetaDescription = source.metaDescription ?? "";
+      sourceOgImage = source.ogImage ?? "";
+      sourcePageVariables = (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables))
+        ? source.pageVariables as Record<string, string>
+        : {};
     }
   }
 
@@ -91,11 +101,13 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
         status: typeof status === "string" ? status : "draft",
         customCss: (typeof customCss === "string" && customCss.length > 0) ? customCss : sourceCss,
-        metaTitle: typeof metaTitle === "string" ? metaTitle : "",
-        metaDescription: typeof metaDescription === "string" ? metaDescription : "",
-        ogImage: typeof ogImage === "string" ? ogImage : "",
+        metaTitle: typeof metaTitle === "string" && metaTitle.length > 0 ? metaTitle : sourceMetaTitle,
+        metaDescription: typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription,
+        ogImage: typeof ogImage === "string" && ogImage.length > 0 ? ogImage : sourceOgImage,
         animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : sourceAnimationsEnabled,
-        pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables)) ? pageVariables as Record<string, string> : {},
+        pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables))
+          ? pageVariables as Record<string, string>
+          : sourcePageVariables,
       })
       .returning();
     res.status(201).json(page);
