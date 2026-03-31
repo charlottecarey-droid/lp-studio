@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Copy, Check, Loader2, Mail, Sparkles, Globe } from "lucide-react";
+import { X, Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -24,6 +24,8 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
   const [body, setBody] = useState("");
   const [hasMicrosite, setHasMicrosite] = useState(false);
   const [researchUsed, setResearchUsed] = useState(false);
+  const [sources, setSources] = useState<string[]>([]);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [copiedSubject, setCopiedSubject] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
   const [error, setError] = useState("");
@@ -52,11 +54,13 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
           body?: string;
           hasMicrosite?: boolean;
           researchUsed?: boolean;
+          sources?: string[];
         };
         setSubject(data.subject ?? "");
         setBody(data.body ?? "");
         setHasMicrosite(!!data.hasMicrosite);
         setResearchUsed(!!data.researchUsed);
+        setSources(data.sources ?? []);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Error generating email");
       } finally {
@@ -105,6 +109,15 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
     window.open(`https://mail.google.com/mail/?${params.toString()}`, "_blank");
   }
 
+  function formatSourceLabel(url: string): string {
+    try {
+      const u = new URL(url);
+      return u.hostname.replace(/^www\./, "");
+    } catch {
+      return url;
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -132,7 +145,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 flex flex-col gap-3 flex-1">
+        <div className="px-6 py-4 flex flex-col gap-3 flex-1 overflow-y-auto">
 
           {/* Loading */}
           {loading && (
@@ -152,13 +165,41 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
           {/* Content */}
           {!loading && !error && (
             <>
-              {/* Research badge */}
-              {researchUsed && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-border">
-                  <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-[11px] text-muted-foreground italic">
-                    Personalized based on recent web research about {accountName}.
-                  </p>
+              {/* Research badge + sources */}
+              {(researchUsed || sources.length > 0) && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <button
+                    onClick={() => setSourcesOpen(o => !o)}
+                    className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted/80 transition-colors"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <p className="text-[11px] text-muted-foreground italic flex-1 text-left">
+                      Personalized using web research
+                      {sources.length > 0 && ` · ${sources.length} source${sources.length !== 1 ? "s" : ""}`}
+                    </p>
+                    {sources.length > 0 && (
+                      sourcesOpen
+                        ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    )}
+                  </button>
+                  {sourcesOpen && sources.length > 0 && (
+                    <div className="px-3 py-2 border-t border-border bg-card flex flex-col gap-1">
+                      {sources.map((url) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-[11px] text-primary hover:underline truncate"
+                        >
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                          {formatSourceLabel(url)}
+                          <span className="text-muted-foreground truncate">— {url}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

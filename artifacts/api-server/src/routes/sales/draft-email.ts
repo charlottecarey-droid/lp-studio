@@ -30,7 +30,7 @@ async function perplexitySearch(
   apiKey: string,
   query: string,
   domainFilter?: string[]
-): Promise<string> {
+): Promise<{ content: string; citations: string[] }> {
   const body: Record<string, unknown> = {
     model: "sonar",
     messages: [{ role: "user", content: query }],
@@ -51,11 +51,17 @@ async function perplexitySearch(
       },
       12000
     );
-    if (!res.ok) return "";
-    const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-    return data.choices?.[0]?.message?.content ?? "";
+    if (!res.ok) return { content: "", citations: [] };
+    const data = await res.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+      citations?: string[];
+    };
+    return {
+      content: data.choices?.[0]?.message?.content ?? "",
+      citations: data.citations ?? [],
+    };
   } catch {
-    return "";
+    return { content: "", citations: [] };
   }
 }
 
@@ -214,6 +220,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     let newsResearch     = "";
     let linkedinResearch = "";
     let siteResearch     = "";
+    const allCitations: string[] = [];
 
     const researchTasks: Promise<void>[] = [];
 
@@ -249,8 +256,8 @@ Extract career background, current role, any public posts, and professional inte
 Only report what you can confirm.`;
 
       researchTasks.push(
-        perplexitySearch(PERPLEXITY_KEY, newsQuery).then(r => { newsResearch = r; }),
-        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]).then(r => { linkedinResearch = r; }),
+        perplexitySearch(PERPLEXITY_KEY, newsQuery).then(r => { newsResearch = r.content; allCitations.push(...r.citations); }),
+        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]).then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
 
@@ -268,7 +275,7 @@ Only report what you can confirm.`;
 - Key leadership or brand positioning
 Be factual and specific. Only include what's on the site.`;
       researchTasks.push(
-        perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]).then(r => { siteResearch = r; }),
+        perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]).then(r => { siteResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
 
@@ -473,6 +480,15 @@ Output only the email. Nothing else.`;
       body = raw.slice(idx + subjectMatch[0].length).replace(/^\s*\n/, "").trim();
     }
 
+    // Deduplicate and filter citations; add Firecrawl domain as a source if used
+    const sources: string[] = [];
+    if (FIRECRAWL_KEY && domain && siteResearch) {
+      sources.push(domain.startsWith("http") ? domain : `https://${domain}`);
+    }
+    for (const url of allCitations) {
+      if (url && !sources.includes(url)) sources.push(url);
+    }
+
     res.json({
       subject,
       body,
@@ -481,6 +497,7 @@ Output only the email. Nothing else.`;
       researchUsed:   !!(newsResearch && newsResearch !== "No recent news found."),
       siteResearched: !!siteResearch,
       siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,
+      sources,
     });
   } catch (err) {
     console.error("POST /sales/draft-email error:", err);
