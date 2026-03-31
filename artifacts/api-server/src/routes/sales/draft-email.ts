@@ -450,11 +450,11 @@ The four DSO pain points:
 4. Capital constraints ($40–75K per operatory)
 
 The five messaging pillars (pick the most relevant to this contact's role):
-- "Same-store growth is the new growth engine"
-- "Growth breaks without a standard that scales"
-- "Waste is the hidden tax on every DSO"
-- "Visibility isn't reporting, it's control"
-- "Enterprise growth shouldn't require enterprise risk"
+- "Same-store growth is the new growth engine" → CEO, COO, President, Growth/M&A roles
+- "Growth breaks without a standard that scales" → COO, Operations, IT, Clinical leadership
+- "Waste is the hidden tax on every DSO" → CFO, Finance, Operations
+- "Visibility isn't reporting, it's control" → COO, IT, Analytics, Clinical
+- "Enterprise growth shouldn't require enterprise risk" → CEO, CFO, Growth/M&A
 
 === PROOF POINTS BY PERSONA ===
 
@@ -468,6 +468,15 @@ COO / Operations: DCA consolidated 400+ lab relationships, Dandy Hub dashboard, 
 CDO / Clinical: Apex Dental Partners reached near-zero remakes within a year, DCA practices hit ~1% remake rate, AI margin detection
 CEO / President: Apex Dental Partners saw a 12.5% revenue increase, low-risk entry with free scanners
 Growth / M&A: eliminates $40–75K capital barrier, scales from 10 to 200+ locations
+IT / Technology / Systems: DCA deployed 100 free intraoral scanners across their network — no CAPEX, no hardware procurement, no device management burden for IT; Dandy handles the hardware lifecycle; standardizes the lab workflow across every location without requiring a custom integration
+
+=== ROLE RELEVANCE RULE ===
+Before using any research as a hook, ask: "Is this fact directly relevant to what THIS PERSON cares about in THEIR ROLE?"
+- A same-store revenue stat is NOT relevant to an IT Manager, Systems Director, or Technology VP
+- An acquisition or expansion is NOT relevant to a CDO or clinical leader unless it creates a clinical standardization challenge
+- A financial metric is NOT relevant to a Clinical Director or IT lead
+- If the research is company-level but not relevant to THIS person's specific function, IGNORE it and lead with a role-specific pain point instead
+The hook must earn its place by speaking to what THIS person is accountable for — not just what's happening at their company.
 
 === EMAIL FORMAT ===
 Subject: [subject line]
