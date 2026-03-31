@@ -501,8 +501,13 @@ Best,
 - If a microsite exists, use the placeholder [MICROSITE_URL] exactly once where the link belongs naturally
 - CTA should be low-commitment ("Worth a quick call?" / "Happy to share the math?" / "Open to a 15-min chat?")
 - End with "Best,"
+- Do NOT say "I saw on LinkedIn", "according to LinkedIn", "on your LinkedIn", or any attribution to a source in the email body. State facts plainly.
+- Do NOT attribute a fact to LinkedIn unless a linkedin.com URL is actually present in the research sources. If no LinkedIn URL was found, treat anything labeled "LinkedIn" in the research as unverified — do not use it as a hook.
 
-Output only the email. Nothing else.`;
+After "Best," on a new line, write exactly:
+HOOK_SOURCE: [paste the full URL of the specific page you used for the opening hook, or write "pain point" if you used a role-based pain point instead of research]
+
+Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
 
     // ─── 9. Call AI ───────────────────────────────────────────────
     const response = await fetchWithTimeout(
@@ -543,10 +548,24 @@ Output only the email. Nothing else.`;
       body = raw.slice(idx + subjectMatch[0].length).replace(/^\s*\n/, "").trim();
     }
 
+    // Extract HOOK_SOURCE line (GPT-4o cites which URL it used for the hook)
+    const hookSourceMatch = body.match(/\nHOOK_SOURCE:\s*(.+)/);
+    const hookSourceRaw = hookSourceMatch?.[1]?.trim() ?? "";
+    const hookSource = (hookSourceRaw && hookSourceRaw.toLowerCase() !== "pain point") ? hookSourceRaw : null;
+    // Strip the HOOK_SOURCE line from the displayed body
+    if (hookSourceMatch) {
+      body = body.slice(0, hookSourceMatch.index).trimEnd();
+    }
+
     // Deduplicate and filter citations; add Firecrawl domain as a source if used
+    // Put hookSource first so the actual source used is always visible at the top
     const sources: string[] = [];
+    if (hookSource && hookSource.startsWith("http") && !sources.includes(hookSource)) {
+      sources.push(hookSource);
+    }
     if (FIRECRAWL_KEY && domain && siteResearch) {
-      sources.push(domain.startsWith("http") ? domain : `https://${domain}`);
+      const siteUrl = domain.startsWith("http") ? domain : `https://${domain}`;
+      if (!sources.includes(siteUrl)) sources.push(siteUrl);
     }
     for (const url of allCitations) {
       if (url && !sources.includes(url)) sources.push(url);
@@ -557,6 +576,7 @@ Output only the email. Nothing else.`;
       body,
       hasMicrosite,
       contactEmail,
+      hookSource: hookSource ?? (hookSourceRaw === "pain point" ? "pain point" : null),
       researchUsed:   !noPersonInfo || !noCompanyNews || !!linkedinResearch,
       siteResearched: !!siteResearch,
       siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,

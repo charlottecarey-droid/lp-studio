@@ -39,6 +39,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Contact brief state
+  const [hookSource, setHookSource] = useState<string | null>(null);
   const [researchText, setResearchText] = useState<ResearchText | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
   const [brief, setBrief] = useState("");
@@ -69,6 +70,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
           hasMicrosite?: boolean;
           researchUsed?: boolean;
           sources?: string[];
+          hookSource?: string | null;
           researchText?: ResearchText;
         };
         setSubject(data.subject ?? "");
@@ -76,6 +78,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
         setHasMicrosite(!!data.hasMicrosite);
         setResearchUsed(!!data.researchUsed);
         setSources(data.sources ?? []);
+        setHookSource(data.hookSource ?? null);
         setResearchText(data.researchText ?? null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Error generating email");
@@ -266,8 +269,12 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                   >
                     <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <p className="text-[11px] text-muted-foreground italic flex-1 text-left">
-                      Personalized using web research
-                      {sources.length > 0 && ` · ${sources.length} source${sources.length !== 1 ? "s" : ""}`}
+                      {hookSource === "pain point"
+                        ? "Written from role-based pain point (no recent research found)"
+                        : hookSource
+                          ? `Hook sourced from ${formatSourceLabel(hookSource)}`
+                          : "Personalized using web research"}
+                      {sources.length > 0 && hookSource !== "pain point" && ` · ${sources.length} source${sources.length !== 1 ? "s" : ""} cited`}
                     </p>
                     {sources.length > 0 && (
                       sourcesOpen
@@ -276,20 +283,27 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                     )}
                   </button>
                   {sourcesOpen && sources.length > 0 && (
-                    <div className="px-3 py-2 border-t border-border bg-card flex flex-col gap-1">
-                      {sources.map((url) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-[11px] text-primary hover:underline truncate"
-                        >
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                          {formatSourceLabel(url)}
-                          <span className="text-muted-foreground truncate">— {url}</span>
-                        </a>
-                      ))}
+                    <div className="px-3 py-2 border-t border-border bg-card flex flex-col gap-1.5">
+                      {sources.map((url) => {
+                        const isHookSource = hookSource && url === hookSource;
+                        return (
+                          <div key={url} className={isHookSource ? "rounded-md px-2 py-1 -mx-2" : ""} style={isHookSource ? { background: "rgba(199,231,56,0.12)", border: "1px solid rgba(199,231,56,0.35)" } : {}}>
+                            {isHookSource && (
+                              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#5a6e00" }}>Used for hook</p>
+                            )}
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-[11px] text-primary hover:underline truncate"
+                            >
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                              {formatSourceLabel(url)}
+                              <span className="text-muted-foreground truncate">— {url}</span>
+                            </a>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
