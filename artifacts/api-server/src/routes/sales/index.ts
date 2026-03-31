@@ -14,6 +14,7 @@ import generateMicrositeRouter from "./generate-microsite";
 import sfdcRouter from "./sfdc";
 import inboundRouter from "./inbound";
 import importRouter from "./import";
+import personBriefRouter from "./person-brief";
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use(generateMicrositeRouter);
 router.use(sfdcRouter);
 router.use("/inbound", inboundRouter);
 router.use(importRouter);
+router.use(personBriefRouter);
 
 export default router;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { X, Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -18,6 +18,13 @@ interface Props {
   onClose: () => void;
 }
 
+interface ResearchText {
+  person: string;
+  linkedin: string;
+  company: string;
+  site: string;
+}
+
 export default function DraftEmailModal({ contact, accountId, accountName, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState("");
@@ -30,6 +37,13 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
   const [copiedFull, setCopiedFull] = useState(false);
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Contact brief state
+  const [researchText, setResearchText] = useState<ResearchText | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [briefError, setBriefError] = useState("");
+  const [briefOpen, setBriefOpen] = useState(false);
 
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
@@ -55,12 +69,14 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
           hasMicrosite?: boolean;
           researchUsed?: boolean;
           sources?: string[];
+          researchText?: ResearchText;
         };
         setSubject(data.subject ?? "");
         setBody(data.body ?? "");
         setHasMicrosite(!!data.hasMicrosite);
         setResearchUsed(!!data.researchUsed);
         setSources(data.sources ?? []);
+        setResearchText(data.researchText ?? null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Error generating email");
       } finally {
@@ -70,6 +86,31 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
     generate();
     return () => { cancelled = true; };
   }, [contact.id, accountId]);
+
+  async function generateBrief() {
+    if (briefLoading) return;
+    setBriefLoading(true);
+    setBriefError("");
+    setBrief("");
+    setBriefOpen(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/person-brief`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: contact.id, accountId, researchText }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(d.error ?? "Failed to generate brief");
+      }
+      const data = await res.json() as { brief?: string };
+      setBrief(data.brief ?? "");
+    } catch (err) {
+      setBriefError(err instanceof Error ? err.message : "Error generating brief");
+    } finally {
+      setBriefLoading(false);
+    }
+  }
 
   function copySubject() {
     navigator.clipboard.writeText(subject);
@@ -118,15 +159,66 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
     }
   }
 
+  // Renders bold (**text**) and bullet lines from GPT output
+  function renderBriefLine(line: string, idx: number) {
+    if (!line.trim()) return <div key={idx} className="h-2" />;
+
+    // Section headers: **HEADER**
+    const headerMatch = line.match(/^\*\*([^*]+)\*\*$/);
+    if (headerMatch) {
+      return (
+        <p key={idx} className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mt-3 mb-1">
+          {headerMatch[1]}
+        </p>
+      );
+    }
+
+    // Numbered: "1. ..."
+    const numMatch = line.match(/^(\d+)\.\s+(.+)/);
+    if (numMatch) {
+      return (
+        <div key={idx} className="flex gap-2 text-[12px] text-foreground leading-relaxed">
+          <span className="text-muted-foreground shrink-0 font-medium">{numMatch[1]}.</span>
+          <span>{renderInlineBold(numMatch[2])}</span>
+        </div>
+      );
+    }
+
+    // Bullet: "- ..." or "* ..."
+    const bulletMatch = line.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      return (
+        <div key={idx} className="flex gap-2 text-[12px] text-foreground leading-relaxed">
+          <span className="text-muted-foreground shrink-0 mt-0.5">·</span>
+          <span>{renderInlineBold(bulletMatch[1])}</span>
+        </div>
+      );
+    }
+
+    // Plain line
+    return (
+      <p key={idx} className="text-[12px] text-foreground leading-relaxed">
+        {renderInlineBold(line)}
+      </p>
+    );
+  }
+
+  function renderInlineBold(text: string) {
+    const parts = text.split(/\*\*([^*]+)\*\*/g);
+    return parts.map((part, i) =>
+      i % 2 === 1 ? <strong key={i} className="font-semibold">{part}</strong> : part
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
             <h2 className="text-[14px] font-bold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
@@ -145,7 +237,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 flex flex-col gap-3 flex-1 overflow-y-auto">
+        <div className="px-6 py-4 flex flex-col gap-3 overflow-y-auto flex-1">
 
           {/* Loading */}
           {loading && (
@@ -203,6 +295,45 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                 </div>
               )}
 
+              {/* Contact Brief button + panel */}
+              <div className="rounded-lg border border-border overflow-hidden">
+                <button
+                  onClick={brief || briefLoading ? () => setBriefOpen(o => !o) : generateBrief}
+                  disabled={briefLoading}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted/80 transition-colors disabled:opacity-60"
+                >
+                  {briefLoading
+                    ? <Loader2 className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
+                    : <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  }
+                  <p className="text-[11px] text-muted-foreground italic flex-1 text-left">
+                    {briefLoading
+                      ? `Generating contact brief for ${contact.firstName}…`
+                      : brief
+                        ? `Contact brief — ${contact.firstName} ${contact.lastName}`
+                        : `Generate contact brief for ${contact.firstName}`}
+                  </p>
+                  {brief && !briefLoading && (
+                    briefOpen
+                      ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+
+                {briefOpen && (brief || briefError) && (
+                  <div className="px-4 py-3 border-t border-border bg-card">
+                    {briefError && (
+                      <p className="text-[12px] text-destructive">{briefError}</p>
+                    )}
+                    {brief && (
+                      <div className="flex flex-col gap-0.5">
+                        {brief.split("\n").map((line, idx) => renderBriefLine(line, idx))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Microsite badge */}
               {hasMicrosite && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg border"
@@ -252,7 +383,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
 
         {/* Footer */}
         {!loading && !error && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20 shrink-0">
             <button
               onClick={copyFull}
               className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground text-[12px] font-semibold rounded-lg hover:bg-muted/50 transition-colors"

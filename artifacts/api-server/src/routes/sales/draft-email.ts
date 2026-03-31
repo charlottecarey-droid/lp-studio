@@ -552,6 +552,12 @@ Output only the email. Nothing else.`;
       siteResearched: !!siteResearch,
       siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,
       sources,
+      researchText: {
+        person:   personResearch   || "",
+        linkedin: linkedinResearch || "",
+        company:  companyResearch  || "",
+        site:     siteResearch     || "",
+      },
     });
   } catch (err) {
     console.error("POST /sales/draft-email error:", err);
