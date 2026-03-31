@@ -692,7 +692,7 @@ function ContactListView() {
   }, [filtered]);
 
   const flatPag = usePagination(filtered, 25);
-  const groupedPag = usePagination(accountGroups, 20);
+  const groupedPag = usePagination(accountGroups, 10);
 
   return (
     <SalesLayout>
