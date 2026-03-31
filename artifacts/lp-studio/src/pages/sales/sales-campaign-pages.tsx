@@ -26,6 +26,7 @@ import {
   Building2,
   FileText,
   X,
+  Bell,
 } from "lucide-react";
 import AudienceBuilderModal, { type Audience } from "@/components/AudienceBuilderModal";
 
@@ -135,6 +136,7 @@ function LaunchModal({
     senderName: string;
     senderEmail: string;
     sendEmails: boolean;
+    alertEmails: string[];
   }) => Promise<void>;
   onCreateAudience: () => void;
 }) {
@@ -146,6 +148,7 @@ function LaunchModal({
   const [senderName, setSenderName] = useState("Dandy");
   const [senderEmail, setSenderEmail] = useState("partnerships");
   const [sendEmails, setSendEmails] = useState(true);
+  const [alertEmailInput, setAlertEmailInput] = useState("");
   const [launching, setLaunching] = useState(false);
   const [result, setResult] = useState<LaunchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,8 +170,12 @@ function LaunchModal({
     }
     setLaunching(true);
     setError(null);
+    const alertEmails = alertEmailInput
+      .split(/[\s,;]+/)
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e.includes("@"));
     try {
-      await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails });
+      await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails, alertEmails });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Launch failed");
     } finally {
@@ -329,6 +336,24 @@ function LaunchModal({
           <span className="text-xs text-muted-foreground ml-auto">
             Uncheck to create personalized links only (no email)
           </span>
+        </div>
+
+        {/* View alert emails */}
+        <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-2">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <Bell className="w-3.5 h-3.5" />
+            View alert emails
+            <span className="ml-1 font-normal normal-case text-muted-foreground/70">(optional)</span>
+          </label>
+          <Input
+            value={alertEmailInput}
+            onChange={e => setAlertEmailInput(e.target.value)}
+            placeholder="e.g. alice@company.com, bob@company.com"
+          />
+          <p className="text-xs text-muted-foreground leading-snug">
+            These addresses will receive an email notification each time a contact views their personalized page.
+            Separate multiple addresses with commas.
+          </p>
         </div>
 
         {sendEmails && (
@@ -705,6 +730,7 @@ export default function SalesCampaignPages() {
     senderName: string;
     senderEmail: string;
     sendEmails: boolean;
+    alertEmails: string[];
   }) {
     if (!launchingPage) return;
 

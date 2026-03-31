@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, isNotNull, not } from "drizzle-orm";
+import { eq, and, isNotNull, not, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesContactsTable,
@@ -180,6 +180,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
     senderName = "Dandy",
     senderEmail = "partnerships",
     sendEmails = true,
+    alertEmails = [],
   } = req.body;
 
   if (!pageId) {
@@ -276,16 +277,31 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
       }
     }
 
+    // Upsert view alert emails for this page
+    const validAlertEmails: string[] = Array.isArray(alertEmails)
+      ? alertEmails.map((e: unknown) => String(e).trim().toLowerCase()).filter((e: string) => e.includes("@"))
+      : [];
+    if (validAlertEmails.length > 0) {
+      for (const email of validAlertEmails) {
+        await db.execute(sql`
+          INSERT INTO lp_page_alert_emails (page_id, email)
+          VALUES (${Number(pageId)}, ${email})
+          ON CONFLICT (page_id, email) DO NOTHING
+        `);
+      }
+    }
+
     if (!sendEmails) {
       res.json({
         hotlinksCreated: contacts.length,
         sent: 0,
         failed: 0,
         total: contacts.length,
+        alertEmailsConfigured: validAlertEmails.length,
         message: "Hotlinks created. No emails were sent.",
       });
     } else {
-      res.json({ hotlinksCreated, sent, failed, total: contacts.length });
+      res.json({ hotlinksCreated, sent, failed, total: contacts.length, alertEmailsConfigured: validAlertEmails.length });
     }
   } catch (err) {
     console.error("POST /sales/campaign-pages/launch error:", err);
