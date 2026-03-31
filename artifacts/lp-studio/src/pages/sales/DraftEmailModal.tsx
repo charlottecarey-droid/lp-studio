@@ -94,6 +94,17 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
     window.location.href = mailto;
   }
 
+  function openInGmail() {
+    const currentBody = textareaRef.current?.value ?? body;
+    const params = new URLSearchParams({
+      view: "cm",
+      to: contact.email ?? "",
+      su: subject,
+      body: currentBody,
+    });
+    window.open(`https://mail.google.com/mail/?${params.toString()}`, "_blank");
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -211,14 +222,26 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
             </button>
 
             {contact.email && (
-              <button
-                onClick={openInEmailClient}
-                className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-lg text-primary-foreground transition-opacity hover:opacity-90"
-                style={{ background: "#003A30" }}
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Open in email client
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={openInEmailClient}
+                  title="Open in default email client"
+                  className="flex items-center gap-2 px-3 py-2 border border-border bg-card text-foreground text-[12px] font-semibold rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Email client
+                </button>
+                <button
+                  onClick={openInGmail}
+                  className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-lg text-white transition-opacity hover:opacity-90"
+                  style={{ background: "#EA4335" }}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.272H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+                  </svg>
+                  Open in Gmail
+                </button>
+              </div>
             )}
           </div>
         )}
