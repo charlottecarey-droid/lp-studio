@@ -6,31 +6,30 @@ import { CustomBlocksContent } from "@/pages/custom-blocks";
 export default function BlocksSettingsPage() {
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Page header */}
-        <div>
+      <Tabs
+        defaultValue="presets"
+        className="flex flex-col -mx-6 md:-mx-8 lg:-mx-10 -my-6 md:-my-8 lg:-my-10"
+        style={{ height: "calc(100vh - 4rem)" }}
+      >
+        {/* Page header + tab triggers */}
+        <div className="px-6 md:px-8 lg:px-10 pt-6 pb-0 shrink-0 border-b border-border bg-background">
           <h1 className="text-2xl font-bold text-foreground">Blocks</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1 mb-4">
             Manage block presets and custom HTML blocks
           </p>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="presets" className="space-y-4">
           <TabsList>
             <TabsTrigger value="presets">Block Presets</TabsTrigger>
             <TabsTrigger value="custom">Custom HTML</TabsTrigger>
           </TabsList>
+        </div>
 
-          <TabsContent value="presets" className="space-y-4">
-            <BlockDefaultsContent />
-          </TabsContent>
-
-          <TabsContent value="custom" className="space-y-4">
-            <CustomBlocksContent />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="presets" className="flex-1 min-h-0 mt-0 overflow-hidden">
+          <BlockDefaultsContent />
+        </TabsContent>
+        <TabsContent value="custom" className="flex-1 min-h-0 mt-0 overflow-hidden">
+          <CustomBlocksContent />
+        </TabsContent>
+      </Tabs>
     </AppLayout>
   );
 }

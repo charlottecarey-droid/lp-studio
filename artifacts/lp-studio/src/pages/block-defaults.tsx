@@ -377,10 +377,7 @@ export function BlockDefaultsContent() {
     });
 
   return (
-    <div
-      className="flex -mx-6 md:-mx-8 lg:-mx-10 -my-6 md:-my-8 lg:-my-10"
-      style={{ height: "calc(100vh - 4rem)" }}
-    >
+    <div className="flex h-full">
       {/* Left: block type list */}
       <aside className="w-64 shrink-0 border-r border-border bg-background flex flex-col">
         <div className="px-4 pt-5 pb-3 border-b border-border shrink-0">
