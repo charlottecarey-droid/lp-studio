@@ -301,7 +301,7 @@ Be factual and specific. Only include what's on the site.`;
       locationStr       && `HQ: ${locationStr}`,
       abmTier           && `ABM Tier: ${abmTier}`,
       abmStage          && `ABM Stage: ${abmStage}`,
-      msaSigned === "1" && `MSA Status: Enterprise MSA already signed`,
+      (msaSigned === "1" || /closed.?won/i.test(abmStage)) && `MSA Status: Enterprise MSA already signed`,
       enterprisePilot === "1" && `Pilot Status: Enterprise pilot already underway`,
       domain            && `Website: ${domain}`,
       accountNotes      && `Notes: ${accountNotes}`,
