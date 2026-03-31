@@ -123,6 +123,17 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   }
 });
 
+// Delete ALL accounts (cascades to contacts, signals, briefings)
+router.delete("/accounts", async (_req, res): Promise<void> => {
+  try {
+    await db.execute(sql`TRUNCATE sales_accounts CASCADE`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /sales/accounts error:", err);
+    res.status(500).json({ error: "Failed to clear accounts" });
+  }
+});
+
 // ─── Token generation helper ────────────────────────────────
 function generateToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

@@ -637,7 +637,7 @@ function ContactListView() {
   async function handleDeleteAll() {
     setDeleting(true);
     try {
-      await fetch(`${API_BASE}/sales/contacts`, { method: "DELETE" });
+      await fetch(`${API_BASE}/sales/accounts`, { method: "DELETE" });
       setContacts([]);
       setDeleteConfirm(false);
     } finally {
@@ -722,10 +722,10 @@ function ContactListView() {
             </div>
             {deleteConfirm ? (
               <>
-                <span className="text-sm text-muted-foreground">Delete all {contacts.length} contacts?</span>
+                <span className="text-sm text-muted-foreground">Clear all accounts &amp; contacts?</span>
                 <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDeleteAll} className="gap-1.5">
                   {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  {deleting ? "Deleting…" : "Confirm"}
+                  {deleting ? "Clearing…" : "Yes, clear all"}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
               </>
@@ -734,7 +734,7 @@ function ContactListView() {
                 {contacts.length > 0 && (
                   <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(true)} className="gap-1.5 text-destructive hover:text-destructive hover:border-destructive/50">
                     <Trash2 className="w-3.5 h-3.5" />
-                    Delete All
+                    Clear All
                   </Button>
                 )}
                 <Button onClick={() => setShowImport(true)} className="gap-2">
