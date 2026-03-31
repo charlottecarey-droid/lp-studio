@@ -965,36 +965,49 @@ export default function BuilderEditor() {
     if (!selectedBlock) return;
     const p = selectedBlock.props as Record<string, unknown>;
 
-    // DSO Hero blocks (heartland + practice): copy primaryCta → ctaText/ctaUrl/ctaMode on all blocks
-    // that already have ctaText or ctaUrl props (dynamic check — no hardcoded allowlist needed)
-    if (selectedBlock.type === "dso-practice-hero" || selectedBlock.type === "dso-heartland-hero") {
-      const ctaText = (p.primaryCtaText ?? "") as string;
-      const ctaUrl  = (p.primaryCtaUrl  ?? "") as string;
-      const ctaMode = (p.primaryCtaMode ?? "link") as string;
-      setBlocks(prev => prev.map(b => {
-        if (b.id === selectedBlock.id) return b;
-        const bp = b.props as Record<string, unknown>;
-        // Apply to any block that has ctaText or ctaUrl fields
-        if (!("ctaText" in bp) && !("ctaUrl" in bp)) return b;
-        return { ...b, props: { ...bp, ctaText, ctaUrl, ctaMode } } as PageBlock;
-      }));
-      return;
-    }
+    // Extract the effective CTA values from the source block regardless of its type.
+    // DSO hero blocks store the primary CTA in primaryCta* fields; all others use ctaText/ctaUrl.
+    const sourceUrl  = ((p.primaryCtaUrl  ?? p.ctaUrl ?? p.url  ?? "") as string);
+    const sourceText = ((p.primaryCtaText ?? p.ctaText ?? "")           as string);
+    const sourceMode = ((p.primaryCtaMode ?? p.ctaMode ?? p.ctaAction ?? p.ctaType ?? "link") as string);
+    const sourceChilipiper = ((p.chilipiperUrl ?? "") as string);
 
-    // Legacy blocks: copy ctaUrl / ctaAction / chilipiperUrl
-    const ctaUrl = (p.ctaUrl ?? p.url ?? "") as string;
-    const ctaAction = (p.ctaAction ?? p.ctaType ?? "url") as string;
-    const chilipiperUrl = (p.chilipiperUrl ?? "") as string;
     setBlocks(prev => prev.map(b => {
       if (b.id === selectedBlock.id) return b;
       const bp = b.props as Record<string, unknown>;
-      const hasCta = "ctaUrl" in bp || "url" in bp;
-      if (!hasCta) return b;
-      const updates: Record<string, unknown> = { chilipiperUrl };
-      if ("ctaType" in bp) updates.ctaType = ctaAction;
-      else updates.ctaAction = ctaAction;
-      if ("ctaUrl" in bp) updates.ctaUrl = ctaUrl;
-      else if ("url" in bp) updates.url = ctaUrl;
+
+      // Determine if this block has any CTA-like fields
+      const hasPrimaryCta = "primaryCtaUrl" in bp;
+      const hasCtaUrl     = "ctaUrl" in bp;
+      const hasUrl        = "url" in bp;
+      if (!hasPrimaryCta && !hasCtaUrl && !hasUrl) return b;
+
+      const updates: Record<string, unknown> = {};
+
+      // Hero-style blocks (primaryCta*)
+      if (hasPrimaryCta) {
+        updates.primaryCtaUrl  = sourceUrl;
+        updates.primaryCtaText = sourceText;
+        updates.primaryCtaMode = sourceMode;
+      }
+
+      // Standard DSO blocks (ctaUrl / ctaText / ctaMode)
+      if (hasCtaUrl) {
+        updates.ctaUrl  = sourceUrl;
+        updates.ctaText = sourceText;
+        if ("ctaMode" in bp)   updates.ctaMode   = sourceMode;
+        if ("ctaAction" in bp) updates.ctaAction  = sourceMode;
+        if ("ctaType" in bp)   updates.ctaType    = sourceMode;
+        if ("chilipiperUrl" in bp) updates.chilipiperUrl = sourceChilipiper;
+      }
+
+      // Legacy blocks that use "url" instead of "ctaUrl"
+      if (hasUrl && !hasCtaUrl) {
+        updates.url = sourceUrl;
+        if ("ctaAction" in bp) updates.ctaAction = sourceMode;
+        if ("ctaType" in bp)   updates.ctaType   = sourceMode;
+      }
+
       return { ...b, props: { ...bp, ...updates } } as PageBlock;
     }));
   };
