@@ -59,7 +59,36 @@ async function perplexitySearch(
   }
 }
 
-// POST /sales/draft-email — rich cold email using all account/contact fields + dual Perplexity research
+async function firecrawlScrape(apiKey: string, domain: string): Promise<string> {
+  const url = domain.startsWith("http") ? domain : `https://${domain}`;
+  try {
+    const res = await fetchWithTimeout(
+      "https://api.firecrawl.dev/v1/scrape",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+          formats: ["markdown"],
+          onlyMainContent: true,
+          excludeTags: ["nav", "footer", "script", "style"],
+        }),
+      },
+      15000
+    );
+    if (!res.ok) return "";
+    const data = await res.json() as { success?: boolean; data?: { markdown?: string } };
+    const md = data?.data?.markdown ?? "";
+    return md.slice(0, 4000);
+  } catch {
+    return "";
+  }
+}
+
+// POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
 router.post("/draft-email", async (req, res): Promise<void> => {
   const { contactId, accountId } = req.body;
 
@@ -79,33 +108,42 @@ router.post("/draft-email", async (req, res): Promise<void> => {
     let department = "";
     let linkedinUrl = "";
     let contactEmail = "";
+    let buyerPersona = "";
+    let contactTier = "";
 
     if (contactId) {
       const [c] = await db.select().from(salesContactsTable)
         .where(eq(salesContactsTable.id, Number(contactId)));
       if (c) {
-        firstName   = c.firstName ?? "";
-        lastName    = c.lastName ?? "";
-        title       = c.title ?? "";
-        titleLevel  = c.titleLevel ?? "";
-        contactRole = c.contactRole ?? "";
-        department  = c.department ?? "";
-        linkedinUrl = c.linkedinUrl ?? "";
+        firstName    = c.firstName ?? "";
+        lastName     = c.lastName ?? "";
+        title        = c.title ?? "";
+        titleLevel   = c.titleLevel ?? "";
+        contactRole  = c.contactRole ?? "";
+        department   = c.department ?? "";
+        linkedinUrl  = c.linkedinUrl ?? "";
         contactEmail = c.email ?? "";
+        buyerPersona = c.role ?? "";
+        contactTier  = c.tier ?? "";
       }
     }
 
     // ─── 2. Load account ────────────────────────────────────────
     let accountName = "";
     let domain = "";
+    let industry = "";
     let segment = "";
     let dsoSize = "";
     let privateEquityFirm = "";
     let numLocations: number | null = null;
     let abmTier = "";
+    let abmStage = "";
     let practiceSegment = "";
+    let msaSigned = "";
+    let enterprisePilot = "";
     let city = "";
     let state = "";
+    let accountNotes = "";
 
     if (accountId) {
       const [a] = await db.select().from(salesAccountsTable)
@@ -113,14 +151,19 @@ router.post("/draft-email", async (req, res): Promise<void> => {
       if (a) {
         accountName       = a.name ?? "";
         domain            = a.domain ?? "";
+        industry          = a.industry ?? "";
         segment           = a.segment ?? "";
         dsoSize           = a.dsoSize ?? "";
         privateEquityFirm = a.privateEquityFirm ?? "";
         numLocations      = a.numLocations ?? null;
         abmTier           = a.abmTier ?? "";
+        abmStage          = a.abmStage ?? "";
         practiceSegment   = a.practiceSegment ?? "";
+        msaSigned         = a.msaSigned ?? "";
+        enterprisePilot   = a.enterprisePilot ?? "";
         city              = a.city ?? "";
         state             = a.state ?? "";
+        accountNotes      = a.notes ?? "";
       }
     }
 
@@ -161,14 +204,18 @@ router.post("/draft-email", async (req, res): Promise<void> => {
 
     const fullName = [firstName, lastName].filter(Boolean).join(" ") || "the contact";
     const micrositeNote = hasMicrosite
-      ? `A personalized microsite for ${accountName} is already live. Reference it naturally in the email using the exact placeholder [MICROSITE_URL] where the link should appear — do not write a real URL. Example: "I put together a quick look at how that works for ${accountName} — [MICROSITE_URL]"`
+      ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how Dandy would work for ${accountName} — [MICROSITE_URL]"`
       : "No microsite exists for this company yet. Do not mention a microsite or link.";
 
-    // ─── 5. Triple Perplexity research (parallel) ────────────────
+    // ─── 5. Research: Perplexity (news + LinkedIn) + Firecrawl (site) — all parallel ────
     const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
-    let newsResearch = "";
-    let siteResearch = "";
+    const FIRECRAWL_KEY  = process.env.FIRECRAWL_API_KEY;
+
+    let newsResearch     = "";
     let linkedinResearch = "";
+    let siteResearch     = "";
+
+    const researchTasks: Promise<void>[] = [];
 
     if (PERPLEXITY_KEY && accountName) {
       const newsQuery = `Research this person and company for a B2B sales team at Dandy (a dental lab platform for DSOs):
@@ -177,25 +224,12 @@ Person: ${fullName}${title ? `, ${title}` : ""}
 Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE: ${privateEquityFirm}` : ""}
 
 Search for:
-- "${fullName} ${accountName}" — news, conference talks, quotes, press mentions
-- "${accountName} expansion acquisition growth 2025 2026" — press releases, DSO news, job postings
-- Any recent (last 6 months) hook: new location, acquisition, leadership hire, partnership, award
+- "${fullName} ${accountName}" — news, conference talks, quotes, press mentions, industry publications (Dental Economics, DSO News, Group Dentistry Now)
+- "${accountName} expansion acquisition growth 2025 2026" — press releases, DSO news, PE announcements, job postings
+- If nothing found, try: "${accountName} dental group news" or "${fullName} dental"
 
-Return ONLY what you find. If nothing relevant, say "No recent news found." Be brief and specific.`;
+Return ONLY what you find. If nothing relevant in the last 6 months, say "No recent news found." Be brief and specific.`;
 
-      const siteQuery = domain
-        ? `Summarize the key facts about ${accountName} from their website at ${domain}. Focus on:
-- What type of dental organization they are (DSO, group practice, independent)
-- Number of locations or practices
-- Geographic footprint (states, regions, markets)
-- Any stated growth strategy, M&A activity, or expansion plans
-- Key leadership or brand positioning
-- Technology they mention using (scanners, digital workflow, etc.)
-
-Be factual and specific. Only include what's on the site.`
-        : "";
-
-      // LinkedIn profile research — use actual URL if available, fall back to name search
       const linkedinQuery = linkedinUrl
         ? `Look up this person's LinkedIn profile and summarize what you find:
 LinkedIn: ${linkedinUrl}
@@ -205,27 +239,45 @@ Title: ${title || "unknown"}
 
 Extract:
 - Current role and how long they've been there
-- Career background (previous companies, roles, industries)
+- Career background (previous companies, roles)
 - Any recent posts, articles, or public activity (last 6 months)
-- Education, certifications, or associations
-- Any stated interests, priorities, or professional focus areas
+- Stated interests, priorities, or professional focus areas
 
-Be specific and factual. Only report what you can find. Skip sections with no data.`
+Be specific and factual. Only report what you can find.`
         : `Search LinkedIn for ${fullName} at ${accountName}${title ? `, ${title}` : ""}.
-Extract career background, current role, any public posts or shared content, and professional interests.
+Extract career background, current role, any public posts, and professional interests.
 Only report what you can confirm.`;
 
-      [newsResearch, siteResearch, linkedinResearch] = await Promise.all([
-        perplexitySearch(PERPLEXITY_KEY, newsQuery),
-        domain ? perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]) : Promise.resolve(""),
-        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]),
-      ]);
+      researchTasks.push(
+        perplexitySearch(PERPLEXITY_KEY, newsQuery).then(r => { newsResearch = r; }),
+        perplexitySearch(PERPLEXITY_KEY, linkedinQuery, ["linkedin.com"]).then(r => { linkedinResearch = r; }),
+      );
     }
+
+    if (FIRECRAWL_KEY && domain) {
+      researchTasks.push(
+        firecrawlScrape(FIRECRAWL_KEY, domain).then(r => { siteResearch = r; }),
+      );
+    } else if (PERPLEXITY_KEY && domain && accountName) {
+      // Fallback: use Perplexity for site if no Firecrawl key
+      const siteQuery = `Summarize the key facts about ${accountName} from their website at ${domain}. Focus on:
+- What type of dental organization they are (DSO, group practice, independent)
+- Number of locations or practices
+- Geographic footprint (states, regions)
+- Any stated growth strategy, M&A activity, or expansion plans
+- Key leadership or brand positioning
+Be factual and specific. Only include what's on the site.`;
+      researchTasks.push(
+        perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]).then(r => { siteResearch = r; }),
+      );
+    }
+
+    await Promise.all(researchTasks);
 
     const researchBlock = [
       newsResearch && newsResearch !== "No recent news found."
-        ? `WEB NEWS:\n${newsResearch}`
-        : "WEB NEWS: No recent news found. Lead with a pain point.",
+        ? `WEB NEWS & PERSON RESEARCH:\n${newsResearch}`
+        : "WEB NEWS: No recent news found in last 6 months. Lead with a pain point instead.",
       linkedinResearch
         ? `LINKEDIN PROFILE (${fullName}):\n${linkedinResearch}`
         : "",
@@ -236,31 +288,37 @@ Only report what you can confirm.`;
           : "",
     ].filter(Boolean).join("\n\n");
 
-    // ─── 6. Build the contact/account context ────────────────────
+    // ─── 6. Build contact/account context ────────────────────────
     const locationStr = [city, state].filter(Boolean).join(", ");
     const accountContext = [
       `Company: ${accountName}`,
-      segment               && `Segment: ${segment}`,
-      practiceSegment       && `Practice Profile: ${practiceSegment}`,
-      dsoSize               && `DSO Size: ${dsoSize}`,
-      numLocations          && `Locations: ${numLocations}`,
-      privateEquityFirm     && `PE-backed by: ${privateEquityFirm}`,
-      locationStr           && `HQ: ${locationStr}`,
-      abmTier               && `ABM Tier: ${abmTier}`,
-      domain                && `Website: ${domain}`,
+      industry          && `Industry: ${industry}`,
+      segment           && `Segment: ${segment}`,
+      practiceSegment   && `Practice Profile: ${practiceSegment}`,
+      dsoSize           && `DSO Size: ${dsoSize}`,
+      numLocations      && `Locations: ${numLocations}`,
+      privateEquityFirm && `PE-backed by: ${privateEquityFirm}`,
+      locationStr       && `HQ: ${locationStr}`,
+      abmTier           && `ABM Tier: ${abmTier}`,
+      abmStage          && `ABM Stage: ${abmStage}`,
+      msaSigned === "1" && `MSA Status: Enterprise MSA already signed`,
+      enterprisePilot === "1" && `Pilot Status: Enterprise pilot already underway`,
+      domain            && `Website: ${domain}`,
+      accountNotes      && `Notes: ${accountNotes}`,
     ].filter(Boolean).join("\n");
 
     const contactContext = [
       `Name: ${fullName}`,
-      title                 && `Title: ${title}`,
-      titleLevel            && `Seniority: ${titleLevel}`,
-      (contactRole || department) && `Role/Dept: ${[contactRole, department].filter(Boolean).join(" / ")}`,
-      linkedinUrl           && `LinkedIn: ${linkedinUrl}`,
+      title             && `Title: ${title}`,
+      titleLevel        && `Seniority: ${titleLevel}`,
+      contactRole       && `Functional Role: ${contactRole}`,
+      department        && `Department: ${department}`,
+      buyerPersona      && `Buyer Persona: ${buyerPersona}`,
+      contactTier       && `ABM Contact Tier: ${contactTier}`,
+      linkedinUrl       && `LinkedIn: ${linkedinUrl}`,
     ].filter(Boolean).join("\n");
 
-    // ─── 7. Write the email ──────────────────────────────────────
-
-    // Build briefing block from stored account intelligence
+    // ─── 7. Build briefing block ──────────────────────────────────
     const briefingBlock = (() => {
       if (!briefing) return null;
       const parts: string[] = [];
@@ -268,31 +326,30 @@ Only report what you can confirm.`;
       const sl = briefing.sizeAndLocations;
       if (sl) {
         if (sl.locationCount) parts.push(`Locations: ${sl.locationCount}`);
-        if (sl.headquarters) parts.push(`HQ: ${sl.headquarters}`);
+        if (sl.headquarters)  parts.push(`HQ: ${sl.headquarters}`);
         if (sl.regions?.length) parts.push(`Regions: ${sl.regions.join(", ")}`);
-        if (sl.ownership) parts.push(`Ownership structure: ${sl.ownership}`);
+        if (sl.ownership)     parts.push(`Ownership structure: ${sl.ownership}`);
       }
       if (briefing.organizationalModel) parts.push(`Org model: ${briefing.organizationalModel}`);
       if (briefing.leadership?.length) {
         parts.push(`Leadership: ${briefing.leadership.map(l => `${l.name} (${l.title})`).join(", ")}`);
       }
       if (briefing.recentNews?.length) {
-        parts.push("\nRECENT NEWS (use only if < 6 months old):");
+        parts.push("\nRECENT NEWS (only use if < 6 months old):");
         briefing.recentNews.slice(0, 3).forEach(n => {
           parts.push(`- ${n.headline}${n.date ? ` (${n.date})` : ""}: ${n.summary}`);
         });
       }
       const fit = briefing.fitAnalysis;
       if (fit) {
-        if (fit.primaryValueProp) parts.push(`\nPrimary value prop for this account: ${fit.primaryValueProp}`);
+        if (fit.primaryValueProp)   parts.push(`\nPrimary value prop for this account: ${fit.primaryValueProp}`);
         if (fit.keyPainPoints?.length) parts.push(`Key pain points: ${fit.keyPainPoints.join(" | ")}`);
-        if (fit.proofPoints?.length) parts.push(`Proof points for this account: ${fit.proofPoints.join(" | ")}`);
-        if (fit.recommendedApproach) parts.push(`Recommended approach: ${fit.recommendedApproach}`);
+        if (fit.proofPoints?.length)   parts.push(`Proof points: ${fit.proofPoints.join(" | ")}`);
+        if (fit.recommendedApproach)   parts.push(`Recommended approach: ${fit.recommendedApproach}`);
       }
       if (briefing.talkingPoints?.length) {
         parts.push(`\nTalking points:\n${briefing.talkingPoints.map(t => `- ${t}`).join("\n")}`);
       }
-      // Find the committee entry most relevant to this contact's title/role
       if (briefing.buyingCommittee?.length) {
         const persona = [titleLevel, contactRole, title].filter(Boolean).join(" ").toLowerCase();
         let matched = briefing.buyingCommittee[0];
@@ -309,7 +366,10 @@ Only report what you can confirm.`;
       return parts.join("\n");
     })();
 
+    // ─── 8. Build the prompt ──────────────────────────────────────
     const prompt = `You write short, human cold emails for Dandy — a vertically integrated dental lab and clinical performance platform for DSOs.
+
+The research below was gathered before writing. Use it to find a specific, recent hook if one exists.
 
 === RESEARCH FINDINGS ===
 ${researchBlock}
@@ -327,50 +387,33 @@ Core message: "The world's fastest growing DSOs unlock more EBITDA with Dandy."
 
 Dandy is an end-to-end lab partner built for DSOs at the growth stage where acquisitions are slowing and same-store performance is the primary lever. By embedding standardized workflows, AI-driven quality control, and centralized visibility into the clinical process, Dandy turns the lab from a fragmented cost center into a scalable revenue engine.
 
-The four DSO pain points Dandy directly solves:
-1. Pressure on same-store growth — acquisition pipelines are slowing; DSOs must get more from existing practices
-2. Fragmented, non-actionable data — leaders have dashboards but can't intervene early or standardize outcomes
-3. Standardization vs. clinical autonomy — executives need consistency; doctors need to feel trust, not surveillance
-4. Capital constraints — scanner cost ($40-75K per operatory) limits deployment and production volume
+The four DSO pain points:
+1. Pressure on same-store growth
+2. Fragmented, non-actionable data
+3. Standardization vs. clinical autonomy
+4. Capital constraints ($40–75K per operatory)
 
-The five messaging pillars (pick the one most relevant to this contact's role):
-- "Same-store growth is the new growth engine" — the lab is one of the few remaining EBITDA levers
-- "Growth breaks without a standard that scales" — variability creeps in as networks expand; one standard prevents it
-- "Waste is the hidden tax on every DSO" — remakes and chair-time loss don't show as line items but quietly drain margin
-- "Visibility isn't reporting, it's control" — ability to intervene early, manage by exception, catch variability before it scales
-- "Enterprise growth shouldn't require enterprise risk" — validate value during a pilot before committing at scale
+The five messaging pillars (pick the most relevant to this contact's role):
+- "Same-store growth is the new growth engine"
+- "Growth breaks without a standard that scales"
+- "Waste is the hidden tax on every DSO"
+- "Visibility isn't reporting, it's control"
+- "Enterprise growth shouldn't require enterprise risk"
 
 === PROOF POINTS BY PERSONA ===
-CFO / Finance:
-- A $10 "savings" on a crown = $780 in lost value once remakes, chair time, and patient dropout are factored in. Across 50,000 procedures = $2M+ annual impact.
-- APEX Dental Partners reduced remake rate 29% → projected 12.5% increase in annualized revenue
-- Zero scanner CAPEX — Dandy placed $1.5M+ in free scanners at APEX; DCA (400 practices) got 100 scanners placed vs 4-6 with competitors
-- Month-to-month scanner terms — no 3-5 year penalty contracts like iTero/3Shape
 
-COO / VP Operations:
-- DCA had 400 practices and 400+ different lab relationships. Dan Gast: "It was a nightmare."
-- Dandy Hub = real-time dashboard across every location: remake rates, scanner utilization, who's ordering, case mix.
-- DCA consolidated to a preferred program without forcing doctors
-
-CDO / Clinical Director:
-- APEX remake rate down 29%; providers with consistent scanning habits hit zero remakes within a year
-- DCA remake rate ~1% — with full transparent tracking, not estimates
-- AI margin detection means RDAs handle prep review without pulling the doctor
-
-CEO / President:
-- APEX projected 12.5% revenue increase; unlocked previously unprofitable denture and complex case revenue
-- Low-risk entry: free scanner + lab credits = "almost a no-lose situation"
-
-Growth / M&A / Strategy:
-- Free intraoral scanner per operatory — eliminates the $40-75K capital barrier per location
-- Dandy scales with you: same workflow at 10 locations or 200+
+CFO / Finance: remake math ($780 lost value per crown), APEX 29% remake reduction, zero scanner CAPEX, month-to-month terms
+COO / Operations: DCA 400+ lab relationships consolidated, Dandy Hub dashboard, preferred program without forcing doctors
+CDO / Clinical: APEX zero remakes within a year, DCA ~1% remake rate, AI margin detection
+CEO / President: APEX 12.5% revenue increase, low-risk entry with free scanners
+Growth / M&A: eliminates $40–75K capital barrier, scales from 10 to 200+ locations
 
 === EMAIL FORMAT ===
 Subject: [subject line]
 
 Hi ${firstName || "[First Name]"},
 
-[1-sentence hook — use company website or news research if specific and recent, otherwise pain point tailored to their role]
+[1-sentence hook — research-based if recent and specific, otherwise a pain point tailored to their role]
 
 [1-sentence Dandy proof point with a real number or quote, matched to their persona]
 
@@ -378,20 +421,20 @@ Hi ${firstName || "[First Name]"},
 
 Best,
 
-=== RULES ===
+=== EMAIL RULES ===
 - 3 sentences max in the body. One sentence per line. Blank line between each.
-- Sound like a real person messaging a peer, not a sales rep filing an outreach task
-- RECENCY RULE: Only use news as a hook if it happened within the last 6 months. Older news — ignore and lead with a pain point.
-- Website research can always be used to make the hook more specific (location count, geography, growth stage, etc.)
+- Sound like a real person, not a sales rep
+- RECENCY RULE: Only use something as a hook if it happened within the last 6 months. Anything older — ignore it and lead with a pain point instead.
 - Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
-- No buzzwords: leverage, synergy, streamline, revolutionize, excited to connect, game-changer, innovative solution, transform, empower, robust, cutting-edge
+- No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
+- Don't over-explain Dandy
 - If a microsite exists, use the placeholder [MICROSITE_URL] exactly once where the link belongs naturally
 - CTA should be low-commitment ("Worth a quick call?" / "Happy to share the math?" / "Open to a 15-min chat?")
 - End with "Best,"
-- Subject line first, prefixed "Subject: ", then blank line, then body
 
-Output ONLY the email. Nothing else.`;
+Output only the email. Nothing else.`;
 
+    // ─── 9. Call AI ───────────────────────────────────────────────
     const response = await fetchWithTimeout(
       `${ai.baseURL}/chat/completions`,
       {
@@ -404,7 +447,7 @@ Output ONLY the email. Nothing else.`;
           model: "gpt-4o",
           temperature: 0.85,
           messages: [
-            { role: "system", content: "You are a world-class B2B sales email copywriter. Write exactly what is asked. Output only the email, nothing else." },
+            { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
             { role: "user", content: prompt },
           ],
         }),
@@ -435,8 +478,9 @@ Output ONLY the email. Nothing else.`;
       body,
       hasMicrosite,
       contactEmail,
-      researchUsed: !!(newsResearch && newsResearch !== "No recent news found."),
+      researchUsed:   !!(newsResearch && newsResearch !== "No recent news found."),
       siteResearched: !!siteResearch,
+      siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,
     });
   } catch (err) {
     console.error("POST /sales/draft-email error:", err);
