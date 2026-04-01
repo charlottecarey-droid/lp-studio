@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitText, SplitChars } from '../components/SplitText';
 import { AlertCard } from '../components/ui';
-import scanReviewVideo from '@assets/ai-scan-review.mp4';
+import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -84,19 +84,14 @@ export default function Scene2Clinical() {
                 <div key={i} className={`w-3 h-3 rounded-full ${c} opacity-70`} />
               ))}
               <div className="ml-3 flex-1 bg-white/5 rounded text-white/25 text-[0.75vw] px-3 py-0.5 font-mono">
-                Dandy AI · Scan Review
+                Dandy · Crown Thickness Analysis
               </div>
             </div>
 
-            <video
-              src={scanReviewVideo}
+            <img
+              src={ddpGif}
+              alt="Crown thickness analysis"
               className="w-full block"
-              autoPlay
-              muted
-              playsInline
-              loop
-              preload="auto"
-              style={{ display: 'block' }}
             />
 
             {/* Lime glow at bottom edge */}
