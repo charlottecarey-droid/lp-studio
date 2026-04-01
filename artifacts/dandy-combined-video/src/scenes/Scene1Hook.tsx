@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitText, SplitChars } from '../components/SplitText';
-import isiImg from '@assets/isi_1774822643018.png';
+import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
 export default function Scene1Hook() {
   return (
@@ -14,14 +14,24 @@ export default function Scene1Hook() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
     >
       <Background />
-      
-      {/* Background image slow scale */}
+
+      {/* DDP Thickness GIF — large, centred, atmospheric */}
       <motion.img
-        src={isiImg}
-        className="absolute inset-0 w-full h-full object-cover opacity-5 mix-blend-screen"
-        initial={{ scale: 1.06 }}
+        src={ddpGif}
+        alt=""
+        className="absolute inset-0 w-full h-full object-contain mix-blend-screen"
+        style={{ opacity: 0.28, filter: 'saturate(0.6) brightness(1.4)' }}
+        initial={{ scale: 1.08 }}
         animate={{ scale: 1.0 }}
         transition={{ duration: 5, ease: 'linear' }}
+      />
+      {/* Fade to dark at edges so GIF doesn't fight the text */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 30%, rgba(0,26,20,0.85) 100%)',
+        }}
       />
 
       <div className="relative z-10 flex flex-col items-center text-center">

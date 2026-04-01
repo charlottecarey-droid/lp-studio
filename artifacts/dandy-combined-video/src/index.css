@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Bagoss Standard';
+  src: url('./fonts/BagossStandard-Regular.woff2') format('woff2'),
+       url('./fonts/BagossStandard-Regular.woff') format('woff'),
+       url('./fonts/BagossStandard-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --color-primary: #001a14;
   --color-secondary: #003830;
@@ -18,8 +28,8 @@
   --color-warning: #F59E0B;
   --color-error: #EF4444;
 
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Bagoss Standard', 'Space Grotesk', sans-serif;
+  --font-body: 'Bagoss Standard', 'DM Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
