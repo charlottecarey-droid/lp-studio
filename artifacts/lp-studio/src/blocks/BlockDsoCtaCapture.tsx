@@ -79,8 +79,6 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
   const [emailError, setEmailError] = useState("");
 
   const [company, setCompany] = useState(prefillCompany ?? "");
-  const hasCompanyPrefill = Boolean(prefillCompany);
-  const [focusedCompany, setFocusedCompany] = useState(false);
 
   const [formState, setFormState] = useState<FormState>("idle");
   const [cpOpen, setCpOpen] = useState(false);
@@ -284,7 +282,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
               )}
             </motion.div>
           ) : (
-            /* ── Single-step form: email + optional company ── */
+            /* ── Single-step form: email ── */
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -357,36 +355,6 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
                   </p>
                 )}
 
-                {/* Optional company field */}
-                {!hasCompanyPrefill && (
-                  <div
-                    style={{
-                      display: "flex", alignItems: "center",
-                      background: inputBgColor,
-                      border: `1px solid ${focusedCompany ? borderFocused : borderDefault}`,
-                      borderRadius: 999,
-                      padding: "11px 22px",
-                      backdropFilter: "blur(12px)",
-                      boxShadow: focusedCompany ? `0 0 0 3px ${dark ? "rgba(199,231,56,0.08)" : "rgba(0,58,48,0.06)"}` : "none",
-                      transition: "border-color 0.2s, box-shadow 0.2s",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={company}
-                      onChange={e => setCompany(e.target.value)}
-                      placeholder="DSO / Practice group name (optional)"
-                      onFocus={() => setFocusedCompany(true)}
-                      onBlur={() => setFocusedCompany(false)}
-                      disabled={isLoading}
-                      style={{
-                        flex: 1, minWidth: 0,
-                        background: "none", border: "none", outline: "none",
-                        color: pfg, fontSize: "0.9375rem", fontFamily: "inherit",
-                      }}
-                    />
-                  </div>
-                )}
               </form>
             </motion.div>
           )}
