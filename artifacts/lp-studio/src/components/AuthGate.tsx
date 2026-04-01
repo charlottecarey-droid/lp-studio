@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
+import lpstudioLogo from "@/assets/lpstudio-logo.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,15 +81,21 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 function SignInPanel() {
-  const { refresh } = useAuth();
+  const { refresh, domainContext } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+
+  const isDandy = domainContext?.mode === "tenant-locked";
+  const logo = isDandy ? dandyLogo : lpstudioLogo;
+  const logoAlt = isDandy ? "Dandy" : "LP Studio";
+  const title = isDandy ? "Dandy — LP Studio" : "LP Studio";
+  const subtitle = isDandy ? "Sign in to continue" : "Sign in to your workspace";
 
   return (
     <div className="w-full max-w-sm space-y-6 text-center">
-      <img src={dandyLogo} alt="LP Studio" className="mx-auto h-10" />
+      <img src={logo} alt={logoAlt} className="mx-auto h-10" />
       <div>
-        <h1 className="text-xl font-semibold text-foreground">LP Studio</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
+        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </div>
 
       <div className="space-y-3">
@@ -124,12 +131,14 @@ function SignInPanel() {
           </>
         )}
 
-        <a
-          href="https://www.meetdandy.com"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        {isDandy && (
+          <a
+            href="https://www.meetdandy.com"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
       </div>
     </div>
   );
