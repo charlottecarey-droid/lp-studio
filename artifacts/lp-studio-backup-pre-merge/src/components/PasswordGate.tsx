@@ -1,6 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ExternalLink } from "lucide-react";
+import dandyLogo from "@/assets/dandy-logo.svg";
 
 const SESSION_KEY = "lp_studio_auth";
+const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const API_BASE = "/api";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
@@ -9,26 +14,59 @@ function isPublicRoute(path: string) {
   return PUBLIC_PREFIXES.some(prefix => path.startsWith(prefix));
 }
 
-export function PasswordGate({ children }: { children: React.ReactNode }) {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+function getStoredSession(): boolean {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    const { exp } = JSON.parse(raw);
+    if (Date.now() > exp) {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setStoredSession() {
+  const payload = JSON.stringify({ exp: Date.now() + TOKEN_EXPIRY_MS });
+  sessionStorage.setItem(SESSION_KEY, payload);
+  localStorage.setItem(SESSION_KEY, payload);
+}
+
+export function logoutAdmin() {
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  window.location.reload();
+}
+
+interface PasswordGateProps {
+  children: ReactNode;
+}
+
+export function PasswordGate({ children }: PasswordGateProps) {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const currentPath = window.location.pathname;
-
   useEffect(() => {
-    if (isPublicRoute(currentPath)) {
-      setAuthed(true);
+    if (isPublicRoute(window.location.pathname)) {
+      setAuthenticated(true);
       return;
     }
-    setAuthed(sessionStorage.getItem(SESSION_KEY) === "1");
-  }, [currentPath]);
+    setAuthenticated(getStoredSession());
+  }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
+  if (authenticated === null) return null;
+  if (authenticated) return <>{children}</>;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/verify-password`, {
         method: "POST",
@@ -36,135 +74,47 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        sessionStorage.setItem(SESSION_KEY, "1");
-        setAuthed(true);
+        setStoredSession();
+        setAuthenticated(true);
       } else {
-        setError("ERROR: The password you entered is incorrect.");
+        setError("Incorrect password");
         setPassword("");
       }
     } catch {
-      setError("ERROR: Unable to connect. Please try again.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (authed === null) return null;
-  if (authed) return <>{children}</>;
+  };
 
   return (
-    <div
-      style={{ backgroundColor: "#f0f0f1", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-    >
-      <div className="w-full" style={{ maxWidth: 320 }}>
-
-        <div className="text-center mb-6 select-none">
-          <div
-            style={{
-              display: "inline-block",
-              background: "#1a3a2a",
-              borderRadius: 14,
-              padding: "10px 22px 10px",
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ color: "#c8e86b", fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", lineHeight: 1.1 }}>
-              dandy
-            </div>
-            <div style={{ color: "#6b9e7a", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 2 }}>
-              — LP Studio —
-            </div>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6 text-center">
+        <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Admin Portal</h1>
+          <p className="text-sm text-muted-foreground mt-1">Enter password to continue</p>
         </div>
-
-        {error && (
-          <div
-            style={{
-              background: "#fff",
-              borderLeft: "4px solid #d63638",
-              padding: "12px 16px",
-              marginBottom: 16,
-              borderRadius: 3,
-              fontSize: 13,
-              color: "#d63638",
-            }}
+        <div className="space-y-3">
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoFocus
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading || !password}>
+            {loading ? "Verifying…" : "Enter"}
+          </Button>
+          <a
+            href="https://www.meetdandy.com"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            {error}
-          </div>
-        )}
-
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            background: "#fff",
-            borderRadius: 3,
-            padding: "26px 24px 24px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.13)",
-          }}
-        >
-          <p style={{ fontSize: 20, fontWeight: 600, color: "#1d2327", marginBottom: 20, marginTop: 0 }}>
-            Log in to LP Studio
-          </p>
-
-          <div style={{ marginBottom: 16 }}>
-            <label
-              htmlFor="lp-password"
-              style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#3c434a", marginBottom: 6 }}
-            >
-              Password
-            </label>
-            <input
-              id="lp-password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoFocus
-              autoComplete="current-password"
-              style={{
-                display: "block",
-                width: "100%",
-                boxSizing: "border-box",
-                height: 40,
-                padding: "0 12px",
-                fontSize: 14,
-                border: "1px solid #8c8f94",
-                borderRadius: 3,
-                color: "#2c3338",
-                outline: "none",
-                background: "#fff",
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = "#2271b1"; e.currentTarget.style.boxShadow = "0 0 0 1px #2271b1"; }}
-              onBlur={e => { e.currentTarget.style.borderColor = "#8c8f94"; e.currentTarget.style.boxShadow = "none"; }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !password}
-            style={{
-              width: "100%",
-              height: 40,
-              padding: "0 16px",
-              fontSize: 14,
-              fontWeight: 600,
-              background: loading || !password ? "#6b9e7a" : "#1a3a2a",
-              color: "#fff",
-              border: "none",
-              borderRadius: 3,
-              cursor: loading || !password ? "not-allowed" : "pointer",
-              transition: "background 0.15s",
-              letterSpacing: "0.01em",
-            }}
-          >
-            {loading ? "Logging in…" : "Log In"}
-          </button>
-        </form>
-
-        <p style={{ textAlign: "center", fontSize: 12, color: "#646970", marginTop: 20 }}>
-          Dandy · Internal Tool
-        </p>
-      </div>
+            Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </form>
     </div>
   );
 }
