@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg
 
 export const lpMediaTable = pgTable("lp_media", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   title: text("title").notNull(),
   url: text("url").notNull(),
   mediaType: text("media_type").notNull().default("video"),

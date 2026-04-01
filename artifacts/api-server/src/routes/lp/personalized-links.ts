@@ -127,6 +127,7 @@ async function sendPersonalizedLinkVisitAlert(
 const router = Router();
 
 router.post("/lp/personalized-links", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { pageId, contactName, company, email } = req.body as {
     pageId?: unknown;
     contactName?: unknown;
@@ -145,7 +146,7 @@ router.post("/lp/personalized-links", async (req, res): Promise<void> => {
 
   try {
     const pageResult = await db.execute(sql`
-      SELECT id, title, slug FROM lp_pages WHERE id = ${pageId} LIMIT 1
+      SELECT id, title, slug FROM lp_pages WHERE id = ${pageId} AND tenant_id = ${tenantId} LIMIT 1
     `);
     if (!pageResult.rows.length) {
       res.status(404).json({ error: "Page not found" });
@@ -154,8 +155,8 @@ router.post("/lp/personalized-links", async (req, res): Promise<void> => {
 
     const token = await generateUniqueToken();
     const insertResult = await db.execute(sql`
-      INSERT INTO lp_personalized_links (page_id, contact_name, company, email, token)
-      VALUES (${pageId}, ${contactName.trim()}, ${company ? String(company).trim() : null}, ${email ? String(email).trim() : null}, ${token})
+      INSERT INTO lp_personalized_links (tenant_id, page_id, contact_name, company, email, token)
+      VALUES (${tenantId}, ${pageId}, ${contactName.trim()}, ${company ? String(company).trim() : null}, ${email ? String(email).trim() : null}, ${token})
       RETURNING id, page_id, contact_name, company, email, token, created_at
     `);
     res.status(201).json((insertResult.rows[0] as LinkRow));
@@ -166,6 +167,7 @@ router.post("/lp/personalized-links", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/personalized-links", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const pageId = req.query.pageId ? parseInt(String(req.query.pageId), 10) : null;
   if (!pageId || isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -188,7 +190,7 @@ router.get("/lp/personalized-links", async (req, res): Promise<void> => {
         COALESCE(SUM(plv.cta_clicks), 0)::int AS total_cta_clicks
       FROM lp_personalized_links pl
       LEFT JOIN lp_personalized_link_visits plv ON plv.link_id = pl.id
-      WHERE pl.page_id = ${pageId}
+      WHERE pl.page_id = ${pageId} AND pl.tenant_id = ${tenantId}
       GROUP BY pl.id
       ORDER BY pl.created_at DESC
     `);
@@ -348,12 +350,13 @@ router.delete("/lp/page-alert-emails/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/personalized-links/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  await db.execute(sql`DELETE FROM lp_personalized_links WHERE id = ${id}`);
+  await db.execute(sql`DELETE FROM lp_personalized_links WHERE id = ${id} AND tenant_id = ${tenantId}`);
   res.json({ success: true });
 });
 

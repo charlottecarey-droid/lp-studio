@@ -28,6 +28,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
  *   - Otherwise → insert (no dedup)
  */
 router.post("/import/contacts", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { rows } = req.body;
 
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -115,8 +116,8 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   // Batch lookup by salesforceId (raw SQL to avoid Drizzle query-builder issues with large arrays)
   if (sfdcKeys.length > 0) {
     const { rows: foundAccs } = await pool.query<{ id: number; salesforce_id: string }>(
-      `SELECT id, salesforce_id FROM sales_accounts WHERE salesforce_id = ANY($1::text[])`,
-      [sfdcKeys]
+      `SELECT id, salesforce_id FROM sales_accounts WHERE salesforce_id = ANY($1::text[]) AND tenant_id = $2`,
+      [sfdcKeys, tenantId]
     );
     for (const acc of foundAccs) {
       if (acc.salesforce_id) accountIdMap.set(acc.salesforce_id, acc.id);
@@ -127,8 +128,8 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   for (const nameKey of nameKeys) {
     const name = nameKey.slice(5); // strip "name:" prefix
     const { rows } = await pool.query<{ id: number }>(
-      `SELECT id FROM sales_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
-      [name]
+      `SELECT id FROM sales_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND tenant_id = $2 LIMIT 1`,
+      [name, tenantId]
     );
     if (rows[0]) accountIdMap.set(nameKey, rows[0].id);
   }
@@ -149,6 +150,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       const [newAcc] = await db
         .insert(salesAccountsTable)
         .values({
+          tenantId,
           salesforceId: isSfdc ? key : null,
           name,
           status: "prospect",
@@ -188,8 +190,8 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     const sfdcContactIds = upsertRows.map(r => r.sfdcContactId!);
     for (const batch of chunk(sfdcContactIds, 500)) {
       const { rows: foundContacts } = await pool.query<{ id: number; salesforce_id: string }>(
-        `SELECT id, salesforce_id FROM sales_contacts WHERE salesforce_id = ANY($1::text[])`,
-        [batch]
+        `SELECT id, salesforce_id FROM sales_contacts WHERE salesforce_id = ANY($1::text[]) AND tenant_id = $2`,
+        [batch, tenantId]
       );
       for (const c of foundContacts) {
         if (c.salesforce_id) existingContactMap.set(c.salesforce_id, c.id);
@@ -228,6 +230,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
 
   // Batch insert all new contacts (pure inserts + upsert rows that didn't exist)
   type ContactInsert = {
+    tenantId: number;
     accountId: number;
     salesforceId: string | null;
     firstName: string;
@@ -252,6 +255,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
       ? (r.status as "active" | "unsubscribed" | "bounced")
       : "active";
     toInsert.push({
+      tenantId,
       accountId,
       salesforceId: r.sfdcContactId ?? null,
       firstName: r.firstName,

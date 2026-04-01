@@ -1,16 +1,18 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesEmailTemplatesTable } from "@workspace/db";
 
 const router = Router();
 
 // List all templates
-router.get("/templates", async (_req, res): Promise<void> => {
+router.get("/templates", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const templates = await db
       .select()
       .from(salesEmailTemplatesTable)
+      .where(eq(salesEmailTemplatesTable.tenantId, tenantId))
       .orderBy(desc(salesEmailTemplatesTable.updatedAt));
     res.json(templates);
   } catch (err) {
@@ -22,10 +24,11 @@ router.get("/templates", async (_req, res): Promise<void> => {
 // Get single template
 router.get("/templates/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [template] = await db
       .select()
       .from(salesEmailTemplatesTable)
-      .where(eq(salesEmailTemplatesTable.id, Number(req.params.id)));
+      .where(and(eq(salesEmailTemplatesTable.tenantId, tenantId), eq(salesEmailTemplatesTable.id, Number(req.params.id))));
     if (!template) {
       res.status(404).json({ error: "Template not found" });
       return;
@@ -39,6 +42,7 @@ router.get("/templates/:id", async (req, res): Promise<void> => {
 
 // Create template
 router.post("/templates", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { name, subject, bodyHtml, bodyText, mergeVars, category, format } = req.body;
   if (!name || !subject) {
     res.status(400).json({ error: "name and subject are required" });
@@ -48,6 +52,7 @@ router.post("/templates", async (req, res): Promise<void> => {
     const [template] = await db
       .insert(salesEmailTemplatesTable)
       .values({
+        tenantId,
         name,
         subject,
         bodyHtml: bodyHtml ?? "",
@@ -67,6 +72,7 @@ router.post("/templates", async (req, res): Promise<void> => {
 // Update template
 router.patch("/templates/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const updates: Record<string, unknown> = {};
     const fields = ["name", "subject", "bodyHtml", "bodyText", "mergeVars", "category", "format", "isActive"];
     for (const f of fields) {
@@ -76,7 +82,7 @@ router.patch("/templates/:id", async (req, res): Promise<void> => {
     const [updated] = await db
       .update(salesEmailTemplatesTable)
       .set(updates)
-      .where(eq(salesEmailTemplatesTable.id, Number(req.params.id)))
+      .where(and(eq(salesEmailTemplatesTable.tenantId, tenantId), eq(salesEmailTemplatesTable.id, Number(req.params.id))))
       .returning();
 
     if (!updated) {
@@ -93,9 +99,10 @@ router.patch("/templates/:id", async (req, res): Promise<void> => {
 // Delete template
 router.delete("/templates/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [deleted] = await db
       .delete(salesEmailTemplatesTable)
-      .where(eq(salesEmailTemplatesTable.id, Number(req.params.id)))
+      .where(and(eq(salesEmailTemplatesTable.tenantId, tenantId), eq(salesEmailTemplatesTable.id, Number(req.params.id))))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Template not found" });

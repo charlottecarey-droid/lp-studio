@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesEmailCampaignsTable,
@@ -71,11 +71,13 @@ async function sendViaResend(payload: {
 
 // ─── Campaign CRUD ──────────────────────────────────────────
 
-router.get("/campaigns", async (_req, res): Promise<void> => {
+router.get("/campaigns", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const campaigns = await db
       .select()
       .from(salesEmailCampaignsTable)
+      .where(eq(salesEmailCampaignsTable.tenantId, tenantId))
       .orderBy(desc(salesEmailCampaignsTable.updatedAt));
     res.json(campaigns);
   } catch (err) {
@@ -86,10 +88,11 @@ router.get("/campaigns", async (_req, res): Promise<void> => {
 
 router.get("/campaigns/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [campaign] = await db
       .select()
       .from(salesEmailCampaignsTable)
-      .where(eq(salesEmailCampaignsTable.id, Number(req.params.id)));
+      .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, Number(req.params.id))));
     if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
     res.json(campaign);
   } catch (err) {
@@ -99,6 +102,7 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
 });
 
 router.post("/campaigns", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { name, templateId, accountId, status, scheduledAt, metadata } = req.body;
   if (!name || !templateId) {
     res.status(400).json({ error: "name and templateId are required" });
@@ -108,6 +112,7 @@ router.post("/campaigns", async (req, res): Promise<void> => {
     const [campaign] = await db
       .insert(salesEmailCampaignsTable)
       .values({
+        tenantId,
         name,
         templateId: Number(templateId),
         accountId: accountId ? Number(accountId) : null,
@@ -125,6 +130,7 @@ router.post("/campaigns", async (req, res): Promise<void> => {
 
 router.patch("/campaigns/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const updates: Record<string, unknown> = {};
     const fields = ["name", "templateId", "accountId", "status", "scheduledAt", "recipientCount", "metadata"];
     for (const f of fields) {
@@ -133,7 +139,7 @@ router.patch("/campaigns/:id", async (req, res): Promise<void> => {
     const [updated] = await db
       .update(salesEmailCampaignsTable)
       .set(updates)
-      .where(eq(salesEmailCampaignsTable.id, Number(req.params.id)))
+      .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, Number(req.params.id))))
       .returning();
     if (!updated) { res.status(404).json({ error: "Campaign not found" }); return; }
     res.json(updated);
@@ -145,9 +151,10 @@ router.patch("/campaigns/:id", async (req, res): Promise<void> => {
 
 router.delete("/campaigns/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [deleted] = await db
       .delete(salesEmailCampaignsTable)
-      .where(eq(salesEmailCampaignsTable.id, Number(req.params.id)))
+      .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, Number(req.params.id))))
       .returning();
     if (!deleted) { res.status(404).json({ error: "Campaign not found" }); return; }
     res.json({ ok: true });

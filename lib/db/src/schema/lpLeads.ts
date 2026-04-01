@@ -5,6 +5,7 @@ import { lpPagesTable } from "./lpPages";
 
 export const lpLeadsTable = pgTable("lp_leads", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   variantId: integer("variant_id"),
   fields: jsonb("fields").notNull().default({}),

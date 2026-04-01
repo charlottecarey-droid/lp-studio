@@ -1,19 +1,22 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpFormsTable } from "@workspace/db";
 
 const router = Router();
 
-router.get("/lp/forms", async (_req, res): Promise<void> => {
+router.get("/lp/forms", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const forms = await db
     .select()
     .from(lpFormsTable)
+    .where(eq(lpFormsTable.tenantId, tenantId))
     .orderBy(desc(lpFormsTable.createdAt));
   res.json(forms);
 });
 
 router.post("/lp/forms", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { name, description } = req.body as { name?: string; description?: string };
   if (!name?.trim()) {
     res.status(400).json({ error: "name is required" });
@@ -22,6 +25,7 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
   const [form] = await db
     .insert(lpFormsTable)
     .values({
+      tenantId,
       name: name.trim(),
       description: description?.trim() ?? null,
       steps: [{ title: "Step 1", fields: [{ id: `field-${Date.now()}`, type: "email", label: "Email Address", required: true }] }],
@@ -40,14 +44,18 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/forms/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
-  const [form] = await db.select().from(lpFormsTable).where(eq(lpFormsTable.id, id));
+  const [form] = await db.select().from(lpFormsTable).where(
+    and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id))
+  );
   if (!form) { res.status(404).json({ error: "Form not found" }); return; }
   res.json(form);
 });
 
 router.put("/lp/forms/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
 
@@ -64,16 +72,19 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
   const [form] = await db
     .update(lpFormsTable)
     .set(updates)
-    .where(eq(lpFormsTable.id, id))
+    .where(and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id)))
     .returning();
   if (!form) { res.status(404).json({ error: "Form not found" }); return; }
   res.json(form);
 });
 
 router.delete("/lp/forms/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
-  await db.delete(lpFormsTable).where(eq(lpFormsTable.id, id));
+  await db.delete(lpFormsTable).where(
+    and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id))
+  );
   res.json({ success: true });
 });
 

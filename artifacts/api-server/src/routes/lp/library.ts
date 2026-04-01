@@ -12,13 +12,14 @@ function isValidType(t: string): t is LibraryType {
 }
 
 router.get("/lp/library/:type", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { type } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   try {
     const rows = await db.execute(
       sql`SELECT id, type, name, content, is_default, sort_order, created_at, updated_at
           FROM lp_library_items
-          WHERE type = ${type}
+          WHERE type = ${type} AND tenant_id = ${tenantId}
           ORDER BY sort_order ASC, id ASC`
     );
     res.json(rows.rows);
@@ -28,14 +29,15 @@ router.get("/lp/library/:type", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/library/:type", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { type } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   const { name, content, is_default } = req.body;
   try {
     const result = await db.execute(
-      sql`INSERT INTO lp_library_items (type, name, content, is_default, sort_order)
-          VALUES (${type}, ${name ?? ""}, ${JSON.stringify(content)}::jsonb, ${is_default ?? false},
-                  COALESCE((SELECT MAX(sort_order) + 1 FROM lp_library_items WHERE type = ${type}), 0))
+      sql`INSERT INTO lp_library_items (tenant_id, type, name, content, is_default, sort_order)
+          VALUES (${tenantId}, ${type}, ${name ?? ""}, ${JSON.stringify(content)}::jsonb, ${is_default ?? false},
+                  COALESCE((SELECT MAX(sort_order) + 1 FROM lp_library_items WHERE type = ${type} AND tenant_id = ${tenantId}), 0))
           RETURNING *`
     );
     res.json(result.rows[0]);
@@ -45,6 +47,7 @@ router.post("/lp/library/:type", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { type, id } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   const { name, content, is_default, sort_order } = req.body;
@@ -55,25 +58,10 @@ router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
               is_default = ${is_default ?? false},
               sort_order = COALESCE(${sort_order ?? null}, sort_order),
               updated_at = now()
-          WHERE id = ${Number(id)} AND type = ${type}
+          WHERE id = ${Number(id)} AND type = ${type} AND tenant_id = ${tenantId}
           RETURNING *`
     );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-router.patch("/lp/library/:type/:id/default", async (req, res): Promise<void> => {
-  const { type, id } = req.params;
-  if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
-  try {
-    const result = await db.execute(
-      sql`UPDATE lp_library_items
-          SET is_default = NOT is_default, updated_at = now()
-          WHERE id = ${Number(id)} AND type = ${type}
-          RETURNING *`
-    );
+    if (!result.rows.length) { res.status(404).json({ error: "Item not found" }); return; }
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -81,11 +69,12 @@ router.patch("/lp/library/:type/:id/default", async (req, res): Promise<void> =>
 });
 
 router.delete("/lp/library/:type/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { type, id } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   try {
     await db.execute(
-      sql`DELETE FROM lp_library_items WHERE id = ${Number(id)} AND type = ${type}`
+      sql`DELETE FROM lp_library_items WHERE id = ${Number(id)} AND type = ${type} AND tenant_id = ${tenantId}`
     );
     res.json({ ok: true });
   } catch (err) {

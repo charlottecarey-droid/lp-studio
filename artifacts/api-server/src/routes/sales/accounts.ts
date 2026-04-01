@@ -11,11 +11,13 @@ import {
 const router = Router();
 
 // List all accounts
-router.get("/accounts", async (_req, res): Promise<void> => {
+router.get("/accounts", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const accounts = await db
       .select()
       .from(salesAccountsTable)
+      .where(eq(salesAccountsTable.tenantId, tenantId))
       .orderBy(desc(salesAccountsTable.updatedAt));
     res.json(accounts);
   } catch (err) {
@@ -27,10 +29,11 @@ router.get("/accounts", async (_req, res): Promise<void> => {
 // Get single account
 router.get("/accounts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [account] = await db
       .select()
       .from(salesAccountsTable)
-      .where(eq(salesAccountsTable.id, Number(req.params.id)));
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, Number(req.params.id))));
     if (!account) {
       res.status(404).json({ error: "Account not found" });
       return;
@@ -44,6 +47,7 @@ router.get("/accounts/:id", async (req, res): Promise<void> => {
 
 // Create account
 router.post("/accounts", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
@@ -53,6 +57,7 @@ router.post("/accounts", async (req, res): Promise<void> => {
     const [account] = await db
       .insert(salesAccountsTable)
       .values({
+        tenantId,
         sfdcId: sfdcId ?? null,
         name,
         domain: domain ?? null,
@@ -75,6 +80,7 @@ router.post("/accounts", async (req, res): Promise<void> => {
 // Update account
 router.patch("/accounts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
@@ -91,7 +97,7 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
     const [updated] = await db
       .update(salesAccountsTable)
       .set(updates)
-      .where(eq(salesAccountsTable.id, Number(req.params.id)))
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, Number(req.params.id))))
       .returning();
 
     if (!updated) {
@@ -108,9 +114,10 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
 // Delete account
 router.delete("/accounts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [deleted] = await db
       .delete(salesAccountsTable)
-      .where(eq(salesAccountsTable.id, Number(req.params.id)))
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, Number(req.params.id))))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Account not found" });
@@ -123,10 +130,11 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Delete ALL accounts (cascades to contacts, signals, briefings)
-router.delete("/accounts", async (_req, res): Promise<void> => {
+// Delete ALL accounts for tenant (cascades to contacts, signals, briefings)
+router.delete("/accounts", async (req, res): Promise<void> => {
   try {
-    await db.execute(sql`TRUNCATE sales_accounts CASCADE`);
+    const tenantId = req.authUser?.tenantId ?? 1;
+    await db.delete(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
     res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /sales/accounts error:", err);
@@ -153,10 +161,19 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
 }
 
 // GET /accounts/:id/microsites — list distinct pages for this account
-// Found via: (a) hotlinks on account contacts, OR (b) pageVariables.salesAccountId tag
 router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const accountId = Number(req.params.id);
+
+    // Verify account belongs to this tenant
+    const [account] = await db.select({ id: salesAccountsTable.id })
+      .from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, accountId)));
+    if (!account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
 
     // Path A: pages found through hotlinks on this account's contacts
     const contacts = await db.select({ id: salesContactsTable.id })
@@ -172,9 +189,12 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
 
     const hotlinkPageIds = new Set(allHotlinks.map(h => h.pageId));
 
-    // Path B: pages tagged with salesAccountId in pageVariables
+    // Path B: pages tagged with salesAccountId in pageVariables (scoped to tenant)
     const taggedPages = await db.select().from(lpPagesTable)
-      .where(sql`${lpPagesTable.pageVariables}->>'salesAccountId' = ${String(accountId)}`);
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        sql`${lpPagesTable.pageVariables}->>'salesAccountId' = ${String(accountId)}`
+      ));
 
     const taggedPageIds = new Set(taggedPages.map(p => p.id));
 
@@ -190,7 +210,9 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
     const results = [];
     for (const pageId of allPageIds) {
       const page = taggedPages.find(p => p.id === pageId) ??
-        (await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId)))[0];
+        (await db.select().from(lpPagesTable).where(
+          and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId))
+        ))[0];
       if (!page) continue;
 
       const pageHotlinks = allHotlinks.filter(h => h.pageId === pageId);
@@ -226,7 +248,17 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
   }
 
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const accountId = Number(req.params.id);
+
+    // Verify account belongs to this tenant
+    const [account] = await db.select({ id: salesAccountsTable.id })
+      .from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, accountId)));
+    if (!account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
 
     // Get all contacts for this account that have an email
     const contacts = await db.select().from(salesContactsTable)

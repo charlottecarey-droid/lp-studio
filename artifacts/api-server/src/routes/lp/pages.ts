@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -13,11 +14,13 @@ function isDbError(err: unknown): err is DbError {
   return typeof err === "object" && err !== null && "code" in err;
 }
 
-router.get("/lp/pages", async (_req, res): Promise<void> => {
+router.get("/lp/pages", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const pages = await db
       .select()
       .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId))
       .orderBy(lpPagesTable.createdAt);
     res.json(pages);
   } catch (err) {
@@ -28,12 +31,13 @@ router.get("/lp/pages", async (_req, res): Promise<void> => {
 });
 
 // List all marketing-defined templates (pages with isTemplate = true)
-router.get("/lp/templates", async (_req, res): Promise<void> => {
+router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const templates = await db
       .select()
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.isTemplate, true))
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, true)))
       .orderBy(asc(lpPagesTable.templateLabel));
     res.json(templates);
   } catch (err) {
@@ -43,6 +47,7 @@ router.get("/lp/templates", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
     ogImage, animationsEnabled, pageVariables, fromTemplateId,
@@ -77,7 +82,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   let sourceOgImage = "";
   let sourcePageVariables: Record<string, string> = {};
   if (typeof fromTemplateId === "number") {
-    const [source] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, fromTemplateId));
+    const [source] = await db.select().from(lpPagesTable).where(
+      and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, fromTemplateId))
+    );
     if (source) {
       sourceBlocks = Array.isArray(source.blocks) ? source.blocks : [];
       sourceCss = source.customCss ?? "";
@@ -95,6 +102,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     const [page] = await db
       .insert(lpPagesTable)
       .values({
+        tenantId,
         title,
         slug,
         // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
@@ -121,12 +129,15 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, id));
+  const [page] = await db.select().from(lpPagesTable).where(
+    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+  );
   if (!page) {
     res.status(404).json({ error: "Page not found" });
     return;
@@ -135,6 +146,7 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -169,7 +181,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     const [page] = await db
       .update(lpPagesTable)
       .set(updates)
-      .where(eq(lpPagesTable.id, id))
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
       .returning();
     if (!page) {
       res.status(404).json({ error: "Page not found" });
@@ -187,6 +199,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
 
 // Mark or unmark a page as a microsite template
 router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -206,7 +219,7 @@ router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> 
         templateLabel: typeof templateLabel === "string" ? templateLabel.trim() : null,
         templateDescription: typeof templateDescription === "string" ? templateDescription.trim() : null,
       })
-      .where(eq(lpPagesTable.id, id))
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
       .returning();
     if (!page) {
       res.status(404).json({ error: "Page not found" });
@@ -220,12 +233,15 @@ router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> 
 });
 
 router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const [source] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, id));
+  const [source] = await db.select().from(lpPagesTable).where(
+    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+  );
   if (!source) {
     res.status(404).json({ error: "Page not found" });
     return;
@@ -244,6 +260,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
     const [page] = await db
       .insert(lpPagesTable)
       .values({
+        tenantId,
         title: `Copy of ${source.title}`,
         slug,
         blocks: Array.isArray(source.blocks) ? source.blocks : [],
@@ -264,12 +281,13 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  await db.delete(lpPagesTable).where(eq(lpPagesTable.id, id));
+  await db.delete(lpPagesTable).where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
   res.json({ ok: true });
 });
 

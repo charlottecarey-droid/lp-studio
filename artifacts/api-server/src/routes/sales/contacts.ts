@@ -8,8 +8,14 @@ const router = Router();
 // List all contacts (optionally filter by accountId) — joins accounts for segment/stage/owner
 router.get("/contacts", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const { accountId } = req.query;
-    const baseQuery = db
+
+    const baseWhere = accountId
+      ? and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, Number(accountId)))
+      : eq(salesContactsTable.tenantId, tenantId);
+
+    const contacts = await db
       .select({
         id: salesContactsTable.id,
         salesforceId: salesContactsTable.salesforceId,
@@ -36,11 +42,9 @@ router.get("/contacts", async (req, res): Promise<void> => {
         dsoSize: salesAccountsTable.dsoSize,
       })
       .from(salesContactsTable)
-      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id));
-
-    const contacts = accountId
-      ? await baseQuery.where(eq(salesContactsTable.accountId, Number(accountId))).orderBy(desc(salesContactsTable.createdAt))
-      : await baseQuery.orderBy(desc(salesContactsTable.createdAt));
+      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+      .where(baseWhere)
+      .orderBy(desc(salesContactsTable.createdAt));
 
     res.json(contacts);
   } catch (err) {
@@ -52,10 +56,11 @@ router.get("/contacts", async (req, res): Promise<void> => {
 // Get contacts for a specific account (nested route)
 router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const contacts = await db
       .select()
       .from(salesContactsTable)
-      .where(eq(salesContactsTable.accountId, Number(req.params.accountId)))
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, Number(req.params.accountId))))
       .orderBy(desc(salesContactsTable.createdAt));
     res.json(contacts);
   } catch (err) {
@@ -67,8 +72,9 @@ router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
 // Get single contact by id
 router.get("/contacts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [contact] = await db.select().from(salesContactsTable)
-      .where(eq(salesContactsTable.id, Number(req.params.id)));
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))));
     if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
     res.json(contact);
   } catch (err) {
@@ -79,6 +85,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
 
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { accountId, sfdcId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
   if (!accountId || !firstName || !lastName) {
     res.status(400).json({ error: "accountId, firstName, and lastName are required" });
@@ -88,6 +95,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
     const [contact] = await db
       .insert(salesContactsTable)
       .values({
+        tenantId,
         sfdcId: sfdcId ?? null,
         accountId: Number(accountId),
         firstName,
@@ -110,6 +118,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
 // Update contact
 router.patch("/contacts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const updates: Record<string, unknown> = {};
     const fields = ["sfdcId", "firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
     for (const f of fields) {
@@ -119,7 +128,7 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
     const [updated] = await db
       .update(salesContactsTable)
       .set(updates)
-      .where(eq(salesContactsTable.id, Number(req.params.id)))
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))))
       .returning();
 
     if (!updated) {
@@ -136,9 +145,10 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
 // Delete contact
 router.delete("/contacts/:id", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const [deleted] = await db
       .delete(salesContactsTable)
-      .where(eq(salesContactsTable.id, Number(req.params.id)))
+      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Contact not found" });
@@ -151,10 +161,13 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Delete ALL contacts
-router.delete("/contacts", async (_req, res): Promise<void> => {
+// Delete ALL contacts for this tenant
+router.delete("/contacts", async (req, res): Promise<void> => {
   try {
-    const deleted = await db.delete(salesContactsTable).returning({ id: salesContactsTable.id });
+    const tenantId = req.authUser?.tenantId ?? 1;
+    const deleted = await db.delete(salesContactsTable)
+      .where(eq(salesContactsTable.tenantId, tenantId))
+      .returning({ id: salesContactsTable.id });
     res.json({ ok: true, deleted: deleted.length });
   } catch (err) {
     console.error("DELETE /sales/contacts error:", err);
@@ -163,8 +176,6 @@ router.delete("/contacts", async (_req, res): Promise<void> => {
 });
 
 // ─── Bulk CSV Import ─────────────────────────────────────────
-// Accepts an array of mapped rows; finds-or-creates accounts by name,
-// deduplicates contacts by email+accountId, returns result counts.
 interface ImportRow {
   firstName: string;
   lastName: string;
@@ -178,8 +189,8 @@ interface ImportRow {
   department?: string;
   linkedinUrl?: string;
   status?: string;
-  sfdcAccountId?: string;  // Salesforce Account ID — preferred join key
-  accountName?: string;    // Account name — fallback join key
+  sfdcAccountId?: string;
+  accountName?: string;
   accountId?: number;
   accountDomain?: string;
   accountSegment?: string;
@@ -187,6 +198,7 @@ interface ImportRow {
 }
 
 router.post("/contacts/import", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { rows } = req.body as { rows: ImportRow[] };
 
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -198,7 +210,6 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
   let skipped = 0;
   const errors: Array<{ row: number; message: string }> = [];
 
-  // Cache account lookups within the request to avoid redundant queries
   const accountCache = new Map<string, number>();
 
   for (let i = 0; i < rows.length; i++) {
@@ -211,7 +222,6 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
 
       let accountId = row.accountId ? Number(row.accountId) : null;
 
-      // Find or create account by name if no accountId provided
       if (!accountId && row.accountName?.trim()) {
         const normalizedName = row.accountName.trim().toLowerCase();
         if (accountCache.has(normalizedName)) {
@@ -220,7 +230,10 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
           const [existing] = await db
             .select({ id: salesAccountsTable.id })
             .from(salesAccountsTable)
-            .where(ilike(salesAccountsTable.name, row.accountName.trim()))
+            .where(and(
+              eq(salesAccountsTable.tenantId, tenantId),
+              ilike(salesAccountsTable.name, row.accountName.trim()),
+            ))
             .limit(1);
 
           if (existing) {
@@ -229,6 +242,7 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
             const [newAccount] = await db
               .insert(salesAccountsTable)
               .values({
+                tenantId,
                 name: row.accountName.trim(),
                 domain: row.accountDomain?.trim() || null,
                 segment: row.accountSegment?.trim() || null,
@@ -253,6 +267,7 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
           .select({ id: salesContactsTable.id })
           .from(salesContactsTable)
           .where(and(
+            eq(salesContactsTable.tenantId, tenantId),
             eq(salesContactsTable.accountId, accountId),
             ilike(salesContactsTable.email, row.email.trim()),
           ))
@@ -265,6 +280,7 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
       }
 
       await db.insert(salesContactsTable).values({
+        tenantId,
         accountId,
         firstName: row.firstName.trim(),
         lastName: row.lastName.trim(),

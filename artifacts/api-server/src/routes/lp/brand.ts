@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable } from "@workspace/db";
 
@@ -20,8 +21,11 @@ const DEFAULT_CONFIG = {
   },
 };
 
-router.get("/lp/brand", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(lpBrandSettingsTable).limit(1);
+router.get("/lp/brand", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
+  const rows = await db.select().from(lpBrandSettingsTable)
+    .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+    .limit(1);
   if (rows.length === 0) {
     res.json(DEFAULT_CONFIG);
     return;
@@ -30,19 +34,23 @@ router.get("/lp/brand", async (_req, res): Promise<void> => {
 });
 
 router.put("/lp/brand", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const config = req.body;
   if (!config || typeof config !== "object") {
     res.status(400).json({ error: "Invalid config" });
     return;
   }
-  const existing = await db.select().from(lpBrandSettingsTable).limit(1);
+  const existing = await db.select().from(lpBrandSettingsTable)
+    .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+    .limit(1);
   if (existing.length === 0) {
-    const [row] = await db.insert(lpBrandSettingsTable).values({ config }).returning();
+    const [row] = await db.insert(lpBrandSettingsTable).values({ tenantId, config }).returning();
     res.json(row.config);
   } else {
     const [row] = await db
       .update(lpBrandSettingsTable)
       .set({ config, updatedAt: new Date() })
+      .where(and(eq(lpBrandSettingsTable.tenantId, tenantId), eq(lpBrandSettingsTable.id, existing[0].id)))
       .returning();
     res.json(row.config);
   }

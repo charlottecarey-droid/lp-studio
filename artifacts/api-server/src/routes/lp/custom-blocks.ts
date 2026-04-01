@@ -4,11 +4,13 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-router.get("/lp/custom-blocks", async (_req, res): Promise<void> => {
+router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const rows = await db.execute(
       sql`SELECT id, name, block_type, props, block_settings, segment, sort_order, created_at, updated_at
           FROM lp_custom_blocks
+          WHERE tenant_id = ${tenantId}
           ORDER BY sort_order ASC, id ASC`
     );
     res.json(rows.rows);
@@ -18,6 +20,7 @@ router.get("/lp/custom-blocks", async (_req, res): Promise<void> => {
 });
 
 router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
     block_type?: string;
@@ -33,12 +36,12 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
   const resolvedSegment = segment === "segment" ? "segment" : "core";
   try {
     const result = await db.execute(
-      sql`INSERT INTO lp_custom_blocks (name, block_type, props, block_settings, segment, sort_order)
-          VALUES (${name ?? "Untitled Block"}, ${resolvedType},
+      sql`INSERT INTO lp_custom_blocks (tenant_id, name, block_type, props, block_settings, segment, sort_order)
+          VALUES (${tenantId}, ${name ?? "Untitled Block"}, ${resolvedType},
                   ${JSON.stringify(props ?? {})}::jsonb,
                   ${JSON.stringify(block_settings ?? {})}::jsonb,
                   ${resolvedSegment},
-                  COALESCE((SELECT MAX(sort_order) + 1 FROM lp_custom_blocks), 0))
+                  COALESCE((SELECT MAX(sort_order) + 1 FROM lp_custom_blocks WHERE tenant_id = ${tenantId}), 0))
           RETURNING *`
     );
     res.json(result.rows[0]);
@@ -48,6 +51,7 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { id } = req.params;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
@@ -71,7 +75,7 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
               block_settings = ${JSON.stringify(block_settings ?? {})}::jsonb,
               segment = ${resolvedSegment},
               updated_at = now()
-          WHERE id = ${Number(id)}
+          WHERE id = ${Number(id)} AND tenant_id = ${tenantId}
           RETURNING *`
     );
     res.json(result.rows[0]);
@@ -81,10 +85,11 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { id } = req.params;
   try {
     await db.execute(
-      sql`DELETE FROM lp_custom_blocks WHERE id = ${Number(id)}`
+      sql`DELETE FROM lp_custom_blocks WHERE id = ${Number(id)} AND tenant_id = ${tenantId}`
     );
     res.json({ ok: true });
   } catch (err) {

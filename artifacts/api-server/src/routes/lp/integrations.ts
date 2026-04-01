@@ -7,18 +7,18 @@ import type { MarketoConfig, SalesforceConfig, LeadPayload } from "../../lib/not
 const router = Router();
 const MASKED = "••••••••";
 
-async function getIntegration(provider: string) {
+async function getIntegration(provider: string, tenantId: number) {
   const rows = await db.execute(sql`
-    SELECT config, enabled FROM lp_integrations WHERE provider = ${provider}
+    SELECT config, enabled FROM lp_integrations WHERE provider = ${provider} AND tenant_id = ${tenantId}
   `);
   return (rows.rows[0] as { config: unknown; enabled: boolean } | undefined) ?? null;
 }
 
-async function upsertIntegration(provider: string, config: unknown, enabled: boolean) {
+async function upsertIntegration(provider: string, config: unknown, enabled: boolean, tenantId: number) {
   await db.execute(sql`
-    INSERT INTO lp_integrations (provider, config, enabled, updated_at)
-    VALUES (${provider}, ${JSON.stringify(config)}::jsonb, ${enabled}, now())
-    ON CONFLICT (provider) DO UPDATE
+    INSERT INTO lp_integrations (tenant_id, provider, config, enabled, updated_at)
+    VALUES (${tenantId}, ${provider}, ${JSON.stringify(config)}::jsonb, ${enabled}, now())
+    ON CONFLICT (tenant_id, provider) DO UPDATE
       SET config = ${JSON.stringify(config)}::jsonb,
           enabled = ${enabled},
           updated_at = now()
@@ -27,8 +27,9 @@ async function upsertIntegration(provider: string, config: unknown, enabled: boo
 
 // ─── Google Sheets ────────────────────────────────────────────────────────────
 
-router.get("/lp/integrations/sheets", async (_req, res): Promise<void> => {
-  const row = await getIntegration("google_sheets");
+router.get("/lp/integrations/sheets", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
+  const row = await getIntegration("google_sheets", tenantId);
   if (!row) {
     res.json({ enabled: false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads" } });
     return;
@@ -46,12 +47,13 @@ router.get("/lp/integrations/sheets", async (_req, res): Promise<void> => {
 });
 
 router.put("/lp/integrations/sheets", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { enabled, config } = req.body as { enabled: boolean; config: SheetsConfig };
   if (!config || typeof config !== "object") {
     res.status(400).json({ error: "config is required" });
     return;
   }
-  const existing = await getIntegration("google_sheets");
+  const existing = await getIntegration("google_sheets", tenantId);
   const existingConfig = (existing?.config ?? {}) as SheetsConfig;
   const merged: SheetsConfig = {
     sheetId: config.sheetId ?? existingConfig.sheetId ?? "",
@@ -61,17 +63,18 @@ router.put("/lp/integrations/sheets", async (req, res): Promise<void> => {
       : (existingConfig.privateKey ?? ""),
     tabName: config.tabName ?? existingConfig.tabName ?? "Leads",
   };
-  await upsertIntegration("google_sheets", merged, enabled ?? false);
+  await upsertIntegration("google_sheets", merged, enabled ?? false, tenantId);
   res.json({ ok: true });
 });
 
 router.post("/lp/integrations/sheets/test", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { config } = req.body as { config: SheetsConfig };
   if (!config?.sheetId || !config?.serviceAccountEmail || !config?.privateKey) {
     res.status(400).json({ ok: false, error: "sheetId, serviceAccountEmail and privateKey are required" });
     return;
   }
-  const existing = await getIntegration("google_sheets");
+  const existing = await getIntegration("google_sheets", tenantId);
   const existingKey = (existing?.config as SheetsConfig)?.privateKey ?? "";
   const resolvedKey = config.privateKey === MASKED ? existingKey : config.privateKey;
   const result = await testSheetsConnection({ ...config, privateKey: resolvedKey });
@@ -80,8 +83,9 @@ router.post("/lp/integrations/sheets/test", async (req, res): Promise<void> => {
 
 // ─── Marketo ──────────────────────────────────────────────────────────────────
 
-router.get("/lp/integrations/marketo", async (_req, res): Promise<void> => {
-  const row = await getIntegration("marketo");
+router.get("/lp/integrations/marketo", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
+  const row = await getIntegration("marketo", tenantId);
   if (!row) {
     res.json({ enabled: false, config: { munchkinId: "", clientId: "", clientSecret: "" } });
     return;
@@ -98,8 +102,9 @@ router.get("/lp/integrations/marketo", async (_req, res): Promise<void> => {
 });
 
 router.put("/lp/integrations/marketo", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { enabled, config } = req.body as { enabled: boolean; config: MarketoConfig };
-  const existing = await getIntegration("marketo");
+  const existing = await getIntegration("marketo", tenantId);
   const existingCfg = (existing?.config ?? {}) as MarketoConfig;
   const merged: MarketoConfig = {
     munchkinId: config.munchkinId ?? existingCfg.munchkinId ?? "",
@@ -108,13 +113,14 @@ router.put("/lp/integrations/marketo", async (req, res): Promise<void> => {
       ? config.clientSecret
       : (existingCfg.clientSecret ?? ""),
   };
-  await upsertIntegration("marketo", merged, enabled ?? false);
+  await upsertIntegration("marketo", merged, enabled ?? false, tenantId);
   res.json({ ok: true });
 });
 
 router.post("/lp/integrations/marketo/test", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { config } = req.body as { config: MarketoConfig };
-  const existing = await getIntegration("marketo");
+  const existing = await getIntegration("marketo", tenantId);
   const existingCfg = (existing?.config ?? {}) as MarketoConfig;
   const secret = config.clientSecret === MASKED ? existingCfg.clientSecret : config.clientSecret;
   if (!config.munchkinId || !config.clientId || !secret) {
@@ -139,8 +145,9 @@ router.post("/lp/integrations/marketo/test", async (req, res): Promise<void> => 
 
 // ─── Salesforce ───────────────────────────────────────────────────────────────
 
-router.get("/lp/integrations/salesforce", async (_req, res): Promise<void> => {
-  const row = await getIntegration("salesforce");
+router.get("/lp/integrations/salesforce", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
+  const row = await getIntegration("salesforce", tenantId);
   if (!row) {
     res.json({ enabled: false, config: { instanceUrl: "", clientId: "", clientSecret: "" } });
     return;
@@ -157,8 +164,9 @@ router.get("/lp/integrations/salesforce", async (_req, res): Promise<void> => {
 });
 
 router.put("/lp/integrations/salesforce", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { enabled, config } = req.body as { enabled: boolean; config: SalesforceConfig };
-  const existing = await getIntegration("salesforce");
+  const existing = await getIntegration("salesforce", tenantId);
   const existingCfg = (existing?.config ?? {}) as SalesforceConfig;
   const merged: SalesforceConfig = {
     instanceUrl: config.instanceUrl ?? existingCfg.instanceUrl ?? "",
@@ -167,13 +175,14 @@ router.put("/lp/integrations/salesforce", async (req, res): Promise<void> => {
       ? config.clientSecret
       : (existingCfg.clientSecret ?? ""),
   };
-  await upsertIntegration("salesforce", merged, enabled ?? false);
+  await upsertIntegration("salesforce", merged, enabled ?? false, tenantId);
   res.json({ ok: true });
 });
 
 router.post("/lp/integrations/salesforce/test", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { config } = req.body as { config: SalesforceConfig };
-  const existing = await getIntegration("salesforce");
+  const existing = await getIntegration("salesforce", tenantId);
   const existingCfg = (existing?.config ?? {}) as SalesforceConfig;
   const secret = config.clientSecret === MASKED ? existingCfg.clientSecret : config.clientSecret;
   if (!config.instanceUrl || !config.clientId || !secret) {
@@ -204,16 +213,19 @@ router.post("/lp/integrations/salesforce/test", async (req, res): Promise<void> 
   }
 });
 
-// ─── Sync helpers (called from leads.ts) ─────────────────────────────────────
+// ─── Sync helpers (called from leads.ts, tenantId derived from page) ──────────
 
-export async function syncLeadToSheets(lead: {
-  submittedAt: string;
-  pageTitle: string;
-  pageSlug: string;
-  variantName?: string;
-  fields: Record<string, unknown>;
-}): Promise<void> {
-  const row = await getIntegration("google_sheets");
+export async function syncLeadToSheets(
+  lead: {
+    submittedAt: string;
+    pageTitle: string;
+    pageSlug: string;
+    variantName?: string;
+    fields: Record<string, unknown>;
+  },
+  tenantId = 1,
+): Promise<void> {
+  const row = await getIntegration("google_sheets", tenantId);
   if (!row || !row.enabled) return;
   const cfg = row.config as SheetsConfig;
   if (!cfg.sheetId || !cfg.serviceAccountEmail || !cfg.privateKey) return;
@@ -225,9 +237,10 @@ export async function syncLeadToMarketo(
   payload: LeadPayload,
   perFormFieldMappings?: Record<string, string>,
   perFormEnabled?: boolean,
+  tenantId = 1,
 ): Promise<void> {
   if (perFormEnabled === false) return;
-  const row = await getIntegration("marketo");
+  const row = await getIntegration("marketo", tenantId);
   if (!row || !row.enabled) return;
   const cfg = row.config as MarketoConfig;
   if (!cfg.munchkinId || !cfg.clientId || !cfg.clientSecret) return;
@@ -239,9 +252,10 @@ export async function syncLeadToSalesforce(
   payload: LeadPayload,
   perFormFieldMappings?: Record<string, string>,
   perFormEnabled?: boolean,
+  tenantId = 1,
 ): Promise<void> {
   if (perFormEnabled === false) return;
-  const row = await getIntegration("salesforce");
+  const row = await getIntegration("salesforce", tenantId);
   if (!row || !row.enabled) return;
   const cfg = row.config as SalesforceConfig;
   if (!cfg.instanceUrl || !cfg.clientId || !cfg.clientSecret) return;

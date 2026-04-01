@@ -105,15 +105,16 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
       }
       const perFormMarketo = marketoConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
       const perFormSalesforce = salesforceConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
-      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled);
-      await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled);
+      const pageTenantId = page.tenantId ?? 1;
+      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId);
+      await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled, pageTenantId);
       await syncLeadToSheets({
         submittedAt: payload.submittedAt,
         pageTitle: payload.pageTitle,
         pageSlug: payload.pageSlug,
         variantName: payload.variantName,
         fields: payload.fields,
-      });
+      }, pageTenantId);
 
       // SFDC write-back: create Lead in Salesforce from form submission
       const conn = await sfdcService.getActiveConnection();
@@ -137,6 +138,7 @@ router.post("/lp/leads", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/leads", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const pageId = parseInt(req.query.pageId as string, 10);
   if (isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -149,7 +151,7 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
 
   const dateFrom = req.query.dateFrom as string | undefined;
 
-  const conditions = [eq(lpLeadsTable.pageId, pageId)];
+  const conditions = [eq(lpLeadsTable.pageId, pageId), eq(lpLeadsTable.tenantId, tenantId)];
   if (dateFrom) {
     const from = new Date(dateFrom);
     if (!isNaN(from.getTime())) {
@@ -179,6 +181,7 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/leads/export", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const pageId = parseInt(req.query.pageId as string, 10);
   if (isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -186,7 +189,7 @@ router.get("/lp/leads/export", async (req, res): Promise<void> => {
   }
 
   const dateFrom = req.query.dateFrom as string | undefined;
-  const conditions = [eq(lpLeadsTable.pageId, pageId)];
+  const conditions = [eq(lpLeadsTable.pageId, pageId), eq(lpLeadsTable.tenantId, tenantId)];
   if (dateFrom) {
     const from = new Date(dateFrom);
     if (!isNaN(from.getTime())) {
@@ -256,9 +259,10 @@ router.get("/lp/leads/export", async (req, res): Promise<void> => {
   res.end();
 });
 
-router.get("/lp/leads/summary", async (_req, res): Promise<void> => {
-  const pages = await db.select().from(lpPagesTable).orderBy(lpPagesTable.title);
-  const leads = await db.select().from(lpLeadsTable);
+router.get("/lp/leads/summary", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
+  const pages = await db.select().from(lpPagesTable).where(eq(lpPagesTable.tenantId, tenantId)).orderBy(lpPagesTable.title);
+  const leads = await db.select().from(lpLeadsTable).where(eq(lpLeadsTable.tenantId, tenantId));
 
   const countByPage: Record<number, number> = {};
   for (const lead of leads) {

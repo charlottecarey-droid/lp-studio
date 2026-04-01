@@ -9,6 +9,7 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesSignalsTable = pgTable("sales_signals", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   accountId: integer("account_id").references(() => salesAccountsTable.id, { onDelete: "cascade" }),
   contactId: integer("contact_id"),
   hotlinkId: integer("hotlink_id"),

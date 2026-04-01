@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const lpTestsTable = pgTable("lp_tests", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),

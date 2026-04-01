@@ -13,6 +13,7 @@ import {
 const router = Router();
 
 router.get("/lp/tests", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const tests = await db
     .select({
       id: lpTestsTable.id,
@@ -25,6 +26,7 @@ router.get("/lp/tests", async (req, res): Promise<void> => {
       updatedAt: lpTestsTable.updatedAt,
     })
     .from(lpTestsTable)
+    .where(eq(lpTestsTable.tenantId, tenantId))
     .orderBy(lpTestsTable.createdAt);
 
   // Fetch variant counts separately to avoid Drizzle correlated subquery issues
@@ -45,12 +47,14 @@ router.get("/lp/tests", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/tests", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const parsed = CreateTestBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const [test] = await db.insert(lpTestsTable).values({
+    tenantId,
     name: parsed.data.name,
     slug: parsed.data.slug,
     description: parsed.data.description,
@@ -61,6 +65,7 @@ router.post("/lp/tests", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const params = GetTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -80,7 +85,7 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
       updatedAt: lpTestsTable.updatedAt,
     })
     .from(lpTestsTable)
-    .where(eq(lpTestsTable.id, params.data.testId));
+    .where(and(eq(lpTestsTable.tenantId, tenantId), eq(lpTestsTable.id, params.data.testId)));
   if (!test) {
     res.status(404).json({ error: "Test not found" });
     return;
@@ -118,6 +123,7 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const params = UpdateTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -137,7 +143,7 @@ router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
   const [test] = await db
     .update(lpTestsTable)
     .set(updateData)
-    .where(eq(lpTestsTable.id, params.data.testId))
+    .where(and(eq(lpTestsTable.tenantId, tenantId), eq(lpTestsTable.id, params.data.testId)))
     .returning();
   if (!test) {
     res.status(404).json({ error: "Test not found" });
@@ -151,6 +157,7 @@ router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/tests/:testId", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const params = DeleteTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -158,7 +165,7 @@ router.delete("/lp/tests/:testId", async (req, res): Promise<void> => {
   }
   const [test] = await db
     .delete(lpTestsTable)
-    .where(eq(lpTestsTable.id, params.data.testId))
+    .where(and(eq(lpTestsTable.tenantId, tenantId), eq(lpTestsTable.id, params.data.testId)))
     .returning();
   if (!test) {
     res.status(404).json({ error: "Test not found" });

@@ -25,13 +25,14 @@ function broadcastSignal(signal: Record<string, unknown>) {
 
 router.get("/stats", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
     const [[{ signalsToday }], [{ emailsSent }]] = await Promise.all([
       db.select({ signalsToday: count() })
         .from(salesSignalsTable)
-        .where(gte(salesSignalsTable.createdAt, todayStart)),
+        .where(and(eq(salesSignalsTable.tenantId, tenantId), gte(salesSignalsTable.createdAt, todayStart))),
       db.select({ emailsSent: count() })
         .from(salesEmailSendsTable)
         .where(eq(salesEmailSendsTable.status, "sent")),
@@ -48,10 +49,13 @@ router.get("/stats", async (req, res): Promise<void> => {
 
 router.get("/signals", async (req, res): Promise<void> => {
   try {
+    const tenantId = req.authUser?.tenantId ?? 1;
     const { type, accountId, contactId, limit: limitStr } = req.query;
     const limit = Math.min(Number(limitStr) || 50, 500);
 
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(salesSignalsTable.tenantId, tenantId),
+    ];
     if (type && typeof type === "string") {
       conditions.push(eq(salesSignalsTable.type, type));
     }
@@ -80,7 +84,7 @@ router.get("/signals", async (req, res): Promise<void> => {
       .from(salesSignalsTable)
       .leftJoin(salesAccountsTable, eq(salesSignalsTable.accountId, salesAccountsTable.id))
       .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(salesSignalsTable.createdAt))
       .limit(limit);
 
@@ -102,12 +106,11 @@ router.get("/signals/stream", (req, res): void => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // nginx pass-through
+  res.setHeader("X-Accel-Buffering", "no");
 
   res.write("data: {\"type\":\"connected\"}\n\n");
   sseClients.add(res);
 
-  // Heartbeat every 30s to keep connection alive
   const heartbeat = setInterval(() => {
     try { res.write(": heartbeat\n\n"); } catch { clearInterval(heartbeat); sseClients.delete(res); }
   }, 30000);
@@ -118,10 +121,13 @@ router.get("/signals/stream", (req, res): void => {
   });
 });
 
-// ─── DELETE /sales/signals — clear all signals ──────────────
-router.delete("/signals", async (_req, res): Promise<void> => {
+// ─── DELETE /sales/signals — clear all signals for tenant ──────────────────
+router.delete("/signals", async (req, res): Promise<void> => {
   try {
-    const deleted = await db.delete(salesSignalsTable).returning({ id: salesSignalsTable.id });
+    const tenantId = req.authUser?.tenantId ?? 1;
+    const deleted = await db.delete(salesSignalsTable)
+      .where(eq(salesSignalsTable.tenantId, tenantId))
+      .returning({ id: salesSignalsTable.id });
     res.json({ ok: true, deleted: deleted.length });
   } catch (err) {
     console.error("DELETE /sales/signals error:", err);
@@ -132,6 +138,7 @@ router.delete("/signals", async (_req, res): Promise<void> => {
 // ─── POST /sales/signals — create a signal ──────────────────
 
 router.post("/signals", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { accountId, contactId, hotlinkId, type, source, metadata } = req.body;
   if (!type) {
     res.status(400).json({ error: "type is required" });
@@ -141,6 +148,7 @@ router.post("/signals", async (req, res): Promise<void> => {
     const [signal] = await db
       .insert(salesSignalsTable)
       .values({
+        tenantId,
         accountId: accountId ?? null,
         contactId: contactId ?? null,
         hotlinkId: hotlinkId ?? null,
@@ -150,10 +158,8 @@ router.post("/signals", async (req, res): Promise<void> => {
       })
       .returning();
 
-    // Broadcast to all connected SSE clients
     broadcastSignal(signal);
 
-    // SFDC write-back: recalculate engagement score and push to SFDC (fire-and-forget)
     if (signal.contactId) {
       pushEngagementScoreToSfdc(signal.contactId).catch(() => {/* non-blocking */});
     }
@@ -165,14 +171,8 @@ router.post("/signals", async (req, res): Promise<void> => {
   }
 });
 
-/**
- * Recalculate a contact's engagement score from their signals and push to SFDC.
- * Score weights: form_submit=5, email_click/link_click=3, email_open=2, page_view=1
- * Recency boost: 1.5x for signals within 7 days
- */
 async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
   try {
-    // Get the contact to check for salesforceId
     const [contact] = await db.select().from(salesContactsTable)
       .where(eq(salesContactsTable.id, contactId));
     if (!contact?.salesforceId) return;
@@ -180,7 +180,6 @@ async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
     const conn = await sfdcService.getActiveConnection();
     if (!conn) return;
 
-    // Get all signals for this contact
     const signals = await db.select().from(salesSignalsTable)
       .where(eq(salesSignalsTable.contactId, contactId));
 
@@ -190,7 +189,7 @@ async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
       link_click: 3,
       email_open: 2,
       page_view: 1,
-      email_sent: 0, // outbound action, doesn't count for engagement
+      email_sent: 0,
     };
 
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -202,7 +201,6 @@ async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
       score += weight * (isRecent ? 1.5 : 1);
     }
 
-    // Determine label
     let label: string;
     if (score >= 15) label = "Hot";
     else if (score >= 8) label = "Warm";
@@ -214,7 +212,7 @@ async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
       numericScore: Math.round(score),
     });
   } catch {
-    // Non-blocking — don't let SFDC errors affect signal creation
+    // Non-blocking
   }
 }
 

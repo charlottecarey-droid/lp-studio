@@ -16,8 +16,9 @@ interface AudienceFilters {
 
 // ─── Build a Drizzle WHERE condition from audience filters ────────────────────
 
-async function resolveContacts(filters: AudienceFilters) {
+async function resolveContacts(filters: AudienceFilters, tenantId: number) {
   const conditions = [
+    eq(salesContactsTable.tenantId, tenantId),
     isNotNull(salesContactsTable.email),
     not(eq(salesContactsTable.status, "unsubscribed")),
   ];
@@ -70,11 +71,13 @@ async function resolveContacts(filters: AudienceFilters) {
 
 // ─── List all audiences ────────────────────────────────────────────────────────
 
-router.get("/audiences", async (_req, res): Promise<void> => {
+router.get("/audiences", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const result = await db.execute(sql`
       SELECT id, name, description, filters, contact_count, created_at, updated_at
       FROM sales_audiences
+      WHERE tenant_id = ${tenantId}
       ORDER BY updated_at DESC
     `);
     res.json(result.rows);
@@ -87,9 +90,10 @@ router.get("/audiences", async (_req, res): Promise<void> => {
 // ─── Preview contacts for filters (without saving) ───────────────────────────
 
 router.post("/audiences/preview", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const { filters = {} } = req.body as { filters?: AudienceFilters };
-    const contacts = await resolveContacts(filters);
+    const contacts = await resolveContacts(filters, tenantId);
     res.json({ contacts, count: contacts.length });
   } catch (err) {
     console.error("POST /sales/audiences/preview error:", err);
@@ -100,6 +104,7 @@ router.post("/audiences/preview", async (req, res): Promise<void> => {
 // ─── Create audience ─────────────────────────────────────────────────────────
 
 router.post("/audiences", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const { name, description, filters = {} } = req.body as {
       name?: string;
@@ -112,12 +117,12 @@ router.post("/audiences", async (req, res): Promise<void> => {
       return;
     }
 
-    const contacts = await resolveContacts(filters);
+    const contacts = await resolveContacts(filters, tenantId);
     const count = contacts.length;
 
     const result = await db.execute(sql`
-      INSERT INTO sales_audiences (name, description, filters, contact_count)
-      VALUES (${name.trim()}, ${description?.trim() ?? null}, ${JSON.stringify(filters)}::jsonb, ${count})
+      INSERT INTO sales_audiences (tenant_id, name, description, filters, contact_count)
+      VALUES (${tenantId}, ${name.trim()}, ${description?.trim() ?? null}, ${JSON.stringify(filters)}::jsonb, ${count})
       RETURNING id, name, description, filters, contact_count, created_at, updated_at
     `);
 
@@ -131,6 +136,7 @@ router.post("/audiences", async (req, res): Promise<void> => {
 // ─── Update audience ─────────────────────────────────────────────────────────
 
 router.put("/audiences/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const id = Number(req.params.id);
     const { name, description, filters = {} } = req.body as {
@@ -144,7 +150,7 @@ router.put("/audiences/:id", async (req, res): Promise<void> => {
       return;
     }
 
-    const contacts = await resolveContacts(filters);
+    const contacts = await resolveContacts(filters, tenantId);
     const count = contacts.length;
 
     const result = await db.execute(sql`
@@ -154,7 +160,7 @@ router.put("/audiences/:id", async (req, res): Promise<void> => {
           filters = ${JSON.stringify(filters)}::jsonb,
           contact_count = ${count},
           updated_at = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND tenant_id = ${tenantId}
       RETURNING id, name, description, filters, contact_count, created_at, updated_at
     `);
 
@@ -173,9 +179,10 @@ router.put("/audiences/:id", async (req, res): Promise<void> => {
 // ─── Delete audience ─────────────────────────────────────────────────────────
 
 router.delete("/audiences/:id", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const id = Number(req.params.id);
-    await db.execute(sql`DELETE FROM sales_audiences WHERE id = ${id}`);
+    await db.execute(sql`DELETE FROM sales_audiences WHERE id = ${id} AND tenant_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /sales/audiences/:id error:", err);
@@ -186,17 +193,18 @@ router.delete("/audiences/:id", async (req, res): Promise<void> => {
 // ─── Get contacts for a saved audience ───────────────────────────────────────
 
 router.get("/audiences/:id/contacts", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const id = Number(req.params.id);
     const audResult = await db.execute(sql`
-      SELECT filters FROM sales_audiences WHERE id = ${id}
+      SELECT filters FROM sales_audiences WHERE id = ${id} AND tenant_id = ${tenantId}
     `);
     if (!audResult.rows.length) {
       res.status(404).json({ error: "Audience not found" });
       return;
     }
     const filters = audResult.rows[0].filters as AudienceFilters;
-    const contacts = await resolveContacts(filters);
+    const contacts = await resolveContacts(filters, tenantId);
     res.json(contacts);
   } catch (err) {
     console.error("GET /sales/audiences/:id/contacts error:", err);

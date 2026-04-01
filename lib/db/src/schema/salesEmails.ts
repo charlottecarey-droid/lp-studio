@@ -8,6 +8,7 @@ import { salesAccountsTable } from "./salesAccounts";
  */
 export const salesEmailTemplatesTable = pgTable("sales_email_templates", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   name: text("name").notNull(),
   subject: text("subject").notNull(),
   bodyHtml: text("body_html").notNull(),
@@ -29,6 +30,7 @@ export type SalesEmailTemplate = typeof salesEmailTemplatesTable.$inferSelect;
  */
 export const salesEmailCampaignsTable = pgTable("sales_email_campaigns", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull().default(1),
   name: text("name").notNull(),
   templateId: integer("template_id").notNull().references(() => salesEmailTemplatesTable.id),
   accountId: integer("account_id").references(() => salesAccountsTable.id),

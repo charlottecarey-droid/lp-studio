@@ -13,10 +13,11 @@ const KNOWN_BLOCK_TYPES = new Set([
   "stat-callout", "testimonial", "case-studies", "bottom-cta", "cta-button",
 ]);
 
-router.get("/lp/block-defaults", async (_req, res): Promise<void> => {
+router.get("/lp/block-defaults", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   try {
     const rows = await db.execute(
-      sql`SELECT block_type, props, block_settings FROM lp_block_defaults ORDER BY block_type`
+      sql`SELECT block_type, props, block_settings FROM lp_block_defaults WHERE tenant_id = ${tenantId} ORDER BY block_type`
     );
     const result: Record<string, { props: unknown; blockSettings: unknown }> = {};
     for (const row of rows.rows as { block_type: string; props: unknown; block_settings: unknown }[]) {
@@ -29,6 +30,7 @@ router.get("/lp/block-defaults", async (_req, res): Promise<void> => {
 });
 
 router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { blockType } = req.params;
   if (!KNOWN_BLOCK_TYPES.has(blockType)) {
     res.status(400).json({ error: `Unknown block type: ${blockType}` });
@@ -37,9 +39,9 @@ router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
   const { props, blockSettings = {} } = req.body as { props: unknown; blockSettings?: unknown };
   try {
     await db.execute(
-      sql`INSERT INTO lp_block_defaults (block_type, props, block_settings, updated_at)
-          VALUES (${blockType}, ${JSON.stringify(props)}::jsonb, ${JSON.stringify(blockSettings)}::jsonb, now())
-          ON CONFLICT (block_type)
+      sql`INSERT INTO lp_block_defaults (tenant_id, block_type, props, block_settings, updated_at)
+          VALUES (${tenantId}, ${blockType}, ${JSON.stringify(props)}::jsonb, ${JSON.stringify(blockSettings)}::jsonb, now())
+          ON CONFLICT (tenant_id, block_type)
           DO UPDATE SET props = ${JSON.stringify(props)}::jsonb, block_settings = ${JSON.stringify(blockSettings)}::jsonb, updated_at = now()`
     );
     res.json({ ok: true });
@@ -49,6 +51,7 @@ router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const { blockType } = req.params;
   if (!KNOWN_BLOCK_TYPES.has(blockType)) {
     res.status(400).json({ error: `Unknown block type: ${blockType}` });
@@ -56,7 +59,7 @@ router.delete("/lp/block-defaults/:blockType", async (req, res): Promise<void> =
   }
   try {
     await db.execute(
-      sql`DELETE FROM lp_block_defaults WHERE block_type = ${blockType}`
+      sql`DELETE FROM lp_block_defaults WHERE block_type = ${blockType} AND tenant_id = ${tenantId}`
     );
     res.json({ ok: true });
   } catch (err) {
