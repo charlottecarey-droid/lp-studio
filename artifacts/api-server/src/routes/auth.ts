@@ -228,9 +228,59 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       path: "/",
     });
 
-    res.redirect("/");
+    // If the user came from a different domain (e.g. meetdandy-lp.com) but our
+    // canonical callback lives on app.lpstudio.ai, we need to hand the session
+    // across domains via the /api/auth/accept endpoint.
+    const callbackHost = (() => {
+      try {
+        const uri = process.env.GOOGLE_REDIRECT_URI;
+        if (uri) return new URL(uri).hostname;
+      } catch { /* ignore */ }
+      return "";
+    })();
+    const originHostname = originHost.split(":")[0].toLowerCase();
+    if (callbackHost && originHostname && originHostname !== callbackHost) {
+      // Cross-domain: hand session token to the origin domain
+      const proto = "https";
+      res.redirect(`${proto}://${originHostname}/api/auth/accept?t=${encodeURIComponent(sid)}`);
+    } else {
+      res.redirect("/");
+    }
   } catch (err) {
     console.error("[auth] OAuth callback error:", err);
+    res.redirect("/?error=auth_failed");
+  }
+});
+
+// GET /api/auth/accept — cross-domain session handoff
+// Called when the OAuth callback domain differs from the origin domain (e.g. Dandy on meetdandy-lp.com).
+// Accepts a session token `t`, verifies it's fresh, then sets the cookie for the current domain.
+router.get("/auth/accept", async (req, res): Promise<void> => {
+  const { t } = req.query as { t?: string };
+  if (!t) {
+    res.redirect("/?error=missing_token");
+    return;
+  }
+  try {
+    // Verify the session exists and hasn't expired
+    const result = await pool.query(
+      `SELECT sid FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [t]
+    );
+    if (result.rows.length === 0) {
+      res.redirect("/?error=invalid_token");
+      return;
+    }
+    res.cookie(SESSION_COOKIE, t, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: SESSION_TTL_MS,
+      path: "/",
+    });
+    res.redirect("/");
+  } catch (err) {
+    console.error("[auth] accept session error:", err);
     res.redirect("/?error=auth_failed");
   }
 });
