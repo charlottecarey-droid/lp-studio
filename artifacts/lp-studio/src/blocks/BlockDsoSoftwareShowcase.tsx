@@ -31,6 +31,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     body,
     imageUrl,
     videoUrl,
+    hideBrowserFrame = false,
     features = [],
     ctaText,
     ctaUrl,
@@ -100,41 +101,43 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
       }}
     >
       {/* Browser chrome */}
-      <div
-        style={{
-          background: dark ? "#1a2e26" : "#f0f4f3",
-          padding: "0.5rem 0.875rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          borderBottom: dark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,58,48,0.1)",
-        }}
-      >
-        <div style={{ display: "flex", gap: "0.3rem" }}>
-          {["#ff5f57", "#febc2e", "#28c840"].map((c, i) => (
-            <div key={i} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />
-          ))}
-        </div>
+      {!hideBrowserFrame && (
         <div
           style={{
-            flex: 1,
-            maxWidth: 340,
-            margin: "0 auto",
-            background: dark ? "rgba(0,0,0,0.25)" : "rgba(0,58,48,0.07)",
-            borderRadius: "0.3rem",
-            padding: "0.2rem 0.6rem",
-            fontSize: "0.6875rem",
-            color: dark ? "rgba(255,255,255,0.3)" : "rgba(0,58,48,0.4)",
-            fontFamily: "'Inter',system-ui,sans-serif",
+            background: dark ? "#1a2e26" : "#f0f4f3",
+            padding: "0.5rem 0.875rem",
             display: "flex",
             alignItems: "center",
-            gap: "0.3rem",
+            gap: "0.5rem",
+            borderBottom: dark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,58,48,0.1)",
           }}
         >
-          <MonitorPlay style={{ width: 10, height: 10 }} />
-          app.meetdandy.com
+          <div style={{ display: "flex", gap: "0.3rem" }}>
+            {["#ff5f57", "#febc2e", "#28c840"].map((c, i) => (
+              <div key={i} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />
+            ))}
+          </div>
+          <div
+            style={{
+              flex: 1,
+              maxWidth: 340,
+              margin: "0 auto",
+              background: dark ? "rgba(0,0,0,0.25)" : "rgba(0,58,48,0.07)",
+              borderRadius: "0.3rem",
+              padding: "0.2rem 0.6rem",
+              fontSize: "0.6875rem",
+              color: dark ? "rgba(255,255,255,0.3)" : "rgba(0,58,48,0.4)",
+              fontFamily: "'Inter',system-ui,sans-serif",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
+            <MonitorPlay style={{ width: 10, height: 10 }} />
+            app.meetdandy.com
+          </div>
         </div>
-      </div>
+      )}
       {/* Video, screenshot, or placeholder */}
       <div style={{ position: "relative", lineHeight: 0 }}>
         {videoUrl ? (

@@ -222,19 +222,21 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             }}
           >
             {/* Browser chrome */}
-            <div className="bg-[#0d1620] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/[0.06] shrink-0">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+            {!props.hideBrowserFrame && (
+              <div className="bg-[#0d1620] h-9 w-full flex items-center px-4 gap-1.5 border-b border-white/[0.06] shrink-0">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                </div>
+                <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
+                  <div className="w-2 h-2 rounded-full bg-[#C7E738]/60 shrink-0" />
+                  <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
+                    insights.meetdandy.com / dashboard
+                  </span>
+                </div>
               </div>
-              <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
-                <div className="w-2 h-2 rounded-full bg-[#C7E738]/60 shrink-0" />
-                <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
-                  insights.meetdandy.com / dashboard
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Video or scrolling screenshots */}
             {props.videoUrl ? (
