@@ -29,10 +29,17 @@ router.get("/auth/google", (req, res): void => {
     res.status(503).json({ error: "Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
     return;
   }
+  // Embed the origin host in state so the callback knows which domain initiated the flow
+  const originHost =
+    (req.headers["x-forwarded-host"] as string)?.split(",")[0].trim() ||
+    req.headers.host ||
+    "";
+  const state = Buffer.from(JSON.stringify({ host: originHost })).toString("base64url");
   const url = client.generateAuthUrl({
     access_type: "online",
     scope: ["openid", "email", "profile"],
     prompt: "select_account",
+    state,
   });
   res.redirect(url);
 });
@@ -45,10 +52,34 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  const { code, error: oauthError } = req.query as { code?: string; error?: string };
+  const { code, error: oauthError, state: stateParam } = req.query as { code?: string; error?: string; state?: string };
   if (oauthError || !code) {
     res.redirect(`/?error=${encodeURIComponent(oauthError ?? "oauth_failed")}`);
     return;
+  }
+
+  // Decode the origin host from state
+  let originHost = "";
+  try {
+    if (stateParam) {
+      const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
+      originHost = decoded.host ?? "";
+    }
+  } catch { /* ignore malformed state */ }
+
+  // Resolve domain context for the origin host
+  let domainMode: "open" | "tenant-locked" = "open";
+  let domainTenantId: number | null = null;
+  if (originHost) {
+    const domainHost = originHost.split(":")[0].toLowerCase();
+    const domainResult = await pool.query(
+      `SELECT id FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
+      [domainHost]
+    );
+    if (domainResult.rows.length > 0) {
+      domainMode = "tenant-locked";
+      domainTenantId = domainResult.rows[0].id;
+    }
   }
 
   try {
@@ -83,45 +114,79 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     );
     const user = upsertResult.rows[0];
 
-    // Check tenant membership (by user_id or pre-invite email)
-    const memberResult = await pool.query(
-      `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
-              tr.name as role_name, tr.permissions, tr.is_admin
-       FROM tenant_members tm
-       JOIN tenant_roles tr ON tr.id = tm.role_id
-       WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND tm.email = $2))
-         AND tm.accepted_at IS NOT NULL
-       ORDER BY tm.user_id NULLS LAST
-       LIMIT 1`,
-      [user.id, email]
-    );
-
-    // If found by email-only pre-invite, link the user_id now
-    if (memberResult.rows.length > 0 && memberResult.rows[0].user_id === null) {
-      await pool.query(
-        `UPDATE tenant_members SET user_id = $1 WHERE id = $2`,
-        [user.id, memberResult.rows[0].member_id]
-      );
-    }
-
-    let tenantId: number | null = user.tenant_id ?? null;
+    let tenantId: number | null = null;
     let role = "viewer";
     let permissions: Record<string, boolean> = {};
     let isAdmin = false;
 
-    if (memberResult.rows.length > 0) {
-      const member = memberResult.rows[0];
-      tenantId = member.tenant_id;
-      role = member.role_name;
-      permissions = (member.permissions as Record<string, boolean>) ?? {};
-      isAdmin = member.is_admin ?? false;
+    if (domainMode === "tenant-locked" && domainTenantId) {
+      // Tenant-locked domain (e.g. meetdandy-lp.com): look up membership in that specific tenant
+      const memberResult = await pool.query(
+        `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
+                tr.name as role_name, tr.permissions, tr.is_admin
+         FROM tenant_members tm
+         JOIN tenant_roles tr ON tr.id = tm.role_id
+         WHERE tm.tenant_id = $1
+           AND (tm.user_id = $2 OR (tm.user_id IS NULL AND tm.email = $3))
+           AND tm.accepted_at IS NOT NULL
+         ORDER BY tm.user_id NULLS LAST
+         LIMIT 1`,
+        [domainTenantId, user.id, email]
+      );
 
-      if (!user.tenant_id) {
+      // Link email-only pre-invite to user_id
+      if (memberResult.rows.length > 0 && memberResult.rows[0].user_id === null) {
         await pool.query(
-          `UPDATE app_users SET tenant_id = $1 WHERE id = $2`,
-          [tenantId, user.id]
+          `UPDATE tenant_members SET user_id = $1 WHERE id = $2`,
+          [user.id, memberResult.rows[0].member_id]
         );
       }
+
+      if (memberResult.rows.length > 0) {
+        const member = memberResult.rows[0];
+        tenantId = member.tenant_id;
+        role = member.role_name;
+        permissions = (member.permissions as Record<string, boolean>) ?? {};
+        isAdmin = member.is_admin ?? false;
+        if (!user.tenant_id) {
+          await pool.query(`UPDATE app_users SET tenant_id = $1 WHERE id = $2`, [tenantId, user.id]);
+        }
+      }
+      // If not a member of the locked tenant, tenantId stays null → AuthGate shows "Access Pending"
+    }
+    else {
+      // Open domain (e.g. app.lpstudio.ai): look up membership, but only to non-domain-locked tenants
+      // (so Dandy employees don't get auto-dropped into Dandy's workspace on app.lpstudio.ai)
+      const memberResult = await pool.query(
+        `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
+                tr.name as role_name, tr.permissions, tr.is_admin
+         FROM tenant_members tm
+         JOIN tenant_roles tr ON tr.id = tm.role_id
+         JOIN tenants t ON t.id = tm.tenant_id
+         WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND tm.email = $2))
+           AND tm.accepted_at IS NOT NULL
+           AND (t.domain IS NULL OR t.domain = '')
+         ORDER BY tm.user_id NULLS LAST
+         LIMIT 1`,
+        [user.id, email]
+      );
+
+      // Link email-only pre-invite to user_id
+      if (memberResult.rows.length > 0 && memberResult.rows[0].user_id === null) {
+        await pool.query(
+          `UPDATE tenant_members SET user_id = $1 WHERE id = $2`,
+          [user.id, memberResult.rows[0].member_id]
+        );
+      }
+
+      if (memberResult.rows.length > 0) {
+        const member = memberResult.rows[0];
+        tenantId = member.tenant_id;
+        role = member.role_name;
+        permissions = (member.permissions as Record<string, boolean>) ?? {};
+        isAdmin = member.is_admin ?? false;
+      }
+      // If no open-domain membership found, tenantId stays null → AuthGate shows "Create workspace"
     }
 
     // Create server-side session
