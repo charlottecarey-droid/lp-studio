@@ -244,6 +244,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
+                    key={`iv-video-${props.videoAutoplay}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
                     autoPlay={props.videoAutoplay !== false}
@@ -255,6 +256,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   />
                 ) : (
                   <iframe
+                    key={`iv-iframe-${props.videoAutoplay}`}
                     src={props.videoAutoplay !== false ? getAutoplayEmbedUrl(props.videoUrl) : props.videoUrl}
                     className="absolute inset-0 w-full h-full border-0"
                     title="Dandy Insights"

@@ -143,6 +143,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
             <video
+              key={`ss-video-${autoplay}`}
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
               autoPlay={autoplay}
@@ -155,6 +156,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
           ) : (
             <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
               <iframe
+                key={`ss-iframe-${autoplay}`}
                 src={autoplay ? getAutoplayEmbedUrl(videoUrl) : videoUrl}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 title="Software Showcase"
