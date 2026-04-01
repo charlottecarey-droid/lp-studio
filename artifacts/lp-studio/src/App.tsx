@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,6 +43,9 @@ const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
 const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 
+// Superadmin (no auth gate)
+const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
+
 // Legacy routes (redirect to consolidated pages)
 const LeadsPage = lazy(() => import("@/pages/leads"));
 const FormsPage = lazy(() => import("@/pages/forms"));
@@ -67,7 +70,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function AppRouter() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Switch>
@@ -132,20 +135,38 @@ function Router() {
   );
 }
 
+// Sits inside WouterRouter so it can read the current location.
+// Routes /superadmin outside the AuthGate; everything else goes through normal auth.
+function AppShell() {
+  const [location] = useLocation();
+
+  if (location.startsWith("/superadmin")) {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <SuperAdminPage />
+      </Suspense>
+    );
+  }
+
+  return (
+    <AuthProvider>
+      <AuthGate>
+        <ModeProvider>
+          <AppRouter />
+        </ModeProvider>
+        <Toaster />
+      </AuthGate>
+    </AuthProvider>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <AuthGate>
-            <ModeProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Router />
-              </WouterRouter>
-            </ModeProvider>
-            <Toaster />
-          </AuthGate>
-        </AuthProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <AppShell />
+        </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );
