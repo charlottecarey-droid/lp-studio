@@ -71,7 +71,7 @@ const CALLOUT_ICONS = [LineChart, DollarSign, Stethoscope, Activity];
 
 export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   // Support both new array prop and legacy named props
-  const rawCallouts: Array<{ label: string; desc: string }> = props.callouts && props.callouts.length > 0
+  const rawCallouts: Array<{ label: string; desc: string }> = props.callouts != null
     ? props.callouts
     : [
         { label: props.callout1Label || "Remake Rates",         desc: props.callout1Desc || "Track quality by provider, not just practice" },

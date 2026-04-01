@@ -419,6 +419,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </div>
                   <Switch checked={p.hideBrowserFrame ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, hideBrowserFrame: v } })} />
                 </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Show scan GIF</Label>
+                    <p className="text-[11px] text-muted-foreground">Display the animated scan visualization card.</p>
+                  </div>
+                  <Switch checked={p.showScanGif !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, showScanGif: v } })} />
+                </div>
               </div>
             </div>
 
@@ -439,12 +446,6 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="textarea" rows={2} value={p.description ?? ""} onChange={v => onChange({ ...block, props: { ...p, description: v } })} fieldLabel="Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "description", p.description ?? "", { title: p.title ?? "" })} />
             </div>
 
-            {/* Scan GIF toggle */}
-            <div className="border-t pt-3 flex items-center justify-between">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show Scan GIF</Label>
-              <input type="checkbox" checked={p.showScanGif !== false} onChange={e => onChange({ ...block, props: { ...p, showScanGif: e.target.checked } })} className="w-4 h-4 accent-lime-500 cursor-pointer" />
-            </div>
-
             {/* Callouts — dynamic add/remove */}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
@@ -456,7 +457,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <div key={i} className="border rounded-lg p-2 space-y-1.5 bg-slate-50">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Callout {i + 1}</span>
-                      <button onClick={() => removeCallout(i)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                      <button type="button" onClick={() => removeCallout(i)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
                     </div>
                     <Input value={c.label} onChange={e => updateCallout(i, "label", e.target.value)} placeholder="Remake Rates" className="h-7 text-xs" />
                     <Input value={c.desc} onChange={e => updateCallout(i, "desc", e.target.value)} placeholder="Track quality by provider…" className="h-7 text-xs" />
