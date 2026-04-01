@@ -85,6 +85,7 @@ export type {
   DsoPilotStepsBlockProps,
   DsoFinalCtaBlockProps,
   DsoComparisonBlockProps,
+  DsoInsightsVideoBlockProps,
 } from "./dso-blocks";
 
 // Utility block types

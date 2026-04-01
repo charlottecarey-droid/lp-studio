@@ -514,3 +514,28 @@ export interface DsoComparisonBlockProps {
   backgroundOverlay?: number;
   overlayColor?: string;
 }
+
+export interface DsoInsightsVideoBlockProps {
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  callout1Label?: string;
+  callout1Desc?: string;
+  callout2Label?: string;
+  callout2Desc?: string;
+  callout3Label?: string;
+  callout3Desc?: string;
+  callout4Label?: string;
+  callout4Desc?: string;
+  quote?: string;
+  quoteAttribution?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "outline";
+  backgroundStyle?: BackgroundStyle;
+  imageUrl?: string;
+  backgroundOverlay?: number;
+  overlayColor?: string;
+  videoUrl?: string;
+}

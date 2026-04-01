@@ -60,6 +60,7 @@ import type {
   DsoFaqBlockProps,
   DsoSplitFeatureBlockProps,
   DsoSoftwareShowcaseBlockProps,
+  DsoInsightsVideoBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,

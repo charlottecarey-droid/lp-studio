@@ -35,6 +35,7 @@ import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { DsoMeetTeamPanel } from "./DsoMeetTeamPanel";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
+import { VideoPicker } from "@/components/VideoPicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -378,6 +379,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <input type="range" min={0} max={1} step={0.05} value={p.backgroundOverlay ?? 0.55} onChange={e => onChange({ ...block, props: { ...p, backgroundOverlay: parseFloat(e.target.value) } })} className="w-full accent-emerald-700" />
               </div>
             )}
+
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs font-semibold">Dashboard Video</Label>
+              <p className="text-[11px] text-muted-foreground">Upload or paste a video URL. Replaces the animated screenshot gallery when set.</p>
+              <VideoPicker
+                label="Video"
+                value={p.videoUrl ?? ""}
+                onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })}
+              />
+            </div>
 
             {/* AI refresh */}
             <DsoRefreshRow fields={["title", "subtitle", "description", "quote", "quoteAttribution", "ctaLabel"]} values={{ title: p.title ?? "", subtitle: p.subtitle ?? "", description: p.description ?? "", quote: p.quote ?? "", quoteAttribution: p.quoteAttribution ?? "", ctaLabel: p.ctaLabel ?? "" }} />

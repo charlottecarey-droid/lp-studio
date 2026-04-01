@@ -236,34 +236,59 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               </div>
             </div>
 
-            {/* Scrolling screenshots */}
-            <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
-              <motion.div
-                className="flex flex-col"
-                animate={{ y: ["0%", "-50%"] }}
-                transition={{ duration: 110, ease: "linear", repeat: Infinity }}
-              >
-                {[...SCREENS, ...SCREENS].map((s, i) => (
-                  <div
-                    key={i}
-                    className="w-full shrink-0 overflow-hidden"
-                    style={s.clipRatio ? { aspectRatio: s.clipRatio } : undefined}
-                  >
-                    <img
-                      src={s.src}
-                      alt={`Dandy Insights — ${s.label}`}
-                      className="w-full h-auto block"
-                      draggable={false}
-                    />
-                  </div>
-                ))}
-              </motion.div>
+            {/* Video or scrolling screenshots */}
+            {props.videoUrl ? (
+              <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
+                {[".mp4", ".webm", ".ogg", ".mov"].some(ext => props.videoUrl!.toLowerCase().split("?")[0].endsWith(ext)) ? (
+                  <video
+                    src={props.videoUrl}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    preload="metadata"
+                  />
+                ) : (
+                  <iframe
+                    src={props.videoUrl}
+                    className="absolute inset-0 w-full h-full border-0"
+                    title="Dandy Insights"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
+                <motion.div
+                  className="flex flex-col"
+                  animate={{ y: ["0%", "-50%"] }}
+                  transition={{ duration: 110, ease: "linear", repeat: Infinity }}
+                >
+                  {[...SCREENS, ...SCREENS].map((s, i) => (
+                    <div
+                      key={i}
+                      className="w-full shrink-0 overflow-hidden"
+                      style={s.clipRatio ? { aspectRatio: s.clipRatio } : undefined}
+                    >
+                      <img
+                        src={s.src}
+                        alt={`Dandy Insights — ${s.label}`}
+                        className="w-full h-auto block"
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
+                </motion.div>
 
-              <div className="absolute inset-x-0 top-0 h-16 pointer-events-none z-10"
-                style={{ background: "linear-gradient(to bottom, #f0f2f5, transparent)" }} />
-              <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none z-10"
-                style={{ background: "linear-gradient(to top, #f0f2f5, transparent)" }} />
-            </div>
+                <div className="absolute inset-x-0 top-0 h-16 pointer-events-none z-10"
+                  style={{ background: "linear-gradient(to bottom, #f0f2f5, transparent)" }} />
+                <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none z-10"
+                  style={{ background: "linear-gradient(to top, #f0f2f5, transparent)" }} />
+              </div>
+            )}
           </motion.div>
         </div>
 
