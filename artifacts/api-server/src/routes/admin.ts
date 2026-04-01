@@ -4,6 +4,125 @@ import { requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
 
+const ALL_PERMS = {
+  pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_signals: true, settings: true, team: true, roles: true,
+};
+const EDITOR_PERMS = {
+  pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_signals: true, settings: false, team: false, roles: false,
+};
+const VIEWER_PERMS = {
+  pages: true, tests: false, analytics: true, forms_leads: false, brand: false,
+  blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: false, sales_signals: true, settings: false, team: false, roles: false,
+};
+
+async function seedDefaultRoles(client: any, tenantId: number): Promise<number> {
+  const adminRoleResult = await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
+    [tenantId, JSON.stringify(ALL_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Editor', $2, false, true)`,
+    [tenantId, JSON.stringify(EDITOR_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Viewer', $2, false, true)`,
+    [tenantId, JSON.stringify(VIEWER_PERMS)]
+  );
+  return adminRoleResult.rows[0].id as number;
+}
+
+// POST /api/admin/tenants — provision a new tenant
+// Protected by ADMIN_PASSWORD (not session auth — called before any user exists)
+router.post("/tenants", async (req, res): Promise<void> => {
+  const { adminPassword, name, slug, domain, adminEmail, plan } = req.body ?? {};
+
+  if (!process.env.ADMIN_PASSWORD) {
+    res.status(503).json({ error: "Admin provisioning not configured" });
+    return;
+  }
+  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Invalid admin password" });
+    return;
+  }
+  if (!name || !slug || !adminEmail) {
+    res.status(400).json({ error: "name, slug, and adminEmail are required" });
+    return;
+  }
+
+  const slugClean = slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!slugClean) {
+    res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const tenantResult = await client.query(
+      `INSERT INTO tenants (name, slug, domain, plan, status)
+       VALUES ($1, $2, $3, $4, 'active') RETURNING *`,
+      [name.trim(), slugClean, domain ?? null, plan ?? "trial"]
+    );
+    const tenant = tenantResult.rows[0];
+
+    const adminRoleId = await seedDefaultRoles(client, tenant.id);
+
+    const userResult = await client.query(
+      `INSERT INTO app_users (email, name, status)
+       VALUES ($1, $1, 'active')
+       ON CONFLICT (email) DO UPDATE SET status = 'active', updated_at = now()
+       RETURNING id, email`,
+      [adminEmail]
+    );
+    const user = userResult.rows[0];
+
+    await client.query(
+      `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT DO NOTHING`,
+      [tenant.id, user.id, adminRoleId, adminEmail]
+    );
+
+    await client.query(
+      `UPDATE app_users SET tenant_id = $1 WHERE id = $2 AND tenant_id IS NULL`,
+      [tenant.id, user.id]
+    );
+
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      tenant,
+      adminUser: { id: user.id, email: user.email },
+      message: `Tenant "${name}" created. ${adminEmail} can now sign in with Google to access their workspace.`,
+    });
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      res.status(409).json({ error: "A tenant with that slug or domain already exists" });
+      return;
+    }
+    console.error("[admin] POST /tenants error:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
+  }
+});
+
+// All routes below require an authenticated session
 router.use(requireAuth);
 
 // GET /api/admin/members

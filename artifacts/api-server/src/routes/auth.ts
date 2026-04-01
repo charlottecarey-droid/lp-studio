@@ -307,6 +307,167 @@ router.post("/auth/password", async (req, res): Promise<void> => {
   }
 });
 
+// GET /api/auth/domain-context — identifies whether this domain is locked to a specific tenant
+// Used by the frontend to decide between "invite-only" vs "create workspace" for unassigned users
+router.get("/auth/domain-context", async (req, res): Promise<void> => {
+  try {
+    const hostHeader =
+      (req.query.host as string) ||
+      (req.headers["x-forwarded-host"] as string) ||
+      req.headers.host ||
+      "";
+    const domain = hostHeader.split(":")[0].toLowerCase();
+
+    if (!domain) {
+      res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT id, name, slug FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
+      [domain]
+    );
+
+    if (result.rows.length > 0) {
+      const t = result.rows[0];
+      res.json({ mode: "tenant-locked", tenantId: t.id, tenantName: t.name, tenantSlug: t.slug });
+    } else {
+      res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null });
+    }
+  } catch (err) {
+    console.error("[auth] /domain-context error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/signup — create a new tenant workspace for an authenticated user who has no tenant yet
+router.post("/auth/signup", async (req, res): Promise<void> => {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  try {
+    const sessionResult = await pool.query(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    if (!sessionResult.rows.length) {
+      res.status(401).json({ error: "Session expired" });
+      return;
+    }
+    const sess = JSON.parse(sessionResult.rows[0].sess);
+
+    if (sess.tenantId) {
+      res.status(400).json({ error: "You already belong to a workspace" });
+      return;
+    }
+
+    const { name, slug } = req.body ?? {};
+    if (!name || typeof name !== "string" || !slug || typeof slug !== "string") {
+      res.status(400).json({ error: "name and slug are required" });
+      return;
+    }
+
+    const slugClean = slug
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!slugClean) {
+      res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+      return;
+    }
+
+    const ALL_PERMS = {
+      pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+      sales_outreach: true, sales_signals: true, settings: true, team: true, roles: true,
+    };
+    const EDITOR_PERMS = {
+      pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+      sales_outreach: true, sales_signals: true, settings: false, team: false, roles: false,
+    };
+    const VIEWER_PERMS = {
+      pages: true, tests: false, analytics: true, forms_leads: false, brand: false,
+      blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+      sales_outreach: false, sales_signals: true, settings: false, team: false, roles: false,
+    };
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const tenantResult = await client.query(
+        `INSERT INTO tenants (name, slug, plan, status) VALUES ($1, $2, 'trial', 'active') RETURNING id, name, slug`,
+        [name.trim(), slugClean]
+      );
+      const tenant = tenantResult.rows[0];
+
+      const adminRoleResult = await client.query(
+        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+         VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
+        [tenant.id, JSON.stringify(ALL_PERMS)]
+      );
+      await client.query(
+        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+         VALUES ($1, 'Editor', $2, false, true)`,
+        [tenant.id, JSON.stringify(EDITOR_PERMS)]
+      );
+      await client.query(
+        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+         VALUES ($1, 'Viewer', $2, false, true)`,
+        [tenant.id, JSON.stringify(VIEWER_PERMS)]
+      );
+      const adminRoleId = adminRoleResult.rows[0].id;
+
+      await client.query(
+        `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+         VALUES ($1, $2, $3, $4, now())`,
+        [tenant.id, sess.userId, adminRoleId, sess.email]
+      );
+
+      await client.query(
+        `UPDATE app_users SET tenant_id = $1 WHERE id = $2`,
+        [tenant.id, sess.userId]
+      );
+
+      await client.query("COMMIT");
+
+      // Refresh the session with the new tenantId and Admin permissions
+      const newSess = JSON.stringify({
+        ...sess,
+        tenantId: tenant.id,
+        role: "Admin",
+        permissions: ALL_PERMS,
+        isAdmin: true,
+      });
+      const expire = new Date(Date.now() + SESSION_TTL_MS);
+      await pool.query(
+        `UPDATE app_sessions SET sess = $1, expire = $2 WHERE sid = $3`,
+        [newSess, expire, sid]
+      );
+
+      res.json({ ok: true, tenant });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    if (err.code === "23505" && (err.constraint as string)?.includes("slug")) {
+      res.status(409).json({ error: "That workspace URL is already taken. Please choose another." });
+      return;
+    }
+    console.error("[auth] signup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // POST /api/auth/verify-password — kept for backward compat with backup app
 router.post("/auth/verify-password", (req, res): void => {
   const { password } = req.body ?? {};

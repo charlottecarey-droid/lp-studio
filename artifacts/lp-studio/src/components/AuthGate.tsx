@@ -1,10 +1,11 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, LogOut, ChevronDown } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { ExternalLink, LogOut, ChevronDown, Building2 } from "lucide-react";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
 
@@ -57,7 +58,7 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <Input
         type="email"
-        placeholder="you@meetdandy.com"
+        placeholder="you@company.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -84,7 +85,7 @@ function SignInPanel() {
 
   return (
     <div className="w-full max-w-sm space-y-6 text-center">
-      <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
+      <img src={dandyLogo} alt="LP Studio" className="mx-auto h-10" />
       <div>
         <h1 className="text-xl font-semibold text-foreground">LP Studio</h1>
         <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
@@ -134,8 +135,108 @@ function SignInPanel() {
   );
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: () => void }) {
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!slugEdited && name) {
+      setSlug(slugify(name));
+    }
+  }, [name, slugEdited]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug }),
+      });
+      if (res.ok) {
+        onSuccess();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Could not create workspace");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="w-full max-w-sm space-y-6">
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <Building2 className="h-6 w-6 text-primary" />
+        </div>
+        <h1 className="text-xl font-semibold text-foreground">Create your workspace</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Signed in as <span className="font-medium text-foreground">{email}</span>
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="ws-name">Workspace name</Label>
+          <Input
+            id="ws-name"
+            placeholder="Acme Corp"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="ws-slug">URL slug</Label>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">lpstudio.ai/</span>
+            <Input
+              id="ws-slug"
+              placeholder="acme-corp"
+              value={slug}
+              onChange={(e) => {
+                setSlugEdited(true);
+                setSlug(slugify(e.target.value));
+              }}
+              required
+              className="font-mono text-sm"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Letters, numbers, and hyphens only</p>
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <Button type="submit" className="w-full" disabled={loading || !name || !slug}>
+          {loading ? "Creating workspace…" : "Create workspace"}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, domainContext, logout, refresh } = useAuth();
   const [location] = useLocation();
 
   if (isPublicRoute(location)) {
@@ -159,15 +260,41 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   if (!user.tenantId) {
+    // On an open domain (e.g. app.lpstudio.ai) — let the user create a workspace
+    if (domainContext?.mode === "open") {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background px-4">
+          <div className="w-full max-w-sm">
+            <CreateWorkspaceForm email={user.email} onSuccess={refresh} />
+            <div className="mt-6 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground"
+                onClick={async () => {
+                  await logout();
+                  window.location.reload();
+                }}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign out
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // On a tenant-locked domain (e.g. meetdandy-lp.com) — invite-only, no self-serve signup
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm space-y-6 text-center">
-          <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
+          <img src={dandyLogo} alt="LP Studio" className="mx-auto h-10" />
           <div>
             <h1 className="text-xl font-semibold text-foreground">Access Pending</h1>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
               You're signed in as <span className="font-medium text-foreground">{user.email}</span>,
-              but you haven't been added to a workspace yet.
+              but you haven't been added to this workspace yet.
               <br />
               Ask an admin to invite you.
             </p>

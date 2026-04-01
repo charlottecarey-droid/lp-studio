@@ -162,23 +162,45 @@ Schema files: `lib/db/src/schema/{tenants,appUsers,appSessions,tenantRoles,tenan
 - `GET /api/auth/google/callback` — exchange code, upsert user, create session, set `lp_sid` cookie
 - `GET /api/auth/me` — return session JSON
 - `POST /api/auth/logout` — delete session + clear cookie
+- `GET /api/auth/domain-context?host=<hostname>` — returns `{ mode: "tenant-locked" | "open", tenantId, tenantName, tenantSlug }` by matching `hostname` against `tenants.domain`
+- `POST /api/auth/signup` — creates a new tenant workspace for an authenticated user with no tenant yet; seeds Admin/Editor/Viewer roles; updates session in-place
 
 **Middleware** (`artifacts/api-server/src/middleware/requireAuth.ts`):
 - `requireAuth` — reads `lp_sid` cookie, queries `app_sessions`, attaches `req.authUser`
 - `requirePermission(key)` — checks `req.authUser.permissions[key]` or `isAdmin`
 
-**Admin routes** (`GET/POST/PATCH/DELETE /api/admin/members`, `GET/POST/PATCH/DELETE /api/admin/roles`) — admin-only, scoped to requester's `tenantId`.
+**Admin routes** (`artifacts/api-server/src/routes/admin.ts`):
+- `POST /api/admin/tenants` — provision a new tenant (protected by `ADMIN_PASSWORD`, no session required). Body: `{ adminPassword, name, slug, adminEmail, domain?, plan? }`. Creates tenant + seeds 3 default roles + upserts first admin user.
+- `GET/POST/PATCH/DELETE /api/admin/members` — manage tenant members (session auth, admin-only)
+- `GET/POST/PATCH/DELETE /api/admin/roles` — manage tenant roles (session auth, admin-only)
+
+### Domain-Aware Multi-Tenant Routing
+
+One codebase serves multiple tenants via domain routing:
+- `meetdandy-lp.com` → `tenants.domain = 'meetdandy-lp.com'` → Dandy (tenant 1) → invite-only, no self-serve signup
+- `app.lpstudio.ai` (no matching domain) → mode `open` → self-serve workspace creation
+
+**How it works**: On load, `AuthContext` calls `GET /api/auth/domain-context?host=<window.location.hostname>`. The API checks `tenants.domain`. `AuthGate` uses the result:
+- Signed in + no tenantId + mode `tenant-locked` → "Access Pending" screen
+- Signed in + no tenantId + mode `open` → "Create workspace" form (calls `POST /api/auth/signup`)
+
+**Database note**: `tenants.domain` must be set for domain-locking to work. Dandy's domain is `meetdandy-lp.com` (set in Neon DB).
+
+**To provision a new tenant** (before self-serve is live at lpstudio.ai):
+```bash
+curl -X POST /api/admin/tenants \
+  -H "Content-Type: application/json" \
+  -d '{ "adminPassword": "<ADMIN_PASSWORD>", "name": "Acme Corp", "slug": "acme", "adminEmail": "ceo@acme.com", "domain": "acme-lp.com" }'
+```
+The admin user then signs in with Google at the app URL to access their workspace.
 
 **Frontend**:
-- `AuthProvider` + `useAuth()` hook at `artifacts/lp-studio/src/context/AuthContext.tsx`
-- `AuthGate` component at `artifacts/lp-studio/src/components/AuthGate.tsx` — replaces PasswordGate; shows Google sign-in or "pending access" state
+- `AuthProvider` + `useAuth()` hook at `artifacts/lp-studio/src/context/AuthContext.tsx` — also fetches and exposes `domainContext`
+- `AuthGate` component at `artifacts/lp-studio/src/components/AuthGate.tsx` — domain-aware; shows Google sign-in, "Access Pending", or "Create workspace" depending on state
 - Both sidebars (`app-layout.tsx`, `sales-layout.tsx`) filter nav items via `hasPerm(key)`
 - Settings pages: `/settings/team` (TeamPage) and `/settings/roles` (RolesPage)
 
-**Required env vars**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` (already set).
-**Google redirect URI**: `https://<REPLIT_DEV_DOMAIN>/api/auth/google/callback`
-
-**Migration plan**: existing LP/Sales data tables will get a `tenant_id` FK column pointing to `tenants.id` when multi-tenancy is activated (Task #42).
+**Required env vars**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`, `ADMIN_PASSWORD` (all set).
 
 ### `scripts` (`@workspace/scripts`)
 
