@@ -356,7 +356,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         </div>
 
         {/* ── SCAN GIF FEATURE — styled as a callout card ── */}
-        <motion.div
+        {props.showScanGif !== false && <motion.div
           className="w-full max-w-3xl mb-16 rounded-2xl overflow-hidden"
           style={{
             marginLeft: "8%",
@@ -398,7 +398,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               draggable={false}
             />
           </div>
-        </motion.div>
+        </motion.div>}
 
         {/* ── QUOTE ── */}
         {(props.quote ?? "It would be insane not to use it given the data available.") && (

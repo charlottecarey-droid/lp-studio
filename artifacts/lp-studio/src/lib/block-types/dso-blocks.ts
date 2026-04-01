@@ -523,6 +523,7 @@ export interface DsoInsightsVideoBlockProps {
   subtitle?: string;
   description?: string;
   callouts?: Array<{ label: string; desc: string }>;
+  showScanGif?: boolean;
   callout1Label?: string;
   callout1Desc?: string;
   callout2Label?: string;

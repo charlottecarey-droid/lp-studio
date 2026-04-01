@@ -439,6 +439,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="textarea" rows={2} value={p.description ?? ""} onChange={v => onChange({ ...block, props: { ...p, description: v } })} fieldLabel="Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "description", p.description ?? "", { title: p.title ?? "" })} />
             </div>
 
+            {/* Scan GIF toggle */}
+            <div className="border-t pt-3 flex items-center justify-between">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Show Scan GIF</Label>
+              <input type="checkbox" checked={p.showScanGif !== false} onChange={e => onChange({ ...block, props: { ...p, showScanGif: e.target.checked } })} className="w-4 h-4 accent-lime-500 cursor-pointer" />
+            </div>
+
             {/* Callouts — dynamic add/remove */}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
