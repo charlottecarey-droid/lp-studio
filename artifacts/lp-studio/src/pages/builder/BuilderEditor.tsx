@@ -970,17 +970,20 @@ export default function BuilderEditor() {
     const sourceUrl  = ((p.primaryCtaUrl  ?? p.ctaUrl ?? p.url  ?? "") as string);
     const sourceText = ((p.primaryCtaText ?? p.ctaText ?? "")           as string);
     const sourceMode = ((p.primaryCtaMode ?? p.ctaMode ?? p.ctaAction ?? p.ctaType ?? "link") as string);
-    const sourceChilipiper = ((p.chilipiperUrl ?? "") as string);
+    // chilipiperUrl: explicit field first, then fall back to ctaUrl when mode is chilipiper
+    const sourceChilipiper = ((p.chilipiperUrl as string | undefined) ??
+      (sourceMode === "chilipiper" ? sourceUrl : "")) as string;
 
     setBlocks(prev => prev.map(b => {
       if (b.id === selectedBlock.id) return b;
       const bp = b.props as Record<string, unknown>;
 
       // Determine if this block has any CTA-like fields
-      const hasPrimaryCta = "primaryCtaUrl" in bp;
-      const hasCtaUrl     = "ctaUrl" in bp;
-      const hasUrl        = "url" in bp;
-      if (!hasPrimaryCta && !hasCtaUrl && !hasUrl) return b;
+      const hasPrimaryCta  = "primaryCtaUrl" in bp;
+      const hasCtaUrl      = "ctaUrl" in bp;
+      const hasUrl         = "url" in bp;
+      const hasChilipiper  = "chilipiperUrl" in bp;
+      if (!hasPrimaryCta && !hasCtaUrl && !hasUrl && !hasChilipiper) return b;
 
       const updates: Record<string, unknown> = {};
 
@@ -998,7 +1001,7 @@ export default function BuilderEditor() {
         if ("ctaMode" in bp)   updates.ctaMode   = sourceMode;
         if ("ctaAction" in bp) updates.ctaAction  = sourceMode;
         if ("ctaType" in bp)   updates.ctaType    = sourceMode;
-        if ("chilipiperUrl" in bp) updates.chilipiperUrl = sourceChilipiper;
+        if (hasChilipiper && sourceChilipiper) updates.chilipiperUrl = sourceChilipiper;
       }
 
       // Legacy blocks that use "url" instead of "ctaUrl"
@@ -1006,6 +1009,11 @@ export default function BuilderEditor() {
         updates.url = sourceUrl;
         if ("ctaAction" in bp) updates.ctaAction = sourceMode;
         if ("ctaType" in bp)   updates.ctaType   = sourceMode;
+      }
+
+      // Capture-style blocks: only have chilipiperUrl, no ctaUrl (e.g. dso-cta-capture)
+      if (hasChilipiper && !hasCtaUrl && !hasPrimaryCta && sourceChilipiper) {
+        updates.chilipiperUrl = sourceChilipiper;
       }
 
       return { ...b, props: { ...bp, ...updates } } as PageBlock;
