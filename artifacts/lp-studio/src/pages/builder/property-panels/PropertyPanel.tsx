@@ -355,8 +355,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "dso-insights-video": {
         const p = block.props;
-        // Build live callouts array — prefer new array prop, fall back to old named props
-        const calloutsArr: Array<{ label: string; desc: string }> = p.callouts && p.callouts.length > 0
+        // Build live callouts array — use explicit array if it's been set, else fall back to legacy named props
+        const calloutsArr: Array<{ label: string; desc: string }> = p.callouts != null
           ? p.callouts
           : [
               { label: p.callout1Label ?? "Remake Rates",        desc: p.callout1Desc ?? "Track quality by provider, not just practice" },
