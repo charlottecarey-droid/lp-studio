@@ -52,12 +52,12 @@ export default function Navbar() {
           <a href="#pricing" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Pricing</a>
           <a href="#testimonials" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Testimonials</a>
           <a
-            href="#waitlist"
+            href="https://app.lpstudio.ai"
             onClick={() => setMenuOpen(false)}
             className="self-start px-5 py-2 rounded-full text-sm font-semibold"
             style={{ background: "#C7E738", color: "#000", fontFamily: "Outfit, sans-serif" }}
           >
-            Get Early Access
+            Start Free
           </a>
         </div>
       )}

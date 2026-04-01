@@ -32,13 +32,13 @@ export default function Hero() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
           <a
-            href="#waitlist"
+            href="https://app.lpstudio.ai"
             className="px-8 py-4 rounded-full text-base font-bold transition-all shadow-lg"
             style={{ background: "#C7E738", color: "#000", fontFamily: "Outfit, sans-serif", boxShadow: "0 0 32px rgba(199,231,56,0.25)" }}
             onMouseEnter={e => { e.currentTarget.style.background = "#d6f54a"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#C7E738"; e.currentTarget.style.transform = "translateY(0)"; }}
           >
-            Start Free — Get Early Access
+            Start for Free
           </a>
           <a
             href="#how-it-works"
