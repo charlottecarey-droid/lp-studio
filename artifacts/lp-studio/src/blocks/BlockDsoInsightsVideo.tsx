@@ -347,6 +347,40 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           ))}
         </div>
 
+        {/* ── SCAN GIF FEATURE ── */}
+        <motion.div
+          className="w-full max-w-3xl mb-16 flex flex-col items-center"
+          initial={{ opacity: 0, y: 40 }}
+          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+          transition={{ duration: 0.9, delay: 2.65, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Heading */}
+          <div className="flex items-center gap-3 mb-6 self-start">
+            <div className="h-px w-6 bg-[#C7E738]/40 shrink-0" />
+            <span className="text-[#C7E738] text-[10px] font-semibold tracking-[0.22em] uppercase">
+              See every scan
+            </span>
+          </div>
+
+          {/* GIF card */}
+          <div
+            className="w-full rounded-2xl overflow-hidden"
+            style={{
+              background: "rgba(255,255,255,0.035)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+            }}
+          >
+            <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#C7E738]/50 to-transparent" />
+            <img
+              src="https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif"
+              alt="Dandy scan thickness visualization"
+              className="w-full h-auto block"
+              draggable={false}
+            />
+          </div>
+        </motion.div>
+
         {/* ── QUOTE ── */}
         {(props.quote ?? "It would be insane not to use it given the data available.") && (
           <motion.div
