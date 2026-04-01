@@ -87,7 +87,7 @@ function SignInPanel() {
   const isDandy = domainContext?.mode === "tenant-locked";
   const logo = isDandy ? dandyLogo : lpstudioLogo;
   const logoAlt = isDandy ? "Dandy" : "LP Studio";
-  const title = isDandy ? "Dandy — LP Studio" : "LP Studio";
+  const title = isDandy ? "Dandy Admin" : "LP Studio";
   const subtitle = isDandy ? "Sign in to continue" : "Sign in to your workspace";
 
   return (
