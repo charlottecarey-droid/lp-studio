@@ -48,7 +48,7 @@ export default function Scene6CTA() {
         />
 
         <motion.h1 
-          className="text-[4vw] font-bold text-[#C7E738] tracking-tight"
+          className="text-[4vw] text-[#C7E738]"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.8, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -57,7 +57,7 @@ export default function Scene6CTA() {
         </motion.h1>
 
         <motion.p
-          className="text-white/35 text-[1.2vw] tracking-widest uppercase mt-4"
+          className="text-white/35 text-[1.2vw] uppercase mt-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.4, duration: 0.6 }}

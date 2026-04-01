@@ -54,7 +54,7 @@ export default function Scene4Reveal() {
 
       {/* Headline */}
       <div className="relative z-10 flex flex-col items-center text-center pt-[9vh]">
-        <h1 className="text-[5.5vw] font-bold leading-[1.08] tracking-tight">
+        <h1 className="text-[5.5vw] leading-[1.08]">
           <SplitText
             text="One platform."
             delay={0.7}

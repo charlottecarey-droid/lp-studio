@@ -23,7 +23,7 @@ export default function Scene5Payoff() {
       <div className="absolute inset-0 bg-radial-gradient from-transparent to-[#001a14]" />
 
       <div className="relative z-10 flex flex-col items-center text-center px-16 gap-6">
-        <h1 className="text-[5.2vw] font-bold leading-[1.1] tracking-tight">
+        <h1 className="text-[5.2vw] leading-[1.1]">
           <SplitText
             text="Real-time visibility."
             delay={0.2}
@@ -43,7 +43,7 @@ export default function Scene5Payoff() {
         </motion.div>
 
         <motion.p
-          className="text-white/60 text-[1.8vw] max-w-[60vw] leading-relaxed mt-2 font-medium"
+          className="text-white/60 text-[1.8vw] max-w-[60vw] leading-relaxed mt-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.6, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}

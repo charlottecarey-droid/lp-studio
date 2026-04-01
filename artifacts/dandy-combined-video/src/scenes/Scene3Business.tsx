@@ -31,11 +31,11 @@ export default function Scene3Business() {
               text="FOR DSO OPERATORS"
               delay={0.3}
               stagger={0.03}
-              className="text-[#C7E738] text-[1.1vw] font-semibold tracking-[0.3em] uppercase"
+              className="text-[#C7E738] text-[1.1vw] uppercase"
             />
           </motion.div>
 
-          <h2 className="text-[4.5vw] font-bold leading-[1.1] tracking-tight">
+          <h2 className="text-[4.5vw] leading-[1.1]">
             <SplitText
               text="Visibility operators"
               delay={0.6}

@@ -46,12 +46,12 @@ export default function Scene1Hook() {
             text="DANDY INSIGHTS"
             delay={0.3}
             stagger={0.03}
-            className="text-[#C7E738] text-[1.2vw] font-semibold tracking-[0.4em] uppercase"
+            className="text-[#C7E738] text-[1.2vw] uppercase"
           />
         </motion.div>
 
         {/* Headline */}
-        <h1 className="text-[5.5vw] font-bold leading-[1.1] tracking-tight">
+        <h1 className="text-[5.5vw] leading-[1.1]">
           <SplitText
             text="The dental lab"
             delay={0.6}
