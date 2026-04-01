@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/dandy-combined-video/"
+title = "Dandy Insights — For Everyone"
+version = "1.0.0"
+id = "artifacts/dandy-combined-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/dandy-combined-video/" ]
+localPort = 24253
+
+[services.development]
+run = "pnpm --filter @workspace/dandy-combined-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dandy-combined-video", "run", "build" ]
+publicDir = "artifacts/dandy-combined-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24253"
+BASE_PATH = "/dandy-combined-video/"

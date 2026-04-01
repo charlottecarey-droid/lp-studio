@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const TOTAL_MS = 41000;
+const TOTAL_MS = 34500; // Updated to match the total duration of the combined video (5k+6k+6k+7k+5.5k+5k)
 
 type State = 'idle' | 'rendering' | 'done' | 'error';
 
@@ -22,7 +22,7 @@ export default function DownloadButton() {
     }, 500);
 
     try {
-      const res = await fetch('/api/video/render?video=clinical', {
+      const res = await fetch('/api/video/render?video=combined', {
         signal: AbortSignal.timeout(180_000),
       });
 
@@ -37,7 +37,7 @@ export default function DownloadButton() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'dandy-insights-clinical.mp4';
+      a.download = 'dandy-insights-combined.mp4';
       a.click();
       URL.revokeObjectURL(url);
 

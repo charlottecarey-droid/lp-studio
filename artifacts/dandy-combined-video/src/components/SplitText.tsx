@@ -10,10 +10,6 @@ interface SplitTextProps {
   duration?: number;
 }
 
-/**
- * Animates each word individually — clips from bottom, slides up.
- * Wrap lines separately so line breaks are respected.
- */
 export function SplitText({
   text,
   delay = 0,
@@ -41,9 +37,6 @@ export function SplitText({
   );
 }
 
-/**
- * Animates each character one by one — good for short words / eyebrows.
- */
 export function SplitChars({
   text,
   delay = 0,

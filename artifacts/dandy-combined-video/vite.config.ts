@@ -66,18 +66,9 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
-    proxy: {
-      "/api": {
-        target: `http://localhost:${process.env.API_PORT ?? "8080"}`,
-        changeOrigin: true,
-      },
-    },
     fs: {
-      strict: false,
-      allow: [
-        path.resolve(import.meta.dirname),
-        path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
-      ],
+      strict: true,
+      deny: ["**/.*"],
     },
   },
   preview: {
