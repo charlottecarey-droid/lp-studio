@@ -1,12 +1,100 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FlaskConical, PlusCircle, LayoutGrid, CheckCircle2, BarChart2, Paintbrush, Blocks, FormInput } from "lucide-react";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  LayoutDashboard,
+  FlaskConical,
+  PlusCircle,
+  LayoutGrid,
+  CheckCircle2,
+  BarChart2,
+  Paintbrush,
+  Blocks,
+  FormInput,
+  Users,
+  Shield,
+  LogOut,
+  ChevronDown,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import dandyLogo from "@/assets/dandy-logo.svg";
+import { useAuth } from "@/context/AuthContext";
+
+function UserFooter() {
+  const { user, logout } = useAuth();
+  if (!user) return null;
+
+  const initials = user.name
+    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : user.email[0].toUpperCase();
+
+  return (
+    <div className="mt-auto border-t border-border/40 p-3">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left group">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                {initials}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-foreground truncate">{user.name || user.email}</div>
+              <div className="text-[10px] text-muted-foreground truncate">{user.role}</div>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" className="w-52">
+          <div className="px-2 py-1.5">
+            <div className="text-xs font-medium">{user.name}</div>
+            <div className="text-[11px] text-muted-foreground truncate">{user.email}</div>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="gap-2 text-destructive focus:text-destructive"
+            onClick={async () => {
+              await logout();
+              window.location.reload();
+            }}
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { hasPerm, user } = useAuth();
+
+  const showMarketing =
+    hasPerm("pages") || hasPerm("tests") || hasPerm("analytics") || hasPerm("forms_leads");
+  const showSettings =
+    hasPerm("brand") || hasPerm("blocks") || hasPerm("team") || hasPerm("roles");
 
   return (
     <Sidebar className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
@@ -29,94 +117,168 @@ export function AppSidebar() {
           <ModeToggle />
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Platform</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/"}>
-                  <Link href="/" className="font-medium">
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/pages" || location.startsWith("/builder/")}>
-                  <Link href="/pages" className="font-medium">
-                    <LayoutGrid className="w-4 h-4" />
-                    <span>Pages</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/tests" || (location.startsWith("/tests/") && location !== "/tests/new")}>
-                  <Link href="/tests" className="font-medium">
-                    <FlaskConical className="w-4 h-4" />
-                    <span>Experiments</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/reviews"}>
-                  <Link href="/reviews" className="font-medium">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Approvals</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/analytics"}>
-                  <Link href="/analytics" className="font-medium">
-                    <BarChart2 className="w-4 h-4" />
-                    <span>Analytics</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/forms-and-leads" || location === "/leads" || location === "/forms" || location === "/integrations"}>
-                  <Link href="/forms-and-leads" className="font-medium">
-                    <FormInput className="w-4 h-4" />
-                    <span>Forms & Leads</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showMarketing && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Platform
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/"}>
+                    <Link href="/" className="font-medium">
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {hasPerm("pages") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/pages" || location.startsWith("/builder/")}
+                    >
+                      <Link href="/pages" className="font-medium">
+                        <LayoutGrid className="w-4 h-4" />
+                        <span>Pages</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {hasPerm("tests") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        location === "/tests" ||
+                        (location.startsWith("/tests/") && location !== "/tests/new")
+                      }
+                    >
+                      <Link href="/tests" className="font-medium">
+                        <FlaskConical className="w-4 h-4" />
+                        <span>Experiments</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/reviews"}>
+                    <Link href="/reviews" className="font-medium">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Approvals</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {hasPerm("analytics") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/analytics"}>
+                      <Link href="/analytics" className="font-medium">
+                        <BarChart2 className="w-4 h-4" />
+                        <span>Analytics</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {hasPerm("forms_leads") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        location === "/forms-and-leads" ||
+                        location === "/leads" ||
+                        location === "/forms" ||
+                        location === "/integrations"
+                      }
+                    >
+                      <Link href="/forms-and-leads" className="font-medium">
+                        <FormInput className="w-4 h-4" />
+                        <span>Forms & Leads</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/brand" || location === "/library"}>
-                  <Link href="/brand" className="font-medium">
-                    <Paintbrush className="w-4 h-4" />
-                    <span>Brand & Content</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/blocks" || location === "/block-defaults" || location === "/custom-blocks"}>
-                  <Link href="/blocks" className="font-medium">
-                    <Blocks className="w-4 h-4" />
-                    <span>Blocks</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showSettings && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Settings
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {hasPerm("brand") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/brand" || location === "/library"}
+                    >
+                      <Link href="/brand" className="font-medium">
+                        <Paintbrush className="w-4 h-4" />
+                        <span>Brand & Content</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {hasPerm("blocks") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        location === "/blocks" ||
+                        location === "/block-defaults" ||
+                        location === "/custom-blocks"
+                      }
+                    >
+                      <Link href="/blocks" className="font-medium">
+                        <Blocks className="w-4 h-4" />
+                        <span>Blocks</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {(hasPerm("team") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/team"}>
+                      <Link href="/settings/team" className="font-medium">
+                        <Users className="w-4 h-4" />
+                        <span>Team</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {(hasPerm("roles") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/roles"}>
+                      <Link href="/settings/roles" className="font-medium">
+                        <Shield className="w-4 h-4" />
+                        <span>Roles</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        <div className="mt-auto p-4">
-          <Link href="/tests/new">
-            <Button className="w-full justify-start gap-2 shadow-sm hover:shadow-md transition-all duration-300 group" variant="default">
-              <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-              New Experiment
-            </Button>
-          </Link>
-        </div>
+        {hasPerm("tests") && (
+          <div className="px-4 pb-4">
+            <Link href="/tests/new">
+              <Button
+                className="w-full justify-start gap-2 shadow-sm hover:shadow-md transition-all duration-300 group"
+                variant="default"
+              >
+                <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                New Experiment
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        <UserFooter />
       </SidebarContent>
     </Sidebar>
   );
@@ -137,9 +299,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="hover:bg-muted/50 transition-colors rounded-lg p-2" />
           </header>
           <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10">
-            <div className="max-w-6xl mx-auto w-full">
-              {children}
-            </div>
+            <div className="max-w-6xl mx-auto w-full">{children}</div>
           </main>
         </div>
       </div>

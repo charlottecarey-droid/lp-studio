@@ -1,0 +1,205 @@
+import { Router } from "express";
+import { pool } from "@workspace/db";
+import { requireAuth } from "../middleware/requireAuth";
+
+const router = Router();
+
+router.use(requireAuth);
+
+// GET /api/admin/members
+router.get("/members", async (req, res): Promise<void> => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         tm.id, tm.tenant_id, tm.user_id, tm.role_id,
+         tm.email as invite_email, tm.invited_at, tm.accepted_at,
+         tr.name as role_name, tr.is_admin,
+         au.email as user_email, au.name as user_name, au.avatar_url
+       FROM tenant_members tm
+       JOIN tenant_roles tr ON tr.id = tm.role_id
+       LEFT JOIN app_users au ON au.id = tm.user_id
+       WHERE tm.tenant_id = $1
+       ORDER BY tm.invited_at DESC`,
+      [req.authUser!.tenantId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[admin] GET /members error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/members — invite or add a member
+router.post("/members", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const { email, roleId } = req.body ?? {};
+  if (!email || !roleId) {
+    res.status(400).json({ error: "email and roleId are required" });
+    return;
+  }
+  try {
+    const userResult = await pool.query(
+      `SELECT id FROM app_users WHERE email = $1`,
+      [email]
+    );
+    const userId: number | null = userResult.rows[0]?.id ?? null;
+    const acceptedAt = userId ? new Date() : null;
+
+    const result = await pool.query(
+      `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (tenant_id, user_id)
+         WHERE user_id IS NOT NULL
+         DO UPDATE SET role_id = EXCLUDED.role_id
+       RETURNING *`,
+      [req.authUser!.tenantId, userId, roleId, email, acceptedAt]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /members error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/members/:id — change role
+router.patch("/members/:id", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const { roleId } = req.body ?? {};
+  if (!roleId) {
+    res.status(400).json({ error: "roleId is required" });
+    return;
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE tenant_members SET role_id = $1
+       WHERE id = $2 AND tenant_id = $3
+       RETURNING *`,
+      [roleId, req.params.id, req.authUser!.tenantId]
+    );
+    if (!result.rows.length) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /members/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/members/:id
+router.delete("/members/:id", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  try {
+    await pool.query(
+      `DELETE FROM tenant_members WHERE id = $1 AND tenant_id = $2`,
+      [req.params.id, req.authUser!.tenantId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /members/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/admin/roles
+router.get("/roles", async (req, res): Promise<void> => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM tenant_roles WHERE tenant_id = $1 ORDER BY is_admin DESC, is_system DESC, name`,
+      [req.authUser!.tenantId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[admin] GET /roles error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/roles
+router.post("/roles", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const { name, permissions } = req.body ?? {};
+  if (!name) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_roles (tenant_id, name, permissions)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [req.authUser!.tenantId, name, JSON.stringify(permissions ?? {})]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("[admin] POST /roles error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/roles/:id — update name or permissions (non-system only)
+router.patch("/roles/:id", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const { name, permissions } = req.body ?? {};
+  try {
+    const result = await pool.query(
+      `UPDATE tenant_roles SET
+         name = COALESCE($1, name),
+         permissions = COALESCE($2::jsonb, permissions),
+         updated_at = now()
+       WHERE id = $3 AND tenant_id = $4
+       RETURNING *`,
+      [name ?? null, permissions ? JSON.stringify(permissions) : null, req.params.id, req.authUser!.tenantId]
+    );
+    if (!result.rows.length) {
+      res.status(404).json({ error: "Role not found" });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[admin] PATCH /roles/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/roles/:id — cannot delete system roles
+router.delete("/roles/:id", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  try {
+    const result = await pool.query(
+      `DELETE FROM tenant_roles
+       WHERE id = $1 AND tenant_id = $2 AND is_system = false
+       RETURNING id`,
+      [req.params.id, req.authUser!.tenantId]
+    );
+    if (!result.rows.length) {
+      res.status(403).json({ error: "Cannot delete a system role" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] DELETE /roles/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+export default router;

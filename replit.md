@@ -141,17 +141,44 @@ Landing Page Studio — A/B testing platform + visual drag-and-drop page builder
 
 ### Multi-tenant Identity Schema
 
-Three tables establish the SaaS identity layer. All live in the shared PostgreSQL database.
+Five tables establish the SaaS identity + permissions layer. All live in Neon PostgreSQL.
 
 | Table | Purpose |
 |---|---|
-| `tenants` | One row per customer organisation. **Dandy = Tenant #1** (slug `dandy`, domain `meetdandy.com`, plan `enterprise`). |
-| `app_users` | Human accounts. `tenant_id` is NULL for superadmins; set for all other roles. `google_id` = Google OAuth `sub` claim. Roles: `superadmin` / `admin` / `rep` / `viewer`. |
-| `app_sessions` | Server-side session store. `sid` is stored as an httpOnly cookie; `sess` holds user snapshot (id, role, tenantId) so auth middleware avoids a DB hit per request. |
+| `tenants` | One row per customer organisation. **Dandy = Tenant #1** (slug `dandy`, plan `enterprise`). |
+| `app_users` | Human accounts. `google_id` = Google OAuth `sub` claim. `tenant_id` FK to tenants. |
+| `app_sessions` | Server-side session store. `sid` stored as httpOnly cookie (`lp_sid`). `sess` holds JSON snapshot `{userId, tenantId, role, permissions, isAdmin}`. |
+| `tenant_roles` | Role definitions per tenant. Each row has a `permissions` JSONB map (feature → bool). Three system roles seeded: Admin (full), Marketing, Sales. |
+| `tenant_members` | Links users to tenants with a role. Supports pre-invite by email (userId NULL until first sign-in). |
 
-Schema files: `lib/db/src/schema/tenants.ts`, `lib/db/src/schema/appUsers.ts`, `lib/db/src/schema/appSessions.ts`.
+Schema files: `lib/db/src/schema/{tenants,appUsers,appSessions,tenantRoles,tenantMembers}.ts`.
 
-**Migration plan**: existing LP/Sales data tables will get a `tenant_id` FK column pointing to `tenants.id` when multi-tenancy is activated (after the DSO → LP Studio Sales Console migration is complete).
+**Permission keys**: `pages`, `tests`, `analytics`, `forms_leads`, `brand`, `blocks`, `sales_dashboard`, `sales_contacts`, `sales_accounts`, `sales_outreach`, `sales_signals`, `settings`, `team`, `roles`.
+
+### Auth System (Google OAuth)
+
+**Backend** (`artifacts/api-server/src/routes/auth.ts`):
+- `GET /api/auth/google` — redirect to Google OAuth
+- `GET /api/auth/google/callback` — exchange code, upsert user, create session, set `lp_sid` cookie
+- `GET /api/auth/me` — return session JSON
+- `POST /api/auth/logout` — delete session + clear cookie
+
+**Middleware** (`artifacts/api-server/src/middleware/requireAuth.ts`):
+- `requireAuth` — reads `lp_sid` cookie, queries `app_sessions`, attaches `req.authUser`
+- `requirePermission(key)` — checks `req.authUser.permissions[key]` or `isAdmin`
+
+**Admin routes** (`GET/POST/PATCH/DELETE /api/admin/members`, `GET/POST/PATCH/DELETE /api/admin/roles`) — admin-only, scoped to requester's `tenantId`.
+
+**Frontend**:
+- `AuthProvider` + `useAuth()` hook at `artifacts/lp-studio/src/context/AuthContext.tsx`
+- `AuthGate` component at `artifacts/lp-studio/src/components/AuthGate.tsx` — replaces PasswordGate; shows Google sign-in or "pending access" state
+- Both sidebars (`app-layout.tsx`, `sales-layout.tsx`) filter nav items via `hasPerm(key)`
+- Settings pages: `/settings/team` (TeamPage) and `/settings/roles` (RolesPage)
+
+**Required env vars**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` (already set).
+**Google redirect URI**: `https://<REPLIT_DEV_DOMAIN>/api/auth/google/callback`
+
+**Migration plan**: existing LP/Sales data tables will get a `tenant_id` FK column pointing to `tenants.id` when multi-tenancy is activated (Task #42).
 
 ### `scripts` (`@workspace/scripts`)
 

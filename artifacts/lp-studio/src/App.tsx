@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
-import { PasswordGate } from "@/components/PasswordGate";
+import { AuthProvider } from "@/context/AuthContext";
+import { AuthGate } from "@/components/AuthGate";
 
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
@@ -38,6 +39,10 @@ const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
 
+// Settings pages
+const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
+const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
+
 // Legacy routes (redirect to consolidated pages)
 const LeadsPage = lazy(() => import("@/pages/leads"));
 const FormsPage = lazy(() => import("@/pages/forms"));
@@ -47,7 +52,6 @@ const BlockDefaultsPage = lazy(() => import("@/pages/block-defaults"));
 const CustomBlocksPage = lazy(() => import("@/pages/custom-blocks"));
 const LivePages = lazy(() => import("@/pages/live-pages"));
 
-// Loading fallback component
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
@@ -81,6 +85,10 @@ function Router() {
         {/* Consolidated Routes */}
         <Route path="/forms-and-leads" component={FormsAndLeads} />
         <Route path="/blocks" component={BlocksSettings} />
+
+        {/* Settings Routes */}
+        <Route path="/settings/team" component={TeamPage} />
+        <Route path="/settings/roles" component={RolesPage} />
 
         {/* Legacy routes — keep working for bookmarks/links */}
         <Route path="/live-pages" component={LivePages} />
@@ -128,14 +136,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <PasswordGate>
-          <ModeProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-          </ModeProvider>
-          <Toaster />
-        </PasswordGate>
+        <AuthProvider>
+          <AuthGate>
+            <ModeProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+            </ModeProvider>
+            <Toaster />
+          </AuthGate>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
