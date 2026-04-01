@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight } from "lucide-react";
+import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -67,13 +67,19 @@ interface Props {
   onCtaClick?: () => void;
 }
 
+const CALLOUT_ICONS = [LineChart, DollarSign, Stethoscope, Activity];
+
 export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
-  const callouts = [
-    { icon: LineChart, label: props.callout1Label || "Remake Rates", desc: props.callout1Desc || "Track quality by provider, not just practice" },
-    { icon: DollarSign, label: props.callout2Label || "Spend Tracking", desc: props.callout2Desc || "Know where every dollar goes across all locations" },
-    { icon: Stethoscope, label: props.callout3Label || "Scan Quality", desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
-    { icon: Activity, label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
-  ];
+  // Support both new array prop and legacy named props
+  const rawCallouts: Array<{ label: string; desc: string }> = props.callouts && props.callouts.length > 0
+    ? props.callouts
+    : [
+        { label: props.callout1Label || "Remake Rates",         desc: props.callout1Desc || "Track quality by provider, not just practice" },
+        { label: props.callout2Label || "Spend Tracking",       desc: props.callout2Desc || "Know where every dollar goes across all locations" },
+        { label: props.callout3Label || "Scan Quality",         desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
+        { label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
+      ];
+  const callouts = rawCallouts.map((c, i) => ({ ...c, icon: CALLOUT_ICONS[i % CALLOUT_ICONS.length] }));
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.2 });
@@ -349,31 +355,42 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           ))}
         </div>
 
-        {/* ── SCAN GIF FEATURE ── */}
+        {/* ── SCAN GIF FEATURE — styled as a callout card ── */}
         <motion.div
-          className="w-full max-w-3xl mb-16 flex flex-col items-center"
-          initial={{ opacity: 0, y: 40 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-          transition={{ duration: 0.9, delay: 2.65, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-3xl mb-16 rounded-2xl overflow-hidden"
+          style={{
+            marginLeft: "8%",
+            width: "calc(100% - 8%)",
+            background: "rgba(255,255,255,0.035)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}
+          initial={{ opacity: 0, y: 36 }}
+          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
+          transition={{ duration: 0.8, delay: 2.75, type: "spring", stiffness: 65, damping: 16 }}
         >
-          {/* Heading */}
-          <div className="flex items-center gap-3 mb-6 self-start">
-            <div className="h-px w-6 bg-[#C7E738]/40 shrink-0" />
-            <span className="text-[#C7E738] text-[10px] font-semibold tracking-[0.22em] uppercase">
-              See every scan
-            </span>
+          <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#C7E738]/50 to-transparent" />
+          <div className="px-6 py-5 flex items-start gap-4">
+            <div
+              className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                width: 40,
+                height: 40,
+                background: "rgba(199,231,56,0.08)",
+                border: "1px solid rgba(199,231,56,0.2)",
+                boxShadow: "0 0 12px rgba(199,231,56,0.08)",
+              }}
+            >
+              <ScanLine className="w-4 h-4 text-[#C7E738]" />
+            </div>
+            <div>
+              <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">See every scan</h4>
+              <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">Inspect crown prep geometry and thickness in real time.</p>
+            </div>
           </div>
-
-          {/* GIF card */}
-          <div
-            className="w-full rounded-2xl overflow-hidden"
-            style={{
-              background: "rgba(255,255,255,0.035)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 24px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
-            }}
-          >
-            <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#C7E738]/50 to-transparent" />
+          <div className="w-full relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
+              style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
             <img
               src="https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif"
               alt="Dandy scan thickness visualization"

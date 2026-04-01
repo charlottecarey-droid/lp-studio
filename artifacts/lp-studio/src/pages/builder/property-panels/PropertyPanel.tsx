@@ -355,6 +355,21 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "dso-insights-video": {
         const p = block.props;
+        // Build live callouts array — prefer new array prop, fall back to old named props
+        const calloutsArr: Array<{ label: string; desc: string }> = p.callouts && p.callouts.length > 0
+          ? p.callouts
+          : [
+              { label: p.callout1Label ?? "Remake Rates",        desc: p.callout1Desc ?? "Track quality by provider, not just practice" },
+              { label: p.callout2Label ?? "Spend Tracking",      desc: p.callout2Desc ?? "Know where every dollar goes across all locations" },
+              { label: p.callout3Label ?? "Scan Quality",        desc: p.callout3Desc ?? "Catch clinical issues before they become remakes" },
+              { label: p.callout4Label ?? "Provider Performance",desc: p.callout4Desc ?? "Coach with data, not instinct" },
+            ];
+        const updateCallout = (i: number, key: "label" | "desc", val: string) => {
+          const next = calloutsArr.map((c, idx) => idx === i ? { ...c, [key]: val } : c);
+          onChange({ ...block, props: { ...p, callouts: next } });
+        };
+        const addCallout = () => onChange({ ...block, props: { ...p, callouts: [...calloutsArr, { label: "", desc: "" }] } });
+        const removeCallout = (i: number) => onChange({ ...block, props: { ...p, callouts: calloutsArr.filter((_, idx) => idx !== i) } });
         return (
           <div className="space-y-4 p-4">
             {/* Background */}
@@ -424,20 +439,21 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="textarea" rows={2} value={p.description ?? ""} onChange={v => onChange({ ...block, props: { ...p, description: v } })} fieldLabel="Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "description", p.description ?? "", { title: p.title ?? "" })} />
             </div>
 
-            {/* Callouts */}
+            {/* Callouts — dynamic add/remove */}
             <div className="border-t pt-3">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Feature Callouts</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature Callouts</Label>
+                <Button variant="ghost" size="sm" onClick={addCallout} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button>
+              </div>
               <div className="space-y-3">
-                {([
-                  { lKey: "callout1Label" as const, dKey: "callout1Desc" as const, ph: "Remake Rates", phd: "Track quality by provider…" },
-                  { lKey: "callout2Label" as const, dKey: "callout2Desc" as const, ph: "Spend Tracking", phd: "Know where every dollar goes…" },
-                  { lKey: "callout3Label" as const, dKey: "callout3Desc" as const, ph: "Scan Quality", phd: "Catch clinical issues before…" },
-                  { lKey: "callout4Label" as const, dKey: "callout4Desc" as const, ph: "Provider Performance", phd: "Coach with data, not instinct" },
-                ] as const).map(({ lKey, dKey, ph, phd }, i) => (
+                {calloutsArr.map((c, i) => (
                   <div key={i} className="border rounded-lg p-2 space-y-1.5 bg-slate-50">
-                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Callout {i + 1}</span>
-                    <Input value={p[lKey] ?? ""} onChange={e => onChange({ ...block, props: { ...p, [lKey]: e.target.value } })} placeholder={ph} className="h-7 text-xs" />
-                    <Input value={p[dKey] ?? ""} onChange={e => onChange({ ...block, props: { ...p, [dKey]: e.target.value } })} placeholder={phd} className="h-7 text-xs" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Callout {i + 1}</span>
+                      <button onClick={() => removeCallout(i)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                    <Input value={c.label} onChange={e => updateCallout(i, "label", e.target.value)} placeholder="Remake Rates" className="h-7 text-xs" />
+                    <Input value={c.desc} onChange={e => updateCallout(i, "desc", e.target.value)} placeholder="Track quality by provider…" className="h-7 text-xs" />
                   </div>
                 ))}
               </div>

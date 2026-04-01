@@ -522,6 +522,7 @@ export interface DsoInsightsVideoBlockProps {
   title?: string;
   subtitle?: string;
   description?: string;
+  callouts?: Array<{ label: string; desc: string }>;
   callout1Label?: string;
   callout1Desc?: string;
   callout2Label?: string;
