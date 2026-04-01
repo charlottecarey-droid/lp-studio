@@ -391,6 +391,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="flex items-center justify-between">
               <div>
+                <Label className="text-xs font-semibold">Autoplay &amp; Loop</Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Video plays silently on load and repeats.</p>
+              </div>
+              <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
                 <Label className="text-xs font-semibold">Hide browser frame</Label>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Remove the fake URL bar and window chrome.</p>
               </div>
@@ -2857,6 +2864,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <p className="text-[11px] text-muted-foreground">Or use a video instead — overrides the screenshot when set.</p>
               <VideoPicker label="Video" value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-semibold">Autoplay &amp; Loop</Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Video plays silently on load and repeats.</p>
+              </div>
+              <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
             </div>
             <div className="flex items-center justify-between">
               <div>

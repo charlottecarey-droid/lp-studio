@@ -5,6 +5,7 @@ import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 
 // Batch 1 (isi–isl)
 import scr_isi from "@assets/isi_1774822643018.png";
@@ -241,20 +242,20 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             {/* Video or scrolling screenshots */}
             {props.videoUrl ? (
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
-                {[".mp4", ".webm", ".ogg", ".mov"].some(ext => props.videoUrl!.toLowerCase().split("?")[0].endsWith(ext)) ? (
+                {isNativeVideoUrl(props.videoUrl) ? (
                   <video
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
-                    autoPlay
-                    muted
-                    loop
+                    autoPlay={props.videoAutoplay !== false}
+                    muted={props.videoAutoplay !== false}
+                    loop={props.videoAutoplay !== false}
                     playsInline
-                    controls
+                    controls={props.videoAutoplay === false}
                     preload="metadata"
                   />
                 ) : (
                   <iframe
-                    src={props.videoUrl}
+                    src={props.videoAutoplay !== false ? getAutoplayEmbedUrl(props.videoUrl) : props.videoUrl}
                     className="absolute inset-0 w-full h-full border-0"
                     title="Dandy Insights"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

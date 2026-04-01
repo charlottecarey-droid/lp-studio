@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
+import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 
 const SPRING = { type: "spring" as const, stiffness: 380, damping: 22 };
 const BRAND   = "#003A30";
@@ -40,8 +41,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     layout = "centered",
   } = props;
 
-  const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
-  const isNativeVideo = !!videoUrl && VIDEO_EXTS.some(ext => videoUrl.toLowerCase().split("?")[0].endsWith(ext));
+  const autoplay = props.videoAutoplay !== false;
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -141,21 +141,21 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
       {/* Video, screenshot, or placeholder */}
       <div style={{ position: "relative", lineHeight: 0 }}>
         {videoUrl ? (
-          isNativeVideo ? (
+          isNativeVideoUrl(videoUrl) ? (
             <video
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
-              autoPlay
-              muted
-              loop
+              autoPlay={autoplay}
+              muted={autoplay}
+              loop={autoplay}
               playsInline
-              controls
+              controls={!autoplay}
               preload="metadata"
             />
           ) : (
             <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
               <iframe
-                src={videoUrl}
+                src={autoplay ? getAutoplayEmbedUrl(videoUrl) : videoUrl}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 title="Software Showcase"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

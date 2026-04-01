@@ -453,6 +453,7 @@ export interface DsoSoftwareShowcaseBlockProps {
   body?: string;
   imageUrl?: string;
   videoUrl?: string;
+  videoAutoplay?: boolean;
   hideBrowserFrame?: boolean;
   features?: { icon?: string; label: string }[];
   ctaText?: string;
@@ -540,5 +541,6 @@ export interface DsoInsightsVideoBlockProps {
   backgroundOverlay?: number;
   overlayColor?: string;
   videoUrl?: string;
+  videoAutoplay?: boolean;
   hideBrowserFrame?: boolean;
 }
