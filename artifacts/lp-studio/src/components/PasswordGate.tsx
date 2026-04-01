@@ -98,7 +98,6 @@ export function PasswordGate({ children }: PasswordGateProps) {
         <div className="space-y-3">
           <Input
             type="password"
-            placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoFocus

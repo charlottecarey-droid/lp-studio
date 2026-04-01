@@ -67,7 +67,6 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
       />
       <Input
         type="password"
-        placeholder="Admin password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
