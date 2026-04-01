@@ -20,13 +20,13 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <a
-            href="#waitlist"
+            href="https://app.lpstudio.ai"
             className="px-5 py-2 rounded-full text-sm font-semibold transition-all"
             style={{ background: "#C7E738", color: "#000", fontFamily: "Outfit, sans-serif" }}
             onMouseEnter={e => (e.currentTarget.style.background = "#d6f54a")}
             onMouseLeave={e => (e.currentTarget.style.background = "#C7E738")}
           >
-            Get Early Access
+            Start Free
           </a>
         </div>
 
