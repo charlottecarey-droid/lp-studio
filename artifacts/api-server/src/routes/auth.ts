@@ -194,6 +194,119 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
+// POST /api/auth/password — email + admin-password fallback login
+router.post("/auth/password", async (req, res): Promise<void> => {
+  const { email, password } = req.body ?? {};
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    res.status(503).json({ error: "Password auth not configured" });
+    return;
+  }
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "email is required" });
+    return;
+  }
+  if (typeof password !== "string" || password !== adminPassword) {
+    res.status(401).json({ error: "Incorrect password" });
+    return;
+  }
+
+  try {
+    // Find or create the user by email
+    const upsertResult = await pool.query(
+      `INSERT INTO app_users (email, name, status)
+       VALUES ($1, $1, 'active')
+       ON CONFLICT (email) DO UPDATE SET
+         status = 'active',
+         last_login_at = now(),
+         updated_at = now()
+       RETURNING id, email, name, avatar_url, role, tenant_id`,
+      [email]
+    );
+    const user = upsertResult.rows[0];
+
+    // Look up existing membership
+    const memberResult = await pool.query(
+      `SELECT tm.tenant_id, tm.role_id, tr.name as role_name, tr.permissions, tr.is_admin
+       FROM tenant_members tm
+       JOIN tenant_roles tr ON tr.id = tm.role_id
+       WHERE tm.user_id = $1
+       LIMIT 1`,
+      [user.id]
+    );
+
+    let tenantId: number;
+    let role: string;
+    let permissions: Record<string, boolean>;
+    let isAdmin: boolean;
+
+    if (memberResult.rows.length > 0) {
+      const m = memberResult.rows[0];
+      tenantId = m.tenant_id;
+      role = m.role_name;
+      permissions = (m.permissions as Record<string, boolean>) ?? {};
+      isAdmin = m.is_admin ?? false;
+    } else {
+      // Bootstrap: grant admin on tenant 1
+      const adminRoleResult = await pool.query(
+        `SELECT id, name, permissions FROM tenant_roles
+         WHERE tenant_id = 1 AND is_admin = true LIMIT 1`
+      );
+      const adminRole = adminRoleResult.rows[0];
+
+      await pool.query(
+        `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+         VALUES (1, $1, $2, $3, now())
+         ON CONFLICT DO NOTHING`,
+        [user.id, adminRole.id, email]
+      );
+
+      await pool.query(
+        `UPDATE app_users SET tenant_id = 1 WHERE id = $1`,
+        [user.id]
+      );
+
+      tenantId = 1;
+      role = adminRole.name;
+      permissions = (adminRole.permissions as Record<string, boolean>) ?? {};
+      isAdmin = true;
+    }
+
+    // Create session
+    const sid = crypto.randomUUID();
+    const sess = JSON.stringify({
+      userId: user.id,
+      email: user.email,
+      name: user.name ?? "",
+      avatarUrl: user.avatar_url ?? null,
+      tenantId,
+      role,
+      permissions,
+      isAdmin,
+    });
+    const expire = new Date(Date.now() + SESSION_TTL_MS);
+
+    await pool.query(
+      `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)`,
+      [sid, sess, expire]
+    );
+
+    res.cookie(SESSION_COOKIE, sid, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: SESSION_TTL_MS,
+      path: "/",
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[auth] password login error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // POST /api/auth/verify-password — kept for backward compat with backup app
 router.post("/auth/verify-password", (req, res): void => {
   const { password } = req.body ?? {};

@@ -1,9 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, LogOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ExternalLink, LogOut, ChevronDown } from "lucide-react";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
 
@@ -19,6 +20,117 @@ function GoogleIcon() {
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
+  );
+}
+
+function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/password", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (res.ok) {
+        onSuccess();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Sign in failed");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <Input
+        type="email"
+        placeholder="you@meetdandy.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        autoFocus
+      />
+      <Input
+        type="password"
+        placeholder="Admin password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+        {loading ? "Signing in…" : "Sign in"}
+      </Button>
+    </form>
+  );
+}
+
+function SignInPanel() {
+  const { refresh } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <div className="w-full max-w-sm space-y-6 text-center">
+      <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">LP Studio</h1>
+        <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
+      </div>
+
+      <div className="space-y-3">
+        {!showPassword ? (
+          <>
+            <Button
+              className="w-full gap-2"
+              onClick={() => { window.location.href = "/api/auth/google"; }}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setShowPassword(true)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Sign in with password instead
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </>
+        ) : (
+          <>
+            <PasswordForm onSuccess={refresh} />
+            <button
+              type="button"
+              onClick={() => setShowPassword(false)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Back to Google sign-in
+            </button>
+          </>
+        )}
+
+        <a
+          href="https://www.meetdandy.com"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+    </div>
   );
 }
 
@@ -41,30 +153,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">LP Studio</h1>
-            <p className="text-sm text-muted-foreground mt-1">Sign in with your Dandy Google account</p>
-          </div>
-          <div className="space-y-3">
-            <Button
-              className="w-full gap-2"
-              onClick={() => {
-                window.location.href = "/api/auth/google";
-              }}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </Button>
-            <a
-              href="https://www.meetdandy.com"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Looking for Dandy? Visit meetdandy.com <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
+        <SignInPanel />
       </div>
     );
   }
@@ -77,8 +166,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <div>
             <h1 className="text-xl font-semibold text-foreground">Access Pending</h1>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              You're signed in as <span className="font-medium text-foreground">{user.email}</span>, but you haven't
-              been added to a workspace yet.
+              You're signed in as <span className="font-medium text-foreground">{user.email}</span>,
+              but you haven't been added to a workspace yet.
               <br />
               Ask an admin to invite you.
             </p>
