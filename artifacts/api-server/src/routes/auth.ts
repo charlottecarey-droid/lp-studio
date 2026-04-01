@@ -8,33 +8,42 @@ const router = Router();
 export const SESSION_COOKIE = "lp_sid";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function getRedirectUri(): string {
+function getRedirectUri(requestHost?: string): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+  if (requestHost) {
+    const isLocal = requestHost.startsWith("localhost") || requestHost.startsWith("127.");
+    const protocol = isLocal ? "http" : "https";
+    const host = requestHost.split(":")[0]; // strip port for non-local
+    const port = isLocal ? `:${requestHost.split(":")[1] ?? process.env.PORT ?? 8080}` : "";
+    return `${protocol}://${host}${port}/api/auth/google/callback`;
+  }
   const domain = process.env.REPLIT_DEV_DOMAIN;
   if (domain) return `https://${domain}/api/auth/google/callback`;
   return `http://localhost:${process.env.PORT ?? 8080}/api/auth/google/callback`;
 }
 
-function getOAuthClient(): OAuth2Client | null {
+function getOAuthClient(redirectUri?: string): OAuth2Client | null {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
-  return new OAuth2Client(clientId, clientSecret, getRedirectUri());
+  return new OAuth2Client(clientId, clientSecret, redirectUri ?? getRedirectUri());
 }
 
 // GET /api/auth/google — initiates Google OAuth flow
 router.get("/auth/google", (req, res): void => {
-  const client = getOAuthClient();
+  // Determine the host the request came from (custom domain or dev domain)
+  const originHost =
+    (req.headers["x-forwarded-host"] as string)?.split(",")[0].trim() ||
+    (req.headers.host as string) ||
+    "";
+  const redirectUri = getRedirectUri(originHost);
+  const client = getOAuthClient(redirectUri);
   if (!client) {
     res.status(503).json({ error: "Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
     return;
   }
-  // Embed the origin host in state so the callback knows which domain initiated the flow
-  const originHost =
-    (req.headers["x-forwarded-host"] as string)?.split(",")[0].trim() ||
-    req.headers.host ||
-    "";
-  const state = Buffer.from(JSON.stringify({ host: originHost })).toString("base64url");
+  // Embed origin host + redirect URI in state so the callback can replicate exact redirect URI
+  const state = Buffer.from(JSON.stringify({ host: originHost, redirectUri })).toString("base64url");
   const url = client.generateAuthUrl({
     access_type: "online",
     scope: ["openid", "email", "profile"],
@@ -46,26 +55,29 @@ router.get("/auth/google", (req, res): void => {
 
 // GET /api/auth/google/callback — handles OAuth callback from Google
 router.get("/auth/google/callback", async (req, res): Promise<void> => {
-  const client = getOAuthClient();
-  if (!client) {
-    res.redirect("/?error=oauth_not_configured");
-    return;
-  }
-
   const { code, error: oauthError, state: stateParam } = req.query as { code?: string; error?: string; state?: string };
   if (oauthError || !code) {
     res.redirect(`/?error=${encodeURIComponent(oauthError ?? "oauth_failed")}`);
     return;
   }
 
-  // Decode the origin host from state
+  // Decode origin host + redirect URI from state
   let originHost = "";
+  let stateRedirectUri = "";
   try {
     if (stateParam) {
       const decoded = JSON.parse(Buffer.from(stateParam, "base64url").toString("utf8"));
       originHost = decoded.host ?? "";
+      stateRedirectUri = decoded.redirectUri ?? "";
     }
   } catch { /* ignore malformed state */ }
+
+  // Use the same redirect URI that was used when initiating the flow
+  const callbackClient = getOAuthClient(stateRedirectUri || getRedirectUri(originHost));
+  if (!callbackClient) {
+    res.redirect("/?error=oauth_not_configured");
+    return;
+  }
 
   // Resolve domain context for the origin host
   let domainMode: "open" | "tenant-locked" = "open";
@@ -83,10 +95,10 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
   }
 
   try {
-    const { tokens } = await client.getToken(code);
-    client.setCredentials(tokens);
+    const { tokens } = await callbackClient.getToken(code);
+    callbackClient.setCredentials(tokens);
 
-    const ticket = await client.verifyIdToken({
+    const ticket = await callbackClient.verifyIdToken({
       idToken: tokens.id_token!,
       audience: process.env.GOOGLE_CLIENT_ID!,
     });
