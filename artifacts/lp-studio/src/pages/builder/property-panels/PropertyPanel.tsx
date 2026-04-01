@@ -380,28 +380,31 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
 
-            <div className="border-t pt-3 space-y-1.5">
+            <div className="border-t pt-3 space-y-3">
               <Label className="text-xs font-semibold">Dashboard Video</Label>
-              <p className="text-[11px] text-muted-foreground">Upload or paste a video URL. Replaces the animated screenshot gallery when set.</p>
+              <p className="text-[11px] text-muted-foreground -mt-1">Upload or paste a video URL. Replaces the animated screenshot gallery when set.</p>
               <VideoPicker
                 label="Video"
                 value={p.videoUrl ?? ""}
                 onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })}
               />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-semibold">Autoplay &amp; Loop</Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Video plays silently on load and repeats.</p>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Video Options</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Autoplay &amp; Loop</Label>
+                    <p className="text-[11px] text-muted-foreground">Plays silently on load and repeats.</p>
+                  </div>
+                  <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Hide browser frame</Label>
+                    <p className="text-[11px] text-muted-foreground">Remove the fake URL bar and window chrome.</p>
+                  </div>
+                  <Switch checked={p.hideBrowserFrame ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, hideBrowserFrame: v } })} />
+                </div>
               </div>
-              <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-semibold">Hide browser frame</Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Remove the fake URL bar and window chrome.</p>
-              </div>
-              <Switch checked={p.hideBrowserFrame ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, hideBrowserFrame: v } })} />
             </div>
 
             {/* AI refresh */}
