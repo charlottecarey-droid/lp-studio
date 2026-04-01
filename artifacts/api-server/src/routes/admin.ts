@@ -122,6 +122,84 @@ router.post("/tenants", async (req, res): Promise<void> => {
   }
 });
 
+// ─── Superadmin Routes ────────────────────────────────────────────────────────
+// Protected by ADMIN_PASSWORD header only — no session required.
+
+function requireAdminKey(req: any, res: any, next: any): void {
+  const key = req.headers["x-admin-key"];
+  if (!process.env.ADMIN_PASSWORD || key !== process.env.ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+// GET /api/admin/superadmin/tenants
+router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<void> => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id, t.name, t.slug, t.domain, t.plan, t.status, t.created_at,
+        COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
+        COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NULL)::int     AS pending_count,
+        COUNT(DISTINCT p.id)::int AS page_count
+      FROM tenants t
+      LEFT JOIN tenant_members tm ON tm.tenant_id = t.id
+      LEFT JOIN lp_pages p ON p.tenant_id = t.id
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /tenants error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/admin/superadmin/tenants/:id/members
+router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res): Promise<void> => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        tm.id, tm.email, tm.invited_at, tm.accepted_at,
+        u.name, u.avatar_url, u.last_login_at,
+        tr.name AS role_name, tr.is_admin
+      FROM tenant_members tm
+      LEFT JOIN app_users u ON u.id = tm.user_id
+      LEFT JOIN tenant_roles tr ON tr.id = tm.role_id
+      WHERE tm.tenant_id = $1
+      ORDER BY tm.accepted_at DESC NULLS LAST, tm.invited_at DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /tenants/:id/members error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/superadmin/tenants/:id
+router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
+  const { status, plan } = req.body ?? {};
+  try {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+    if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan);   }
+    if (!updates.length) { res.status(400).json({ error: "No fields to update" }); return; }
+    values.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE tenants SET ${updates.join(", ")}, updated_at = now() WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    if (!result.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[superadmin] PATCH /tenants/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // All routes below require an authenticated session
 router.use(requireAuth);
 
@@ -317,84 +395,6 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
     res.json({ ok: true });
   } catch (err) {
     console.error("[admin] DELETE /roles/:id error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// ─── Superadmin Routes ────────────────────────────────────────────────────────
-// Protected by ADMIN_PASSWORD header only — no session required.
-
-function requireAdminKey(req: any, res: any, next: any): void {
-  const key = req.headers["x-admin-key"];
-  if (!process.env.ADMIN_PASSWORD || key !== process.env.ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
-
-// GET /api/admin/superadmin/tenants
-router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<void> => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        t.id, t.name, t.slug, t.domain, t.plan, t.status, t.created_at,
-        COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
-        COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NULL)::int     AS pending_count,
-        COUNT(DISTINCT p.id)::int AS page_count
-      FROM tenants t
-      LEFT JOIN tenant_members tm ON tm.tenant_id = t.id
-      LEFT JOIN lp_pages p ON p.tenant_id = t.id
-      GROUP BY t.id
-      ORDER BY t.created_at DESC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("[superadmin] GET /tenants error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// GET /api/admin/superadmin/tenants/:id/members
-router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res): Promise<void> => {
-  try {
-    const result = await pool.query(`
-      SELECT
-        tm.id, tm.email, tm.invited_at, tm.accepted_at,
-        u.name, u.avatar_url, u.last_login_at,
-        tr.name AS role_name, tr.is_admin
-      FROM tenant_members tm
-      LEFT JOIN app_users u ON u.id = tm.user_id
-      LEFT JOIN tenant_roles tr ON tr.id = tm.role_id
-      WHERE tm.tenant_id = $1
-      ORDER BY tm.accepted_at DESC NULLS LAST, tm.invited_at DESC
-    `, [req.params.id]);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("[superadmin] GET /tenants/:id/members error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// PATCH /api/admin/superadmin/tenants/:id
-router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
-  const { status, plan } = req.body ?? {};
-  try {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
-    if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan);   }
-    if (!updates.length) { res.status(400).json({ error: "No fields to update" }); return; }
-    values.push(req.params.id);
-    const result = await pool.query(
-      `UPDATE tenants SET ${updates.join(", ")}, updated_at = now() WHERE id = $${idx} RETURNING *`,
-      values
-    );
-    if (!result.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error("[superadmin] PATCH /tenants/:id error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

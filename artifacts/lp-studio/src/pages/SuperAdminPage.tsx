@@ -1,7 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -10,11 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -22,9 +16,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 async function apiFetch(path: string, adminKey: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
-    headers: { "x-admin-key": adminKey, "content-type": "application/json", ...(opts?.headers ?? {}) },
+    headers: {
+      "x-admin-key": adminKey,
+      "content-type": "application/json",
+      ...(opts?.headers ?? {}),
+    },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || String(res.status));
+  }
   return res.json();
 }
 
@@ -53,16 +54,20 @@ interface Member {
   last_login_at: string | null;
 }
 
-function statusColor(status: string) {
-  if (status === "active")    return "bg-green-100 text-green-800";
-  if (status === "suspended") return "bg-red-100 text-red-800";
-  return "bg-gray-100 text-gray-700";
+function statusBadge(status: string) {
+  const cls =
+    status === "active"    ? "bg-green-100 text-green-800" :
+    status === "suspended" ? "bg-red-100 text-red-800" :
+                             "bg-gray-100 text-gray-600";
+  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{status}</span>;
 }
 
-function planColor(plan: string) {
-  if (plan === "pro")      return "bg-purple-100 text-purple-800";
-  if (plan === "business") return "bg-blue-100 text-blue-800";
-  return "bg-gray-100 text-gray-600";
+function planBadge(plan: string) {
+  const cls =
+    plan === "pro"      ? "bg-purple-100 text-purple-800" :
+    plan === "business" ? "bg-blue-100 text-blue-800" :
+                          "bg-gray-100 text-gray-600";
+  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls}`}>{plan}</span>;
 }
 
 function fmtDate(s: string | null) {
@@ -70,26 +75,35 @@ function fmtDate(s: string | null) {
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function TenantRow({ tenant, adminKey, onUpdate }: { tenant: Tenant; adminKey: string; onUpdate: () => void }) {
+function TenantRow({
+  tenant,
+  adminKey,
+  onUpdate,
+}: {
+  tenant: Tenant;
+  adminKey: string;
+  onUpdate: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[] | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const loadMembers = useCallback(async () => {
-    if (members) return;
     setLoadingMembers(true);
     try {
       const data = await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey);
       setMembers(data);
-    } catch { /* ignore */ }
-    finally { setLoadingMembers(false); }
-  }, [tenant.id, adminKey, members]);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, [tenant.id, adminKey]);
 
-  const toggleOpen = () => {
-    const next = !open;
-    setOpen(next);
-    if (next) loadMembers();
+  const toggle = () => {
+    if (!open && !members) loadMembers();
+    setOpen((v) => !v);
   };
 
   const patch = async (field: "status" | "plan", value: string) => {
@@ -100,119 +114,131 @@ function TenantRow({ tenant, adminKey, onUpdate }: { tenant: Tenant; adminKey: s
         body: JSON.stringify({ [field]: value }),
       });
       onUpdate();
-    } catch { /* ignore */ }
-    finally { setUpdating(false); }
+    } catch {
+      /* ignore */
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
-    <Collapsible open={open} onOpenChange={toggleOpen} asChild>
-      <>
-        <CollapsibleTrigger asChild>
-          <TableRow className="cursor-pointer hover:bg-muted/50 select-none">
-            <TableCell className="w-6">
-              {open ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-            </TableCell>
-            <TableCell>
-              <div className="font-medium">{tenant.name}</div>
-              <div className="text-xs text-muted-foreground">{tenant.slug}</div>
-            </TableCell>
-            <TableCell>
-              {tenant.domain
-                ? <span className="flex items-center gap-1 text-sm"><Globe className="w-3.5 h-3.5" />{tenant.domain}</span>
-                : <span className="text-muted-foreground text-sm">—</span>}
-            </TableCell>
-            <TableCell>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${planColor(tenant.plan)}`}>
-                {tenant.plan}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(tenant.status)}`}>
-                {tenant.status}
-              </span>
-            </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{tenant.member_count}</span>
-                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{tenant.page_count}</span>
+    <>
+      <TableRow
+        className="cursor-pointer hover:bg-muted/50 select-none"
+        onClick={toggle}
+      >
+        <TableCell className="w-6 pl-4">
+          {open
+            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell>
+          <div className="font-medium">{tenant.name}</div>
+          <div className="text-xs text-muted-foreground">{tenant.slug}</div>
+        </TableCell>
+        <TableCell>
+          {tenant.domain
+            ? <span className="flex items-center gap-1 text-sm"><Globe className="w-3.5 h-3.5 shrink-0" />{tenant.domain}</span>
+            : <span className="text-muted-foreground text-sm">—</span>}
+        </TableCell>
+        <TableCell>{planBadge(tenant.plan)}</TableCell>
+        <TableCell>{statusBadge(tenant.status)}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{tenant.member_count}</span>
+            <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{tenant.page_count}</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">{fmtDate(tenant.created_at)}</TableCell>
+      </TableRow>
+
+      {open && (
+        <TableRow className="bg-muted/20 hover:bg-muted/20">
+          <TableCell colSpan={7} className="p-0">
+            <div className="px-10 py-4 space-y-4">
+              {/* Quick actions */}
+              <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status:</span>
+                {["active", "suspended", "inactive"].map((s) => (
+                  <Button
+                    key={s}
+                    size="sm"
+                    variant={tenant.status === s ? "default" : "outline"}
+                    className="h-6 text-xs"
+                    disabled={updating || tenant.status === s}
+                    onClick={() => patch("status", s)}
+                  >
+                    {s}
+                  </Button>
+                ))}
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4">Plan:</span>
+                {["trial", "pro", "business"].map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant={tenant.plan === p ? "default" : "outline"}
+                    className="h-6 text-xs"
+                    disabled={updating || tenant.plan === p}
+                    onClick={() => patch("plan", p)}
+                  >
+                    {p}
+                  </Button>
+                ))}
               </div>
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground">{fmtDate(tenant.created_at)}</TableCell>
-          </TableRow>
-        </CollapsibleTrigger>
 
-        <CollapsibleContent asChild>
-          <TableRow className="bg-muted/30 hover:bg-muted/30">
-            <TableCell colSpan={7} className="p-0">
-              <div className="px-8 py-4 space-y-4">
-
-                {/* Quick actions */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-1">Status:</span>
-                  {["active", "suspended", "inactive"].map(s => (
-                    <Button key={s} size="sm" variant={tenant.status === s ? "default" : "outline"}
-                      className="h-6 text-xs" disabled={updating || tenant.status === s}
-                      onClick={(e) => { e.stopPropagation(); patch("status", s); }}>
-                      {s}
-                    </Button>
-                  ))}
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4 mr-1">Plan:</span>
-                  {["trial", "pro", "business"].map(p => (
-                    <Button key={p} size="sm" variant={tenant.plan === p ? "default" : "outline"}
-                      className="h-6 text-xs" disabled={updating || tenant.plan === p}
-                      onClick={(e) => { e.stopPropagation(); patch("plan", p); }}>
-                      {p}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Members table */}
-                {loadingMembers && <p className="text-sm text-muted-foreground">Loading members…</p>}
-                {members && members.length === 0 && <p className="text-sm text-muted-foreground">No members yet.</p>}
-                {members && members.length > 0 && (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-muted-foreground border-b">
-                        <th className="pb-1 font-medium">Name / Email</th>
-                        <th className="pb-1 font-medium">Role</th>
-                        <th className="pb-1 font-medium">Status</th>
-                        <th className="pb-1 font-medium">Last login</th>
+              {/* Members */}
+              {loadingMembers && <p className="text-sm text-muted-foreground">Loading members…</p>}
+              {!loadingMembers && members?.length === 0 && (
+                <p className="text-sm text-muted-foreground">No members yet.</p>
+              )}
+              {!loadingMembers && members && members.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b">
+                      <th className="pb-1.5 font-medium">Name / Email</th>
+                      <th className="pb-1.5 font-medium">Role</th>
+                      <th className="pb-1.5 font-medium">Status</th>
+                      <th className="pb-1.5 font-medium">Last login</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => (
+                      <tr key={m.id} className="border-b last:border-0">
+                        <td className="py-2">
+                          <div className="font-medium">{m.name ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">{m.email}</div>
+                        </td>
+                        <td className="py-2">
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded ${
+                              m.is_admin ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {m.role_name}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          {m.accepted_at
+                            ? <span className="text-xs text-green-700">Accepted {fmtDate(m.accepted_at)}</span>
+                            : <span className="text-xs text-amber-700">Pending invite</span>}
+                        </td>
+                        <td className="py-2 text-xs text-muted-foreground">{fmtDate(m.last_login_at)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {members.map(m => (
-                        <tr key={m.id} className="border-b last:border-0">
-                          <td className="py-1.5">
-                            <div className="font-medium">{m.name ?? "—"}</div>
-                            <div className="text-xs text-muted-foreground">{m.email}</div>
-                          </td>
-                          <td className="py-1.5">
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${m.is_admin ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>
-                              {m.role_name}
-                            </span>
-                          </td>
-                          <td className="py-1.5">
-                            {m.accepted_at
-                              ? <span className="text-xs text-green-700">Accepted {fmtDate(m.accepted_at)}</span>
-                              : <span className="text-xs text-amber-700">Pending invite</span>}
-                          </td>
-                          <td className="py-1.5 text-xs text-muted-foreground">{fmtDate(m.last_login_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        </CollapsibleContent>
-      </>
-    </Collapsible>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 
 export default function SuperAdminPage() {
-  const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem("sa_key") ?? "");
+  const storedKey = sessionStorage.getItem("sa_key") ?? "";
+  const [adminKey, setAdminKey] = useState(storedKey);
   const [input, setInput] = useState("");
   const [authError, setAuthError] = useState("");
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
@@ -227,8 +253,10 @@ export default function SuperAdminPage() {
       setAuthed(true);
       setAuthError("");
       sessionStorage.setItem("sa_key", key);
+      setAdminKey(key);
     } catch (err: any) {
-      if (err.message?.includes("401") || err.message?.toLowerCase().includes("unauthorized")) {
+      const msg = String(err?.message ?? "");
+      if (msg.includes("401") || msg.toLowerCase().includes("unauthorized")) {
         setAuthError("Incorrect admin password.");
         sessionStorage.removeItem("sa_key");
         setAdminKey("");
@@ -239,10 +267,14 @@ export default function SuperAdminPage() {
     }
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Auto-login if key is stored
+  useEffect(() => {
+    if (storedKey) fetchTenants(storedKey);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setAdminKey(input);
-    await fetchTenants(input);
+    fetchTenants(input);
   };
 
   const handleLogout = () => {
@@ -252,12 +284,6 @@ export default function SuperAdminPage() {
     setTenants(null);
     setInput("");
   };
-
-  // Auto-login if key stored in session
-  useState(() => {
-    const stored = sessionStorage.getItem("sa_key");
-    if (stored) fetchTenants(stored);
-  });
 
   if (!authed) {
     return (
@@ -271,7 +297,7 @@ export default function SuperAdminPage() {
             <Input
               type="password"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={(e) => setInput(e.target.value)}
               autoFocus
               required
             />
@@ -291,7 +317,9 @@ export default function SuperAdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Superadmin</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{tenants?.length ?? "…"} tenants</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {tenants === null ? "Loading…" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => fetchTenants(adminKey)} disabled={loading}>
@@ -319,13 +347,21 @@ export default function SuperAdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!tenants && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">Loading…</TableCell></TableRow>
+              {tenants === null && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                    Loading…
+                  </TableCell>
+                </TableRow>
               )}
               {tenants?.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No tenants found.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                    No tenants found.
+                  </TableCell>
+                </TableRow>
               )}
-              {tenants?.map(t => (
+              {tenants?.map((t) => (
                 <TenantRow key={t.id} tenant={t} adminKey={adminKey} onUpdate={() => fetchTenants(adminKey)} />
               ))}
             </TableBody>
