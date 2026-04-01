@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LiveBadge } from '../components/ui';
 import { SplitText } from '../components/SplitText';
@@ -9,6 +9,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Scene4Reveal() {
   const [showDash, setShowDash] = useState(false);
+  const framedVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setShowDash(true), 1800);
@@ -100,6 +101,7 @@ export default function Scene4Reveal() {
             {/* The actual recording plays inside the frame — high opacity */}
             <div className="relative bg-[#001a14]" style={{ aspectRatio: '16/9' }}>
               <video
+                ref={framedVideoRef}
                 src={videoSrc}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 style={{ opacity: 0.92 }}
@@ -108,6 +110,11 @@ export default function Scene4Reveal() {
                 playsInline
                 loop
                 preload="auto"
+                onLoadedMetadata={() => {
+                  if (framedVideoRef.current) {
+                    framedVideoRef.current.currentTime = 5;
+                  }
+                }}
               />
               {/* Subtle gradient at bottom for depth */}
               <div
