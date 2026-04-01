@@ -2864,23 +2864,26 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
             <ImagePicker label="Screenshot" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
-            <div className="space-y-1.5">
+            <div className="space-y-3">
               <p className="text-[11px] text-muted-foreground">Or use a video instead — overrides the screenshot when set.</p>
               <VideoPicker label="Video" value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-semibold">Autoplay &amp; Loop</Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Video plays silently on load and repeats.</p>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Video Options</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Autoplay &amp; Loop</Label>
+                    <p className="text-[11px] text-muted-foreground">Plays silently on load and repeats.</p>
+                  </div>
+                  <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Hide browser frame</Label>
+                    <p className="text-[11px] text-muted-foreground">Remove the fake URL bar and window chrome.</p>
+                  </div>
+                  <Switch checked={p.hideBrowserFrame ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, hideBrowserFrame: v } })} />
+                </div>
               </div>
-              <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-semibold">Hide browser frame</Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Remove the fake URL bar and window chrome.</p>
-              </div>
-              <Switch checked={p.hideBrowserFrame ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, hideBrowserFrame: v } })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5"><Label className="text-xs">Layout</Label><Select value={p.layout ?? "centered"} onValueChange={v => onChange({ ...block, props: { ...p, layout: v as "centered" | "split" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="centered" className="text-xs">Centered</SelectItem><SelectItem value="split" className="text-xs">Split</SelectItem></SelectContent></Select></div>
