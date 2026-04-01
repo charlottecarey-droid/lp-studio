@@ -452,6 +452,7 @@ export interface DsoSoftwareShowcaseBlockProps {
   headline?: string;
   body?: string;
   imageUrl?: string;
+  videoUrl?: string;
   features?: { icon?: string; label: string }[];
   ctaText?: string;
   ctaUrl?: string;

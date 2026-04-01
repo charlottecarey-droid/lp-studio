@@ -30,6 +30,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     headline,
     body,
     imageUrl,
+    videoUrl,
     features = [],
     ctaText,
     ctaUrl,
@@ -37,6 +38,9 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     backgroundStyle = "dandy-green",
     layout = "centered",
   } = props;
+
+  const VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov"];
+  const isNativeVideo = !!videoUrl && VIDEO_EXTS.some(ext => videoUrl.toLowerCase().split("?")[0].endsWith(ext));
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -131,9 +135,32 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
           app.meetdandy.com
         </div>
       </div>
-      {/* Screenshot */}
+      {/* Video, screenshot, or placeholder */}
       <div style={{ position: "relative", lineHeight: 0 }}>
-        {imageUrl ? (
+        {videoUrl ? (
+          isNativeVideo ? (
+            <video
+              src={videoUrl}
+              style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              preload="metadata"
+            />
+          ) : (
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
+              <iframe
+                src={videoUrl}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+                title="Software Showcase"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )
+        ) : imageUrl ? (
           <img
             src={imageUrl}
             alt="Dandy Chairside Software"
@@ -154,7 +181,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
           >
             <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `${BRAND}30` }} />
             <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `${BRAND}40`, fontFamily: "'Inter',system-ui,sans-serif" }}>
-              Add software screenshot URL in properties
+              Add a screenshot or video in properties
             </p>
           </div>
         )}
