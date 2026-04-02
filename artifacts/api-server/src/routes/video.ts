@@ -45,6 +45,11 @@ const VIDEO_CONFIGS: Record<
     totalMs: 40500,
     filename: "dandy-insights-business.mp4",
   },
+  combined: {
+    url: "http://localhost:24253/dandy-combined-video/",
+    totalMs: 51000,
+    filename: "dandy-insights-combined.mp4",
+  },
 };
 
 function cleanupDir(dir: string) {

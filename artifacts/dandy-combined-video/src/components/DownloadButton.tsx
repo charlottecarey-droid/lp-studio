@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const TOTAL_MS = 34500; // Updated to match the total duration of the combined video (5k+6k+6k+7k+5.5k+5k)
+const TOTAL_MS = 51000; // 4000+4500+5500+6000+6000+9000+6500+9500
 
 type State = 'idle' | 'rendering' | 'done' | 'error';
 
