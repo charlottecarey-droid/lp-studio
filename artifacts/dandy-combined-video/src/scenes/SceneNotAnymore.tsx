@@ -80,7 +80,11 @@ export default function SceneNotAnymore() {
 
         {/* "Not anymore." — fades out + scales up on exit */}
         <motion.div
-          style={{ fontSize: '7.5vw', lineHeight: '1.1em', letterSpacing: '-0.03em', color: '#fff', fontWeight: 400 }}
+          style={{
+            fontSize: '7.5vw', lineHeight: '1.1em', letterSpacing: '-0.03em',
+            color: '#fff', fontWeight: 400,
+            display: 'flex', alignItems: 'baseline', flexWrap: 'nowrap',
+          }}
           initial={{ opacity: 0, y: 24 }}
           animate={showLogo
             ? { opacity: 0, y: -20, scale: 1.06, filter: 'blur(6px)' }
@@ -91,7 +95,8 @@ export default function SceneNotAnymore() {
             : { delay: 0.3, duration: 0.7, ease: EASE }
           }
         >
-          Not anymore.
+          <span>Not&nbsp;</span>
+          <TypeWriter text="anymore." delay={0.6} speed={0.055} />
         </motion.div>
 
         {/* Logo + Insights — springs in */}
