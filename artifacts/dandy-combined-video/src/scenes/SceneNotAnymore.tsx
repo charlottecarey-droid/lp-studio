@@ -171,7 +171,7 @@ export default function SceneNotAnymore() {
 
             {/* "Insights" — types in */}
             {showInsights && (
-              <div style={{ color: '#C7E738', fontSize: '4.4vw', letterSpacing: '-0.02em', fontWeight: 400, marginTop: '-50px' }}>
+              <div style={{ color: '#C7E738', fontSize: '4.4vw', letterSpacing: '-0.02em', fontWeight: 400, marginTop: '-20px' }}>
                 <TypeWriter text="Insights" delay={0} speed={0.06} />
               </div>
             )}
