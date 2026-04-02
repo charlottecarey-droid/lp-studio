@@ -26,41 +26,40 @@ export default function Scene5Payoff() {
     >
       <Background />
 
-      <div className="relative z-10 flex flex-col items-center gap-10">
+      <div className="relative z-10 flex flex-col items-center gap-12">
         {/* Grid of "blacked out" chairs */}
         <div
-          className="grid gap-[9px]"
+          className="grid gap-[12px]"
           style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
         >
           {Array.from({ length: TOTAL }).map((_, i) => (
             <motion.div
               key={i}
-              className="w-[3.6vw] h-[1.8vw] rounded-sm"
+              className="w-[4.8vw] h-[2.4vw] rounded-sm"
               style={{ background: 'rgba(199,231,56,0.08)', border: '1px solid rgba(199,231,56,0.12)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: i * 0.008, duration: 0.3 }}
             >
-              {/* Question mark inside each box */}
               <div className="w-full h-full flex items-center justify-center">
-                <span className="text-white/10 text-[0.6vw] font-bold">?</span>
+                <span className="text-white/10 text-[0.8vw]">?</span>
               </div>
             </motion.div>
           ))}
         </div>
 
         {/* Stat line */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3em' }}>
-            <span style={{ color: '#C7E738', fontSize: '5.2vw', lineHeight: 1, letterSpacing: '-0.03em', fontWeight: 400, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ color: '#C7E738', fontSize: '6.5vw', lineHeight: 1, letterSpacing: '-0.03em', fontWeight: 400, fontVariantNumeric: 'tabular-nums' }}>
               <Counter from={0} to={2973} duration={1.0} decimals={0} />
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '2.8vw', fontWeight: 400, letterSpacing: '-0.01em' }}>chairs.</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '3.5vw', fontWeight: 400, letterSpacing: '-0.01em' }}>chairs.</span>
           </div>
 
           {phase >= 1 && (
             <motion.div
-              style={{ fontSize: '3.0vw', letterSpacing: '-0.015em', fontWeight: 400 }}
+              style={{ fontSize: '3.8vw', letterSpacing: '-0.02em', fontWeight: 400 }}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}

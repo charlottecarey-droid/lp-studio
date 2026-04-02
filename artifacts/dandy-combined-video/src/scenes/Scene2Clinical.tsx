@@ -26,7 +26,7 @@ export default function Scene2Clinical() {
             transition={{ delay: 0.3, duration: 0.5, ease: EASE }}
           >
             <SplitChars
-              text="FOR PROVIDERS"
+              text="FOR CLINICAL LEADERS"
               delay={0.3}
               stagger={0.03}
               className="text-[#C7E738] text-[1.0vw] uppercase tracking-[0.2em]"

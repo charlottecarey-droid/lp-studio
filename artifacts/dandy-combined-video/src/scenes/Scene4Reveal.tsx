@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LiveBadge } from '../components/ui';
-import { SplitText } from '../components/SplitText';
+import { TypeWriter } from '../components/TypeWriter';
 import videoSrc from '@assets/Insights_Recording_vff_1775075168380.mp4';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
