@@ -40,38 +40,53 @@ export default function Scene6CTA() {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-5">
-        <motion.img
-          src={logoUrl}
-          alt="Dandy"
-          className="h-12"
-          style={{ filter: 'brightness(0) invert(1)' }}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6, ease: EASE }}
-        />
+      <div className="relative z-10 flex flex-col items-center gap-4">
 
-        <motion.h1
-          style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400, letterSpacing: '-0.025em', lineHeight: 1 }}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.8, duration: 0.75, ease: EASE }}
-        >
-          Dandy Insights.
-        </motion.h1>
+        {/* Logo + URL grouped together */}
+        <div className="flex flex-col items-center gap-2">
+          <motion.img
+            src={logoUrl}
+            alt="Dandy"
+            className="h-12"
+            style={{ filter: 'brightness(0) invert(1)' }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.6, ease: EASE }}
+          />
+          <motion.p
+            style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+          >
+            <SplitChars text="meetdandy.com/insights" delay={0.8} stagger={0.025} />
+          </motion.p>
+        </div>
 
-        <motion.div
-          className="h-px w-[20vw] mt-1"
-          style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)' }}
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-        />
+        {/* Headline + divider */}
+        <div className="flex flex-col items-center gap-4" style={{ marginTop: '1.5vw' }}>
+          <motion.h1
+            style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400, letterSpacing: '-0.025em', lineHeight: 1 }}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.1, duration: 0.75, ease: EASE }}
+          >
+            Dandy Insights.
+          </motion.h1>
 
-        {/* "from the only dental lab [doctors] and [DSOs] both love" — word by word */}
+          <motion.div
+            className="h-px w-[20vw]"
+            style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)' }}
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ delay: 1.5, duration: 0.8 }}
+          />
+        </div>
+
+        {/* Tagline — standalone, clearly separated */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
                       fontSize: '2.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400,
-                      marginTop: '2.5vw' }}>
+                      marginTop: '3vw' }}>
           {[
             { word: 'from',    color: 'rgba(255,255,255,0.45)' },
             { word: 'the',     color: 'rgba(255,255,255,0.45)' },
@@ -89,21 +104,13 @@ export default function Scene6CTA() {
               style={{ color }}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.7 + i * 0.1, duration: 0.5, ease: EASE }}
+              transition={{ delay: 2.0 + i * 0.1, duration: 0.5, ease: EASE }}
             >
               {word}
             </motion.span>
           ))}
         </div>
 
-        <motion.p
-          style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '0.25rem' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2.9, duration: 0.6 }}
-        >
-          <SplitChars text="meetdandy.com/insights" delay={2.9} stagger={0.025} />
-        </motion.p>
       </div>
     </motion.div>
   );
