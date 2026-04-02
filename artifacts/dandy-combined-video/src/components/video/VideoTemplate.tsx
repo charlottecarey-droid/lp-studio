@@ -8,11 +8,11 @@ import Scene5Payoff from '../../scenes/Scene5Payoff';
 import Scene6CTA from '../../scenes/Scene6CTA';
 
 const SCENES = [
-  { id: 1, duration: 6000, Component: Scene2Clinical },
-  { id: 2, duration: 6000, Component: Scene3Business },
-  { id: 3, duration: 7000, Component: Scene4Reveal },
-  { id: 4, duration: 5500, Component: Scene5Payoff },
-  { id: 5, duration: 5000, Component: Scene1Hook },
+  { id: 1, duration: 5500, Component: Scene5Payoff },
+  { id: 2, duration: 5000, Component: Scene1Hook },
+  { id: 3, duration: 6000, Component: Scene2Clinical },
+  { id: 4, duration: 6000, Component: Scene3Business },
+  { id: 5, duration: 7000, Component: Scene4Reveal },
   { id: 6, duration: 5000, Component: Scene6CTA },
 ];
 
