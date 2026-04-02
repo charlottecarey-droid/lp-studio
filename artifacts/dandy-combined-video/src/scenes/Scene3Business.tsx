@@ -83,7 +83,7 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <h2 className="text-[4.4vw] leading-[1.1]">
+          <h2 className="text-[4.4vw]" style={{ lineHeight: '1.35em' }}>
             <SplitText text="Every scan, every prep," delay={0.55} stagger={0.06} className="text-white block" />
             <SplitText text="every provider." delay={1.0} stagger={0.06} className="text-[#C7E738] block" />
           </h2>
