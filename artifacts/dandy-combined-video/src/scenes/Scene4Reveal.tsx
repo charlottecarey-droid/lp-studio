@@ -63,14 +63,9 @@ export default function Scene4Reveal() {
           >
             One dashboard.
           </motion.div>
-          <motion.div
-            style={{ color: '#C7E738', fontWeight: 400 }}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1, duration: 0.65, ease: EASE }}
-          >
-            Every location.
-          </motion.div>
+          <div style={{ color: '#C7E738', fontWeight: 400 }}>
+            <TypeWriter text="Every location." delay={1.1} speed={0.048} />
+          </div>
         </div>
       </div>
 

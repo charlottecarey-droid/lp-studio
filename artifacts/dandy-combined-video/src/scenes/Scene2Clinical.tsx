@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
-import { SplitText, SplitChars } from '../components/SplitText';
+import { SplitChars } from '../components/SplitText';
+import { TypeWriter } from '../components/TypeWriter';
 import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -42,24 +43,10 @@ export default function Scene2Clinical() {
             >
               See every scan.
             </motion.div>
-            <motion.div
-              style={{ color: '#fff', fontWeight: 400 }}
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0, duration: 0.65, ease: EASE }}
-            >
-              Coach with data.
-            </motion.div>
+            <div style={{ color: '#fff', fontWeight: 400 }}>
+              <TypeWriter text="Coach with data." delay={1.0} speed={0.048} />
+            </div>
           </div>
-
-          <motion.p
-            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '1.3vw', lineHeight: 1.7, fontWeight: 400 }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.7, duration: 0.65, ease: EASE }}
-          >
-            AI-powered crown analysis catches issues before they become remakes.
-          </motion.p>
 
           {/* Stat row */}
           <motion.div

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
+import { TypeWriter } from '../components/TypeWriter';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -82,21 +83,20 @@ export default function Scene1Hook() {
           </motion.span>
         </motion.div>
 
-        {/* Line 2: "the tradeoff." — appears after swing */}
-        <motion.div
-          style={{
-            fontSize: '5.6vw',
-            lineHeight: 1,
-            color: '#C7E738',
-            fontWeight: 400,
-            marginTop: '0.15em',
-          }}
-          initial={{ opacity: 0, y: 26 }}
-          animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 26 }}
-          transition={{ duration: 0.65, ease: EASE }}
-        >
-          the tradeoff.
-        </motion.div>
+        {/* Line 2: "the tradeoff." — types in after swing */}
+        {phase >= 2 && (
+          <div
+            style={{
+              fontSize: '5.6vw',
+              lineHeight: 1,
+              color: '#C7E738',
+              fontWeight: 400,
+              marginTop: '0.15em',
+            }}
+          >
+            <TypeWriter text="the tradeoff." delay={0} speed={0.055} />
+          </div>
+        )}
 
       </div>
     </motion.div>

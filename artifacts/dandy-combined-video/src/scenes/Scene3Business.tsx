@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
+import { TypeWriter } from '../components/TypeWriter';
 import Lottie from 'lottie-react';
 import reportingAnimation from '@assets/dso-animation-chairside-reporting.json';
 
@@ -87,14 +88,9 @@ export default function Scene3Business() {
             >
               Every scan, every prep,
             </motion.div>
-            <motion.div
-              style={{ color: '#C7E738', fontWeight: 400 }}
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0, duration: 0.65, ease: EASE }}
-            >
-              every provider.
-            </motion.div>
+            <div style={{ color: '#C7E738', fontWeight: 400 }}>
+              <TypeWriter text="every provider." delay={1.0} speed={0.048} />
+            </div>
           </div>
 
           {/* 2×2 stat grid */}
