@@ -14,7 +14,7 @@ const SCENES = [
   { id: 3, duration: 4500, Component: SceneNotAnymore },
   { id: 4, duration: 6000, Component: Scene2Clinical },
   { id: 5, duration: 6000, Component: Scene3Business },
-  { id: 6, duration: 7000, Component: Scene4Reveal },
+  { id: 6, duration: 9000, Component: Scene4Reveal },
   { id: 7, duration: 5000, Component: Scene6CTA },
 ];
 
