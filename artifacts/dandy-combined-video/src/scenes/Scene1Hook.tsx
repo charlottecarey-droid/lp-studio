@@ -50,10 +50,9 @@ export default function Scene1Hook() {
           />
         </motion.div>
 
-        <h1 className="text-[5vw] leading-[1.1]">
-          <SplitText text="You don't have to choose" delay={0.7} stagger={0.06} className="text-white block" />
-          <SplitText text="between clinical quality" delay={1.2} stagger={0.06} className="text-[#C7E738] block" />
-          <SplitText text="and enterprise value." delay={1.7} stagger={0.06} className="text-white block" />
+        <h1 className="text-[5.4vw] leading-[1.05]">
+          <SplitText text="The visibility" delay={0.7} stagger={0.07} className="text-white block" />
+          <SplitText text="operators need." delay={1.2} stagger={0.07} className="text-[#C7E738] block" />
         </h1>
       </div>
     </motion.div>
