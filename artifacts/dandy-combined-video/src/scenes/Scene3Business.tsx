@@ -8,12 +8,6 @@ import reportingAnimation from '@assets/dso-animation-chairside-reporting.json';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-const STATS = [
-  { v: '$4.2M', l: 'Net production',   up: true  },
-  { v: '68.4%', l: 'Case acceptance',  up: true  },
-  { v: '91.2',  l: 'Scan quality',     up: true  },
-  { v: '2.1%',  l: 'Remake rate',      up: false },
-];
 
 export default function Scene3Business() {
   const [showLine2, setShowLine2] = useState(false);
@@ -116,29 +110,17 @@ export default function Scene3Business() {
             )}
           </div>
 
-          {/* 2×2 stat grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {STATS.map(({ v, l, up }, i) => (
-              <motion.div
-                key={l}
-                className="flex flex-col gap-1 rounded-xl px-4 py-3"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                }}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.9 + i * 0.1, duration: 0.5, ease: EASE }}
-              >
-                <span style={{ color: up ? '#C7E738' : '#f87171', fontSize: '2.2vw', lineHeight: 1, letterSpacing: '-0.02em' }}>
-                  {v}
-                </span>
-                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85vw', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                  {l}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+          {/* "all in one place." — fades in after second line */}
+          {showLine2 && (
+            <motion.div
+              style={{ color: 'rgba(255,255,255,0.5)', fontSize: '2.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em' }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7, duration: 0.65, ease: EASE }}
+            >
+              all in one place.
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.div>
