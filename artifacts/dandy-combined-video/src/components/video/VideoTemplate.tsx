@@ -9,9 +9,9 @@ import Scene6CTA from '../../scenes/Scene6CTA';
 import SceneNotAnymore from '../../scenes/SceneNotAnymore';
 
 const SCENES = [
-  { id: 1, duration: 5000, Component: Scene1Hook },
+  { id: 1, duration: 4000, Component: Scene1Hook },
   { id: 2, duration: 5500, Component: Scene5Payoff },
-  { id: 3, duration: 4500, Component: SceneNotAnymore },
+  { id: 3, duration: 5500, Component: SceneNotAnymore },
   { id: 4, duration: 6000, Component: Scene2Clinical },
   { id: 5, duration: 6000, Component: Scene3Business },
   { id: 6, duration: 9000, Component: Scene4Reveal },
