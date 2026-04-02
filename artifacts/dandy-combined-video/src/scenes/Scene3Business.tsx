@@ -79,7 +79,7 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.6vw', lineHeight: 1, letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.08em' }}>
+          <div style={{ fontSize: '4.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: 0 }}>
             {/* "Every scan, every prep," — chunk by chunk */}
             <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.26em', alignItems: 'baseline' }}>
               {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (

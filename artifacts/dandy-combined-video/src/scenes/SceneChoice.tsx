@@ -4,7 +4,7 @@ import { Background } from '../components/Background';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-const LINE1 = ['You', "don't", 'have', 'to', 'choose.'];
+const LINE1 = ['You', "don't", 'have', 'to', 'choose'];
 
 // "between [clinical quality] and [enterprise value.]"
 const LINE2: { word: string; color: string }[] = [
