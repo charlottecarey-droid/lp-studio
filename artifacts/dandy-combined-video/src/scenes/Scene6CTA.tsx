@@ -66,10 +66,10 @@ export default function Scene6CTA() {
           <img
             src={logoUrl}
             alt="Dandy"
-            className="h-10"
+            className="h-14"
             style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }}
           />
-          <span style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400,
+          <span style={{ fontSize: '4.2vw', color: '#C7E738', fontWeight: 400,
                          letterSpacing: '-0.025em', lineHeight: 1 }}>
             Dandy Insights.
           </span>
