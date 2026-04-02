@@ -6,6 +6,19 @@ import logoUrl from '@assets/dandy-logo.svg';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+const TAGLINE: { word: string; color: string }[] = [
+  { word: 'from',    color: 'rgba(255,255,255,0.45)' },
+  { word: 'the',     color: 'rgba(255,255,255,0.45)' },
+  { word: 'only',    color: 'rgba(255,255,255,0.45)' },
+  { word: 'dental',  color: 'rgba(255,255,255,0.45)' },
+  { word: 'lab',     color: 'rgba(255,255,255,0.45)' },
+  { word: 'doctors', color: '#C7E738' },
+  { word: 'and',     color: 'rgba(255,255,255,0.45)' },
+  { word: 'DSOs',    color: '#fff' },
+  { word: 'both',    color: 'rgba(255,255,255,0.45)' },
+  { word: 'love',    color: 'rgba(255,255,255,0.45)' },
+];
+
 export default function Scene6CTA() {
   return (
     <motion.div
@@ -40,70 +53,59 @@ export default function Scene6CTA() {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-4">
+      <div className="relative z-10 flex flex-col items-center">
 
-        {/* Logo */}
-        <motion.img
-          src={logoUrl}
-          alt="Dandy"
-          className="h-12"
-          style={{ filter: 'brightness(0) invert(1)' }}
-          initial={{ opacity: 0, y: 8 }}
+        {/* ── Brand block: logo + "Dandy Insights." + URL ── */}
+        <motion.div
+          className="flex flex-col items-center"
+          style={{ gap: '0.55vw' }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6, ease: EASE }}
+          transition={{ delay: 0.4, duration: 0.75, ease: EASE }}
+        >
+          <img
+            src={logoUrl}
+            alt="Dandy"
+            className="h-10"
+            style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }}
+          />
+          <span style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400,
+                         letterSpacing: '-0.025em', lineHeight: 1 }}>
+            Dandy Insights.
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '1.0vw',
+                         letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+            <SplitChars text="meetdandy.com/insights" delay={0.9} stagger={0.022} />
+          </span>
+        </motion.div>
+
+        {/* Divider */}
+        <motion.div
+          style={{
+            marginTop: '2.2vw',
+            height: '1px',
+            width: '20vw',
+            background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)',
+          }}
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={{ scaleX: 1, opacity: 1 }}
+          transition={{ delay: 1.3, duration: 0.8, ease: EASE }}
         />
 
-        {/* Headline + URL + divider */}
-        <div className="flex flex-col items-center gap-3" style={{ marginTop: '1.5vw' }}>
-          <motion.h1
-            style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400, letterSpacing: '-0.025em', lineHeight: 1 }}
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.9, duration: 0.75, ease: EASE }}
-          >
-            Dandy Insights.
-          </motion.h1>
-
-          <motion.p
-            style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.3, duration: 0.6 }}
-          >
-            <SplitChars text="meetdandy.com/insights" delay={1.3} stagger={0.025} />
-          </motion.p>
-
-          <motion.div
-            className="h-px w-[20vw]"
-            style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)' }}
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ delay: 1.6, duration: 0.8 }}
-          />
-        </div>
-
-        {/* Tagline — standalone, clearly separated */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
-                      fontSize: '2.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400,
-                      marginTop: '3vw' }}>
-          {[
-            { word: 'from',    color: 'rgba(255,255,255,0.45)' },
-            { word: 'the',     color: 'rgba(255,255,255,0.45)' },
-            { word: 'only',    color: 'rgba(255,255,255,0.45)' },
-            { word: 'dental',  color: 'rgba(255,255,255,0.45)' },
-            { word: 'lab',     color: 'rgba(255,255,255,0.45)' },
-            { word: 'doctors', color: '#C7E738' },
-            { word: 'and',     color: 'rgba(255,255,255,0.45)' },
-            { word: 'DSOs',    color: '#fff' },
-            { word: 'both',    color: 'rgba(255,255,255,0.45)' },
-            { word: 'love',    color: 'rgba(255,255,255,0.45)' },
-          ].map(({ word, color }, i) => (
+        {/* ── Tagline — own zone, well below ── */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+          columnGap: '0.22em', rowGap: 0,
+          fontSize: '3.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400,
+          marginTop: '5vw',
+        }}>
+          {TAGLINE.map(({ word, color }, i) => (
             <motion.span
               key={word + i}
               style={{ color }}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.0 + i * 0.1, duration: 0.5, ease: EASE }}
+              transition={{ delay: 2.0 + i * 0.1, duration: 0.55, ease: EASE }}
             >
               {word}
             </motion.span>
