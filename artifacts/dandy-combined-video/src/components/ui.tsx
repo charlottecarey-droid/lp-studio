@@ -30,7 +30,7 @@ export function Counter({ from, to, duration = 1.4, decimals = 0, suffix = '', p
 
   return (
     <span className={className}>
-      {prefix}{value.toFixed(decimals)}{suffix}
+      {prefix}{value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}
     </span>
   );
 }
