@@ -74,7 +74,7 @@ export default function Scene6CTA() {
             Dandy Insights.
           </span>
           <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '1.0vw',
-                         letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                         letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '20px' }}>
             <SplitChars text="meetdandy.com/insights" delay={0.9} stagger={0.022} />
           </span>
         </motion.div>
