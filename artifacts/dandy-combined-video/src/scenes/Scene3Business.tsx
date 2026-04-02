@@ -83,10 +83,24 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <h2 className="text-[4.4vw]" style={{ lineHeight: '1.35em' }}>
-            <SplitText text="Every scan, every prep," delay={0.55} stagger={0.06} className="text-white block" />
-            <SplitText text="every provider." delay={1.0} stagger={0.06} className="text-[#C7E738] block" />
-          </h2>
+          <div style={{ fontSize: '4.4vw', lineHeight: '1.3em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
+            <motion.div
+              style={{ color: '#fff', fontWeight: 400 }}
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.65, ease: EASE }}
+            >
+              Every scan, every prep,
+            </motion.div>
+            <motion.div
+              style={{ color: '#C7E738', fontWeight: 400 }}
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.65, ease: EASE }}
+            >
+              every provider.
+            </motion.div>
+          </div>
 
           {/* 2×2 stat grid */}
           <div className="grid grid-cols-2 gap-3 mt-1">
