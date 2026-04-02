@@ -34,8 +34,8 @@ export default function Scene2Clinical() {
           </motion.div>
 
           <h2 className="text-[4.6vw] leading-[1.05]">
-            <SplitText text="Clinical quality" delay={0.55} stagger={0.07} className="text-[#C7E738] block" />
-            <SplitText text="providers demand." delay={0.95} stagger={0.07} className="text-white block" />
+            <SplitText text="See every scan." delay={0.55} stagger={0.07} className="text-[#C7E738] block" />
+            <SplitText text="Coach with data." delay={0.95} stagger={0.07} className="text-white block" />
           </h2>
 
           <motion.p
