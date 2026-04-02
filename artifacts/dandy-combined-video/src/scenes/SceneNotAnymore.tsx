@@ -78,25 +78,36 @@ export default function SceneNotAnymore() {
 
       <div className="relative z-10 flex flex-col items-center gap-6 text-center">
 
-        {/* "Not anymore." — fades out + scales up on exit */}
+        {/* "Not  Anymore." — two words with staggered rhythm, exit together */}
         <motion.div
           style={{
             fontSize: '7.5vw', lineHeight: '1.1em', letterSpacing: '-0.03em',
             color: '#fff', fontWeight: 400,
-            display: 'flex', alignItems: 'baseline', flexWrap: 'nowrap',
+            display: 'flex', alignItems: 'baseline', gap: '0.3em',
           }}
-          initial={{ opacity: 0, y: 24 }}
           animate={showLogo
             ? { opacity: 0, y: -20, scale: 1.06, filter: 'blur(6px)' }
             : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
           }
           transition={showLogo
             ? { duration: 0.9, ease: [0.4, 0, 0.6, 1] }
-            : { delay: 0.3, duration: 0.7, ease: EASE }
+            : { duration: 0 }
           }
         >
-          <span>Not&nbsp;</span>
-          <TypeWriter text="anymore." delay={0.6} speed={0.055} />
+          <motion.span
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.65, ease: EASE }}
+          >
+            Not
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.75, duration: 0.65, ease: EASE }}
+          >
+            anymore.
+          </motion.span>
         </motion.div>
 
         {/* Logo + Insights — springs in */}
