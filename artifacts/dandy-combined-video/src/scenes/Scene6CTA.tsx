@@ -69,12 +69,21 @@ export default function Scene6CTA() {
         />
 
         <motion.p
-          style={{ color: 'rgba(255,255,255,0.3)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '0.5rem' }}
+          style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1.35vw', letterSpacing: '-0.01em', fontWeight: 400, fontStyle: 'italic' }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.7, duration: 0.7, ease: EASE }}
+        >
+          from the only dental lab doctors and DSOs both love
+        </motion.p>
+
+        <motion.p
+          style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '0.25rem' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.5, duration: 0.6 }}
+          transition={{ delay: 2.2, duration: 0.6 }}
         >
-          <SplitChars text="meetdandy.com/insights" delay={1.5} stagger={0.025} />
+          <SplitChars text="meetdandy.com/insights" delay={2.2} stagger={0.025} />
         </motion.p>
       </div>
     </motion.div>
