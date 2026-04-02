@@ -97,7 +97,7 @@ export default function Scene6CTA() {
           display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
           columnGap: '0.22em', rowGap: 0,
           fontSize: '3.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400,
-          marginTop: '5vw',
+          marginTop: 'calc(5vw + 50px)',
         }}>
           {TAGLINE.map(({ word, color }, i) => (
             <motion.span
