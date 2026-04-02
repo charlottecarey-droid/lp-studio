@@ -56,15 +56,15 @@ export default function SceneChoice() {
       <div className="relative z-10 flex flex-col items-center gap-6 text-center">
 
         {/* "You don't have to choose." — word by word */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.26em',
-                      fontSize: '6.5vw', lineHeight: '1.1em', letterSpacing: '-0.03em',
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
+                      fontSize: '6.5vw', lineHeight: 1, letterSpacing: '-0.03em',
                       color: '#fff', fontWeight: 400 }}>
           {LINE1.map((word, i) => (
             <motion.span
               key={word}
-              initial={{ opacity: 0, y: 26 }}
+              initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + i * 0.26, duration: 0.6, ease: EASE }}
+              transition={{ delay: 0.3 + i * 0.24, duration: 0.6, ease: EASE }}
             >
               {word}
             </motion.span>
@@ -77,13 +77,13 @@ export default function SceneChoice() {
           style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)' }}
           initial={{ scaleX: 0, opacity: 0 }}
           animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ delay: 1.7, duration: 0.7, ease: EASE }}
+          transition={{ delay: 1.6, duration: 0.7, ease: EASE }}
         />
 
         {/* "between clinical quality and enterprise value." — word by word after pause */}
         {showLine2 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.26em',
-                        fontSize: '3.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', fontWeight: 400 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
+                        fontSize: '3.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400 }}>
             {LINE2.map(({ word, color }, i) => (
               <motion.span
                 key={word + i}
