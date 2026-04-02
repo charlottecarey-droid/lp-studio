@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
-import { SplitText, SplitChars } from '../components/SplitText';
+import { SplitChars } from '../components/SplitText';
 import insightsVideo from '@assets/Insights_Recording_vff_1775075168380.mp4';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 const STATS = [
-  { v: '$4.2M', l: 'Net production', up: true },
-  { v: '68.4%', l: 'Case acceptance', up: true },
-  { v: '91.2',  l: 'Scan quality score', up: true },
-  { v: '2.1%',  l: 'Remake rate', up: false },
+  { v: '$4.2M', l: 'Net production',   up: true  },
+  { v: '68.4%', l: 'Case acceptance',  up: true  },
+  { v: '91.2',  l: 'Scan quality',     up: true  },
+  { v: '2.1%',  l: 'Remake rate',      up: false },
 ];
 
 export default function Scene3Business() {
@@ -39,7 +39,6 @@ export default function Scene3Business() {
               background: '#001a14',
             }}
           >
-            {/* Chrome strip */}
             <div
               className="flex items-center gap-1.5 px-4 py-2"
               style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(199,231,56,0.1)' }}
@@ -47,18 +46,16 @@ export default function Scene3Business() {
               {['#f87171', '#fbbf24', '#4ade80'].map((c) => (
                 <div key={c} className="w-2.5 h-2.5 rounded-full opacity-60" style={{ background: c }} />
               ))}
-              <span className="ml-3 text-white/20 text-[0.7vw] font-mono">app.meetdandy.com/insights</span>
+              <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.2)', fontSize: '0.7vw', fontFamily: 'monospace' }}>
+                app.meetdandy.com/insights
+              </span>
             </div>
             <div className="relative" style={{ aspectRatio: '16/9' }}>
               <video
                 src={insightsVideo}
                 className="absolute inset-0 w-full h-full object-cover object-top"
                 style={{ opacity: 0.92 }}
-                autoPlay
-                muted
-                playsInline
-                loop
-                preload="auto"
+                autoPlay muted playsInline loop preload="auto"
               />
               <div
                 className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none"
@@ -79,11 +76,11 @@ export default function Scene3Business() {
               text="FOR DSO OPERATORS"
               delay={0.3}
               stagger={0.03}
-              className="text-[#C7E738] text-[1.05vw] uppercase tracking-[0.22em]"
+              className="text-[#C7E738] text-[1.0vw] uppercase tracking-[0.2em]"
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.4vw', lineHeight: '1.3em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column' }}>
             <motion.div
               style={{ color: '#fff', fontWeight: 400 }}
               initial={{ opacity: 0, y: 22 }}
@@ -103,7 +100,7 @@ export default function Scene3Business() {
           </div>
 
           {/* 2×2 stat grid */}
-          <div className="grid grid-cols-2 gap-3 mt-1">
+          <div className="grid grid-cols-2 gap-3">
             {STATS.map(({ v, l, up }, i) => (
               <motion.div
                 key={l}
@@ -114,12 +111,14 @@ export default function Scene3Business() {
                 }}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.9 + i * 0.12, duration: 0.5, ease: EASE }}
+                transition={{ delay: 1.9 + i * 0.1, duration: 0.5, ease: EASE }}
               >
-                <span className="text-[2vw] leading-none" style={{ color: up ? '#C7E738' : '#f87171' }}>
+                <span style={{ color: up ? '#C7E738' : '#f87171', fontSize: '2.2vw', lineHeight: 1, letterSpacing: '-0.02em' }}>
                   {v}
                 </span>
-                <span className="text-white/40 text-[0.8vw] uppercase tracking-[0.12em]">{l}</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85vw', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                  {l}
+                </span>
               </motion.div>
             ))}
           </div>

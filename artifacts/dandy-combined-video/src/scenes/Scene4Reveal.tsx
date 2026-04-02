@@ -54,10 +54,24 @@ export default function Scene4Reveal() {
 
       {/* Headline */}
       <div className="relative z-10 pt-14 flex flex-col items-center text-center">
-        <h1 className="text-[5.6vw] leading-[1.1]">
-          <SplitText text="One dashboard." delay={0.6} stagger={0.06} duration={0.6} className="text-white block" />
-          <SplitText text="Every location." delay={1.1} stagger={0.06} duration={0.6} className="text-[#C7E738] block" />
-        </h1>
+        <div style={{ fontSize: '5.6vw', lineHeight: '1.15em', letterSpacing: '-0.025em', display: 'flex', flexDirection: 'column' }}>
+          <motion.div
+            style={{ color: '#fff', fontWeight: 400 }}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.65, ease: EASE }}
+          >
+            One dashboard.
+          </motion.div>
+          <motion.div
+            style={{ color: '#C7E738', fontWeight: 400 }}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.1, duration: 0.65, ease: EASE }}
+          >
+            Every location.
+          </motion.div>
+        </div>
       </div>
 
       {/* Framed recording */}

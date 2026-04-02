@@ -42,7 +42,7 @@ export default function Scene1Hook() {
             text="DANDY INSIGHTS"
             delay={0.3}
             stagger={0.03}
-            className="text-[#C7E738] text-[1.15vw] uppercase tracking-[0.25em]"
+            className="text-[#C7E738] text-[1.0vw] uppercase tracking-[0.2em]"
           />
         </motion.div>
 

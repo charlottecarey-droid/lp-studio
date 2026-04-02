@@ -51,29 +51,27 @@ export default function Scene5Payoff() {
 
         {/* Stat line */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex items-baseline gap-5">
-            <span className="text-[5.2vw] font-bold text-[#C7E738] tabular-nums">
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3em' }}>
+            <span style={{ color: '#C7E738', fontSize: '5.2vw', lineHeight: 1, letterSpacing: '-0.03em', fontWeight: 400, fontVariantNumeric: 'tabular-nums' }}>
               <Counter from={0} to={2973} duration={1.0} decimals={0} />
             </span>
-            <span className="text-white/60 text-[2.9vw] font-semibold">chairs.</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '2.8vw', fontWeight: 400, letterSpacing: '-0.01em' }}>chairs.</span>
           </div>
 
           {phase >= 1 && (
             <motion.div
-              className="flex items-baseline gap-5"
+              style={{ fontSize: '3.0vw', letterSpacing: '-0.015em', fontWeight: 400 }}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
-              <h2 className="text-[3.1vw] font-normal">
-                <SplitText
-                  text="Zero visibility."
-                  delay={0.1}
-                  stagger={0.08}
-                  duration={0.5}
-                  className="text-white/40"
-                />
-              </h2>
+              <SplitText
+                text="Zero visibility."
+                delay={0.1}
+                stagger={0.08}
+                duration={0.5}
+                className="text-white/40"
+              />
             </motion.div>
           )}
         </div>

@@ -52,7 +52,7 @@ export default function Scene6CTA() {
         />
 
         <motion.h1
-          className="text-[4.2vw] text-[#C7E738]"
+          style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400, letterSpacing: '-0.025em', lineHeight: 1 }}
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.8, duration: 0.75, ease: EASE }}
@@ -69,7 +69,7 @@ export default function Scene6CTA() {
         />
 
         <motion.p
-          className="text-white/30 text-[1.1vw] uppercase mt-2"
+          style={{ color: 'rgba(255,255,255,0.3)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '0.5rem' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5, duration: 0.6 }}

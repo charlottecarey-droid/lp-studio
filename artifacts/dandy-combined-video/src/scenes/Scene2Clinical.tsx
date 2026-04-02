@@ -29,17 +29,31 @@ export default function Scene2Clinical() {
               text="FOR PROVIDERS"
               delay={0.3}
               stagger={0.03}
-              className="text-[#C7E738] text-[1.05vw] uppercase tracking-[0.22em]"
+              className="text-[#C7E738] text-[1.0vw] uppercase tracking-[0.2em]"
             />
           </motion.div>
 
-          <h2 className="text-[4.6vw] leading-[1.05]">
-            <SplitText text="See every scan." delay={0.55} stagger={0.07} className="text-[#C7E738] block" />
-            <SplitText text="Coach with data." delay={0.95} stagger={0.07} className="text-white block" />
-          </h2>
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
+            <motion.div
+              style={{ color: '#C7E738', fontWeight: 400 }}
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.65, ease: EASE }}
+            >
+              See every scan.
+            </motion.div>
+            <motion.div
+              style={{ color: '#fff', fontWeight: 400 }}
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.65, ease: EASE }}
+            >
+              Coach with data.
+            </motion.div>
+          </div>
 
           <motion.p
-            className="text-white/45 text-[1.3vw] leading-relaxed"
+            style={{ color: 'rgba(255,255,255,0.45)', fontSize: '1.3vw', lineHeight: 1.7, fontWeight: 400 }}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.7, duration: 0.65, ease: EASE }}
@@ -49,18 +63,18 @@ export default function Scene2Clinical() {
 
           {/* Stat row */}
           <motion.div
-            className="flex items-center gap-6 mt-2"
+            className="flex items-center gap-8"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 2.0, duration: 0.6, ease: EASE }}
           >
             {[
               { v: '98.2%', l: 'Scan quality' },
-              { v: '2.1%', l: 'Remake rate' },
+              { v: '2.1%',  l: 'Remake rate' },
             ].map(({ v, l }) => (
-              <div key={l} className="flex flex-col gap-0.5">
-                <span className="text-[#C7E738] text-[2.2vw] leading-none">{v}</span>
-                <span className="text-white/40 text-[0.9vw] uppercase tracking-[0.15em]">{l}</span>
+              <div key={l} className="flex flex-col gap-1">
+                <span style={{ color: '#C7E738', fontSize: '2.2vw', lineHeight: 1, letterSpacing: '-0.02em' }}>{v}</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85vw', letterSpacing: '0.14em', textTransform: 'uppercase' }}>{l}</span>
               </div>
             ))}
           </motion.div>
@@ -80,7 +94,6 @@ export default function Scene2Clinical() {
               background: '#001a14',
             }}
           >
-            {/* Chrome strip */}
             <div
               className="flex items-center gap-1.5 px-4 py-2"
               style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(199,231,56,0.1)' }}
@@ -88,18 +101,13 @@ export default function Scene2Clinical() {
               {['#f87171', '#fbbf24', '#4ade80'].map((c) => (
                 <div key={c} className="w-2.5 h-2.5 rounded-full opacity-60" style={{ background: c }} />
               ))}
-              <span className="ml-3 text-white/20 text-[0.7vw] font-mono">Dandy · Crown Thickness Analysis</span>
+              <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.2)', fontSize: '0.7vw', fontFamily: 'monospace' }}>
+                Dandy · Crown Thickness Analysis
+              </span>
             </div>
-            {/* GIF — height-capped so it never overflows the scene */}
             <div className="overflow-hidden" style={{ maxHeight: '54vh' }}>
-              <img
-                src={ddpGif}
-                alt="Crown thickness analysis"
-                className="w-full block"
-                style={{ display: 'block' }}
-              />
+              <img src={ddpGif} alt="Crown thickness analysis" className="w-full block" />
             </div>
-            {/* bottom glow */}
             <div
               className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
               style={{ background: 'linear-gradient(to top, rgba(0,26,20,0.75), transparent)' }}
