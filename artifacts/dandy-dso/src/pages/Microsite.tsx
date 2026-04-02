@@ -300,6 +300,10 @@ const Microsite = () => {
   const [activeNav, setActiveNav] = useState("");
   const [skinConfig, setSkinConfig] = useState<MicrositeSkinConfig | null>(null);
   const [labVideoOpen, setLabVideoOpen] = useState(false);
+  const [captureEmail, setCaptureEmail] = useState("");
+  const [captureName, setCaptureName] = useState("");
+  const [captureSubmitted, setCaptureSubmitted] = useState(false);
+  const [captureSubmitting, setCaptureSubmitting] = useState(false);
 
   const trackingCtx = useMemo(() => micrositeId && slug ? { micrositeId, slug } : null, [micrositeId, slug]);
   const { trackCTA } = useMicrositeTracking(trackingCtx);
@@ -331,6 +335,24 @@ const Microsite = () => {
     }
   };
   const handleCTA = () => { trackCTA("CTA Click"); resolveButtonAction(); };
+
+  const handleCaptureSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!captureEmail) return;
+    setCaptureSubmitting(true);
+    trackCTA("Hero Capture Submit");
+    try {
+      await supabase.from("leads" as any).insert({
+        name: captureName,
+        email: captureEmail,
+        company: data.companyName,
+        source: window.location.pathname,
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
+    setCaptureSubmitted(true);
+    setCaptureSubmitting(false);
+  };
 
   useEffect(() => {
     if (!slug) return;
@@ -509,6 +531,8 @@ const Microsite = () => {
   const headlineWeight = cfg?.typography?.headlineBold ? "font-bold" : "font-normal";
   const headlineSizeCls = getHeadlineSizeClasses(cfg?.typography?.headlineSize);
   const heroImage = cfg?.sectionImages?.heroImage || heroBoardroom;
+  const heroCaptureForm = (data as any)?.heroCaptureForm ?? false;
+  const heroImageBackground = (data as any)?.heroImageBackground ?? true;
   const aiImage = cfg?.sectionImages?.aiScanReviewImage || aiScanReview;
   const labImage = cfg?.sectionImages?.labTourImage || dandyLabMachines;
   const labVideoUrl = cfg?.sectionImages?.labTourVideoUrl || "";
@@ -581,9 +605,18 @@ const Microsite = () => {
       {visibleSections.has("hero") && (
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-[72px]">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="" className="w-full h-full object-cover scale-105" />
-          <div className="absolute inset-0" style={{ backgroundColor: `${primaryColor}c4` }} />
-          <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${primaryColor}40 0%, transparent 40%, transparent 60%, ${primaryColor} 100%)` }} />
+          {heroImageBackground ? (
+            <>
+              <img src={heroImage} alt="" className="w-full h-full object-cover scale-105" />
+              <div className="absolute inset-0" style={{ backgroundColor: `${primaryColor}c4` }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${primaryColor}40 0%, transparent 40%, transparent 60%, ${primaryColor} 100%)` }} />
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 65% 35%, ${accentColor}1a 0%, transparent 60%), radial-gradient(ellipse at 25% 75%, ${accentColor}0d 0%, transparent 50%)` }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 55%, ${primaryColor} 100%)` }} />
+            </>
+          )}
         </div>
 
         <div className="relative z-10 text-center max-w-4xl mx-auto px-8">
@@ -600,30 +633,70 @@ const Microsite = () => {
             <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto leading-relaxed mb-12 font-light">
               {sectionSubheadline("hero", fit.primaryValueProp)}
             </p>
-            <div className="flex items-center justify-center gap-5 flex-wrap">
-              {heroCTAVideoUrl ? (
-                <button onClick={() => setVideoModalUrl(heroCTAVideoUrl)} style={{ backgroundColor: accentColor, color: primaryColor }} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl font-semibold hover:opacity-90 transition-all duration-300 hover:shadow-lg text-[15px]">
-                  <Play className="w-4 h-4" /> {heroCTAText}
-                </button>
+
+            {heroCaptureForm ? (
+              captureSubmitted ? (
+                <div className="flex items-center justify-center gap-2.5 mt-2">
+                  <div className="inline-flex items-center gap-2.5 px-7 py-4 rounded-xl" style={{ backgroundColor: `${accentColor}20`, border: `1px solid ${accentColor}50` }}>
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+                    <span className="font-semibold text-[15px]" style={{ color: accentColor }}>You're on the list — we'll be in touch shortly.</span>
+                  </div>
+                </div>
               ) : (
-                <button onClick={() => resolveButtonAction(cfg?.heroCTAUrl)} style={{ backgroundColor: accentColor, color: primaryColor }} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl font-semibold hover:opacity-90 transition-all duration-300 hover:shadow-lg text-[15px]">
-                  {heroCTAText} <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-              {secondaryCTAVideoUrl ? (
-                <button onClick={() => setVideoModalUrl(secondaryCTAVideoUrl)} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
-                  <Play className="w-4 h-4" /> {secondaryCTAText}
-                </button>
-              ) : cfg?.secondaryCTAUrl ? (
-                <button onClick={() => resolveButtonAction(cfg.secondaryCTAUrl)} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
-                  {secondaryCTAText}
-                </button>
-              ) : (
-                <a href="#calculator" className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
-                  {secondaryCTAText}
-                </a>
-              )}
-            </div>
+                <form onSubmit={handleCaptureSubmit} className="flex flex-col sm:flex-row gap-2.5 max-w-xl mx-auto">
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={captureName}
+                    onChange={(e) => setCaptureName(e.target.value)}
+                    className="flex-1 min-w-0 px-4 py-3.5 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', focusRingColor: accentColor } as React.CSSProperties}
+                  />
+                  <input
+                    type="email"
+                    required
+                    placeholder="Work email"
+                    value={captureEmail}
+                    onChange={(e) => setCaptureEmail(e.target.value)}
+                    className="flex-1 min-w-0 px-4 py-3.5 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={captureSubmitting}
+                    style={{ backgroundColor: accentColor, color: primaryColor }}
+                    className="px-7 py-3.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-all duration-300 hover:shadow-lg disabled:opacity-60 whitespace-nowrap flex-shrink-0"
+                  >
+                    {captureSubmitting ? "Submitting…" : heroCTAText}
+                  </button>
+                </form>
+              )
+            ) : (
+              <div className="flex items-center justify-center gap-5 flex-wrap">
+                {heroCTAVideoUrl ? (
+                  <button onClick={() => setVideoModalUrl(heroCTAVideoUrl)} style={{ backgroundColor: accentColor, color: primaryColor }} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl font-semibold hover:opacity-90 transition-all duration-300 hover:shadow-lg text-[15px]">
+                    <Play className="w-4 h-4" /> {heroCTAText}
+                  </button>
+                ) : (
+                  <button onClick={() => resolveButtonAction(cfg?.heroCTAUrl)} style={{ backgroundColor: accentColor, color: primaryColor }} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl font-semibold hover:opacity-90 transition-all duration-300 hover:shadow-lg text-[15px]">
+                    {heroCTAText} <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+                {secondaryCTAVideoUrl ? (
+                  <button onClick={() => setVideoModalUrl(secondaryCTAVideoUrl)} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
+                    <Play className="w-4 h-4" /> {secondaryCTAText}
+                  </button>
+                ) : cfg?.secondaryCTAUrl ? (
+                  <button onClick={() => resolveButtonAction(cfg.secondaryCTAUrl)} className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
+                    {secondaryCTAText}
+                  </button>
+                ) : (
+                  <a href="#calculator" className="inline-flex items-center gap-2.5 px-9 py-4 rounded-xl border border-white/15 text-white/70 font-semibold hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-[15px]">
+                    {secondaryCTAText}
+                  </a>
+                )}
+              </div>
+            )}
             {renderCustomButtons("hero")}
           </motion.div>
         </div>

@@ -513,6 +513,42 @@ const MicrositeEditor = () => {
               </>
             )}
 
+            {/* ── Hero Layout Options ── */}
+            {skin !== "expansion" && (
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Hero Layout</h3>
+                <p className="text-xs text-muted-foreground">Control the centered hero's background and CTA style.</p>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div
+                  onClick={() => updateField("heroImageBackground", !((data as any).heroImageBackground ?? true))}
+                  className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${((data as any).heroImageBackground ?? true) ? "bg-primary" : "bg-muted"}`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${((data as any).heroImageBackground ?? true) ? "translate-x-5" : "translate-x-0"}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Image background</p>
+                  <p className="text-xs text-muted-foreground">Show a photo behind the hero with a dark overlay. Disable for a clean gradient look.</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div
+                  onClick={() => updateField("heroCaptureForm", !((data as any).heroCaptureForm ?? false))}
+                  className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${((data as any).heroCaptureForm ?? false) ? "bg-primary" : "bg-muted"}`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${((data as any).heroCaptureForm ?? false) ? "translate-x-5" : "translate-x-0"}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Email capture form</p>
+                  <p className="text-xs text-muted-foreground">Replace the CTA buttons with an inline name + email form. Submissions are saved as leads.</p>
+                </div>
+              </label>
+            </div>
+            )}
+
             {/* Per-section headline & subheadline overrides */}
             {skin !== "expansion" && (
             <div className="border border-border rounded-lg p-4 space-y-4">
