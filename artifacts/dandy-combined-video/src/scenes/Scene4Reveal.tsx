@@ -55,7 +55,8 @@ export default function Scene4Reveal() {
       {/* Headline */}
       <div className="relative z-10 pt-14 flex flex-col items-center text-center">
         <h1 className="text-[5.6vw] leading-[1.1]">
-          <SplitText text="One dashboard. Every location." delay={0.6} stagger={0.06} duration={0.6} className="text-white block" />
+          <SplitText text="One dashboard." delay={0.6} stagger={0.06} duration={0.6} className="text-white block" />
+          <SplitText text="Every location." delay={1.1} stagger={0.06} duration={0.6} className="text-[#C7E738] block" />
         </h1>
       </div>
 
