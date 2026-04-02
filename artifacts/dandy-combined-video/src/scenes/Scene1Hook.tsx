@@ -4,6 +4,8 @@ import { Background } from '../components/Background';
 import { SplitText, SplitChars } from '../components/SplitText';
 import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
 export default function Scene1Hook() {
   return (
     <motion.div
@@ -11,65 +13,47 @@ export default function Scene1Hook() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
-      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.7, ease: EASE }}
     >
       <Background />
 
-      {/* DDP Thickness GIF — large, centred, atmospheric */}
+      {/* DDP GIF — centred, atmospheric, blended */}
       <motion.img
         src={ddpGif}
         alt=""
-        className="absolute inset-0 w-full h-full object-contain mix-blend-screen"
-        style={{ opacity: 0.28, filter: 'saturate(0.6) brightness(1.4)' }}
-        initial={{ scale: 1.08 }}
+        className="absolute inset-0 w-full h-full object-contain mix-blend-screen pointer-events-none"
+        style={{ opacity: 0.22, filter: 'saturate(0.7) brightness(1.3)' }}
+        initial={{ scale: 1.06 }}
         animate={{ scale: 1.0 }}
         transition={{ duration: 5, ease: 'linear' }}
       />
-      {/* Fade to dark at edges so GIF doesn't fight the text */}
+      {/* radial vignette so edges go dark and text pops */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 30%, rgba(0,26,20,0.85) 100%)',
+            'radial-gradient(ellipse 65% 65% at 50% 50%, transparent 25%, rgba(0,26,20,0.88) 100%)',
         }}
       />
 
-      <div className="relative z-10 flex flex-col items-center text-center">
-        {/* Eyebrow */}
+      <div className="relative z-10 flex flex-col items-center text-center gap-6">
         <motion.div
-          className="mb-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.55, ease: EASE }}
         >
           <SplitChars
             text="DANDY INSIGHTS"
-            delay={0.3}
+            delay={0.4}
             stagger={0.03}
-            className="text-[#C7E738] text-[1.2vw] uppercase"
+            className="text-[#C7E738] text-[1.15vw] uppercase tracking-[0.25em]"
           />
         </motion.div>
 
-        {/* Headline */}
-        <h1 className="text-[5.5vw] leading-[1.1]">
-          <SplitText
-            text="The dental lab"
-            delay={0.6}
-            stagger={0.08}
-            className="text-white block"
-          />
-          <SplitText
-            text="doctors and DSOs"
-            delay={1.2}
-            stagger={0.08}
-            className="text-[#C7E738] block"
-          />
-          <SplitText
-            text="both love."
-            delay={1.8}
-            stagger={0.08}
-            className="text-white block"
-          />
+        <h1 className="text-[6vw] leading-[1.05]">
+          <SplitText text="The dental lab" delay={0.7} stagger={0.07} className="text-white block" />
+          <SplitText text="doctors and DSOs" delay={1.2} stagger={0.07} className="text-[#C7E738] block" />
+          <SplitText text="both love." delay={1.7} stagger={0.07} className="text-white block" />
         </h1>
       </div>
     </motion.div>

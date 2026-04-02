@@ -1,123 +1,111 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitText, SplitChars } from '../components/SplitText';
-import { AlertCard } from '../components/ui';
 import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Scene2Clinical() {
-  const [showAlert, setShowAlert] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setShowAlert(true), 2200);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <motion.div
       className="absolute inset-0 flex w-full h-full overflow-hidden items-center"
-      initial={{ opacity: 0, x: '6vw' }}
+      initial={{ opacity: 0, x: '5vw' }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, scale: 1.05, filter: 'blur(12px)' }}
-      transition={{ duration: 0.8, ease: EASE }}
+      exit={{ opacity: 0, scale: 1.04, filter: 'blur(10px)' }}
+      transition={{ duration: 0.75, ease: EASE }}
     >
       <Background />
 
-      <div className="relative z-10 w-full px-16 flex items-center justify-between">
-        {/* Left Column — headline */}
-        <div className="w-[40%] flex flex-col">
+      <div className="relative z-10 w-full px-20 flex items-center gap-16">
+        {/* Left — text */}
+        <div className="flex flex-col gap-5 w-[38%] flex-shrink-0">
           <motion.div
-            className="mb-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5, ease: EASE }}
           >
             <SplitChars
               text="FOR PROVIDERS"
               delay={0.3}
               stagger={0.03}
-              className="text-[#C7E738] text-[1.1vw] uppercase"
+              className="text-[#C7E738] text-[1.05vw] uppercase tracking-[0.22em]"
             />
           </motion.div>
 
-          <h2 className="text-[4.5vw] leading-[1.1]">
-            <SplitText
-              text="Clinical quality"
-              delay={0.6}
-              stagger={0.08}
-              className="text-[#C7E738] block"
-            />
-            <SplitText
-              text="providers demand."
-              delay={1.0}
-              stagger={0.08}
-              className="text-white block"
-            />
+          <h2 className="text-[4.6vw] leading-[1.05]">
+            <SplitText text="Clinical quality" delay={0.55} stagger={0.07} className="text-[#C7E738] block" />
+            <SplitText text="providers demand." delay={0.95} stagger={0.07} className="text-white block" />
           </h2>
 
           <motion.p
-            className="mt-6 text-white/50 text-[1.35vw] leading-relaxed max-w-[26vw]"
-            initial={{ opacity: 0, y: 10 }}
+            className="text-white/45 text-[1.3vw] leading-relaxed"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.8, duration: 0.7, ease: EASE }}
+            transition={{ delay: 1.7, duration: 0.65, ease: EASE }}
           >
-            AI-powered scan review catches issues before they become remakes.
+            AI-powered crown analysis catches issues before they become remakes.
           </motion.p>
-        </div>
 
-        {/* Right Column — AI Scan Review video */}
-        <div className="w-[55%] relative">
+          {/* Stat row */}
           <motion.div
-            className="rounded-2xl overflow-hidden shadow-[0_0_0_2px_rgba(199,231,56,0.35),_0_30px_80px_rgba(0,0,0,0.6)] relative bg-[#001a14]"
-            initial={{ scale: 0.85, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 1.0, type: 'spring', stiffness: 100, damping: 22 }}
+            className="flex items-center gap-6 mt-2"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 2.0, duration: 0.6, ease: EASE }}
           >
-            {/* Browser chrome strip */}
-            <div
-              className="flex items-center gap-2 px-4 py-2 flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(199,231,56,0.12)' }}
-            >
-              {['bg-red-400', 'bg-yellow-400', 'bg-green-400'].map((c, i) => (
-                <div key={i} className={`w-3 h-3 rounded-full ${c} opacity-70`} />
-              ))}
-              <div className="ml-3 flex-1 bg-white/5 rounded text-white/25 text-[0.75vw] px-3 py-0.5 font-mono">
-                Dandy · Crown Thickness Analysis
+            {[
+              { v: '98.2%', l: 'Scan quality' },
+              { v: '2.1%', l: 'Remake rate' },
+            ].map(({ v, l }) => (
+              <div key={l} className="flex flex-col gap-0.5">
+                <span className="text-[#C7E738] text-[2.2vw] leading-none">{v}</span>
+                <span className="text-white/40 text-[0.9vw] uppercase tracking-[0.15em]">{l}</span>
               </div>
-            </div>
-
-            <img
-              src={ddpGif}
-              alt="Crown thickness analysis"
-              className="w-full block"
-            />
-
-            {/* Lime glow at bottom edge */}
-            <div
-              className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
-              style={{ background: 'linear-gradient(to top, rgba(199,231,56,0.08), transparent)' }}
-            />
+            ))}
           </motion.div>
-
-          {/* Alert card — floats top-right */}
-          {showAlert && (
-            <motion.div
-              className="absolute -top-5 -right-6 w-[22vw] z-20"
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.55, ease: EASE }}
-            >
-              <AlertCard
-                kind="success"
-                title="Scan quality · 98.2%"
-                sub="Best in network · Dr. Chen"
-                delay={0}
-              />
-            </motion.div>
-          )}
         </div>
+
+        {/* Right — DDP GIF in polished frame */}
+        <motion.div
+          className="flex-1 min-w-0"
+          initial={{ opacity: 0, y: 24, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 1.0, duration: 1.0, type: 'spring', stiffness: 90, damping: 20 }}
+        >
+          <div
+            className="rounded-2xl overflow-hidden relative"
+            style={{
+              boxShadow: '0 0 0 1.5px rgba(199,231,56,0.25), 0 32px 80px rgba(0,0,0,0.65)',
+              background: '#001a14',
+            }}
+          >
+            {/* Chrome strip */}
+            <div
+              className="flex items-center gap-1.5 px-4 py-2"
+              style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(199,231,56,0.1)' }}
+            >
+              {['#f87171', '#fbbf24', '#4ade80'].map((c) => (
+                <div key={c} className="w-2.5 h-2.5 rounded-full opacity-60" style={{ background: c }} />
+              ))}
+              <span className="ml-3 text-white/20 text-[0.7vw] font-mono">Dandy · Crown Thickness Analysis</span>
+            </div>
+            {/* GIF — height-capped so it never overflows the scene */}
+            <div className="overflow-hidden" style={{ maxHeight: '54vh' }}>
+              <img
+                src={ddpGif}
+                alt="Crown thickness analysis"
+                className="w-full block"
+                style={{ display: 'block' }}
+              />
+            </div>
+            {/* bottom glow */}
+            <div
+              className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+              style={{ background: 'linear-gradient(to top, rgba(0,26,20,0.75), transparent)' }}
+            />
+          </div>
+        </motion.div>
       </div>
     </motion.div>
   );
