@@ -55,29 +55,26 @@ export default function Scene6CTA() {
 
       <div className="relative z-10 flex flex-col items-center">
 
-        {/* ── Brand block: logo + "Dandy Insights." + URL ── all pinned to same width ── */}
+        {/* ── Brand block: logo + "Dandy Insights." + URL ── */}
         <motion.div
           className="flex flex-col items-center"
-          style={{ width: '26vw', gap: '0.6vw' }}
+          style={{ gap: '0.55vw' }}
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.75, ease: EASE }}
         >
-          {/* Logo — fills container width */}
           <img
             src={logoUrl}
             alt="Dandy"
-            style={{ width: '100%', height: 'auto', filter: 'brightness(0) invert(1)', opacity: 0.9 }}
+            className="h-10"
+            style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }}
           />
-          {/* Headline — natural width inside same 26vw column */}
           <span style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400,
-                         letterSpacing: '-0.025em', lineHeight: 1, textAlign: 'center', width: '100%' }}>
+                         letterSpacing: '-0.025em', lineHeight: 1 }}>
             Dandy Insights.
           </span>
-          {/* URL — spread with tracking to fill width */}
-          <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '0.95vw', width: '100%',
-                         letterSpacing: '0.28em', textTransform: 'uppercase', textAlign: 'center',
-                         display: 'block' }}>
+          <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '1.0vw',
+                         letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             <SplitChars text="meetdandy.com/insights" delay={0.9} stagger={0.022} />
           </span>
         </motion.div>
