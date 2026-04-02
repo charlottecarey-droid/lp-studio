@@ -87,7 +87,7 @@ export default function SceneNotAnymore() {
             : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
           }
           transition={showLogo
-            ? { duration: 0.5, ease: EASE }
+            ? { duration: 0.9, ease: [0.4, 0, 0.6, 1] }
             : { delay: 0.3, duration: 0.7, ease: EASE }
           }
         >
