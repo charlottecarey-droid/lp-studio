@@ -34,7 +34,7 @@ export default function Scene2Clinical() {
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.25em' }}>
             {/* "See every scan." — word by word */}
             <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
               {['See', 'every', 'scan.'].map((word, i) => (
@@ -48,14 +48,14 @@ export default function Scene2Clinical() {
                 </motion.span>
               ))}
             </div>
-            {/* "Coach with data." — word by word */}
+            {/* "Coach with data." — word by word, beat after first line */}
             <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
               {['Coach', 'with', 'data.'].map((word, i) => (
                 <motion.span
                   key={word}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.1 + i * 0.22, duration: 0.55, ease: EASE }}
+                  transition={{ delay: 1.6 + i * 0.22, duration: 0.55, ease: EASE }}
                 >
                   {word}
                 </motion.span>
