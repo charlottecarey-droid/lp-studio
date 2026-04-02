@@ -6,14 +6,16 @@ import Scene3Business from '../../scenes/Scene3Business';
 import Scene4Reveal from '../../scenes/Scene4Reveal';
 import Scene5Payoff from '../../scenes/Scene5Payoff';
 import Scene6CTA from '../../scenes/Scene6CTA';
+import SceneNotAnymore from '../../scenes/SceneNotAnymore';
 
 const SCENES = [
-  { id: 1, duration: 5500, Component: Scene5Payoff },
-  { id: 2, duration: 5000, Component: Scene1Hook },
-  { id: 3, duration: 6000, Component: Scene2Clinical },
-  { id: 4, duration: 6000, Component: Scene3Business },
-  { id: 5, duration: 7000, Component: Scene4Reveal },
-  { id: 6, duration: 5000, Component: Scene6CTA },
+  { id: 1, duration: 5000, Component: Scene1Hook },
+  { id: 2, duration: 5500, Component: Scene5Payoff },
+  { id: 3, duration: 4500, Component: SceneNotAnymore },
+  { id: 4, duration: 6000, Component: Scene2Clinical },
+  { id: 5, duration: 6000, Component: Scene3Business },
+  { id: 6, duration: 7000, Component: Scene4Reveal },
+  { id: 7, duration: 5000, Component: Scene6CTA },
 ];
 
 const TOTAL_MS = SCENES.reduce((sum, s) => sum + s.duration, 0);
