@@ -81,7 +81,7 @@ export default function Scene3Business() {
 
           <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
             {/* "Every scan, every prep," — chunk by chunk */}
-            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.26em', alignItems: 'baseline' }}>
               {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (
                 <motion.span
                   key={word + i}
@@ -95,7 +95,7 @@ export default function Scene3Business() {
             </div>
             {/* "every provider." — mounts after pause, then words stagger in */}
             {showLine2 && (
-              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.26em', alignItems: 'baseline' }}>
                 {['every', 'provider.'].map((word, i) => (
                   <motion.span
                     key={word + i}
@@ -113,9 +113,9 @@ export default function Scene3Business() {
           {/* "all in one place." — types in after second line, "one" in lime */}
           {showLine2 && (
             <div style={{ fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', display: 'flex' }}>
-              <TypeWriter text="all in\u00A0" delay={0.65} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
-              <TypeWriter text="one" delay={0.65 + 7 * 0.048} speed={0.048} style={{ color: '#C7E738' }} />
-              <TypeWriter text="\u00A0place." delay={0.65 + 10 * 0.048} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <TypeWriter text={"all in "} delay={0.65} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <TypeWriter text={"one"} delay={0.65 + 7 * 0.048} speed={0.048} style={{ color: '#C7E738' }} />
+              <TypeWriter text={" place."} delay={0.65 + 10 * 0.048} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
             </div>
           )}
         </div>
