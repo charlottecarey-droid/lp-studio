@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
@@ -16,6 +16,12 @@ const STATS = [
 ];
 
 export default function Scene3Business() {
+  const [showLine2, setShowLine2] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShowLine2(true), 1700);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <motion.div
       className="absolute inset-0 flex w-full h-full overflow-hidden items-center"
@@ -79,7 +85,7 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.25em' }}>
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
             {/* "Every scan, every prep," — chunk by chunk */}
             <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
               {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (
@@ -93,19 +99,21 @@ export default function Scene3Business() {
                 </motion.span>
               ))}
             </div>
-            {/* "every provider." — word by word */}
-            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
-              {['every', 'provider.'].map((word, i) => (
-                <motion.span
-                  key={word + i}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.4 + i * 0.28, duration: 0.55, ease: EASE }}
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </div>
+            {/* "every provider." — mounts after pause, then words stagger in */}
+            {showLine2 && (
+              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+                {['every', 'provider.'].map((word, i) => (
+                  <motion.span
+                    key={word + i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.28, duration: 0.55, ease: EASE }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 2×2 stat grid */}

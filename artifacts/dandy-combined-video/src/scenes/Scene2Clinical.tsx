@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
-import { TypeWriter } from '../components/TypeWriter';
 import ddpGif from '@assets/dandy-ddp-thickness.gif';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Scene2Clinical() {
+  const [showLine2, setShowLine2] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShowLine2(true), 1550);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <motion.div
       className="absolute inset-0 flex w-full h-full overflow-hidden items-center"
@@ -34,7 +39,7 @@ export default function Scene2Clinical() {
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.25em' }}>
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
             {/* "See every scan." — word by word */}
             <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
               {['See', 'every', 'scan.'].map((word, i) => (
@@ -48,19 +53,21 @@ export default function Scene2Clinical() {
                 </motion.span>
               ))}
             </div>
-            {/* "Coach with data." — word by word, beat after first line */}
-            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
-              {['Coach', 'with', 'data.'].map((word, i) => (
-                <motion.span
-                  key={word}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.6 + i * 0.22, duration: 0.55, ease: EASE }}
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </div>
+            {/* "Coach with data." — mounts after pause, then words stagger in */}
+            {showLine2 && (
+              <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+                {['Coach', 'with', 'data.'].map((word, i) => (
+                  <motion.span
+                    key={word}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.22, duration: 0.55, ease: EASE }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Stat row */}
