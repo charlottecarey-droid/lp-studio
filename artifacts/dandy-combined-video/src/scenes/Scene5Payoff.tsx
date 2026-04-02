@@ -1,96 +1,81 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Background } from '../components/Background';
 import { SplitText } from '../components/SplitText';
 import { Counter } from '../components/ui';
 
-const EASE = [0.16, 1, 0.3, 1] as const;
-
-const GRID_COLS = 14;
-const GRID_ROWS = 6;
+const GRID_COLS = 12;
+const GRID_ROWS = 5;
 const TOTAL = GRID_COLS * GRID_ROWS;
 
 export default function Scene5Payoff() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1600);
+    const t1 = setTimeout(() => setPhase(1), 1800);
     return () => clearTimeout(t1);
   }, []);
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden bg-[#001a14]"
+      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 1.03, filter: 'blur(8px)' }}
-      transition={{ duration: 0.8, ease: EASE }}
+      exit={{ opacity: 0, scale: 1.03, filter: 'blur(6px)' }}
+      transition={{ duration: 0.75 }}
     >
-      {/* Subtle radial vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 70% 70% at 50% 50%, transparent 30%, rgba(0,26,20,0.85) 100%)',
-        }}
-      />
+      <Background />
 
-      <div className="relative z-10 flex flex-col items-center gap-8">
-
+      <div className="relative z-10 flex flex-col items-center gap-10">
         {/* Grid of chairs */}
         <div
-          className="grid gap-[7px]"
+          className="grid gap-[9px]"
           style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
         >
           {Array.from({ length: TOTAL }).map((_, i) => (
             <motion.div
               key={i}
-              className="rounded-sm flex items-center justify-center"
-              style={{
-                width: '3.1vw',
-                height: '1.55vw',
-                background: 'rgba(199,231,56,0.09)',
-                border: '1px solid rgba(199,231,56,0.18)',
-              }}
+              className="w-[3.6vw] h-[1.8vw] rounded-sm"
+              style={{ background: 'rgba(199,231,56,0.08)', border: '1px solid rgba(199,231,56,0.12)' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.006, duration: 0.25 }}
+              transition={{ delay: i * 0.008, duration: 0.3 }}
             >
-              <span style={{ color: 'rgba(199,231,56,0.18)', fontSize: '0.52vw', fontWeight: 700 }}>✦</span>
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-white/10 text-[0.6vw] font-bold">?</span>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Counter + label */}
-        <div className="flex items-baseline gap-4">
-          <span
-            className="text-[#C7E738] tabular-nums"
-            style={{ fontSize: '5.2vw', lineHeight: 1, letterSpacing: '-0.03em' }}
-          >
-            <Counter from={0} to={2973} duration={1.1} decimals={0} />
-          </span>
-          <span className="text-white/55" style={{ fontSize: '2.6vw', letterSpacing: '-0.01em' }}>
-            chairs.
-          </span>
-        </div>
+        {/* Stat line */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-baseline gap-5">
+            <span className="text-[5.2vw] font-bold text-[#C7E738] tabular-nums">
+              <Counter from={0} to={2973} duration={1.0} decimals={0} />
+            </span>
+            <span className="text-white/60 text-[2.9vw] font-semibold">chairs.</span>
+          </div>
 
-        {/* Headline — fades in after counter */}
-        {phase >= 1 && (
-          <motion.h2
-            className="text-center"
-            style={{ fontSize: '3.0vw', lineHeight: 1.1 }}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.75, ease: EASE }}
-          >
-            <SplitText
-              text="See what's happening in every one."
-              delay={0.05}
-              stagger={0.05}
-              duration={0.5}
-              className="text-white"
-            />
-          </motion.h2>
-        )}
+          {phase >= 1 && (
+            <motion.div
+              className="flex items-baseline gap-5"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <h2 className="text-[3.1vw] font-normal">
+                <SplitText
+                  text="See what's happening in every one."
+                  delay={0.1}
+                  stagger={0.06}
+                  duration={0.5}
+                  className="text-white/80"
+                />
+              </h2>
+            </motion.div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
