@@ -17,7 +17,7 @@ export default function Scene4Reveal() {
   }, []);
 
   function seekTo5(el: HTMLVideoElement | null) {
-    if (el) el.currentTime = 5;
+    if (el) el.currentTime = 8;
   }
 
   return (
