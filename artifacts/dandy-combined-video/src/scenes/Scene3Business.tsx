@@ -83,9 +83,9 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <h2 className="text-[3.7vw] leading-[1.1]">
-            <SplitText text="Every scan, every prep, every provider," delay={0.55} stagger={0.05} className="text-white block" />
-            <SplitText text="in one place." delay={1.05} stagger={0.07} className="text-[#C7E738] block" />
+          <h2 className="text-[4.4vw] leading-[1.1]">
+            <SplitText text="Every scan, every prep," delay={0.55} stagger={0.06} className="text-white block" />
+            <SplitText text="every provider." delay={1.0} stagger={0.06} className="text-[#C7E738] block" />
           </h2>
 
           {/* 2×2 stat grid */}
