@@ -8,13 +8,15 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const SPRING = { type: 'spring', stiffness: 220, damping: 18 } as const;
 
 export default function SceneNotAnymore() {
-  const [showLogo, setShowLogo] = useState(false);
+  const [fadeText, setFadeText] = useState(false);   // triggers "Not anymore." fade-out
+  const [showLogo, setShowLogo] = useState(false);   // shows logo on clean screen
   const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setShowLogo(true), 1950);
-    const t2 = setTimeout(() => setShowInsights(true), 2350);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t1 = setTimeout(() => setFadeText(true),    1950); // text starts fading
+    const t2 = setTimeout(() => setShowLogo(true),    2950); // screen clear → logo in
+    const t3 = setTimeout(() => setShowInsights(true),3450); // "Insights" types in
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
   return (
@@ -45,7 +47,7 @@ export default function SceneNotAnymore() {
         ))}
       </div>
 
-      {/* Burst rings — fire once when logo appears */}
+      {/* Burst rings — fire once when logo appears (on clean screen) */}
       {showLogo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {[1, 2, 3].map((i) => (
@@ -85,11 +87,11 @@ export default function SceneNotAnymore() {
             color: '#fff', fontWeight: 400,
             display: 'flex', alignItems: 'baseline', gap: '0.3em',
           }}
-          animate={showLogo
+          animate={fadeText
             ? { opacity: 0, y: -20, scale: 1.06, filter: 'blur(6px)' }
             : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
           }
-          transition={showLogo
+          transition={fadeText
             ? { duration: 0.9, ease: [0.4, 0, 0.6, 1] }
             : { duration: 0 }
           }
