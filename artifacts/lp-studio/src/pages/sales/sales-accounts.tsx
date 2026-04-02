@@ -32,6 +32,7 @@ import {
   Copy,
   Check,
   Link2,
+  Star,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -1578,6 +1579,17 @@ const AUDIENCE_OPTIONS: { value: MicrositeAudience; label: string; sub: string }
   { value: "independent", label: "Independent Practice", sub: "Solo or small group practices" },
 ];
 
+interface MarketingTemplate {
+  id: number;
+  title: string;
+  templateLabel: string | null;
+  templateDescription: string | null;
+}
+
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function GenerateMicrositeModal({
   open,
   onClose,
@@ -1598,6 +1610,16 @@ function GenerateMicrositeModal({
   const [errorMsg, setErrorMsg] = useState("");
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
   const [hotlinkCount, setHotlinkCount] = useState(0);
+  const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<MarketingTemplate | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch(`${API_BASE}/lp/templates`)
+      .then(r => r.json())
+      .then((data: MarketingTemplate[]) => setMarketingTemplates(data))
+      .catch(() => {});
+  }, [open]);
 
   function reset() {
     setAudience(null);
@@ -1606,6 +1628,7 @@ function GenerateMicrositeModal({
     setErrorMsg("");
     setCreatedPageId(null);
     setHotlinkCount(0);
+    setSelectedTemplate(null);
   }
 
   function handleClose() {
@@ -1618,26 +1641,47 @@ function GenerateMicrositeModal({
     setStep("generating");
     setErrorMsg("");
     try {
-      // Step 1: AI-generate the page
-      const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience, prompt: prompt.trim() || undefined }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error(err.error ?? "Generation failed");
+      let pageId: number;
+
+      if (selectedTemplate) {
+        // Use the saved marketing template instead of AI generation
+        const label = selectedTemplate.templateLabel ?? selectedTemplate.title;
+        const createRes = await fetch(`${API_BASE}/lp/pages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `${accountName} — ${label}`,
+            slug: `${slugify(accountName)}-${slugify(label)}-${Date.now()}`,
+            status: "draft",
+            fromTemplateId: selectedTemplate.id,
+          }),
+        });
+        if (!createRes.ok) throw new Error("Failed to create page from template");
+        const created = await createRes.json() as { id: number };
+        pageId = created.id;
+      } else {
+        // AI-generate the page
+        const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audience, prompt: prompt.trim() || undefined }),
+        });
+        if (!genRes.ok) {
+          const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+          throw new Error(err.error ?? "Generation failed");
+        }
+        const { page } = await genRes.json();
+        pageId = page.id;
       }
-      const { page } = await genRes.json();
 
-      setCreatedPageId(page.id);
+      setCreatedPageId(pageId);
 
-      // Step 2: Bulk-create hotlinks for all contacts with email
+      // Bulk-create hotlinks for all contacts with email
       setStep("linking");
       const linkRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/microsites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId: page.id }),
+        body: JSON.stringify({ pageId }),
       });
       if (!linkRes.ok) throw new Error("Failed to create hotlinks");
       const { totalCount } = await linkRes.json();
@@ -1711,6 +1755,49 @@ function GenerateMicrositeModal({
               Dandy AI will create a personalised landing page for <strong>{accountName}</strong> and
               generate unique hotlinks for each contact with an email address.
             </div>
+
+            {/* Marketing Templates (optional starting point) */}
+            {marketingTemplates.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                  Start from a template <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <div className="flex flex-col gap-2">
+                  {marketingTemplates.map((t) => {
+                    const label = t.templateLabel ?? t.title;
+                    const isSelected = selectedTemplate?.id === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setSelectedTemplate(isSelected ? null : t)}
+                        className={[
+                          "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                          "focus:outline-none focus:ring-2 focus:ring-amber-300",
+                          isSelected
+                            ? "border-amber-400 bg-amber-50 ring-1 ring-amber-400"
+                            : "border-border bg-background hover:border-amber-300",
+                          busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                        ].join(" ")}
+                      >
+                        <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
+                          <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                          {label}
+                        </span>
+                        {t.templateDescription && (
+                          <span className="text-xs text-muted-foreground">{t.templateDescription}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedTemplate && (
+                  <p className="text-xs text-muted-foreground">Template selected — AI copy generation is skipped. Hotlinks are still created for all contacts.</p>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">
