@@ -80,7 +80,7 @@ export default function Scene3Business() {
           </motion.div>
 
           <div style={{ fontSize: '4.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {/* "Every scan, every prep," — chunk by chunk */}
+            {/* "Every scan, every prep," — continuous stagger, always in DOM */}
             <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
               {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (
                 <motion.span
@@ -93,21 +93,19 @@ export default function Scene3Business() {
                 </motion.span>
               ))}
             </div>
-            {/* "every provider." — mounts after pause, then words stagger in */}
-            {showLine2 && (
-              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
-                {['every', 'provider.'].map((word, i) => (
-                  <motion.span
-                    key={word + i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.22, duration: 0.55, ease: EASE }}
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </div>
-            )}
+            {/* "every provider." — always in DOM, delay picks up the stagger naturally after a 2× breath */}
+            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
+              {['every', 'provider.'].map((word, i) => (
+                <motion.span
+                  key={word + i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + 4 * 0.22 + 0.44 + i * 0.22, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </div>
           </div>
 
           {/* "all in one place." — types in after second line, "one" in lime */}
