@@ -81,7 +81,7 @@ export default function Scene3Business() {
 
           <div style={{ fontSize: '4.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: 0 }}>
             {/* "Every scan, every prep," — chunk by chunk */}
-            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.26em', alignItems: 'baseline' }}>
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
               {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (
                 <motion.span
                   key={word + i}
@@ -95,7 +95,7 @@ export default function Scene3Business() {
             </div>
             {/* "every provider." — mounts after pause, then words stagger in */}
             {showLine2 && (
-              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.26em', alignItems: 'baseline' }}>
+              <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
                 {['every', 'provider.'].map((word, i) => (
                   <motion.span
                     key={word + i}
