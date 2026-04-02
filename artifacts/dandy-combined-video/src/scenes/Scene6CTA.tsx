@@ -16,7 +16,7 @@ const TAGLINE: { word: string; color: string }[] = [
   { word: 'and',     color: 'rgba(255,255,255,0.45)' },
   { word: 'DSOs',    color: '#fff' },
   { word: 'both',    color: 'rgba(255,255,255,0.45)' },
-  { word: 'love',    color: 'rgba(255,255,255,0.45)' },
+  { word: 'love.',   color: 'rgba(255,255,255,0.45)' },
 ];
 
 export default function Scene6CTA() {
