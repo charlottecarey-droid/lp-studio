@@ -27,7 +27,7 @@ export default function Scene5Payoff() {
       <Background />
 
       <div className="relative z-10 flex flex-col items-center gap-10">
-        {/* Grid of chairs */}
+        {/* Grid of "blacked out" chairs */}
         <div
           className="grid gap-[9px]"
           style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
@@ -41,6 +41,7 @@ export default function Scene5Payoff() {
               animate={{ opacity: 1 }}
               transition={{ delay: i * 0.008, duration: 0.3 }}
             >
+              {/* Question mark inside each box */}
               <div className="w-full h-full flex items-center justify-center">
                 <span className="text-white/10 text-[0.6vw] font-bold">?</span>
               </div>
@@ -66,11 +67,11 @@ export default function Scene5Payoff() {
             >
               <h2 className="text-[3.1vw] font-normal">
                 <SplitText
-                  text="See what's happening in every one."
+                  text="Zero visibility."
                   delay={0.1}
-                  stagger={0.06}
+                  stagger={0.08}
                   duration={0.5}
-                  className="text-white/80"
+                  className="text-white/40"
                 />
               </h2>
             </motion.div>
