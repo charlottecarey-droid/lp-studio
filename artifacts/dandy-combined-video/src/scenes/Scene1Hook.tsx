@@ -10,7 +10,7 @@ export default function Scene1Hook() {
   const [phase, setPhase] = useState(0);
   // phase 0 → text appears
   // phase 1 → "ing" swings 90° down
-  // phase 2 → "the tradeoff." slides in
+  // phase 2 → "the tradeoff." types in
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 1500);
@@ -50,7 +50,7 @@ export default function Scene1Hook() {
         {/* Line 1: "DSOs are break" + "ing" hinge */}
         <motion.div
           style={{
-            fontSize: '5.6vw',
+            fontSize: '6.4vw',
             lineHeight: 1,
             display: 'flex',
             alignItems: 'flex-start',
@@ -83,20 +83,19 @@ export default function Scene1Hook() {
           </motion.span>
         </motion.div>
 
-        {/* Line 2: "the tradeoff." — types in after swing */}
-        {phase >= 2 && (
-          <div
-            style={{
-              fontSize: '5.6vw',
-              lineHeight: 1,
-              color: '#C7E738',
-              fontWeight: 400,
-              marginTop: '0.15em',
-            }}
-          >
-            <TypeWriter text="the tradeoff." delay={0} speed={0.055} />
-          </div>
-        )}
+        {/* Line 2: "the tradeoff." — always in DOM to hold space, visible at phase 2 */}
+        <div
+          style={{
+            fontSize: '6.4vw',
+            lineHeight: 1,
+            color: '#C7E738',
+            fontWeight: 400,
+            marginTop: '0.15em',
+            visibility: phase >= 2 ? 'visible' : 'hidden',
+          }}
+        >
+          {phase >= 2 && <TypeWriter text="the tradeoff." delay={0} speed={0.055} />}
+        </div>
 
       </div>
     </motion.div>
