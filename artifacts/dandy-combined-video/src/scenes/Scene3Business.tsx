@@ -87,7 +87,7 @@ export default function Scene3Business() {
                   key={word + i}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + i * 0.2, duration: 0.55, ease: EASE }}
+                  transition={{ delay: 0.5 + i * 0.22, duration: 0.55, ease: EASE }}
                 >
                   {word}
                 </motion.span>
@@ -101,7 +101,7 @@ export default function Scene3Business() {
                     key={word + i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.28, duration: 0.55, ease: EASE }}
+                    transition={{ delay: i * 0.22, duration: 0.55, ease: EASE }}
                   >
                     {word}
                   </motion.span>
