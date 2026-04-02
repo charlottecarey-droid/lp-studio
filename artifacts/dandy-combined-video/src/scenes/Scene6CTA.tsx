@@ -42,44 +42,43 @@ export default function Scene6CTA() {
 
       <div className="relative z-10 flex flex-col items-center gap-4">
 
-        {/* Logo + URL grouped together */}
-        <div className="flex flex-col items-center gap-2">
-          <motion.img
-            src={logoUrl}
-            alt="Dandy"
-            className="h-12"
-            style={{ filter: 'brightness(0) invert(1)' }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6, ease: EASE }}
-          />
-          <motion.p
-            style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-          >
-            <SplitChars text="meetdandy.com/insights" delay={0.8} stagger={0.025} />
-          </motion.p>
-        </div>
+        {/* Logo */}
+        <motion.img
+          src={logoUrl}
+          alt="Dandy"
+          className="h-12"
+          style={{ filter: 'brightness(0) invert(1)' }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6, ease: EASE }}
+        />
 
-        {/* Headline + divider */}
-        <div className="flex flex-col items-center gap-4" style={{ marginTop: '1.5vw' }}>
+        {/* Headline + URL + divider */}
+        <div className="flex flex-col items-center gap-3" style={{ marginTop: '1.5vw' }}>
           <motion.h1
             style={{ fontSize: '5.0vw', color: '#C7E738', fontWeight: 400, letterSpacing: '-0.025em', lineHeight: 1 }}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 1.1, duration: 0.75, ease: EASE }}
+            transition={{ delay: 0.9, duration: 0.75, ease: EASE }}
           >
             Dandy Insights.
           </motion.h1>
+
+          <motion.p
+            style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.3, duration: 0.6 }}
+          >
+            <SplitChars text="meetdandy.com/insights" delay={1.3} stagger={0.025} />
+          </motion.p>
 
           <motion.div
             className="h-px w-[20vw]"
             style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.4), transparent)' }}
             initial={{ scaleX: 0, opacity: 0 }}
             animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ delay: 1.5, duration: 0.8 }}
+            transition={{ delay: 1.6, duration: 0.8 }}
           />
         </div>
 
