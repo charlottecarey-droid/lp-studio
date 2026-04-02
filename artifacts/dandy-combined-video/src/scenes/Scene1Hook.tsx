@@ -7,19 +7,20 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Scene1Hook() {
   const [phase, setPhase] = useState(0);
-  // phase 0: "DSOs are breaking" visible
-  // phase 1: "breaking" splits and falls
-  // phase 2: "the tradeoff." appears
+  // phase 0 → text appears
+  // phase 1 → "ing" swings 90° down
+  // phase 2 → "the tradeoff." slides in
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1600);
+    const t1 = setTimeout(() => setPhase(1), 1500);
     const t2 = setTimeout(() => setPhase(2), 2300);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
+      className="absolute inset-0 w-full h-full overflow-visible"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
@@ -27,9 +28,12 @@ export default function Scene1Hook() {
     >
       <Background />
 
-      <div className="relative z-10 flex flex-col items-center text-center gap-3">
+      {/* Container — nudged left of center */}
+      <div style={{ position: 'relative', left: '-5vw', display: 'flex', flexDirection: 'column', gap: '0.2em' }}>
+
         {/* Eyebrow */}
         <motion.div
+          style={{ marginBottom: '0.6em' }}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.55, ease: EASE }}
@@ -42,92 +46,58 @@ export default function Scene1Hook() {
           />
         </motion.div>
 
-        {/* Line 1: "DSOs are" */}
+        {/* Line 1: "DSOs are break" + "ing" hinge */}
         <motion.div
-          style={{ fontSize: '5.4vw', lineHeight: 1.05, color: '#fff', fontWeight: 400 }}
-          initial={{ opacity: 0, y: 20 }}
+          style={{
+            fontSize: '5.6vw',
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'flex-start',
+            overflow: 'visible',
+            position: 'relative',
+          }}
+          initial={{ opacity: 0, y: 22 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.55, ease: EASE }}
+          transition={{ delay: 0.65, duration: 0.6, ease: EASE }}
         >
-          DSOs are
+          {/* "DSOs are break" — static */}
+          <span style={{ color: '#fff', fontWeight: 400, whiteSpace: 'nowrap' }}>
+            DSOs are break
+          </span>
+
+          {/* "ing" — swings 90° clockwise around its left edge */}
+          <motion.span
+            style={{
+              color: '#fff',
+              fontWeight: 400,
+              display: 'inline-block',
+              transformOrigin: '0% 0%',
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+            }}
+            animate={{ rotate: phase >= 1 ? 90 : 0 }}
+            transition={{ duration: 0.7, ease: [0.55, 0, 0.45, 1] }}
+          >
+            ing
+          </motion.span>
         </motion.div>
 
-        {/* "breaking" — rendered as two overlapping halves */}
-        <div
-          style={{ position: 'relative', fontSize: '5.4vw', lineHeight: 1.05, height: '1.15em', overflow: 'visible' }}
+        {/* Line 2: "the tradeoff." — appears after swing */}
+        <motion.div
+          style={{
+            fontSize: '5.6vw',
+            lineHeight: 1,
+            color: '#C7E738',
+            fontWeight: 400,
+            marginTop: '0.15em',
+          }}
+          initial={{ opacity: 0, y: 26 }}
+          animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 26 }}
+          transition={{ duration: 0.65, ease: EASE }}
         >
-          {/* Top half */}
-          <motion.div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              color: '#fff',
-              clipPath: 'inset(0 0 50% 0)',
-              fontWeight: 400,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              whiteSpace: 'nowrap',
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={
-              phase === 0
-                ? { opacity: 1, y: 0 }
-                : phase === 1
-                ? { opacity: 1, y: -60 }
-                : { opacity: 0, y: -80 }
-            }
-            transition={
-              phase === 0
-                ? { delay: 0.85, duration: 0.5, ease: EASE }
-                : { duration: 0.55, ease: [0.55, 0, 0.45, 1] }
-            }
-          >
-            breaking
-          </motion.div>
+          the tradeoff.
+        </motion.div>
 
-          {/* Bottom half */}
-          <motion.div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              color: '#fff',
-              clipPath: 'inset(50% 0 0 0)',
-              fontWeight: 400,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              whiteSpace: 'nowrap',
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={
-              phase === 0
-                ? { opacity: 1, y: 0 }
-                : phase === 1
-                ? { opacity: 1, y: 60 }
-                : { opacity: 0, y: 80 }
-            }
-            transition={
-              phase === 0
-                ? { delay: 0.85, duration: 0.5, ease: EASE }
-                : { duration: 0.55, ease: [0.55, 0, 0.45, 1] }
-            }
-          >
-            breaking
-          </motion.div>
-        </div>
-
-        {/* "the tradeoff." — appears after "breaking" falls away */}
-        {phase >= 2 && (
-          <motion.div
-            style={{ fontSize: '5.4vw', lineHeight: 1.05, color: '#C7E738', fontWeight: 400 }}
-            initial={{ opacity: 0, y: 28 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, ease: EASE }}
-          >
-            the tradeoff.
-          </motion.div>
-        )}
       </div>
     </motion.div>
   );
