@@ -33,21 +33,39 @@ export default function Scene5Payoff() {
         }}
       />
 
-      <div className="relative z-10 flex flex-col items-center text-center px-20 gap-7">
+      <div className="relative z-10 flex flex-col items-center text-center px-20 gap-6">
         <h1 className="text-[5.4vw] leading-[1.05]">
-          <SplitText text="Real-time visibility." delay={0.2} stagger={0.07} className="text-white block" />
-          <SplitText text="Across every chair." delay={0.75} stagger={0.07} className="text-[#C7E738] block" />
+          <SplitText text="See what's happening" delay={0.2} stagger={0.06} className="text-white block" />
+          <SplitText text="in every chair." delay={0.75} stagger={0.07} className="text-[#C7E738] block" />
         </h1>
 
-        <motion.div className="w-[38vw]">
-          <GlowLine delay={1.3} />
+        {/* Stat callout */}
+        <motion.div
+          className="flex items-baseline gap-3 mt-1"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.35, duration: 0.7, ease: EASE }}
+        >
+          <span
+            className="text-[#C7E738]"
+            style={{ fontSize: '3.8vw', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.03em' }}
+          >
+            2,973
+          </span>
+          <span className="text-white/50" style={{ fontSize: '1.6vw', letterSpacing: '0.02em' }}>
+            of them.
+          </span>
+        </motion.div>
+
+        <motion.div className="w-[38vw] mt-1">
+          <GlowLine delay={1.7} />
         </motion.div>
 
         <motion.p
-          className="text-white/50 text-[1.7vw] max-w-[56vw] leading-relaxed"
+          className="text-white/50 text-[1.4vw] max-w-[52vw] leading-relaxed"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5, duration: 0.8, ease: EASE }}
+          transition={{ delay: 1.9, duration: 0.8, ease: EASE }}
         >
           Whether you're a provider tracking quality or a DSO leading 40 locations — Dandy Insights gives you the data to act.
         </motion.p>
