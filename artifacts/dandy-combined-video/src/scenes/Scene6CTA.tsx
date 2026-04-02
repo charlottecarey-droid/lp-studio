@@ -70,7 +70,7 @@ export default function Scene6CTA() {
 
         {/* "from the only dental lab [doctors] and [DSOs] both love" — word by word */}
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
-                      fontSize: '2.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400, fontStyle: 'italic',
+                      fontSize: '2.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400,
                       marginTop: '2.5vw' }}>
           {[
             { word: 'from',    color: 'rgba(255,255,255,0.45)' },
