@@ -68,22 +68,40 @@ export default function Scene6CTA() {
           transition={{ delay: 1.2, duration: 0.8 }}
         />
 
-        <motion.p
-          style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1.35vw', letterSpacing: '-0.01em', fontWeight: 400, fontStyle: 'italic' }}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.7, duration: 0.7, ease: EASE }}
-        >
-          from the only dental lab doctors and DSOs both love
-        </motion.p>
+        {/* "from the only dental lab [doctors] and [DSOs] both love" — word by word */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: '0.22em', rowGap: 0,
+                      fontSize: '2.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', fontWeight: 400, fontStyle: 'italic' }}>
+          {[
+            { word: 'from',    color: 'rgba(255,255,255,0.45)' },
+            { word: 'the',     color: 'rgba(255,255,255,0.45)' },
+            { word: 'only',    color: 'rgba(255,255,255,0.45)' },
+            { word: 'dental',  color: 'rgba(255,255,255,0.45)' },
+            { word: 'lab',     color: 'rgba(255,255,255,0.45)' },
+            { word: 'doctors', color: '#C7E738' },
+            { word: 'and',     color: 'rgba(255,255,255,0.45)' },
+            { word: 'DSOs',    color: '#fff' },
+            { word: 'both',    color: 'rgba(255,255,255,0.45)' },
+            { word: 'love',    color: 'rgba(255,255,255,0.45)' },
+          ].map(({ word, color }, i) => (
+            <motion.span
+              key={word + i}
+              style={{ color }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.7 + i * 0.1, duration: 0.5, ease: EASE }}
+            >
+              {word}
+            </motion.span>
+          ))}
+        </div>
 
         <motion.p
           style={{ color: 'rgba(255,255,255,0.25)', fontSize: '1.0vw', letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: '0.25rem' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 2.2, duration: 0.6 }}
+          transition={{ delay: 2.9, duration: 0.6 }}
         >
-          <SplitChars text="meetdandy.com/insights" delay={2.2} stagger={0.025} />
+          <SplitChars text="meetdandy.com/insights" delay={2.9} stagger={0.025} />
         </motion.p>
       </div>
     </motion.div>
