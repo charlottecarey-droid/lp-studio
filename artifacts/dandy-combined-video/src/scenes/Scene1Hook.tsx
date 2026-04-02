@@ -66,7 +66,7 @@ export default function Scene1Hook() {
             DSOs are break
           </span>
 
-          {/* "ing" — swings 90° clockwise around its left edge */}
+          {/* "ing" — swings 90° clockwise then fades out before line 2 appears */}
           <motion.span
             style={{
               color: '#fff',
@@ -76,8 +76,14 @@ export default function Scene1Hook() {
               whiteSpace: 'nowrap',
               lineHeight: 1,
             }}
-            animate={{ rotate: phase >= 1 ? 90 : 0 }}
-            transition={{ duration: 0.7, ease: [0.55, 0, 0.45, 1] }}
+            animate={{
+              rotate: phase >= 1 ? 90 : 0,
+              opacity: phase >= 2 ? 0 : 1,
+            }}
+            transition={phase >= 2
+              ? { duration: 0.25, ease: 'easeIn' }
+              : { duration: 0.7, ease: [0.55, 0, 0.45, 1] }
+            }
           >
             ing
           </motion.span>
