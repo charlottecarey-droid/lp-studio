@@ -110,16 +110,11 @@ export default function Scene3Business() {
             )}
           </div>
 
-          {/* "all in one place." — fades in after second line */}
+          {/* "all in one place." — types in after second line */}
           {showLine2 && (
-            <motion.div
-              style={{ color: 'rgba(255,255,255,0.5)', fontSize: '2.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em' }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.65, ease: EASE }}
-            >
-              all in one place.
-            </motion.div>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em' }}>
+              <TypeWriter text="all in one place." delay={0.65} speed={0.048} />
+            </div>
           )}
         </div>
       </div>
