@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import logoUrl from '@assets/dandy-logo.svg';
@@ -6,6 +6,13 @@ import logoUrl from '@assets/dandy-logo.svg';
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function SceneNotAnymore() {
+  const [showLogo, setShowLogo] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowLogo(true), 950);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <motion.div
       className="absolute inset-0 flex flex-col items-center justify-center w-full h-full overflow-hidden"
@@ -35,38 +42,44 @@ export default function SceneNotAnymore() {
       </div>
 
       <div className="relative z-10 flex flex-col items-center gap-8 text-center">
+        {/* "Not anymore." — fades out when logo appears */}
         <motion.div
-          style={{ fontSize: '5.6vw', lineHeight: '1.15em', letterSpacing: '-0.025em', color: '#fff', fontWeight: 400 }}
+          style={{ fontSize: '7.5vw', lineHeight: '1.1em', letterSpacing: '-0.03em', color: '#fff', fontWeight: 400 }}
           initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.7, ease: EASE }}
+          animate={showLogo ? { opacity: 0, y: -16 } : { opacity: 1, y: 0 }}
+          transition={showLogo
+            ? { duration: 0.55, ease: EASE }
+            : { delay: 0.3, duration: 0.7, ease: EASE }
+          }
         >
           Not anymore.
         </motion.div>
 
-        <motion.div
-          className="h-px w-[18vw]"
-          style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.45), transparent)' }}
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ delay: 1.0, duration: 0.75 }}
-        />
-
-        <motion.div
-          className="flex flex-col items-center gap-3"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3, duration: 0.7, ease: EASE }}
-        >
-          <img
-            src={logoUrl}
-            alt="Dandy"
-            style={{ height: '2.6vw', filter: 'brightness(0) invert(1)', opacity: 0.85 }}
-          />
-          <span style={{ color: '#C7E738', fontSize: '2.0vw', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Insights
-          </span>
-        </motion.div>
+        {/* Divider + logo — cross-fades in as headline fades out */}
+        {showLogo && (
+          <motion.div
+            className="absolute flex flex-col items-center gap-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE }}
+          >
+            <motion.div
+              className="h-px w-[18vw]"
+              style={{ background: 'linear-gradient(to right, transparent, rgba(199,231,56,0.45), transparent)' }}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.15, duration: 0.65 }}
+            />
+            <img
+              src={logoUrl}
+              alt="Dandy"
+              style={{ height: '3.2vw', filter: 'brightness(0) invert(1)', opacity: 0.9 }}
+            />
+            <span style={{ color: '#C7E738', fontSize: '2.8vw', letterSpacing: '-0.01em', fontWeight: 400 }}>
+              Insights
+            </span>
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );
