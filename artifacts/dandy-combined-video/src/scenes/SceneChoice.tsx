@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
+import BalanceScale from '../components/BalanceScale';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -34,6 +35,20 @@ export default function SceneChoice() {
       transition={{ duration: 0.75, ease: EASE }}
     >
       <Background />
+
+      {/* ── Balance scale — background graphic ── */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          bottom: '-2%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '68vw',
+          opacity: 0.42,
+        }}
+      >
+        <BalanceScale delay={0.4} />
+      </div>
 
       {/* Subtle ambient rings */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
