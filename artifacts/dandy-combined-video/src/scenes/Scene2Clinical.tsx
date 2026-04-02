@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
@@ -7,11 +7,6 @@ import ddpGif from '@assets/dandy-ddp-thickness.gif';
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function Scene2Clinical() {
-  const [showLine2, setShowLine2] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setShowLine2(true), 1550);
-    return () => clearTimeout(t);
-  }, []);
 
   return (
     <motion.div
@@ -53,21 +48,19 @@ export default function Scene2Clinical() {
                 </motion.span>
               ))}
             </div>
-            {/* "Coach with data." — mounts after pause, then words stagger in */}
-            {showLine2 && (
-              <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
-                {['Coach', 'with', 'data.'].map((word, i) => (
-                  <motion.span
-                    key={word}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.22, duration: 0.55, ease: EASE }}
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-              </div>
-            )}
+            {/* "Coach with data." — always in DOM, picks up stagger after a 2× breath */}
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.22em', rowGap: 0, alignItems: 'baseline' }}>
+              {['Coach', 'with', 'data.'].map((word, i) => (
+                <motion.span
+                  key={word}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + 3 * 0.22 + 0.44 + i * 0.22, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </div>
           </div>
 
           {/* Stat row */}
