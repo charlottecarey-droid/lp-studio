@@ -12,8 +12,8 @@ export default function SceneNotAnymore() {
   const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setShowLogo(true), 950);
-    const t2 = setTimeout(() => setShowInsights(true), 1350);
+    const t1 = setTimeout(() => setShowLogo(true), 1950);
+    const t2 = setTimeout(() => setShowInsights(true), 2350);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
