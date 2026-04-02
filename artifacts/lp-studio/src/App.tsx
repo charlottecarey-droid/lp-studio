@@ -136,7 +136,7 @@ function AppRouter() {
 }
 
 // Sits inside WouterRouter so it can read the current location.
-// Routes /superadmin outside the AuthGate; everything else goes through normal auth.
+// Routes /superadmin and prospect-facing pages outside the AuthGate; everything else goes through normal auth.
 function AppShell() {
   const [location] = useLocation();
 
@@ -145,6 +145,28 @@ function AppShell() {
       <Suspense fallback={<LoadingFallback />}>
         <SuperAdminPage />
       </Suspense>
+    );
+  }
+
+  // Public prospect-facing routes — no sign-in prompt, ever
+  const isPublicRoute =
+    location.startsWith("/lp/") ||
+    location.startsWith("/p/") ||
+    location.startsWith("/review/");
+
+  if (isPublicRoute) {
+    return (
+      <AuthProvider>
+        <Suspense fallback={<LoadingFallback />}>
+          <Switch>
+            <Route path="/lp/:slug" component={LandingPageViewer} />
+            <Route path="/p/:token" component={PersonalizedLinkResolver} />
+            <Route path="/review/:pageId" component={ReviewShell} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+        <Toaster />
+      </AuthProvider>
     );
   }
 
