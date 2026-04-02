@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useRef, useEffect } from "react";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 import type { DsoSoftwareShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -42,6 +43,14 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   } = props;
 
   const autoplay = props.videoAutoplay !== false;
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => {});
+  }, [videoUrl, autoplay]);
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -143,15 +152,16 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
             <video
+              ref={videoRef}
               key={`ss-video-${autoplay}`}
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
               autoPlay={autoplay}
-              muted={autoplay}
+              muted
               loop={autoplay}
               playsInline
               controls={!autoplay}
-              preload="metadata"
+              preload="auto"
             />
           ) : (
             <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>

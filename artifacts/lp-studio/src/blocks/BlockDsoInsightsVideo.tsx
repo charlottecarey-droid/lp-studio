@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
@@ -83,6 +83,14 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: false, amount: 0.2 });
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => {});
+  }, [props.videoUrl, props.videoAutoplay]);
 
   const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
   const dark = isDarkBg(props.backgroundStyle ?? "dandy-green");
@@ -250,15 +258,16 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
+                    ref={videoRef}
                     key={`iv-video-${props.videoAutoplay}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
                     autoPlay={props.videoAutoplay !== false}
-                    muted={props.videoAutoplay !== false}
+                    muted
                     loop={props.videoAutoplay !== false}
                     playsInline
                     controls={props.videoAutoplay === false}
-                    preload="metadata"
+                    preload="auto"
                   />
                 ) : (
                   <iframe
