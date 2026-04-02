@@ -79,17 +79,32 @@ export default function Scene3Business() {
             />
           </motion.div>
 
-          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column' }}>
-            <motion.div
-              style={{ color: '#fff', fontWeight: 400 }}
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55, duration: 0.65, ease: EASE }}
-            >
-              Every scan, every prep,
-            </motion.div>
-            <div style={{ color: '#C7E738', fontWeight: 400 }}>
-              <TypeWriter text="every provider." delay={1.0} speed={0.048} />
+          <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
+            {/* "Every scan, every prep," — chunk by chunk */}
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+              {['Every', 'scan,', 'every', 'prep,'].map((word, i) => (
+                <motion.span
+                  key={word + i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.2, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </div>
+            {/* "every provider." — word by word */}
+            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+              {['every', 'provider.'].map((word, i) => (
+                <motion.span
+                  key={word + i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.4 + i * 0.28, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
             </div>
           </div>
 

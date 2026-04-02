@@ -35,16 +35,31 @@ export default function Scene2Clinical() {
           </motion.div>
 
           <div style={{ fontSize: '4.6vw', lineHeight: '1.2em', letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: '0.05em' }}>
-            <motion.div
-              style={{ color: '#C7E738', fontWeight: 400 }}
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55, duration: 0.65, ease: EASE }}
-            >
-              See every scan.
-            </motion.div>
-            <div style={{ color: '#fff', fontWeight: 400 }}>
-              <TypeWriter text="Coach with data." delay={1.0} speed={0.048} />
+            {/* "See every scan." — word by word */}
+            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+              {['See', 'every', 'scan.'].map((word, i) => (
+                <motion.span
+                  key={word}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.22, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
+            </div>
+            {/* "Coach with data." — word by word */}
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', gap: '0.22em', alignItems: 'baseline' }}>
+              {['Coach', 'with', 'data.'].map((word, i) => (
+                <motion.span
+                  key={word}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.1 + i * 0.22, duration: 0.55, ease: EASE }}
+                >
+                  {word}
+                </motion.span>
+              ))}
             </div>
           </div>
 
