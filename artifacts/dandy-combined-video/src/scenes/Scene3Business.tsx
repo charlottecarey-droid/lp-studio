@@ -110,10 +110,12 @@ export default function Scene3Business() {
             )}
           </div>
 
-          {/* "all in one place." — types in after second line */}
+          {/* "all in one place." — types in after second line, "one" in lime */}
           {showLine2 && (
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em' }}>
-              <TypeWriter text="all in one place." delay={0.65} speed={0.048} />
+            <div style={{ fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', display: 'flex' }}>
+              <TypeWriter text="all in\u00A0" delay={0.65} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <TypeWriter text="one" delay={0.65 + 7 * 0.048} speed={0.048} style={{ color: '#C7E738' }} />
+              <TypeWriter text="\u00A0place." delay={0.65 + 10 * 0.048} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
             </div>
           )}
         </div>
