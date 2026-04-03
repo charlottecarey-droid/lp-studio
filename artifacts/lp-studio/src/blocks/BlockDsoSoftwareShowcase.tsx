@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import { useRef, useEffect } from "react";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 import type { DsoSoftwareShowcaseBlockProps } from "@/lib/block-types";
@@ -44,6 +44,8 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
 
   const autoplay = props.videoAutoplay !== false;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLElement>(null);
+  const inView = useInView(containerRef, { once: false, amount: 0.3 });
 
   useEffect(() => {
     const v = videoRef.current;
@@ -52,6 +54,17 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     v.load();
     v.play().catch(() => {});
   }, [videoUrl, autoplay]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !props.videoPlayOnScroll) return;
+    if (inView) {
+      v.muted = true;
+      v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [inView, props.videoPlayOnScroll]);
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -248,7 +261,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
 
   if (layout === "split") {
     return (
-      <section style={{ ...sectionBg, position: "relative" }} className="py-20 md:py-28">
+      <section ref={containerRef} style={{ ...sectionBg, position: "relative" }} className="py-20 md:py-28">
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "4rem", alignItems: "center" }}>
             {/* Text side */}
@@ -286,7 +299,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   }
 
   return (
-    <section style={{ ...sectionBg, position: "relative" }} className="py-20 md:py-28">
+    <section ref={containerRef} style={{ ...sectionBg, position: "relative" }} className="py-20 md:py-28">
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         {/* Centered header */}
         <motion.div

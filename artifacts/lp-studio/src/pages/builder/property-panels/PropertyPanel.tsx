@@ -408,9 +408,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <Label className="text-xs font-medium">Autoplay &amp; Loop</Label>
-                    <p className="text-[11px] text-muted-foreground">Plays silently on load and repeats.</p>
+                    <p className="text-[11px] text-muted-foreground">Plays silently on page load and repeats.</p>
                   </div>
                   <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Play on scroll</Label>
+                    <p className="text-[11px] text-muted-foreground">Start playing when this section scrolls into view.</p>
+                  </div>
+                  <Switch checked={p.videoPlayOnScroll ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoPlayOnScroll: v } })} />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -2895,9 +2902,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <Label className="text-xs font-medium">Autoplay &amp; Loop</Label>
-                    <p className="text-[11px] text-muted-foreground">Plays silently on load and repeats.</p>
+                    <p className="text-[11px] text-muted-foreground">Plays silently on page load and repeats.</p>
                   </div>
                   <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Play on scroll</Label>
+                    <p className="text-[11px] text-muted-foreground">Start playing when this section scrolls into view.</p>
+                  </div>
+                  <Switch checked={p.videoPlayOnScroll ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoPlayOnScroll: v } })} />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div>

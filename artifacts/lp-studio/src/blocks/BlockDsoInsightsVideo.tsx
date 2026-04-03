@@ -93,6 +93,17 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
     v.play().catch(() => {});
   }, [props.videoUrl, props.videoAutoplay]);
 
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !props.videoPlayOnScroll) return;
+    if (inView) {
+      v.muted = true;
+      v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  }, [inView, props.videoPlayOnScroll]);
+
   const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
   const dark = isDarkBg(props.backgroundStyle ?? "dandy-green");
   const sectionStyle: React.CSSProperties = props.imageUrl
