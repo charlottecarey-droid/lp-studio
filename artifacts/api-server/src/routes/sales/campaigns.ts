@@ -17,7 +17,7 @@ import { sfdcService } from "../../lib/sfdc-service";
 const router = Router();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "meetdandy-lp.com";
+const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "send.ent.meetdandy.com";
 const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 // 1x1 transparent GIF pixel for open tracking
