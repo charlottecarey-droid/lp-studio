@@ -133,6 +133,11 @@ router.get("/video/render", async (req, res) => {
         "--disable-web-security",
         "--autoplay-policy=no-user-gesture-required",
         "--force-color-profile=srgb",
+        // Prevent background throttling that stalls requestAnimationFrame in headless mode
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-ipc-flooding-protection",
       ],
     });
 
@@ -147,9 +152,12 @@ router.get("/video/render", async (req, res) => {
     const page = await context.newPage();
 
     await page.goto(config.url, {
-      waitUntil: "domcontentloaded",
-      timeout: 15000,
+      waitUntil: "load",
+      timeout: 30000,
     });
+
+    // Brief warm-up so fonts, GIFs and videos are decoded before scenes start
+    await page.waitForTimeout(2000);
 
     logger.info({ videoKey }, "Page loaded, recording at 1920×1080");
 
