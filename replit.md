@@ -196,7 +196,7 @@ One codebase serves multiple tenants via domain routing:
 
 **Hotlink URLs**: When copying personalized links, the sales console uses `domainContext.micrositeDomain` (from `AuthContext`) as the base URL so links always point to `partners.meetdandy.com/p/{token}`.
 
-**Email alerts**: Visit alert emails include a clickable link to `https://{microsite_domain}/lp/{slug}` when the tenant has a `microsite_domain` set.
+**Email alerts**: Visit alert emails include a clickable link to `https://{microsite_domain}/p/{token}` (the personalized link) when the tenant has a `microsite_domain` set. Priority: micrositeDomain → SITE_URL env → request origin.
 
 **Database**: `tenants` table has two domain columns:
 - `domain` — the admin/login subdomain (e.g. `ent.meetdandy.com`)
