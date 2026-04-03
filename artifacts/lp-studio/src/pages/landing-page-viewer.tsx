@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, type TargetAndTransition } from "framer-motion";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
@@ -28,6 +28,24 @@ import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type Bra
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
+
+/** Catches render errors in individual blocks so one bad block can't blank the entire page. */
+class BlockErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    console.error("[BlockErrorBoundary] block render error:", err, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 /**
  * Scope all selectors in a CSS string with a prefix attribute selector.
@@ -402,14 +420,15 @@ export default function LandingPageViewer() {
             ? { ...block, props: applyDtr(block.props, dtrParams) }
             : block;
           return (
-            <ScrollReveal
-              key={block.id ?? i}
-              delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-              style={block.blockSettings?.animationStyle ?? "fade-up"}
-              enabled={animationsEnabled}
-            >
-              <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
-            </ScrollReveal>
+            <BlockErrorBoundary key={block.id ?? i}>
+              <ScrollReveal
+                delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                style={block.blockSettings?.animationStyle ?? "fade-up"}
+                enabled={animationsEnabled}
+              >
+                <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
+              </ScrollReveal>
+            </BlockErrorBoundary>
           );
         })}
         {blocks.length === 0 && (
@@ -508,14 +527,15 @@ export default function LandingPageViewer() {
                 ? { ...block, props: applyDtr(block.props, dtrParams) }
                 : block;
               return (
-                <ScrollReveal
-                  key={block.id ?? i}
-                  delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-                  style={block.blockSettings?.animationStyle ?? "fade-up"}
-                  enabled={linkedAnimationsEnabled}
-                >
-                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
-                </ScrollReveal>
+                <BlockErrorBoundary key={block.id ?? i}>
+                  <ScrollReveal
+                    delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                    style={block.blockSettings?.animationStyle ?? "fade-up"}
+                    enabled={linkedAnimationsEnabled}
+                  >
+                    <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
+                  </ScrollReveal>
+                </BlockErrorBoundary>
               );
             })
           : (

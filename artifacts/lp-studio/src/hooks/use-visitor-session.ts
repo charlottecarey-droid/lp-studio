@@ -9,16 +9,22 @@ export function useVisitorSession(testSlug: string) {
 
   useEffect(() => {
     if (!testSlug) return;
-    
-    const key = `lp-studio-session-${testSlug}`;
-    let id = localStorage.getItem(key);
-    
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(key, id);
+
+    try {
+      const key = `lp-studio-session-${testSlug}`;
+      let id = localStorage.getItem(key);
+
+      if (!id) {
+        id = crypto.randomUUID();
+        try { localStorage.setItem(key, id); } catch { /* storage full / blocked */ }
+      }
+
+      setSessionId(id);
+    } catch {
+      // localStorage blocked (e.g. private mode, storage quota) — generate a
+      // temporary in-memory session ID so the page still loads.
+      setSessionId(crypto.randomUUID());
     }
-    
-    setSessionId(id);
   }, [testSlug]);
 
   return sessionId;

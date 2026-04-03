@@ -412,6 +412,17 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       };
     }
 
+    case "footer": {
+      const columns = (p.columns ?? []) as AiBlock[];
+      return {
+        columns: Array.isArray(columns) ? columns : [],
+        copyrightText: p.copyrightText ?? `© ${new Date().getFullYear()} Dandy. All rights reserved.`,
+        showSocialLinks: p.showSocialLinks ?? false,
+        backgroundColor: p.backgroundColor ?? "#003A30",
+        accentColor: p.accentColor ?? "#C7E738",
+      };
+    }
+
     default:
       return { ...p };
   }
@@ -449,6 +460,8 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-faq": "{ eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions",
   "dso-activation-steps": "{ eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
   "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",
+  "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"#003A30\" }",
+  "video-section": "{ headline, subheadline, videoUrl, backgroundStyle }",
 };
 
 function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, unknown>, templateBlockTypes?: string[]): string {

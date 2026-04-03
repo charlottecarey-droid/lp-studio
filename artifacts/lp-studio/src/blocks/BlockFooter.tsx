@@ -25,15 +25,15 @@ export function BlockFooter({ props, brand }: Props) {
             />
           </div>
 
-          {props.columns.length > 0 && (
+          {(props.columns ?? []).length > 0 && (
             <div className={cn(
               "grid gap-10 flex-1",
-              props.columns.length === 1 ? "grid-cols-1" :
-              props.columns.length === 2 ? "grid-cols-2" :
-              props.columns.length === 3 ? "grid-cols-2 md:grid-cols-3" :
+              (props.columns ?? []).length === 1 ? "grid-cols-1" :
+              (props.columns ?? []).length === 2 ? "grid-cols-2" :
+              (props.columns ?? []).length === 3 ? "grid-cols-2 md:grid-cols-3" :
               "grid-cols-2 md:grid-cols-4"
             )}>
-              {props.columns.map((col, ci) => (
+              {(props.columns ?? []).map((col, ci) => (
                 <div key={ci}>
                   <p
                     className="text-xs font-semibold tracking-widest uppercase mb-4"

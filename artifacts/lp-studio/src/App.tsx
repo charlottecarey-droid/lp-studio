@@ -148,6 +148,17 @@ function AppShell() {
     return <LoadingFallback />;
   }
 
+  // Unknown / unregistered domain — render nothing.
+  // Keeps localhost working for development; blocks Replit dev URLs and any
+  // other domain that isn't explicitly configured in the tenants table.
+  if (domainContext?.mode === "open") {
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
+    if (!isLocal) {
+      return null;
+    }
+  }
+
   // Partner/microsite domain — render only public LP pages, no admin UI or login ever
   if (domainContext?.mode === "microsite-only") {
     return (

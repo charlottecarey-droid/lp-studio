@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, useRef, useCallback, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
 import {
@@ -2105,6 +2105,29 @@ function SeoGeoPanel({
 
 // ── Canvas Block ─────────────────────────────────────────────────────────
 
+class BuilderBlockErrorBoundary extends Component<{ children: ReactNode; blockType: string }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode; blockType: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    console.error(`[BuilderBlockErrorBoundary] block "${this.props.blockType}" render error:`, err, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full py-10 flex items-center justify-center bg-destructive/5 border border-destructive/20 rounded">
+          <p className="text-xs text-destructive/70 font-mono">Block &quot;{this.props.blockType}&quot; failed to render — check props in the panel.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 interface SortableCanvasBlockProps {
   block: PageBlock;
   brand: BrandConfig;
@@ -2283,7 +2306,9 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
         </div>
       ) : (
         <div className="cursor-pointer" onClick={e => { e.stopPropagation(); onSelect(); }}>
-          <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} animationsEnabled={false} />
+          <BuilderBlockErrorBoundary blockType={block.type}>
+            <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} animationsEnabled={false} />
+          </BuilderBlockErrorBoundary>
         </div>
       )}
     </div>
