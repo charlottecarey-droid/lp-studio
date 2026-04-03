@@ -8,7 +8,6 @@ import {
   salesSignalsTable,
   lpPagesTable,
 } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { resolveContacts } from "./audiences";
 
 const router = Router();
@@ -172,6 +171,7 @@ router.get("/campaign-pages/eligible-contacts", async (_req, res): Promise<void>
 // ─── Launch a campaign page to an audience ───────────────────────────────────
 
 router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId ?? 1;
   const {
     pageId,
     audienceId,
@@ -209,7 +209,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
 
     const host = `${req.protocol}://${req.get("host")}`;
     const filters = audResult.rows[0].filters as Record<string, unknown>;
-    const contacts = await resolveContacts(filters);
+    const contacts = await resolveContacts(filters, tenantId);
 
     let sent = 0;
     let failed = 0;
