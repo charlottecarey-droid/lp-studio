@@ -201,6 +201,16 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       // If no open-domain membership found, tenantId stays null → AuthGate shows "Create workspace"
     }
 
+    // Look up tenant's microsite domain so it's always available in the session
+    let micrositeDomain: string | null = null;
+    if (tenantId) {
+      const tdResult = await pool.query(
+        `SELECT microsite_domain FROM tenants WHERE id = $1`,
+        [tenantId]
+      );
+      if (tdResult.rows.length > 0) micrositeDomain = tdResult.rows[0].microsite_domain ?? null;
+    }
+
     // Create server-side session
     const sid = crypto.randomUUID();
     const sess = JSON.stringify({
@@ -212,6 +222,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       role,
       permissions,
       isAdmin,
+      micrositeDomain,
     });
     const expire = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -400,6 +411,16 @@ router.post("/auth/password", async (req, res): Promise<void> => {
       isAdmin = true;
     }
 
+    // Look up tenant's microsite domain
+    let micrositeDomain: string | null = null;
+    if (tenantId) {
+      const tdResult = await pool.query(
+        `SELECT microsite_domain FROM tenants WHERE id = $1`,
+        [tenantId]
+      );
+      if (tdResult.rows.length > 0) micrositeDomain = tdResult.rows[0].microsite_domain ?? null;
+    }
+
     // Create session
     const sid = crypto.randomUUID();
     const sess = JSON.stringify({
@@ -411,6 +432,7 @@ router.post("/auth/password", async (req, res): Promise<void> => {
       role,
       permissions,
       isAdmin,
+      micrositeDomain,
     });
     const expire = new Date(Date.now() + SESSION_TTL_MS);
 

@@ -9,6 +9,7 @@ export interface AuthUser {
   role: string;
   permissions: Record<string, boolean>;
   isAdmin: boolean;
+  micrositeDomain?: string | null;
 }
 
 export interface DomainContext {
@@ -79,8 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user]
   );
 
+  // Merge micrositeDomain from session (user) into domainContext when domain-context
+  // can't determine it from the host (e.g. in dev or via Replit preview URL).
+  const effectiveDomainContext: DomainContext | null = domainContext
+    ? {
+        ...domainContext,
+        micrositeDomain: domainContext.micrositeDomain ?? user?.micrositeDomain ?? null,
+      }
+    : null;
+
   return (
-    <AuthContext.Provider value={{ user, loading, domainContext, hasPerm, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, domainContext: effectiveDomainContext, hasPerm, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );
