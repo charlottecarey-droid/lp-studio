@@ -1586,7 +1586,7 @@ export default function BuilderEditor() {
                 <div className="border-t border-border pt-1">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO &amp; Metadata</p>
-                    <AutoMetaButton blocks={blocks} title={title} currentSlug={slug} onGenerated={(mt, md, sugSlug, og) => {
+                    <AutoMetaButton blocks={blocks} title={title} currentSlug={slug} micrositeDomain={micrositeDomain} onGenerated={(mt, md, sugSlug, og) => {
                       setMetaTitle(mt);
                       setMetaDescription(md);
                       if (sugSlug && sugSlug !== slug) setSuggestedSlug(sugSlug);
@@ -1834,11 +1834,13 @@ function AutoMetaButton({
   blocks,
   title,
   currentSlug,
+  micrositeDomain,
   onGenerated,
 }: {
   blocks: PageBlock[];
   title: string;
   currentSlug: string;
+  micrositeDomain?: string | null;
   onGenerated: (metaTitle: string, metaDescription: string, suggestedSlug: string, ogImage: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
