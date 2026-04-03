@@ -925,7 +925,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               {isNativeVideoUrl(props.videoUrl) ? (
                 <video
                   ref={videoRef}
-                  key={`id-video-${props.videoUrl}-${props.videoAutoplay}`}
+                  key={`id-video-${props.videoUrl}`}
                   src={props.videoUrl}
                   className="w-full h-full object-cover"
                   autoPlay={props.videoAutoplay !== false}

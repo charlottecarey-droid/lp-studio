@@ -87,8 +87,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || props.videoAutoplay === false) return;
-    v.muted = true;
+    if (!v) return;
+    v.muted = true; // always mute imperatively (React muted prop unreliable in some versions)
+    if (props.videoAutoplay === false) return;
+    v.loop = true;
     v.load();
     v.play().catch(() => {});
   }, [props.videoUrl, props.videoAutoplay]);
@@ -96,8 +98,8 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !props.videoPlayOnScroll) return;
+    v.muted = true;
     if (inView) {
-      v.muted = true;
       v.play().catch(() => {});
     } else {
       v.pause();
@@ -271,14 +273,14 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
                     ref={videoRef}
-                    key={`iv-video-${props.videoUrl}-${props.videoAutoplay}`}
+                    key={`iv-video-${props.videoUrl}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
                     autoPlay={props.videoAutoplay !== false}
                     muted
                     loop={props.videoAutoplay !== false}
                     playsInline
-                    controls={props.videoAutoplay === false}
+                    controls={props.videoAutoplay === false && !props.videoPlayOnScroll}
                     preload="auto"
                   />
                 ) : (
