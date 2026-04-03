@@ -142,6 +142,12 @@ function AppShell() {
   const [location] = useLocation();
   const { domainContext } = useAuth();
 
+  // While domain context is still loading, show a neutral spinner so we don't
+  // flash the login screen on microsite/partner domains before context arrives.
+  if (domainContext === null) {
+    return <LoadingFallback />;
+  }
+
   // Partner/microsite domain — render only public LP pages, no admin UI or login ever
   if (domainContext?.mode === "microsite-only") {
     return (
