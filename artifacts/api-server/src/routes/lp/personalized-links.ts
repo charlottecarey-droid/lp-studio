@@ -68,7 +68,7 @@ function escapeHtml(str: string): string {
 
 async function sendPersonalizedLinkVisitAlert(
   recipients: string[],
-  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; token: string; visitedAt: string; micrositeDomain?: string | null; siteOrigin?: string | null },
+  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; token: string; visitedAt: string; micrositeDomain?: string | null; siteOrigin: string },
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
@@ -262,9 +262,10 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
         `);
         const recipients = (alertResult.rows as AlertEmailRow[]).map(r => r.email).filter(Boolean);
         if (recipients.length > 0) {
-          const origin = (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])
-            ? `${req.headers["x-forwarded-proto"]}://${req.headers["x-forwarded-host"]}`
-            : null;
+          const origin =
+            (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])
+              ? `${req.headers["x-forwarded-proto"]}://${req.headers["x-forwarded-host"]}`
+              : `${req.protocol}://${req.get("host")}`;
           await sendPersonalizedLinkVisitAlert(recipients, {
             contactName: link.contact_name,
             company: link.company,

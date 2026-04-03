@@ -14,6 +14,7 @@ export const tenantsTable = pgTable("tenants", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   domain: text("domain"),
+  micrositeDomain: text("microsite_domain"),
   plan: text("plan").notNull().default("trial"),
   status: text("status").notNull().default("active"),
   settings: jsonb("settings").default({}),
