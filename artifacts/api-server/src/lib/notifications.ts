@@ -95,7 +95,7 @@ export async function sendEmailNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@send.ent.meetdandy.com>",
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
         to: recipients,
         subject: `New lead: ${lead.pageTitle}`,
         html,

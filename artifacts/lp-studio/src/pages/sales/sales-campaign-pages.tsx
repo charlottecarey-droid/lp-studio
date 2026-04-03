@@ -376,7 +376,7 @@ function LaunchModal({
                     className="border-0 rounded-none flex-1"
                   />
                   <span className="px-3 text-xs text-muted-foreground bg-muted border-l border-input h-full flex items-center">
-                    @meetdandy-lp.com
+                    @ent.meetdandy.com
                   </span>
                 </div>
               </div>

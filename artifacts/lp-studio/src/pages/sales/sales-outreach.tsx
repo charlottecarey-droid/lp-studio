@@ -421,7 +421,7 @@ function SingleSendTab() {
                 className="text-sm rounded-r-none border-r-0"
               />
               <span className="flex items-center h-10 px-3 rounded-r-md border border-input bg-muted text-xs text-muted-foreground whitespace-nowrap">
-                @meetdandy-lp.com
+                @ent.meetdandy.com
               </span>
             </div>
           </div>
@@ -532,7 +532,7 @@ function SingleSendTab() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Preview</h3>
           <div className="rounded-lg border border-border bg-white p-6 mb-4 overflow-auto max-h-[500px]">
             <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
-              <p>From: {senderName || "Dandy Partnerships"} &lt;{senderEmail || "partnerships"}@meetdandy-lp.com&gt;</p>
+              <p>From: {senderName || "Dandy Partnerships"} &lt;{senderEmail || "partnerships"}@ent.meetdandy.com&gt;</p>
               <p>Reply-To: {replyTo || "sales@meetdandy.com"}</p>
               <p>To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}</p>
               {previewText && <p className="italic">Preview: {previewText}</p>}

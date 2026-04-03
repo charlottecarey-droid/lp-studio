@@ -14,7 +14,7 @@ import { resolveContacts } from "./audiences";
 const router = Router();
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "send.ent.meetdandy.com";
+const SENDER_DOMAIN = process.env.EMAIL_SENDER_DOMAIN ?? "ent.meetdandy.com";
 const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 function replaceVars(text: string, vars: Record<string, string>): string {
