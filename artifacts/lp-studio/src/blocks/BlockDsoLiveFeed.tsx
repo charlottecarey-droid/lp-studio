@@ -214,7 +214,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
                 ))}
               </div>
               <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>
-                DSO Insights — Live
+                DSO Insights
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                 <div style={{
