@@ -109,9 +109,9 @@ export default function Scene3Business() {
 
           {/* "all in one place." — always in DOM, types letter-by-letter after headline lands */}
           <div style={{ fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', display: 'flex' }}>
-            <TypeWriter text={"all in "} delay={TW_START} speed={TW_SPEED} style={{ color: '#A9B8C3' }} />
+            <TypeWriter text={"all in "} delay={TW_START} speed={TW_SPEED} style={{ color: 'rgba(169, 184, 195, 0.9)' }} />
             <TypeWriter text={"one"} delay={TW_START + 7 * TW_SPEED} speed={TW_SPEED} style={{ color: '#C7E738' }} />
-            <TypeWriter text={" place."} delay={TW_START + 10 * TW_SPEED} speed={TW_SPEED} style={{ color: '#A9B8C3' }} />
+            <TypeWriter text={" place."} delay={TW_START + 10 * TW_SPEED} speed={TW_SPEED} style={{ color: 'rgba(169, 184, 195, 0.9)' }} />
           </div>
         </div>
       </div>

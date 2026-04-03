@@ -76,7 +76,7 @@ export default function Scene2Clinical() {
             ].map(({ v, l }) => (
               <div key={l} className="flex flex-col gap-1">
                 <span style={{ color: '#C7E738', fontSize: '2.2vw', lineHeight: 1, letterSpacing: '-0.02em' }}>{v}</span>
-                <span style={{ color: '#A9B8C3', fontSize: '0.85vw', letterSpacing: '0.14em', textTransform: 'uppercase' }}>{l}</span>
+                <span style={{ color: 'rgba(169, 184, 195, 0.9)', fontSize: '0.85vw', letterSpacing: '0.14em', textTransform: 'uppercase' }}>{l}</span>
               </div>
             ))}
           </motion.div>
