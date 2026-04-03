@@ -33,6 +33,8 @@ export default function PersonalizedLinkResolver() {
     if (!token) { setError("Invalid link"); return; }
 
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    // On the partner domain (partners.meetdandy.com), use short /{slug} URLs
+    const pagePrefix = base + "/lp";
 
     // First try the LP personalized links resolver (marketing side)
     fetch(`${API_BASE}/lp/resolve-token/${token}`)
@@ -42,7 +44,7 @@ export default function PersonalizedLinkResolver() {
       })
       .then(data => {
         // LP links use _plToken for engagement tracking — no vars in URL
-        window.location.replace(`${base}/lp/${data.pageSlug}?_plToken=${encodeURIComponent(data.token)}`);
+        window.location.replace(`${pagePrefix}/${data.pageSlug}?_plToken=${encodeURIComponent(data.token)}`);
       })
       .catch(async () => {
         // Fallback: try the Sales Console hotlinks resolver
@@ -52,7 +54,6 @@ export default function PersonalizedLinkResolver() {
           const data = await salesRes.json() as SalesResolveResponse;
 
           // Store personalization vars in sessionStorage — keeps the URL clean.
-          // The prospect sees meetdandy-lp.com/lp/page-name with nothing revealing in the address bar.
           const vars: Record<string, string> = {};
           if (data.company) vars["{{company}}"] = data.company;
           if (data.firstName) vars["{{first_name}}"] = data.firstName;
@@ -70,7 +71,7 @@ export default function PersonalizedLinkResolver() {
           }));
 
           // Redirect to a clean URL — no query params
-          window.location.replace(`${base}/lp/${data.pageSlug}`);
+          window.location.replace(`${pagePrefix}/${data.pageSlug}`);
         } catch {
           setError("This link is invalid or has expired.");
         }

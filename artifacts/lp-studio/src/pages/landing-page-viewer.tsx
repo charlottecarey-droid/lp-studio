@@ -206,8 +206,9 @@ function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
 }
 
 export default function LandingPageViewer() {
-  const [match, params] = useRoute("/lp/:slug");
-  const slug = params?.slug || "";
+  const [, paramsLp] = useRoute("/lp/:slug");
+  const [, paramsShort] = useRoute("/:slug");
+  const slug = paramsLp?.slug || paramsShort?.slug || "";
 
   // Preview mode: ?previewVariantId=123 forces a specific variant, no tracking
   const searchParams = new URLSearchParams(window.location.search);
