@@ -11,6 +11,36 @@ import { ChiliPiperModal } from "./ChiliPiperModal";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
+function toAutoEmbedUrl(url: string, autoplay: boolean, loop = false): string {
+  if (!url || !autoplay) return url;
+  try {
+    // YouTube: convert watch?v= or youtu.be/ to embed if needed, then add params
+    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (ytMatch) {
+      const id = ytMatch[1];
+      const params = new URLSearchParams({ autoplay: "1", mute: "1", rel: "0" });
+      if (loop) { params.set("loop", "1"); params.set("playlist", id); }
+      return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+    }
+    // Vimeo
+    const vimeoMatch = url.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/);
+    if (vimeoMatch) {
+      const id = vimeoMatch[1];
+      const params = new URLSearchParams({ autoplay: "1", muted: "1", background: loop ? "1" : "0" });
+      if (loop) params.set("loop", "1");
+      return `https://player.vimeo.com/video/${id}?${params.toString()}`;
+    }
+    // Already an embed URL — just append params
+    const u = new URL(url);
+    u.searchParams.set("autoplay", "1");
+    u.searchParams.set("mute", "1");
+    if (loop) { u.searchParams.set("loop", "1"); }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 interface Props {
   props: VideoSectionBlockProps;
   brand: BrandConfig;
@@ -101,7 +131,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
         ) : (
           <div className="relative w-full aspect-video">
             <iframe
-              src={props.videoUrl}
+              src={toAutoEmbedUrl(props.videoUrl, props.videoAutoplay ?? true, true)}
               className="absolute inset-0 w-full h-full border-0"
               title="Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -172,7 +202,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           />
         ) : (
           <iframe
-            src={props.videoUrl}
+            src={toAutoEmbedUrl(props.videoUrl, autoplay, autoplay)}
             className="w-full h-full border-0"
             title="Video"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
