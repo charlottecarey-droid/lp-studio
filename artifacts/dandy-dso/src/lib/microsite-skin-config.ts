@@ -236,6 +236,9 @@ export interface ExpansionSkinConfig extends MicrositeSkinConfig {
   testimonialsHeadline: string;
   testimonialsSubheadline: string;
   testimonials: ExpansionTestimonial[];
+  // Final CTA section
+  ctaHeadlineCenter?: boolean;
+  ctaOverlayColor?: string;
 }
 
 /* ── DB keys ── */

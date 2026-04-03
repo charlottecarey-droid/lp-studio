@@ -420,6 +420,34 @@ const MicrositeSkinEditor = () => {
                       />
                     </Field>
                     <ImageUploadField label="Final CTA Background" value={config.sectionImages?.finalCTAImage} onChange={(v) => updateSectionImage("finalCTAImage", v)} />
+                    <Field label="CTA Overlay Color">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={(() => { const c = (config as any).ctaOverlayColor || "rgba(0,0,0,0.5)"; const hex = c.startsWith("#") ? c : "#000000"; return hex; })()}
+                          onChange={(e) => update("ctaOverlayColor" as any, e.target.value + "cc")}
+                          className="w-8 h-8 rounded cursor-pointer border border-white/20 bg-transparent"
+                        />
+                        <Input
+                          value={(config as any).ctaOverlayColor || "rgba(0,0,0,0.5)"}
+                          onChange={(e) => update("ctaOverlayColor" as any, e.target.value)}
+                          placeholder="rgba(0,0,0,0.5) or #003A30cc"
+                          className="flex-1 h-6 text-[10px] bg-white/5 border-white/10 text-white"
+                        />
+                      </div>
+                    </Field>
+                    <Field label="CTA Headline Alignment">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => update("ctaHeadlineCenter" as any, true)}
+                          className={`flex-1 h-6 text-[10px] rounded border transition-colors ${(config as any).ctaHeadlineCenter !== false ? "bg-primary/30 border-primary text-white" : "bg-white/5 border-white/10 text-white/50"}`}
+                        >Center</button>
+                        <button
+                          onClick={() => update("ctaHeadlineCenter" as any, false)}
+                          className={`flex-1 h-6 text-[10px] rounded border transition-colors ${(config as any).ctaHeadlineCenter === false ? "bg-primary/30 border-primary text-white" : "bg-white/5 border-white/10 text-white/50"}`}
+                        >Left</button>
+                      </div>
+                    </Field>
                     <Field label="Case Study Images (comma-separated URLs)">
                       <Input
                         value={(config.sectionImages?.caseStudyImages || []).join(", ")}

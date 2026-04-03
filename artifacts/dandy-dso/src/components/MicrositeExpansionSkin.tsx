@@ -329,6 +329,9 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
   const navCTAVideoUrl = cfg?.navCTAVideoUrl || "";
   const finalCTAVideoUrl = cfg?.finalCTAVideoUrl || "";
   const finalCTAUrl = cfg?.finalCTAUrl || repCalendlyUrl;
+  const finalCTAImage = cfg?.sectionImages?.finalCTAImage || null;
+  const ctaHeadlineCenter = cfg?.ctaHeadlineCenter ?? true;
+  const ctaOverlayColor = cfg?.ctaOverlayColor || "rgba(0,0,0,0.5)";
 
   const [videoModalUrl, setVideoModalUrl] = useState("");
   const [bookingModalUrl, setBookingModalUrl] = useState("");
@@ -973,17 +976,23 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
 
       {/* ═══ FINAL CTA — full-width dark hero matching top hero ═══ */}
       <section className="relative overflow-hidden" style={{ backgroundColor: BRAND }}>
-        <div className="absolute inset-0 flex items-center justify-center opacity-20">
-          <img src={dandyPracticeDentist} alt="" className="w-[70%] h-auto object-contain" />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a3d2d]/40 via-transparent to-[#0a3d2d]/60" />
+        {/* Background image — custom upload or default dentist photo */}
+        {finalCTAImage ? (
+          <img src={finalCTAImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center opacity-20">
+            <img src={dandyPracticeDentist} alt="" className="w-[70%] h-auto object-contain" />
+          </div>
+        )}
+        {/* Color overlay */}
+        <div className="absolute inset-0" style={{ backgroundColor: ctaOverlayColor }} />
 
-        <div className="relative z-10 max-w-[960px] mx-auto px-6 pt-28 pb-28 md:pt-36 md:pb-36 text-center">
+        <div className={`relative z-10 max-w-[960px] mx-auto px-6 pt-28 pb-28 md:pt-36 md:pb-36 ${ctaHeadlineCenter ? "text-center" : "text-left"}`}>
           <FadeSection>
             <h2 className="text-4xl md:text-[3.5rem] font-bold text-white leading-[1.08] tracking-[-0.02em] mb-6">
               {rep(ho.finalCTA || "A better way to do lab work.")}
             </h2>
-            <p className="text-lg md:text-xl text-white/55 mb-10 max-w-lg mx-auto leading-relaxed">
+            <p className={`text-lg md:text-xl text-white/55 mb-10 leading-relaxed ${ctaHeadlineCenter ? "max-w-lg mx-auto" : "max-w-2xl"}`}>
               {rep(so.finalCTA || "Join the thousands of dental practices across North America who have transformed their practices with Dandy.")}
             </p>
             <div className="flex flex-wrap justify-center gap-4">
