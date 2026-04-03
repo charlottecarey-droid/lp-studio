@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Background } from '../components/Background';
 import { SplitChars } from '../components/SplitText';
@@ -8,13 +8,12 @@ import reportingAnimation from '@assets/dso-animation-chairside-reporting.json';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+// "Every dollar." last word lands at: 0.5 + 4×0.22 + 0.44 + 1×0.22 = 2.04s
+// Add ~0.5s breath → typewriter starts at 2.55s
+const TW_START = 2.55;
+const TW_SPEED = 0.048; // seconds per character
 
 export default function Scene3Business() {
-  const [showLine2, setShowLine2] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setShowLine2(true), 1700);
-    return () => clearTimeout(t);
-  }, []);
 
   return (
     <motion.div
@@ -108,14 +107,12 @@ export default function Scene3Business() {
             </div>
           </div>
 
-          {/* "all in one place." — types in after second line, "one" in lime */}
-          {showLine2 && (
-            <div style={{ fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', display: 'flex' }}>
-              <TypeWriter text={"all in "} delay={0.65} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
-              <TypeWriter text={"one"} delay={0.65 + 7 * 0.048} speed={0.048} style={{ color: '#C7E738' }} />
-              <TypeWriter text={" place."} delay={0.65 + 10 * 0.048} speed={0.048} style={{ color: 'rgba(255,255,255,0.55)' }} />
-            </div>
-          )}
+          {/* "all in one place." — always in DOM, types letter-by-letter after headline lands */}
+          <div style={{ fontSize: '3.2vw', fontStyle: 'italic', fontWeight: 400, letterSpacing: '-0.01em', display: 'flex' }}>
+            <TypeWriter text={"all in "} delay={TW_START} speed={TW_SPEED} style={{ color: 'rgba(255,255,255,0.55)' }} />
+            <TypeWriter text={"one"} delay={TW_START + 7 * TW_SPEED} speed={TW_SPEED} style={{ color: '#C7E738' }} />
+            <TypeWriter text={" place."} delay={TW_START + 10 * TW_SPEED} speed={TW_SPEED} style={{ color: 'rgba(255,255,255,0.55)' }} />
+          </div>
         </div>
       </div>
     </motion.div>
