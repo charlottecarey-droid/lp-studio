@@ -303,6 +303,20 @@ const dentAppointsSaved = 1.5;
 import { MicrositeSkinConfig, filterByPracticeCount, getHeadlineSizeClasses } from "@/lib/microsite-skin-config";
 import CustomSectionBlock from "@/components/CustomSectionBlock";
 
+/** Build an embed URL with autoplay + mute + optional loop */
+function toAutoEmbedUrl(url: string, loop = false): string {
+  const ytId = url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([^&?/]+)/)?.[1];
+  if (ytId) {
+    const loopParams = loop ? `&loop=1&playlist=${ytId}` : "";
+    return `https://www.youtube.com/embed/${ytId}?rel=0&autoplay=1&mute=1${loopParams}`;
+  }
+  const vimeoId = url.match(/(?:vimeo\.com\/(?:video\/)?)(\d+)/)?.[1];
+  if (vimeoId) {
+    return `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1${loop ? "&loop=1" : ""}`;
+  }
+  return url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/") + (url.includes("?") ? "&" : "?") + "autoplay=1&mute=1";
+}
+
 /* ═══════ MAIN COMPONENT ═══════ */
 const MicrositeSolutionsSkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTrackCTA }: { data: BriefingData; onOpenDemo: (buttonUrl?: string, ctaLabel?: string) => void; skinConfig?: MicrositeSkinConfig | null; onTrackCTA?: (label: string) => void }) => {
   const [activeNav, setActiveNav] = useState("");
@@ -707,7 +721,7 @@ const MicrositeSolutionsSkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, 
       {labVideoUrl ? (
         <div className="w-full aspect-video max-w-4xl mx-auto">
           <iframe
-            src={labVideoUrl.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/").replace("vimeo.com/", "player.vimeo.com/video/")}
+            src={toAutoEmbedUrl(labVideoUrl, true)}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -809,7 +823,7 @@ const MicrositeSolutionsSkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, 
               <X className="w-6 h-6" />
             </button>
             <iframe
-              src="https://www.youtube.com/embed/SjXFjvWW9o0?autoplay=1&rel=0"
+              src={toAutoEmbedUrl("https://www.youtube.com/watch?v=SjXFjvWW9o0")}
               title="Inside Dandy's 100% Digital Dental Lab"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

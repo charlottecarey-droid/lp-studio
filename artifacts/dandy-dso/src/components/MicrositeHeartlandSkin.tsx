@@ -1160,7 +1160,7 @@ const MicrositeHeartlandSkin = ({ data, skinConfig, onOpenDemo, onTrackCTA, edit
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.25 }}
               className="relative w-full max-w-4xl aspect-video rounded-xl overflow-hidden border border-border shadow-2xl" onClick={e => e.stopPropagation()}>
               <button onClick={() => setVideoOpen(false)} className="absolute -top-10 right-0 z-10 text-muted-foreground hover:text-foreground transition-colors" aria-label="Close video"><X className="w-6 h-6" /></button>
-              <iframe src={cfg?.sectionImages?.labTourVideoUrl || "https://www.youtube.com/embed/SjXFjvWW9o0?autoplay=1&rel=0"} title="Inside Dandy's 100% Digital Dental Lab"
+              <iframe src={cfg?.sectionImages?.labTourVideoUrl || "https://www.youtube.com/embed/SjXFjvWW9o0?autoplay=1&mute=1&rel=0"} title="Inside Dandy's 100% Digital Dental Lab"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full" />
             </motion.div>
           </motion.div>

@@ -722,7 +722,7 @@ const MicrositeDandySkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, onTr
                 <button onClick={() => setLabVideoOpen(false)} className="absolute -top-10 right-0 z-10 text-white hover:text-white/80 transition-colors" aria-label="Close video">
                   <X className="w-6 h-6" />
                 </button>
-                <iframe src="https://www.youtube.com/embed/SjXFjvWW9o0?autoplay=1&rel=0" title="Inside Dandy's 100% Digital Dental Lab"
+                <iframe src="https://www.youtube.com/embed/SjXFjvWW9o0?autoplay=1&mute=1&rel=0" title="Inside Dandy's 100% Digital Dental Lab"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full" />
               </motion.div>
             </motion.div>

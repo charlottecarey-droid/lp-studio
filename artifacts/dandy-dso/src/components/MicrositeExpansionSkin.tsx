@@ -35,6 +35,21 @@ const isAnchorUrl = (url: string) => url.startsWith("#");
 const toEmbedUrl = (url: string) =>
   url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/").replace("vimeo.com/", "player.vimeo.com/video/");
 
+/** Build an embed URL with autoplay + mute (required by all browsers) + optional loop */
+function toAutoEmbedUrl(url: string, loop = false): string {
+  const ytId = url.match(/(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([^&?/]+)/)?.[1];
+  if (ytId) {
+    const loopParams = loop ? `&loop=1&playlist=${ytId}` : "";
+    return `https://www.youtube.com/embed/${ytId}?rel=0&autoplay=1&mute=1${loopParams}`;
+  }
+  const vimeoId = url.match(/(?:vimeo\.com\/(?:video\/)?)(\d+)/)?.[1];
+  if (vimeoId) {
+    const loopParam = loop ? "&loop=1" : "";
+    return `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1${loopParam}`;
+  }
+  return toEmbedUrl(url) + (url.includes("?") ? "&" : "?") + "autoplay=1&mute=1";
+}
+
 /* ── Video Modal ── */
 const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => (
   <AnimatePresence>
@@ -46,7 +61,7 @@ const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => (
           <button onClick={onClose} className="absolute -top-10 right-0 z-10 text-white hover:text-white/80" aria-label="Close video">
             <X className="w-6 h-6" />
           </button>
-          <iframe src={toEmbedUrl(url) + (url.includes("?") ? "&" : "?") + "autoplay=1&rel=0"} title="Video"
+          <iframe src={toAutoEmbedUrl(url)} title="Video"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full" />
         </motion.div>
       </motion.div>
@@ -463,7 +478,7 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
           <FadeSection delay={0.2}>
             <div className="rounded-2xl overflow-hidden shadow-2xl bg-black aspect-video">
               <iframe
-                src="https://www.youtube.com/embed/SjXFjvWW9o0?rel=0&modestbranding=1&color=white"
+                src={toAutoEmbedUrl("https://www.youtube.com/watch?v=SjXFjvWW9o0", true)}
                 title="Dandy Overview"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
