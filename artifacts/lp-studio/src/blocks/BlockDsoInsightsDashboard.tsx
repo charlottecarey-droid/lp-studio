@@ -735,7 +735,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef     = useRef<HTMLVideoElement>(null);
-  const inView       = useInView(containerRef, { once: false, amount: 0.2 });
+  const inView       = useInView(containerRef, { once: true, amount: 0 });
 
   useEffect(() => {
     const v = videoRef.current;

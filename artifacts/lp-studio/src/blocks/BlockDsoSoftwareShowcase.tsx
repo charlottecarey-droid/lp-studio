@@ -45,7 +45,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   const autoplay = props.videoAutoplay !== false;
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLElement>(null);
-  const inView = useInView(containerRef, { once: false, amount: 0.3 });
+  const inView = useInView(containerRef, { once: true, amount: 0 });
 
   useEffect(() => {
     const v = videoRef.current;

@@ -82,7 +82,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   const callouts = rawCallouts.map((c, i) => ({ ...c, icon: CALLOUT_ICONS[i % CALLOUT_ICONS.length] }));
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(containerRef, { once: false, amount: 0.2 });
+  const inView = useInView(containerRef, { once: true, amount: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
