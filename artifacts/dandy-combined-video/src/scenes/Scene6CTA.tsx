@@ -7,14 +7,14 @@ import logoUrl from '@assets/dandy-logo.svg';
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 const TAGLINE: { word: string; color: string }[] = [
-  { word: 'the',     color: 'rgba(255,255,255,0.45)' },
-  { word: 'dental',  color: 'rgba(255,255,255,0.45)' },
-  { word: 'lab',     color: 'rgba(255,255,255,0.45)' },
+  { word: 'the',     color: '#ECEAE6' },
+  { word: 'dental',  color: '#ECEAE6' },
+  { word: 'lab',     color: '#ECEAE6' },
   { word: 'doctors', color: '#C7E738' },
-  { word: 'and',     color: 'rgba(255,255,255,0.45)' },
+  { word: 'and',     color: '#ECEAE6' },
   { word: 'DSOs',    color: '#fff' },
-  { word: 'both',    color: 'rgba(255,255,255,0.45)' },
-  { word: 'choose.', color: 'rgba(255,255,255,0.45)' },
+  { word: 'both',    color: '#ECEAE6' },
+  { word: 'choose.', color: '#ECEAE6' },
 ];
 
 export default function Scene6CTA() {

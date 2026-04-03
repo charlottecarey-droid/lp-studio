@@ -9,10 +9,10 @@ const LINE1 = ['You', "don't", 'have', 'to', 'choose'];
 
 // "between [clinical quality] and [enterprise value.]"
 const LINE2: { word: string; color: string }[] = [
-  { word: 'between',    color: 'rgba(255,255,255,0.45)' },
+  { word: 'between',    color: '#ECEAE6' },
   { word: 'clinical',   color: '#C7E738' },
   { word: 'quality',    color: '#C7E738' },
-  { word: 'and',        color: 'rgba(255,255,255,0.45)' },
+  { word: 'and',        color: '#ECEAE6' },
   { word: 'enterprise', color: '#fff' },
   { word: 'value.',     color: '#fff' },
 ];
