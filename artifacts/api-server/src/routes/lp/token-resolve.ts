@@ -7,10 +7,12 @@ import geoip from "geoip-lite";
 interface LinkWithPage {
   id: number;
   page_id: number;
+  tenant_id: number | null;
   contact_name: string;
   company: string | null;
   page_title: string;
   page_slug: string;
+  microsite_domain: string | null;
 }
 
 interface VisitRow {
@@ -34,10 +36,14 @@ function escapeHtml(str: string): string {
 
 async function sendVisitAlert(
   recipients: string[],
-  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string },
+  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string; micrositeDomain?: string | null },
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
+
+  const pageUrl = opts.micrositeDomain
+    ? `https://${opts.micrositeDomain}/lp/${opts.pageSlug}`
+    : null;
 
   const html = `
 <!DOCTYPE html>
@@ -59,7 +65,7 @@ async function sendVisitAlert(
         ${opts.company ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Company</td><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.company)}</td></tr>` : ""}
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Page</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.pageSlug)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${pageUrl ? `<a href="${pageUrl}" style="color:#003A30">${escapeHtml(opts.pageSlug)}</a>` : escapeHtml(opts.pageSlug)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#003A30;white-space:nowrap">Visited At</td>
@@ -109,10 +115,12 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
 
   try {
     const linkResult = await db.execute(sql`
-      SELECT pl.id, pl.page_id, pl.contact_name, pl.company,
-             lp.title AS page_title, lp.slug AS page_slug
+      SELECT pl.id, pl.page_id, pl.contact_name, pl.company, pl.tenant_id,
+             lp.title AS page_title, lp.slug AS page_slug,
+             t.microsite_domain
       FROM lp_personalized_links pl
       JOIN lp_pages lp ON lp.id = pl.page_id
+      LEFT JOIN tenants t ON t.id = pl.tenant_id
       WHERE pl.token = ${token}
       LIMIT 1
     `);
@@ -154,6 +162,7 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
             pageTitle: link.page_title,
             pageSlug: link.page_slug,
             visitedAt: visit?.visited_at ? String(visit.visited_at) : new Date().toISOString(),
+            micrositeDomain: link.microsite_domain,
           });
         }
       } catch (err) {

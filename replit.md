@@ -177,14 +177,32 @@ Schema files: `lib/db/src/schema/{tenants,appUsers,appSessions,tenantRoles,tenan
 ### Domain-Aware Multi-Tenant Routing
 
 One codebase serves multiple tenants via domain routing:
-- `meetdandy-lp.com` → `tenants.domain = 'meetdandy-lp.com'` → Dandy (tenant 1) → invite-only, no self-serve signup
+- `ent.meetdandy.com` → `tenants.domain = 'ent.meetdandy.com'` → Dandy (tenant 1) → admin/login, invite-only, no self-serve signup. Returns `mode: 'tenant-locked'` + `micrositeDomain: 'partners.meetdandy.com'`.
+- `partners.meetdandy.com` → `tenants.microsite_domain = 'partners.meetdandy.com'` → Dandy → public landing pages only (no admin UI). Returns `mode: 'microsite-only'`. Renders only `/lp/:slug` and `/p/:token` routes.
 - `app.lpstudio.ai` (no matching domain) → mode `open` → self-serve workspace creation
 
-**How it works**: On load, `AuthContext` calls `GET /api/auth/domain-context?host=<window.location.hostname>`. The API checks `tenants.domain`. `AuthGate` uses the result:
+**How it works**: On load, `AuthContext` calls `GET /api/auth/domain-context?host=<window.location.hostname>`. The API checks:
+1. `tenants.domain` first → `mode: 'tenant-locked'` (admin login domain)
+2. `tenants.microsite_domain` next → `mode: 'microsite-only'` (public pages only)
+3. No match → `mode: 'open'`
+
+`App.tsx` (`AppShell`) checks `domainContext.mode`:
+- `'microsite-only'` → renders only public routes, no auth, no admin UI
+- All other modes → route by path (superadmin, public, or `AuthGate`-protected admin)
+
+`AuthGate` uses the result for admin domains:
 - Signed in + no tenantId + mode `tenant-locked` → "Access Pending" screen
 - Signed in + no tenantId + mode `open` → "Create workspace" form (calls `POST /api/auth/signup`)
 
-**Database note**: `tenants.domain` must be set for domain-locking to work. Dandy's domain is `meetdandy-lp.com` (set in Neon DB).
+**Hotlink URLs**: When copying personalized links, the sales console uses `domainContext.micrositeDomain` (from `AuthContext`) as the base URL so links always point to `partners.meetdandy.com/p/{token}`.
+
+**Email alerts**: Visit alert emails include a clickable link to `https://{microsite_domain}/lp/{slug}` when the tenant has a `microsite_domain` set.
+
+**Database**: `tenants` table has two domain columns:
+- `domain` — the admin/login subdomain (e.g. `ent.meetdandy.com`)
+- `microsite_domain` — the public pages subdomain (e.g. `partners.meetdandy.com`)
+
+**Custom domains** (Replit deployment): Both `ent.meetdandy.com` and `partners.meetdandy.com` must be added as custom domains to the LP Studio artifact deployment via the Replit UI. DNS must point both subdomains to Replit.
 
 **To provision a new tenant** (before self-serve is live at lpstudio.ai):
 ```bash

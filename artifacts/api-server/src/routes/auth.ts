@@ -435,7 +435,8 @@ router.post("/auth/password", async (req, res): Promise<void> => {
 });
 
 // GET /api/auth/domain-context — identifies whether this domain is locked to a specific tenant
-// Used by the frontend to decide between "invite-only" vs "create workspace" for unassigned users
+// Used by the frontend to decide between "invite-only" vs "create workspace" for unassigned users,
+// and to detect microsite-only domains where only public LP pages should render.
 router.get("/auth/domain-context", async (req, res): Promise<void> => {
   try {
     const hostHeader =
@@ -446,21 +447,47 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
     const domain = hostHeader.split(":")[0].toLowerCase();
 
     if (!domain) {
-      res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null });
+      res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null });
       return;
     }
 
-    const result = await pool.query(
-      `SELECT id, name, slug FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
+    // Check admin/login domain first
+    const adminResult = await pool.query(
+      `SELECT id, name, slug, microsite_domain FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
       [domain]
     );
 
-    if (result.rows.length > 0) {
-      const t = result.rows[0];
-      res.json({ mode: "tenant-locked", tenantId: t.id, tenantName: t.name, tenantSlug: t.slug });
-    } else {
-      res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null });
+    if (adminResult.rows.length > 0) {
+      const t = adminResult.rows[0];
+      res.json({
+        mode: "tenant-locked",
+        tenantId: t.id,
+        tenantName: t.name,
+        tenantSlug: t.slug,
+        micrositeDomain: t.microsite_domain ?? null,
+      });
+      return;
     }
+
+    // Check microsite/partner domain — public pages only, no admin access
+    const micrositeResult = await pool.query(
+      `SELECT id, name, slug, microsite_domain FROM tenants WHERE microsite_domain = $1 AND status = 'active' LIMIT 1`,
+      [domain]
+    );
+
+    if (micrositeResult.rows.length > 0) {
+      const t = micrositeResult.rows[0];
+      res.json({
+        mode: "microsite-only",
+        tenantId: t.id,
+        tenantName: t.name,
+        tenantSlug: t.slug,
+        micrositeDomain: t.microsite_domain ?? null,
+      });
+      return;
+    }
+
+    res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null });
   } catch (err) {
     console.error("[auth] /domain-context error:", err);
     res.status(500).json({ error: "Server error" });

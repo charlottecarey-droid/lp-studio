@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AuthGate } from "@/components/AuthGate";
 
 // Lazy-loaded page components
@@ -135,10 +135,28 @@ function AppRouter() {
   );
 }
 
-// Sits inside WouterRouter so it can read the current location.
-// Routes /superadmin and prospect-facing pages outside the AuthGate; everything else goes through normal auth.
+// Sits inside WouterRouter + AuthProvider so it can read both location and domain context.
+// On microsite-only domains (e.g. partners.meetdandy.com), renders only public LP routes.
+// Routes /superadmin and prospect-facing paths outside the AuthGate; everything else requires auth.
 function AppShell() {
   const [location] = useLocation();
+  const { domainContext } = useAuth();
+
+  // Partner/microsite domain — render only public LP pages, no admin UI or login ever
+  if (domainContext?.mode === "microsite-only") {
+    return (
+      <>
+        <Suspense fallback={<LoadingFallback />}>
+          <Switch>
+            <Route path="/lp/:slug" component={LandingPageViewer} />
+            <Route path="/p/:token" component={PersonalizedLinkResolver} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+        <Toaster />
+      </>
+    );
+  }
 
   if (location.startsWith("/superadmin")) {
     return (
@@ -156,7 +174,7 @@ function AppShell() {
 
   if (isPublicRoute) {
     return (
-      <AuthProvider>
+      <>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
             <Route path="/lp/:slug" component={LandingPageViewer} />
@@ -166,19 +184,17 @@ function AppShell() {
           </Switch>
         </Suspense>
         <Toaster />
-      </AuthProvider>
+      </>
     );
   }
 
   return (
-    <AuthProvider>
-      <AuthGate>
-        <ModeProvider>
-          <AppRouter />
-        </ModeProvider>
-        <Toaster />
-      </AuthGate>
-    </AuthProvider>
+    <AuthGate>
+      <ModeProvider>
+        <AppRouter />
+      </ModeProvider>
+      <Toaster />
+    </AuthGate>
   );
 }
 
@@ -187,7 +203,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AppShell />
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
         </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>

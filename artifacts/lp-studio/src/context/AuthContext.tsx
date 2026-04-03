@@ -12,10 +12,11 @@ export interface AuthUser {
 }
 
 export interface DomainContext {
-  mode: "open" | "tenant-locked";
+  mode: "open" | "tenant-locked" | "microsite-only";
   tenantId: number | null;
   tenantName: string | null;
   tenantSlug: string | null;
+  micrositeDomain: string | null;
 }
 
 interface AuthContextValue {
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetch(`/api/auth/domain-context?${params}`)
       .then((r) => r.json())
       .then((data: DomainContext) => setDomainContext(data))
-      .catch(() => setDomainContext({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null }));
+      .catch(() => setDomainContext({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null }));
   }, []);
 
   useEffect(() => {

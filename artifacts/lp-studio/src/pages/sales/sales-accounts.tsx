@@ -50,6 +50,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -1052,6 +1053,7 @@ function ContactImportWizard({ accountId, onImported }: { accountId: number; onI
 
 function AccountDetailView({ id }: { id: string }) {
   const [, navigate] = useLocation();
+  const { domainContext } = useAuth();
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1142,17 +1144,21 @@ function AccountDetailView({ id }: { id: string }) {
   }
 
 
+  function getHotlinkBase() {
+    const partnerDomain = domainContext?.micrositeDomain;
+    if (partnerDomain) return `https://${partnerDomain}`;
+    return window.location.origin;
+  }
+
   function handleCopyToken(token: string) {
-    const baseUrl = window.location.origin;
-    navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
+    navigator.clipboard.writeText(`${getHotlinkBase()}/p/${token}`).then(() => {
       setCopiedToken(token);
       setTimeout(() => setCopiedToken(null), 2000);
     });
   }
 
   function handleCopyContactLink(contactId: number, token: string) {
-    const baseUrl = window.location.origin;
-    navigator.clipboard.writeText(`${baseUrl}/p/${token}`).then(() => {
+    navigator.clipboard.writeText(`${getHotlinkBase()}/p/${token}`).then(() => {
       setCopiedContactId(contactId);
       setTimeout(() => setCopiedContactId(null), 2000);
     });

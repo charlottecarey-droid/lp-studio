@@ -39,6 +39,7 @@ interface PageRow {
 interface LinkWithPage extends LinkRow {
   page_title: string;
   page_slug: string;
+  microsite_domain: string | null;
 }
 
 function getClientIp(req: Request): string {
@@ -67,10 +68,14 @@ function escapeHtml(str: string): string {
 
 async function sendPersonalizedLinkVisitAlert(
   recipients: string[],
-  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string },
+  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string; micrositeDomain?: string | null },
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
+
+  const pageUrl = opts.micrositeDomain
+    ? `https://${opts.micrositeDomain}/lp/${opts.pageSlug}`
+    : null;
 
   const html = `
 <!DOCTYPE html>
@@ -92,7 +97,7 @@ async function sendPersonalizedLinkVisitAlert(
         ${opts.company ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Company</td><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.company)}</td></tr>` : ""}
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#003A30;white-space:nowrap">Page</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${escapeHtml(opts.pageSlug)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#333">${pageUrl ? `<a href="${pageUrl}" style="color:#003A30">${escapeHtml(opts.pageSlug)}</a>` : escapeHtml(opts.pageSlug)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#003A30;white-space:nowrap">Visited At</td>
@@ -208,9 +213,11 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
   try {
     const linkResult = await db.execute(sql`
       SELECT pl.id, pl.page_id, pl.contact_name, pl.company, pl.email,
-             lp.title AS page_title, lp.slug AS page_slug
+             lp.title AS page_title, lp.slug AS page_slug,
+             t.microsite_domain
       FROM lp_personalized_links pl
       JOIN lp_pages lp ON lp.id = pl.page_id
+      LEFT JOIN tenants t ON t.id = pl.tenant_id
       WHERE pl.token = ${token}
       LIMIT 1
     `);
@@ -258,6 +265,7 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
             pageTitle: link.page_title,
             pageSlug: link.page_slug,
             visitedAt: visit?.visited_at ? String(visit.visited_at) : new Date().toISOString(),
+            micrositeDomain: link.microsite_domain,
           });
         }
       } catch (err) {
