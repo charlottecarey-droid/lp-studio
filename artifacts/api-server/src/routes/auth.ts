@@ -132,26 +132,33 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     let isAdmin = false;
 
     if (domainMode === "tenant-locked" && domainTenantId) {
-      // Tenant-locked domain (e.g. meetdandy-lp.com): look up membership in that specific tenant
+      // Tenant-locked domain (e.g. ent.meetdandy.com): look up membership in that specific tenant.
+      // Include pending invites (accepted_at IS NULL) — they are auto-accepted on first login.
       const memberResult = await pool.query(
         `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
-                tr.name as role_name, tr.permissions, tr.is_admin
+                tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
          FROM tenant_members tm
          JOIN tenant_roles tr ON tr.id = tm.role_id
          WHERE tm.tenant_id = $1
            AND (tm.user_id = $2 OR (tm.user_id IS NULL AND tm.email = $3))
-           AND tm.accepted_at IS NOT NULL
          ORDER BY tm.user_id NULLS LAST
          LIMIT 1`,
         [domainTenantId, user.id, email]
       );
 
-      // Link email-only pre-invite to user_id
-      if (memberResult.rows.length > 0 && memberResult.rows[0].user_id === null) {
-        await pool.query(
-          `UPDATE tenant_members SET user_id = $1 WHERE id = $2`,
-          [user.id, memberResult.rows[0].member_id]
-        );
+      // Auto-accept pending invite and/or link email-only pre-invite to user_id on first login
+      if (memberResult.rows.length > 0) {
+        const needsUserId = memberResult.rows[0].user_id === null;
+        const needsAccept = memberResult.rows[0].accepted_at === null;
+        if (needsUserId || needsAccept) {
+          await pool.query(
+            `UPDATE tenant_members SET
+               user_id = COALESCE(user_id, $1),
+               accepted_at = COALESCE(accepted_at, now())
+             WHERE id = $2`,
+            [user.id, memberResult.rows[0].member_id]
+          );
+        }
       }
 
       if (memberResult.rows.length > 0) {
@@ -171,24 +178,30 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       // (so Dandy employees don't get auto-dropped into Dandy's workspace on app.lpstudio.ai)
       const memberResult = await pool.query(
         `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
-                tr.name as role_name, tr.permissions, tr.is_admin
+                tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
          FROM tenant_members tm
          JOIN tenant_roles tr ON tr.id = tm.role_id
          JOIN tenants t ON t.id = tm.tenant_id
          WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND tm.email = $2))
-           AND tm.accepted_at IS NOT NULL
            AND (t.domain IS NULL OR t.domain = '')
          ORDER BY tm.user_id NULLS LAST
          LIMIT 1`,
         [user.id, email]
       );
 
-      // Link email-only pre-invite to user_id
-      if (memberResult.rows.length > 0 && memberResult.rows[0].user_id === null) {
-        await pool.query(
-          `UPDATE tenant_members SET user_id = $1 WHERE id = $2`,
-          [user.id, memberResult.rows[0].member_id]
-        );
+      // Auto-accept pending invite and/or link email-only pre-invite to user_id on first login
+      if (memberResult.rows.length > 0) {
+        const needsUserId = memberResult.rows[0].user_id === null;
+        const needsAccept = memberResult.rows[0].accepted_at === null;
+        if (needsUserId || needsAccept) {
+          await pool.query(
+            `UPDATE tenant_members SET
+               user_id = COALESCE(user_id, $1),
+               accepted_at = COALESCE(accepted_at, now())
+             WHERE id = $2`,
+            [user.id, memberResult.rows[0].member_id]
+          );
+        }
       }
 
       if (memberResult.rows.length > 0) {
