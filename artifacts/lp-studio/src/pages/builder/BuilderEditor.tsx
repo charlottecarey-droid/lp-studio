@@ -29,7 +29,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
@@ -624,6 +625,8 @@ export default function BuilderEditor() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
   const pageId = params?.pageId ?? "";
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const [blocks, setBlocks] = useState<PageBlock[]>([]);
   const [title, setTitle] = useState("");
@@ -1085,7 +1088,7 @@ export default function BuilderEditor() {
   };
 
   const copyPreviewLink = () => {
-    const url = `${window.location.origin}/lp/${slug}`;
+    const url = getLpPageUrl(slug, micrositeDomain);
     navigator.clipboard.writeText(url);
   };
 
@@ -1853,7 +1856,7 @@ function AutoMetaButton({
 
       // Generate OG screenshot URL from the live page
       const pageSlug = data.suggestedSlug || currentSlug;
-      const pageUrl = `${window.location.origin}/lp/${pageSlug}`;
+      const pageUrl = getLpPageUrl(pageSlug, micrositeDomain);
       const ogScreenshot = `https://image.thum.io/get/width/1200/crop/630/noanimate/${pageUrl}`;
 
       onGenerated(data.metaTitle, data.metaDescription, data.suggestedSlug, ogScreenshot);

@@ -44,10 +44,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { useAuth } from "@/context/AuthContext";
+import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
-import { cn } from "@/lib/utils";
 
 const API_BASE = "/api";
 
@@ -628,7 +629,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">URL slug</Label>
               <div className="flex items-center border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                <span className="px-2 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                <span className="px-2 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">{micrositeDomain ? `${micrositeDomain}/` : "/lp/"}</span>
                 <input
                   className="flex-1 px-2 py-2 text-sm bg-transparent focus:outline-none font-mono"
                   placeholder="page-slug"
@@ -661,6 +662,8 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
 }
 
 export default function SalesCampaignPages() {
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [pages, setPages] = useState<Page[]>([]);
   const [eligibleContacts, setEligibleContacts] = useState<EligibleContact[]>([]);
   const [audiences, setAudiences] = useState<Audience[]>([]);
@@ -1046,7 +1049,7 @@ export default function SalesCampaignPages() {
                         }
                       </Button>
                       <a
-                        href={`/lp/${page.slug}?_v_company=Acme+Dental&_v_first_name=Sarah`}
+                        href={`${getLpPageUrl(page.slug, micrositeDomain)}?_v_company=Acme+Dental&_v_first_name=Sarah`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
