@@ -36,7 +36,7 @@ export default function Scene2Clinical() {
 
           <div style={{ fontSize: '4.6vw', lineHeight: 1.1, letterSpacing: '-0.02em', display: 'flex', flexDirection: 'column', gap: 0 }}>
             {/* "See every scan." — word by word */}
-            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.28em', rowGap: 0, alignItems: 'baseline' }}>
+            <div style={{ color: '#C7E738', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.24em', rowGap: 0, alignItems: 'baseline' }}>
               {['See', 'every', 'scan.'].map((word, i) => (
                 <motion.span
                   key={word}
@@ -49,7 +49,7 @@ export default function Scene2Clinical() {
               ))}
             </div>
             {/* "Coach with data." — always in DOM, picks up stagger after a 2× breath */}
-            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.28em', rowGap: 0, alignItems: 'baseline' }}>
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.24em', rowGap: 0, alignItems: 'baseline' }}>
               {['Coach', 'with', 'data.'].map((word, i) => (
                 <motion.span
                   key={word}
