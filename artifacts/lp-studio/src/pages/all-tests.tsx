@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
-import { cn, getLpPublicBase } from "@/lib/utils";
+import { cn, getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 
 type StatusFilter = "all" | "running" | "draft";
@@ -34,7 +35,8 @@ export default function AllTests() {
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteTest();
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const base = getLpPublicBase();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const handleDelete = async (e: React.MouseEvent, testId: number, testName: string) => {
     e.stopPropagation();
@@ -171,7 +173,7 @@ export default function AllTests() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {sorted.map((test, i) => {
-              const liveUrl = `${base}/lp/${test.slug}`;
+              const liveUrl = getLpPageUrl(test.slug, micrositeDomain);
               const isRunning = test.status === "running";
               return (
                 <motion.div
@@ -193,7 +195,7 @@ export default function AllTests() {
                       <StatusBadge status={test.status} />
                       <span className="text-xs text-muted-foreground/60 hidden sm:inline capitalize">{test.testType}</span>
                     </div>
-                    <code className="text-xs text-muted-foreground font-mono">/lp/{test.slug}</code>
+                    <code className="text-xs text-muted-foreground font-mono">{micrositeDomain ? `/${test.slug}` : `/lp/${test.slug}`}</code>
                   </div>
 
                   <div className="hidden md:flex items-center gap-6 text-xs text-muted-foreground shrink-0">

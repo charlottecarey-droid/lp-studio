@@ -28,7 +28,8 @@ import { usePagination } from "@/hooks/use-pagination";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { setBriefContext } from "@/lib/brief-context";
 import { useListTests } from "@workspace/api-client-react";
-import { getLpPublicBase } from "@/lib/utils";
+import { getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -518,7 +519,8 @@ export default function PagesGallery() {
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
 
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
-  const base = getLpPublicBase();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const load = () => {
     setIsLoading(true);
@@ -816,7 +818,7 @@ export default function PagesGallery() {
             {pagesPag.pageItems.map(page => {
               const isPublished = page.status === "published";
               const isRunning = runningTests.some(t => t.slug === page.slug);
-              const liveUrl = isPublished || isRunning ? `${base}/lp/${page.slug}` : null;
+              const liveUrl = isPublished || isRunning ? getLpPageUrl(page.slug, micrositeDomain) : null;
               return (
               <div
                 key={page.id}
@@ -880,7 +882,7 @@ export default function PagesGallery() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">/lp/{page.slug}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</p>
                     {page.isTemplate && page.templateLabel && page.templateLabel !== page.title && (
                       <p className="text-[11px] text-amber-600 mt-0.5 font-medium">{page.templateLabel}</p>
                     )}
@@ -928,7 +930,7 @@ export default function PagesGallery() {
                       </Button>
                     </Link>
                     <a
-                      href={`/lp/${page.slug}`}
+                      href={getLpPageUrl(page.slug, micrositeDomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

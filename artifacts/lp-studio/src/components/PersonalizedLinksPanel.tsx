@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -42,9 +43,12 @@ function PersonalizedLinkRow({
 }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const { domainContext } = useAuth();
 
   const handleCopy = async () => {
-    const base = window.location.origin;
+    const base = domainContext?.micrositeDomain
+      ? `https://${domainContext.micrositeDomain}`
+      : window.location.origin;
     const url = `${base}/p/${link.token}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
@@ -120,6 +124,7 @@ interface PersonalizedLinksPanelProps {
 
 export default function PersonalizedLinksPanel({ pageId, pageSlug: _pageSlug, pageTitle, onClose }: PersonalizedLinksPanelProps) {
   const { toast } = useToast();
+  const { domainContext } = useAuth();
   const [links, setLinks] = useState<PersonalizedLink[]>([]);
   const [alertEmails, setAlertEmails] = useState<AlertEmail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +172,10 @@ export default function PersonalizedLinksPanel({ pageId, pageSlug: _pageSlug, pa
       });
       if (!res.ok) throw new Error("Failed to create link");
       const newLink = await res.json() as PersonalizedLink;
-      const url = `${window.location.origin}/p/${newLink.token}`;
+      const base = domainContext?.micrositeDomain
+        ? `https://${domainContext.micrositeDomain}`
+        : window.location.origin;
+      const url = `${base}/p/${newLink.token}`;
       await navigator.clipboard.writeText(url);
       toast({ title: "Link created & copied!", description: `Personalized link for ${contactName.trim()} is ready.` });
       setContactName("");

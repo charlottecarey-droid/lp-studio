@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/app-layout";
-import { getLpPublicBase } from "@/lib/utils";
+import { getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -62,7 +63,8 @@ export default function LivePages() {
 
   const isLoading = testsLoading || pagesLoading;
   const runningTests = tests?.filter(t => t.status === "running") ?? [];
-  const base = getLpPublicBase();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const totalLive = runningTests.length + (publishedPages?.length ?? 0);
 
@@ -148,7 +150,7 @@ export default function LivePages() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">A/B Tests</p>
                 )}
                 {runningTests.map((test, i) => {
-                  const liveUrl = `${base}/lp/${test.slug}`;
+                  const liveUrl = getLpPageUrl(test.slug, micrositeDomain);
                   return (
                     <motion.div
                       key={`test-${test.id}`}
@@ -206,7 +208,7 @@ export default function LivePages() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Published Pages</p>
                 )}
                 {publishedPages!.map((page, i) => {
-                  const liveUrl = `${base}/lp/${page.slug}`;
+                  const liveUrl = getLpPageUrl(page.slug, micrositeDomain);
                   return (
                     <motion.div
                       key={`page-${page.id}`}

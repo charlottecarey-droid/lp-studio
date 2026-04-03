@@ -148,8 +148,12 @@ function AppShell() {
       <>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
-            <Route path="/lp/:slug" component={LandingPageViewer} />
+            {/* Personalized token route — must come before /:slug catch-all */}
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
+            {/* Short slug routes: partners.meetdandy.com/{slug} */}
+            <Route path="/:slug" component={LandingPageViewer} />
+            {/* Keep /lp/:slug for backward compatibility */}
+            <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

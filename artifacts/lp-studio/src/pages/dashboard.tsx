@@ -26,7 +26,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
-import { getLpPublicBase } from "@/lib/utils";
+import { getLpPageUrl } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -78,7 +79,8 @@ export default function Dashboard() {
   const running = tests?.filter(t => t.status === "running") ?? [];
   const drafts  = tests?.filter(t => t.status === "draft")   ?? [];
 
-  const base = getLpPublicBase();
+  const { domainContext } = useAuth();
+  const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const today = format(new Date(), "EEEE, MMMM d");
 
   const isEmpty = !isLoading && (!tests || tests.length === 0);
@@ -346,7 +348,7 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-2.5">
                   {recentWork.map((item, i) => {
                     const isExperiment = item.kind === "experiment";
-                    const liveUrl = isExperiment ? `${base}/lp/${item.slug}` : null;
+                    const liveUrl = isExperiment ? getLpPageUrl(item.slug, micrositeDomain) : null;
                     const isRunning = item.status === "running" || item.status === "published";
 
                     const rowHref = isExperiment ? `/tests/${item.id}` : `/builder/${item.id}`;
@@ -375,7 +377,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {isExperiment ? (
-                              <code className="font-mono">/lp/{item.slug}</code>
+                              <code className="font-mono">{micrositeDomain ? `/${item.slug}` : `/lp/${item.slug}`}</code>
                             ) : (
                               <code className="font-mono">/{item.slug}</code>
                             )}

@@ -5,8 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-const CANONICAL_DOMAIN = "https://meetdandy-lp.com";
+export function getLpPublicBase(micrositeDomain?: string | null): string {
+  if (micrositeDomain) return `https://${micrositeDomain}`;
+  return window.location.origin;
+}
 
-export function getLpPublicBase(): string {
-  return CANONICAL_DOMAIN;
+export function getLpPageUrl(slug: string, micrositeDomain?: string | null): string {
+  if (micrositeDomain) return `https://${micrositeDomain}/${slug}`;
+  return `${window.location.origin}/lp/${slug}`;
 }
