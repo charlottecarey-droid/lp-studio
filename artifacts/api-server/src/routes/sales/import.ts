@@ -25,8 +25,9 @@ function chunk<T>(arr: T[], size: number): T[][] {
  *
  * Contact dedup (priority order):
  *   1. sfdcContactId / salesforceId present → upsert by sfdc_id
- *   2. No SFDC id, but email present and matches existing contact → update by email (case-insensitive)
- *   3. No match by either → insert as new
+ *   2. No SFDC id, email present and matches existing contact → update by email (case-insensitive)
+ *   3. No SFDC id, no email match, but first+last name matches existing contact in same account → update by name
+ *   4. No match on any key → insert as new
  */
 router.post("/import/contacts", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId ?? 1;
@@ -254,16 +255,16 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     }
   }
 
-  // Split candidate rows into email-matched (update) vs truly new (insert)
+  // Split candidate rows into email-matched (update) vs still-unmatched
   const emailMatchedRows: typeof candidateRows = [];
-  const trulyNewRows: typeof candidateRows = [];
+  const afterEmailRows: typeof candidateRows = [];
 
   for (const r of candidateRows) {
     const key = r.email?.toLowerCase();
     if (key && emailContactMap.has(key)) {
       emailMatchedRows.push(r);
     } else {
-      trulyNewRows.push(r);
+      afterEmailRows.push(r);
     }
   }
 
@@ -295,7 +296,79 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     }));
   }
 
-  // Batch insert all new contacts (truly new — no SFDC match and no email match)
+  // ─── Phase 3c: Name-based dedup (first + last name within same account) ─────
+  // For rows still unmatched after email dedup, look for an existing contact in
+  // the same account with the same first + last name (case-insensitive).
+
+  const nameContactMap = new Map<string, number>(); // "accountId:firstName:lastName" → contact id
+
+  if (afterEmailRows.length > 0) {
+    // Collect the resolved account IDs for these rows
+    const accountIdsForName = [...new Set(
+      afterEmailRows.map(r => accountIdMap.get(r.accountKey)).filter((id): id is number => id != null)
+    )];
+
+    if (accountIdsForName.length > 0) {
+      for (const batch of chunk(accountIdsForName, 500)) {
+        const { rows: foundByName } = await pool.query<{ id: number; account_id: number; first_name: string; last_name: string }>(
+          `SELECT id, account_id, first_name, last_name
+           FROM sales_contacts
+           WHERE tenant_id = $1 AND account_id = ANY($2::int[])`,
+          [tenantId, batch]
+        );
+        for (const c of foundByName) {
+          const key = `${c.account_id}:${c.first_name.toLowerCase().trim()}:${c.last_name.toLowerCase().trim()}`;
+          // Keep the first (oldest) match if there are dupes in the DB already
+          if (!nameContactMap.has(key)) nameContactMap.set(key, c.id);
+        }
+      }
+    }
+  }
+
+  // Split remaining rows into name-matched (update) vs truly new (insert)
+  const nameMatchedRows: typeof afterEmailRows = [];
+  const trulyNewRows: typeof afterEmailRows = [];
+
+  for (const r of afterEmailRows) {
+    const accountId = accountIdMap.get(r.accountKey);
+    if (!accountId) { results.skipped++; continue; }
+    const key = `${accountId}:${r.firstName.toLowerCase().trim()}:${r.lastName.toLowerCase().trim()}`;
+    if (nameContactMap.has(key)) {
+      nameMatchedRows.push(r);
+    } else {
+      trulyNewRows.push(r);
+    }
+  }
+
+  // Update contacts matched by name within account
+  for (const batch of chunk(nameMatchedRows, 50)) {
+    await Promise.all(batch.map(r => {
+      const accountId = accountIdMap.get(r.accountKey)!;
+      const key = `${accountId}:${r.firstName.toLowerCase().trim()}:${r.lastName.toLowerCase().trim()}`;
+      const existingId = nameContactMap.get(key)!;
+      return db
+        .update(salesContactsTable)
+        .set({
+          accountId,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          email: r.email ?? null,
+          title: r.title ?? null,
+          role: r.role ?? null,
+          phone: r.phone ?? null,
+          tier: r.tier ?? null,
+          titleLevel: r.titleLevel ?? null,
+          contactRole: r.contactRole ?? null,
+          department: r.department ?? null,
+          linkedinUrl: r.linkedinUrl ?? null,
+          ...(r.sfdcContactId ? { salesforceId: r.sfdcContactId } : {}),
+        })
+        .where(eq(salesContactsTable.id, existingId))
+        .then(() => { results.updated++; });
+    }));
+  }
+
+  // Batch insert all new contacts (truly new — no SFDC, email, or name match)
   type ContactInsert = {
     tenantId: number;
     accountId: number;
