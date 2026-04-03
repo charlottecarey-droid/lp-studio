@@ -351,6 +351,7 @@ router.get("/resolve/:token", async (req, res): Promise<void> => {
           SELECT email FROM lp_page_alert_emails WHERE page_id = ${hotlink.pageId}
         `);
         const recipients = (alertResult.rows as { email: string }[]).map(r => r.email).filter(Boolean);
+        console.log(`[visit-alert] pageId=${hotlink.pageId} recipients=${JSON.stringify(recipients)}`);
         if (recipients.length > 0) {
           const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Unknown";
           await sendVisitAlert(recipients, {

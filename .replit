@@ -52,5 +52,5 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-RESEND_FROM_EMAIL = "LP Studio <notifications@meetdandy-lp.com>"
+RESEND_FROM_EMAIL = "LP Studio <notifications@ent.meetdandy.com>"
 GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"

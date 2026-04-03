@@ -19,6 +19,7 @@ const LP_PUBLIC = [
   /^\/lp\/review\//,         // GET/PATCH /lp/review/:token
   /^\/lp\/resolve-token\//,  // GET /lp/resolve-token/:token
   /^\/lp\/personalized\//,   // personalized link tracking
+  /^\/sales\/resolve\//,     // GET /sales/resolve/:token — visited by contacts from email (no auth)
 ];
 
 // Auth guard for /lp/* and /sales/* (applied before the routers)
