@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Search, Upload, Loader2, X, Tag, Check, Pencil,
-  FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2,
+  FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2, FileText, Trash2,
 } from "lucide-react";
 
 // ─── Shared types ───────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ export interface MediaLibraryDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (url: string) => void;
   /** If provided, open directly on this tab */
-  defaultTab?: "images" | "videos";
+  defaultTab?: "images" | "videos" | "pdfs";
 }
 
 const DRAWER_PAGE_SIZE = 24;
@@ -456,6 +456,179 @@ function VideosTab({ onSelect }: { onSelect: (url: string) => void }) {
   );
 }
 
+// ─── PDFs tab ────────────────────────────────────────────────────────────────
+
+interface PdfItem {
+  id: string;
+  title: string;
+  url: string;
+  sizeBytes: number | null;
+  createdAt: string;
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes == null) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
+  const [items, setItems] = useState<PdfItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const fetchPdfs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/lp/media?mediaType=pdf");
+      if (!res.ok) throw new Error("Failed");
+      const data = (await res.json()) as { items: PdfItem[] };
+      setItems(data.items);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPdfs(); }, [fetchPdfs]);
+
+  const uploadPdf = (file: File) => {
+    setUploading(true);
+    setUploadPct(0);
+    setError("");
+    return new Promise<void>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/lp/pdf/upload");
+      xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else {
+          try { reject(new Error(JSON.parse(xhr.responseText)?.error ?? "Upload failed")); }
+          catch { reject(new Error("Upload failed")); }
+        }
+      };
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.send(formData);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    try {
+      for (const f of files) await uploadPdf(f);
+      await fetchPdfs();
+    } catch (err) {
+      setError((err as Error).message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf");
+    if (files.length === 0) return;
+    try {
+      for (const f of files) await uploadPdf(f);
+      await fetchPdfs();
+    } catch (err) {
+      setError((err as Error).message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this PDF?")) return;
+    try {
+      const res = await fetch(`/api/lp/media/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setItems(prev => prev.filter(i => i.id !== id));
+    } catch (err) {
+      setError((err as Error).message ?? "Delete failed");
+    }
+  };
+
+  return (
+    <>
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
+        <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+          {uploading
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadPct}%</>
+            : <><Upload className="w-3.5 h-3.5" />Upload PDF</>}
+        </Button>
+        <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={handleFileChange} />
+        <span className="text-xs text-muted-foreground">Max 50 MB per file</span>
+      </div>
+      {error && <p className="px-4 pt-2 text-xs text-red-500">{error}</p>}
+      {uploading && (
+        <div className="px-4 pt-2 pb-0 shrink-0">
+          <div className="w-full bg-muted rounded-full h-1.5">
+            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${uploadPct}%` }} />
+          </div>
+        </div>
+      )}
+      <div
+        ref={dropZoneRef}
+        className="flex-1 overflow-y-auto px-4 py-4"
+        onDrop={handleDrop}
+        onDragOver={e => e.preventDefault()}
+      >
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : items.length === 0 ? (
+          <div
+            className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <FileText className="w-8 h-8 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">Drop PDFs here or click to upload</p>
+            <p className="text-xs mt-1 opacity-60">PDF files up to 50 MB</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {items.map(item => (
+              <div
+                key={item.id}
+                className="group flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 bg-muted/20 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"
+                onClick={() => onSelect(item.url)}
+              >
+                <div className="shrink-0 w-9 h-9 rounded-md bg-red-50 border border-red-200 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" title={item.title}>{item.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatBytes(item.sizeBytes)}{item.sizeBytes ? " · " : ""}{new Date(item.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all p-1 rounded"
+                  onClick={(e) => handleDelete(item.id, e)}
+                  title="Delete PDF"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Main drawer ─────────────────────────────────────────────────────────────
 
 export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images" }: MediaLibraryDrawerProps) {
@@ -469,13 +642,14 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
       <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
         <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
           <SheetTitle className="text-lg">Media Library</SheetTitle>
-          <SheetDescription className="text-xs">Browse and upload images and videos for your pages.</SheetDescription>
+          <SheetDescription className="text-xs">Browse and upload images, videos, and PDFs for your pages.</SheetDescription>
         </SheetHeader>
 
         <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-6 mt-3 mb-0 shrink-0 w-fit">
             <TabsTrigger value="images" className="text-xs px-4">Images</TabsTrigger>
             <TabsTrigger value="videos" className="text-xs px-4">Videos</TabsTrigger>
+            <TabsTrigger value="pdfs" className="text-xs px-4">PDFs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
@@ -484,6 +658,10 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
 
           <TabsContent value="videos" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
             <VideosTab onSelect={handleSelect} />
+          </TabsContent>
+
+          <TabsContent value="pdfs" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+            <PdfsTab onSelect={handleSelect} />
           </TabsContent>
         </Tabs>
       </SheetContent>

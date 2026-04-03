@@ -19,6 +19,8 @@ const ALLOWED_VIDEO_TYPES = new Set([
   "video/x-msvideo", "video/x-matroska",
 ]);
 
+const ALLOWED_PDF_TYPES = new Set(["application/pdf"]);
+
 const MAX_SIZE_BYTES = 200 * 1024 * 1024;
 
 const imageUpload = multer({
@@ -39,6 +41,18 @@ const videoUpload = multer({
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_VIDEO_TYPES.has(file.mimetype)) {
       cb(new Error("Only video files are allowed (MP4, WebM, OGG, MOV)"));
+    } else {
+      cb(null, true);
+    }
+  },
+});
+
+const pdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_PDF_TYPES.has(file.mimetype)) {
+      cb(new Error("Only PDF files are allowed"));
     } else {
       cb(null, true);
     }
@@ -377,6 +391,52 @@ router.post("/lp/media/upload", (req: Request, res: Response) => {
       });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading video");
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
+});
+
+router.post("/lp/pdf/upload", (req: Request, res: Response) => {
+  pdfUpload.single("file")(req, res, async (err) => {
+    if (err) {
+      const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
+        ? "File too large. Maximum size is 50 MB."
+        : (err as Error).message ?? "Upload failed";
+      res.status(400).json({ error: message });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const servePath = await objectStorageService.uploadObjectEntity(
+        req.file.buffer,
+        req.file.mimetype,
+      );
+      const serveUrl = `/api/storage${servePath}`;
+      const title = req.file.originalname?.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ") ?? "Untitled";
+
+      const [record] = await db.insert(lpMediaTable).values({
+        title,
+        url: serveUrl,
+        mediaType: "pdf",
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        tags: [],
+      }).returning();
+
+      res.json({
+        id: String(record.id),
+        title: record.title,
+        url: record.url,
+        mediaType: record.mediaType,
+        mimeType: record.mimeType,
+        sizeBytes: record.sizeBytes,
+        createdAt: record.createdAt.toISOString(),
+      });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading PDF");
       res.status(500).json({ error: "Upload failed" });
     }
   });
