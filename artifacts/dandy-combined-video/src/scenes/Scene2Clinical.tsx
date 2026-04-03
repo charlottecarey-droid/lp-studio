@@ -49,7 +49,7 @@ export default function Scene2Clinical() {
               ))}
             </div>
             {/* "Coach with data." — always in DOM, picks up stagger after a 2× breath */}
-            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.24em', rowGap: 0, alignItems: 'baseline' }}>
+            <div style={{ color: '#fff', fontWeight: 400, display: 'flex', flexWrap: 'wrap', columnGap: '0.20em', rowGap: 0, alignItems: 'baseline' }}>
               {['Coach', 'with', 'data.'].map((word, i) => (
                 <motion.span
                   key={word}
