@@ -68,14 +68,17 @@ function escapeHtml(str: string): string {
 
 async function sendPersonalizedLinkVisitAlert(
   recipients: string[],
-  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; visitedAt: string; micrositeDomain?: string | null },
+  opts: { contactName: string; company?: string | null; pageTitle: string; pageSlug: string; token: string; visitedAt: string; micrositeDomain?: string | null; siteOrigin?: string | null },
 ): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || recipients.length === 0) return;
 
-  const pageUrl = opts.micrositeDomain
-    ? `https://${opts.micrositeDomain}/lp/${opts.pageSlug}`
-    : null;
+  const baseUrl =
+    opts.micrositeDomain
+      ? `https://${opts.micrositeDomain}`
+      : (process.env["SITE_URL"] ?? opts.siteOrigin ?? null);
+
+  const pageUrl = baseUrl ? `${baseUrl}/p/${opts.token}` : null;
 
   const html = `
 <!DOCTYPE html>
@@ -259,13 +262,18 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
         `);
         const recipients = (alertResult.rows as AlertEmailRow[]).map(r => r.email).filter(Boolean);
         if (recipients.length > 0) {
+          const origin = (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])
+            ? `${req.headers["x-forwarded-proto"]}://${req.headers["x-forwarded-host"]}`
+            : null;
           await sendPersonalizedLinkVisitAlert(recipients, {
             contactName: link.contact_name,
             company: link.company,
             pageTitle: link.page_title,
             pageSlug: link.page_slug,
+            token,
             visitedAt: visit?.visited_at ? String(visit.visited_at) : new Date().toISOString(),
             micrositeDomain: link.microsite_domain,
+            siteOrigin: origin,
           });
         }
       } catch (err) {
