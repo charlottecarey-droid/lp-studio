@@ -1643,36 +1643,23 @@ function GenerateMicrositeModal({
     try {
       let pageId: number;
 
-      if (selectedTemplate) {
-        // Use the saved marketing template instead of AI generation
-        const label = selectedTemplate.templateLabel ?? selectedTemplate.title;
-        const createRes = await fetch(`${API_BASE}/lp/pages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: `${accountName} — ${label}`,
-            slug: `${slugify(accountName)}-${slugify(label)}-${Date.now()}`,
-            status: "draft",
-            fromTemplateId: selectedTemplate.id,
-          }),
-        });
-        if (!createRes.ok) throw new Error("Failed to create page from template");
-        const created = await createRes.json() as { id: number };
-        pageId = created.id;
-      } else {
-        // AI-generate the page
-        const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audience, prompt: prompt.trim() || undefined }),
-        });
-        if (!genRes.ok) {
-          const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-          throw new Error(err.error ?? "Generation failed");
-        }
-        const { page } = await genRes.json();
-        pageId = page.id;
+      // Always AI-generate — if a template is selected, its block layout is passed
+      // as a fixed constraint so AI customises the copy while preserving the structure
+      const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audience,
+          prompt: prompt.trim() || undefined,
+          ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
+        }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error(err.error ?? "Generation failed");
       }
+      const { page } = await genRes.json();
+      pageId = page.id;
 
       setCreatedPageId(pageId);
 
@@ -1794,7 +1781,7 @@ function GenerateMicrositeModal({
                   })}
                 </div>
                 {selectedTemplate && (
-                  <p className="text-xs text-muted-foreground">Template selected — AI copy generation is skipped. Hotlinks are still created for all contacts.</p>
+                  <p className="text-xs text-muted-foreground">Template selected — AI will use this layout and personalise all copy for {accountName}.</p>
                 )}
               </div>
             )}

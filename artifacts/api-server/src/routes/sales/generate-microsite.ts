@@ -417,7 +417,41 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
   }
 }
 
-function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, unknown>): string {
+const BLOCK_PROP_SCHEMAS: Record<string, string> = {
+  "hero": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
+  "trust-bar": "{ items: [{ value, label }] } — 3–4 key proof stats",
+  "benefits-grid": "{ headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 benefits",
+  "features": "{ headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 benefits",
+  "testimonial": "{ quote, author, role, practiceName }",
+  "testimonials": "{ quote, author, role, practiceName }",
+  "how-it-works": "{ headline, steps: [{ number, title, description }] }",
+  "comparison": "{ headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
+  "bottom-cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
+  "cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
+  "stats": "{ items: [{ value, label }] }",
+  "pas-section": "{ headline, body, bullets: string[] }",
+  "stat-callout": "{ stat, description, footnote }",
+  "rich-text": "{ content, maxWidth }",
+  "dso-heartland-hero": "{ eyebrow, headline, companyName, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, stats: [{ value, label }] }",
+  "dso-stat-bar": "{ stats: [{ value, label }], backgroundStyle }",
+  "dso-challenges": "{ eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 pain points specific to this account",
+  "dso-insights-dashboard": "{ eyebrow, headline, subheadline, practiceLabel, backgroundStyle, dashboardVariant (\"light\"|\"dark\") }",
+  "dso-success-stories": "{ eyebrow, headline, backgroundStyle, cases: [{ name, stat, label, quote, author }] } — 2–3 DSO case studies",
+  "dso-pilot-steps": "{ eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
+  "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
+  "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
+  "dso-lab-tour": "{ eyebrow, headline, body, quote, quoteAttribution, ctaText, ctaUrl, backgroundStyle }",
+  "dso-practice-hero": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
+  "dso-stat-row": "{ eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
+  "dso-partnership-perks": "{ eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle }",
+  "dso-split-feature": "{ eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle }",
+  "dso-software-showcase": "{ eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
+  "dso-faq": "{ eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions",
+  "dso-activation-steps": "{ eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
+  "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",
+};
+
+function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, unknown>, templateBlockTypes?: string[]): string {
   const tone = brand.toneOfVoice as string | undefined;
   const pillars = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
   const taglines = brand.taglines as string[] | undefined;
@@ -440,13 +474,34 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
     "Never put content fields at the top level of a block. Always nest inside props.",
   ].filter(s => s !== "").join("\n");
 
+  const blockCount = templateBlockTypes ? templateBlockTypes.length : "5–7";
   const footer = [
     "",
-    "Build a page with 5–7 blocks in the order listed.",
+    `Build a page with exactly ${blockCount} blocks in the order listed.`,
     "Write all copy to be specific, bold, and grounded in the account's real context.",
     "Reference the account name, segment, size, and pain points throughout.",
     "Never use filler phrases like 'in today's competitive landscape' or 'take it to the next level'.",
   ].join("\n");
+
+  // When a template layout is provided, override the default block order with the template's blocks
+  if (templateBlockTypes && templateBlockTypes.length > 0) {
+    const blockList = templateBlockTypes.map((type, i) => {
+      const schema = BLOCK_PROP_SCHEMAS[type] ?? "{ ...fields }";
+      return `${i + 1}. "${type}": ${schema}`;
+    }).join("\n");
+
+    return [
+      header,
+      "",
+      `AUDIENCE: ${audience === "dso-corporate" ? "DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer" : audience === "dso-practice" ? "Individual dental practice within a DSO network — the dentist or office manager" : "Independent dental practice — solo dentist or small group"}`,
+      "",
+      "IMPORTANT: This page uses a fixed template layout. You MUST output EXACTLY these blocks in EXACTLY this order — do not add, remove, or reorder blocks. Customize ALL text copy for the specific account.",
+      "",
+      "BLOCKS TO GENERATE (fixed order):",
+      blockList,
+      footer,
+    ].join("\n");
+  }
 
   if (audience === "dso-corporate") {
     return [
@@ -510,7 +565,7 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
  */
 router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise<void> => {
   const accountId = Number(req.params.accountId);
-  const { prompt: userPrompt, audience } = req.body as { prompt?: string; audience?: MicrositeAudience };
+  const { prompt: userPrompt, audience, templateId } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number };
 
   if (!audience || !["dso-corporate", "dso-practice", "independent"].includes(audience)) {
     res.status(400).json({ error: "audience is required: 'dso-corporate' | 'dso-practice' | 'independent'" });
@@ -532,8 +587,17 @@ router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
 
+    // If a template ID was provided, fetch its block types to use as a fixed layout
+    let templateBlockTypes: string[] | undefined;
+    if (typeof templateId === "number") {
+      const [templatePage] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, templateId));
+      if (templatePage?.blocks && Array.isArray(templatePage.blocks)) {
+        templateBlockTypes = (templatePage.blocks as AiBlock[]).map(b => b.type as string).filter(Boolean);
+      }
+    }
+
     const briefingData = briefing?.briefingData as Record<string, unknown> | undefined;
-    const systemPrompt = buildSystemPrompt(audience, brand);
+    const systemPrompt = buildSystemPrompt(audience, brand, templateBlockTypes);
 
     const contextParts: string[] = [];
     contextParts.push(`ACCOUNT: ${account.name}`);
