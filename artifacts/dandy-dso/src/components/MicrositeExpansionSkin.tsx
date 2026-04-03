@@ -489,10 +489,10 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
           <FadeSection>
             <div className="text-center mb-16">
               <p className="text-xs font-bold uppercase tracking-[0.2em] mb-4" style={{ color: BRAND }}>A PARADIGM SHIFT</p>
-              <h2 className="text-4xl md:text-[3.2rem] font-bold leading-tight" style={{ color: BRAND }}>
+              <h2 className="text-4xl md:text-[3.2rem] font-bold leading-tight whitespace-pre-wrap" style={{ color: BRAND }}>
                 {paradigmShiftHeadline}
               </h2>
-              <p className="text-lg text-gray-500 mt-4 max-w-2xl mx-auto">{paradigmShiftSubheadline}</p>
+              <p className="text-lg text-gray-500 mt-4 max-w-2xl mx-auto whitespace-pre-wrap">{paradigmShiftSubheadline}</p>
             </div>
           </FadeSection>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

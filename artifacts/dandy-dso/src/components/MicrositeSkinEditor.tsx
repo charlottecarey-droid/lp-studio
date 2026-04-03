@@ -989,10 +989,10 @@ const MicrositeSkinEditor = () => {
                     {/* ── Paradigm Shift (Old vs New) ── */}
                     <Panel title="Old Way vs New Way" icon={Layout}>
                       <Field label="Section Headline">
-                        <Input value={(config as any).paradigmShiftHeadline || ""} onChange={(e) => update("paradigmShiftHeadline" as any, e.target.value)} className="h-6 text-[10px] bg-white/5 border-white/10 text-white font-semibold" />
+                        <textarea value={(config as any).paradigmShiftHeadline || ""} onChange={(e) => update("paradigmShiftHeadline" as any, e.target.value)} className="w-full h-14 rounded-md bg-white/5 border border-white/10 text-white text-[10px] p-1.5 resize-none font-semibold" />
                       </Field>
                       <Field label="Section Subheadline">
-                        <Input value={(config as any).paradigmShiftSubheadline || ""} onChange={(e) => update("paradigmShiftSubheadline" as any, e.target.value)} className="h-6 text-[10px] bg-white/5 border-white/10 text-white" />
+                        <textarea value={(config as any).paradigmShiftSubheadline || ""} onChange={(e) => update("paradigmShiftSubheadline" as any, e.target.value)} className="w-full h-16 rounded-md bg-white/5 border border-white/10 text-white text-[10px] p-1.5 resize-none" />
                       </Field>
                       <p className="text-[10px] text-white/30 mt-2 mb-1">Old Way items (Traditional Lab)</p>
                       {((config as any).oldWayItems || []).map((item: string, i: number) => (
