@@ -47,8 +47,9 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !autoplay) return;
     v.muted = true;
+    v.load();
     v.play().catch(() => {});
   }, [videoUrl, autoplay]);
 
@@ -153,7 +154,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
           isNativeVideoUrl(videoUrl) ? (
             <video
               ref={videoRef}
-              key={`ss-video-${autoplay}`}
+              key={`ss-video-${videoUrl}-${autoplay}`}
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
               autoPlay={autoplay}

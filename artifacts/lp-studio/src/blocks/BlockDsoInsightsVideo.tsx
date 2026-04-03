@@ -87,8 +87,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || props.videoAutoplay === false) return;
     v.muted = true;
+    v.load();
     v.play().catch(() => {});
   }, [props.videoUrl, props.videoAutoplay]);
 
@@ -259,7 +260,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
                     ref={videoRef}
-                    key={`iv-video-${props.videoAutoplay}`}
+                    key={`iv-video-${props.videoUrl}-${props.videoAutoplay}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
                     autoPlay={props.videoAutoplay !== false}
