@@ -54,7 +54,7 @@ export default function Scene5Payoff() {
             <span style={{ color: '#C7E738', fontSize: '6.5vw', lineHeight: 1, letterSpacing: '-0.03em', fontWeight: 400, fontVariantNumeric: 'tabular-nums' }}>
               <Counter from={0} to={2973} duration={1.0} decimals={0} />
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '3.5vw', fontWeight: 400, letterSpacing: '-0.01em' }}>chairs.</span>
+            <span style={{ color: '#ECEAE6', fontSize: '3.5vw', fontWeight: 400, letterSpacing: '-0.01em' }}>chairs.</span>
           </div>
 
           {phase >= 1 && (
@@ -64,13 +64,14 @@ export default function Scene5Payoff() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
-              <SplitText
-                text="Zero visibility."
-                delay={0.1}
-                stagger={0.08}
-                duration={0.5}
-                className="text-white/40"
-              />
+              <span style={{ color: '#ECEAE6' }}>
+                <SplitText
+                  text="Zero visibility."
+                  delay={0.1}
+                  stagger={0.08}
+                  duration={0.5}
+                />
+              </span>
             </motion.div>
           )}
         </div>
