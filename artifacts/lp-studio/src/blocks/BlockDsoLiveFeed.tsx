@@ -155,12 +155,6 @@ export function BlockDsoLiveFeed({ props }: Props) {
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
-  const [pulse, setPulse] = useState(true);
-
-  useEffect(() => {
-    const id = setInterval(() => setPulse(p => !p), 1200);
-    return () => clearInterval(id);
-  }, []);
 
   return (
     <section ref={sectionRef} style={{ ...getBgStyle(backgroundStyle), padding: "6rem 1.5rem", position: "relative", overflow: "hidden" }}>
@@ -198,24 +192,6 @@ export function BlockDsoLiveFeed({ props }: Props) {
               {body}
             </motion.p>
 
-            {/* Live indicator */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 1 } : {}}
-              transition={{ delay: 0.35 }}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2.5rem" }}
-            >
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: pulse ? AW : "transparent",
-                boxShadow: pulse ? `0 0 8px ${AW}` : "none",
-                border: `1.5px solid ${AW}`,
-                transition: "all 0.4s ease",
-              }} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: AW }}>
-                Live Feed Active
-              </span>
-            </motion.div>
           </div>
 
           {/* Right: terminal */}
@@ -243,10 +219,9 @@ export function BlockDsoLiveFeed({ props }: Props) {
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                 <div style={{
                   width: 6, height: 6, borderRadius: "50%",
-                  background: pulse ? AW : "transparent",
+                  background: AW,
                   border: `1.5px solid ${AW}`,
-                  boxShadow: pulse ? `0 0 6px ${AW}` : "none",
-                  transition: "all 0.4s",
+                  boxShadow: `0 0 6px ${AW}`,
                 }} />
                 <span style={{ fontSize: "0.625rem", color: AW, fontWeight: 700, letterSpacing: "0.1em" }}>LIVE</span>
               </div>
