@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import type { DsoInsightsDashboardBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 
 interface Props {
   props: DsoInsightsDashboardBlockProps;
@@ -732,6 +733,25 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [liveOffset, setLiveOffset]       = useState(0);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef     = useRef<HTMLVideoElement>(null);
+  const inView       = useInView(containerRef, { once: false, amount: 0.2 });
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || props.videoAutoplay === false) return;
+    v.muted = true;
+    v.load();
+    v.play().catch(() => {});
+  }, [props.videoUrl, props.videoAutoplay]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !props.videoPlayOnScroll) return;
+    if (inView) { v.muted = true; v.play().catch(() => {}); }
+    else { v.pause(); }
+  }, [inView, props.videoPlayOnScroll]);
+
   useEffect(() => {
     const id = setInterval(() => {
       setLiveOffset(prev => prev + Math.floor(Math.random() * 2) + 1);
@@ -762,7 +782,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
   };
 
   return (
-    <section style={BG_STYLE[backgroundStyle]} className="py-24 md:py-32">
+    <section ref={containerRef} style={BG_STYLE[backgroundStyle]} className="py-24 md:py-32">
       <div className="max-w-[1100px] mx-auto px-6 md:px-10">
         {/* Header */}
         <div className="text-center mb-10">
@@ -819,7 +839,8 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
           )}
         </div>
 
-        {/* Tab bar */}
+        {/* Tab bar — hidden when a video replaces the dashboard */}
+        {!props.videoUrl && (
         <div className="flex justify-center mb-6">
           <div className={`rounded-lg border ${t.cardBorder} ${t.cardBg} p-1 flex gap-1`}>
             {TABS.map((tab) => {
@@ -840,6 +861,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
             })}
           </div>
         </div>
+        )}
 
         {/* Dashboard frame */}
         <div className={`rounded-xl border ${t.cardBorder} overflow-hidden`}>
@@ -897,7 +919,34 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
             </div>
           </div>
 
-          {/* Content */}
+          {/* Content — video or interactive dashboard */}
+          {props.videoUrl ? (
+            <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
+              {isNativeVideoUrl(props.videoUrl) ? (
+                <video
+                  ref={videoRef}
+                  key={`id-video-${props.videoUrl}-${props.videoAutoplay}`}
+                  src={props.videoUrl}
+                  className="w-full h-full object-cover"
+                  autoPlay={props.videoAutoplay !== false}
+                  muted
+                  loop={props.videoAutoplay !== false}
+                  playsInline
+                  controls={props.videoAutoplay === false && !props.videoPlayOnScroll}
+                  preload="auto"
+                />
+              ) : (
+                <iframe
+                  key={`id-iframe-${props.videoAutoplay}`}
+                  src={props.videoAutoplay !== false ? getAutoplayEmbedUrl(props.videoUrl) : props.videoUrl}
+                  className="absolute inset-0 w-full h-full border-0"
+                  title="Dandy Insights"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+          ) : (
           <div className={`p-5 md:p-7 min-h-[400px] ${t.contentBg}`}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -911,6 +960,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               </motion.div>
             </AnimatePresence>
           </div>
+          )}
         </div>
       </div>
     </section>

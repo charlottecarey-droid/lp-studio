@@ -9,6 +9,9 @@ export interface DsoInsightsDashboardBlockProps {
   practiceLabel: string;
   backgroundStyle: BackgroundStyle;
   dashboardVariant: "light" | "dark";
+  videoUrl?: string;
+  videoAutoplay?: boolean;
+  videoPlayOnScroll?: boolean;
 }
 
 export interface DsoLabTourBlockProps {

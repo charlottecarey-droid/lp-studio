@@ -350,6 +350,32 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold">Dashboard Video</Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">Upload or paste a video URL. Replaces the interactive dashboard when set.</p>
+              <VideoPicker
+                label="Video"
+                value={p.videoUrl ?? ""}
+                onChange={v => onChange({ ...block, props: { ...p, videoUrl: v || undefined } })}
+              />
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Video Options</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Autoplay &amp; Loop</Label>
+                    <p className="text-[11px] text-muted-foreground">Plays silently on page load and repeats.</p>
+                  </div>
+                  <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-medium">Play on scroll</Label>
+                    <p className="text-[11px] text-muted-foreground">Start playing when this section scrolls into view.</p>
+                  </div>
+                  <Switch checked={p.videoPlayOnScroll ?? false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoPlayOnScroll: v } })} />
+                </div>
+              </div>
+            </div>
           </div>
         );
       }
