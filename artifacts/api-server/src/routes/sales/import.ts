@@ -23,9 +23,10 @@ function chunk<T>(arr: T[], size: number): T[][] {
  *   1. sfdcAccountId (SFDC Account ID) — looked up by sfdc_id
  *   2. accountName — case-insensitive name match / create
  *
- * Contact dedup:
- *   - If sfdcContactId / salesforceId present → upsert by sfdc_id
- *   - Otherwise → insert (no dedup)
+ * Contact dedup (priority order):
+ *   1. sfdcContactId / salesforceId present → upsert by sfdc_id
+ *   2. No SFDC id, but email present and matches existing contact → update by email (case-insensitive)
+ *   3. No match by either → insert as new
  */
 router.post("/import/contacts", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId ?? 1;
@@ -228,7 +229,73 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
     }));
   }
 
-  // Batch insert all new contacts (pure inserts + upsert rows that didn't exist)
+  // ─── Phase 3b: Email-based dedup for non-SFDC rows ─────────────────────────
+  // Rows without a sfdcContactId (or with one that didn't match) need email dedup
+  // so we don't create duplicate contacts on re-import.
+
+  const candidateRows = [...insertRows, ...toInsertFromUpsert];
+
+  // Collect unique, non-empty emails from candidate rows
+  const candidateEmails = [...new Set(
+    candidateRows.map(r => r.email?.toLowerCase()).filter(Boolean) as string[]
+  )];
+
+  // Batch look up existing contacts by email (case-insensitive)
+  const emailContactMap = new Map<string, number>(); // normalizedEmail → existing contact id
+  if (candidateEmails.length > 0) {
+    for (const batch of chunk(candidateEmails, 500)) {
+      const { rows: foundByEmail } = await pool.query<{ id: number; email: string }>(
+        `SELECT id, email FROM sales_contacts WHERE LOWER(email) = ANY($1::text[]) AND tenant_id = $2`,
+        [batch, tenantId]
+      );
+      for (const c of foundByEmail) {
+        if (c.email) emailContactMap.set(c.email.toLowerCase(), c.id);
+      }
+    }
+  }
+
+  // Split candidate rows into email-matched (update) vs truly new (insert)
+  const emailMatchedRows: typeof candidateRows = [];
+  const trulyNewRows: typeof candidateRows = [];
+
+  for (const r of candidateRows) {
+    const key = r.email?.toLowerCase();
+    if (key && emailContactMap.has(key)) {
+      emailMatchedRows.push(r);
+    } else {
+      trulyNewRows.push(r);
+    }
+  }
+
+  // Update contacts matched by email
+  for (const batch of chunk(emailMatchedRows, 50)) {
+    await Promise.all(batch.map(r => {
+      const accountId = accountIdMap.get(r.accountKey);
+      const existingId = emailContactMap.get(r.email!.toLowerCase())!;
+      if (!accountId) { results.skipped++; return Promise.resolve(); }
+      return db
+        .update(salesContactsTable)
+        .set({
+          accountId,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          email: r.email ?? null,
+          title: r.title ?? null,
+          role: r.role ?? null,
+          phone: r.phone ?? null,
+          tier: r.tier ?? null,
+          titleLevel: r.titleLevel ?? null,
+          contactRole: r.contactRole ?? null,
+          department: r.department ?? null,
+          linkedinUrl: r.linkedinUrl ?? null,
+          ...(r.sfdcContactId ? { salesforceId: r.sfdcContactId } : {}),
+        })
+        .where(eq(salesContactsTable.id, existingId))
+        .then(() => { results.updated++; });
+    }));
+  }
+
+  // Batch insert all new contacts (truly new — no SFDC match and no email match)
   type ContactInsert = {
     tenantId: number;
     accountId: number;
@@ -248,7 +315,7 @@ router.post("/import/contacts", async (req, res): Promise<void> => {
   };
 
   const toInsert: ContactInsert[] = [];
-  for (const r of [...insertRows, ...toInsertFromUpsert]) {
+  for (const r of trulyNewRows) {
     const accountId = accountIdMap.get(r.accountKey);
     if (!accountId) { results.skipped++; continue; }
     const validStatus = (["active", "unsubscribed", "bounced"] as const).includes(r.status as never)
