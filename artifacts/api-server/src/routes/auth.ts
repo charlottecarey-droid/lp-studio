@@ -16,6 +16,8 @@ const oauthInitLimiter = rateLimit({
 });
 
 export const SESSION_COOKIE = "lp_sid";
+// 7-day TTL. All three res.cookie() calls below pass maxAge: SESSION_TTL_MS so
+// the cookie persists across browser restarts (not just for the browser session).
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // In-memory cache for domain-context lookups — avoids 2 DB queries per page load.
