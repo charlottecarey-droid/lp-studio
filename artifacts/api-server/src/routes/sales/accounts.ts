@@ -177,9 +177,9 @@ router.delete("/accounts", async (req, res): Promise<void> => {
     `);
     await db.execute(sql`
       UPDATE sfdc_leads
-      SET converted_account_id = NULL,
+      SET account_id = NULL,
           converted_contact_id = NULL
-      WHERE converted_account_id IN (
+      WHERE account_id IN (
         SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
       )
          OR converted_contact_id IN (
