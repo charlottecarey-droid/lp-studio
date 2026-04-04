@@ -66,6 +66,7 @@ export interface DsoSuccessStoriesBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
 }
 
 export interface DsoChallengesBlockProps {
@@ -94,6 +95,7 @@ export interface DsoProblemBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
 }
 
 export interface DsoAiFeatureBlockProps {
@@ -108,6 +110,7 @@ export interface DsoAiFeatureBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
 }
 
 export interface DsoStatShowcaseBlockProps {
@@ -118,6 +121,7 @@ export interface DsoStatShowcaseBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  ctaVariant?: "primary" | "secondary" | "link";
 }
 
 export interface DsoScrollStoryChapter {
