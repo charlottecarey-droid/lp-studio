@@ -626,26 +626,40 @@ function ContactListView() {
   const [viewMode, setViewMode] = useState<"list" | "grouped">("grouped");
 
   // Account-level filters inherited from Accounts page
-  const [acctFilterOwner, setAcctFilterOwner] = useState("");
+  const [acctFilterOwners, setAcctFilterOwners] = useState<string[]>([]);
   const [acctFilterTier, setAcctFilterTier] = useState("");
+  const [acctFilterViewName, setAcctFilterViewName] = useState<string | null>(null);
   const [acctFilterIds, setAcctFilterIds] = useState<Set<number> | null>(null);
   const [acctBannerDismissed, setAcctBannerDismissed] = useState(false);
 
   useEffect(() => {
     if (!user?.userId) return;
     const lsKey = `sc_acct_filters_${user.userId}`;
+    const viewsKey = `sc_acct_views_${user.userId}`;
     try {
-      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, string>;
-      const ownerF = stored.ownerFilter ?? "";
-      const tierF = stored.abmTierFilter ?? "";
-      setAcctFilterOwner(ownerF);
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      // Handle both new ownerFilters[] and legacy ownerFilter string
+      let owners: string[] = [];
+      if (Array.isArray(stored.ownerFilters)) owners = stored.ownerFilters as string[];
+      else if (typeof stored.ownerFilter === "string" && stored.ownerFilter) owners = [stored.ownerFilter];
+      const tierF = typeof stored.abmTierFilter === "string" ? stored.abmTierFilter : "";
+      setAcctFilterOwners(owners);
       setAcctFilterTier(tierF);
-      if (ownerF || tierF) {
+      // Try to find the active saved view name
+      try {
+        const views = JSON.parse(localStorage.getItem(viewsKey) ?? "[]") as Array<{ id: string; name: string; filters: { ownerFilters: string[]; abmTierFilter: string } }>;
+        const match = views.find(v =>
+          JSON.stringify(v.filters.ownerFilters.slice().sort()) === JSON.stringify(owners.slice().sort()) &&
+          v.filters.abmTierFilter === tierF
+        );
+        setAcctFilterViewName(match?.name ?? null);
+      } catch { setAcctFilterViewName(null); }
+      if (owners.length > 0 || tierF) {
         fetch(`${API_BASE}/sales/accounts`)
           .then(r => r.ok ? r.json() : [])
           .then((accounts: AccountForFilter[]) => {
             const matching = accounts.filter(a => {
-              const matchesOwner = !ownerF || a.owner === ownerF;
+              const matchesOwner = owners.length === 0 || owners.includes(a.owner ?? "");
               const matchesTier = !tierF || a.abmTier === tierF;
               return matchesOwner && matchesTier;
             });
@@ -799,8 +813,11 @@ function ContactListView() {
             <div className="flex items-center gap-2 text-foreground">
               <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>
-                Showing contacts from filtered accounts
-                {acctFilterOwner && <strong className="ml-1">{acctFilterOwner}</strong>}
+                {acctFilterViewName
+                  ? <><strong>{acctFilterViewName}</strong> — showing contacts from filtered accounts</>
+                  : <>Showing contacts from filtered accounts</>}
+                {acctFilterOwners.length === 1 && <strong className="ml-1">{acctFilterOwners[0]}</strong>}
+                {acctFilterOwners.length > 1 && <strong className="ml-1">{acctFilterOwners.length} owners</strong>}
                 {acctFilterTier && <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">{acctFilterTier}</span>}
               </span>
             </div>
@@ -812,7 +829,7 @@ function ContactListView() {
                 Change filters
               </button>
               <button
-                onClick={() => { setAcctFilterIds(null); setAcctFilterOwner(""); setAcctFilterTier(""); }}
+                onClick={() => { setAcctFilterIds(null); setAcctFilterOwners([]); setAcctFilterTier(""); setAcctFilterViewName(null); }}
                 className="text-xs text-muted-foreground hover:text-foreground font-medium"
               >
                 Clear

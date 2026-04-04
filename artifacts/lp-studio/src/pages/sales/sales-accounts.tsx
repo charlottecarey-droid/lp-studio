@@ -33,6 +33,9 @@ import {
   Check,
   Link2,
   Star,
+  Bookmark,
+  X,
+  BookmarkCheck,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -146,36 +149,111 @@ function PageStatusBadge({ status }: { status: string }) {
   );
 }
 
+interface SavedView {
+  id: string;
+  name: string;
+  filters: { ownerFilters: string[]; abmTierFilter: string };
+  createdAt: string;
+}
+
 /* ─── Account List View ──────────────────────────────────────── */
 
 function AccountListView() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const lsKey = user?.userId ? `sc_acct_filters_${user.userId}` : null;
+  const viewsKey = user?.userId ? `sc_acct_views_${user.userId}` : null;
 
-  function readLs(field: "ownerFilter" | "abmTierFilter"): string {
+  function readLsOwners(): string[] {
+    if (!lsKey) return [];
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      if (Array.isArray(stored.ownerFilters)) return stored.ownerFilters as string[];
+      if (typeof stored.ownerFilter === "string" && stored.ownerFilter) return [stored.ownerFilter];
+      return [];
+    } catch { return []; }
+  }
+  function readLsTier(): string {
     if (!lsKey) return "";
-    try { return (JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, string>)[field] ?? ""; }
+    try { return (JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, string>).abmTierFilter ?? ""; }
     catch { return ""; }
   }
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [abmTierFilter, setAbmTierFilter] = useState(() => readLs("abmTierFilter"));
+  const [abmTierFilter, setAbmTierFilter] = useState(() => readLsTier());
   const [abmStageFilter, setAbmStageFilter] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("");
-  const [ownerFilter, setOwnerFilter] = useState(() => readLs("ownerFilter"));
+  const [ownerFilters, setOwnerFilters] = useState<string[]>(() => readLsOwners());
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
+  const ownerDropdownRef = useRef<HTMLDivElement>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Persist ownerFilter + abmTierFilter to localStorage
+  // Saved views
+  const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
+    if (!viewsKey) return [];
+    try { return JSON.parse(localStorage.getItem(viewsKey) ?? "[]"); } catch { return []; }
+  });
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveViewName, setSaveViewName] = useState("");
+  const [showViewsDropdown, setShowViewsDropdown] = useState(false);
+  const viewsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) setShowOwnerDropdown(false);
+      if (viewsDropdownRef.current && !viewsDropdownRef.current.contains(e.target as Node)) setShowViewsDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Persist ownerFilters + abmTierFilter to localStorage (shared with Contacts & Signals pages)
   useEffect(() => {
     if (!lsKey) return;
-    try { localStorage.setItem(lsKey, JSON.stringify({ ownerFilter, abmTierFilter })); }
+    try { localStorage.setItem(lsKey, JSON.stringify({ ownerFilters, abmTierFilter })); }
     catch {}
-  }, [ownerFilter, abmTierFilter, lsKey]);
+  }, [ownerFilters, abmTierFilter, lsKey]);
+
+  function toggleOwner(name: string) {
+    setOwnerFilters(prev => prev.includes(name) ? prev.filter(o => o !== name) : [...prev, name]);
+    setActiveViewId(null);
+  }
+
+  function saveView() {
+    if (!saveViewName.trim() || !viewsKey) return;
+    const view: SavedView = {
+      id: Date.now().toString(),
+      name: saveViewName.trim(),
+      filters: { ownerFilters, abmTierFilter },
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...savedViews, view];
+    setSavedViews(updated);
+    try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {}
+    setActiveViewId(view.id);
+    setShowSaveDialog(false);
+    setSaveViewName("");
+  }
+
+  function loadView(view: SavedView) {
+    setOwnerFilters(view.filters.ownerFilters);
+    setAbmTierFilter(view.filters.abmTierFilter);
+    setActiveViewId(view.id);
+    setShowViewsDropdown(false);
+  }
+
+  function deleteView(id: string) {
+    const updated = savedViews.filter(v => v.id !== id);
+    setSavedViews(updated);
+    if (viewsKey) { try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {} }
+    if (activeViewId === id) setActiveViewId(null);
+  }
 
   // New account form state
   const [newName, setNewName] = useState("");
@@ -206,7 +284,7 @@ function AccountListView() {
   const uniqueSegments    = Array.from(new Set(accounts.map(a => a.practiceSegment).filter(Boolean))).sort() as string[];
   const uniqueOwners      = Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[];
 
-  const isFiltered = !!(search || abmTierFilter || abmStageFilter || segmentFilter || ownerFilter);
+  const isFiltered = !!(search || abmTierFilter || abmStageFilter || segmentFilter || ownerFilters.length > 0);
 
   const filtered = accounts.filter((a) => {
     const q = search.toLowerCase();
@@ -215,15 +293,16 @@ function AccountListView() {
       (a.domain ?? "").toLowerCase().includes(q) ||
       (a.owner ?? "").toLowerCase().includes(q) ||
       (a.practiceSegment ?? "").toLowerCase().includes(q);
-    const matchesTier    = !abmTierFilter  || a.abmTier === abmTierFilter;
-    const matchesStage   = !abmStageFilter || a.abmStage === abmStageFilter;
-    const matchesSegment = !segmentFilter  || a.practiceSegment === segmentFilter;
-    const matchesOwner   = !ownerFilter    || a.owner === ownerFilter;
+    const matchesTier    = !abmTierFilter        || a.abmTier === abmTierFilter;
+    const matchesStage   = !abmStageFilter        || a.abmStage === abmStageFilter;
+    const matchesSegment = !segmentFilter         || a.practiceSegment === segmentFilter;
+    const matchesOwner   = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
     return matchesSearch && matchesTier && matchesStage && matchesSegment && matchesOwner;
   });
 
   function clearFilters() {
-    setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilter("");
+    setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilters([]);
+    setActiveViewId(null);
     if (lsKey) { try { localStorage.removeItem(lsKey); } catch {} }
   }
 
@@ -339,9 +418,9 @@ function AccountListView() {
             {user?.name && (
               <button
                 type="button"
-                onClick={() => setOwnerFilter(ownerFilter === user.name ? "" : user.name)}
+                onClick={() => { toggleOwner(user.name); }}
                 className={`flex items-center gap-1.5 h-10 px-3 rounded-md border text-sm font-medium transition-colors ${
-                  ownerFilter === user.name
+                  ownerFilters.includes(user.name)
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border-input bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
                 }`}
@@ -352,7 +431,7 @@ function AccountListView() {
 
             {/* ABM Tier — always visible */}
             <div className="relative">
-              <select value={abmTierFilter} onChange={(e) => setAbmTierFilter(e.target.value)}
+              <select value={abmTierFilter} onChange={(e) => { setAbmTierFilter(e.target.value); setActiveViewId(null); }}
                 className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
                 <option value="">All ABM Tiers</option>
                 {uniqueAbmTiers.map(t => <option key={t} value={t}>{t}</option>)}
@@ -360,14 +439,55 @@ function AccountListView() {
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             </div>
 
-            {/* Owner — always visible */}
-            <div className="relative">
-              <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}
-                className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
-                <option value="">All Owners</option>
-                {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            {/* Multi-owner dropdown — always visible */}
+            <div className="relative" ref={ownerDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowOwnerDropdown(v => !v)}
+                className={`flex items-center gap-2 h-10 pl-3 pr-2 rounded-md border text-sm transition-colors ${
+                  ownerFilters.length > 0
+                    ? "border-primary/50 bg-primary/5 text-foreground"
+                    : "border-input bg-background text-foreground"
+                }`}
+              >
+                <span>
+                  {ownerFilters.length === 0
+                    ? "All Owners"
+                    : ownerFilters.length === 1
+                    ? ownerFilters[0]
+                    : `${ownerFilters.length} Owners`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              {showOwnerDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 w-56 rounded-xl border border-border bg-card shadow-lg py-1 max-h-64 overflow-y-auto">
+                  {uniqueOwners.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">No owners found</p>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setOwnerFilters([]); setActiveViewId(null); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        Clear selection
+                      </button>
+                      <div className="border-t border-border/50 my-1" />
+                      {uniqueOwners.map(owner => (
+                        <label key={owner} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer rounded-sm transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={ownerFilters.includes(owner)}
+                            onChange={() => toggleOwner(owner)}
+                            className="w-3.5 h-3.5 accent-primary"
+                          />
+                          <span className="text-sm text-foreground truncate">{owner}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {uniqueAbmStages.length > 0 && (
@@ -390,11 +510,88 @@ function AccountListView() {
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
             )}
+
+            {/* Save view button */}
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={() => { setSaveViewName(""); setShowSaveDialog(true); }}
+                className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                title="Save this filter as a view"
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Save view</span>
+              </button>
+            )}
+
+            {/* Saved views dropdown */}
+            {savedViews.length > 0 && (
+              <div className="relative" ref={viewsDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowViewsDropdown(v => !v)}
+                  className={`flex items-center gap-1.5 h-10 px-3 rounded-md border text-sm font-medium transition-colors ${
+                    activeViewId
+                      ? "border-primary/50 bg-primary/8 text-primary"
+                      : "border-input bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <BookmarkCheck className="w-3.5 h-3.5" />
+                  <span>{activeViewId ? savedViews.find(v => v.id === activeViewId)?.name ?? "Views" : `Views (${savedViews.length})`}</span>
+                  <ChevronDown className="w-3 h-3 ml-0.5" />
+                </button>
+                {showViewsDropdown && (
+                  <div className="absolute top-full right-0 mt-1 z-50 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
+                    <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Saved Views</p>
+                    {savedViews.map(view => (
+                      <div key={view.id} className="flex items-center gap-1 px-2 py-1 hover:bg-muted/50 rounded-sm group">
+                        <button
+                          type="button"
+                          onClick={() => loadView(view)}
+                          className={`flex-1 text-left text-sm truncate py-0.5 ${activeViewId === view.id ? "text-primary font-medium" : "text-foreground"}`}
+                        >
+                          {view.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteView(view.id)}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-destructive transition-all"
+                          title="Delete view"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          {isFiltered && (
+
+          {/* Save view dialog */}
+          {showSaveDialog && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
+              <Bookmark className="w-3.5 h-3.5 text-primary shrink-0" />
+              <Input
+                value={saveViewName}
+                onChange={(e) => setSaveViewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveView(); if (e.key === "Escape") setShowSaveDialog(false); }}
+                placeholder="View name…"
+                className="h-7 text-sm flex-1"
+                autoFocus
+              />
+              <Button size="sm" className="h-7 px-3 text-xs" onClick={saveView} disabled={!saveViewName.trim()}>Save</Button>
+              <button onClick={() => setShowSaveDialog(false)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          )}
+
+          {isFiltered && !showSaveDialog && (
             <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg text-sm text-muted-foreground">
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 rotate-0 opacity-50" />
-              <span>{filtered.length} account{filtered.length !== 1 ? "s" : ""} match your filters</span>
+              {activeViewId && <BookmarkCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
+              <span>
+                {activeViewId && <span className="font-medium text-foreground mr-1">{savedViews.find(v => v.id === activeViewId)?.name} · </span>}
+                {filtered.length} account{filtered.length !== 1 ? "s" : ""} match your filters
+              </span>
               <button onClick={clearFilters} className="text-xs text-primary hover:underline ml-1">Clear all</button>
             </div>
           )}

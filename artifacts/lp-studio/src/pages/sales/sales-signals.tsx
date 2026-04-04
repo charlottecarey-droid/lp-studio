@@ -8,7 +8,9 @@ import {
   FileText,
   Send,
   Trash2,
+  Filter,
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationBar } from "@/components/ui/pagination-bar";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -27,6 +30,13 @@ interface Signal {
   contactName?: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+}
+
+interface AccountForFilter {
+  id: number;
+  name: string;
+  owner: string | null;
+  abmTier: string | null;
 }
 
 function getSignalIcon(type: string) {
@@ -54,13 +64,58 @@ function getSignalLabel(type: string) {
 }
 
 export default function SalesSignals() {
+  const [, navigate] = useLocation();
+  const { user } = useAuth();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const pag = usePagination(signals, 25);
+  // Account-level filters inherited from saved view / Accounts page
+  const [acctFilterOwners, setAcctFilterOwners] = useState<string[]>([]);
+  const [acctFilterTier, setAcctFilterTier] = useState("");
+  const [acctFilterViewName, setAcctFilterViewName] = useState<string | null>(null);
+  const [acctAccountNames, setAcctAccountNames] = useState<Set<string> | null>(null);
+  const [acctBannerDismissed, setAcctBannerDismissed] = useState(false);
+
+  // Read active filters from localStorage (set by accounts page)
+  useEffect(() => {
+    if (!user?.userId) return;
+    const lsKey = `sc_acct_filters_${user.userId}`;
+    const viewsKey = `sc_acct_views_${user.userId}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      let owners: string[] = [];
+      if (Array.isArray(stored.ownerFilters)) owners = stored.ownerFilters as string[];
+      else if (typeof stored.ownerFilter === "string" && stored.ownerFilter) owners = [stored.ownerFilter];
+      const tierF = typeof stored.abmTierFilter === "string" ? stored.abmTierFilter : "";
+      setAcctFilterOwners(owners);
+      setAcctFilterTier(tierF);
+      // Try to find the active saved view name
+      try {
+        const views = JSON.parse(localStorage.getItem(viewsKey) ?? "[]") as Array<{ id: string; name: string; filters: { ownerFilters: string[]; abmTierFilter: string } }>;
+        const match = views.find(v =>
+          JSON.stringify(v.filters.ownerFilters.slice().sort()) === JSON.stringify(owners.slice().sort()) &&
+          v.filters.abmTierFilter === tierF
+        );
+        setAcctFilterViewName(match?.name ?? null);
+      } catch { setAcctFilterViewName(null); }
+      if (owners.length > 0 || tierF) {
+        fetch(`${API_BASE}/sales/accounts`)
+          .then(r => r.ok ? r.json() : [])
+          .then((accounts: AccountForFilter[]) => {
+            const matching = accounts.filter(a => {
+              const matchesOwner = owners.length === 0 || owners.includes(a.owner ?? "");
+              const matchesTier = !tierF || a.abmTier === tierF;
+              return matchesOwner && matchesTier;
+            });
+            setAcctAccountNames(new Set(matching.map(a => a.name)));
+          })
+          .catch(() => {});
+      }
+    } catch {}
+  }, [user?.userId]);
 
   function fetchSignals() {
     setLoading(true);
@@ -104,6 +159,15 @@ export default function SalesSignals() {
     }
   }
 
+  const acctFilterActive = acctAccountNames !== null && !acctBannerDismissed;
+
+  // Apply account filter to signals
+  const filteredSignals = acctFilterActive
+    ? signals.filter(s => !s.accountName || acctAccountNames!.has(s.accountName))
+    : signals;
+
+  const pag = usePagination(filteredSignals, 25);
+
   const types = ["page_view", "email_open", "email_click", "form_submit"];
 
   return (
@@ -113,7 +177,7 @@ export default function SalesSignals() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Signals</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Real-time engagement feed across all accounts
+              Real-time engagement feed{acctFilterActive ? " — filtered to your active view" : " across all accounts"}
             </p>
           </div>
           {signals.length > 0 && (
@@ -148,7 +212,39 @@ export default function SalesSignals() {
           )}
         </div>
 
-        {/* Filter bar */}
+        {/* Account filter banner */}
+        {acctFilterActive && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-primary/8 border border-primary/20 rounded-xl text-sm">
+            <div className="flex items-center gap-2 text-foreground">
+              <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>
+                {acctFilterViewName
+                  ? <><strong>{acctFilterViewName}</strong> — showing signals from filtered accounts</>
+                  : <>Showing signals from filtered accounts</>}
+                {acctFilterOwners.length === 1 && <strong className="ml-1">{acctFilterOwners[0]}</strong>}
+                {acctFilterOwners.length > 1 && <strong className="ml-1">{acctFilterOwners.length} owners</strong>}
+                {acctFilterTier && <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">{acctFilterTier}</span>}
+                <span className="ml-2 text-muted-foreground">({filteredSignals.length} of {signals.length})</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => navigate("/sales/accounts")}
+                className="text-xs text-primary hover:underline font-medium"
+              >
+                Change filters
+              </button>
+              <button
+                onClick={() => { setAcctAccountNames(null); setAcctFilterOwners([]); setAcctFilterTier(""); setAcctFilterViewName(null); setAcctBannerDismissed(true); }}
+                className="text-xs text-muted-foreground hover:text-foreground font-medium"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Signal type filter bar */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant={filter === null ? "default" : "outline"}
@@ -176,15 +272,18 @@ export default function SalesSignals() {
           <div className="flex flex-col gap-3">
             {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-[56px] rounded-xl" />)}
           </div>
-        ) : signals.length === 0 ? (
+        ) : filteredSignals.length === 0 ? (
           <Card className="flex flex-col items-center justify-center py-16 px-8 rounded-2xl border border-dashed border-border text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Activity className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-lg font-display font-bold text-foreground mb-2">No signals yet</h3>
+            <h3 className="text-lg font-display font-bold text-foreground mb-2">
+              {acctFilterActive ? "No signals for this view" : "No signals yet"}
+            </h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              Signals appear when contacts view your pages, open emails, click links, or submit forms.
-              Start by creating a microsite and sending outreach.
+              {acctFilterActive
+                ? "There are no signals from accounts in your active view. Try a different view or clear the filter."
+                : "Signals appear when contacts view your pages, open emails, click links, or submit forms. Start by creating a microsite and sending outreach."}
             </p>
           </Card>
         ) : (
@@ -216,7 +315,7 @@ export default function SalesSignals() {
                 </div>
               ))}
             </div>
-            <PaginationBar {...pag} />
+            <PaginationBar {...pag} onPage={pag.setPage} />
           </>
         )}
       </div>
