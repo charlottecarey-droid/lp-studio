@@ -758,7 +758,7 @@ function ContactListView() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Contacts</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {contacts.length} contact{contacts.length !== 1 ? "s" : ""} across your accounts
+              Browse all contacts across your target accounts. {contacts.length} contact{contacts.length !== 1 ? "s" : ""} found.
             </p>
           </div>
           <div className="flex items-center gap-2">

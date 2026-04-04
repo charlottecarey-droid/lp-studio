@@ -1243,7 +1243,7 @@ export default function BuilderEditor() {
             <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">Generate hotlinks and send personalized outreach for this microsite.</p>
           </div>
           <a
-            href="/sales/outreach"
+            href="/sales/draft-email"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shrink-0"
           >
             <Mail className="w-3.5 h-3.5" />

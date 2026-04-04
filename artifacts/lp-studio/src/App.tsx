@@ -89,6 +89,7 @@ const SalesAccounts = lazy(() => import("@/pages/sales/sales-accounts"));
 const SalesContacts = lazy(() => import("@/pages/sales/sales-contacts"));
 const SalesPages = lazy(() => import("@/pages/sales/sales-pages"));
 const SalesOutreach = lazy(() => import("@/pages/sales/sales-outreach"));
+const SalesDraftEmail = lazy(() => import("@/pages/sales/sales-draft-email"));
 const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
@@ -160,7 +161,11 @@ function AppRouter() {
         <Route path="/custom-blocks" component={CustomBlocksPage} />
 
         {/* Sales Console Routes */}
-        <Route path="/sales">{() => <Redirect to="/sales/accounts" />}</Route>
+        <Route path="/sales" component={SalesDashboard} />
+        <Route path="/sales/draft-email" component={SalesDraftEmail} />
+        <Route path="/sales/draft-email/:contactId" component={SalesDraftEmail} />
+        <Route path="/sales/campaigns" component={SalesOutreach} />
+        <Route path="/sales/microsites" component={SalesPages} />
         <Route path="/sales/accounts/:id" component={SalesAccounts} />
         <Route path="/sales/accounts" component={SalesAccounts} />
         <Route path="/sales/contacts/:id" component={SalesContacts} />

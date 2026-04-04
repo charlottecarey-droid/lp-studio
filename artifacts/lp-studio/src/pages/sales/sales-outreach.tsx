@@ -1457,13 +1457,13 @@ type OuterMode = "single" | "campaigns";
 export default function SalesOutreach() {
   const [outerMode, setOuterMode] = useState<OuterMode>(() => {
     const param = new URLSearchParams(window.location.search).get("tab");
-    return param === "campaigns" ? "campaigns" : "single";
+    return param === "quick" ? "campaigns" : "single";
   });
-  const [activeTab, setActiveTab] = useState<TabId>("send");
+  const [activeTab, setActiveTab] = useState<TabId>("campaigns");
 
   function switchMode(mode: OuterMode) {
     setOuterMode(mode);
-    const url = mode === "campaigns" ? "/sales/outreach?tab=campaigns" : "/sales/outreach";
+    const url = mode === "campaigns" ? "/sales/campaigns?tab=quick" : "/sales/campaigns";
     window.history.replaceState(null, "", url);
   }
 
@@ -1472,11 +1472,11 @@ export default function SalesOutreach() {
       <div className="flex flex-col gap-6 pb-12">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Outreach</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Campaigns</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {outerMode === "single"
-                ? "Send personalized emails and manage templates"
-                : "Send one page to all accounts with company names auto-filled in every version"}
+                ? "Build audiences, compose templated emails, and track campaign performance."
+                : "Send one page to all accounts with company names auto-filled in every version."}
             </p>
           </div>
 
@@ -1491,7 +1491,7 @@ export default function SalesOutreach() {
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
-              Single Email
+              Email Campaigns
             </button>
             <button
               onClick={() => switchMode("campaigns")}
@@ -1509,9 +1509,9 @@ export default function SalesOutreach() {
 
         {outerMode === "single" && (
           <>
-            {/* Sub-tabs */}
+            {/* Sub-tabs — campaigns-focused (single send moved to /sales/draft-email) */}
             <div className="flex items-center gap-1 border-b border-border">
-              {TABS.map(tab => (
+              {TABS.filter(tab => tab.id !== "send").map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -1527,7 +1527,6 @@ export default function SalesOutreach() {
               ))}
             </div>
 
-            {activeTab === "send" && <SingleSendTab />}
             {activeTab === "campaigns" && <CampaignsTab />}
             {activeTab === "sent" && <SentTab />}
             {activeTab === "templates" && <TemplatesTab />}

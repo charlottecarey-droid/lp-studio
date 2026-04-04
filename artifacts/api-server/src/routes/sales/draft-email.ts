@@ -528,7 +528,7 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-5",
           temperature: 0.85,
           messages: [
             { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
@@ -536,18 +536,53 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
           ],
         }),
       },
-      30000
+      45000
     );
 
+    let raw = "";
     if (!response.ok) {
-      const err = await response.text();
-      console.error("AI error:", err);
-      res.status(500).json({ error: "AI request failed" });
-      return;
+      // Fallback to Gemini if OpenAI fails
+      const geminiBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+      const geminiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      if (geminiBase && geminiKey) {
+        console.warn("OpenAI failed, falling back to Gemini for draft email");
+        const geminiRes = await fetchWithTimeout(
+          `${geminiBase}/chat/completions`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${geminiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gemini-2.5-flash",
+              temperature: 0.85,
+              messages: [
+                { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
+                { role: "user", content: prompt },
+              ],
+            }),
+          },
+          30000
+        );
+        if (!geminiRes.ok) {
+          const err = await geminiRes.text();
+          console.error("Gemini fallback also failed:", err);
+          res.status(500).json({ error: "AI request failed" });
+          return;
+        }
+        const geminiData = await geminiRes.json() as { choices?: Array<{ message?: { content?: string } }> };
+        raw = geminiData.choices?.[0]?.message?.content ?? "";
+      } else {
+        const err = await response.text();
+        console.error("AI error:", err);
+        res.status(500).json({ error: "AI request failed" });
+        return;
+      }
+    } else {
+      const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      raw = data.choices?.[0]?.message?.content ?? "";
     }
-
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = data.choices?.[0]?.message?.content ?? "";
 
     const subjectMatch = raw.match(/^Subject:\s*(.+)/m);
     const subject = subjectMatch?.[1]?.trim() ?? "";

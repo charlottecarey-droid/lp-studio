@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Building2,
@@ -10,19 +11,11 @@ import {
   Shield,
   LogOut,
   ChevronDown,
+  Menu,
+  X,
+  Settings,
+  Home,
 } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,7 +28,7 @@ import { ModeToggle } from "@/components/layout/mode-toggle";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
 
-function UserFooter() {
+function UserAvatarDropdown() {
   const { user, logout } = useAuth();
   if (!user) return null;
 
@@ -44,216 +37,238 @@ function UserFooter() {
     : user.email[0].toUpperCase();
 
   return (
-    <div className="mt-auto border-t border-border/40 p-3">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors text-left group">
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0" />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                {initials}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-foreground truncate">{user.name || user.email}</div>
-              <div className="text-[10px] text-muted-foreground truncate">{user.role}</div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="h-7 w-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+              {initials}
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="top" className="w-52">
-          <div className="px-2 py-1.5">
-            <div className="text-xs font-medium">{user.name}</div>
-            <div className="text-[11px] text-muted-foreground truncate">{user.email}</div>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="gap-2 text-destructive focus:text-destructive"
-            onClick={async () => {
-              await logout();
-              window.location.reload();
-            }}
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          )}
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <div className="px-2 py-1.5">
+          <div className="text-xs font-medium">{user.name}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{user.email}</div>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="gap-2 text-destructive focus:text-destructive"
+          onClick={async () => {
+            await logout();
+            window.location.reload();
+          }}
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-export function SalesSidebar() {
-  const [location] = useLocation();
+function SettingsDropdown() {
   const { hasPerm, user } = useAuth();
+  const [location] = useLocation();
+
+  const isActive = (path: string) => location === path;
 
   return (
-    <Sidebar className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
-      <SidebarContent>
-        <div className="px-6 pt-7 pb-5 flex flex-col items-center gap-2.5">
-          <img src={dandyLogo} alt="Dandy" className="h-7 w-auto sidebar-logo" />
-          <div className="flex items-center gap-1.5">
-            <div className="h-px w-5 bg-gradient-to-r from-transparent to-[#C7E738]/60 rounded-full" />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+          <Settings className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <Link href="/sales/sfdc">
+          <DropdownMenuItem className={`gap-2 cursor-pointer ${isActive("/sales/sfdc") ? "bg-accent" : ""}`}>
+            <Cloud className="w-4 h-4" />
+            <span>Salesforce</span>
+          </DropdownMenuItem>
+        </Link>
+        {hasPerm("brand") && (
+          <Link href="/brand">
+            <DropdownMenuItem className={`gap-2 cursor-pointer ${isActive("/brand") ? "bg-accent" : ""}`}>
+              <Paintbrush className="w-4 h-4" />
+              <span>Brand Settings</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {(hasPerm("team") || user?.isAdmin) && (
+          <Link href="/settings/team">
+            <DropdownMenuItem className={`gap-2 cursor-pointer ${isActive("/settings/team") ? "bg-accent" : ""}`}>
+              <Users className="w-4 h-4" />
+              <span>Team</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {(hasPerm("roles") || user?.isAdmin) && (
+          <Link href="/settings/roles">
+            <DropdownMenuItem className={`gap-2 cursor-pointer ${isActive("/settings/roles") ? "bg-accent" : ""}`}>
+              <Shield className="w-4 h-4" />
+              <span>Roles</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  permission?: string;
+  matchFn?: (location: string) => boolean;
+}
+
+export function SalesTopNav() {
+  const [location] = useLocation();
+  const { hasPerm } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems: NavItem[] = [
+    {
+      label: "Home",
+      href: "/sales",
+      icon: <Home className="w-4 h-4" />,
+      matchFn: (loc) => loc === "/sales",
+    },
+    {
+      label: "Accounts",
+      href: "/sales/accounts",
+      icon: <Building2 className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/accounts" || loc.startsWith("/sales/accounts/"),
+    },
+    {
+      label: "Draft Email",
+      href: "/sales/draft-email",
+      icon: <Mail className="w-4 h-4" />,
+      permission: "sales_outreach",
+      matchFn: (loc) => loc === "/sales/draft-email" || loc.startsWith("/sales/draft-email"),
+    },
+    {
+      label: "Campaigns",
+      href: "/sales/campaigns",
+      icon: <PlusCircle className="w-4 h-4" />,
+      permission: "sales_campaigns",
+      matchFn: (loc) => loc === "/sales/campaigns" || loc.startsWith("/sales/campaigns"),
+    },
+    {
+      label: "Activity",
+      href: "/sales/signals",
+      icon: <Activity className="w-4 h-4" />,
+      permission: "sales_signals",
+      matchFn: (loc) => loc === "/sales/signals",
+    },
+    {
+      label: "Contacts",
+      href: "/sales/contacts",
+      icon: <Users className="w-4 h-4" />,
+      permission: "sales_contacts",
+      matchFn: (loc) => loc === "/sales/contacts" || loc.startsWith("/sales/contacts/"),
+    },
+  ];
+
+  const visibleNavItems = navItems.filter((item) => !item.permission || hasPerm(item.permission));
+
+  const isActive = (item: NavItem) => item.matchFn ? item.matchFn(location) : location === item.href;
+
+  return (
+    <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-[#1B4332] shadow-sm">
+      <div className="px-4 md:px-6 py-0 h-16 flex items-center justify-between">
+        {/* Left: Logo and Title */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto" />
+          <div className="hidden md:flex items-center gap-1.5">
+            <div className="h-px w-4 bg-gradient-to-r from-transparent to-[#C7E738]/60 rounded-full" />
             <span className="text-[13px] font-bold tracking-[0.18em] uppercase bg-gradient-to-r from-[#C7E738] via-[#e2f87c] to-[#C7E738] bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(199,231,56,0.35)]">
               Sales Console
             </span>
-            <div className="h-px w-5 bg-gradient-to-l from-transparent to-[#C7E738]/60 rounded-full" />
+            <div className="h-px w-4 bg-gradient-to-l from-transparent to-[#C7E738]/60 rounded-full" />
           </div>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="px-4 pb-4">
-          <ModeToggle />
-        </div>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Sales
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {hasPerm("sales_accounts") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      location === "/sales/accounts" || location.startsWith("/sales/accounts/")
-                    }
-                  >
-                    <Link href="/sales/accounts" className="font-medium">
-                      <Building2 className="w-4 h-4" />
-                      <span>Accounts</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {hasPerm("sales_contacts") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales/contacts" || location.startsWith("/sales/contacts/")}>
-                    <Link href="/sales/contacts" className="font-medium">
-                      <Users className="w-4 h-4" />
-                      <span>Contacts</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {hasPerm("sales_outreach") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      location === "/sales/outreach" || location.startsWith("/sales/outreach")
-                    }
-                  >
-                    <Link href="/sales/outreach" className="font-medium">
-                      <Mail className="w-4 h-4" />
-                      <span>Outreach</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {hasPerm("sales_signals") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales/signals"}>
-                    <Link href="/sales/signals" className="font-medium">
-                      <Activity className="w-4 h-4" />
-                      <span>Activity</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Settings
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/sales/sfdc"}>
-                  <Link href="/sales/sfdc" className="font-medium">
-                    <Cloud className="w-4 h-4" />
-                    <span>Salesforce</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {hasPerm("brand") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/brand"}>
-                    <Link href="/brand" className="font-medium">
-                      <Paintbrush className="w-4 h-4" />
-                      <span>Brand Settings</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {(hasPerm("team") || user?.isAdmin) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/settings/team"}>
-                    <Link href="/settings/team" className="font-medium">
-                      <Users className="w-4 h-4" />
-                      <span>Team</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {(hasPerm("roles") || user?.isAdmin) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/settings/roles"}>
-                    <Link href="/settings/roles" className="font-medium">
-                      <Shield className="w-4 h-4" />
-                      <span>Roles</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {hasPerm("sales_accounts") && (
-          <div className="px-4 pb-4">
-            <Link href="/sales/accounts">
-              <Button
-                className="w-full justify-start gap-2 shadow-sm hover:shadow-md transition-all duration-300 group"
-                variant="default"
+        {/* Center: Nav Links (hidden on mobile) */}
+        <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+          {visibleNavItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <button
+                className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors whitespace-nowrap text-sm font-medium ${
+                  isActive(item)
+                    ? "bg-[#C7E738]/20 text-[#C7E738] border border-[#C7E738]/50"
+                    : "text-white/70 hover:text-white/90"
+                }`}
               >
-                <PlusCircle className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-                New Account
-              </Button>
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
             </Link>
-          </div>
-        )}
+          ))}
+        </div>
 
-        <UserFooter />
-      </SidebarContent>
-    </Sidebar>
+        {/* Right: Settings, Mode Toggle, User Avatar, Mobile Menu */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <SettingsDropdown />
+          <div className="hidden md:block">
+            <ModeToggle />
+          </div>
+          <UserAvatarDropdown />
+
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden flex items-center justify-center p-2 rounded-lg hover:bg-muted/50 transition-colors text-white/70 hover:text-white/90"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-border/40 bg-[#1B4332]/95 backdrop-blur-sm px-4 py-4 space-y-2">
+          {visibleNavItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                  isActive(item)
+                    ? "bg-[#C7E738]/20 text-[#C7E738] border border-[#C7E738]/50"
+                    : "text-white/70 hover:text-white/90 hover:bg-white/5"
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            </Link>
+          ))}
+          <div className="pt-2 border-t border-border/40">
+            <div className="flex justify-center py-2">
+              <ModeToggle />
+            </div>
+          </div>
+        </div>
+      )}
+    </nav>
   );
 }
 
 export function SalesLayout({ children }: { children: React.ReactNode }) {
-  const style = {
-    "--sidebar-width": "18rem",
-    "--sidebar-width-icon": "4rem",
-  } as React.CSSProperties;
-
   return (
-    <SidebarProvider style={style}>
-      <div className="flex min-h-screen w-full bg-background/50 selection:bg-primary/20">
-        <SalesSidebar />
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="h-16 flex items-center justify-between px-6 border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
-            <SidebarTrigger className="hover:bg-muted/50 transition-colors rounded-lg p-2" />
-          </header>
-          <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10">
-            <div className="max-w-6xl mx-auto w-full">{children}</div>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <div className="min-h-screen w-full bg-background/50 selection:bg-primary/20 flex flex-col">
+      <SalesTopNav />
+      <main className="flex-1 overflow-auto p-6 md:p-8 lg:p-10">
+        <div className="max-w-6xl mx-auto w-full">{children}</div>
+      </main>
+    </div>
   );
 }
