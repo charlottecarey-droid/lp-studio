@@ -499,7 +499,7 @@ Hi ${firstName || "[First Name]"},
 
 [1-sentence hook — research-based if recent and specific, otherwise a pain point tailored to their role]
 
-[1-sentence Dandy proof point with a real number or quote, matched to their persona]
+[1-sentence Dandy proof point — pick ONE single stat or customer result matched to their persona. Never combine multiple stats.]
 
 [1-sentence soft CTA]
 
@@ -507,6 +507,7 @@ Best,
 
 === EMAIL RULES ===
 - 3 sentences max in the body. One sentence per line. Blank line between each.
+- ONE proof point per email. Pick the single most relevant stat or customer result for this persona. Never stack multiple numbers or stats — it reads like a data dump, not a human email.
 - Sound like a real person, not a sales rep
 - RECENCY RULE: Only use something as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — ignore it completely and lead with a pain point instead.
 - Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
