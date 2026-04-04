@@ -3,6 +3,7 @@ import { eq, desc, gte, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable } from "@workspace/db";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import {
   sendEmailNotification,
   deliverWebhook,
@@ -14,6 +15,15 @@ import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./int
 import { sfdcService } from "../../lib/sfdc-service";
 
 const router = Router();
+
+// Rate limit form submissions: 10 per IP per minute to deter spam bots.
+const leadSubmitLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many form submissions. Please try again in a minute." },
+});
 
 const SubmitLeadBody = z.object({
   pageId: z.number().int().positive(),
@@ -28,7 +38,7 @@ function getClientIp(req: Request): string {
   return req.socket?.remoteAddress ?? req.ip ?? "";
 }
 
-router.post("/lp/leads", async (req, res): Promise<void> => {
+router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   const parsed = SubmitLeadBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

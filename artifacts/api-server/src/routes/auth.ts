@@ -2,8 +2,18 @@ import { Router } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
+
+// Rate limit OAuth initiation: 20 per IP per minute.
+const oauthInitLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Please try again in a minute." },
+});
 
 export const SESSION_COOKIE = "lp_sid";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,7 +64,7 @@ function getOAuthClient(redirectUri?: string): OAuth2Client | null {
 }
 
 // GET /api/auth/google — initiates Google OAuth flow
-router.get("/auth/google", (req, res): void => {
+router.get("/auth/google", oauthInitLimiter, (req, res): void => {
   // Determine the host the request came from (custom domain or dev domain)
   const originHost =
     (req.headers["x-forwarded-host"] as string)?.split(",")[0].trim() ||

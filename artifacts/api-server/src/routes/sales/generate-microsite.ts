@@ -3,8 +3,18 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsTable } from "@workspace/db";
 import OpenAI from "openai";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
+
+// Rate limit AI microsite generation: 5 per IP per minute (expensive operation).
+const micrositeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many generation requests. Please wait before generating another microsite." },
+});
 
 export type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
 
@@ -576,7 +586,7 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
 /**
  * POST /sales/accounts/:accountId/generate-microsite
  */
-router.post("/accounts/:accountId/generate-microsite", async (req, res): Promise<void> => {
+router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (req, res): Promise<void> => {
   const accountId = Number(req.params.accountId);
   const { prompt: userPrompt, audience, templateId } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number };
 
