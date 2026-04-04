@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
-import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft } from "lucide-react";
+import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, X, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,8 @@ export default function SalesDraftEmail() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(urlContactId ? null : null);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(urlContactId ?? null);
   const [searchContact, setSearchContact] = useState("");
+  const [contactsOpen, setContactsOpen] = useState(false);
+  const contactBoxRef = useRef<HTMLDivElement>(null);
 
   // Email generation state
   const [generating, setGenerating] = useState(false);
@@ -145,6 +147,17 @@ export default function SalesDraftEmail() {
     );
     setContacts(filtered);
   }, [searchContact, allContacts]);
+
+  // Close contact dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (contactBoxRef.current && !contactBoxRef.current.contains(e.target as Node)) {
+        setContactsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Generate email when contact is selected
   useEffect(() => {
@@ -391,30 +404,93 @@ export default function SalesDraftEmail() {
                 <label className="text-sm font-semibold text-foreground">
                   Step 2: Select Contact
                 </label>
-                <Input
-                  placeholder="Search by name, email, or title..."
-                  value={searchContact}
-                  onChange={(e) => setSearchContact(e.target.value)}
-                  className="w-full"
-                  disabled={contactsLoading}
-                />
-                <Select value={selectedContactId?.toString() ?? ""} onValueChange={(val) => setSelectedContactId(parseInt(val, 10))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a contact..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id.toString()}>
-                        <div className="flex flex-col">
-                          <span>{contact.firstName} {contact.lastName}</span>
-                          {contact.title && <span className="text-xs text-muted-foreground">{contact.title}</span>}
-                          {contact.email && <span className="text-xs text-muted-foreground">{contact.email}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {contactsLoading && <p className="text-xs text-muted-foreground">Loading contacts...</p>}
+
+                {selectedContact ? (
+                  /* Selected contact pill */
+                  <div className="flex items-center gap-3 px-3 py-3 rounded-lg border border-border bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground leading-tight">
+                        {selectedContact.firstName} {selectedContact.lastName}
+                      </p>
+                      {selectedContact.title && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{selectedContact.title}</p>
+                      )}
+                      {selectedContact.email && (
+                        <p className="text-xs text-muted-foreground truncate">{selectedContact.email}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedContactId(null);
+                        setSearchContact("");
+                        setContactsOpen(true);
+                      }}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      title="Change contact"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  /* Combobox search */
+                  <div ref={contactBoxRef} className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Search by name, email, or title..."
+                        value={searchContact}
+                        onChange={(e) => {
+                          setSearchContact(e.target.value);
+                          setContactsOpen(true);
+                        }}
+                        onFocus={() => setContactsOpen(true)}
+                        className="w-full pl-9"
+                        disabled={contactsLoading}
+                        autoComplete="off"
+                      />
+                      {contactsLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                      )}
+                    </div>
+
+                    {/* Floating results */}
+                    {contactsOpen && !contactsLoading && contacts.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                        {contacts.map((contact, i) => (
+                          <button
+                            key={contact.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSelectedContactId(contact.id);
+                              setContactsOpen(false);
+                              setSearchContact("");
+                            }}
+                            className={[
+                              "w-full text-left px-3 py-2.5 hover:bg-muted/70 transition-colors",
+                              i > 0 ? "border-t border-border/50" : "",
+                            ].join(" ")}
+                          >
+                            <p className="text-sm font-medium text-foreground leading-tight">
+                              {contact.firstName} {contact.lastName}
+                            </p>
+                            {contact.title && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{contact.title}</p>
+                            )}
+                            {contact.email && (
+                              <p className="text-xs text-muted-foreground">{contact.email}</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {contactsOpen && !contactsLoading && contacts.length === 0 && searchContact && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg px-3 py-3">
+                        <p className="text-sm text-muted-foreground">No contacts found for "{searchContact}"</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
