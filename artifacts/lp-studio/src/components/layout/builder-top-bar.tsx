@@ -1,8 +1,8 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { Link } from "wouter";
 import {
-  ArrowLeft, Save, Globe, Copy, Monitor, Smartphone, CheckCircle, FlaskConical,
-  MessageSquare, Share2,
+  ArrowLeft, Save, Globe, Monitor, Smartphone, CheckCircle, FlaskConical,
+  MessageSquare, Share2, Eye, ExternalLink, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +19,13 @@ interface BuilderTopBarProps {
   saveSuccess: boolean;
   commentMode: boolean;
   viewers: PresenceViewer[];
+  /** Live public URL (e.g. partners.meetdandy.com/slug or /lp/slug) */
+  liveUrl: string;
+  /** In-app preview URL — the page viewer, visible even for drafts */
+  previewUrl: string;
   onTitleChange: (title: string) => void;
   onTitleBlur: () => void;
   onSetMobile: (mobile: boolean) => void;
-  onCopyLink: () => void;
   onSave: () => void;
   onOpenAbTest: () => void;
   onPublish: () => void;
@@ -39,16 +42,28 @@ export function BuilderTopBar({
   saveSuccess,
   commentMode,
   viewers,
+  liveUrl,
+  previewUrl,
   onTitleChange,
   onTitleBlur,
   onSetMobile,
-  onCopyLink,
   onSave,
   onOpenAbTest,
   onPublish,
   onToggleCommentMode,
   onShareForReview,
 }: BuilderTopBarProps) {
+  const [copied, setCopied] = useState(false);
+
+  function handleViewLive(e: React.MouseEvent) {
+    // Copy URL to clipboard when clicking "View" on published pages
+    navigator.clipboard.writeText(liveUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+    // The anchor tag handles the navigation
+  }
+
   return (
     <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
       <Link href="/pages">
@@ -119,10 +134,29 @@ export function BuilderTopBar({
         <span className="hidden sm:inline">Share</span>
       </Button>
 
-      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onCopyLink}>
-        <Copy className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Copy Link</span>
-      </Button>
+      {/* Preview / View button — adapts based on publish status */}
+      {status === "published" ? (
+        <a href={liveUrl} target="_blank" rel="noopener noreferrer" onClick={handleViewLive}>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 text-xs transition-colors",
+              copied && "border-green-500 text-green-600",
+            )}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <ExternalLink className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{copied ? "Copied!" : "View"}</span>
+          </Button>
+        </a>
+      ) : (
+        <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Preview</span>
+          </Button>
+        </a>
+      )}
 
       <Button
         variant="outline"

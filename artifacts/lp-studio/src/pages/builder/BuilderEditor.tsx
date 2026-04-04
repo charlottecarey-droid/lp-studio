@@ -1111,11 +1111,6 @@ export default function BuilderEditor() {
     }
   };
 
-  const copyPreviewLink = () => {
-    const url = getLpPageUrl(slug, micrositeDomain);
-    navigator.clipboard.writeText(url);
-  };
-
   const captureOgScreenshot = async () => {
     const el = canvasRef.current;
     if (!el) return;
@@ -1224,7 +1219,8 @@ export default function BuilderEditor() {
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         onSetMobile={setIsMobile}
-        onCopyLink={copyPreviewLink}
+        liveUrl={getLpPageUrl(slug, micrositeDomain)}
+        previewUrl={`/lp/${slug}`}
         onSave={handleSave}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onPublish={handlePublish}
