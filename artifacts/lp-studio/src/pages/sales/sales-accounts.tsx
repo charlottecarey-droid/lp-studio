@@ -600,11 +600,11 @@ function AccountListView() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => deleteView(view.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-destructive transition-all"
+                          onClick={(e) => { e.stopPropagation(); deleteView(view.id); }}
+                          className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all shrink-0"
                           title="Delete view"
                         >
-                          <X className="w-3 h-3" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
