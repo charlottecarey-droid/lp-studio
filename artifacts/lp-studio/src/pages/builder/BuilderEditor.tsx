@@ -747,6 +747,11 @@ export default function BuilderEditor() {
       fetch(`${API_BASE}/lp/custom-blocks`).then(r => r.json() as Promise<CustomBlock[]>).catch(() => []),
     ])
       .then(([p, b, defaults, customs]) => {
+        if (!p || !b) {
+          setError("Failed to load page or brand configuration");
+          setIsLoading(false);
+          return;
+        }
         setTitle(p.title);
         setSlug(p.slug);
         setStatus(p.status === "published" ? "published" : "draft");
@@ -765,6 +770,7 @@ export default function BuilderEditor() {
         setIsLoading(false);
       })
       .catch(err => {
+        console.error("Builder load error:", err);
         setError(err instanceof Error ? err.message : "Failed to load page");
         setIsLoading(false);
       });

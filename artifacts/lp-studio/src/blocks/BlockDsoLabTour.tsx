@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: DsoLabTourBlockProps;
@@ -46,7 +47,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
 
   const handleCtaClick = () => {
     if (onCtaClick) { onCtaClick(); return; }
-    if (ctaUrl && ctaUrl !== "#") window.open(ctaUrl, "_blank");
+    if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl, "_blank");
   };
 
   const eyebrowColor = dark ? AW : P;

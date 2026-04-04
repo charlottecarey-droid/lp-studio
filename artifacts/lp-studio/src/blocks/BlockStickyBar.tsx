@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: StickyBarBlockProps;
@@ -60,7 +61,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
             if (isChiliPiper) {
               setCpOpen(true);
             } else if (p.ctaUrl) {
-              window.open(p.ctaUrl, "_blank", "noopener,noreferrer");
+              safeNavigate(p.ctaUrl, "_blank");
             }
           }}
           className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-transform hover:scale-105 active:scale-95"

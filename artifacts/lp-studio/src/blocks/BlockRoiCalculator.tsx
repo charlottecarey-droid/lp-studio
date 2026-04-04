@@ -5,6 +5,7 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: RoiCalculatorBlockProps;
@@ -378,7 +379,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
               <button
                 type="button"
                 onClick={onCtaClick ? onCtaClick : () => {
-                  if (ctaUrl && ctaUrl !== "#") window.location.href = ctaUrl;
+                  if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl);
                 }}
                 className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest transition-all hover:brightness-105 active:scale-[0.98]"
                 style={{ backgroundColor: accentColor, color: "#003A30" }}

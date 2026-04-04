@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const lpPagesTable = pgTable("lp_pages", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().default(1),
+  tenantId: integer("tenant_id").notNull(),
   title: text("title").notNull(),
   slug: text("slug").notNull().unique(),
   blocks: jsonb("blocks").notNull().default([]),

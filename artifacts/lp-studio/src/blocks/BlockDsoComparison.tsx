@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: DsoComparisonBlockProps;
@@ -57,7 +58,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
 
   const handleCta = () => {
     if (onCtaClick) { onCtaClick(); return; }
-    if (ctaUrl && ctaUrl !== "#") window.open(ctaUrl, "_blank");
+    if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl, "_blank");
   };
 
   const headlineParts = headline.includes("\n") ? headline.split("\n") : [headline];

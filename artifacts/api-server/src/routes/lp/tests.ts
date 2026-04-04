@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -13,7 +14,7 @@ import {
 const router = Router();
 
 router.get("/lp/tests", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const tests = await db
     .select({
       id: lpTestsTable.id,
@@ -47,7 +48,7 @@ router.get("/lp/tests", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/tests", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const parsed = CreateTestBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -65,7 +66,7 @@ router.post("/lp/tests", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const params = GetTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -123,7 +124,7 @@ router.get("/lp/tests/:testId", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const params = UpdateTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -157,7 +158,7 @@ router.put("/lp/tests/:testId", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/tests/:testId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const params = DeleteTestParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

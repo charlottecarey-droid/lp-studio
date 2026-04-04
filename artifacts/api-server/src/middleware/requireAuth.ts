@@ -46,6 +46,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
+/**
+ * Safely extract tenantId from the authenticated user.
+ * Returns null and sends 403 if no tenant is associated.
+ */
+export function getTenantId(req: Request, res: Response): number | null {
+  const tenantId = req.authUser?.tenantId;
+  if (tenantId == null) {
+    res.status(403).json({ error: "No tenant associated with this account" });
+    return null;
+  }
+  return tenantId;
+}
+
 export function requirePermission(permission: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = req.authUser;

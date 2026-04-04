@@ -209,7 +209,7 @@ function sanitizeField(field: string, value: unknown): { valid: boolean; sanitiz
       const filtered = value
         .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string" && ((v as Record<string, unknown>).name as string).trim().length > 0)
         .map((v) => ({
-          id: `seg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          id: `seg-${Date.now()}-${require("crypto").randomBytes(4).toString("hex")}`,
           name: (v.name as string).trim(),
           description: typeof v.description === "string" ? v.description.trim() : "",
           messagingAngle: typeof v.messagingAngle === "string" ? v.messagingAngle.trim() : "",

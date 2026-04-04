@@ -2,13 +2,15 @@ import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
+import { salesContactsTable } from "./salesContacts";
+import { salesHotlinksTable } from "./salesHotlinks";
 
 /**
  * Sales Email Templates — reusable email templates with merge variables.
  */
 export const salesEmailTemplatesTable = pgTable("sales_email_templates", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().default(1),
+  tenantId: integer("tenant_id").notNull(),
   name: text("name").notNull(),
   subject: text("subject").notNull(),
   bodyHtml: text("body_html").notNull(),
@@ -30,7 +32,7 @@ export type SalesEmailTemplate = typeof salesEmailTemplatesTable.$inferSelect;
  */
 export const salesEmailCampaignsTable = pgTable("sales_email_campaigns", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().default(1),
+  tenantId: integer("tenant_id").notNull(),
   name: text("name").notNull(),
   templateId: integer("template_id").notNull().references(() => salesEmailTemplatesTable.id),
   accountId: integer("account_id").references(() => salesAccountsTable.id),
@@ -53,8 +55,8 @@ export type SalesEmailCampaign = typeof salesEmailCampaignsTable.$inferSelect;
 export const salesEmailSendsTable = pgTable("sales_email_sends", {
   id: serial("id").primaryKey(),
   campaignId: integer("campaign_id").references(() => salesEmailCampaignsTable.id, { onDelete: "cascade" }),
-  contactId: integer("contact_id").notNull(),
-  hotlinkId: integer("hotlink_id"),
+  contactId: integer("contact_id").notNull().references(() => salesContactsTable.id, { onDelete: "cascade" }),
+  hotlinkId: integer("hotlink_id").references(() => salesHotlinksTable.id, { onDelete: "set null" }),
   email: text("email").notNull(),
   status: text("status").notNull().default("queued"), // queued | sent | delivered | opened | clicked | bounced | failed
   sentAt: timestamp("sent_at", { withTimezone: true }),

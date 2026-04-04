@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -5,7 +6,7 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 router.get("/lp/brand-presets", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const rows = await db.execute(
       sql`SELECT id, name, config, created_at FROM lp_brand_presets WHERE tenant_id = ${tenantId} ORDER BY created_at DESC`
@@ -17,7 +18,7 @@ router.get("/lp/brand-presets", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/brand-presets", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, config } = req.body as { name: string; config: unknown };
   if (!name || typeof name !== "string" || !name.trim()) {
     res.status(400).json({ error: "name is required" });
@@ -38,7 +39,7 @@ router.post("/lp/brand-presets", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/brand-presets/:id/load", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
@@ -59,7 +60,7 @@ router.post("/lp/brand-presets/:id/load", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/brand-presets/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

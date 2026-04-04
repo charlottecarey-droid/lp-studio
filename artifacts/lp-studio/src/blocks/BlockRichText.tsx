@@ -1,5 +1,6 @@
 import type { RichTextBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface Props {
   props: RichTextBlockProps;
@@ -40,7 +41,7 @@ export function BlockRichText({ props }: Props) {
           "[&_th]:border-0 [&_th]:align-top [&_th]:p-3 [&_th]:w-1/2",
           "[&_colgroup]:hidden",
         ].join(" ")}
-        dangerouslySetInnerHTML={{ __html: props.html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(props.html) }}
       />
     </div>
   );

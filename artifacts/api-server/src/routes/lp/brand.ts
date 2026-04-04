@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -22,7 +23,7 @@ const DEFAULT_CONFIG = {
 };
 
 router.get("/lp/brand", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const rows = await db.select().from(lpBrandSettingsTable)
     .where(eq(lpBrandSettingsTable.tenantId, tenantId))
     .limit(1);
@@ -34,7 +35,7 @@ router.get("/lp/brand", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/brand", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const config = req.body;
   if (!config || typeof config !== "object") {
     res.status(400).json({ error: "Invalid config" });

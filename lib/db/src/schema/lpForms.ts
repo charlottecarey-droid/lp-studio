@@ -2,7 +2,7 @@ import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizz
 
 export const lpFormsTable = pgTable("lp_forms", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().default(1),
+  tenantId: integer("tenant_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
   steps: jsonb("steps").notNull().default([]),

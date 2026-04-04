@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -13,7 +14,7 @@ const router = Router();
 // List all accounts
 router.get("/accounts", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const accounts = await db
       .select()
       .from(salesAccountsTable)
@@ -29,7 +30,7 @@ router.get("/accounts", async (req, res): Promise<void> => {
 // Get single account
 router.get("/accounts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [account] = await db
       .select()
       .from(salesAccountsTable)
@@ -47,7 +48,7 @@ router.get("/accounts/:id", async (req, res): Promise<void> => {
 
 // Create account
 router.post("/accounts", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
@@ -80,7 +81,7 @@ router.post("/accounts", async (req, res): Promise<void> => {
 // Update account
 router.patch("/accounts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
@@ -114,7 +115,7 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
 // Delete account
 router.delete("/accounts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
       .delete(salesAccountsTable)
       .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, Number(req.params.id))))
@@ -133,7 +134,7 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
 // Delete ALL accounts for tenant (cascades to contacts, signals, briefings)
 router.delete("/accounts", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     await db.delete(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
     res.json({ ok: true });
   } catch (err) {
@@ -144,8 +145,8 @@ router.delete("/accounts", async (req, res): Promise<void> => {
 
 // ─── Token generation helper ────────────────────────────────
 function generateToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const { randomBytes } = require("crypto");
+  return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
 async function generateUniqueToken(maxAttempts = 5): Promise<string> {
@@ -163,7 +164,7 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
 // GET /accounts/:id/microsites — list distinct pages for this account
 router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const accountId = Number(req.params.id);
 
     // Verify account belongs to this tenant
@@ -248,7 +249,7 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
   }
 
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const accountId = Number(req.params.id);
 
     // Verify account belongs to this tenant

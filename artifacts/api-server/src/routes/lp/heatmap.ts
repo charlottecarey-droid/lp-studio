@@ -59,11 +59,11 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
 
     const type = (req.query.type as string) || "all";
     const device = (req.query.device as string) || "all";
-    const days = parseInt((req.query.days as string) || "30", 10);
+    const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
 
     const conditions = [
       eq(lpHeatmapEventsTable.pageId, pageId),
-      sql`${lpHeatmapEventsTable.createdAt} > now() - interval '${sql.raw(String(days))} days'`,
+      sql`${lpHeatmapEventsTable.createdAt} > now() - make_interval(days => ${days})`,
     ];
 
     if (type !== "all") {
@@ -84,7 +84,7 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
       .where(and(
         eq(lpHeatmapEventsTable.pageId, pageId),
         eq(lpHeatmapEventsTable.eventType, "click"),
-        sql`${lpHeatmapEventsTable.createdAt} > now() - interval '${sql.raw(String(days))} days'`,
+        sql`${lpHeatmapEventsTable.createdAt} > now() - make_interval(days => ${days})`,
         ...(device !== "all" ? [eq(lpHeatmapEventsTable.device, device)] : []),
       ))
       .groupBy(
@@ -94,22 +94,35 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
 
     // Scroll depth distribution: histogram of max scroll depths per session
     // Must use a subquery — aggregate functions are not allowed inside GROUP BY
-    const deviceClause = device !== "all" ? `AND device = '${device.replace(/'/g, "''")}'` : "";
-    const scrollData: { depthBucket: number; sessions: number }[] = type === "click" ? [] : await db.execute(sql.raw(`
-      SELECT (floor(max_depth / 10) * 10)::int AS "depthBucket", count(*)::int AS sessions
-      FROM (
-        SELECT session_id, max(scroll_depth_pct) AS max_depth
-        FROM lp_heatmap_events
-        WHERE page_id = ${pageId}
-          AND event_type = 'scroll'
-          AND created_at > now() - interval '${days} days'
-          ${deviceClause}
-        GROUP BY session_id
-        HAVING max(scroll_depth_pct) IS NOT NULL
-      ) sub
-      GROUP BY floor(max_depth / 10) * 10
-      ORDER BY 1
-    `)).then(r => r.rows as { depthBucket: number; sessions: number }[]);
+    const scrollQuery = device !== "all"
+      ? sql`
+          SELECT (floor(max_depth / 10) * 10)::int AS "depthBucket", count(*)::int AS sessions
+          FROM (
+            SELECT session_id, max(scroll_depth_pct) AS max_depth
+            FROM lp_heatmap_events
+            WHERE page_id = ${pageId}
+              AND event_type = 'scroll'
+              AND created_at > now() - make_interval(days => ${days})
+              AND device = ${device}
+            GROUP BY session_id
+            HAVING max(scroll_depth_pct) IS NOT NULL
+          ) sub
+          GROUP BY floor(max_depth / 10) * 10
+          ORDER BY 1`
+      : sql`
+          SELECT (floor(max_depth / 10) * 10)::int AS "depthBucket", count(*)::int AS sessions
+          FROM (
+            SELECT session_id, max(scroll_depth_pct) AS max_depth
+            FROM lp_heatmap_events
+            WHERE page_id = ${pageId}
+              AND event_type = 'scroll'
+              AND created_at > now() - make_interval(days => ${days})
+            GROUP BY session_id
+            HAVING max(scroll_depth_pct) IS NOT NULL
+          ) sub
+          GROUP BY floor(max_depth / 10) * 10
+          ORDER BY 1`;
+    const scrollData: { depthBucket: number; sessions: number }[] = type === "click" ? [] : await db.execute(scrollQuery).then(r => r.rows as { depthBucket: number; sessions: number }[]);
 
     // Block-level click breakdown
     const blockClicks = type === "scroll" ? [] : await db
@@ -123,7 +136,7 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
         eq(lpHeatmapEventsTable.pageId, pageId),
         eq(lpHeatmapEventsTable.eventType, "click"),
         sql`${lpHeatmapEventsTable.blockId} is not null`,
-        sql`${lpHeatmapEventsTable.createdAt} > now() - interval '${sql.raw(String(days))} days'`,
+        sql`${lpHeatmapEventsTable.createdAt} > now() - make_interval(days => ${days})`,
         ...(device !== "all" ? [eq(lpHeatmapEventsTable.device, device)] : []),
       ))
       .groupBy(lpHeatmapEventsTable.blockId, lpHeatmapEventsTable.elementTag)
@@ -141,7 +154,7 @@ router.get("/lp/pages/:pageId/heatmap", async (req, res): Promise<void> => {
       .from(lpHeatmapEventsTable)
       .where(and(
         eq(lpHeatmapEventsTable.pageId, pageId),
-        sql`${lpHeatmapEventsTable.createdAt} > now() - interval '${sql.raw(String(days))} days'`,
+        sql`${lpHeatmapEventsTable.createdAt} > now() - make_interval(days => ${days})`,
         ...(device !== "all" ? [eq(lpHeatmapEventsTable.device, device)] : []),
       ));
 

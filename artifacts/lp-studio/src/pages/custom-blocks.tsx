@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -224,7 +225,7 @@ export function CustomBlocksContent() {
                 {block.block_type === "rich-text" ? (
                   <div
                     className="prose prose-xs max-w-none line-clamp-3"
-                    dangerouslySetInnerHTML={{ __html: block.props?.html || "<em>Empty</em>" }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.props?.html || "<em>Empty</em>") }}
                   />
                 ) : (
                   <code className="text-[10px] font-mono text-muted-foreground line-clamp-3 whitespace-pre-wrap break-all">

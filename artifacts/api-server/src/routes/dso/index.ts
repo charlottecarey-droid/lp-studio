@@ -245,7 +245,7 @@ router.post("/db/:table", async (req: Request, res: Response) => {
     return res.status(400).json({ error: `Unknown method: ${method}` });
   } catch (err: any) {
     console.error("DSO DB error:", err);
-    return res.status(500).json({ error: err.message || "Database error" });
+    return res.status(500).json({ error: "Database error" });
   }
 });
 
@@ -265,7 +265,8 @@ router.post("/storage/upload", upload.single("file"), (req: Request, res: Respon
     if (req.file) fs.renameSync(req.file.path, dest);
     res.json({ path: filePath, bucket });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Upload error:", err);
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 
@@ -396,7 +397,8 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
       const email = response.text ?? "Could not generate email.";
       return res.json({ email });
     } catch (err: any) {
-      return res.status(500).json({ error: `AI error: ${err.message}` });
+      console.error("AI generation error:", err);
+      return res.status(500).json({ error: "AI generation failed" });
     }
   }
 
@@ -765,7 +767,7 @@ Based on the research data above, create a detailed, actionable briefing. Return
     return res.json({ success: true, briefing });
   } catch (err: any) {
     console.error("account-briefing error:", err);
-    return res.status(500).json({ success: false, error: err.message || "Unknown error" });
+    return res.status(500).json({ success: false, error: "Briefing generation failed" });
   }
 }
 
@@ -800,7 +802,7 @@ async function handleAccountsList(_req: Request, res: Response, _body: any) {
     `);
     return res.json({ success: true, accounts: result.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }
 
@@ -812,7 +814,7 @@ async function handleDeleteAllContacts(_req: Request, res: Response, _body: any)
     return res.json({ success: true, deleted });
   } catch (err: any) {
     console.error("delete-all-contacts error:", err);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }
 

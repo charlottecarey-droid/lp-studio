@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesContactsTable } from "./salesContacts";
@@ -20,7 +20,7 @@ export const salesInboundEmailsTable = pgTable("sales_inbound_emails", {
   subject: text("subject"),
   bodyText: text("body_text"),
   bodyHtml: text("body_html"),
-  isRead: text("is_read").notNull().default("false"),
+  isRead: boolean("is_read").notNull().default(false),
   metadata: jsonb("metadata").default({}),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
 });

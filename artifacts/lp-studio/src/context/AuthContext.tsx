@@ -24,6 +24,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   domainContext: DomainContext | null;
+  domainContextError: string | null;
   hasPerm: (key: string) => boolean;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [domainContext, setDomainContext] = useState<DomainContext | null>(null);
+  const [domainContextError, setDomainContextError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -55,9 +57,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const host = window.location.hostname;
     const params = new URLSearchParams({ host });
     fetch(`/api/auth/domain-context?${params}`)
-      .then((r) => r.json())
-      .then((data: DomainContext) => setDomainContext(data))
-      .catch(() => setDomainContext({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null }));
+      .then((r) => {
+        if (!r.ok) {
+          setDomainContextError("Failed to load domain context");
+          return null;
+        }
+        return r.json() as Promise<DomainContext>;
+      })
+      .then((data: DomainContext | null) => {
+        if (data) {
+          setDomainContext(data);
+          setDomainContextError(null);
+        }
+      })
+      .catch((err) => {
+        setDomainContextError(err instanceof Error ? err.message : "Failed to load domain context");
+        setDomainContext(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -90,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : null;
 
   return (
-    <AuthContext.Provider value={{ user, loading, domainContext: effectiveDomainContext, hasPerm, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, domainContext: effectiveDomainContext, domainContextError, hasPerm, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

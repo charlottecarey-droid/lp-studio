@@ -8,6 +8,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { safeNavigate } from "@/lib/safe-url";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -74,7 +75,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     if (isChiliPiper) {
       setCpOpen(true);
     } else if (props.ctaUrl) {
-      window.open(props.ctaUrl, "_blank", "noopener,noreferrer");
+      safeNavigate(props.ctaUrl, "_blank");
     }
   };
   const sectionPy = SECTION_PY[brand.sectionPadding];

@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -43,8 +44,8 @@ interface LinkWithPage extends LinkRow {
 }
 
 function generateToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const { randomBytes } = require("crypto");
+  return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
 async function generateUniqueToken(maxAttempts = 5): Promise<string> {
@@ -129,7 +130,7 @@ async function sendPersonalizedLinkVisitAlert(
 const router = Router();
 
 router.post("/lp/personalized-links", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { pageId, contactName, company, email } = req.body as {
     pageId?: unknown;
     contactName?: unknown;
@@ -169,7 +170,7 @@ router.post("/lp/personalized-links", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/personalized-links", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = req.query.pageId ? parseInt(String(req.query.pageId), 10) : null;
   if (!pageId || isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -357,7 +358,7 @@ router.delete("/lp/page-alert-emails/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/personalized-links/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

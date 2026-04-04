@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -6,7 +7,7 @@ import { lpFormsTable } from "@workspace/db";
 const router = Router();
 
 router.get("/lp/forms", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const forms = await db
     .select()
     .from(lpFormsTable)
@@ -16,7 +17,7 @@ router.get("/lp/forms", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/forms", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, description } = req.body as { name?: string; description?: string };
   if (!name?.trim()) {
     res.status(400).json({ error: "name is required" });
@@ -44,7 +45,7 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/forms/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
   const [form] = await db.select().from(lpFormsTable).where(
@@ -55,7 +56,7 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/forms/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
 
@@ -79,7 +80,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/forms/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
   await db.delete(lpFormsTable).where(

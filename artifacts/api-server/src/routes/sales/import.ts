@@ -1,9 +1,19 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesContactsTable } from "@workspace/db";
 
 const router = Router();
+
+const importLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // 10 bulk imports per 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many import requests, please try again later" },
+});
 
 const CHUNK = 100; // max rows per batch insert
 
@@ -29,8 +39,8 @@ function chunk<T>(arr: T[], size: number): T[][] {
  *   3. No SFDC id, no email match, but first+last name matches existing contact in same account → update by name
  *   4. No match on any key → insert as new
  */
-router.post("/import/contacts", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+router.post("/import/contacts", importLimiter, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { rows } = req.body;
 
   if (!Array.isArray(rows) || rows.length === 0) {

@@ -22,7 +22,7 @@ router.get("/lp/pages/performance/batch", async (req, res): Promise<void> => {
     }
 
     const days = 30;
-    const dateFilter = sql`now() - interval '${sql.raw(String(days))} days'`;
+    const dateFilter = sql`now() - make_interval(days => ${days})`;
 
     // Batch: get all variants linked to these pages
     const variants = await db
@@ -161,8 +161,8 @@ router.get("/lp/pages/:pageId/performance", async (req, res): Promise<void> => {
       return;
     }
 
-    const days = parseInt((req.query.days as string) || "30", 10);
-    const dateFilter = sql`now() - interval '${sql.raw(String(days))} days'`;
+    const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
+    const dateFilter = sql`now() - make_interval(days => ${days})`;
 
     // 1. Get the page
     const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));

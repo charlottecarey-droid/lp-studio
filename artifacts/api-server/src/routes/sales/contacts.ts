@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -8,7 +9,7 @@ const router = Router();
 // List all contacts (optionally filter by accountId) — joins accounts for segment/stage/owner
 router.get("/contacts", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const { accountId } = req.query;
 
     const baseWhere = accountId
@@ -56,7 +57,7 @@ router.get("/contacts", async (req, res): Promise<void> => {
 // Get contacts for a specific account (nested route)
 router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const contacts = await db
       .select()
       .from(salesContactsTable)
@@ -72,7 +73,7 @@ router.get("/accounts/:accountId/contacts", async (req, res): Promise<void> => {
 // Get single contact by id
 router.get("/contacts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [contact] = await db.select().from(salesContactsTable)
       .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))));
     if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
@@ -85,7 +86,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
 
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { accountId, sfdcId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
   if (!accountId || !firstName || !lastName) {
     res.status(400).json({ error: "accountId, firstName, and lastName are required" });
@@ -118,7 +119,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
 // Update contact
 router.patch("/contacts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const updates: Record<string, unknown> = {};
     const fields = ["sfdcId", "firstName", "lastName", "email", "title", "role", "phone", "status", "metadata"];
     for (const f of fields) {
@@ -145,7 +146,7 @@ router.patch("/contacts/:id", async (req, res): Promise<void> => {
 // Delete contact
 router.delete("/contacts/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
       .delete(salesContactsTable)
       .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))))
@@ -164,7 +165,7 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
 // Delete ALL contacts for this tenant
 router.delete("/contacts", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const deleted = await db.delete(salesContactsTable)
       .where(eq(salesContactsTable.tenantId, tenantId))
       .returning({ id: salesContactsTable.id });
@@ -198,7 +199,7 @@ interface ImportRow {
 }
 
 router.post("/contacts/import", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { rows } = req.body as { rows: ImportRow[] };
 
   if (!Array.isArray(rows) || rows.length === 0) {

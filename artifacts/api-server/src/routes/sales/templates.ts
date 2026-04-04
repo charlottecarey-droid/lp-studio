@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -8,7 +9,7 @@ const router = Router();
 // List all templates
 router.get("/templates", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const templates = await db
       .select()
       .from(salesEmailTemplatesTable)
@@ -24,7 +25,7 @@ router.get("/templates", async (req, res): Promise<void> => {
 // Get single template
 router.get("/templates/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [template] = await db
       .select()
       .from(salesEmailTemplatesTable)
@@ -42,7 +43,7 @@ router.get("/templates/:id", async (req, res): Promise<void> => {
 
 // Create template
 router.post("/templates", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, subject, bodyHtml, bodyText, mergeVars, category, format } = req.body;
   if (!name || !subject) {
     res.status(400).json({ error: "name and subject are required" });
@@ -72,7 +73,7 @@ router.post("/templates", async (req, res): Promise<void> => {
 // Update template
 router.patch("/templates/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const updates: Record<string, unknown> = {};
     const fields = ["name", "subject", "bodyHtml", "bodyText", "mergeVars", "category", "format", "isActive"];
     for (const f of fields) {
@@ -99,7 +100,7 @@ router.patch("/templates/:id", async (req, res): Promise<void> => {
 // Delete template
 router.delete("/templates/:id", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
       .delete(salesEmailTemplatesTable)
       .where(and(eq(salesEmailTemplatesTable.tenantId, tenantId), eq(salesEmailTemplatesTable.id, Number(req.params.id))))
