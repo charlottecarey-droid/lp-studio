@@ -300,17 +300,22 @@ Be factual and specific. Only include what's on the site.`;
 
     const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
     const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
+    const noLinkedIn = !linkedinResearch || linkedinResearch.includes("No LinkedIn") || linkedinResearch.includes("no public");
+    const researchIsWeak = noPersonInfo && noCompanyNews && noLinkedIn;
 
     const researchBlock = [
+      researchIsWeak
+        ? `⚠️ RESEARCH WAS THIN — web searches returned very little about ${fullName} or ${accountName}. Rely on the ACCOUNT INTELLIGENCE briefing below and default to a role-specific pain point hook. Do NOT invent facts or cite unverified sources.`
+        : "",
       `=== PERSON RESEARCH: ${fullName} ===`,
       noPersonInfo
         ? `No public information found for ${fullName}. Do NOT invent person-level hooks.`
         : personResearch,
       "",
       `=== LINKEDIN / PROFESSIONAL PRESENCE: ${fullName} ===`,
-      linkedinResearch
-        ? linkedinResearch
-        : `No LinkedIn activity found for ${fullName}.`,
+      noLinkedIn
+        ? `No LinkedIn activity found for ${fullName}.`
+        : linkedinResearch,
       "",
       `=== COMPANY NEWS: ${accountName} ===`,
       noCompanyNews
@@ -600,8 +605,38 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
       body = body.slice(0, hookSourceMatch.index).trimEnd();
     }
 
-    // Deduplicate and filter citations; add Firecrawl domain as a source if used
-    // Put hookSource first so the actual source used is always visible at the top
+    // ─── Filter citations to only relevant sources ─────────────────
+    // Perplexity often returns junk citations (random government PDFs, pharma sites, disease databases)
+    // when it can't find specific info about the person/company. Only keep URLs that are plausibly relevant.
+    const relevanceTerms = [
+      firstName?.toLowerCase(),
+      lastName?.toLowerCase(),
+      accountName?.toLowerCase(),
+      domain?.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]?.toLowerCase(),
+    ].filter(Boolean) as string[];
+
+    // Domains that are almost always relevant for dental/DSO research
+    const trustedDomains = [
+      "linkedin.com", "groupdentistrynow.com", "dentaleconomics.com",
+      "dentistrytoday.com", "dsonews.com", "beckersdental.com",
+      "prnewswire.com", "businesswire.com", "globenewswire.com",
+      "bloomberg.com", "reuters.com", "pitchbook.com", "crunchbase.com",
+    ];
+
+    function isCitationRelevant(url: string): boolean {
+      const lower = url.toLowerCase();
+      // Always keep the company's own domain
+      if (domain && lower.includes(domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0])) return true;
+      // Keep trusted industry/news domains
+      if (trustedDomains.some(d => lower.includes(d))) return true;
+      // Keep if URL or path contains the person's name or company name
+      if (relevanceTerms.some(term => term.length > 2 && lower.includes(term))) return true;
+      // Keep dental/DSO industry sources
+      if (/dental|dso|dentist|orthodont/.test(lower)) return true;
+      // Filter out everything else — random government, pharma, disease DBs, etc.
+      return false;
+    }
+
     const sources: string[] = [];
     if (hookSource && hookSource.startsWith("http") && !sources.includes(hookSource)) {
       sources.push(hookSource);
@@ -611,7 +646,7 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
       if (!sources.includes(siteUrl)) sources.push(siteUrl);
     }
     for (const url of allCitations) {
-      if (url && !sources.includes(url)) sources.push(url);
+      if (url && !sources.includes(url) && isCitationRelevant(url)) sources.push(url);
     }
 
     res.json({
