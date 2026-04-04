@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
 import { lpPagesTable } from "./lpPages";
 
 export const lpPageVisitsTable = pgTable("lp_page_visits", {
@@ -10,6 +10,8 @@ export const lpPageVisitsTable = pgTable("lp_page_visits", {
   country: text("country"),
   countryCode: text("country_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("lp_page_visits_page_id_idx").on(table.pageId),
+]);
 
 export type LpPageVisit = typeof lpPageVisitsTable.$inferSelect;

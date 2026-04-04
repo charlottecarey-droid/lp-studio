@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,7 +24,9 @@ export const lpPagesTable = pgTable("lp_pages", {
   templateDescription: text("template_description"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("lp_pages_tenant_slug_idx").on(table.tenantId, table.slug),
+]);
 
 export const insertLpPageSchema = createInsertSchema(lpPagesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertLpPage = z.infer<typeof insertLpPageSchema>;

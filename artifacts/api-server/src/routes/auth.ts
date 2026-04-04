@@ -8,6 +8,15 @@ const router = Router();
 export const SESSION_COOKIE = "lp_sid";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+// In-memory cache for domain-context lookups — avoids 2 DB queries per page load.
+// TTL is 5 minutes; cache is per-process so it resets on restart.
+const DOMAIN_CTX_TTL_MS = 5 * 60 * 1000;
+interface DomainCtxEntry {
+  data: Record<string, unknown>;
+  expiresAt: number;
+}
+const domainCtxCache = new Map<string, DomainCtxEntry>();
+
 function getRedirectUri(requestHost?: string): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
   if (requestHost) {
@@ -486,6 +495,14 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
       return;
     }
 
+    // Serve from in-memory cache if still fresh
+    const cached = domainCtxCache.get(domain);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+      res.json(cached.data);
+      return;
+    }
+
     // Check admin/login domain first
     const adminResult = await pool.query(
       `SELECT id, name, slug, microsite_domain FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
@@ -494,13 +511,16 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
 
     if (adminResult.rows.length > 0) {
       const t = adminResult.rows[0];
-      res.json({
+      const data = {
         mode: "tenant-locked",
         tenantId: t.id,
         tenantName: t.name,
         tenantSlug: t.slug,
         micrositeDomain: t.microsite_domain ?? null,
-      });
+      };
+      domainCtxCache.set(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+      res.json(data);
       return;
     }
 
@@ -512,17 +532,23 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
 
     if (micrositeResult.rows.length > 0) {
       const t = micrositeResult.rows[0];
-      res.json({
+      const data = {
         mode: "microsite-only",
         tenantId: t.id,
         tenantName: t.name,
         tenantSlug: t.slug,
         micrositeDomain: t.microsite_domain ?? null,
-      });
+      };
+      domainCtxCache.set(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+      res.json(data);
       return;
     }
 
-    res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null });
+    const openData = { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
+    domainCtxCache.set(domain, { data: openData, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
+    res.json(openData);
   } catch (err) {
     console.error("[auth] /domain-context error:", err);
     res.status(500).json({ error: "Server error" });

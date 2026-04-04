@@ -148,13 +148,18 @@ function AppShell() {
     return <LoadingFallback />;
   }
 
-  // Unknown / unregistered domain — render nothing.
-  // Keeps localhost working for development; blocks Replit dev URLs and any
-  // other domain that isn't explicitly configured in the tenants table.
+  // Block Replit dev/preview URLs in open mode — these are ephemeral workspace
+  // URLs that should never serve the admin UI publicly. Legitimate custom domains
+  // (e.g. lpstudio.ai) are allowed through so users can log in.
   if (domainContext?.mode === "open") {
     const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-    const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
-    if (!isLocal) {
+    const isReplitDevUrl =
+      hostname.endsWith(".replit.dev") ||
+      hostname.endsWith(".repl.co") ||
+      hostname.endsWith(".replit.app") ||
+      hostname.includes(".replit.dev") ||
+      hostname.includes("repl.co");
+    if (isReplitDevUrl) {
       return null;
     }
   }

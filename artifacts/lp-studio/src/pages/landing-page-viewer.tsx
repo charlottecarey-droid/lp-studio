@@ -260,7 +260,7 @@ export default function LandingPageViewer() {
   const { data: config, isLoading, error } = useGetPageConfig(
     slug,
     apiParams,
-    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false, queryKey: ["pageConfig", slug, apiParams] } }
+    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false, staleTime: 60_000, queryKey: ["pageConfig", slug, apiParams] } }
   );
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);

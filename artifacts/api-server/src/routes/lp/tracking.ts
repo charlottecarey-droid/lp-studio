@@ -172,6 +172,14 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         ...geo,
       }).onConflictDoNothing().catch(() => undefined);
 
+      // Cache published pages at the HTTP layer — browsers and CDNs can reuse
+      // the response for 60 s. Draft pages are never cached so editors see changes immediately.
+      if (builderPage.status === "published" && !previewVariantId) {
+        res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+      } else {
+        res.set("Cache-Control", "no-store");
+      }
+
       res.json({
         pageType: "builder",
         id: builderPage.id,
@@ -180,6 +188,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         blocks: builderPage.blocks,
         status: builderPage.status,
         customCss: builderPage.customCss ?? "",
+        animationsEnabled: builderPage.animationsEnabled,
       });
       return;
     }
