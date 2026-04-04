@@ -4,7 +4,7 @@ uploads = []
 id = "-cjR0ALT7iY3Q3UJNLj-v"
 uri = "file://artifacts/lp-studio/public/opengraph.png"
 type = "image"
-title = "lp-studio-og-image"
+title = "lp-studio-og-product"
 
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
