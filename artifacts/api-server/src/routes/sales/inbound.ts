@@ -60,10 +60,10 @@ router.get("/:id", async (req, res): Promise<void> => {
     // Mark as read
     await db
       .update(salesInboundEmailsTable)
-      .set({ isRead: "true" })
+      .set({ isRead: true })
       .where(eq(salesInboundEmailsTable.id, row.id));
 
-    res.json({ ...row, isRead: "true" });
+    res.json({ ...row, isRead: true });
   } catch (err) {
     console.error("GET /sales/inbound/:id error:", err);
     res.status(500).json({ error: "Failed to fetch email" });
@@ -76,7 +76,7 @@ router.patch("/:id/read", async (req, res): Promise<void> => {
   try {
     await db
       .update(salesInboundEmailsTable)
-      .set({ isRead: "true" })
+      .set({ isRead: true })
       .where(eq(salesInboundEmailsTable.id, Number(req.params.id)));
     res.json({ ok: true });
   } catch (err) {

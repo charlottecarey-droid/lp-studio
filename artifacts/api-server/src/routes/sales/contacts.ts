@@ -45,7 +45,8 @@ router.get("/contacts", async (req, res): Promise<void> => {
       .from(salesContactsTable)
       .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
       .where(baseWhere)
-      .orderBy(desc(salesContactsTable.createdAt));
+      .orderBy(desc(salesContactsTable.createdAt))
+      .limit(2000);
 
     res.json(contacts);
   } catch (err) {

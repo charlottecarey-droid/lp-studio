@@ -215,6 +215,9 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Draft email for ${fullName}`}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -233,6 +236,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
           </div>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4 text-muted-foreground" />

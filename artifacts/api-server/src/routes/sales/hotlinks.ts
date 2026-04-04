@@ -208,7 +208,8 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
         .orderBy(desc(salesHotlinksTable.createdAt));
     } else {
       hotlinks = await db.select().from(salesHotlinksTable)
-        .orderBy(desc(salesHotlinksTable.createdAt));
+        .orderBy(desc(salesHotlinksTable.createdAt))
+        .limit(1000);
     }
     res.json(hotlinks);
   } catch (err) {

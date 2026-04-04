@@ -80,7 +80,7 @@ export default function SalesPages() {
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
     ])
       .then(([ov, accts]) => { setOverview(ov); setAccounts(accts); })
-      .catch(() => {})
+      .catch((err) => console.error("Failed to load microsites:", err))
       .finally(() => setLoading(false));
   }, []);
 

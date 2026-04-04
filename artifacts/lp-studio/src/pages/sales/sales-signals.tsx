@@ -152,8 +152,8 @@ export default function SalesSignals() {
       await fetch(`${API_BASE}/sales/signals`, { method: "DELETE" });
       setSignals([]);
       setConfirmClear(false);
-    } catch {
-      // silently ignore
+    } catch (err) {
+      console.error("Failed to clear signals:", err);
     } finally {
       setClearing(false);
     }
