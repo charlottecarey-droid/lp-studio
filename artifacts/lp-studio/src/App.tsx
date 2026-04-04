@@ -107,7 +107,7 @@ function AppRouter() {
         <Route path="/custom-blocks" component={CustomBlocksPage} />
 
         {/* Sales Console Routes */}
-        <Route path="/sales" component={SalesDashboard} />
+        <Route path="/sales">{() => <Redirect to="/sales/accounts" />}</Route>
         <Route path="/sales/accounts/:id" component={SalesAccounts} />
         <Route path="/sales/accounts" component={SalesAccounts} />
         <Route path="/sales/contacts/:id" component={SalesContacts} />

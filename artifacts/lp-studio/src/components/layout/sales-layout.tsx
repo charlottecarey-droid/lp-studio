@@ -1,16 +1,12 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard,
   Building2,
-  FileText,
   Mail,
   Activity,
   Users,
   PlusCircle,
   Paintbrush,
-  Plug2,
   Cloud,
-  Megaphone,
   Shield,
   LogOut,
   ChevronDown,
@@ -117,16 +113,6 @@ export function SalesSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {hasPerm("sales_dashboard") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales"}>
-                    <Link href="/sales" className="font-medium">
-                      <LayoutDashboard className="w-4 h-4" />
-                      <span>Dashboard</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
               {hasPerm("sales_accounts") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -144,30 +130,10 @@ export function SalesSidebar() {
               )}
               {hasPerm("sales_contacts") && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales/contacts"}>
+                  <SidebarMenuButton asChild isActive={location === "/sales/contacts" || location.startsWith("/sales/contacts/")}>
                     <Link href="/sales/contacts" className="font-medium">
                       <Users className="w-4 h-4" />
                       <span>Contacts</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {hasPerm("pages") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales/pages"}>
-                    <Link href="/sales/pages" className="font-medium">
-                      <FileText className="w-4 h-4" />
-                      <span>Microsites</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {hasPerm("pages") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/sales/campaign-pages"}>
-                    <Link href="/sales/campaign-pages" className="font-medium">
-                      <Megaphone className="w-4 h-4" />
-                      <span>Campaign Pages</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -177,7 +143,7 @@ export function SalesSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={
-                      location === "/sales/outreach" || location.startsWith("/sales/outreach/")
+                      location === "/sales/outreach" || location.startsWith("/sales/outreach")
                     }
                   >
                     <Link href="/sales/outreach" className="font-medium">
@@ -192,7 +158,7 @@ export function SalesSidebar() {
                   <SidebarMenuButton asChild isActive={location === "/sales/signals"}>
                     <Link href="/sales/signals" className="font-medium">
                       <Activity className="w-4 h-4" />
-                      <span>Signals</span>
+                      <span>Activity</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -225,14 +191,6 @@ export function SalesSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/integrations"}>
-                  <Link href="/integrations" className="font-medium">
-                    <Plug2 className="w-4 h-4" />
-                    <span>Integrations</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               {(hasPerm("team") || user?.isAdmin) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/settings/team"}>

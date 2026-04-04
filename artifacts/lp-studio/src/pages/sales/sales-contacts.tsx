@@ -41,8 +41,15 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import DraftEmailModal from "./DraftEmailModal";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
+
+interface AccountForFilter {
+  id: number;
+  owner: string | null;
+  abmTier: string | null;
+}
 
 const TIER_COLORS: Record<string, string> = {
   ENT: "bg-purple-100 text-purple-700",
@@ -602,6 +609,7 @@ function SaveAudienceModal({
 
 function ContactListView() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -616,6 +624,37 @@ function ContactListView() {
   const [showAudience, setShowAudience] = useState(false);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grouped">("grouped");
+
+  // Account-level filters inherited from Accounts page
+  const [acctFilterOwner, setAcctFilterOwner] = useState("");
+  const [acctFilterTier, setAcctFilterTier] = useState("");
+  const [acctFilterIds, setAcctFilterIds] = useState<Set<number> | null>(null);
+  const [acctBannerDismissed, setAcctBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    const lsKey = `sc_acct_filters_${user.userId}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, string>;
+      const ownerF = stored.ownerFilter ?? "";
+      const tierF = stored.abmTierFilter ?? "";
+      setAcctFilterOwner(ownerF);
+      setAcctFilterTier(tierF);
+      if (ownerF || tierF) {
+        fetch(`${API_BASE}/sales/accounts`)
+          .then(r => r.ok ? r.json() : [])
+          .then((accounts: AccountForFilter[]) => {
+            const matching = accounts.filter(a => {
+              const matchesOwner = !ownerF || a.owner === ownerF;
+              const matchesTier = !tierF || a.abmTier === tierF;
+              return matchesOwner && matchesTier;
+            });
+            setAcctFilterIds(new Set(matching.map(a => a.id)));
+          })
+          .catch(() => {});
+      }
+    } catch {}
+  }, [user?.userId]);
 
   const fetchContacts = useCallback(() => {
     setLoading(true);
@@ -657,7 +696,8 @@ function ContactListView() {
   const uniqueStages      = Array.from(new Set(contacts.map(c => c.abmStage).filter(Boolean))).sort() as string[];
   const uniqueOwners      = Array.from(new Set(contacts.map(c => c.accountOwner).filter(Boolean))).sort() as string[];
 
-  const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter);
+  const acctFilterActive = acctFilterIds !== null && !acctBannerDismissed;
+  const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter || acctFilterIds);
 
   const filtered = contacts.filter((c) => {
     const q = search.toLowerCase();
@@ -670,7 +710,8 @@ function ContactListView() {
     const matchesTitleLevel = !titleLevelFilter || c.titleLevel === titleLevelFilter;
     const matchesStage      = !stageFilter      || c.abmStage === stageFilter;
     const matchesOwner      = !ownerFilter      || c.accountOwner === ownerFilter;
-    return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner;
+    const matchesAcct       = !acctFilterIds    || acctFilterIds.has(c.accountId);
+    return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner && matchesAcct;
   });
 
   function clearFilters() { setSearch(""); setTierFilter(""); setTitleLevelFilter(""); setStageFilter(""); setOwnerFilter(""); }
@@ -751,6 +792,31 @@ function ContactListView() {
             )}
           </div>
         </div>
+
+        {/* Account filter banner */}
+        {acctFilterActive && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-primary/8 border border-primary/20 rounded-xl text-sm">
+            <div className="flex items-center gap-2 text-foreground">
+              <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>
+                Showing contacts from your filtered accounts
+                {acctFilterOwner && <strong className="ml-1">{acctFilterOwner}</strong>}
+                {acctFilterTier && <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">{acctFilterTier}</span>}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => { setAcctFilterIds(null); setAcctFilterOwner(""); setAcctFilterTier(""); }}
+                className="text-xs text-primary hover:underline font-medium"
+              >
+                Clear
+              </button>
+              <button onClick={() => setAcctBannerDismissed(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Search + Filters */}
         <div className="flex flex-col gap-2">

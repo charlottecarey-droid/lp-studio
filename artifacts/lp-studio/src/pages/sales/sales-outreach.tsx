@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { format } from "date-fns";
+import { CampaignPagesContent } from "@/pages/sales/sales-campaign-pages";
 import {
   Mail,
   Send,
@@ -1451,41 +1452,90 @@ function PerformanceTab() {
 
 // ─── Main Outreach Page ─────────────────────────────────────
 
+type OuterMode = "single" | "campaigns";
+
 export default function SalesOutreach() {
+  const [outerMode, setOuterMode] = useState<OuterMode>(() => {
+    const param = new URLSearchParams(window.location.search).get("tab");
+    return param === "campaigns" ? "campaigns" : "single";
+  });
   const [activeTab, setActiveTab] = useState<TabId>("send");
+
+  function switchMode(mode: OuterMode) {
+    setOuterMode(mode);
+    const url = mode === "campaigns" ? "/sales/outreach?tab=campaigns" : "/sales/outreach";
+    window.history.replaceState(null, "", url);
+  }
 
   return (
     <SalesLayout>
-      <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto w-full">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Email Outreach</h1>
-          <p className="text-sm text-muted-foreground mt-1">Send personalized emails and manage templates</p>
-        </div>
+      <div className="flex flex-col gap-6 pb-12">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Outreach</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {outerMode === "single"
+                ? "Send personalized emails and manage templates"
+                : "Send one page to all accounts with company names auto-filled in every version"}
+            </p>
+          </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-border">
-          {TABS.map(tab => (
+          {/* Outer mode switcher */}
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
-                activeTab === tab.id
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              onClick={() => switchMode("single")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                outerMode === "single"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              <Mail className="w-3.5 h-3.5" />
+              Single Email
             </button>
-          ))}
+            <button
+              onClick={() => switchMode("campaigns")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                outerMode === "campaigns"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Quick Campaigns
+            </button>
+          </div>
         </div>
 
-        {/* Tab content */}
-        {activeTab === "send" && <SingleSendTab />}
-        {activeTab === "campaigns" && <CampaignsTab />}
-        {activeTab === "sent" && <SentTab />}
-        {activeTab === "templates" && <TemplatesTab />}
-        {activeTab === "performance" && <PerformanceTab />}
+        {outerMode === "single" && (
+          <>
+            {/* Sub-tabs */}
+            <div className="flex items-center gap-1 border-b border-border">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+                    activeTab === tab.id
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === "send" && <SingleSendTab />}
+            {activeTab === "campaigns" && <CampaignsTab />}
+            {activeTab === "sent" && <SentTab />}
+            {activeTab === "templates" && <TemplatesTab />}
+            {activeTab === "performance" && <PerformanceTab />}
+          </>
+        )}
+
+        {outerMode === "campaigns" && <CampaignPagesContent />}
       </div>
     </SalesLayout>
   );

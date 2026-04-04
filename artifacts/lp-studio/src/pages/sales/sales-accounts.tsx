@@ -150,16 +150,32 @@ function PageStatusBadge({ status }: { status: string }) {
 
 function AccountListView() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const lsKey = user?.userId ? `sc_acct_filters_${user.userId}` : null;
+
+  function readLs(field: "ownerFilter" | "abmTierFilter"): string {
+    if (!lsKey) return "";
+    try { return (JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, string>)[field] ?? ""; }
+    catch { return ""; }
+  }
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [abmTierFilter, setAbmTierFilter] = useState("");
+  const [abmTierFilter, setAbmTierFilter] = useState(() => readLs("abmTierFilter"));
   const [abmStageFilter, setAbmStageFilter] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("");
-  const [ownerFilter, setOwnerFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState(() => readLs("ownerFilter"));
   const [showNewForm, setShowNewForm] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Persist ownerFilter + abmTierFilter to localStorage
+  useEffect(() => {
+    if (!lsKey) return;
+    try { localStorage.setItem(lsKey, JSON.stringify({ ownerFilter, abmTierFilter })); }
+    catch {}
+  }, [ownerFilter, abmTierFilter, lsKey]);
 
   // New account form state
   const [newName, setNewName] = useState("");
@@ -315,16 +331,42 @@ function AccountListView() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts, owner…" className="pl-10" />
             </div>
-            {uniqueAbmTiers.length > 0 && (
-              <div className="relative">
-                <select value={abmTierFilter} onChange={(e) => setAbmTierFilter(e.target.value)}
-                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
-                  <option value="">All ABM Tiers</option>
-                  {uniqueAbmTiers.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              </div>
+
+            {/* My Accounts quick chip */}
+            {user?.name && (
+              <button
+                type="button"
+                onClick={() => setOwnerFilter(ownerFilter === user.name ? "" : user.name)}
+                className={`flex items-center gap-1.5 h-10 px-3 rounded-md border text-sm font-medium transition-colors ${
+                  ownerFilter === user.name
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-input bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                My Accounts
+              </button>
             )}
+
+            {/* ABM Tier — always visible */}
+            <div className="relative">
+              <select value={abmTierFilter} onChange={(e) => setAbmTierFilter(e.target.value)}
+                className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                <option value="">All ABM Tiers</option>
+                {uniqueAbmTiers.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+
+            {/* Owner — always visible */}
+            <div className="relative">
+              <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}
+                className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                <option value="">All Owners</option>
+                {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+
             {uniqueAbmStages.length > 0 && (
               <div className="relative">
                 <select value={abmStageFilter} onChange={(e) => setAbmStageFilter(e.target.value)}
@@ -341,16 +383,6 @@ function AccountListView() {
                   className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
                   <option value="">All Segments</option>
                   {uniqueSegments.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-            )}
-            {uniqueOwners.length > 0 && (
-              <div className="relative">
-                <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}
-                  className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
-                  <option value="">All Owners</option>
-                  {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
@@ -1071,6 +1103,10 @@ function AccountDetailView({ id }: { id: string }) {
   // AI email draft
   const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
 
+  // Detail tabs
+  type DetailTab = "overview" | "contacts" | "microsites" | "activity";
+  const [detailTab, setDetailTab] = useState<DetailTab>("overview");
+
   // Contacts section ref for scrolling
   const contactsSectionRef = useRef<HTMLDivElement>(null);
 
@@ -1190,6 +1226,13 @@ function AccountDetailView({ id }: { id: string }) {
     );
   }
 
+  const DETAIL_TABS: { id: DetailTab; label: string; count?: number }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "contacts", label: "Contacts", count: contacts.length },
+    { id: "microsites", label: "Microsites", count: microsites.length },
+    { id: "activity", label: "Activity" },
+  ];
+
   return (
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
@@ -1211,19 +1254,23 @@ function AccountDetailView({ id }: { id: string }) {
               </h1>
               <StatusBadge status={account.status} />
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5 flex-wrap">
               {account.domain && (
                 <span className="flex items-center gap-1">
                   <Globe className="w-3.5 h-3.5" />
                   {account.domain}
                 </span>
               )}
-              {account.segment && <span className="font-medium">{account.segment}</span>}
-              {account.industry && <span>{account.industry}</span>}
+              {account.owner && <span>· {account.owner}</span>}
+              {account.abmTier && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  {account.abmTier}
+                </span>
+              )}
             </div>
           </div>
           <Button
-            onClick={() => setShowMicrositeModal(true)}
+            onClick={() => { setDetailTab("microsites"); setShowMicrositeModal(true); }}
             className="gap-2 shrink-0"
             size="sm"
           >
@@ -1232,327 +1279,378 @@ function AccountDetailView({ id }: { id: string }) {
           </Button>
         </div>
 
-        {/* Quick Actions — account-specific only */}
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left"
-            onClick={() => setShowMicrositeModal(true)}
-          >
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <span className="text-sm font-medium text-foreground">AI Microsite</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-3 p-4 rounded-xl border border-border/60 bg-card cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all text-left"
-            onClick={() => {
-              setShowContactForm(true);
-              setTimeout(() => {
-                contactsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }, 50);
-            }}
-          >
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4" />
-            </div>
-            <span className="text-sm font-medium text-foreground">Add Contact</span>
-          </button>
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 border-b border-border">
+          {DETAIL_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setDetailTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+                detailTab === tab.id
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* AI Briefing */}
-        <BriefingPanel accountId={Number(id)} />
+        {/* ── Overview Tab ── */}
+        {detailTab === "overview" && (
+          <div className="flex flex-col gap-4">
+            {/* Account metadata grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {account.segment && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Segment</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.segment}</p>
+                </div>
+              )}
+              {account.industry && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Industry</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.industry}</p>
+                </div>
+              )}
+              {account.numLocations && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Locations</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.numLocations}</p>
+                </div>
+              )}
+              {(account.city || account.state) && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">HQ</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">
+                    {[account.city, account.state].filter(Boolean).join(", ")}
+                  </p>
+                </div>
+              )}
+              {account.abmStage && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">ABM Stage</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.abmStage}</p>
+                </div>
+              )}
+              {account.privateEquityFirm && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">PE Firm</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.privateEquityFirm}</p>
+                </div>
+              )}
+              {account.dsoSize && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">DSO Size</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.dsoSize}</p>
+                </div>
+              )}
+              {account.practiceSegment && (
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Practice Segment</p>
+                  <p className="text-sm font-semibold text-foreground mt-1">{account.practiceSegment}</p>
+                </div>
+              )}
+            </div>
 
-        {/* Notes */}
-        {account.notes && (
-          <Card className="p-5 rounded-2xl border border-border/60">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</h3>
-            <p className="text-sm text-foreground whitespace-pre-wrap">{account.notes}</p>
-          </Card>
+            {/* Notes */}
+            {account.notes && (
+              <Card className="p-5 rounded-2xl border border-border/60">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notes</h3>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{account.notes}</p>
+              </Card>
+            )}
+
+            {/* AI Briefing */}
+            <BriefingPanel accountId={Number(id)} />
+          </div>
         )}
 
-        {/* Activity Timeline */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-lg font-display font-bold text-foreground">Activity</h2>
-          <ActivityTimeline accountId={Number(id)} contacts={contacts} />
-        </div>
-
-        {/* Contacts */}
-        <div ref={contactsSectionRef} className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-display font-bold text-foreground">
-              Contacts ({contacts.length})
-            </h2>
-            <div className="flex items-center gap-2">
-              <ContactImportWizard accountId={Number(id)} onImported={fetchData} />
-              <Button variant="outline" size="sm" onClick={() => setShowContactForm(!showContactForm)} className="gap-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                Add Contact
-              </Button>
+        {/* ── Contacts Tab ── */}
+        {detailTab === "contacts" && (
+          <div ref={contactsSectionRef} className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">
+                {contacts.length} Contact{contacts.length !== 1 ? "s" : ""}
+              </h2>
+              <div className="flex items-center gap-2">
+                <ContactImportWizard accountId={Number(id)} onImported={fetchData} />
+                <Button variant="outline" size="sm" onClick={() => setShowContactForm(!showContactForm)} className="gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Contact
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* New Contact Form */}
-          {showContactForm && (
-            <Card className="p-5 rounded-2xl border border-primary/30 bg-primary/5">
-              <form onSubmit={handleCreateContact} className="flex flex-col gap-4">
-                <h3 className="text-sm font-semibold text-foreground">Add Contact</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">First Name *</label>
-                    <Input value={contactFirst} onChange={(e) => setContactFirst(e.target.value)} placeholder="Jane" required />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Last Name *</label>
-                    <Input value={contactLast} onChange={(e) => setContactLast(e.target.value)} placeholder="Smith" required />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
-                    <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="jane@company.com" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Job Title</label>
-                    <Input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="VP of Operations" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Buyer Role</label>
-                    <Input value={contactRole} onChange={(e) => setContactRole(e.target.value)} placeholder="Decision Maker" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={savingContact || !contactFirst.trim() || !contactLast.trim()}>
-                    {savingContact ? "Adding…" : "Add Contact"}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setShowContactForm(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </Card>
-          )}
-
-          {contacts.length === 0 ? (
-            <Card className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border">
-              <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center">
-                <Users className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">No contacts yet</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Add contacts to start sending personalized outreach
-                </p>
-              </div>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {(() => {
-                // Build hotlink map: contactId → most recent token
-                const latestByContact = new Map<number, string>();
-                for (const hl of hotlinks) {
-                  if (!latestByContact.has(hl.contactId)) {
-                    latestByContact.set(hl.contactId, hl.token);
-                  }
-                }
-
-                // Group contacts by contactRole (persona)
-                const PERSONA_ORDER = ["Decision Maker", "Champion", "Influencer", "Other"];
-                const grouped = new Map<string, Contact[]>();
-                for (const c of contacts) {
-                  const key = c.contactRole ?? c.role ?? "Other";
-                  const bucket = grouped.get(key) ?? [];
-                  bucket.push(c);
-                  grouped.set(key, bucket);
-                }
-                // Sort groups by persona order, then alphabetically
-                const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => {
-                  const ai = PERSONA_ORDER.indexOf(a);
-                  const bi = PERSONA_ORDER.indexOf(b);
-                  if (ai !== -1 && bi !== -1) return ai - bi;
-                  if (ai !== -1) return -1;
-                  if (bi !== -1) return 1;
-                  return a.localeCompare(b);
-                });
-
-                const personaBadgeStyle: Record<string, string> = {
-                  "Decision Maker": "bg-primary/15 text-primary",
-                  "Champion": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-                  "Influencer": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                };
-
-                return sortedGroups.map(([role, groupContacts]) => (
-                  <div key={role} className="flex flex-col gap-1.5">
-                    {/* Group header */}
-                    <div className="flex items-center gap-2 px-1">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${personaBadgeStyle[role] ?? "bg-muted text-muted-foreground"}`}>
-                        {role}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
+            {/* New Contact Form */}
+            {showContactForm && (
+              <Card className="p-5 rounded-2xl border border-primary/30 bg-primary/5">
+                <form onSubmit={handleCreateContact} className="flex flex-col gap-4">
+                  <h3 className="text-sm font-semibold text-foreground">Add Contact</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">First Name *</label>
+                      <Input value={contactFirst} onChange={(e) => setContactFirst(e.target.value)} placeholder="Jane" required />
                     </div>
-                    {/* Contacts in this group */}
-                    {groupContacts.map((contact) => {
-                      const token = latestByContact.get(contact.id);
-                      return (
-                        <div key={contact.id} className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
-                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
-                            {contact.firstName[0]}{contact.lastName[0]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium text-foreground">{contact.firstName} {contact.lastName}</p>
-                              {contact.titleLevel && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{contact.titleLevel}</span>
-                              )}
-                              {contact.tier && contact.tier !== "0.0" && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase">{contact.tier}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap mt-0.5">
-                              {contact.title && <span>{contact.title}</span>}
-                              {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
-                              {contact.linkedinUrl && (
-                                <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-0.5 hover:text-primary transition-colors"
-                                  onClick={(e) => e.stopPropagation()}>
-                                  <ExternalLink className="w-3 h-3" />LinkedIn
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setDraftEmailContact(contact)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
-                            title="Draft AI email"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Draft Email</span>
-                          </button>
-                          {token && (
-                            <button
-                              onClick={() => handleCopyContactLink(contact.id, token)}
-                              title="Copy personalized link"
-                              className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
-                            >
-                              {copiedContactId === contact.id ? (
-                                <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
-                              ) : (
-                                <><Link2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Link</span></>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Last Name *</label>
+                      <Input value={contactLast} onChange={(e) => setContactLast(e.target.value)} placeholder="Smith" required />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                      <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="jane@company.com" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Job Title</label>
+                      <Input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} placeholder="VP of Operations" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Buyer Role</label>
+                      <Input value={contactRole} onChange={(e) => setContactRole(e.target.value)} placeholder="Decision Maker" />
+                    </div>
                   </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
+                  <div className="flex items-center gap-3">
+                    <Button type="submit" disabled={savingContact || !contactFirst.trim() || !contactLast.trim()}>
+                      {savingContact ? "Adding…" : "Add Contact"}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setShowContactForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            )}
 
-        {/* Microsites */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2">
-              <Layout className="w-5 h-5 text-muted-foreground" />
-              Microsites
-              {!micrositesLoading && microsites.length > 0 && (
-                <span className="text-base font-normal text-muted-foreground">({microsites.length})</span>
-              )}
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMicrositeModal(true)}
-              className="gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Generate Microsite
-            </Button>
+            {contacts.length === 0 ? (
+              <Card className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border">
+                <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">No contacts yet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Add contacts to start sending personalized outreach
+                  </p>
+                </div>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {(() => {
+                  const latestByContact = new Map<number, string>();
+                  for (const hl of hotlinks) {
+                    if (!latestByContact.has(hl.contactId)) {
+                      latestByContact.set(hl.contactId, hl.token);
+                    }
+                  }
+
+                  const PERSONA_ORDER = ["Decision Maker", "Champion", "Influencer", "Other"];
+                  const grouped = new Map<string, Contact[]>();
+                  for (const c of contacts) {
+                    const key = c.contactRole ?? c.role ?? "Other";
+                    const bucket = grouped.get(key) ?? [];
+                    bucket.push(c);
+                    grouped.set(key, bucket);
+                  }
+                  const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => {
+                    const ai = PERSONA_ORDER.indexOf(a);
+                    const bi = PERSONA_ORDER.indexOf(b);
+                    if (ai !== -1 && bi !== -1) return ai - bi;
+                    if (ai !== -1) return -1;
+                    if (bi !== -1) return 1;
+                    return a.localeCompare(b);
+                  });
+
+                  const personaBadgeStyle: Record<string, string> = {
+                    "Decision Maker": "bg-primary/15 text-primary",
+                    "Champion": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                    "Influencer": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                  };
+
+                  return sortedGroups.map(([role, groupContacts]) => (
+                    <div key={role} className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${personaBadgeStyle[role] ?? "bg-muted text-muted-foreground"}`}>
+                          {role}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{groupContacts.length} contact{groupContacts.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      {groupContacts.map((contact) => {
+                        const token = latestByContact.get(contact.id);
+                        return (
+                          <div key={contact.id} className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                              {contact.firstName[0]}{contact.lastName[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium text-foreground">{contact.firstName} {contact.lastName}</p>
+                                {contact.titleLevel && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{contact.titleLevel}</span>
+                                )}
+                                {contact.tier && contact.tier !== "0.0" && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase">{contact.tier}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap mt-0.5">
+                                {contact.title && <span>{contact.title}</span>}
+                                {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
+                                {contact.linkedinUrl && (
+                                  <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center gap-0.5 hover:text-primary transition-colors"
+                                    onClick={(e) => e.stopPropagation()}>
+                                    <ExternalLink className="w-3 h-3" />LinkedIn
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setDraftEmailContact(contact)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
+                              title="Draft AI email"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Draft Email</span>
+                            </button>
+                            {token && (
+                              <button
+                                onClick={() => handleCopyContactLink(contact.id, token)}
+                                title="Copy personalized link"
+                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
+                              >
+                                {copiedContactId === contact.id ? (
+                                  <><Check className="w-3.5 h-3.5 text-green-500" /><span className="text-green-500 font-medium">Copied</span></>
+                                ) : (
+                                  <><Link2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Link</span></>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
+        )}
 
-          {micrositesLoading ? (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-16 rounded-xl" />
-              <Skeleton className="h-16 rounded-xl" />
-            </div>
-          ) : microsites.length === 0 ? (
-            <Card className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border border-dashed border-border text-center">
-              <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
-                <Layout className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-semibold text-foreground text-sm">No microsites yet</p>
-                <p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
-                  Generate a personalized microsite for this account. Hotlinks will be auto-created for all contacts with an email.
-                </p>
-              </div>
+        {/* ── Microsites Tab ── */}
+        {detailTab === "microsites" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Layout className="w-4 h-4 text-muted-foreground" />
+                {micrositesLoading ? "Loading…" : `${microsites.length} Microsite${microsites.length !== 1 ? "s" : ""}`}
+              </h2>
               <Button
+                variant="outline"
                 size="sm"
-                className="gap-2 mt-1"
                 onClick={() => setShowMicrositeModal(true)}
+                className="gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Generate Microsite
               </Button>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {microsites.map((site) => (
-                <div
-                  key={site.pageId}
-                  className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+            </div>
+
+            {micrositesLoading ? (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </div>
+            ) : microsites.length === 0 ? (
+              <Card className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border border-dashed border-border text-center">
+                <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+                  <Layout className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">No microsites yet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
+                    Generate a personalized microsite for this account. Hotlinks will be auto-created for all contacts with an email.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-2 mt-1"
+                  onClick={() => setShowMicrositeModal(true)}
                 >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Layout className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="text-sm font-medium text-foreground truncate">{site.title}</span>
-                      <PageStatusBadge status={site.status} />
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Generate Microsite
+                </Button>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {microsites.map((site) => (
+                  <div
+                    key={site.pageId}
+                    className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
+                  >
+                    <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Layout className="w-4 h-4 text-primary" />
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{site.hotlinkCount} personalized link{site.hotlinkCount !== 1 ? "s" : ""}</span>
-                      <span>·</span>
-                      <span>Updated {format(new Date(site.updatedAt), "MMM d")}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="text-sm font-medium text-foreground truncate">{site.title}</span>
+                        <PageStatusBadge status={site.status} />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{site.hotlinkCount} personalized link{site.hotlinkCount !== 1 ? "s" : ""}</span>
+                        <span>·</span>
+                        <span>Updated {format(new Date(site.updatedAt), "MMM d")}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {site.firstToken && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {site.firstToken && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 h-8 px-2.5 text-xs"
+                          onClick={() => handleCopyToken(site.firstToken!)}
+                        >
+                          {copiedToken === site.firstToken ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              Copy Link
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         className="gap-1.5 h-8 px-2.5 text-xs"
-                        onClick={() => handleCopyToken(site.firstToken!)}
+                        onClick={() => navigate(`/builder/${site.pageId}`)}
                       >
-                        {copiedToken === site.firstToken ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-500" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            Copy Link
-                          </>
-                        )}
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Open Builder
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 h-8 px-2.5 text-xs"
-                      onClick={() => navigate(`/builder/${site.pageId}`)}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Open Builder
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Activity Tab ── */}
+        {detailTab === "activity" && (
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
+            <ActivityTimeline accountId={Number(id)} contacts={contacts} />
+          </div>
+        )}
+
       </div>
 
       <GenerateMicrositeModal

@@ -661,7 +661,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function SalesCampaignPages() {
+export function CampaignPagesContent() {
   const { domainContext } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
   const [pages, setPages] = useState<Page[]>([]);
@@ -766,7 +766,7 @@ export default function SalesCampaignPages() {
   }
 
   return (
-    <SalesLayout>
+    <>
       {/* Audience Builder Modal */}
       {(audienceBuilderOpen || editingAudience) && (
         <AudienceBuilderModal
@@ -1153,6 +1153,14 @@ export default function SalesCampaignPages() {
       {showTemplatePicker && (
         <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
       )}
+    </>
+  );
+}
+
+export default function SalesCampaignPages() {
+  return (
+    <SalesLayout>
+      <CampaignPagesContent />
     </SalesLayout>
   );
 }
