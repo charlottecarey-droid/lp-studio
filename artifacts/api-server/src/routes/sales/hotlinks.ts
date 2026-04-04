@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import rateLimit from "express-rate-limit";
-import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
@@ -92,6 +92,8 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     // 1. All tenant LP pages (non-template), left-join account
+    // Join priority: account_id (integer FK) first, then sfdc_account_id (stable SFDC ID).
+    // This means pages survive account delete+re-sync as long as sfdc_account_id is stored.
     const pages = await db
       .select({
         pageId: lpPagesTable.id,
@@ -99,13 +101,20 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
         pageSlug: lpPagesTable.slug,
         pageStatus: lpPagesTable.status,
         pageUpdatedAt: lpPagesTable.updatedAt,
+        sfdcAccountId: lpPagesTable.sfdcAccountId,
         accountId: salesAccountsTable.id,
         accountName: salesAccountsTable.name,
       })
       .from(lpPagesTable)
       .leftJoin(salesAccountsTable, and(
-        eq(lpPagesTable.accountId, salesAccountsTable.id),
         eq(salesAccountsTable.tenantId, tenantId),
+        or(
+          eq(lpPagesTable.accountId, salesAccountsTable.id),
+          and(
+            isNotNull(lpPagesTable.sfdcAccountId),
+            eq(lpPagesTable.sfdcAccountId, salesAccountsTable.sfdcId),
+          ),
+        ),
       ))
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, false)))
       .orderBy(salesAccountsTable.name, desc(lpPagesTable.updatedAt));
@@ -274,10 +283,18 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
       return;
     }
 
+    // Fetch salesforce_id for stable re-linkage after re-sync
+    const [contactRow] = await db
+      .select({ salesforceId: salesContactsTable.salesforceId })
+      .from(salesContactsTable)
+      .where(eq(salesContactsTable.id, Number(contactId)))
+      .limit(1);
+
     const token = await generateUniqueToken();
     const [hotlink] = await db.insert(salesHotlinksTable).values({
       token,
       contactId: Number(contactId),
+      sfdcContactId: contactRow?.salesforceId ?? null,
       pageId: Number(pageId),
     }).returning();
 
@@ -328,6 +345,7 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
       const [hotlink] = await db.insert(salesHotlinksTable).values({
         token,
         contactId: contact.id,
+        sfdcContactId: contact.salesforceId ?? null,
         pageId: Number(pageId),
       }).returning();
       created.push(hotlink);

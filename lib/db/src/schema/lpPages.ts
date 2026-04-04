@@ -15,10 +15,10 @@ export const lpPagesTable = pgTable("lp_pages", {
   ogImage: text("og_image").notNull().default(""),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
   pageVariables: jsonb("page_variables").default({}),
-  accountId: integer("account_id"),       // links page to a sales account (nullable)
+  accountId: integer("account_id"),           // internal FK (may be null after re-sync)
+  sfdcAccountId: text("sfdc_account_id"),     // stable SFDC Account ID (e.g. 001xxx)
   mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"
-  createdBy: text("created_by"),          // user/rep identifier
-  // Template fields — marketing can mark any page as a microsite template
+  createdBy: text("created_by"),
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),

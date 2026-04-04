@@ -434,7 +434,79 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
     }
   }
 
+  // ─── Re-association pass ────────────────────────────────────────────────────
+  // After upsert, re-link any hotlinks whose contact_id was NULLed during a
+  // prior delete+re-sync. Match via sfdc_contact_id = sales_contacts.salesforce_id.
+  // Also heal lp_pages.account_id that went stale by joining on sfdc_account_id.
+  try {
+    // 1. Re-link orphaned hotlinks → contacts
+    await pool.query(`
+      UPDATE sales_hotlinks hl
+      SET contact_id = c.id
+      FROM sales_contacts c
+      WHERE hl.contact_id IS NULL
+        AND hl.sfdc_contact_id IS NOT NULL
+        AND c.salesforce_id = hl.sfdc_contact_id
+        AND c.tenant_id = $1
+    `, [tenantId]);
+
+    // 2. Heal stale account_id on lp_pages via sfdc_account_id
+    await pool.query(`
+      UPDATE lp_pages lp
+      SET account_id = sa.id
+      FROM sales_accounts sa
+      WHERE lp.sfdc_account_id IS NOT NULL
+        AND lp.sfdc_account_id = sa.sfdc_id
+        AND sa.tenant_id = $1
+        AND (lp.account_id IS NULL OR lp.account_id != sa.id)
+    `, [tenantId]);
+  } catch (relinkErr) {
+    console.error("Re-association pass error (non-fatal):", relinkErr);
+  }
+
   res.json({ success: true, summary: results });
+});
+
+/**
+ * POST /sales/relink
+ *
+ * Re-associate orphaned hotlinks and stale lp_pages.account_id after a
+ * delete-all + Salesforce re-sync. Safe to call multiple times.
+ */
+router.post("/relink", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    // Re-link hotlinks where contact was deleted (contact_id IS NULL) but sfdc_contact_id matches a re-imported contact
+    const { rowCount: hotlinksRelinked } = await pool.query(`
+      UPDATE sales_hotlinks hl
+      SET contact_id = c.id
+      FROM sales_contacts c
+      WHERE hl.contact_id IS NULL
+        AND hl.sfdc_contact_id IS NOT NULL
+        AND c.salesforce_id = hl.sfdc_contact_id
+        AND c.tenant_id = $1
+    `, [tenantId]);
+
+    // Heal stale account_id on lp_pages using the stable sfdc_account_id
+    const { rowCount: pagesRelinked } = await pool.query(`
+      UPDATE lp_pages lp
+      SET account_id = sa.id
+      FROM sales_accounts sa
+      WHERE lp.sfdc_account_id IS NOT NULL
+        AND lp.sfdc_account_id = sa.sfdc_id
+        AND sa.tenant_id = $1
+        AND (lp.account_id IS NULL OR lp.account_id != sa.id)
+    `, [tenantId]);
+
+    res.json({
+      success: true,
+      hotlinksRelinked: hotlinksRelinked ?? 0,
+      pagesRelinked: pagesRelinked ?? 0,
+    });
+  } catch (err) {
+    console.error("POST /sales/relink error:", err);
+    res.status(500).json({ error: "Relink failed" });
+  }
 });
 
 export default router;

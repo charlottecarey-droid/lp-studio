@@ -1026,6 +1026,7 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
           status: "draft",
           mode: "sales",
           accountId,
+          sfdcAccountId: account.sfdcId ?? null,
         }).returning();
         page = inserted as typeof page;
         break;
