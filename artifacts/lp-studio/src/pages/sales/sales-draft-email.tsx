@@ -60,6 +60,7 @@ export default function SalesDraftEmail() {
   const [sources, setSources] = useState<string[]>([]);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [hookSource, setHookSource] = useState<string | null>(null);
+  const [emailTheme, setEmailTheme] = useState<string | null>(null);
   const [researchText, setResearchText] = useState<ResearchText | null>(null);
   const [error, setError] = useState("");
 
@@ -196,6 +197,7 @@ export default function SalesDraftEmail() {
           researchUsed?: boolean;
           sources?: string[];
           hookSource?: string | null;
+          emailTheme?: string | null;
           researchText?: ResearchText;
         };
 
@@ -205,6 +207,7 @@ export default function SalesDraftEmail() {
         setResearchUsed(!!data.researchUsed);
         setSources(data.sources ?? []);
         setHookSource(data.hookSource ?? null);
+        setEmailTheme(data.emailTheme ?? null);
         setResearchText(data.researchText ?? null);
       } catch (err) {
         if (!cancelled) {
@@ -583,11 +586,13 @@ export default function SalesDraftEmail() {
                     >
                       <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <p className="text-[11px] text-muted-foreground italic flex-1 text-left">
-                        {hookSource === "pain point"
-                          ? "Written from role-based pain point (no recent research found)"
-                          : hookSource
-                            ? `Hook sourced from ${formatSourceLabel(hookSource)}`
-                            : "Personalized using web research"}
+                        {emailTheme
+                          ? `Thread: ${emailTheme}`
+                          : hookSource === "pain point"
+                            ? "Written from role-based pain point (no recent research found)"
+                            : hookSource
+                              ? `Hook sourced from ${formatSourceLabel(hookSource)}`
+                              : "Personalized using web research"}
                         {sources.length > 0 && hookSource !== "pain point" && ` · ${sources.length} source${sources.length !== 1 ? "s" : ""} cited`}
                       </p>
                       {sources.length > 0 && (

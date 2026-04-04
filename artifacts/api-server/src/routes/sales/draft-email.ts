@@ -447,103 +447,118 @@ ${briefingBlock ? `\n=== ACCOUNT INTELLIGENCE (pre-generated briefing) ===\n${br
 
 === CONTACT ===
 ${contactContext}
-${micrositeNote}
 
 === ACCOUNT ===
 ${accountContext}
 
-=== DANDY POSITIONING ===
-Core message: "The world's fastest growing DSOs unlock more EBITDA with Dandy."
+=== HOW TO WRITE THIS EMAIL ===
 
-Dandy is an end-to-end lab partner built for DSOs at the growth stage where acquisitions are slowing and same-store performance is the primary lever. By embedding standardized workflows, AI-driven quality control, and centralized visibility into the clinical process, Dandy turns the lab from a fragmented cost center into a scalable revenue engine.
+You are writing a 3-sentence cold email. The #1 rule: EVERY SENTENCE MUST ADVANCE ONE SINGLE ARGUMENT. The email should read like one connected thought — not three unrelated ideas stitched together.
 
-The four DSO pain points:
-1. Pressure on same-store growth
-2. Fragmented, non-actionable data
-3. Standardization vs. clinical autonomy
-4. Capital constraints ($40–75K per operatory)
+STEP 1 — PICK ONE THEME
+Before writing anything, choose ONE theme that connects a pain point to a proof point. The theme is the throughline of the entire email. Every sentence must serve this theme.
 
-The five messaging pillars (pick the most relevant to this contact's role):
-- "Same-store growth is the new growth engine" → CEO, COO, President, Growth/M&A roles
-- "Growth breaks without a standard that scales" → COO, Operations, IT, Clinical leadership
-- "Waste is the hidden tax on every DSO" → CFO, Finance, Operations
-- "Visibility isn't reporting, it's control" → COO, IT, Analytics, Clinical
-- "Enterprise growth shouldn't require enterprise risk" → CEO, CFO, Growth/M&A
+Pick the theme based on this person's role:
 
-=== PROOF POINTS BY PERSONA ===
+THEME OPTIONS (pick exactly one):
 
-IMPORTANT: Pick EXACTLY ONE proof point from the list below for this persona. Use it as a short, standalone fact. Do NOT combine multiple proof points or add qualifiers from other bullet points.
+For CFO / Finance roles → Theme: "Remakes are silently destroying margin"
+  Pain: remakes cost ~$780 each and most DSOs can't even track them across locations
+  Proof: Apex Dental Partners cut remakes by 29% after switching to Dandy
+
+For CFO / Finance roles → Theme: "Scanner CAPEX is an unnecessary barrier"
+  Pain: $40–75K per operatory in scanner hardware is hard to justify when margins are tight
+  Proof: Dandy deploys scanners free — zero CAPEX
+
+For COO / Operations roles → Theme: "Too many lab vendors means no control"
+  Pain: when every location picks its own lab, you get inconsistent quality, no leverage on pricing, and no visibility
+  Proof: DCA consolidated 400+ lab relationships down to one with Dandy
+
+For COO / Operations roles → Theme: "Standardization shouldn't mean forcing doctors to switch"
+  Pain: ops teams need consistency across locations, but mandating a single workflow alienates doctors
+  Proof: Dandy's preferred program standardizes the lab without requiring doctors to change their process
+
+For CDO / Clinical roles → Theme: "Remakes are a clinical quality problem hiding in plain sight"
+  Pain: most DSOs don't have location-level remake data, so quality issues go undetected
+  Proof: DCA practices hit ~1% remake rate with Dandy's standardized workflow
+
+For CDO / Clinical roles → Theme: "Catching fit issues before they ship"
+  Pain: bad margins and fit problems only surface after the patient is in the chair — costly for the practice and the patient
+  Proof: Dandy's AI margin detection flags fit issues before the crown ships
+
+For CEO / President roles → Theme: "Same-store growth is the next lever"
+  Pain: acquisitions slow down eventually and same-store performance becomes the primary growth engine
+  Proof: Apex Dental Partners saw a 12.5% revenue increase with Dandy
+
+For CEO / President roles → Theme: "Scale without capital risk"
+  Pain: growth requires scanners at every operatory, but $40–75K per site adds up fast
+  Proof: Dandy deploys free scanners — no capital risk to start
+
+For Growth / M&A roles → Theme: "Post-acquisition integration shouldn't break the lab"
+  Pain: every acquisition brings a new lab vendor, new workflows, and new quality standards to normalize
+  Proof: Dandy scales from 10 to 200+ locations on one platform
+
+For IT / Technology / Systems roles → Theme: "One fewer vendor to procure and manage"
+  Pain: IT has to spec, procure, and support scanner hardware at every location — it doesn't scale
+  Proof: DCA deployed 100 free scanners through Dandy — no hardware procurement for IT
+
+STEP 2 — WRITE THREE SENTENCES, ALL ON-THEME
+
+Sentence 1 (THE PROBLEM): Name the specific pain from your chosen theme. If you have recent research about this person or company that relates to this theme, weave it in. Otherwise, state the pain plainly as it applies to their role at ${accountName}.
+
+Sentence 2 (THE PROOF): State the ONE proof point from your chosen theme. This sentence should feel like the natural answer to sentence 1. It should make the reader think "oh, someone already solved this."
+
+Sentence 3 (THE ASK): A low-pressure CTA that connects back to the theme. Reference ${accountName} by name. If a microsite exists, the CTA should include the [MICROSITE_URL] placeholder.
+
+THE COHERENCE TEST — Read your three sentences back. If you removed the greeting and sign-off, would a stranger understand what single argument you're making? If any sentence feels like it belongs in a different email, rewrite it.
 
 Customer name rules:
 - "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs"
 - "Dental Care Alliance" or "DCA" — when referring to their practices, say "DCA practices"
 
-CFO / Finance (pick one):
-- Apex Dental Partners saw a 29% remake reduction
-- Every remake costs a DSO roughly $780 in lost value
-- Zero scanner CAPEX — Dandy deploys hardware free
-
-COO / Operations (pick one):
-- DCA consolidated 400+ lab relationships down to one
-- Dandy Hub gives ops leaders visibility across every location
-- Preferred program that doesn't force doctors to switch
-
-CDO / Clinical (pick one):
-- DCA practices hit ~1% remake rate with Dandy
-- Apex Dental Partners reached near-zero remakes within a year
-- AI margin detection catches fit issues before the crown ships
-
-CEO / President (pick one):
-- Apex Dental Partners saw a 12.5% revenue increase
-- Free scanners mean no capital risk to get started
-
-Growth / M&A (pick one):
-- Eliminates $40–75K per-operatory capital barrier
-- Scales from 10 to 200+ locations on the same platform
-
-IT / Technology / Systems (pick one):
-- DCA deployed 100 free scanners — no hardware procurement for IT
-- Standardizes the lab workflow across every location without custom integrations
-
 === ROLE RELEVANCE RULE ===
-Before using any research as a hook, ask: "Is this fact directly relevant to what THIS PERSON cares about in THEIR ROLE?"
-- A same-store revenue stat is NOT relevant to an IT Manager, Systems Director, or Technology VP
-- An acquisition or expansion is NOT relevant to a CDO or clinical leader unless it creates a clinical standardization challenge
-- A financial metric is NOT relevant to a Clinical Director or IT lead
-- If the research is company-level but not relevant to THIS person's specific function, IGNORE it and lead with a role-specific pain point instead
-The hook must earn its place by speaking to what THIS person is accountable for — not just what's happening at their company.
+Before choosing a theme, ask: "Is this directly relevant to what THIS PERSON cares about in THEIR ROLE?"
+- A same-store revenue stat is NOT relevant to an IT Manager
+- An acquisition hook is NOT relevant to a CDO unless it creates a clinical challenge
+- A financial metric is NOT relevant to a Clinical Director
+- If research is company-level but not relevant to THIS person's function, lead with a role-specific pain point instead
 
 === EMAIL FORMAT ===
-Subject: [subject line]
+Subject: [short subject line that reflects your chosen theme — 6 words max]
 
 Hi ${firstName || "[First Name]"},
 
-[1-sentence hook — research-based if recent and specific, otherwise a pain point tailored to their role]
+[Sentence 1: the problem]
 
-[1-sentence Dandy proof point — pick ONE single stat or customer result matched to their persona. Never combine multiple stats.]
+[Sentence 2: the proof]
 
-[1-sentence soft CTA]
+[Sentence 3: the ask]
 
 Best,
 
 === EMAIL RULES ===
 - 3 sentences max in the body. One sentence per line. Blank line between each.
-- ONE proof point per email. Pick the single most relevant stat or customer result for this persona. Never stack multiple numbers or stats — it reads like a data dump, not a human email.
-- Sound like a real person, not a sales rep
-- RECENCY RULE: Only use something as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — ignore it completely and lead with a pain point instead.
+- Every sentence must serve the same theme. No tangents, no bonus stats, no "also."
+- ONE proof point per email. Never stack multiple numbers or combine stats.
+- Sound like a real person texting a colleague, not a sales rep reading a script
+- Keep it under 60 words in the body (excluding greeting and sign-off)
+- RECENCY RULE: Only use research as a hook if it clearly happened after ${cutoffStr}. Anything older or undated — use the pain point from your theme instead.
 - Never open with: "I hope", "My name is", "I'm reaching out", "I came across your profile"
 - No buzzwords: leverage, synergy, streamline, revolutionize, game-changer, innovative solution, transform, empower, robust, cutting-edge
-- Don't over-explain Dandy
-- If a microsite exists, use the placeholder [MICROSITE_URL] exactly once where the link belongs naturally
-- CTA should be low-commitment ("Worth a quick call?" / "Happy to share the math?" / "Open to a 15-min chat?")
+- Don't over-explain Dandy — one clause about what they do is plenty
+- If a microsite exists, use the placeholder [MICROSITE_URL] exactly once in sentence 3
+- CTA should be low-commitment ("Worth a quick call?" / "Happy to share how?" / "Open to a 15-min chat?")
 - End with "Best,"
-- Do NOT say "I saw on LinkedIn", "according to LinkedIn", "on your LinkedIn", or any attribution to a source in the email body. State facts plainly.
-- Do NOT attribute a fact to LinkedIn unless a linkedin.com URL is actually present in the research sources. If no LinkedIn URL was found, treat anything labeled "LinkedIn" in the research as unverified — do not use it as a hook.
+- Do NOT say "I saw on LinkedIn", "according to LinkedIn", or attribute any source in the email body. State facts plainly.
+- Do NOT attribute a fact to LinkedIn unless a linkedin.com URL is actually present in the research sources.
+
+${micrositeNote}
 
 After "Best," on a new line, write exactly:
 HOOK_SOURCE: [paste the full URL of the specific page you used for the opening hook, or write "pain point" if you used a role-based pain point instead of research]
+THEME: [write the theme you chose, e.g. "Remakes are silently destroying margin"]
 
-Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
+Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.`;
 
     // ─── 9. Call AI ───────────────────────────────────────────────
     const response = await fetchWithTimeout(
@@ -557,7 +572,7 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
         body: JSON.stringify({
           model: "gpt-5",
           messages: [
-            { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
+            { role: "system", content: "You are a senior cold email copywriter. Your emails follow one rule above all: every sentence advances a single argument. Problem → Proof → Ask, all on the same theme. No tangents. Output only the email as requested." },
             { role: "user", content: prompt },
           ],
         }),
@@ -584,7 +599,7 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
               model: "gemini-2.5-flash",
               temperature: 0.85,
               messages: [
-                { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
+                { role: "system", content: "You are a senior cold email copywriter. Your emails follow one rule above all: every sentence advances a single argument. Problem → Proof → Ask, all on the same theme. No tangents. Output only the email as requested." },
                 { role: "user", content: prompt },
               ],
             }),
@@ -618,13 +633,19 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
       body = raw.slice(idx + subjectMatch[0].length).replace(/^\s*\n/, "").trim();
     }
 
-    // Extract HOOK_SOURCE line (GPT-4o cites which URL it used for the hook)
+    // Extract HOOK_SOURCE and THEME lines
     const hookSourceMatch = body.match(/\nHOOK_SOURCE:\s*(.+)/);
     const hookSourceRaw = hookSourceMatch?.[1]?.trim() ?? "";
     const hookSource = (hookSourceRaw && hookSourceRaw.toLowerCase() !== "pain point") ? hookSourceRaw : null;
-    // Strip the HOOK_SOURCE line from the displayed body
-    if (hookSourceMatch) {
-      body = body.slice(0, hookSourceMatch.index).trimEnd();
+    const themeMatch = body.match(/\nTHEME:\s*(.+)/);
+    const emailTheme = themeMatch?.[1]?.trim() ?? "";
+    // Strip the metadata lines from the displayed body
+    if (hookSourceMatch || themeMatch) {
+      const firstMetaIdx = Math.min(
+        hookSourceMatch?.index ?? body.length,
+        themeMatch?.index ?? body.length
+      );
+      body = body.slice(0, firstMetaIdx).trimEnd();
     }
 
     // ─── Filter citations to only relevant sources ─────────────────
@@ -677,6 +698,7 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
       hasMicrosite,
       contactEmail,
       hookSource: hookSource ?? (hookSourceRaw === "pain point" ? "pain point" : null),
+      emailTheme: emailTheme || null,
       researchUsed:   !noPersonInfo || !noCompanyNews || !!linkedinResearch,
       siteResearched: !!siteResearch,
       siteSource:     siteResearch ? (FIRECRAWL_KEY && domain ? "firecrawl" : "perplexity") : null,
