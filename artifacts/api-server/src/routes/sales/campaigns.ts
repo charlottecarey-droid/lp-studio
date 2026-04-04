@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesEmailCampaignsTable,
@@ -109,12 +109,30 @@ router.post("/campaigns", async (req, res): Promise<void> => {
     res.status(400).json({ error: "name and templateId are required" });
     return;
   }
+  if (typeof name !== "string" || name.length > 255) {
+    res.status(400).json({ error: "name must be a string under 255 characters" });
+    return;
+  }
+  if (isNaN(Number(templateId))) {
+    res.status(400).json({ error: "templateId must be a number" });
+    return;
+  }
+  const allowedStatuses = ["draft", "scheduled", "sending", "sent", "paused"];
+  if (status && !allowedStatuses.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${allowedStatuses.join(", ")}` });
+    return;
+  }
+  // Reject oversized metadata (prevent payload bombs)
+  if (metadata && JSON.stringify(metadata).length > 10000) {
+    res.status(400).json({ error: "metadata exceeds maximum size" });
+    return;
+  }
   try {
     const [campaign] = await db
       .insert(salesEmailCampaignsTable)
       .values({
         tenantId,
-        name,
+        name: name.slice(0, 255),
         templateId: Number(templateId),
         accountId: accountId ? Number(accountId) : null,
         status: status ?? "draft",
@@ -180,15 +198,12 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
       .where(eq(salesEmailTemplatesTable.id, campaign.templateId));
     if (!template) { res.status(400).json({ error: "Template not found" }); return; }
 
-    // Load contacts — either all account contacts or specific from metadata
+    // Load contacts — batch query instead of N+1 loop
     const contactIds: number[] = (campaign.metadata as any)?.contactIds ?? [];
     let contacts;
     if (contactIds.length > 0) {
-      contacts = [];
-      for (const cid of contactIds) {
-        const [c] = await db.select().from(salesContactsTable).where(eq(salesContactsTable.id, cid));
-        if (c) contacts.push(c);
-      }
+      contacts = await db.select().from(salesContactsTable)
+        .where(inArray(salesContactsTable.id, contactIds));
     } else if (campaign.accountId) {
       contacts = await db.select().from(salesContactsTable)
         .where(eq(salesContactsTable.accountId, campaign.accountId));
@@ -203,6 +218,12 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
       res.status(400).json({ error: "No contacts with email addresses to send to" });
       return;
     }
+
+    // Batch-load all hotlinks for sendable contacts (eliminates N+1 in send loop)
+    const sendableIds = sendable.map(c => c.id);
+    const allHotlinks = await db.select().from(salesHotlinksTable)
+      .where(inArray(salesHotlinksTable.contactId, sendableIds));
+    const hotlinkByContactId = new Map(allHotlinks.map(h => [h.contactId, h]));
 
     // Mark campaign as sending
     await db.update(salesEmailCampaignsTable)
@@ -228,9 +249,8 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
         "{{email}}": contact.email!,
       };
 
-      // Build microsite URL if hotlink exists
-      const [hotlink] = await db.select().from(salesHotlinksTable)
-        .where(eq(salesHotlinksTable.contactId, contact.id));
+      // Build microsite URL if hotlink exists (pre-loaded batch)
+      const hotlink = hotlinkByContactId.get(contact.id);
       if (hotlink) {
         vars["{{microsite_url}}"] = `${host}/p/${hotlink.token}`;
       }

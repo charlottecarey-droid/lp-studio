@@ -75,6 +75,7 @@ async function getOrCreateHotlink(contactId: number, pageId: number): Promise<ty
 // ─── List all hotlinks for a page (enriched with contact + account) ─────────
 
 router.get("/campaign-pages/links/:pageId", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const pageId = Number(req.params.pageId);
     const host = `${req.protocol}://${req.get("host")}`;
@@ -94,7 +95,7 @@ router.get("/campaign-pages/links/:pageId", async (req, res): Promise<void> => {
       .from(salesHotlinksTable)
       .leftJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
       .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
-      .where(eq(salesHotlinksTable.pageId, pageId))
+      .where(and(eq(salesHotlinksTable.pageId, pageId), eq(salesContactsTable.tenantId, tenantId)))
       .orderBy(salesAccountsTable.name, salesContactsTable.lastName);
 
     res.json(links.map(l => ({
@@ -110,32 +111,27 @@ router.get("/campaign-pages/links/:pageId", async (req, res): Promise<void> => {
 // ─── Get stats for a campaign page (hotlink count, account reach) ────────────
 
 router.get("/campaign-pages/stats/:pageId", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const pageId = Number(req.params.pageId);
-    const hotlinks = await db.select({ contactId: salesHotlinksTable.contactId })
+    // Join through contacts to enforce tenant isolation
+    const hotlinks = await db.select({ contactId: salesHotlinksTable.contactId, accountId: salesContactsTable.accountId })
       .from(salesHotlinksTable)
-      .where(eq(salesHotlinksTable.pageId, pageId));
+      .innerJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
+      .where(and(eq(salesHotlinksTable.pageId, pageId), eq(salesContactsTable.tenantId, tenantId)));
 
-    const contactIds = hotlinks.map(h => h.contactId);
+    const uniqueAccounts = new Set(hotlinks.map(h => h.accountId).filter(Boolean));
 
-    let accountCount = 0;
-    if (contactIds.length > 0) {
-      const contacts = await db.select({ accountId: salesContactsTable.accountId })
-        .from(salesContactsTable)
-        .where(eq(salesContactsTable.id, contactIds[0]));
-      const uniqueAccounts = new Set(contacts.map(c => c.accountId).filter(Boolean));
-      accountCount = uniqueAccounts.size;
-    }
-
-    // Count total active contacts with emails (potential reach)
+    // Count total active contacts with emails (potential reach) — tenant-scoped
     const eligible = await db.select({ id: salesContactsTable.id })
       .from(salesContactsTable)
       .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
         isNotNull(salesContactsTable.email),
         not(eq(salesContactsTable.status, "unsubscribed")),
       ));
 
-    res.json({ hotlinkCount: hotlinks.length, accountCount, eligibleContactCount: eligible.length });
+    res.json({ hotlinkCount: hotlinks.length, accountCount: uniqueAccounts.size, eligibleContactCount: eligible.length });
   } catch (err) {
     console.error("GET /sales/campaign-pages/stats/:pageId error:", err);
     res.status(500).json({ error: "Failed to get stats" });
@@ -144,7 +140,8 @@ router.get("/campaign-pages/stats/:pageId", async (req, res): Promise<void> => {
 
 // ─── Preview contacts eligible for a campaign launch ────────────────────────
 
-router.get("/campaign-pages/eligible-contacts", async (_req, res): Promise<void> => {
+router.get("/campaign-pages/eligible-contacts", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const contacts = await db
       .select({
@@ -158,9 +155,11 @@ router.get("/campaign-pages/eligible-contacts", async (_req, res): Promise<void>
       .from(salesContactsTable)
       .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
       .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
         isNotNull(salesContactsTable.email),
         not(eq(salesContactsTable.status, "unsubscribed")),
-      ));
+      ))
+      .limit(2000);
 
     res.json(contacts);
   } catch (err) {

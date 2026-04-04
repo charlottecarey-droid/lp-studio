@@ -290,6 +290,29 @@ router.put("/sfdc/field-mappings", async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate field names are safe identifiers (alphanumeric, underscores, dots only)
+  const safeIdentifier = /^[a-zA-Z_][a-zA-Z0-9_.]{0,127}$/;
+  if (!safeIdentifier.test(sfdcObject) || !safeIdentifier.test(sfdcField)) {
+    res.status(400).json({ error: "Invalid SFDC field name" });
+    return;
+  }
+
+  // Whitelist allowed local tables
+  const allowedTables = ["sales_accounts", "sales_contacts", "sales_signals"];
+  if (!allowedTables.includes(localTable)) {
+    res.status(400).json({ error: `localTable must be one of: ${allowedTables.join(", ")}` });
+    return;
+  }
+
+  if (!safeIdentifier.test(localField)) {
+    res.status(400).json({ error: "Invalid local field name" });
+    return;
+  }
+
+  // Whitelist allowed transform functions — never execute arbitrary strings
+  const allowedTransforms = ["lowercase", "uppercase", "trim", "toNumber", "toDate", "toString", null];
+  const sanitizedTransformFn = (transformFn && allowedTransforms.includes(transformFn)) ? transformFn : null;
+
   try {
     const [connection] = await db
       .select()
@@ -310,7 +333,7 @@ router.put("/sfdc/field-mappings", async (req, res): Promise<void> => {
         sfdcField,
         localTable,
         localField,
-        transformFn: transformFn || null,
+        transformFn: sanitizedTransformFn,
       })
       .returning();
 

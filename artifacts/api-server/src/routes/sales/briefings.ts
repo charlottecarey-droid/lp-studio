@@ -204,6 +204,10 @@ router.get("/accounts/:accountId/briefing", async (req, res): Promise<void> => {
 // Generate or refresh briefing for an account
 router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => {
   const accountId = Number(req.params.accountId);
+  if (isNaN(accountId) || accountId <= 0) {
+    res.status(400).json({ error: "Invalid accountId" });
+    return;
+  }
   try {
     // Load account
     const [account] = await db.select().from(salesAccountsTable)

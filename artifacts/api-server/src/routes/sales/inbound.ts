@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createHmac, timingSafeEqual } from "crypto";
 import { eq, desc, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -8,6 +9,22 @@ import {
 } from "@workspace/db";
 
 const router = Router();
+
+// ─── Webhook signature verification ─────────────────────────
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
+
+function verifyWebhookSignature(payload: string, signature: string | undefined): boolean {
+  if (!RESEND_WEBHOOK_SECRET || !signature) return !RESEND_WEBHOOK_SECRET; // skip if no secret configured
+  try {
+    const expected = createHmac("sha256", RESEND_WEBHOOK_SECRET)
+      .update(payload)
+      .digest("hex");
+    const sigHex = signature.replace(/^sha256=/, "");
+    return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(sigHex, "hex"));
+  } catch {
+    return false;
+  }
+}
 
 // ─── GET /sales/inbound — list received emails ───────────────
 
@@ -89,6 +106,18 @@ router.patch("/:id/read", async (req, res): Promise<void> => {
 // Resend sends: { from, to, subject, text, html, headers: { "message-id", "in-reply-to" } }
 
 router.post("/", async (req, res): Promise<void> => {
+  // Verify webhook signature if secret is configured
+  if (RESEND_WEBHOOK_SECRET) {
+    const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
+    const signature = req.headers["resend-signature"] as string | undefined
+      ?? req.headers["x-resend-signature"] as string | undefined;
+    if (!verifyWebhookSignature(rawBody, signature)) {
+      console.warn("Inbound webhook: invalid signature rejected");
+      res.status(401).json({ error: "Invalid webhook signature" });
+      return;
+    }
+  }
+
   try {
     const body = req.body ?? {};
 
@@ -136,7 +165,7 @@ router.post("/", async (req, res): Promise<void> => {
       subject,
       bodyText: bodyText || null,
       bodyHtml: bodyHtml || null,
-      isRead: "false",
+      isRead: false,
     }).returning();
 
     // Create a signal if we matched a contact

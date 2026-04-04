@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import rateLimit from "express-rate-limit";
@@ -87,9 +88,10 @@ async function sendVisitAlert(
 }
 
 // ─── GET /microsites/overview — account-grouped microsites + hotlinks ──────
-router.get("/microsites/overview", async (_req, res): Promise<void> => {
+router.get("/microsites/overview", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
-    // Single JOIN query: hotlinks → contacts → accounts + pages
+    // Single JOIN query: hotlinks → contacts → accounts + pages, tenant-scoped
     const rows = await db
       .select({
         hotlinkId: salesHotlinksTable.id,
@@ -110,7 +112,7 @@ router.get("/microsites/overview", async (_req, res): Promise<void> => {
       .innerJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
       .innerJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
       .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
-      .where(eq(salesHotlinksTable.isActive, true))
+      .where(and(eq(salesHotlinksTable.isActive, true), eq(salesContactsTable.tenantId, tenantId)))
       .orderBy(salesAccountsTable.name, lpPagesTable.updatedAt, salesContactsTable.lastName);
 
     // Group into: accountId → pageId → hotlinks[]
@@ -180,15 +182,16 @@ async function generateUniqueToken(maxAttempts = 5): Promise<string> {
 
 // List hotlinks (optionally filter by contactId, pageId, or accountId)
 router.get("/hotlinks", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const { contactId, pageId, accountId } = req.query;
     let hotlinks;
     if (accountId) {
-      // All hotlinks for an account — join through contacts
+      // All hotlinks for an account — join through contacts, tenant-scoped
       const contacts = await db
         .select({ id: salesContactsTable.id })
         .from(salesContactsTable)
-        .where(eq(salesContactsTable.accountId, Number(accountId)));
+        .where(and(eq(salesContactsTable.accountId, Number(accountId)), eq(salesContactsTable.tenantId, tenantId)));
       if (contacts.length === 0) {
         res.json([]);
         return;
@@ -207,7 +210,17 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
         .where(eq(salesHotlinksTable.pageId, Number(pageId)))
         .orderBy(desc(salesHotlinksTable.createdAt));
     } else {
+      // Unfiltered — scope through contacts to enforce tenant isolation
+      const tenantContacts = await db.select({ id: salesContactsTable.id })
+        .from(salesContactsTable)
+        .where(eq(salesContactsTable.tenantId, tenantId))
+        .limit(5000);
+      if (tenantContacts.length === 0) {
+        res.json([]);
+        return;
+      }
       hotlinks = await db.select().from(salesHotlinksTable)
+        .where(inArray(salesHotlinksTable.contactId, tenantContacts.map(c => c.id)))
         .orderBy(desc(salesHotlinksTable.createdAt))
         .limit(1000);
     }
@@ -266,19 +279,27 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
     const contacts = await db.select().from(salesContactsTable)
       .where(eq(salesContactsTable.accountId, Number(accountId)));
 
+    if (contacts.length === 0) {
+      res.status(201).json([]);
+      return;
+    }
+
+    // Batch-load all existing hotlinks for this page + these contacts (eliminates N+1)
+    const contactIds = contacts.map(c => c.id);
+    const existingHotlinks = await db.select().from(salesHotlinksTable)
+      .where(and(
+        inArray(salesHotlinksTable.contactId, contactIds),
+        eq(salesHotlinksTable.pageId, Number(pageId)),
+      ));
+    const existingByContactId = new Map(existingHotlinks.map(h => [h.contactId, h]));
+
     const created: Array<typeof salesHotlinksTable.$inferSelect> = [];
 
     for (const contact of contacts) {
-      // Skip if hotlink already exists
-      const existing = await db.select().from(salesHotlinksTable)
-        .where(and(
-          eq(salesHotlinksTable.contactId, contact.id),
-          eq(salesHotlinksTable.pageId, Number(pageId)),
-        ))
-        .limit(1);
-
-      if (existing.length > 0) {
-        created.push(existing[0]);
+      // Skip if hotlink already exists (checked from batch-loaded map)
+      const existing = existingByContactId.get(contact.id);
+      if (existing) {
+        created.push(existing);
         continue;
       }
 
