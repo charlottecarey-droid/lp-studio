@@ -137,6 +137,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function abmStageStyle(stage: string): string {
+  const s = stage.toLowerCase();
+  if (s.includes("won"))      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+  if (s.includes("lost"))     return "bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400";
+  if (s.includes("opportun")) return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+  if (s.includes("meeting"))  return "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400";
+  if (s.includes("engaged"))  return "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400";
+  if (s.includes("target"))   return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400";
+  return "bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400";
+}
+
 function PageStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     published: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -718,11 +729,10 @@ function AccountListView() {
                       </span>
                     )}
                     {account.abmStage && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${abmStageStyle(account.abmStage)}`}>
                         {account.abmStage}
                       </span>
                     )}
-                    <StatusBadge status={account.status} />
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     {account.practiceSegment && <span>{account.practiceSegment}</span>}
@@ -1509,7 +1519,11 @@ function AccountDetailView({ id }: { id: string }) {
               <h1 className="text-2xl font-display font-bold text-foreground truncate">
                 {account.name}
               </h1>
-              <StatusBadge status={account.status} />
+              {account.abmStage && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${abmStageStyle(account.abmStage)}`}>
+                  {account.abmStage}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5 flex-wrap">
               {account.domain && (
