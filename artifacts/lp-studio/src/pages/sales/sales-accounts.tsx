@@ -1106,6 +1106,17 @@ function AccountDetailView({ id }: { id: string }) {
   // AI email draft
   const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
 
+  // Last signal time for Overview stat
+  const [lastSignalTime, setLastSignalTime] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`${API_BASE}/sales/signals?accountId=${id}&limit=1`)
+      .then(r => r.ok ? r.json() : [])
+      .then((sigs: { createdAt: string }[]) => {
+        if (sigs.length > 0) setLastSignalTime(sigs[0].createdAt);
+      })
+      .catch(() => {});
+  }, [id]);
+
   // Detail tabs
   type DetailTab = "overview" | "contacts" | "microsites" | "activity";
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
@@ -1331,9 +1342,9 @@ function AccountDetailView({ id }: { id: string }) {
                 className="flex flex-col items-center justify-center gap-1 p-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer text-center"
               >
                 <span className="text-2xl font-bold text-foreground">
-                  {account.updatedAt ? format(new Date(account.updatedAt), "MMM d") : "–"}
+                  {lastSignalTime ? format(new Date(lastSignalTime), "MMM d") : "–"}
                 </span>
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Last Updated</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Last Signal</span>
               </button>
             </div>
 
