@@ -619,6 +619,7 @@ function ContactListView() {
   const [stageFilter, setStageFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
   const [engagementFilter, setEngagementFilter] = useState("");
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -674,10 +675,12 @@ function ContactListView() {
   const fetchContacts = useCallback(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API_BASE}/sales/contacts`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/contacts?limit=2000`).then((r) => (r.ok ? r.json() : { data: [], totalCount: 0 })),
       fetch(`${API_BASE}/sales/signals?limit=500`).then((r) => (r.ok ? r.json() : { data: [] })).then(res => Array.isArray(res) ? res : res.data ?? []),
     ])
-      .then(([cts, signals]) => {
+      .then(([ctsRes, signals]) => {
+        const cts = Array.isArray(ctsRes) ? ctsRes : (ctsRes.data ?? []);
+        setTotalCount(ctsRes.totalCount ?? cts.length);
         setContacts(cts);
         const grouped: Record<number, Signal[]> = {};
         (signals || []).forEach((sig: Signal) => {
@@ -699,6 +702,7 @@ function ContactListView() {
     try {
       await fetch(`${API_BASE}/sales/accounts`, { method: "DELETE" });
       setContacts([]);
+      setTotalCount(0);
       setDeleteConfirm(false);
     } finally {
       setDeleting(false);
@@ -760,7 +764,7 @@ function ContactListView() {
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">Contacts</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Browse all contacts across your target accounts. {contacts.length} contact{contacts.length !== 1 ? "s" : ""} found.
+              Browse all contacts across your target accounts. {(totalCount ?? contacts.length).toLocaleString()} contact{(totalCount ?? contacts.length) !== 1 ? "s" : ""} found.
             </p>
           </div>
           <div className="flex items-center gap-2">
