@@ -122,7 +122,7 @@ export default function SalesDashboard() {
       fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=100`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
     ])
       .then(([accounts, contacts, recentSignals, campaigns, allSignals, pages]) => {

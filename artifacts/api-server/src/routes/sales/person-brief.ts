@@ -2,27 +2,9 @@ import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable, salesBriefingsTable } from "@workspace/db";
+import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 
 const router = Router();
-
-function getAIClient() {
-  const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const integrationKey  = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  if (integrationBase && integrationKey) return { baseURL: integrationBase, apiKey: integrationKey };
-  const directKey = process.env.OPENAI_API_KEY;
-  if (directKey) return { baseURL: "https://api.openai.com/v1", apiKey: directKey };
-  return null;
-}
-
-async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs: number): Promise<Response> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...opts, signal: ctrl.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 // POST /person-brief  (mounted under /api/sales by the parent router)
 // Accepts the research text already gathered by draft-email and generates
@@ -63,18 +45,6 @@ router.post("/person-brief", async (req, res) => {
     const state           = account.state ?? "";
 
     // ─── Load account briefing (pre-generated intelligence) ─────
-    type BriefingData = {
-      overview?: string;
-      tier?: string;
-      organizationalModel?: string;
-      leadership?: Array<{ name: string; title: string }>;
-      sizeAndLocations?: { locationCount?: string; regions?: string[]; headquarters?: string; ownership?: string };
-      recentNews?: Array<{ headline: string; summary: string; date?: string }>;
-      buyingCommittee?: Array<{ role: string; painPoints: string; recommendedMessage: string }>;
-      fitAnalysis?: { primaryValueProp?: string; keyPainPoints?: string[]; proofPoints?: string[]; potentialObjections?: string[]; recommendedApproach?: string };
-      talkingPoints?: string[];
-    };
-
     let briefing: BriefingData | null = null;
     const [br] = await db.select().from(salesBriefingsTable)
       .where(eq(salesBriefingsTable.accountId, accountId))

@@ -977,7 +977,7 @@ function ContactListView() {
                       onClick={() => navigate(`/sales/contacts/${contact.id}`)}
                       className="group/row flex items-center gap-3 pl-10 pr-5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
                     >
-                      <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
+                      <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${indicatorColor}`} title={engagementScore.label} />
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-bold text-primary uppercase">
                         {contact.firstName[0]}{contact.lastName[0]}
                       </div>
@@ -1031,14 +1031,17 @@ function ContactListView() {
                   onClick={() => navigate(`/sales/contacts/${contact.id}`)}
                   className="group flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
                 >
-                  <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} />
+                  <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} title={engagementScore.label} />
                   <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
                     {contact.firstName[0]}{contact.lastName[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {contact.firstName} {contact.lastName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {contact.firstName} {contact.lastName}
+                      </p>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${engagementScore.color}`}>{engagementScore.label}</span>
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       {contact.title && <span>{contact.title}</span>}
                       {contact.accountName && (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
-import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, X, Search } from "lucide-react";
+import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, X, Search, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,68 +159,72 @@ export default function SalesDraftEmail() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Extracted so it can be called from useEffect and Regenerate button
+  const cancelRef = useRef(false);
+
+  async function generateEmail() {
+    if (!selectedContactId || !selectedAccountId) return;
+
+    cancelRef.current = false;
+    setGenerating(true);
+    setError("");
+    setSubject("");
+    setBody("");
+    setSources([]);
+    setHookSource(null);
+    setResearchText(null);
+    setBrief("");
+    setBriefOpen(false);
+
+    try {
+      const res = await fetch(`${API_BASE}/sales/draft-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: selectedContactId, accountId: selectedAccountId }),
+      });
+
+      if (cancelRef.current) return;
+
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(d.error ?? "Failed to generate email");
+      }
+
+      const data = (await res.json()) as {
+        subject?: string;
+        body?: string;
+        hasMicrosite?: boolean;
+        researchUsed?: boolean;
+        sources?: string[];
+        hookSource?: string | null;
+        emailTheme?: string | null;
+        researchText?: ResearchText;
+      };
+
+      setSubject(data.subject ?? "");
+      setBody(data.body ?? "");
+      setHasMicrosite(!!data.hasMicrosite);
+      setResearchUsed(!!data.researchUsed);
+      setSources(data.sources ?? []);
+      setHookSource(data.hookSource ?? null);
+      setEmailTheme(data.emailTheme ?? null);
+      setResearchText(data.researchText ?? null);
+    } catch (err) {
+      if (!cancelRef.current) {
+        setError(err instanceof Error ? err.message : "Error generating email");
+      }
+    } finally {
+      if (!cancelRef.current) setGenerating(false);
+    }
+  }
+
   // Generate email when contact is selected
   useEffect(() => {
     if (!selectedContactId || !selectedAccountId) return;
 
-    let cancelled = false;
-
-    async function generateEmail() {
-      setGenerating(true);
-      setError("");
-      setSubject("");
-      setBody("");
-      setSources([]);
-      setHookSource(null);
-      setResearchText(null);
-      setBrief("");
-      setBriefOpen(false);
-
-      try {
-        const res = await fetch(`${API_BASE}/sales/draft-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactId: selectedContactId, accountId: selectedAccountId }),
-        });
-
-        if (cancelled) return;
-
-        if (!res.ok) {
-          const d = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(d.error ?? "Failed to generate email");
-        }
-
-        const data = (await res.json()) as {
-          subject?: string;
-          body?: string;
-          hasMicrosite?: boolean;
-          researchUsed?: boolean;
-          sources?: string[];
-          hookSource?: string | null;
-          emailTheme?: string | null;
-          researchText?: ResearchText;
-        };
-
-        setSubject(data.subject ?? "");
-        setBody(data.body ?? "");
-        setHasMicrosite(!!data.hasMicrosite);
-        setResearchUsed(!!data.researchUsed);
-        setSources(data.sources ?? []);
-        setHookSource(data.hookSource ?? null);
-        setEmailTheme(data.emailTheme ?? null);
-        setResearchText(data.researchText ?? null);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Error generating email");
-        }
-      } finally {
-        if (!cancelled) setGenerating(false);
-      }
-    }
-
     generateEmail();
     return () => {
-      cancelled = true;
+      cancelRef.current = true;
     };
   }, [selectedContactId, selectedAccountId]);
 
@@ -699,12 +703,23 @@ export default function SalesDraftEmail() {
                   <textarea
                     ref={textareaRef}
                     defaultValue={body}
-                    className="w-full text-sm text-foreground leading-relaxed border border-border rounded-xl p-4 h-80 resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 font-mono bg-muted/20"
+                    className="w-full text-sm text-foreground leading-relaxed border border-border rounded-xl p-4 min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 font-mono bg-muted/20 overflow-hidden"
+                    onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }}
+                    onFocus={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }}
                   />
                 </div>
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-3 pt-4 border-t border-border/50">
+                  <Button
+                    onClick={generateEmail}
+                    variant="outline"
+                    className="gap-2"
+                    disabled={generating}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${generating ? "animate-spin" : ""}`} />
+                    {generating ? "Regenerating…" : "Regenerate"}
+                  </Button>
                   <Button
                     onClick={copyFull}
                     variant="outline"

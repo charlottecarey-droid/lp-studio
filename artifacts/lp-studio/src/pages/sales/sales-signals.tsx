@@ -140,7 +140,7 @@ export default function SalesSignals() {
         const signal = JSON.parse(event.data);
         if (signal.type === "connected") return;
         if (filter && signal.type !== filter) return;
-        setSignals((prev) => [signal, ...prev]);
+        setSignals((prev) => [signal, ...prev].slice(0, 500));
       } catch {}
     };
     return () => es.close();
@@ -168,7 +168,7 @@ export default function SalesSignals() {
 
   const pag = usePagination(filteredSignals, 25);
 
-  const types = ["page_view", "email_open", "email_click", "form_submit"];
+  const types = ["page_view", "email_open", "email_click", "email_sent", "email_replied", "form_submit"];
 
   return (
     <SalesLayout>

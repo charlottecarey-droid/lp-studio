@@ -153,7 +153,7 @@ export function SalesTopNav() {
       href: "/sales/draft-email",
       icon: <Mail className="w-4 h-4" />,
       permission: "sales_outreach",
-      matchFn: (loc) => loc === "/sales/draft-email" || loc.startsWith("/sales/draft-email"),
+      matchFn: (loc) => loc === "/sales/draft-email" || loc.startsWith("/sales/draft-email/"),
     },
     {
       label: "Campaigns",
