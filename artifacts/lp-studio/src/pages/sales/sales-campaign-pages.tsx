@@ -27,6 +27,10 @@ import {
   FileText,
   X,
   Bell,
+  BookmarkCheck,
+  ListFilter,
+  Zap,
+  ArrowRight,
 } from "lucide-react";
 import AudienceBuilderModal, { type Audience } from "@/components/AudienceBuilderModal";
 
@@ -49,6 +53,20 @@ import { getLpPageUrl, cn } from "@/lib/utils";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
+
+interface AccountForView {
+  id: number;
+  name: string;
+  owner: string | null;
+  abmTier: string | null;
+}
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: { ownerFilters: string[]; abmTierFilter: string };
+  createdAt: string;
+}
 
 const API_BASE = "/api";
 
@@ -126,6 +144,7 @@ function LaunchModal({
   onClose,
   onLaunch,
   onCreateAudience,
+  onAudienceCreated,
 }: {
   page: Page;
   audiences: Audience[];
@@ -140,7 +159,9 @@ function LaunchModal({
     alertEmails: string[];
   }) => Promise<void>;
   onCreateAudience: () => void;
+  onAudienceCreated: (a: Audience) => void;
 }) {
+  const { user } = useAuth();
   const [selectedAudienceId, setSelectedAudienceId] = useState<number | null>(
     audiences.length === 1 ? audiences[0].id : null
   );
@@ -154,6 +175,52 @@ function LaunchModal({
   const [result, setResult] = useState<LaunchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
+
+  // Saved account views from localStorage
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [creatingFromView, setCreatingFromView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    try {
+      const views = JSON.parse(localStorage.getItem(`sc_acct_views_${user.userId}`) ?? "[]") as SavedView[];
+      setSavedViews(views);
+    } catch {}
+  }, [user?.userId]);
+
+  async function createAudienceFromView(view: SavedView) {
+    setCreatingFromView(view.id);
+    setError(null);
+    try {
+      const accts = await fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []) as AccountForView[];
+      const matching = accts.filter(a => {
+        const matchesOwner = view.filters.ownerFilters.length === 0 || view.filters.ownerFilters.includes(a.owner ?? "");
+        const matchesTier = !view.filters.abmTierFilter || a.abmTier === view.filters.abmTierFilter;
+        return matchesOwner && matchesTier;
+      });
+      const descParts = [
+        view.filters.ownerFilters.length > 0 && `Owners: ${view.filters.ownerFilters.join(", ")}`,
+        view.filters.abmTierFilter && `Tier: ${view.filters.abmTierFilter}`,
+      ].filter(Boolean).join(" · ");
+      const res = await fetch(`${API_BASE}/sales/audiences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: view.name,
+          description: descParts || "From saved account view",
+          filters: { accountIds: matching.map(a => a.id) },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create audience");
+      const created = await res.json() as Audience;
+      onAudienceCreated(created);
+      setSelectedAudienceId(created.id);
+    } catch {
+      setError("Failed to create audience from saved view. Try again.");
+    } finally {
+      setCreatingFromView(null);
+    }
+  }
 
   const selectedAudience = audiences.find(a => a.id === selectedAudienceId);
 
@@ -230,12 +297,62 @@ function LaunchModal({
           </button>
         </div>
 
+        {/* Saved account views — quick audience creation */}
+        {savedViews.length > 0 && (
+          <div className="rounded-xl border border-primary/20 bg-primary/4 p-4 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wide">
+              <BookmarkCheck className="w-3.5 h-3.5" />
+              Your saved account lists
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use an account view as your campaign audience — we'll target all contacts at matching accounts.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {savedViews.map(view => {
+                const parts = [
+                  view.filters.ownerFilters.length === 1 ? view.filters.ownerFilters[0] : view.filters.ownerFilters.length > 1 ? `${view.filters.ownerFilters.length} owners` : null,
+                  view.filters.abmTierFilter || null,
+                ].filter(Boolean).join(" · ");
+                const alreadyCreated = audiences.find(a => a.name === view.name);
+                return (
+                  <div key={view.id} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => alreadyCreated ? setSelectedAudienceId(alreadyCreated.id) : createAudienceFromView(view)}
+                      disabled={creatingFromView === view.id}
+                      className={`flex-1 flex items-center gap-2.5 text-left px-3 py-2 rounded-lg border transition-all text-sm ${
+                        (alreadyCreated && selectedAudienceId === alreadyCreated.id)
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "border-border hover:border-primary/40 bg-background"
+                      }`}
+                    >
+                      {creatingFromView === view.id
+                        ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                        : alreadyCreated && selectedAudienceId === alreadyCreated.id
+                          ? <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center shrink-0"><Check className="w-2.5 h-2.5 text-primary-foreground" /></div>
+                          : <BookmarkCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
+                      <span className="font-medium text-foreground">{view.name}</span>
+                      {parts && <span className="text-xs text-muted-foreground ml-auto">{parts}</span>}
+                      {alreadyCreated && selectedAudienceId !== alreadyCreated.id && (
+                        <span className="text-xs text-primary ml-auto">Select</span>
+                      )}
+                      {!alreadyCreated && creatingFromView !== view.id && (
+                        <span className="text-xs text-primary ml-auto">Use this →</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Audience selector */}
         <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" />
-              Target Audience *
+              {savedViews.length > 0 ? "Or pick a saved audience" : "Target Audience *"}
             </label>
             <button
               type="button"
@@ -791,6 +908,7 @@ export function CampaignPagesContent() {
           audiences={audiences}
           onClose={() => setLaunchingPage(null)}
           onCreateAudience={() => { setLaunchingPage(null); setAudienceBuilderOpen(true); }}
+          onAudienceCreated={(a) => setAudiences(prev => [...prev, a])}
           onLaunch={async (opts) => {
             const result = await handleLaunch(opts);
             if (result) {
@@ -803,36 +921,72 @@ export function CampaignPagesContent() {
       <div className="flex flex-col gap-6 pb-12">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">Campaign Pages</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">Quick Campaigns</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Send one page to all accounts with company names auto-filled in every version
+              Build one page, define an audience, and send it to multiple accounts at once — each version personalized automatically
             </p>
           </div>
           <Button className="gap-2" onClick={() => setShowTemplatePicker(true)}>
             <Plus className="w-4 h-4" />
-            New Page
+            New Campaign Page
           </Button>
         </div>
 
         {/* How it works */}
         <Card className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-gradient-to-br from-violet-50/70 to-background dark:from-violet-950/20 p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
-              <Variable className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground mb-1">How Campaign Pages work</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Build one page with merge variables like <code className="bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-xs font-mono">{"{{company}}"}</code> in headings, body text, and CTAs. When a contact visits their personalized link, those variables are automatically replaced with their real company name, first name, and more.
+            <div>
+              <h3 className="font-semibold text-foreground">How Quick Campaigns work</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Create one page, build an audience of accounts, and launch — we generate a personalized link for every contact and optionally send the email for you.
               </p>
-              <div className="flex flex-wrap gap-2">
-                {AVAILABLE_VARS.map(v => (
-                  <span key={v.tag} className="inline-flex items-center gap-1.5 text-xs">
-                    <code className="bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-mono">{v.tag}</code>
-                    <span className="text-muted-foreground">{v.label}</span>
-                  </span>
-                ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {[
+              {
+                step: "1",
+                icon: <FileText className="w-4 h-4 text-violet-600 dark:text-violet-400" />,
+                title: "Build your page",
+                desc: "Use merge variables like {{company}} and {{first_name}} — each recipient sees their own version.",
+              },
+              {
+                step: "2",
+                icon: <ListFilter className="w-4 h-4 text-violet-600 dark:text-violet-400" />,
+                title: "Define an audience",
+                desc: "Pick accounts by owner, tier, or segment — or use your saved account list directly.",
+              },
+              {
+                step: "3",
+                icon: <Rocket className="w-4 h-4 text-violet-600 dark:text-violet-400" />,
+                title: "Launch",
+                desc: "We create personalized links for every contact and send the email automatically.",
+              },
+            ].map(({ step, icon, title, desc }) => (
+              <div key={step} className="flex items-start gap-2.5 bg-white/60 dark:bg-violet-950/20 rounded-lg p-3 border border-violet-100 dark:border-violet-800/30">
+                <div className="w-5 h-5 rounded-full bg-violet-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{step}</div>
+                <div>
+                  <div className="flex items-center gap-1.5 font-medium text-sm text-foreground mb-0.5">
+                    {icon}
+                    {title}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
+                </div>
               </div>
+            ))}
+          </div>
+          <div className="border-t border-violet-200/60 dark:border-violet-800/30 pt-3">
+            <p className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-1.5">Available merge variables</p>
+            <div className="flex flex-wrap gap-2">
+              {AVAILABLE_VARS.map(v => (
+                <span key={v.tag} className="inline-flex items-center gap-1.5 text-xs">
+                  <code className="bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded font-mono">{v.tag}</code>
+                  <span className="text-muted-foreground">{v.label}</span>
+                </span>
+              ))}
             </div>
           </div>
         </Card>
