@@ -198,6 +198,7 @@ function AccountListView() {
     try { return JSON.parse(localStorage.getItem(viewsKey) ?? "[]"); } catch { return []; }
   });
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [dirtyViewId, setDirtyViewId] = useState<string | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveViewName, setSaveViewName] = useState("");
   const [showViewsDropdown, setShowViewsDropdown] = useState(false);
@@ -220,9 +221,13 @@ function AccountListView() {
     catch {}
   }, [ownerFilters, abmTierFilter, lsKey]);
 
+  function markDirty() {
+    if (activeViewId) { setDirtyViewId(activeViewId); setActiveViewId(null); }
+  }
+
   function toggleOwner(name: string) {
+    markDirty();
     setOwnerFilters(prev => prev.includes(name) ? prev.filter(o => o !== name) : [...prev, name]);
-    setActiveViewId(null);
   }
 
   function saveView() {
@@ -237,14 +242,26 @@ function AccountListView() {
     setSavedViews(updated);
     try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {}
     setActiveViewId(view.id);
+    setDirtyViewId(null);
     setShowSaveDialog(false);
     setSaveViewName("");
+  }
+
+  function updateView(id: string) {
+    const updated = savedViews.map(v =>
+      v.id === id ? { ...v, filters: { ownerFilters, abmTierFilter } } : v
+    );
+    setSavedViews(updated);
+    if (viewsKey) { try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {} }
+    setActiveViewId(id);
+    setDirtyViewId(null);
   }
 
   function loadView(view: SavedView) {
     setOwnerFilters(view.filters.ownerFilters);
     setAbmTierFilter(view.filters.abmTierFilter);
     setActiveViewId(view.id);
+    setDirtyViewId(null);
     setShowViewsDropdown(false);
   }
 
@@ -253,6 +270,7 @@ function AccountListView() {
     setSavedViews(updated);
     if (viewsKey) { try { localStorage.setItem(viewsKey, JSON.stringify(updated)); } catch {} }
     if (activeViewId === id) setActiveViewId(null);
+    if (dirtyViewId === id) setDirtyViewId(null);
   }
 
   // New account form state
@@ -303,6 +321,7 @@ function AccountListView() {
   function clearFilters() {
     setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilters([]);
     setActiveViewId(null);
+    setDirtyViewId(null);
     if (lsKey) { try { localStorage.removeItem(lsKey); } catch {} }
   }
 
@@ -431,7 +450,7 @@ function AccountListView() {
 
             {/* ABM Tier — always visible */}
             <div className="relative">
-              <select value={abmTierFilter} onChange={(e) => { setAbmTierFilter(e.target.value); setActiveViewId(null); }}
+              <select value={abmTierFilter} onChange={(e) => { markDirty(); setAbmTierFilter(e.target.value); }}
                 className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
                 <option value="">All ABM Tiers</option>
                 {uniqueAbmTiers.map(t => <option key={t} value={t}>{t}</option>)}
@@ -511,18 +530,45 @@ function AccountListView() {
               </div>
             )}
 
-            {/* Save view button */}
-            {isFiltered && (
-              <button
-                type="button"
-                onClick={() => { setSaveViewName(""); setShowSaveDialog(true); }}
-                className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                title="Save this filter as a view"
-              >
-                <Bookmark className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Save view</span>
-              </button>
-            )}
+            {/* Update / Save view buttons */}
+            {isFiltered && !activeViewId && (() => {
+              const dirtyView = dirtyViewId ? savedViews.find(v => v.id === dirtyViewId) : null;
+              if (dirtyView) {
+                return (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateView(dirtyView.id)}
+                      className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-primary/40 bg-primary/8 text-sm text-primary hover:bg-primary/15 transition-colors font-medium"
+                      title={`Save changes to "${dirtyView.name}"`}
+                    >
+                      <BookmarkCheck className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Update view</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSaveViewName(""); setShowSaveDialog(true); }}
+                      className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                      title="Save as a new view"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Save as new</span>
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  onClick={() => { setSaveViewName(""); setShowSaveDialog(true); }}
+                  className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                  title="Save this filter as a view"
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Save view</span>
+                </button>
+              );
+            })()}
 
             {/* Saved views dropdown */}
             {savedViews.length > 0 && (
