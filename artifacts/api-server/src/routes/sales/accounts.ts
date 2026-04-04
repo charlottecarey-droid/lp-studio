@@ -160,6 +160,35 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
 router.delete("/accounts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+    // Null out RESTRICT FK references before deleting accounts
+    // (sfdc tables have no tenant_id so we scope by account membership)
+    await db.execute(sql`
+      UPDATE sales_email_campaigns
+      SET account_id = NULL
+      WHERE tenant_id = ${tenantId} AND account_id IS NOT NULL
+    `);
+    await db.execute(sql`
+      UPDATE sfdc_opportunities
+      SET account_id = NULL
+      WHERE account_id IN (
+        SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
+      )
+    `);
+    await db.execute(sql`
+      UPDATE sfdc_leads
+      SET converted_account_id = NULL,
+          converted_contact_id = NULL
+      WHERE converted_account_id IN (
+        SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
+      )
+         OR converted_contact_id IN (
+        SELECT id FROM sales_contacts WHERE account_id IN (
+          SELECT id FROM sales_accounts WHERE tenant_id = ${tenantId}
+        )
+      )
+    `);
+
     await db.delete(salesAccountsTable).where(eq(salesAccountsTable.tenantId, tenantId));
     res.json({ ok: true });
   } catch (err) {
