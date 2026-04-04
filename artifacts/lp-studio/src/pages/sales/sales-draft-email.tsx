@@ -4,13 +4,6 @@ import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, Ex
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SalesLayout } from "@/components/layout/sales-layout";
 
 const API_BASE = "/api";
@@ -54,6 +47,9 @@ export default function SalesDraftEmail() {
   const [searchContact, setSearchContact] = useState("");
   const [contactsOpen, setContactsOpen] = useState(false);
   const contactBoxRef = useRef<HTMLDivElement>(null);
+  const [searchAccount, setSearchAccount] = useState("");
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const accountBoxRef = useRef<HTMLDivElement>(null);
 
   // Email generation state
   const [generating, setGenerating] = useState(false);
@@ -148,11 +144,14 @@ export default function SalesDraftEmail() {
     setContacts(filtered);
   }, [searchContact, allContacts]);
 
-  // Close contact dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (contactBoxRef.current && !contactBoxRef.current.contains(e.target as Node)) {
         setContactsOpen(false);
+      }
+      if (accountBoxRef.current && !accountBoxRef.current.contains(e.target as Node)) {
+        setAccountsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -350,6 +349,9 @@ export default function SalesDraftEmail() {
 
   const selectedContact = allContacts.find((c) => c.id === selectedContactId);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const filteredAccounts = searchAccount.trim()
+    ? accounts.filter((a) => a.name.toLowerCase().includes(searchAccount.toLowerCase()))
+    : accounts;
   const fullName = selectedContact ? [selectedContact.firstName, selectedContact.lastName].filter(Boolean).join(" ") : "";
 
   return (
@@ -383,19 +385,73 @@ export default function SalesDraftEmail() {
               <label className="text-sm font-semibold text-foreground">
                 Step 1: Select Account
               </label>
-              <Select value={selectedAccountId?.toString() ?? ""} onValueChange={(val) => setSelectedAccountId(parseInt(val, 10))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose an account..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id.toString()}>
-                      {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {accountsLoading && <p className="text-xs text-muted-foreground">Loading accounts...</p>}
+
+              {selectedAccount ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-muted/30">
+                  <p className="text-sm font-medium text-foreground flex-1">{selectedAccount.name}</p>
+                  <button
+                    onClick={() => {
+                      setSelectedAccountId(null);
+                      setSelectedContactId(null);
+                      setSearchAccount("");
+                      setAccountsOpen(true);
+                    }}
+                    className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Change account"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div ref={accountBoxRef} className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      placeholder="Search accounts..."
+                      value={searchAccount}
+                      onChange={(e) => {
+                        setSearchAccount(e.target.value);
+                        setAccountsOpen(true);
+                      }}
+                      onFocus={() => setAccountsOpen(true)}
+                      className="w-full pl-9"
+                      disabled={accountsLoading}
+                      autoComplete="off"
+                    />
+                    {accountsLoading && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                    )}
+                  </div>
+
+                  {accountsOpen && !accountsLoading && filteredAccounts.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                      {filteredAccounts.map((acc, i) => (
+                        <button
+                          key={acc.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSelectedAccountId(acc.id);
+                            setAccountsOpen(false);
+                            setSearchAccount("");
+                          }}
+                          className={[
+                            "w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted/70 transition-colors",
+                            i > 0 ? "border-t border-border/50" : "",
+                          ].join(" ")}
+                        >
+                          {acc.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {accountsOpen && !accountsLoading && filteredAccounts.length === 0 && searchAccount && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg px-3 py-3">
+                      <p className="text-sm text-muted-foreground">No accounts found for "{searchAccount}"</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Contact selection */}
