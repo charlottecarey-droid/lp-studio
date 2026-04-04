@@ -1,11 +1,12 @@
 import { lazy, Suspense } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AuthGate } from "@/components/AuthGate";
+import { RoleGuard } from "@/components/RoleGuard";
 
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
@@ -93,6 +94,9 @@ function AppRouter() {
         <Route path="/settings/team" component={TeamPage} />
         <Route path="/settings/roles" component={RolesPage} />
 
+        {/* Admin Routes — /admin/users redirects to the Team page */}
+        <Route path="/admin/users">{() => <Redirect to="/settings/team" />}</Route>
+
         {/* Legacy routes — keep working for bookmarks/links */}
         <Route path="/live-pages" component={LivePages} />
         <Route path="/leads" component={LeadsPage} />
@@ -140,7 +144,7 @@ function AppRouter() {
 // Routes /superadmin and prospect-facing paths outside the AuthGate; everything else requires auth.
 function AppShell() {
   const [location] = useLocation();
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
 
   // While domain context is still loading, show a neutral spinner so we don't
   // flash the login screen on microsite/partner domains before context arrives.
@@ -216,8 +220,10 @@ function AppShell() {
 
   return (
     <AuthGate>
-      <ModeProvider>
-        <AppRouter />
+      <ModeProvider userRole={user?.role}>
+        <RoleGuard>
+          <AppRouter />
+        </RoleGuard>
       </ModeProvider>
       <Toaster />
     </AuthGate>

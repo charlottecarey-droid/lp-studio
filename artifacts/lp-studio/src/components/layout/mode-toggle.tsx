@@ -3,12 +3,13 @@ import { useLocation } from "wouter";
 import { Megaphone, Target } from "lucide-react";
 
 export function ModeToggle() {
-  const { setMode } = useAppMode();
+  const { setMode, lockedMode } = useAppMode();
   const [location, navigate] = useLocation();
 
   const isSales = location === "/sales" || location.startsWith("/sales/");
 
   function handleSwitch(newMode: AppMode) {
+    if (lockedMode) return;
     setMode(newMode);
     if (newMode === "sales") {
       navigate("/sales");
@@ -17,9 +18,36 @@ export function ModeToggle() {
     }
   }
 
+  if (lockedMode === "marketing") {
+    return (
+      <div className="relative flex items-center bg-black/30 border border-white/10 rounded-xl p-1 w-full">
+        <div className="absolute top-1 bottom-1 w-[calc(100%-8px)] left-1 rounded-[10px] bg-[#C7E738] shadow-lg" />
+        <ModeButton
+          active={true}
+          onClick={() => {}}
+          icon={<Megaphone className="w-3.5 h-3.5" />}
+          label="Marketing"
+        />
+      </div>
+    );
+  }
+
+  if (lockedMode === "sales") {
+    return (
+      <div className="relative flex items-center bg-black/30 border border-white/10 rounded-xl p-1 w-full">
+        <div className="absolute top-1 bottom-1 w-[calc(100%-8px)] left-1 rounded-[10px] bg-[#C7E738] shadow-lg" />
+        <ModeButton
+          active={true}
+          onClick={() => {}}
+          icon={<Target className="w-3.5 h-3.5" />}
+          label="Sales"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex items-center bg-black/30 border border-white/10 rounded-xl p-1 gap-0.5 w-full">
-      {/* Sliding pill */}
       <div
         className="absolute top-1 bottom-1 w-[calc(50%-2px)] rounded-[10px] bg-[#C7E738] shadow-lg transition-all duration-250 ease-out"
         style={{ left: isSales ? "calc(50% + 2px)" : "4px" }}
