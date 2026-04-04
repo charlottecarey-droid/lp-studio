@@ -18,7 +18,7 @@ localPort = 25733
 run = "pnpm --filter @workspace/lpstudio-site run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/lpstudio-site", "run", "build" ]
+build = [ "bash", "-c", "BASE_PATH=/ pnpm --filter @workspace/lpstudio-site run build" ]
 publicDir = "artifacts/lpstudio-site/dist/public"
 serve = "static"
 
