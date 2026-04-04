@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, ilike, count } from "drizzle-orm";
+import { eq, desc, and, ilike, count, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
@@ -182,6 +182,14 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
 router.delete("/contacts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    // Null out RESTRICT FK on sfdc_leads before deleting contacts
+    await db.execute(sql`
+      UPDATE sfdc_leads
+      SET converted_contact_id = NULL
+      WHERE converted_contact_id IN (
+        SELECT id FROM sales_contacts WHERE tenant_id = ${tenantId}
+      )
+    `);
     const deleted = await db.delete(salesContactsTable)
       .where(eq(salesContactsTable.tenantId, tenantId))
       .returning({ id: salesContactsTable.id });
