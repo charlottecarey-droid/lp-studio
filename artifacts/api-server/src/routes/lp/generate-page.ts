@@ -768,6 +768,126 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     // Fill in any remaining empty image URLs from the media library
     parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images);
 
+    // ── Guarantee nav, final CTA, and footer on every generated page ──────
+    const blocks = parsed.blocks as Array<Record<string, unknown>>;
+    const cpUrl = brand.chilipiperUrl ?? "#";
+
+    // 1. Nav header — prepend if missing
+    const hasNav = blocks.some(b => b.type === "nav-header");
+    if (!hasNav) {
+      blocks.unshift({
+        id: "block-nav-header-0",
+        type: "nav-header",
+        props: {
+          logoText: brand.brandName ?? "Dandy",
+          logoUrl: "",
+          navLinks: [
+            { label: "Products", url: "#" },
+            { label: "How It Works", url: "#" },
+            { label: "Pricing", url: "#" },
+          ],
+          phone: "",
+          cta1: { label: "Log In", url: "#" },
+          cta2: { label: "Get Started Free", url: cpUrl },
+        },
+      });
+    }
+
+    // 2. Final CTA — inject before footer if missing
+    const FINAL_CTA_TYPES = new Set(["bottom-cta", "dso-final-cta", "dso-cta-capture"]);
+    const hasFinalCta = blocks.some(b => FINAL_CTA_TYPES.has(b.type as string));
+    if (!hasFinalCta) {
+      const footerIdx = blocks.findIndex(b => b.type === "footer");
+      const insertAt = footerIdx !== -1 ? footerIdx : blocks.length;
+      const ctaBlock = (useDso || useDsoPractices)
+        ? {
+            id: "block-dso-final-cta-injected",
+            type: "dso-final-cta",
+            props: {
+              eyebrow: "Get Started",
+              headline: "Ready to transform your practice?",
+              subheadline: "Book a personalized demo and see how Dandy can work for your team.",
+              primaryCtaText: "Schedule a Demo",
+              primaryCtaUrl: cpUrl,
+              primaryCtaMode: brand.chilipiperUrl ? "chilipiper" : "link",
+              secondaryCtaText: "Learn More",
+              secondaryCtaUrl: "https://www.meetdandy.com/",
+            },
+          }
+        : {
+            id: "block-bottom-cta-injected",
+            type: "bottom-cta",
+            props: {
+              headline: "Ready to get started?",
+              subheadline: "Join thousands of dental practices already using Dandy.",
+              ctaText: "Get Started Free",
+              ctaUrl: cpUrl,
+            },
+          };
+      blocks.splice(insertAt, 0, ctaBlock);
+    }
+
+    // 3. Footer — append if missing
+    const hasFooter = blocks.some(b => b.type === "footer");
+    if (!hasFooter) {
+      const year = new Date().getFullYear();
+      blocks.push({
+        id: "block-footer-injected",
+        type: "footer",
+        props: {
+          backgroundColor: "#003A30",
+          accentColor: "#C7E738",
+          copyrightText: `© ${year} Dandy. All rights reserved.`,
+          showSocialLinks: false,
+          facebookUrl: "",
+          instagramUrl: "",
+          linkedinUrl: "",
+          columns: [
+            {
+              title: "Dandy",
+              links: [
+                { label: "Home", url: "https://www.meetdandy.com/" },
+                { label: "Pricing", url: "https://www.meetdandy.com/pricing/" },
+                { label: "Get in touch", url: "https://www.meetdandy.com/get-in-touch/" },
+                { label: "Dandy Reviews", url: "https://www.meetdandy.com/reviews/" },
+                { label: "Careers", url: "https://www.meetdandy.com/careers/" },
+              ],
+            },
+            {
+              title: "Products & Technology",
+              links: [
+                { label: "Lab Services", url: "https://www.meetdandy.com/lab-services/" },
+                { label: "Posterior Crown and Bridge", url: "https://www.meetdandy.com/posterior-crown-and-bridge/" },
+                { label: "Digital Dentures", url: "https://www.meetdandy.com/digital-dentures/" },
+                { label: "Implant Solutions", url: "https://www.meetdandy.com/implant-solutions/" },
+                { label: "Clear Aligners", url: "https://www.meetdandy.com/clear-aligners/" },
+              ],
+            },
+            {
+              title: "Practices",
+              links: [
+                { label: "Private Practice", url: "https://www.meetdandy.com/solutions/private-practice/" },
+                { label: "Group Practice", url: "https://www.meetdandy.com/solutions/group-practice/" },
+                { label: "DSO", url: "https://www.meetdandy.com/solutions/dso/" },
+                { label: "Login", url: "https://app.meetdandy.com/" },
+              ],
+            },
+            {
+              title: "Resources",
+              links: [
+                { label: "Learning Center", url: "https://www.meetdandy.com/learning-center/" },
+                { label: "Articles", url: "https://www.meetdandy.com/articles/" },
+                { label: "Webinars", url: "https://www.meetdandy.com/webinars/" },
+                { label: "Newsroom", url: "https://www.meetdandy.com/newsroom/" },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    parsed.blocks = blocks;
+
     res.json({
       title: parsed.title,
       slug: parsed.slug,
