@@ -5,7 +5,8 @@ import {
   useGetTestResults, 
   useUpdateTest,
   getListTestsQueryKey,
-  getGetTestQueryKey
+  getGetTestQueryKey,
+  getGetTestResultsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackView } from "@/hooks/use-recently-viewed";
@@ -26,8 +27,8 @@ export default function TestDetail() {
   const [, params] = useRoute("/tests/:testId");
   const testId = params ? parseInt(params.testId, 10) : 0;
   
-  const { data: test, isLoading } = useGetTest(testId, { query: { enabled: !!testId, queryKey: ["test", testId] } });
-  const { data: results } = useGetTestResults(testId, { query: { enabled: !!testId, queryKey: ["testResults", testId] } });
+  const { data: test, isLoading } = useGetTest(testId, { query: { enabled: !!testId, queryKey: getGetTestQueryKey(testId) } });
+  const { data: results } = useGetTestResults(testId, { query: { enabled: !!testId, queryKey: getGetTestResultsQueryKey(testId) } });
   
   const updateMutation = useUpdateTest();
   const queryClient = useQueryClient();

@@ -6,7 +6,7 @@ import {
   FlaskConical, Search, Edit2, Trash2, Loader2,
 } from "lucide-react";
 
-import { useListTests, useDeleteTest } from "@workspace/api-client-react";
+import { useListTests, useDeleteTest, getListTestsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,7 +44,7 @@ export default function AllTests() {
     setDeletingId(testId);
     try {
       await deleteMutation.mutateAsync({ testId });
-      queryClient.invalidateQueries({ queryKey: ["listTests"] });
+      queryClient.invalidateQueries({ queryKey: getListTestsQueryKey() });
     } finally {
       setDeletingId(null);
     }
