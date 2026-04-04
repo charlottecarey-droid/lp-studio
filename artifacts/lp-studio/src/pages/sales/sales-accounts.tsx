@@ -222,7 +222,10 @@ function AccountListView() {
     return matchesSearch && matchesTier && matchesStage && matchesSegment && matchesOwner;
   });
 
-  function clearFilters() { setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilter(""); }
+  function clearFilters() {
+    setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilter("");
+    if (lsKey) { try { localStorage.removeItem(lsKey); } catch {} }
+  }
 
   const accPag = usePagination(filtered, 25);
 
@@ -1304,6 +1307,36 @@ function AccountDetailView({ id }: { id: string }) {
         {/* ── Overview Tab ── */}
         {detailTab === "overview" && (
           <div className="flex flex-col gap-4">
+            {/* Quick stats row */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setDetailTab("contacts")}
+                className="flex flex-col items-center justify-center gap-1 p-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer text-center"
+              >
+                <span className="text-2xl font-bold text-foreground">{contacts.length}</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Contacts</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailTab("microsites")}
+                className="flex flex-col items-center justify-center gap-1 p-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer text-center"
+              >
+                <span className="text-2xl font-bold text-foreground">{micrositesLoading ? "–" : microsites.length}</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Microsites</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailTab("activity")}
+                className="flex flex-col items-center justify-center gap-1 p-4 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer text-center"
+              >
+                <span className="text-2xl font-bold text-foreground">
+                  {account.updatedAt ? format(new Date(account.updatedAt), "MMM d") : "–"}
+                </span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Last Updated</span>
+              </button>
+            </div>
+
             {/* Account metadata grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {account.segment && (

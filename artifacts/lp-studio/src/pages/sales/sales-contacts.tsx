@@ -799,15 +799,21 @@ function ContactListView() {
             <div className="flex items-center gap-2 text-foreground">
               <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>
-                Showing contacts from your filtered accounts
+                Showing contacts from filtered accounts
                 {acctFilterOwner && <strong className="ml-1">{acctFilterOwner}</strong>}
                 {acctFilterTier && <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">{acctFilterTier}</span>}
               </span>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <button
-                onClick={() => { setAcctFilterIds(null); setAcctFilterOwner(""); setAcctFilterTier(""); }}
+                onClick={() => navigate("/sales/accounts")}
                 className="text-xs text-primary hover:underline font-medium"
+              >
+                Change filters
+              </button>
+              <button
+                onClick={() => { setAcctFilterIds(null); setAcctFilterOwner(""); setAcctFilterTier(""); }}
+                className="text-xs text-muted-foreground hover:text-foreground font-medium"
               >
                 Clear
               </button>
