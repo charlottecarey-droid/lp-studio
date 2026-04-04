@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and, isNotNull, not, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -47,8 +48,8 @@ async function sendViaResend(payload: {
 }
 
 function generateToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const { randomBytes } = require("crypto");
+  return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
 async function getOrCreateHotlink(contactId: number, pageId: number): Promise<typeof salesHotlinksTable.$inferSelect> {
@@ -171,7 +172,7 @@ router.get("/campaign-pages/eligible-contacts", async (_req, res): Promise<void>
 // ─── Launch a campaign page to an audience ───────────────────────────────────
 
 router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const {
     pageId,
     audienceId,

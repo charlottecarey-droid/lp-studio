@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormBlockProps, FormField, FormStep, StepCondition } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { safeNavigate } from "@/lib/safe-url";
 
 const API_BASE = "/api";
 
@@ -264,7 +265,9 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               conversionType: "form_submit",
             }),
           });
-        } catch {}
+        } catch (err) {
+          console.error("Form tracking error:", err);
+        }
 
         // Fire a sales signal if this page was opened via a hotlink
         try {
@@ -289,12 +292,14 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               }),
             });
           }
-        } catch {}
+        } catch (err) {
+          console.error("Sales signal error:", err);
+        }
       }
 
       setSubmitted(true);
       if (activeRedirectUrl) {
-        setTimeout(() => { window.location.href = activeRedirectUrl; }, 1500);
+        setTimeout(() => { safeNavigate(activeRedirectUrl); }, 1500);
       }
     } catch {
       setSubmitError("Something went wrong. Please try again.");

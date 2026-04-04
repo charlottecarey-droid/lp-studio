@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Response } from "express";
 import { eq, desc, and, gte, count } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -25,7 +26,7 @@ function broadcastSignal(signal: Record<string, unknown>) {
 
 router.get("/stats", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -49,9 +50,10 @@ router.get("/stats", async (req, res): Promise<void> => {
 
 router.get("/signals", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
-    const { type, accountId, contactId, limit: limitStr } = req.query;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { type, accountId, contactId, limit: limitStr, offset: offsetStr } = req.query;
     const limit = Math.min(Number(limitStr) || 50, 500);
+    const offset = Math.max(Number(offsetStr) || 0, 0);
 
     const conditions: ReturnType<typeof eq>[] = [
       eq(salesSignalsTable.tenantId, tenantId),
@@ -86,6 +88,7 @@ router.get("/signals", async (req, res): Promise<void> => {
       .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
       .where(and(...conditions))
       .orderBy(desc(salesSignalsTable.createdAt))
+      .offset(offset)
       .limit(limit);
 
     const signals = rows.map((s) => ({
@@ -124,7 +127,7 @@ router.get("/signals/stream", (req, res): void => {
 // ─── DELETE /sales/signals — clear all signals for tenant ──────────────────
 router.delete("/signals", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const deleted = await db.delete(salesSignalsTable)
       .where(eq(salesSignalsTable.tenantId, tenantId))
       .returning({ id: salesSignalsTable.id });
@@ -138,7 +141,7 @@ router.delete("/signals", async (req, res): Promise<void> => {
 // ─── POST /sales/signals — create a signal ──────────────────
 
 router.post("/signals", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { accountId, contactId, hotlinkId, type, source, metadata } = req.body;
   if (!type) {
     res.status(400).json({ error: "type is required" });

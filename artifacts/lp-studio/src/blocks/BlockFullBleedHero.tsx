@@ -8,6 +8,7 @@ import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { safeNavigate } from "@/lib/safe-url";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -43,7 +44,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
   const handleCtaClick = () => {
     if (onCtaClick) { onCtaClick(); return; }
     if (isChiliPiper) { setCpOpen(true); return; }
-    if (props.ctaUrl && props.ctaUrl !== "#") window.open(props.ctaUrl, "_blank");
+    if (props.ctaUrl && props.ctaUrl !== "#") safeNavigate(props.ctaUrl, "_blank");
   };
 
   // React does not reliably pass `muted` as a DOM attribute on <video>.

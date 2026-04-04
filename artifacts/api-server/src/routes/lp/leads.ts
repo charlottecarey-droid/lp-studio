@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Request } from "express";
 import { eq, desc, gte, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -115,7 +116,8 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       }
       const perFormMarketo = marketoConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
       const perFormSalesforce = salesforceConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
-      const pageTenantId = page.tenantId ?? 1;
+      const pageTenantId = page.tenantId;
+      if (!pageTenantId) { res.status(400).json({ error: "Page has no tenant" }); return; }
       await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId);
       await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled, pageTenantId);
       await syncLeadToSheets({
@@ -148,7 +150,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
 });
 
 router.get("/lp/leads", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = parseInt(req.query.pageId as string, 10);
   if (isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -191,7 +193,7 @@ router.get("/lp/leads", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/leads/export", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = parseInt(req.query.pageId as string, 10);
   if (isNaN(pageId)) {
     res.status(400).json({ error: "pageId query param is required" });
@@ -270,7 +272,7 @@ router.get("/lp/leads/export", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/leads/summary", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pages = await db.select().from(lpPagesTable).where(eq(lpPagesTable.tenantId, tenantId)).orderBy(lpPagesTable.title);
   const leads = await db.select().from(lpLeadsTable).where(eq(lpLeadsTable.tenantId, tenantId));
 

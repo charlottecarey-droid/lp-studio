@@ -9,7 +9,7 @@ export const tenantMembersTable = pgTable("tenant_members", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").references(() => appUsersTable.id, { onDelete: "cascade" }),
-  roleId: integer("role_id").notNull().references(() => tenantRolesTable.id),
+  roleId: integer("role_id").notNull().references(() => tenantRolesTable.id, { onDelete: "cascade" }),
   email: text("email"),
   invitedAt: timestamp("invited_at", { withTimezone: true }).notNull().defaultNow(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),

@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -12,7 +13,7 @@ function isValidType(t: string): t is LibraryType {
 }
 
 router.get("/lp/library/:type", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   try {
@@ -29,7 +30,7 @@ router.get("/lp/library/:type", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/library/:type", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   const { name, content, is_default } = req.body;
@@ -47,7 +48,7 @@ router.post("/lp/library/:type", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type, id } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   const { name, content, is_default, sort_order } = req.body;
@@ -69,7 +70,7 @@ router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/library/:type/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type, id } = req.params;
   if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
   try {

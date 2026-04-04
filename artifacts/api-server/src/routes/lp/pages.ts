@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -16,7 +17,7 @@ function isDbError(err: unknown): err is DbError {
 
 router.get("/lp/pages", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const pages = await db
       .select()
       .from(lpPagesTable)
@@ -26,14 +27,14 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
   } catch (err) {
     const cause = (err as { cause?: Error })?.cause;
     console.error("GET /lp/pages error:", cause?.message ?? String(err));
-    res.status(500).json({ error: "Failed to load pages", detail: cause?.message ?? String(err) });
+    res.status(500).json({ error: "Failed to load pages" });
   }
 });
 
 // List all marketing-defined templates (pages with isTemplate = true)
 router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
-    const tenantId = req.authUser?.tenantId ?? 1;
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const templates = await db
       .select()
       .from(lpPagesTable)
@@ -47,7 +48,7 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/pages", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
     ogImage, animationsEnabled, pageVariables, fromTemplateId,
@@ -129,7 +130,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -146,7 +147,7 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -199,7 +200,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
 
 // Mark or unmark a page as a microsite template
 router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -233,7 +234,7 @@ router.patch("/lp/pages/:pageId/mark-template", async (req, res): Promise<void> 
 });
 
 router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });
@@ -281,7 +282,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/pages/:pageId", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid page ID" });

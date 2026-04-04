@@ -164,9 +164,16 @@ export function usePresence(pageId: number, displayName: string) {
   const [viewers, setViewers] = useState<PresenceViewer[]>([]);
   const viewerId = getOrCreateViewerId();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastPingRef = useRef<number>(0);
 
   const pingPresence = useCallback(async () => {
     if (!pageId || !displayName) return;
+
+    // Debounce: only ping if at least 30 seconds have passed since last ping
+    const now = Date.now();
+    if (now - lastPingRef.current < 30000) return;
+    lastPingRef.current = now;
+
     try {
       const res = await fetch(`${API_BASE}/lp/pages/${pageId}/presence`, {
         method: "POST",
@@ -177,14 +184,18 @@ export function usePresence(pageId: number, displayName: string) {
         const data = await res.json();
         setViewers(data);
       }
-    } catch {
+    } catch (err) {
+      console.error("Presence ping error:", err);
     }
   }, [pageId, displayName, viewerId]);
 
   useEffect(() => {
     if (!pageId || !displayName) return;
+    // Initial ping on mount
+    lastPingRef.current = Date.now() - 30000; // Allow immediate ping
     pingPresence();
-    intervalRef.current = setInterval(pingPresence, 10000);
+    // Check every 5 seconds, but debounce ensures we only actually ping every 30 seconds
+    intervalRef.current = setInterval(pingPresence, 5000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

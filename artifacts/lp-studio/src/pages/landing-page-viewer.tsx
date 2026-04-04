@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
-import { motion, type TargetAndTransition } from "framer-motion";
+import { motion, useInView, type TargetAndTransition } from "framer-motion";
+import { safeNavigate } from "@/lib/safe-url";
 import { useRoute } from "wouter";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
@@ -164,13 +165,16 @@ function ScrollReveal({
   style?: AnimationStyle;
   enabled?: boolean;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.08 });
+
   if (!enabled || style === "none") return <>{children}</>;
   const { initial, animate } = ANIMATION_VARIANTS[style] ?? ANIMATION_VARIANTS["fade-up"];
   return (
     <motion.div
+      ref={ref}
       initial={initial}
-      whileInView={animate}
-      viewport={{ once: true, amount: 0.08 }}
+      animate={isInView ? animate : initial}
       transition={{ duration: 0.65, ease: EASE, delay: delay / 1000 }}
     >
       {children}
@@ -398,7 +402,7 @@ export default function LandingPageViewer() {
       }
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
       if (dest) {
-        window.open(dest, "_blank", "noopener,noreferrer");
+        safeNavigate(dest, "_blank");
       }
     };
 
@@ -489,7 +493,7 @@ export default function LandingPageViewer() {
             }
           });
         }
-        window.open(dest, "_blank", "noopener,noreferrer");
+        safeNavigate(dest, "_blank");
       }
     };
 
@@ -582,7 +586,7 @@ export default function LandingPageViewer() {
       ? dtrConf.ctaUrl
       : brand.defaultCtaUrl;
     if (dest) {
-      window.location.href = dest;
+      safeNavigate(dest);
     } else {
       alert("Conversion Tracked! (No URL configured)");
     }

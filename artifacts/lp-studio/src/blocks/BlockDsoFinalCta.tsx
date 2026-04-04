@@ -4,6 +4,7 @@ import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: DsoFinalCtaBlockProps;
@@ -41,11 +42,11 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
 
   const handlePrimary = () => {
     if (onCtaClick) { onCtaClick(); return; }
-    if (primaryCtaUrl && primaryCtaUrl !== "#") window.open(primaryCtaUrl, "_blank");
+    if (primaryCtaUrl && primaryCtaUrl !== "#") safeNavigate(primaryCtaUrl, "_blank");
   };
 
   const handleSecondary = () => {
-    if (secondaryCtaUrl && secondaryCtaUrl !== "#") window.open(secondaryCtaUrl, "_blank");
+    if (secondaryCtaUrl && secondaryCtaUrl !== "#") safeNavigate(secondaryCtaUrl, "_blank");
   };
 
   const headlineLines = headline.includes(". ")

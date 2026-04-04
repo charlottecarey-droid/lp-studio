@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -5,7 +6,7 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const rows = await db.execute(
       sql`SELECT id, name, block_type, props, block_settings, segment, sort_order, created_at, updated_at
@@ -20,7 +21,7 @@ router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
     block_type?: string;
@@ -51,7 +52,7 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
@@ -85,7 +86,7 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;
   try {
     await db.execute(

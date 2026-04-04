@@ -123,7 +123,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   const queryParsed = GetPageConfigQueryParams.safeParse(req.query);
   const sessionId = queryParsed.success && queryParsed.data.sessionId
     ? queryParsed.data.sessionId
-    : `anon-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    : `anon-${Date.now()}-${require("crypto").randomBytes(8).toString("base64url")}`;
 
   // Preview mode: bypass session assignment, no tracking
   const previewVariantId = req.query.previewVariantId
@@ -143,6 +143,16 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       .where(eq(lpPagesTable.slug, params.data.slug));
 
     if (builderPage) {
+      // Check if this is a public domain (microsite) and block draft pages
+      const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+      const hostname = host.split(":")[0].toLowerCase();
+      const isPublicDomain = hostname.includes("partners.meetdandy.com");
+
+      if (builderPage.status === "draft" && isPublicDomain) {
+        res.status(404).json({ error: "Page not found" });
+        return;
+      }
+
       // Record a geo-tagged visit for builder pages (fire-and-forget)
       const clientIp = getClientIp(req);
       lookupGeoAsync(clientIp).then((geo) =>
@@ -254,7 +264,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     // Fallback: weighted random assignment based on trafficWeight
     if (!assignedVariant) {
       const totalWeight = variants.reduce((sum, v) => sum + v.trafficWeight, 0);
-      let rand = Math.random() * totalWeight;
+      let rand = (require("crypto").randomBytes(4).readUInt32BE(0) / 0x100000000) * totalWeight;
       for (const variant of variants) {
         rand -= variant.trafficWeight;
         if (rand <= 0) {

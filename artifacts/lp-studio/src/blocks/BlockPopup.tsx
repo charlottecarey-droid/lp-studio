@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { PopupBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: PopupBlockProps;
@@ -286,7 +287,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, varian
       dismiss();
       setCpOpen(true);
     } else {
-      if (p.ctaUrl) window.open(p.ctaUrl, "_blank", "noopener,noreferrer");
+      if (p.ctaUrl) safeNavigate(p.ctaUrl, "_blank");
       dismiss();
     }
   };

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { lpPagesTable } from "./lpPages";
 
 export const lpPageCommentsTable = pgTable("lp_page_comments", {
@@ -30,6 +30,7 @@ export type LpPageReview = typeof lpPageReviewsTable.$inferSelect;
 export type InsertLpPageReview = typeof lpPageReviewsTable.$inferInsert;
 
 export const lpPagePresenceTable = pgTable("lp_page_presence", {
+  id: serial("id").primaryKey(),
   pageId: integer("page_id").notNull().references(() => lpPagesTable.id, { onDelete: "cascade" }),
   viewerId: text("viewer_id").notNull(),
   displayName: text("display_name").notNull().default("Anonymous"),

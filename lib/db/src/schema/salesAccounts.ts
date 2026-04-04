@@ -8,7 +8,7 @@ import { z } from "zod/v4";
  */
 export const salesAccountsTable = pgTable("sales_accounts", {
   id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().default(1),
+  tenantId: integer("tenant_id").notNull(),
   salesforceId: text("salesforce_id").unique(),  // SFDC Account ID (001...)
   name: text("name").notNull(),
   domain: text("domain"),

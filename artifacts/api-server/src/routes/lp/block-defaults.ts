@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -14,7 +15,7 @@ const KNOWN_BLOCK_TYPES = new Set([
 ]);
 
 router.get("/lp/block-defaults", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const rows = await db.execute(
       sql`SELECT block_type, props, block_settings FROM lp_block_defaults WHERE tenant_id = ${tenantId} ORDER BY block_type`
@@ -30,7 +31,7 @@ router.get("/lp/block-defaults", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { blockType } = req.params;
   if (!KNOWN_BLOCK_TYPES.has(blockType)) {
     res.status(400).json({ error: `Unknown block type: ${blockType}` });
@@ -51,7 +52,7 @@ router.put("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
 });
 
 router.delete("/lp/block-defaults/:blockType", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { blockType } = req.params;
   if (!KNOWN_BLOCK_TYPES.has(blockType)) {
     res.status(400).json({ error: `Unknown block type: ${blockType}` });

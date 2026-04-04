@@ -1,3 +1,4 @@
+import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
@@ -72,7 +73,7 @@ async function resolveContacts(filters: AudienceFilters, tenantId: number) {
 // ─── List all audiences ────────────────────────────────────────────────────────
 
 router.get("/audiences", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const result = await db.execute(sql`
       SELECT id, name, description, filters, contact_count, created_at, updated_at
@@ -90,7 +91,7 @@ router.get("/audiences", async (req, res): Promise<void> => {
 // ─── Preview contacts for filters (without saving) ───────────────────────────
 
 router.post("/audiences/preview", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const { filters = {} } = req.body as { filters?: AudienceFilters };
     const contacts = await resolveContacts(filters, tenantId);
@@ -104,7 +105,7 @@ router.post("/audiences/preview", async (req, res): Promise<void> => {
 // ─── Create audience ─────────────────────────────────────────────────────────
 
 router.post("/audiences", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const { name, description, filters = {} } = req.body as {
       name?: string;
@@ -136,7 +137,7 @@ router.post("/audiences", async (req, res): Promise<void> => {
 // ─── Update audience ─────────────────────────────────────────────────────────
 
 router.put("/audiences/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const id = Number(req.params.id);
     const { name, description, filters = {} } = req.body as {
@@ -179,7 +180,7 @@ router.put("/audiences/:id", async (req, res): Promise<void> => {
 // ─── Delete audience ─────────────────────────────────────────────────────────
 
 router.delete("/audiences/:id", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const id = Number(req.params.id);
     await db.execute(sql`DELETE FROM sales_audiences WHERE id = ${id} AND tenant_id = ${tenantId}`);
@@ -193,7 +194,7 @@ router.delete("/audiences/:id", async (req, res): Promise<void> => {
 // ─── Get contacts for a saved audience ───────────────────────────────────────
 
 router.get("/audiences/:id/contacts", async (req, res): Promise<void> => {
-  const tenantId = req.authUser?.tenantId ?? 1;
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const id = Number(req.params.id);
     const audResult = await db.execute(sql`

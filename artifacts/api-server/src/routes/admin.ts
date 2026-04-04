@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -48,7 +49,19 @@ router.post("/tenants", async (req, res): Promise<void> => {
     res.status(503).json({ error: "Admin provisioning not configured" });
     return;
   }
-  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+
+  // Use constant-time comparison to prevent timing attacks
+  const { timingSafeEqual } = crypto;
+  const adminPasswordBuf = Buffer.from(adminPassword ? String(adminPassword) : "").padEnd(64, '\0');
+  const envPasswordBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
+  let passwordMatches = false;
+  try {
+    passwordMatches = timingSafeEqual(adminPasswordBuf, envPasswordBuf);
+  } catch {
+    passwordMatches = false;
+  }
+
+  if (!passwordMatches) {
     res.status(401).json({ error: "Invalid admin password" });
     return;
   }
@@ -127,7 +140,23 @@ router.post("/tenants", async (req, res): Promise<void> => {
 
 function requireAdminKey(req: any, res: any, next: any): void {
   const key = req.headers["x-admin-key"];
-  if (!process.env.ADMIN_PASSWORD || key !== process.env.ADMIN_PASSWORD) {
+  if (!process.env.ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  // Use constant-time comparison to prevent timing attacks
+  const { timingSafeEqual } = crypto;
+  const keyBuf = Buffer.from(key ? String(key) : "").padEnd(64, '\0');
+  const envPasswordBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
+  let passwordMatches = false;
+  try {
+    passwordMatches = timingSafeEqual(keyBuf, envPasswordBuf);
+  } catch {
+    passwordMatches = false;
+  }
+
+  if (!passwordMatches) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

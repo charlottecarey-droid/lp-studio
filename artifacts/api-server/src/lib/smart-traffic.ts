@@ -2,6 +2,12 @@ import { db } from "@workspace/db";
 import { lpSmartTrafficStatsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { Request } from "express";
+import { randomBytes } from "crypto";
+
+/** Crypto-safe random float in [0, 1) */
+function secureRandom(): number {
+  return randomBytes(4).readUInt32BE(0) / 0x100000000;
+}
 
 // ─── Visitor Feature Collection ───────────────────────────────────────────────
 
@@ -91,16 +97,16 @@ function sampleBeta(alpha: number, beta: number): number {
     const variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1));
     const stddev = Math.sqrt(variance);
     // Box-Muller transform for normal random
-    const u1 = Math.random();
-    const u2 = Math.random();
+    const u1 = secureRandom();
+    const u2 = secureRandom();
     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     return Math.max(0, Math.min(1, mean + z * stddev));
   }
 
   // Jöhnk's algorithm for small parameters
   while (true) {
-    const u = Math.random();
-    const v = Math.random();
+    const u = secureRandom();
+    const v = secureRandom();
     const x = u ** (1 / alpha);
     const y = v ** (1 / beta);
     if (x + y <= 1) {
@@ -135,7 +141,7 @@ export async function pickVariantThompson(
   if (variantIds.length <= 1) return variantIds[0] ?? null;
 
   // Exploration floor: 10% of traffic is random regardless
-  if (Math.random() < explorationRate) return null;
+  if (secureRandom() < explorationRate) return null;
 
   const bucket = featureBucket(features);
 

@@ -7,6 +7,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { InlineText } from "@/components/InlineText";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { useState } from "react";
+import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: ComparisonBlockProps;
@@ -41,7 +42,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
   const handleCtaClick = () => {
     if (onCtaClick) { onCtaClick(); return; }
     if (isChiliPiper) { setCpOpen(true); return; }
-    if (props.ctaUrl && props.ctaUrl !== "#") window.open(props.ctaUrl, "_blank");
+    if (props.ctaUrl && props.ctaUrl !== "#") safeNavigate(props.ctaUrl, "_blank");
   };
 
   return (

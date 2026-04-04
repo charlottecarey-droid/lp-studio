@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -159,8 +160,8 @@ router.get("/microsites/overview", async (_req, res): Promise<void> => {
 // ─── Token generation (matches existing LP Studio pattern) ──
 
 function generateToken(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const { randomBytes } = require("crypto");
+  return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
 async function generateUniqueToken(maxAttempts = 5): Promise<string> {
@@ -298,7 +299,15 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
 
 // ─── Token resolve (sales-specific) ────────────────────────
 
-router.get("/resolve/:token", async (req, res): Promise<void> => {
+const resolveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 requests per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later" },
+});
+
+router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> => {
   try {
     const { token } = req.params;
     const [hotlink] = await db.select().from(salesHotlinksTable)

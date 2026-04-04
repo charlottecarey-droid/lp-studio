@@ -31,6 +31,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 const API_BASE = "/api";
 
@@ -545,12 +546,12 @@ function SingleSendTab() {
             {emailFormat === "styled" ? (
               <div
                 dangerouslySetInnerHTML={{
-                  __html: buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined })
+                  __html: sanitizeHtml(buildFullEmailHTML(bodyHtml, { showBanner, ctaText: ctaText.trim() || undefined, ctaUrl: ctaUrl.trim() || undefined, showSignature, previewText: previewText.trim() || undefined })
                     .replace(/\{\{first_name\}\}/g, selectedContact?.firstName ?? "Sarah")
                     .replace(/\{\{last_name\}\}/g, selectedContact?.lastName ?? "Johnson")
                     .replace(/\{\{company\}\}/g, accounts.find(a => String(a.id) === selectedAccountId)?.name ?? "Acme Dental")
                     .replace(/\{\{microsite_url\}\}/g, "https://example.com/p/abc12345")
-                    .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships"),
+                    .replace(/\{\{sender_name\}\}/g, senderName || "Dandy Partnerships")),
                 }}
               />
             ) : (
@@ -1048,7 +1049,7 @@ function TemplatesTab() {
                   {hasBody ? (
                     <div className="bg-card rounded-lg overflow-hidden shadow-lg">
                       <div
-                        dangerouslySetInnerHTML={{ __html: styledPreviewHTML }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(styledPreviewHTML) }}
                       />
                     </div>
                   ) : (

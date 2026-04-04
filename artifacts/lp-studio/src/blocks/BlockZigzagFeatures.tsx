@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { useState } from "react";
 import { ChiliPiperModal } from "./ChiliPiperModal";
+import { safeNavigate } from "@/lib/safe-url";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop";
 
@@ -76,7 +77,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                     if (row.ctaAction === "chilipiper" && row.chilipiperUrl) {
                       setCpRow(i);
                     } else if (row.ctaUrl) {
-                      window.open(row.ctaUrl, "_blank", "noopener,noreferrer");
+                      safeNavigate(row.ctaUrl, "_blank");
                     }
                   }}
                   className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all bg-transparent border-none p-0 cursor-pointer"

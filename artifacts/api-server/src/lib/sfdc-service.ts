@@ -84,7 +84,7 @@ export class SfdcService {
       redirect_uri: redirectUri,
       response_type: "code",
       scope: "api full",
-      state: Math.random().toString(36).substring(7),
+      state: require("crypto").randomBytes(16).toString("base64url"),
     });
     return `${SFDC_AUTH_URL}/services/oauth2/authorize?${params.toString()}`;
   }

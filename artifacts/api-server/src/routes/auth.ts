@@ -394,7 +394,24 @@ router.post("/auth/password", async (req, res): Promise<void> => {
     res.status(400).json({ error: "email is required" });
     return;
   }
-  if (typeof password !== "string" || password !== adminPassword) {
+  if (typeof password !== "string") {
+    res.status(401).json({ error: "Incorrect password" });
+    return;
+  }
+
+  // Use constant-time comparison to prevent timing attacks
+  const { timingSafeEqual } = crypto;
+  const passwordBuf = Buffer.from(password.padEnd(64, '\0'));
+  const adminPasswordBuf = Buffer.from(adminPassword.padEnd(64, '\0'));
+  let passwordMatches = false;
+  try {
+    passwordMatches = timingSafeEqual(passwordBuf, adminPasswordBuf);
+  } catch {
+    // Buffers not equal length (shouldn't happen with padEnd, but be safe)
+    passwordMatches = false;
+  }
+
+  if (!passwordMatches) {
     res.status(401).json({ error: "Incorrect password" });
     return;
   }
