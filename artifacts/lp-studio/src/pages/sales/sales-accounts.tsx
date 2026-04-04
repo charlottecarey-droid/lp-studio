@@ -576,7 +576,7 @@ function AccountListView() {
                   title="Save this filter as a view"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Save view</span>
+                  <span className="hidden sm:inline">Save list view</span>
                 </button>
               );
             })()}
