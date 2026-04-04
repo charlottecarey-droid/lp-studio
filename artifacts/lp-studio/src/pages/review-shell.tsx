@@ -56,8 +56,8 @@ function storeReviewerName(token: string, name: string) {
 }
 
 export default function ReviewShell() {
-  const [, params] = useRoute("/review/:pageId");
-  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const [, params] = useRoute("/review/:token");
+  const token = params?.token ?? "";
 
   const [data, setData] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState(true);
