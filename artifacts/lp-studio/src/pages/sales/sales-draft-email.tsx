@@ -349,9 +349,10 @@ export default function SalesDraftEmail() {
 
   const selectedContact = allContacts.find((c) => c.id === selectedContactId);
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
-  const filteredAccounts = searchAccount.trim()
+  const filteredAccounts = (searchAccount.trim()
     ? accounts.filter((a) => a.name.toLowerCase().includes(searchAccount.toLowerCase()))
-    : accounts;
+    : accounts
+  ).slice().sort((a, b) => a.name.localeCompare(b.name));
   const fullName = selectedContact ? [selectedContact.firstName, selectedContact.lastName].filter(Boolean).join(" ") : "";
 
   return (
