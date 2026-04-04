@@ -57,7 +57,6 @@ import type {
   DsoPromisesBlockProps,
   DsoTestimonialsBlockProps,
   DsoPracticeNavBlockProps,
-  DsoPracticeNavLink,
   DsoPracticeHeroBlockProps,
   DsoStatRowBlockProps,
   DsoFaqBlockProps,

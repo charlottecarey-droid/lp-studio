@@ -774,24 +774,45 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     const cpUrl = brand.chilipiperUrl ?? "#";
 
     // 1. Nav header — prepend if missing
-    const hasNav = blocks.some(b => b.type === "nav-header");
+    const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
+    const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string));
     if (!hasNav) {
-      blocks.unshift({
-        id: "block-nav-header-0",
-        type: "nav-header",
-        props: {
-          logoText: brand.brandName ?? "Dandy",
-          logoUrl: "",
-          navLinks: [
-            { label: "Products", url: "#" },
-            { label: "How It Works", url: "#" },
-            { label: "Pricing", url: "#" },
-          ],
-          phone: "",
-          cta1: { label: "Log In", url: "#" },
-          cta2: { label: "Get Started Free", url: cpUrl },
-        },
-      });
+      if (useDsoPractices) {
+        // DSO practices get the co-branded sticky practice nav
+        blocks.unshift({
+          id: "block-dso-practice-nav-0",
+          type: "dso-practice-nav",
+          props: {
+            dsoName: "",
+            links: [
+              { label: "How it works", anchor: "#steps" },
+              { label: "Products", anchor: "#products" },
+              { label: "Partnership perks", anchor: "#perks" },
+              { label: "Meet your rep", anchor: "#team" },
+            ],
+            ctaText: "Book a Demo",
+            ctaUrl: cpUrl,
+            ctaMode: brand.chilipiperUrl ? "chilipiper" : "link",
+          },
+        });
+      } else {
+        blocks.unshift({
+          id: "block-nav-header-0",
+          type: "nav-header",
+          props: {
+            logoText: brand.brandName ?? "Dandy",
+            logoUrl: "",
+            navLinks: [
+              { label: "Products", url: "#" },
+              { label: "How It Works", url: "#" },
+              { label: "Pricing", url: "#" },
+            ],
+            phone: "",
+            cta1: { label: "Log In", url: "#" },
+            cta2: { label: "Get Started Free", url: cpUrl },
+          },
+        });
+      }
     }
 
     // 2. Final CTA — inject before footer if missing
