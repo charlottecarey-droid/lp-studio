@@ -13,6 +13,16 @@ const app: Express = express();
 // behind a reverse proxy, and for rate-limiter key extraction.
 app.set("trust proxy", 1);
 
+// Security headers — registered first so every response carries them.
+// CSP is intentionally omitted here; the frontend uses inline scripts (Vite HMR,
+// React) so CSP requires a per-app audit before enabling.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
 app.use(
   pinoHttp({
     logger,
@@ -30,16 +40,6 @@ app.use(
         };
       },
     },
-  }),
-);
-
-// Security headers — applied before everything else.
-// CSP is intentionally omitted here; the frontend uses inline scripts (Vite HMR,
-// React) so CSP requires a per-app audit before enabling.
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
   }),
 );
 
