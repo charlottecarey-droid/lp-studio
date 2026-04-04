@@ -335,7 +335,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                 </button>
 
                 {briefOpen && (brief || briefError) && (
-                  <div className="px-4 py-3 border-t border-border bg-card max-h-64 overflow-y-auto">
+                  <div className="px-4 py-3 border-t border-border bg-card">
                     {briefError && (
                       <p className="text-[12px] text-destructive">{briefError}</p>
                     )}

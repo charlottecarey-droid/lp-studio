@@ -593,7 +593,7 @@ export default function SalesDraftEmail() {
                   </button>
 
                   {briefOpen && (brief || briefError) && (
-                    <div className="px-4 py-3 border-t border-border bg-card max-h-64 overflow-y-auto">
+                    <div className="px-4 py-3 border-t border-border bg-card">
                       {briefError && <p className="text-[12px] text-destructive">{briefError}</p>}
                       {brief && <div className="flex flex-col gap-0.5">{brief.split("\n").map((line, idx) => renderBriefLine(line, idx))}</div>}
                     </div>
