@@ -860,14 +860,18 @@ export default function PagesGallery() {
                   </div>
                   {/* SEO/GEO score badge */}
                   {page.blocks?.length > 0 && (() => {
-                    const score = scorePageSeoGeo(page.blocks ?? [], { metaTitle: page.metaTitle, metaDescription: page.metaDescription, ogImage: page.ogImage, slug: page.slug });
-                    return (
-                      <div className="absolute bottom-2 right-3">
-                        <Badge className={cn("text-[10px] px-1.5 py-0.5 font-bold border", gradeBgColor(score.grade))}>
-                          {score.grade} · {score.overallScore}
-                        </Badge>
-                      </div>
-                    );
+                    try {
+                      const score = scorePageSeoGeo(page.blocks ?? [], { metaTitle: page.metaTitle, metaDescription: page.metaDescription, ogImage: page.ogImage, slug: page.slug });
+                      return (
+                        <div className="absolute bottom-2 right-3">
+                          <Badge className={cn("text-[10px] px-1.5 py-0.5 font-bold border", gradeBgColor(score.grade))}>
+                            {score.grade} · {score.overallScore}
+                          </Badge>
+                        </div>
+                      );
+                    } catch {
+                      return null;
+                    }
                   })()}
                 </div>
 

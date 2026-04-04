@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, Component, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,59 @@ import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
+
+// ─── Route-level error boundary ────────────────────────────────────────────────
+// Wraps each rendered route so a single page crash doesn't white-screen the
+// entire app. Keyed by location so it resets automatically on navigation.
+interface EBState { hasError: boolean; message: string }
+class RouteErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  state: EBState = { hasError: false, message: "" };
+  static getDerivedStateFromError(err: unknown): EBState {
+    const message = err instanceof Error ? err.message : String(err);
+    return { hasError: true, message };
+  }
+  componentDidCatch(err: unknown, info: { componentStack: string }) {
+    console.error("[RouteErrorBoundary]", err, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-6 text-center bg-background">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-destructive">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <div className="space-y-2 max-w-sm">
+            <p className="text-base font-semibold text-foreground">Something went wrong on this page</p>
+            <p className="text-sm text-muted-foreground">
+              {this.state.message || "An unexpected error occurred. Try navigating back or reloading."}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.history.back()}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Go back
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Reload page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function RouteErrorBoundaryWithReset({ children, locationKey }: { children: ReactNode; locationKey: string }) {
+  return <RouteErrorBoundary key={locationKey}>{children}</RouteErrorBoundary>;
+}
 
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
@@ -222,7 +275,9 @@ function AppShell() {
     <AuthGate>
       <ModeProvider userRole={user?.role}>
         <RoleGuard>
-          <AppRouter />
+          <RouteErrorBoundaryWithReset locationKey={location}>
+            <AppRouter />
+          </RouteErrorBoundaryWithReset>
         </RoleGuard>
       </ModeProvider>
       <Toaster />
