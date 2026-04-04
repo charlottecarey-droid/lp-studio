@@ -16,7 +16,17 @@ psql "$NEON_DATABASE_URL" -c "
 "
 
 # CONCURRENT index creation — one psql call per index (cannot run in a transaction block)
+
+# lp_sessions: composite index for A/B test session lookup (session_id + test_id)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_sessions_session_test ON lp_sessions (session_id, test_id);"
+
+# lp_events: indexed on test_id (the column used in all analytics WHERE clauses).
+# NOTE: The task plan referenced "page_id" but lp_events has no page_id column —
+# only test_id, variant_id, session_id. test_id is the correct FK for analytics queries.
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_events_test_id ON lp_events (test_id);"
+
+# lp_heatmap_events: indexed on page_id (queried by page_id in heatmap analytics)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_heatmap_events_page_id ON lp_heatmap_events (page_id);"
+
+# lp_page_presence: indexed on page_id (queried by page_id for live presence tracking)
 psql "$NEON_DATABASE_URL" -c "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_lp_page_presence_page_id ON lp_page_presence (page_id);"
