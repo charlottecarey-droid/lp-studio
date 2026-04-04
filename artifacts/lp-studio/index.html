@@ -13,6 +13,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Domain-specific metadata: swap title/OG tags for ent.meetdandy.com -->
+    <script>
+      (function () {
+        if (location.hostname === 'ent.meetdandy.com') {
+          document.title = 'Dandy — LP Studio';
+          var sel = function (s) { return document.querySelector(s); };
+          var set = function (el, v) { if (el) el.setAttribute('content', v); };
+          set(sel('meta[name="description"]'),      'Dandy LP Studio — personalized landing pages for dental practices.');
+          set(sel('meta[property="og:title"]'),     'Dandy — LP Studio');
+          set(sel('meta[property="og:description"]'),'Personalized landing pages for dental practices, powered by Dandy.');
+          set(sel('meta[property="og:url"]'),        'https://ent.meetdandy.com');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
