@@ -535,7 +535,7 @@ These pages are shown to individual dental practices that are part of a DSO netw
 
 AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
 - "dso-practice-hero": Full-width centered hero for practice landing pages. Props: eyebrow (string — use DSO co-brand like "Heartland Dental × Dandy"), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), trustLine (string — e.g. "Join 200+ practices in your network already using Dandy"), backgroundStyle ("dark"|"white"|"muted")
-- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string), oldWayItems (string[]), newWayLabel (string), newWayItems (string[]), backgroundStyle ("dark"|"white"|"muted")
+- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string), oldWayItems (string[] — REQUIRED, 3–5 non-empty strings), newWayLabel (string), newWayItems (string[] — REQUIRED, 3–5 non-empty strings), backgroundStyle ("dark"|"white"|"muted"). Example: oldWayLabel: "Traditional Lab", oldWayItems: ["7–14 day turnaround", "Inconsistent fit rates", "No dedicated support"], newWayLabel: "Dandy", newWayItems: ["5-day restorations", "96%+ first-time fit rate", "Dedicated rep from day one"]
 - "dso-stat-row": Bold impact metrics in a horizontal grid — 3–4 stats. Props: eyebrow (string), headline (string, optional), items (array of {value (e.g. "96%" or "2x" or "50+"), label (string), detail (string, optional)}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-partnership-perks": Icon grid of partnership benefits/perks. Props: eyebrow (string), headline (string), subheadline (string), perks (array of exactly 6 {icon, title, desc} — icon keys: "trophy","gift","zap","users","clock","star","shield","heart","check","target"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-products-grid": Product card grid with images/icons. Props: eyebrow (string), headline (string), subheadline (string), products (array of {name, detail, price, icon, imageKey} — imageKey options: "posterior-crowns","anterior-crowns","dentures","implants","guided-surgery","aligners","guards","sleep"), backgroundStyle ("white"|"muted"|"dark")
@@ -725,6 +725,30 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
           if (!props.ctaText) {
             props.ctaText = "Schedule a Demo";
           }
+        }
+
+        // Normalize dso-paradigm-shift: AI sometimes outputs oldWayBullets/newWayBullets instead of
+        // oldWayItems/newWayItems, or leaves the arrays empty. Patch before rendering.
+        if (btype === "dso-paradigm-shift") {
+          const asArr = (v: unknown) => (Array.isArray(v) && v.length > 0 ? v : null);
+          if (!asArr(props.oldWayItems)) {
+            props.oldWayItems = asArr(props.oldWayBullets) ?? [
+              "Long turnaround times",
+              "Inconsistent fit rates",
+              "Opaque pricing",
+              "No dedicated support",
+            ];
+          }
+          if (!asArr(props.newWayItems)) {
+            props.newWayItems = asArr(props.newWayBullets) ?? [
+              "5-day restorations",
+              "96%+ first-time fit rate",
+              "Transparent per-unit pricing",
+              "Dedicated rep from day one",
+            ];
+          }
+          delete props.oldWayBullets;
+          delete props.newWayBullets;
         }
 
         // Fix background style: dandy-green is required for dso-problem, dso-ai-feature, dso-stat-showcase
