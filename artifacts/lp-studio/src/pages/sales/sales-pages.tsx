@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const API_BASE = "/api";
 
@@ -52,18 +53,7 @@ interface Account {
 }
 
 function PageStatusBadge({ status }: { status: string }) {
-  if (status === "published") {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-        Published
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-      Draft
-    </span>
-  );
+  return <StatusBadge status={status}>{status === "published" ? "Published" : "Draft"}</StatusBadge>;
 }
 
 function initials(name: string) {

@@ -714,7 +714,7 @@ function ContactListView() {
   const acctFilterActive = acctFilterIds !== null && !acctBannerDismissed;
   const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter || engagementFilter || acctFilterIds);
 
-  const filtered = contacts.filter((c) => {
+  const filtered = useMemo(() => contacts.filter((c) => {
     const q = search.toLowerCase();
     const matchesSearch = !search ||
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
@@ -728,7 +728,7 @@ function ContactListView() {
     const matchesAcct       = !acctFilterIds    || acctFilterIds.has(c.accountId);
     const matchesEngagement = !engagementFilter || getEngagementScore(contactSignals[c.id] || []).label === engagementFilter;
     return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner && matchesAcct && matchesEngagement;
-  });
+  }), [contacts, search, tierFilter, titleLevelFilter, stageFilter, ownerFilter, acctFilterIds, engagementFilter, contactSignals]);
 
   function clearFilters() { setSearch(""); setTierFilter(""); setTitleLevelFilter(""); setStageFilter(""); setOwnerFilter(""); setEngagementFilter(""); }
 
