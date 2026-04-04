@@ -12,16 +12,40 @@ import {
 
 const router = Router();
 
-// List all accounts
+// snake_case → camelCase helper for raw SQL rows
+function rowToCamel(obj: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k.replace(/_([a-z])/g, (_, c) => c.toUpperCase())] = v;
+  }
+  return out;
+}
+
+// List all accounts — derives abmTier from contacts when the account column is empty
 router.get("/accounts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const accounts = await db
-      .select()
-      .from(salesAccountsTable)
-      .where(eq(salesAccountsTable.tenantId, tenantId))
-      .orderBy(desc(salesAccountsTable.updatedAt));
-    res.json(accounts);
+    const rows = await db.execute(sql`
+      SELECT
+        sa.*,
+        COALESCE(
+          NULLIF(sa.abm_tier, ''),
+          (
+            SELECT sc.tier
+            FROM sales_contacts sc
+            WHERE sc.account_id = sa.id
+              AND sc.tier IS NOT NULL
+              AND sc.tier <> ''
+            GROUP BY sc.tier
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+          )
+        ) AS abm_tier
+      FROM sales_accounts sa
+      WHERE sa.tenant_id = ${tenantId}
+      ORDER BY sa.updated_at DESC
+    `);
+    res.json(rows.rows.map(r => rowToCamel(r as Record<string, unknown>)));
   } catch (err) {
     console.error("GET /sales/accounts error:", err);
     res.status(500).json({ error: "Failed to load accounts" });
