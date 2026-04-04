@@ -529,7 +529,6 @@ Output only the email followed by the HOOK_SOURCE line. Nothing else.`;
         },
         body: JSON.stringify({
           model: "gpt-5",
-          temperature: 0.85,
           messages: [
             { role: "system", content: "You are a sales email copywriter. Output only the email as requested. Nothing else." },
             { role: "user", content: prompt },
