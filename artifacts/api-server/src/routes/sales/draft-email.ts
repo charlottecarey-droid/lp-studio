@@ -472,17 +472,38 @@ The five messaging pillars (pick the most relevant to this contact's role):
 
 === PROOF POINTS BY PERSONA ===
 
-IMPORTANT — customer name rules:
-- "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs" (Apex is one DSO, not multiple)
-- "Dental Care Alliance" or "DCA" — when referring to their practices, say "DCA practices"
-- Never pluralize a single DSO name with "DSOs"
+IMPORTANT: Pick EXACTLY ONE proof point from the list below for this persona. Use it as a short, standalone fact. Do NOT combine multiple proof points or add qualifiers from other bullet points.
 
-CFO / Finance: remake math ($780 lost value per crown), Apex Dental Partners saw a 29% remake reduction, zero scanner CAPEX, month-to-month terms
-COO / Operations: DCA consolidated 400+ lab relationships, Dandy Hub dashboard, preferred program without forcing doctors
-CDO / Clinical: Apex Dental Partners reached near-zero remakes within a year, DCA practices hit ~1% remake rate, AI margin detection
-CEO / President: Apex Dental Partners saw a 12.5% revenue increase, low-risk entry with free scanners
-Growth / M&A: eliminates $40–75K capital barrier, scales from 10 to 200+ locations
-IT / Technology / Systems: DCA deployed 100 free intraoral scanners across their network — no CAPEX, no hardware procurement, no device management burden for IT; Dandy handles the hardware lifecycle; standardizes the lab workflow across every location without requiring a custom integration
+Customer name rules:
+- "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs"
+- "Dental Care Alliance" or "DCA" — when referring to their practices, say "DCA practices"
+
+CFO / Finance (pick one):
+- Apex Dental Partners saw a 29% remake reduction
+- Every remake costs a DSO roughly $780 in lost value
+- Zero scanner CAPEX — Dandy deploys hardware free
+
+COO / Operations (pick one):
+- DCA consolidated 400+ lab relationships down to one
+- Dandy Hub gives ops leaders visibility across every location
+- Preferred program that doesn't force doctors to switch
+
+CDO / Clinical (pick one):
+- DCA practices hit ~1% remake rate with Dandy
+- Apex Dental Partners reached near-zero remakes within a year
+- AI margin detection catches fit issues before the crown ships
+
+CEO / President (pick one):
+- Apex Dental Partners saw a 12.5% revenue increase
+- Free scanners mean no capital risk to get started
+
+Growth / M&A (pick one):
+- Eliminates $40–75K per-operatory capital barrier
+- Scales from 10 to 200+ locations on the same platform
+
+IT / Technology / Systems (pick one):
+- DCA deployed 100 free scanners — no hardware procurement for IT
+- Standardizes the lab workflow across every location without custom integrations
 
 === ROLE RELEVANCE RULE ===
 Before using any research as a hook, ask: "Is this fact directly relevant to what THIS PERSON cares about in THEIR ROLE?"
