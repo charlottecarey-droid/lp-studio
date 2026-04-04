@@ -109,7 +109,7 @@ export default function SalesDashboard() {
         const emailsSent = campaigns.reduce((sum: number, c: any) => sum + (c.recipientCount ?? 0), 0);
         const opens = allSignals.filter((s: any) => s.type === "email_open").length;
         const clicks = allSignals.filter((s: any) => s.type === "email_click").length;
-        const publishedMicrosites = pages.filter((p: any) => p.status === "published").length;
+        const publishedMicrosites = pages.filter((p: any) => p.status === "published" && !p.isTemplate).length;
 
         setStats({
           accounts: accounts.length ?? 0,
