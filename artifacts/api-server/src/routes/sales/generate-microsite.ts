@@ -46,17 +46,15 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
 
     const heroImages    = images.filter(i => getImagePurpose(i) === "lp-hero");
     const featureImages = images.filter(i => getImagePurpose(i) === "lp-feature");
-    const unclassified  = images.filter(i => getImagePurpose(i) === "");
 
     const buildSection = (imgs: MediaImage[], label: string): string => {
       if (imgs.length === 0) return "";
-      const samples = imgs.slice(0, 6).map(i => i.url);
+      const samples = imgs.slice(0, 8).map(i => i.url);
       return `[${label}]\n${samples.join("\n")}`;
     };
     const sections: string[] = [
       buildSection(heroImages,    "HERO & LIFESTYLE IMAGES — use for hero imageUrl, backgroundImageUrl, heroImageUrl"),
       buildSection(featureImages, "FEATURE IMAGES — use for dso-split-feature, dso-lab-tour, zigzag-features imageUrl"),
-      buildSection(unclassified.slice(0, 8), "OTHER IMAGES — use judiciously for any remaining imageUrl slots"),
     ].filter(Boolean);
 
     const catalogText = sections.length > 0
@@ -360,10 +358,14 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
         headline: p.headline ?? p.heading ?? "A paradigm shift for your practice.",
         ctaText: p.ctaText ?? "Get Started Free",
         ctaUrl: p.ctaUrl ?? "#",
-        oldWayLabel: p.oldWayLabel ?? "Traditional Lab",
-        oldWayBullets: p.oldWayBullets ?? ["Long wait times", "Inconsistent fits", "Opaque pricing"],
-        newWayLabel: p.newWayLabel ?? "Dandy",
-        newWayBullets: p.newWayBullets ?? ["5-day crowns", "Free remakes", "Transparent pricing"],
+        oldWayLabel: p.oldWayLabel || "Traditional Lab",
+        oldWayBullets: (Array.isArray(p.oldWayBullets) && p.oldWayBullets.length > 0)
+          ? p.oldWayBullets
+          : ["Long wait times", "Inconsistent fits", "Opaque pricing", "No accountability", "Manual re-work"],
+        newWayLabel: p.newWayLabel || "Dandy",
+        newWayBullets: (Array.isArray(p.newWayBullets) && p.newWayBullets.length > 0)
+          ? p.newWayBullets
+          : ["5-day crown delivery", "Free remakes — no questions asked", "Transparent pricing", "Real-time case tracking", "AI-powered quality control"],
       };
 
     case "pas-section":
@@ -518,6 +520,22 @@ function mergeWithDefaults(type: string, p: AiBlock): AiBlock {
       };
 
     // ── DSO Practice blocks ──────────────────────────────────────────
+    case "dso-practice-nav": {
+      const links = (p.links ?? []) as AiBlock[];
+      return {
+        dsoName: p.dsoName ?? p.companyName ?? "",
+        links: links.length > 0
+          ? links.map((l: AiBlock) => ({ label: l.label ?? "", anchor: l.anchor ?? "#" }))
+          : [
+              { label: "How it works", anchor: "#steps" },
+              { label: "Partnership perks", anchor: "#perks" },
+              { label: "FAQ", anchor: "#faq" },
+            ],
+        ctaText: p.ctaText ?? "Book a demo",
+        ctaUrl: p.ctaUrl ?? "#",
+      };
+    }
+
     case "dso-practice-hero":
       return {
         eyebrow: p.eyebrow ?? "",
@@ -687,6 +705,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
   "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
   "dso-lab-tour": "{ eyebrow, headline, body, quote, quoteAttribution, ctaText, ctaUrl, backgroundStyle }",
+  "dso-practice-nav": "{ dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky nav bar; use the DSO/practice name for dsoName; keep links to 3–4 section anchors on this page",
   "dso-practice-hero": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
   "dso-stat-row": "{ eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
   "dso-partnership-perks": "{ eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle }",
@@ -765,11 +784,16 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
    BAD: "Powerful, comprehensive, industry-leading digital solutions"
    GOOD: "A lab that backs every case with a guarantee"
 
-9. Sentence casing only. Capitalize the first word of every sentence and nothing else — unless it is a proper noun (a person's name, a city, a company), an acronym (DSO, AI, ROI), or an official Dandy product name (AI Scan Review, Smile Simulation). NEVER title-case headlines or subheadlines.
-   BAD: "Send a Scan. Get a Perfect-Fit Crown in 5 Days."
-   GOOD: "Send a scan. Get a perfect-fit crown in 5 days."
-   BAD: "More Cases. Zero Lab Drama."
-   GOOD: "More cases. Zero lab drama."
+9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:
+   a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
+   b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official Dandy product names (AI Scan Review, Smile Simulation) get capitals.
+   WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase
+   WRONG (title case): "More Cases. Zero Lab Drama." → WRONG: mid-sentence words capitalized
+   CORRECT: "More cases. Zero lab drama."
+   WRONG: "send a scan. get a perfect-fit crown in 5 days." → WRONG
+   CORRECT: "Send a scan. Get a perfect-fit crown in 5 days."
+   WRONG: "join hundreds of practices already using dandy" → WRONG: lowercase start + "dandy" is a proper noun
+   CORRECT: "Join hundreds of practices already using Dandy."
 
 NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
 ${forbiddenList.map(p => `- "${p}"`).join("\n")}
@@ -793,6 +817,7 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
     `Build a page with exactly ${blockCount} blocks in the order listed.`,
     "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
     "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
+    "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
   ].join("\n");
 
   // When a template layout is provided, override the default block order with the template's blocks
@@ -841,14 +866,16 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
       "AUDIENCE: Individual dental practice within a DSO network — the dentist or office manager, not corporate leadership.",
       "Messaging themes: practice-level benefits, $0 CAPEX scanner, $1,500 lab credit, first-time fit guarantee, chairside AI, easy onboarding, DSO partnership perks.",
       "",
-      "AVAILABLE BLOCKS (use only these, in this order):",
-      "1. \"dso-practice-hero\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
-      "2. \"dso-stat-row\": { eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
-      "3. \"dso-partnership-perks\": { eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle } — list the exclusive DSO partnership benefits",
-      "4. \"dso-split-feature\": { eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle } — highlight AI Scan Review",
-      "5. \"dso-software-showcase\": { eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
-      "6. \"dso-faq\": { eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions practices actually ask",
-      "7. \"dso-activation-steps\": { eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
+      "AVAILABLE BLOCKS (use only these, in EXACTLY this order):",
+      "1. \"dso-practice-nav\": { dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky top nav; dsoName = the DSO or practice group name; links should match section anchors below (e.g. #perks, #steps, #faq)",
+      "2. \"dso-practice-hero\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
+      "3. \"dso-stat-row\": { eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
+      "4. \"dso-partnership-perks\": { eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle } — list the exclusive DSO partnership benefits",
+      "5. \"dso-split-feature\": { eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle } — highlight AI Scan Review",
+      "6. \"dso-software-showcase\": { eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
+      "7. \"dso-faq\": { eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions practices actually ask",
+      "8. \"dso-activation-steps\": { eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
+      "9. \"dso-final-cta\": { eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle } — closing call to action",
       footer,
     ].join("\n");
   }
