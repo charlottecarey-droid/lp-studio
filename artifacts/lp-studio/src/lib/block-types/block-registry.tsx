@@ -1,5 +1,6 @@
 import type React from "react";
-import type { BlockCategory, BlockSettings } from "./common";
+import type { BlockCategory, BlockSettings, CtaMode } from "./common";
+import type { BackgroundStyle } from "../bg-styles";
 import type {
   HeroBlockProps,
   TrustBarBlockProps,

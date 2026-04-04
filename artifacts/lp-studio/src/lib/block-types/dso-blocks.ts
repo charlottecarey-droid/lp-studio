@@ -328,6 +328,9 @@ export interface DsoPromoCardsBlockProps {
   subheadline?: string;
   cards: DsoPromoCard[];
   backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
 }
 
 export interface DsoActivationStep {
@@ -541,7 +544,7 @@ export interface DsoInsightsVideoBlockProps {
   ctaLabel?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
-  ctaVariant?: "primary" | "secondary" | "outline";
+  ctaVariant?: "primary" | "secondary" | "outline" | "link";
   backgroundStyle?: BackgroundStyle;
   imageUrl?: string;
   backgroundOverlay?: number;
@@ -550,4 +553,5 @@ export interface DsoInsightsVideoBlockProps {
   videoAutoplay?: boolean;
   videoPlayOnScroll?: boolean;
   hideBrowserFrame?: boolean;
+  chilipiperUrl?: string;
 }

@@ -574,7 +574,7 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function TemplatePicker({ onClose }: { onClose: () => void }) {
+function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; micrositeDomain?: string | null }) {
   const [, navigate] = useLocation();
   const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
   const [selected, setSelected] = useState<{ type: "marketing"; id: number; label: string } | { type: "builtin"; id: string; label: string } | { type: "blank" } | null>(null);
@@ -1305,7 +1305,7 @@ export function CampaignPagesContent() {
       </div>
 
       {showTemplatePicker && (
-        <TemplatePicker onClose={() => setShowTemplatePicker(false)} />
+        <TemplatePicker onClose={() => setShowTemplatePicker(false)} micrositeDomain={micrositeDomain} />
       )}
     </>
   );

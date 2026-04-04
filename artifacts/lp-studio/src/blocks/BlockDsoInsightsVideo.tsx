@@ -37,7 +37,8 @@ import closeUpSpend from "@assets/Untitled_33_1774755563383.png";
 import scanQuality from "@assets/scan_quality_1774760745958.png";
 import provPerf from "@assets/provperf_1774760745956.png";
 
-const SCREENS = [
+type ScreenItem = { src: string; label: string; clipRatio?: number };
+const SCREENS: ScreenItem[] = [
   { src: scr_isi, label: "Remake Rates" },
   { src: scr_isj, label: "Remake Rates (Hover)" },
   { src: scr_isk, label: "Scan Flags" },

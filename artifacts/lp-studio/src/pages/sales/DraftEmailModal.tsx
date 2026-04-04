@@ -7,8 +7,8 @@ interface Contact {
   id: number;
   firstName: string;
   lastName: string;
-  title?: string;
-  email?: string;
+  title?: string | null;
+  email?: string | null;
 }
 
 interface Props {
