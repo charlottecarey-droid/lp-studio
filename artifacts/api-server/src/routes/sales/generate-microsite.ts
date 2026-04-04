@@ -694,18 +694,39 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
       return;
     }
 
-    parsed.slug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
     const normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i));
 
-    const [page] = await db.insert(lpPagesTable).values({
-      title: parsed.title,
-      slug: parsed.slug,
-      blocks: normalizedBlocks,
-      status: "draft",
-      mode: "sales",
-      accountId,
-    }).returning();
+    // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
+    // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
+    const MAX_SLUG_ATTEMPTS = 5;
+    let page: typeof lpPagesTable.$inferInsert & { id: number } | undefined;
+    for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
+      const slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
+      try {
+        const [inserted] = await db.insert(lpPagesTable).values({
+          title: parsed.title,
+          slug,
+          blocks: normalizedBlocks,
+          status: "draft",
+          mode: "sales",
+          accountId,
+        }).returning();
+        page = inserted as typeof page;
+        break;
+      } catch (insertErr: unknown) {
+        const pgCode = (insertErr as { code?: string }).code;
+        if (pgCode === "23505") {
+          if (attempt < MAX_SLUG_ATTEMPTS) continue; // try next suffix
+          res.status(409).json({
+            error: `Slug "${baseSlug}" (and variants up to -${MAX_SLUG_ATTEMPTS}) are already taken. Please retry.`,
+          });
+          return;
+        }
+        throw insertErr; // non-duplicate error — let outer catch handle it
+      }
+    }
 
     res.json({ page, blocks: normalizedBlocks });
   } catch (err) {
