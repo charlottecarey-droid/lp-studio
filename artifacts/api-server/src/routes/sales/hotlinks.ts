@@ -87,45 +87,75 @@ async function sendVisitAlert(
   }
 }
 
-// ─── GET /microsites/overview — account-grouped microsites + hotlinks ──────
+// ─── GET /microsites/overview — page-centric, hotlinks optional ─────────────
 router.get("/microsites/overview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
-    // Single JOIN query: hotlinks → contacts → accounts + pages, tenant-scoped
-    const rows = await db
+    // 1. All tenant LP pages (non-template), left-join account
+    const pages = await db
       .select({
-        hotlinkId: salesHotlinksTable.id,
-        token: salesHotlinksTable.token,
-        isActive: salesHotlinksTable.isActive,
-        contactId: salesContactsTable.id,
-        contactFirst: salesContactsTable.firstName,
-        contactLast: salesContactsTable.lastName,
-        accountId: salesAccountsTable.id,
-        accountName: salesAccountsTable.name,
         pageId: lpPagesTable.id,
         pageTitle: lpPagesTable.title,
         pageSlug: lpPagesTable.slug,
         pageStatus: lpPagesTable.status,
         pageUpdatedAt: lpPagesTable.updatedAt,
+        accountId: salesAccountsTable.id,
+        accountName: salesAccountsTable.name,
+      })
+      .from(lpPagesTable)
+      .leftJoin(salesAccountsTable, and(
+        eq(lpPagesTable.accountId, salesAccountsTable.id),
+        eq(salesAccountsTable.tenantId, tenantId),
+      ))
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, false)))
+      .orderBy(salesAccountsTable.name, desc(lpPagesTable.updatedAt));
+
+    if (pages.length === 0) { res.json([]); return; }
+
+    // 2. Hotlinks for these pages (optional — left join equivalent)
+    const pageIds = [...new Set(pages.map(p => p.pageId))];
+    const hotlinks = await db
+      .select({
+        hotlinkId: salesHotlinksTable.id,
+        token: salesHotlinksTable.token,
+        pageId: salesHotlinksTable.pageId,
+        contactId: salesContactsTable.id,
+        contactFirst: salesContactsTable.firstName,
+        contactLast: salesContactsTable.lastName,
       })
       .from(salesHotlinksTable)
       .innerJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
-      .innerJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
-      .innerJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
-      .where(and(eq(salesHotlinksTable.isActive, true), eq(salesContactsTable.tenantId, tenantId)))
-      .orderBy(salesAccountsTable.name, lpPagesTable.updatedAt, salesContactsTable.lastName);
+      .where(and(
+        inArray(salesHotlinksTable.pageId, pageIds),
+        eq(salesHotlinksTable.isActive, true),
+        eq(salesContactsTable.tenantId, tenantId),
+      ));
 
-    // Group into: accountId → pageId → hotlinks[]
-    type HotlinkEntry = { hotlinkId: number; token: string; contactId: number; contactName: string };
-    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkEntry[] };
+    // Index hotlinks by pageId
+    const hotlinksByPage = new Map<number, { hotlinkId: number; token: string; contactId: number; contactName: string }[]>();
+    for (const hl of hotlinks) {
+      if (!hl.pageId) continue;
+      if (!hotlinksByPage.has(hl.pageId)) hotlinksByPage.set(hl.pageId, []);
+      hotlinksByPage.get(hl.pageId)!.push({
+        hotlinkId: hl.hotlinkId,
+        token: hl.token,
+        contactId: hl.contactId,
+        contactName: `${hl.contactFirst} ${hl.contactLast}`.trim(),
+      });
+    }
+
+    // 3. Group pages by account (null accountId → "unattached" bucket with id=-1)
+    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: typeof hotlinks[0][] };
     type AccountEntry = { accountId: number; accountName: string; pages: Map<number, PageEntry> };
-
     const accountMap = new Map<number, AccountEntry>();
-    for (const row of rows) {
-      if (!accountMap.has(row.accountId)) {
-        accountMap.set(row.accountId, { accountId: row.accountId, accountName: row.accountName, pages: new Map() });
+
+    for (const row of pages) {
+      const acctId = row.accountId ?? -1;
+      const acctName = row.accountName ?? "General";
+      if (!accountMap.has(acctId)) {
+        accountMap.set(acctId, { accountId: acctId, accountName: acctName, pages: new Map() });
       }
-      const acct = accountMap.get(row.accountId)!;
+      const acct = accountMap.get(acctId)!;
       if (!acct.pages.has(row.pageId)) {
         acct.pages.set(row.pageId, {
           pageId: row.pageId,
@@ -133,24 +163,15 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
           pageSlug: row.pageSlug,
           pageStatus: row.pageStatus,
           pageUpdatedAt: row.pageUpdatedAt,
-          hotlinks: [],
+          hotlinks: hotlinksByPage.get(row.pageId) ?? [],
         });
       }
-      acct.pages.get(row.pageId)!.hotlinks.push({
-        hotlinkId: row.hotlinkId,
-        token: row.token,
-        contactId: row.contactId,
-        contactName: `${row.contactFirst} ${row.contactLast}`.trim(),
-      });
     }
 
     const result = Array.from(accountMap.values()).map(acct => ({
       accountId: acct.accountId,
       accountName: acct.accountName,
-      pages: Array.from(acct.pages.values()).map(p => ({
-        ...p,
-        pageUpdatedAt: p.pageUpdatedAt,
-      })),
+      pages: Array.from(acct.pages.values()),
     }));
 
     res.json(result);

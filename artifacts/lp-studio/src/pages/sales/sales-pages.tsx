@@ -117,8 +117,8 @@ export default function SalesPages() {
       )
     : overview;
 
-  // Accounts that don't yet have a microsite
-  const accountsWithMicrosites = new Set(overview.map(a => a.accountId));
+  // Accounts that don't yet have a microsite (exclude the -1 "General" bucket)
+  const accountsWithMicrosites = new Set(overview.filter(a => a.accountId !== -1).map(a => a.accountId));
   const accountsWithout = accounts.filter(a => !accountsWithMicrosites.has(a.id));
 
   return (
@@ -241,9 +241,13 @@ export default function SalesPages() {
                       ? <ChevronRight className="w-3.5 h-3.5 text-primary" />
                       : <ChevronDown className="w-3.5 h-3.5 text-primary" />}
                   </button>
-                  <Link href={`/sales/accounts/${acct.accountId}`} className="flex-1 min-w-0">
-                    <span className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">{acct.accountName}</span>
-                  </Link>
+                  {acct.accountId === -1 ? (
+                    <span className="font-semibold text-sm text-foreground flex-1 min-w-0">{acct.accountName}</span>
+                  ) : (
+                    <Link href={`/sales/accounts/${acct.accountId}`} className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">{acct.accountName}</span>
+                    </Link>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {acct.pages.length} microsite{acct.pages.length !== 1 ? "s" : ""}
                   </span>
