@@ -187,7 +187,7 @@ export function SalesTopNav() {
       <div className="px-4 md:px-6 py-0 h-16 flex items-center justify-between">
         {/* Left: Logo and Title */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto" />
+          <img src={dandyLogo} alt="Dandy" className="h-6 w-auto brightness-0 invert" />
           <span className="hidden md:inline text-[13px] font-bold tracking-[0.15em] uppercase text-[#C7E738]/80">
             Sales Console
           </span>
