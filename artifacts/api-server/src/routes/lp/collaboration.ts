@@ -117,7 +117,7 @@ router.post("/lp/pages/:pageId/reviews", async (req, res): Promise<void> => {
     .values({ pageId, token, status: "pending" })
     .returning();
 
-  res.status(201).json({ ...review, reviewUrl: `/review/${pageId}?token=${token}` });
+  res.status(201).json({ ...review, reviewUrl: `/review/${token}` });
 });
 
 router.get("/lp/pages/:pageId/reviews", async (req, res): Promise<void> => {

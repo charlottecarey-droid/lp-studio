@@ -39,14 +39,14 @@ export function ShareReviewModal({ open, onClose, pageId, pageName, reviews, onC
   const baseUrl = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const reviewUrl = latestReviewUrl
-    ?? (latestReview ? `${baseUrl}/review/${pageId}?token=${latestReview.token}` : null);
+    ?? (latestReview ? `${baseUrl}/review/${latestReview.token}` : null);
 
   const handleCreate = async () => {
     setCreating(true);
     try {
       const result = await onCreateReview();
       if (result) {
-        setLatestReviewUrl(`${baseUrl}/review/${pageId}?token=${result.token}`);
+        setLatestReviewUrl(`${baseUrl}/review/${result.token}`);
       }
     } finally {
       setCreating(false);

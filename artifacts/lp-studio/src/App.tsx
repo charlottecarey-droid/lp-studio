@@ -186,7 +186,7 @@ function AppRouter() {
         <Route path="/lp/:slug" component={LandingPageViewer} />
 
         {/* Review Shell (No App Layout) */}
-        <Route path="/review/:pageId" component={ReviewShell} />
+        <Route path="/review/:token" component={ReviewShell} />
 
         {/* Personalized link resolver (No App Layout) */}
         <Route path="/p/:token" component={PersonalizedLinkResolver} />
@@ -258,7 +258,7 @@ function AppShell() {
   const isPublicRoute =
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
-    location.startsWith("/review/");
+    location.startsWith("/review/") || location === "/review";
 
   if (isPublicRoute) {
     return (
@@ -267,7 +267,7 @@ function AppShell() {
           <Switch>
             <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
-            <Route path="/review/:pageId" component={ReviewShell} />
+            <Route path="/review/:token" component={ReviewShell} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>
