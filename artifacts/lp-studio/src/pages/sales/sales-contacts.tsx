@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRoute, useLocation, Link } from "wouter";
 import { format } from "date-fns";
 import {
@@ -751,6 +752,15 @@ function ContactListView() {
   const flatPag = usePagination(filtered, 25);
   const groupedPag = usePagination(accountGroups, 10);
 
+  // Virtual list for flat view
+  const flatScrollRef = useRef<HTMLDivElement>(null);
+  const flatVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => flatScrollRef.current,
+    estimateSize: () => 72,
+    overscan: 10,
+  });
+
   return (
     <SalesLayout>
       <div className="flex flex-col gap-6 pb-12">
@@ -1031,72 +1041,80 @@ function ContactListView() {
             />
           </div>
         ) : (
-          /* ── Flat List ── */
+          /* ── Flat List (virtualized) ── */
           <div className="flex flex-col gap-2">
-            {flatPag.pageItems.map((contact) => {
-
-              const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
-              const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" :
-                                    engagementScore.label === "Warm" ? "bg-amber-500" :
-                                    engagementScore.label === "Cool" ? "bg-blue-500" :
-                                    "bg-slate-300";
-              return (
-                <div
-                  key={contact.id}
-                  onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                  className="group flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
-                >
-                  <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} title={engagementScore.label} />
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
-                    {contact.firstName[0]}{contact.lastName[0]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">
-                        {contact.firstName} {contact.lastName}
-                      </p>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${engagementScore.color}`}>{engagementScore.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {contact.title && <span>{contact.title}</span>}
-                      {contact.accountName && (
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3" />
-                          {contact.accountName}
+            <p className="text-xs text-muted-foreground px-1">{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</p>
+            <div ref={flatScrollRef} className="max-h-[70vh] overflow-y-auto rounded-xl" style={{ contain: "strict" }}>
+              <div style={{ height: flatVirtualizer.getTotalSize(), width: "100%", position: "relative" }}>
+                {flatVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const contact = filtered[virtualRow.index];
+                  const engagementScore = getEngagementScore(contactSignals[contact.id] || []);
+                  const indicatorColor = engagementScore.label === "Hot" ? "bg-red-500" :
+                                        engagementScore.label === "Warm" ? "bg-amber-500" :
+                                        engagementScore.label === "Cool" ? "bg-blue-500" :
+                                        "bg-slate-300";
+                  const rowStyle: CSSProperties = {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  };
+                  return (
+                    <div key={contact.id} style={rowStyle}>
+                      <div
+                        onClick={() => navigate(`/sales/contacts/${contact.id}`)}
+                        className="group flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all cursor-pointer"
+                      >
+                        <div className={`flex-shrink-0 w-2 h-2 rounded-full ${indicatorColor}`} title={engagementScore.label} />
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                          {contact.firstName[0]}{contact.lastName[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-foreground">
+                              {contact.firstName} {contact.lastName}
+                            </p>
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${engagementScore.color}`}>{engagementScore.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {contact.title && <span>{contact.title}</span>}
+                            {contact.accountName && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                {contact.accountName}
+                              </span>
+                            )}
+                            {contact.email && (
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {contact.email}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {contact.contactRole && (
+                          <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
+                            {contact.contactRole}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
+                          title="Draft AI email"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Draft Email</span>
+                        </button>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {format(new Date(contact.createdAt), "MMM d")}
                         </span>
-                      )}
-                      {contact.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          {contact.email}
-                        </span>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                  {contact.contactRole && (
-                    <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                      {contact.contactRole}
-                    </span>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
-                    title="Draft AI email"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Draft Email</span>
-                  </button>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {format(new Date(contact.createdAt), "MMM d")}
-                  </span>
-                </div>
-              );
-            })}
-            <PaginationBar
-              page={flatPag.page} totalPages={flatPag.totalPages}
-              from={flatPag.from} to={flatPag.to} total={flatPag.total}
-              onPage={flatPag.setPage} label="contacts"
-            />
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

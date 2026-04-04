@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { format } from "date-fns";
 import {
   Activity,
@@ -142,6 +143,15 @@ export default function SalesSignals() {
 
   const pag = usePagination(filteredSignals, 25);
 
+  // Virtual list
+  const signalScrollRef = useRef<HTMLDivElement>(null);
+  const signalVirtualizer = useVirtualizer({
+    count: filteredSignals.length,
+    getScrollElement: () => signalScrollRef.current,
+    estimateSize: () => 64,
+    overscan: 15,
+  });
+
   const types = SIGNAL_TYPES;
 
   return (
@@ -262,34 +272,45 @@ export default function SalesSignals() {
           </Card>
         ) : (
           <>
-            <div className="flex flex-col gap-2">
-              {pag.pageItems.map((signal) => (
-                <div
-                  key={signal.id}
-                  className="flex items-center gap-4 px-5 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all"
-                >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
-                    {getSignalIcon(signal.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {signal.contactName ?? "Anonymous"}{" "}
-                      <span className="text-muted-foreground font-normal">
-                        {getSignalLabel(signal.type).toLowerCase()}
-                      </span>
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
-                      {signal.source && <span className="truncate">{signal.source}</span>}
+            <p className="text-xs text-muted-foreground px-1">{filteredSignals.length} signal{filteredSignals.length !== 1 ? "s" : ""}</p>
+            <div ref={signalScrollRef} className="max-h-[70vh] overflow-y-auto rounded-xl" style={{ contain: "strict" }}>
+              <div style={{ height: signalVirtualizer.getTotalSize(), width: "100%", position: "relative" }}>
+                {signalVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const signal = filteredSignals[virtualRow.index];
+                  const rowStyle: CSSProperties = {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  };
+                  return (
+                    <div key={signal.id} style={rowStyle}>
+                      <div className="flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
+                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
+                          {getSignalIcon(signal.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {signal.contactName ?? "Anonymous"}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              {getSignalLabel(signal.type).toLowerCase()}
+                            </span>
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
+                            {signal.source && <span className="truncate">{signal.source}</span>}
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {format(new Date(signal.createdAt), "MMM d, h:mm a")}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {format(new Date(signal.createdAt), "MMM d, h:mm a")}
-                  </span>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
-            <PaginationBar {...pag} onPage={pag.setPage} />
           </>
         )}
       </div>
