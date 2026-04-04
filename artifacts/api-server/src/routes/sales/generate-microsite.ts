@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsTable } from "@workspace/db";
+import { salesAccountsTable, salesBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import OpenAI from "openai";
 import rateLimit from "express-rate-limit";
 
@@ -17,6 +17,182 @@ const micrositeLimiter = rateLimit({
 });
 
 export type MicrositeAudience = "dso-corporate" | "dso-practice" | "independent";
+
+// ── Media library utilities ────────────────────────────────────────────────
+
+interface MediaImage { url: string; title: string; tags: string[]; }
+const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
+const SKIP_TAGS = new Set(["lp-hero", "lp-feature", "product-detail", "web res", "high res", "untitled folder"]);
+const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative"]);
+
+function getImagePurpose(img: MediaImage): string {
+  for (const t of img.tags) {
+    if (PURPOSE_TAGS.includes(t as typeof PURPOSE_TAGS[number])) return t;
+  }
+  return "";
+}
+
+async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText: string }> {
+  try {
+    const rows = await db
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "image"))
+      .orderBy(desc(lpMediaTable.createdAt))
+      .limit(500);
+    const allImages: MediaImage[] = rows.map(r => ({ url: r.url, title: r.title ?? "", tags: (r.tags as string[]) ?? [] }));
+    const images = allImages.filter(img => !img.tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase())));
+    if (images.length === 0) return { images, catalogText: "" };
+
+    const heroImages    = images.filter(i => getImagePurpose(i) === "lp-hero");
+    const featureImages = images.filter(i => getImagePurpose(i) === "lp-feature");
+    const unclassified  = images.filter(i => getImagePurpose(i) === "");
+
+    const buildSection = (imgs: MediaImage[], label: string): string => {
+      if (imgs.length === 0) return "";
+      const samples = imgs.slice(0, 6).map(i => i.url);
+      return `[${label}]\n${samples.join("\n")}`;
+    };
+    const sections: string[] = [
+      buildSection(heroImages,    "HERO & LIFESTYLE IMAGES — use for hero imageUrl, backgroundImageUrl, heroImageUrl"),
+      buildSection(featureImages, "FEATURE IMAGES — use for dso-split-feature, dso-lab-tour, zigzag-features imageUrl"),
+      buildSection(unclassified.slice(0, 8), "OTHER IMAGES — use judiciously for any remaining imageUrl slots"),
+    ].filter(Boolean);
+
+    const catalogText = sections.length > 0
+      ? `\nIMAGE LIBRARY — ONLY use these URLs for any imageUrl / backgroundImageUrl / heroImageUrl field:\n${sections.join("\n\n")}\n`
+      : "";
+    return { images, catalogText };
+  } catch {
+    return { images: [], catalogText: "" };
+  }
+}
+
+async function fetchVideoCatalog(): Promise<{ videoUrls: string[]; catalogText: string }> {
+  try {
+    const rows = await db
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title })
+      .from(lpMediaTable)
+      .where(eq(lpMediaTable.mediaType, "video"))
+      .orderBy(desc(lpMediaTable.createdAt))
+      .limit(20);
+    if (rows.length === 0) return { videoUrls: [], catalogText: "" };
+    const videoUrls = rows.map(r => r.url);
+    const catalogText = `\nVIDEO LIBRARY — ONLY use these URLs for any videoUrl / mediaUrl field:\n${videoUrls.map((u, i) => `${i + 1}. ${u}`).join("\n")}\n`;
+    return { videoUrls, catalogText };
+  } catch {
+    return { videoUrls: [], catalogText: "" };
+  }
+}
+
+function findBestImage(context: string, images: MediaImage[], usedUrls: Set<string>, preferredPurpose?: string): string {
+  if (images.length === 0) return "";
+  const contextLower = context.toLowerCase();
+  let best: MediaImage | null = null;
+  let bestScore = -Infinity;
+  for (const img of images) {
+    if (usedUrls.has(img.url)) continue;
+    let score = 0;
+    const imgPurpose = getImagePurpose(img);
+    if (preferredPurpose) {
+      if (imgPurpose === preferredPurpose) score += 8;
+      else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
+        if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
+        else score -= 2;
+      }
+    }
+    for (const tag of img.tags) {
+      const t = tag.toLowerCase();
+      if (!SKIP_TAGS.has(t) && contextLower.includes(t)) score += 3;
+    }
+    if (score > bestScore) { bestScore = score; best = img; }
+  }
+  if (best && bestScore >= 0) { usedUrls.add(best.url); return best.url; }
+  return "";
+}
+
+function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
+  if (images.length === 0) return blocks;
+  const usedUrls = new Set<string>();
+  for (const block of blocks) {
+    const props = (block as Record<string, unknown>).props as Record<string, unknown> | undefined;
+    if (!props) continue;
+    if (typeof props.imageUrl === "string" && props.imageUrl) usedUrls.add(props.imageUrl);
+    if (typeof props.backgroundImageUrl === "string" && props.backgroundImageUrl) usedUrls.add(props.backgroundImageUrl);
+    if (typeof props.heroImageUrl === "string" && props.heroImageUrl) usedUrls.add(props.heroImageUrl);
+  }
+  return blocks.map((block) => {
+    const b = { ...(block as Record<string, unknown>) };
+    const props = { ...(b.props as Record<string, unknown>) };
+    const blockType = b.type as string;
+    const ctx = `${blockType} ${(props.headline as string) ?? ""} ${(props.subheadline as string) ?? ""}`;
+
+    if (blockType === "hero" && "imageUrl" in props && !props.imageUrl)
+      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
+
+    if (blockType === "dso-heartland-hero") {
+      if (props.layout === "split") {
+        if (!props.heroImageUrl) props.heroImageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
+      } else {
+        if (!props.backgroundImageUrl) props.backgroundImageUrl = findBestImage(ctx, images, usedUrls, "lp-hero");
+      }
+    }
+
+    if ((blockType === "dso-split-feature" || blockType === "dso-lab-tour") && "imageUrl" in props && !props.imageUrl)
+      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-feature");
+
+    if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl)
+      props.imageUrl = findBestImage(ctx, images, usedUrls, "lp-feature");
+
+    b.props = props;
+    return b;
+  });
+}
+
+/** Replace invented / missing video URLs with real media library videos. */
+function fillEmptyVideos(blocks: unknown[], videoUrls: string[]): unknown[] {
+  if (videoUrls.length === 0) return blocks;
+  let vi = 0;
+  const isInvented = (url: string) => !!url && !url.startsWith("/api/storage/");
+  return blocks.map((block) => {
+    const b = { ...(block as Record<string, unknown>) };
+    const props = { ...(b.props as Record<string, unknown>) };
+    for (const field of ["videoUrl", "mediaUrl"] as const) {
+      if (field in props) {
+        const val = props[field] as string;
+        if (!val || isInvented(val)) {
+          props[field] = videoUrls[vi % videoUrls.length];
+          vi++;
+        }
+      }
+    }
+    b.props = props;
+    return b;
+  });
+}
+
+/** Force brand CTA color and Chili Piper URL into every block that needs them. */
+function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>): unknown[] {
+  const ctaColor = (brand.ctaBackground as string) || (brand.accentColor as string) || (brand.primaryColor as string);
+  const chilipiperUrl = brand.chilipiperUrl as string | undefined;
+  return blocks.map((block) => {
+    const b = { ...(block as Record<string, unknown>) };
+    const props = { ...(b.props as Record<string, unknown>) };
+    if (ctaColor && "ctaColor" in props) props.ctaColor = ctaColor;
+    if (chilipiperUrl && typeof b.type === "string" && b.type.startsWith("dso-")) {
+      if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
+        props.primaryCtaUrl = chilipiperUrl;
+        props.primaryCtaMode = "chilipiper";
+      }
+      if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
+        props.ctaUrl = chilipiperUrl;
+        props.ctaMode = "chilipiper";
+      }
+    }
+    b.props = props;
+    return b;
+  });
+}
 
 function getOpenAIClient(): OpenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
@@ -607,6 +783,10 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     const brandRows = await db.select().from(lpBrandSettingsTable).limit(1);
     const brand = brandRows.length > 0 ? (brandRows[0].config as Record<string, unknown>) : {};
 
+    // Fetch media library so the AI uses real assets, not invented URLs
+    const [{ images, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }] =
+      await Promise.all([fetchMediaCatalog(), fetchVideoCatalog()]);
+
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
 
@@ -666,6 +846,13 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
       }
     }
 
+    // Inject media library so AI uses real assets instead of inventing URLs
+    if (imageCatalogText) contextParts.push(imageCatalogText);
+    if (videoCatalogText) contextParts.push(videoCatalogText);
+    if (imageCatalogText || videoCatalogText) {
+      contextParts.push("CRITICAL: You MUST ONLY use URLs listed above for imageUrl, backgroundImageUrl, heroImageUrl, videoUrl, and mediaUrl fields. NEVER fabricate or invent any media URLs. If no suitable URL exists for a slot, use empty string \"\".");
+    }
+
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
     contextParts.push(`\nGenerate a personalised microsite for ${account.name} targeting ${audience} audience. Make every block specific to their business.`);
 
@@ -696,7 +883,12 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
 
     const baseSlug = parsed.slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    const normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i));
+    let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i));
+
+    // Post-process: fill any empty image slots, replace invented video URLs, inject brand
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
+    normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
+    normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand) as AiBlock[];
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
     // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
