@@ -651,22 +651,81 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
 };
 
 function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, unknown>, templateBlockTypes?: string[]): string {
-  const tone = brand.toneOfVoice as string | undefined;
-  const pillars = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
-  const taglines = brand.taglines as string[] | undefined;
-  const brandName = (brand.brandName as string | undefined) ?? "Dandy";
+  const tone            = brand.toneOfVoice as string | undefined;
+  const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
+  const taglines        = brand.taglines as string[] | undefined;
+  const toneKeywords    = brand.toneKeywords as string[] | undefined;
+  const avoidPhrases    = brand.avoidPhrases as string[] | undefined;
+  const copyExamples    = brand.copyExamples as string[] | undefined;
+  const copyInstructions = brand.copyInstructions as string | undefined;
+  const brandName       = (brand.brandName as string | undefined) ?? "Dandy";
+
+  // Core forbidden list always applied; brand's avoidPhrases add to it
+  const coreForbidden = [
+    "cutting-edge", "state-of-the-art", "best-in-class", "world-class", "industry-leading",
+    "leverage", "utilize", "streamline", "synergy", "empower", "enable", "facilitate",
+    "revolutionize", "transformative", "game-changing", "innovative", "disruptive",
+    "seamless", "seamlessly", "effortlessly", "frictionless",
+    "comprehensive", "holistic", "robust", "scalable solutions", "end-to-end",
+    "in today's competitive landscape", "in the current climate", "now more than ever",
+    "take it to the next level", "elevate your practice", "transform your business",
+    "partner of choice", "trusted partner", "strategic partner",
+    "unique positioning", "competitive advantage",
+    "solution", "ecosystem", "Discover", "Unlock", "Unleash",
+    "optimize", "maximize" ,"best practices", "value-add",
+  ];
+  const forbiddenList = [...new Set([...coreForbidden, ...(avoidPhrases ?? [])])];
 
   const brandSection = [
-    tone ? `Tone of voice: ${tone}` : null,
-    pillars?.length ? `Messaging pillars:\n${pillars.map(p => `- ${p.label}: ${p.description}`).join("\n")}` : null,
-    taglines?.length ? `Brand taglines: ${taglines.join(" | ")}` : null,
+    tone              ? `VOICE: ${tone}` : null,
+    toneKeywords?.length ? `Style words — your copy should feel: ${toneKeywords.join(", ")}` : null,
+    pillars?.length   ? `Messaging pillars:\n${pillars.map(p => `- ${p.label}: ${p.description}`).join("\n")}` : null,
+    taglines?.length  ? `Brand taglines (reference these, don't repeat them verbatim): ${taglines.join(" | ")}` : null,
+    copyExamples?.length ? `Copy that nails the voice — study these and write in this register:\n${copyExamples.map(e => `  "${e}"`).join("\n")}` : null,
+    copyInstructions?.trim() ? copyInstructions.trim() : null,
   ].filter(Boolean).join("\n");
 
+  const copyPrinciples = `
+COPY QUALITY PRINCIPLES — follow every one of these without exception:
+
+1. Specific always beats vague. Every claim needs a number, a process, or a policy behind it.
+   BAD: "Faster turnaround times that improve efficiency"
+   GOOD: "5-day crown delivery with real-time case tracking"
+   BAD: "Dandy's advanced technology ensures better outcomes"
+   GOOD: "96% first-time fit rate. If a case doesn't seat, we remake it for free."
+
+2. Lead with the dentist's benefit — not Dandy's features.
+   BAD: "Dandy uses AI-powered quality control on every case"
+   GOOD: "You get a better-fitting crown without the back-and-forth phone calls"
+
+3. Write like one person talking directly to another across a desk. Not a press release. Not a brochure.
+   BAD: "Leveraging next-generation digital workflows to optimize practice efficiency"
+   GOOD: "Send a scan. Get a perfect-fit crown in 5 days."
+
+4. Short sentences. Active voice. One idea per sentence. If you can cut a word without losing meaning, cut it.
+
+5. Headlines are declarative and direct. No vague questions. No "How to..." or "Why...".
+   BAD: "Discover how Dandy can help your practice grow"
+   GOOD: "More cases. Zero lab drama."
+
+6. Every subheadline should deepen or add to the headline — not just restate it in different words.
+
+7. Reference this specific account — their name, their scale, their situation — naturally throughout. It should feel written for them, not filled in with a mail-merge.
+
+8. Never stack adjectives. One strong word beats three weak ones.
+   BAD: "Powerful, comprehensive, industry-leading digital solutions"
+   GOOD: "A lab that backs every case with a guarantee"
+
+NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
+${forbiddenList.map(p => `- "${p}"`).join("\n")}
+`.trim();
+
   const header = [
-    `You are an expert B2B landing page copywriter for ${brandName}, a dental technology company.`,
-    "You create highly personalised microsites for specific dental accounts.",
+    `You are an expert B2B copywriter for ${brandName}, a dental technology company. You write personalized microsites for specific dental accounts.`,
     "",
-    brandSection ? `BRAND GUIDELINES — incorporate these into all copy:\n${brandSection}` : "",
+    brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
+    "",
+    copyPrinciples,
     "",
     "Return ONLY valid JSON: { \"title\": string, \"slug\": string, \"blocks\": Block[] }",
     "Each Block MUST use: { \"type\": string, \"props\": { ...fields } }",
@@ -677,9 +736,8 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
   const footer = [
     "",
     `Build a page with exactly ${blockCount} blocks in the order listed.`,
-    "Write all copy to be specific, bold, and grounded in the account's real context.",
-    "Reference the account name, segment, size, and pain points throughout.",
-    "Never use filler phrases like 'in today's competitive landscape' or 'take it to the next level'.",
+    "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
+    "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
   ].join("\n");
 
   // When a template layout is provided, override the default block order with the template's blocks
