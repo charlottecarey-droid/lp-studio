@@ -618,6 +618,7 @@ function ContactListView() {
   const [titleLevelFilter, setTitleLevelFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
+  const [engagementFilter, setEngagementFilter] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -674,7 +675,7 @@ function ContactListView() {
     setLoading(true);
     Promise.all([
       fetch(`${API_BASE}/sales/contacts`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${API_BASE}/sales/signals?limit=500`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then((r) => (r.ok ? r.json() : { data: [] })).then(res => Array.isArray(res) ? res : res.data ?? []),
     ])
       .then(([cts, signals]) => {
         setContacts(cts);
@@ -711,7 +712,7 @@ function ContactListView() {
   const uniqueOwners      = Array.from(new Set(contacts.map(c => c.accountOwner).filter(Boolean))).sort() as string[];
 
   const acctFilterActive = acctFilterIds !== null && !acctBannerDismissed;
-  const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter || acctFilterIds);
+  const isFiltered = !!(search || tierFilter || titleLevelFilter || stageFilter || ownerFilter || engagementFilter || acctFilterIds);
 
   const filtered = contacts.filter((c) => {
     const q = search.toLowerCase();
@@ -725,13 +726,14 @@ function ContactListView() {
     const matchesStage      = !stageFilter      || c.abmStage === stageFilter;
     const matchesOwner      = !ownerFilter      || c.accountOwner === ownerFilter;
     const matchesAcct       = !acctFilterIds    || acctFilterIds.has(c.accountId);
-    return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner && matchesAcct;
+    const matchesEngagement = !engagementFilter || getEngagementScore(contactSignals[c.id] || []).label === engagementFilter;
+    return matchesSearch && matchesTier && matchesTitleLevel && matchesStage && matchesOwner && matchesAcct && matchesEngagement;
   });
 
-  function clearFilters() { setSearch(""); setTierFilter(""); setTitleLevelFilter(""); setStageFilter(""); setOwnerFilter(""); }
+  function clearFilters() { setSearch(""); setTierFilter(""); setTitleLevelFilter(""); setStageFilter(""); setOwnerFilter(""); setEngagementFilter(""); }
 
   const audienceName = [
-    tierFilter, titleLevelFilter, stageFilter, ownerFilter, search ? `"${search}"` : "",
+    tierFilter, titleLevelFilter, stageFilter, ownerFilter, engagementFilter, search ? `"${search}"` : "",
   ].filter(Boolean).join(" · ") || "Filtered Contacts";
 
   const accountGroups = useMemo(() => {
@@ -893,6 +895,19 @@ function ContactListView() {
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
             )}
+            {/* Engagement tier */}
+            <div className="relative">
+              <select value={engagementFilter} onChange={(e) => setEngagementFilter(e.target.value)}
+                className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
+                <option value="">All Engagement</option>
+                <option value="Hot">Hot</option>
+                <option value="Warm">Warm</option>
+                <option value="Cool">Cool</option>
+                <option value="Cold">Cold</option>
+                <option value="No activity">No activity</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
 
           {/* Active filter bar */}
@@ -1124,7 +1139,7 @@ function ContactDetailView({ id }: { id: string }) {
   const fetchData = useCallback(() => {
     Promise.all([
       fetch(`${API_BASE}/sales/contacts/${id}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${API_BASE}/sales/signals?contactId=${id}&limit=30`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/sales/signals?contactId=${id}&limit=30`).then((r) => (r.ok ? r.json() : { data: [] })).then(res => Array.isArray(res) ? res : res.data ?? []),
     ])
       .then(async ([ct, sigs]) => {
         setContact(ct);

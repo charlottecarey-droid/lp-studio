@@ -1350,7 +1350,7 @@ function PerformanceTab() {
   useEffect(() => {
     Promise.all([
       fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
     ])
       .then(([campaignList, signals]) => {
         const campaignMap = new Map<number, CampaignPerformance>();

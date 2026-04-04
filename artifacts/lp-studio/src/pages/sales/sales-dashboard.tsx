@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
 
 const API_BASE = "/api";
 
@@ -68,29 +69,7 @@ function getGreeting() {
   return "Good evening";
 }
 
-function getSignalIcon(type: string) {
-  switch (type) {
-    case "page_view": return <Eye className="w-3.5 h-3.5 text-blue-500" />;
-    case "email_open": return <Mail className="w-3.5 h-3.5 text-emerald-500" />;
-    case "email_click": return <MousePointerClick className="w-3.5 h-3.5 text-amber-500" />;
-    case "form_submit": return <FileText className="w-3.5 h-3.5 text-violet-500" />;
-    case "email_sent": return <Send className="w-3.5 h-3.5 text-primary" />;
-    case "email_replied": return <Mail className="w-3.5 h-3.5 text-violet-500" />;
-    default: return <Activity className="w-3.5 h-3.5 text-muted-foreground" />;
-  }
-}
-
-function getSignalLabel(type: string) {
-  switch (type) {
-    case "page_view": return "Viewed page";
-    case "email_open": return "Opened email";
-    case "email_click": return "Clicked link";
-    case "form_submit": return "Submitted form";
-    case "email_sent": return "Email sent";
-    case "email_replied": return "Replied to email";
-    default: return type.replace(/_/g, " ");
-  }
-}
+// getSignalIcon and getSignalLabel imported from @/lib/signal-types
 
 export default function SalesDashboard() {
   const [, navigate] = useLocation();
@@ -120,9 +99,9 @@ export default function SalesDashboard() {
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
       fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=100`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=100`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
     ])
       .then(([accounts, contacts, recentSignals, campaigns, allSignals, pages]) => {
@@ -493,7 +472,7 @@ export default function SalesDashboard() {
                       className="flex items-center gap-4 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:shadow-sm transition-all"
                     >
                       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                        {getSignalIcon(signal.type)}
+                        {getSignalIcon(signal.type, "w-3.5 h-3.5")}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">

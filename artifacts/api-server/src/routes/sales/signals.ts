@@ -68,28 +68,33 @@ router.get("/signals", async (req, res): Promise<void> => {
       conditions.push(eq(salesSignalsTable.contactId, Number(contactId)));
     }
 
-    const rows = await db
-      .select({
-        id: salesSignalsTable.id,
-        accountId: salesSignalsTable.accountId,
-        contactId: salesSignalsTable.contactId,
-        hotlinkId: salesSignalsTable.hotlinkId,
-        type: salesSignalsTable.type,
-        source: salesSignalsTable.source,
-        metadata: salesSignalsTable.metadata,
-        createdAt: salesSignalsTable.createdAt,
-        accountName: salesAccountsTable.name,
-        contactFirstName: salesContactsTable.firstName,
-        contactLastName: salesContactsTable.lastName,
-        contactEmail: salesContactsTable.email,
-      })
-      .from(salesSignalsTable)
-      .leftJoin(salesAccountsTable, eq(salesSignalsTable.accountId, salesAccountsTable.id))
-      .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
-      .where(and(...conditions))
-      .orderBy(desc(salesSignalsTable.createdAt))
-      .offset(offset)
-      .limit(limit);
+    const whereClause = and(...conditions);
+
+    const [rows, [{ total }]] = await Promise.all([
+      db
+        .select({
+          id: salesSignalsTable.id,
+          accountId: salesSignalsTable.accountId,
+          contactId: salesSignalsTable.contactId,
+          hotlinkId: salesSignalsTable.hotlinkId,
+          type: salesSignalsTable.type,
+          source: salesSignalsTable.source,
+          metadata: salesSignalsTable.metadata,
+          createdAt: salesSignalsTable.createdAt,
+          accountName: salesAccountsTable.name,
+          contactFirstName: salesContactsTable.firstName,
+          contactLastName: salesContactsTable.lastName,
+          contactEmail: salesContactsTable.email,
+        })
+        .from(salesSignalsTable)
+        .leftJoin(salesAccountsTable, eq(salesSignalsTable.accountId, salesAccountsTable.id))
+        .leftJoin(salesContactsTable, eq(salesSignalsTable.contactId, salesContactsTable.id))
+        .where(whereClause)
+        .orderBy(desc(salesSignalsTable.createdAt))
+        .offset(offset)
+        .limit(limit),
+      db.select({ total: count() }).from(salesSignalsTable).where(whereClause),
+    ]);
 
     const signals = rows.map((s) => ({
       ...s,
@@ -97,7 +102,7 @@ router.get("/signals", async (req, res): Promise<void> => {
       contactName: [s.contactFirstName, s.contactLastName].filter(Boolean).join(" ") || null,
     }));
 
-    res.json(signals);
+    res.json({ data: signals, totalCount: total });
   } catch (err) {
     console.error("GET /sales/signals error:", err);
     res.status(500).json({ error: "Failed to load signals" });

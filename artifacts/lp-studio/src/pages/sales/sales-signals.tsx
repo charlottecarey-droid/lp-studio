@@ -2,11 +2,6 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import {
   Activity,
-  Eye,
-  Mail,
-  MousePointerClick,
-  FileText,
-  Send,
   Trash2,
   Filter,
 } from "lucide-react";
@@ -18,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationBar } from "@/components/ui/pagination-bar";
+import { getSignalIcon, getSignalLabel, SIGNAL_TYPES } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
@@ -39,29 +35,7 @@ interface AccountForFilter {
   abmTier: string | null;
 }
 
-function getSignalIcon(type: string) {
-  switch (type) {
-    case "page_view": return <Eye className="w-4 h-4 text-blue-500" />;
-    case "email_open": return <Mail className="w-4 h-4 text-emerald-500" />;
-    case "email_click": return <MousePointerClick className="w-4 h-4 text-amber-500" />;
-    case "form_submit": return <FileText className="w-4 h-4 text-violet-500" />;
-    case "email_sent": return <Send className="w-4 h-4 text-primary" />;
-    case "email_replied": return <Mail className="w-4 h-4 text-violet-500" />;
-    default: return <Activity className="w-4 h-4 text-muted-foreground" />;
-  }
-}
-
-function getSignalLabel(type: string) {
-  switch (type) {
-    case "page_view": return "Viewed page";
-    case "email_open": return "Opened email";
-    case "email_click": return "Clicked link in email";
-    case "form_submit": return "Submitted a form";
-    case "email_sent": return "Email sent";
-    case "email_replied": return "Replied to email";
-    default: return type.replace(/_/g, " ");
-  }
-}
+// getSignalIcon, getSignalLabel, and SIGNAL_TYPES imported from @/lib/signal-types
 
 export default function SalesSignals() {
   const [, navigate] = useLocation();
@@ -123,8 +97,8 @@ export default function SalesSignals() {
       ? `${API_BASE}/sales/signals?type=${filter}&limit=500`
       : `${API_BASE}/sales/signals?limit=500`;
     fetch(url)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setSignals)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((res) => setSignals(Array.isArray(res) ? res : res.data ?? []))
       .catch(() => setSignals([]))
       .finally(() => setLoading(false));
   }
@@ -168,7 +142,7 @@ export default function SalesSignals() {
 
   const pag = usePagination(filteredSignals, 25);
 
-  const types = ["page_view", "email_open", "email_click", "email_sent", "email_replied", "form_submit"];
+  const types = SIGNAL_TYPES;
 
   return (
     <SalesLayout>

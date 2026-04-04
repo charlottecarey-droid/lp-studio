@@ -1123,7 +1123,8 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
 
   useEffect(() => {
     fetch(`${API_BASE}/sales/signals?accountId=${accountId}&limit=20`)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((res) => Array.isArray(res) ? res : res.data ?? [])
       .then(setSignals)
       .catch(() => setSignals([]))
       .finally(() => setLoading(false));
@@ -1363,7 +1364,8 @@ function AccountDetailView({ id }: { id: string }) {
   const [lastSignalTime, setLastSignalTime] = useState<string | null>(null);
   useEffect(() => {
     fetch(`${API_BASE}/sales/signals?accountId=${id}&limit=1`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then((res: any) => Array.isArray(res) ? res : res.data ?? [])
       .then((sigs: { createdAt: string }[]) => {
         if (sigs.length > 0) setLastSignalTime(sigs[0].createdAt);
       })

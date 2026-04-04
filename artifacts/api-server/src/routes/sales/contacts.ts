@@ -1,22 +1,26 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, ilike } from "drizzle-orm";
+import { eq, desc, and, ilike, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
 const router = Router();
 
 // List all contacts (optionally filter by accountId) — joins accounts for segment/stage/owner
+// Supports ?limit=N&offset=N for server-side pagination. Returns { data, totalCount } when paginated.
 router.get("/contacts", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const { accountId } = req.query;
+    const { accountId, limit: limitStr, offset: offsetStr } = req.query;
 
     const baseWhere = accountId
       ? and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.accountId, Number(accountId)))
       : eq(salesContactsTable.tenantId, tenantId);
 
-    const contacts = await db
+    const limit = Math.min(Math.max(Number(limitStr) || 2000, 1), 2000);
+    const offset = Math.max(Number(offsetStr) || 0, 0);
+
+    const contactsQuery = db
       .select({
         id: salesContactsTable.id,
         salesforceId: salesContactsTable.salesforceId,
@@ -46,9 +50,20 @@ router.get("/contacts", async (req, res): Promise<void> => {
       .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
       .where(baseWhere)
       .orderBy(desc(salesContactsTable.createdAt))
-      .limit(2000);
+      .offset(offset)
+      .limit(limit);
 
-    res.json(contacts);
+    // Only compute totalCount when explicitly paginated (caller sent limit or offset)
+    if (limitStr || offsetStr) {
+      const [[{ total }], contacts] = await Promise.all([
+        db.select({ total: count() }).from(salesContactsTable).where(baseWhere),
+        contactsQuery,
+      ]);
+      res.json({ data: contacts, totalCount: total });
+    } else {
+      const contacts = await contactsQuery;
+      res.json(contacts);
+    }
   } catch (err) {
     console.error("GET /sales/contacts error:", err);
     res.status(500).json({ error: "Failed to load contacts" });
