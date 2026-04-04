@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -732,7 +732,25 @@ export default function BuilderEditor() {
   const titleRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [capturingOg, setCapturingOg] = useState(false);
-  const [ogLibraryOpen, setOgLibraryOpen] = useState(false);
+  const [ogPickerOpen, setOgPickerOpen] = useState(false);
+  const [inUseImages, setInUseImages] = useState<string[]>([]);
+  const [inUseLoading, setInUseLoading] = useState(false);
+
+  const openOgPicker = async () => {
+    setOgPickerOpen(v => !v);
+    if (inUseImages.length === 0 && !inUseLoading) {
+      setInUseLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/lp/in-use-images`);
+        const data = await res.json() as { urls?: string[] };
+        setInUseImages(data.urls ?? []);
+      } catch {
+        // ignore
+      } finally {
+        setInUseLoading(false);
+      }
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1657,8 +1675,8 @@ export default function BuilderEditor() {
                       variant="outline"
                       size="icon"
                       className="shrink-0 w-8 h-8"
-                      title="Browse media library"
-                      onClick={() => setOgLibraryOpen(true)}
+                      title="Pick from pages in use"
+                      onClick={openOgPicker}
                     >
                       <ImageIcon className="w-3.5 h-3.5" />
                     </Button>
@@ -1669,11 +1687,36 @@ export default function BuilderEditor() {
                       <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                   )}
-                  <MediaLibraryDrawer
-                    open={ogLibraryOpen}
-                    onOpenChange={setOgLibraryOpen}
-                    onSelect={(url) => { setOgImage(url); setTimeout(handleSave, 100); }}
-                  />
+                  {ogPickerOpen && (
+                    <div className="mt-2 border border-border rounded-md bg-background overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1.5 bg-muted/40 border-b border-border">
+                        <span className="text-[11px] font-medium text-muted-foreground">Images in use across pages</span>
+                        <button type="button" onClick={() => setOgPickerOpen(false)} className="text-muted-foreground hover:text-foreground">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {inUseLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : inUseImages.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-4">No images found in pages yet.</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-1 p-1.5 max-h-48 overflow-y-auto">
+                          {inUseImages.map(url => (
+                            <button
+                              key={url}
+                              type="button"
+                              onClick={() => { setOgImage(url); setOgPickerOpen(false); setTimeout(handleSave, 100); }}
+                              className="aspect-video rounded overflow-hidden border border-transparent hover:border-[#003A30] focus:outline-none focus:ring-1 focus:ring-[#003A30] bg-muted"
+                            >
+                              <img src={url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Animations toggle */}

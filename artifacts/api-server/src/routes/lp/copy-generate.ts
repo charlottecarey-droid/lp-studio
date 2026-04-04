@@ -58,6 +58,7 @@ function buildBrandSystemPrompt(brand: BrandConfig): string {
   if (brand.copyInstructions?.trim()) {
     parts.push(brand.copyInstructions.trim());
   }
+  parts.push("CAPITALIZATION: Always use sentence casing. Capitalize only the first word of each sentence and proper nouns / official product names (e.g. AI Scan Review, Smile Simulation, Dandy). NEVER title-case headlines or subheadlines. BAD: \"More Cases, Less Drama\" — GOOD: \"More cases, less drama\".");
   if (brand.productLines?.length) {
     const productInfo = brand.productLines
       .filter((p) => p.name)

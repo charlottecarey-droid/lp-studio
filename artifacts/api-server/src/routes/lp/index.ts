@@ -26,6 +26,7 @@ import performanceRouter from "./performance";
 import personalizedLinksRouter from "./personalized-links";
 import tokenResolveRouter from "./token-resolve";
 import contentBriefRouter from "./content-brief";
+import inUseImagesRouter from "./in-use-images";
 
 const router = Router();
 
@@ -56,5 +57,6 @@ router.use(heatmapRouter);
 router.use(personalizedLinksRouter);
 router.use(tokenResolveRouter);
 router.use(contentBriefRouter);
+router.use(inUseImagesRouter);
 
 export default router;

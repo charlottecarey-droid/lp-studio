@@ -207,6 +207,55 @@ function getOpenAIClient(): OpenAI | null {
 
 type AiBlock = Record<string, unknown>;
 
+// Image-bearing prop names to restore from the template block at each position.
+const SCALAR_IMAGE_PROPS = ["imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl"] as const;
+// Array fields + the image key within each element
+const ARRAY_IMAGE_SPECS = [
+  { field: "rows",     imgKey: "imageUrl" },
+  { field: "items",    imgKey: "image" },
+  { field: "chapters", imgKey: "imageUrl" },
+  { field: "tiles",    imgKey: "imageUrl" },
+  { field: "cases",    imgKey: "image" },
+  { field: "images",   imgKey: "src" },
+] as const;
+
+/**
+ * After AI generation, restore image props from the original template blocks.
+ * The AI updates all copy but keeps the same block positions — so we zip by
+ * position and copy any non-empty image URL from the template into the
+ * AI-generated block, preventing the AI from inventing (or badly picking)
+ * images when a perfectly good one already exists in the template.
+ */
+function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]): AiBlock[] {
+  return generatedBlocks.map((block, i) => {
+    const tmpl = tmplBlocks[i];
+    if (!tmpl) return block;
+    const tp = (tmpl.props ?? {}) as Record<string, unknown>;
+    const gp = { ...((block.props ?? {}) as Record<string, unknown>) };
+
+    // Restore scalar image props
+    for (const f of SCALAR_IMAGE_PROPS) {
+      if (typeof tp[f] === "string" && tp[f]) gp[f] = tp[f];
+    }
+
+    // Restore per-element image props inside arrays
+    for (const { field, imgKey } of ARRAY_IMAGE_SPECS) {
+      if (Array.isArray(tp[field]) && Array.isArray(gp[field])) {
+        const tmplArr = tp[field] as Record<string, unknown>[];
+        gp[field] = (gp[field] as Record<string, unknown>[]).map((item, j) => {
+          const tmplItem = tmplArr[j];
+          if (tmplItem && typeof tmplItem[imgKey] === "string" && tmplItem[imgKey]) {
+            return { ...item, [imgKey]: tmplItem[imgKey] };
+          }
+          return item;
+        });
+      }
+    }
+
+    return { ...block, props: gp };
+  });
+}
+
 function normalizeBlock(raw: AiBlock, index: number): AiBlock {
   const type = (raw.type as string) ?? "hero";
   if (raw.props && typeof raw.props === "object") {
@@ -716,6 +765,12 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
    BAD: "Powerful, comprehensive, industry-leading digital solutions"
    GOOD: "A lab that backs every case with a guarantee"
 
+9. Sentence casing only. Capitalize the first word of every sentence and nothing else — unless it is a proper noun (a person's name, a city, a company), an acronym (DSO, AI, ROI), or an official Dandy product name (AI Scan Review, Smile Simulation). NEVER title-case headlines or subheadlines.
+   BAD: "Send a Scan. Get a Perfect-Fit Crown in 5 Days."
+   GOOD: "Send a scan. Get a perfect-fit crown in 5 days."
+   BAD: "More Cases. Zero Lab Drama."
+   GOOD: "More cases. Zero lab drama."
+
 NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
 ${forbiddenList.map(p => `- "${p}"`).join("\n")}
 `.trim();
@@ -849,11 +904,14 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
 
     // If a template ID was provided, fetch its block types to use as a fixed layout
+    // and store the original blocks so we can restore images after AI generation.
     let templateBlockTypes: string[] | undefined;
+    let templateBlocks: AiBlock[] | undefined;
     if (typeof templateId === "number") {
       const [templatePage] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, templateId));
       if (templatePage?.blocks && Array.isArray(templatePage.blocks)) {
-        templateBlockTypes = (templatePage.blocks as AiBlock[]).map(b => b.type as string).filter(Boolean);
+        templateBlocks = templatePage.blocks as AiBlock[];
+        templateBlockTypes = templateBlocks.map(b => b.type as string).filter(Boolean);
       }
     }
 
@@ -947,6 +1005,12 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand) as AiBlock[];
+
+    // If a template was used, restore images from the template blocks — the AI
+    // updated copy but we keep the original carefully chosen images.
+    if (templateBlocks) {
+      normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
+    }
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
     // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
