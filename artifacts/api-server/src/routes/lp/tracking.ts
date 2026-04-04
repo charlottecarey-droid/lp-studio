@@ -223,6 +223,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     const previewVariant = variants.find(v => v.id === previewVariantId);
     if (previewVariant) {
       const enriched = await enrichVariant(previewVariant);
+      res.set("Cache-Control", "no-store");
       res.json({
         testId: test.id,
         slug: test.slug,
@@ -323,6 +324,8 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     const geo = lookupGeo(req);
     db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing().catch(() => undefined);
 
+    // A/B test responses are session-personalised — never cache
+    res.set("Cache-Control", "no-store");
     res.json({
       pageType: "builder",
       id: basePage.id,
@@ -342,6 +345,8 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     return;
   }
 
+  // A/B test variant response — session-personalised, never cache
+  res.set("Cache-Control", "no-store");
   res.json({
     testId: test.id,
     slug: test.slug,
