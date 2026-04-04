@@ -14,6 +14,10 @@ import {
   MousePointerClick,
   Send,
   TrendingUp,
+  PenTool,
+  Globe,
+  Zap,
+  Contact,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -41,6 +45,20 @@ interface RecentSignal {
   accountName?: string;
   contactName?: string;
   createdAt: string;
+}
+
+interface SavedView {
+  id: string;
+  name: string;
+}
+
+interface ToolCard {
+  id: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  cta: string;
+  href: string;
 }
 
 function getGreeting() {
@@ -79,8 +97,25 @@ export default function SalesDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [signals, setSignals] = useState<RecentSignal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [userId, setUserId] = useState<string>("");
 
   useEffect(() => {
+    // Get user ID and load saved views
+    const storedUserId = localStorage.getItem("userId") || "default";
+    setUserId(storedUserId);
+
+    const viewsKey = `sc_acct_views_${storedUserId}`;
+    const viewsData = localStorage.getItem(viewsKey);
+    if (viewsData) {
+      try {
+        const views = JSON.parse(viewsData);
+        setSavedViews(views);
+      } catch (e) {
+        setSavedViews([]);
+      }
+    }
+
     // Fetch dashboard stats from sales API
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
@@ -143,7 +178,7 @@ export default function SalesDashboard() {
       bigIcon: <Send className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
       accent: false,
-      href: "/sales/outreach",
+      href: "/sales/campaigns",
     },
     {
       label: "Opens",
@@ -170,7 +205,7 @@ export default function SalesDashboard() {
       bigIcon: <Send className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
       accent: false,
-      href: "/sales/outreach",
+      href: "/sales/campaigns",
     },
     {
       label: "Microsites",
@@ -218,11 +253,7 @@ export default function SalesDashboard() {
               {getGreeting()}
             </h1>
             <p className="text-white/60 mt-1.5 text-base">
-              {loading
-                ? "Loading your sales workspace…"
-                : isEmpty
-                  ? "Add your first account to get started."
-                  : `${stats?.accounts} account${stats?.accounts !== 1 ? "s" : ""} · ${stats?.contacts} contact${stats?.contacts !== 1 ? "s" : ""}`}
+              Everything you need to win DSO accounts.
             </p>
           </div>
           <Link href="/sales/accounts" className="relative shrink-0">
@@ -236,6 +267,99 @@ export default function SalesDashboard() {
             </Button>
           </Link>
         </div>
+
+        {/* Tool Cards - YOUR TOOLS section */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-display font-bold text-foreground">Your Tools</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              {
+                id: "accounts",
+                icon: <Building2 className="w-5 h-5" />,
+                title: "Accounts",
+                description: "Your target DSOs. Search, filter by ABM stage, view engagement history and AI briefings.",
+                cta: "View Accounts →",
+                href: "/sales/accounts",
+              },
+              {
+                id: "draft-email",
+                icon: <PenTool className="w-5 h-5" />,
+                title: "Draft Email",
+                description: "AI-powered outreach. Pick a contact and generate a research-driven personalized email in seconds.",
+                cta: "Draft Email →",
+                href: "/sales/draft-email",
+              },
+              {
+                id: "microsites",
+                icon: <Globe className="w-5 h-5" />,
+                title: "Microsites",
+                description: "Personalized landing pages. Create branded microsites for prospects, customize sections, and generate trackable hotlinks.",
+                cta: "View Microsites →",
+                href: "/sales/pages",
+              },
+              {
+                id: "campaigns",
+                icon: <Send className="w-5 h-5" />,
+                title: "Campaigns",
+                description: "Bulk email outreach. Build audiences, compose templated emails with merge variables, and track performance.",
+                cta: "View Campaigns →",
+                href: "/sales/campaigns",
+              },
+              {
+                id: "activity",
+                icon: <Zap className="w-5 h-5" />,
+                title: "Activity",
+                description: "Engagement intelligence. See who visited your microsites, opened emails, clicked CTAs, and submitted forms.",
+                cta: "View Activity →",
+                href: "/sales/signals",
+              },
+              {
+                id: "contacts",
+                icon: <Contact className="w-5 h-5" />,
+                title: "Contacts",
+                description: "Your prospect database. Browse contacts, see engagement scores, and draft personalized emails in one click.",
+                cta: "View Contacts →",
+                href: "/sales/contacts",
+              },
+            ].map((tool) => (
+              <Link href={tool.href} key={tool.id}>
+                <Card className="group relative h-full flex flex-col gap-3 p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-lg bg-[#C7E738]/15 flex items-center justify-center text-[#2D6A4F] group-hover:bg-[#C7E738]/25 transition-colors">
+                      {tool.icon}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-display font-bold text-foreground mb-1.5">{tool.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{tool.description}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
+                    {tool.cta}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Saved Views Quick-Switch */}
+        {savedViews.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Saved Views</p>
+            <div className="flex flex-wrap gap-2">
+              {savedViews.map((view) => (
+                <Link
+                  href={`/sales/accounts?view=${encodeURIComponent(view.id)}`}
+                  key={view.id}
+                >
+                  <button className="px-3 py-1.5 rounded-full bg-muted/50 border border-border/60 text-sm font-medium text-foreground hover:bg-primary/10 hover:border-primary/30 transition-all">
+                    {view.name}
+                  </button>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stat tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -298,7 +422,7 @@ export default function SalesDashboard() {
                   title: "Send outreach",
                   desc: "Generate a personalized email, attach the microsite link, and send it — all with tracked engagement.",
                   cta: "Start Outreach",
-                  href: "/sales/outreach",
+                  href: "/sales/draft-email",
                   icon: <Mail className="w-5 h-5" />,
                 },
               ].map((item) => (
