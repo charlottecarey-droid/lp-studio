@@ -1,6 +1,7 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, inArray } from "drizzle-orm";
+import { createHmac } from "crypto";
 import { db } from "@workspace/db";
 import {
   salesEmailCampaignsTable,
@@ -23,6 +24,53 @@ const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO ?? "sales@meetdandy.com";
 
 // 1x1 transparent GIF pixel for open tracking
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+
+// ─── Unsubscribe token helpers ─────────────────────────────
+const UNSUB_SECRET = process.env.UNSUB_SECRET ?? process.env.RESEND_API_KEY ?? "dandy-unsub-secret";
+
+function makeUnsubToken(contactId: number): string {
+  const mac = createHmac("sha256", UNSUB_SECRET).update(String(contactId)).digest("hex");
+  return Buffer.from(`${contactId}.${mac}`).toString("base64url");
+}
+
+function verifyUnsubToken(token: string): number | null {
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf8");
+    const [idStr, mac] = decoded.split(".");
+    const contactId = parseInt(idStr, 10);
+    if (isNaN(contactId)) return null;
+    const expected = createHmac("sha256", UNSUB_SECRET).update(String(contactId)).digest("hex");
+    return mac === expected ? contactId : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── GET /sales/unsubscribe?token=... ─────────────────────
+router.get("/unsubscribe", async (req, res): Promise<void> => {
+  const token = req.query.token as string | undefined;
+  if (!token) {
+    res.status(400).send("<h2>Invalid unsubscribe link.</h2>");
+    return;
+  }
+  const contactId = verifyUnsubToken(token);
+  if (!contactId) {
+    res.status(400).send("<h2>Invalid or expired unsubscribe link.</h2>");
+    return;
+  }
+  try {
+    await db.update(salesContactsTable)
+      .set({ status: "unsubscribed" })
+      .where(eq(salesContactsTable.id, contactId));
+    res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Unsubscribed</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafb}
+.box{text-align:center;padding:48px;max-width:400px}h1{color:#003A30;margin-bottom:12px}p{color:#555;line-height:1.6}</style></head>
+<body><div class="box"><h1>You've been unsubscribed</h1>
+<p>You won't receive any more emails from this sender. If this was a mistake, please reply to any previous email to re-subscribe.</p></div></body></html>`);
+  } catch {
+    res.status(500).send("<h2>Something went wrong. Please try again.</h2>");
+  }
+});
 
 // ─── Utility functions ─────────────────────────────────────
 
@@ -241,12 +289,14 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     }> = [];
 
     for (const contact of sendable) {
+      const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`;
       const vars: Record<string, string> = {
         "{{first_name}}": contact.firstName ?? "",
         "{{last_name}}": contact.lastName ?? "",
         "{{company}}": "", // will be populated from account if available
         "{{sender_name}}": senderName,
         "{{email}}": contact.email!,
+        "{{unsubscribe_url}}": unsubUrl,
       };
 
       // Build microsite URL if hotlink exists (pre-loaded batch)
@@ -543,19 +593,20 @@ router.post("/send-email", async (req, res): Promise<void> => {
       companyName = account?.name ?? "";
     }
 
+    const host = `${req.protocol}://${req.get("host")}`;
     const vars: Record<string, string> = {
       "{{first_name}}": contact.firstName ?? "",
       "{{last_name}}": contact.lastName ?? "",
       "{{company}}": companyName,
       "{{sender_name}}": fromName,
       "{{email}}": contact.email,
+      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
     };
 
     // Check for hotlink
     const [hotlink] = await db.select().from(salesHotlinksTable)
       .where(eq(salesHotlinksTable.contactId, contact.id));
     if (hotlink) {
-      const host = `${req.protocol}://${req.get("host")}`;
       vars["{{microsite_url}}"] = `${host}/p/${hotlink.token}`;
     }
 
