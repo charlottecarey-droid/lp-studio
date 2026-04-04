@@ -1,0 +1,220 @@
+LP STUDIO
+Production Readiness Audit
+April 3, 2026 | Prepared for Charlotte Carey
+
+Executive Summary
+A full-stack audit was performed across the API server, frontend application, database schema, and deployment configuration. The audit identified 51 findings across three areas: security vulnerabilities, code quality issues, and deployment readiness gaps.
+There are 10 critical issues, 13 high-severity issues, 14 medium-severity items, and 14 low-severity items. The critical and high items should be resolved before going to production.
+
+Severity
+API Server
+Frontend
+DB / Config
+CRITICAL
+3
+2
+5
+HIGH
+4
+5
+4
+MEDIUM
+4
+5
+5
+LOW
+5
+2
+7
+
+1. API Server Findings
+Critical
+API-1 [CRITICAL] Weak Token Generation (Math.random)
+File: routes/sales/hotlinks.ts, accounts.ts
+Issue: Tokens for personalized links are generated with Math.random() which is cryptographically insecure. Only 8 characters from 62 options gives ~48 bits of entropy.
+Impact: Unauthorized access to personalized links and contact data via brute force.
+API-2 [CRITICAL] Missing Auth on Token Resolution
+File: routes/sales/hotlinks.ts (GET /resolve/:token)
+Issue: Public endpoint returns sensitive contact and company info based solely on weak 8-char token with no rate limiting.
+Impact: Contact names, companies, and account IDs harvested by enumerating tokens.
+API-3 [CRITICAL] Error Details Leaked to Clients
+File: routes/lp/pages.ts and others
+Issue: Database error messages returned directly to clients via cause?.message exposing internal system details.
+Impact: Information disclosure enabling targeted attacks.
+High
+API-4 [HIGH] Default Tenant ID Fallback (tenantId ?? 1)
+File: routes/sales/contacts.ts, accounts.ts, campaigns.ts, signals.ts
+Issue: When authUser?.tenantId is undefined, code defaults to tenant 1. Unauthenticated requests silently get access to tenant 1 data.
+Impact: Cross-tenant data exposure; unauthenticated access to production data.
+API-5 [HIGH] SQL Injection via sql.raw()
+File: routes/lp/heatmap.ts, performance.ts
+Issue: User-provided query parameter days is passed through sql.raw() without validation or parameterization.
+Impact: SQL injection allowing data exfiltration or manipulation.
+API-6 [HIGH] Missing Rate Limiting
+File: routes/sales/hotlinks.ts, contacts.ts, import.ts
+Issue: No rate limiting on token resolution, bulk contact import/deletion, or hotlink enumeration.
+Impact: Brute force attacks, DoS via bulk operations, token enumeration.
+API-7 [HIGH] Admin Password Timing Attack
+File: routes/auth.ts, admin.ts
+Issue: Direct string comparison of admin password without constant-time comparison.
+Impact: Timing attack to recover admin password; full admin access if compromised.
+Medium
+API-8 [MEDIUM] CORS Allows Broad Dev Domains
+File: app.ts
+Issue: Non-production CORS whitelist includes regex patterns matching any *.replit.dev and *.repl.co subdomain.
+Impact: Compromised Replit subdomain could access the API with credentials.
+API-9 [MEDIUM] Missing Input Validation
+File: routes/lp/heatmap.ts, performance.ts
+Issue: Query parameter days parsed as Number() with no bounds checking.
+Impact: Resource-expensive queries; potential injection vector.
+API-10 [MEDIUM] Unhandled Promise Rejections
+File: routes/sales/hotlinks.ts
+Issue: Async SFDC operations use fire-and-forget patterns without proper error handling.
+Impact: Process crash risk; silent data loss.
+API-11 [MEDIUM] CSP Disabled
+File: app.ts
+Issue: Content Security Policy disabled in Helmet config due to frontend inline scripts.
+Impact: No browser-level XSS protection.
+
+2. Frontend Findings
+Critical
+FE-1 [CRITICAL] XSS in RichText Block
+File: blocks/BlockRichText.tsx
+Issue: User-provided HTML rendered via dangerouslySetInnerHTML without sanitization. Blocks created via API bypass TipTap sanitization.
+Impact: Stored XSS if block HTML is tampered via database or API.
+FE-2 [CRITICAL] XSS in Email Preview
+File: pages/sales/sales-outreach.tsx
+Issue: Email body HTML rendered with dangerouslySetInnerHTML after merge variable replacement without sanitization.
+Impact: Admin users exposed to XSS when previewing injected email content.
+High
+FE-3 [HIGH] Unsafe URL Navigation (javascript: protocol)
+File: landing-page-viewer.tsx, BlockForm.tsx, BlockRoiCalculator.tsx
+Issue: Multiple window.location.href = userUrl without protocol validation. No check for javascript: or data: URLs.
+Impact: JavaScript execution or open redirect via malicious CTA URLs.
+FE-4 [HIGH] Domain Context Defaults to Open on Error
+File: context/AuthContext.tsx
+Issue: Domain context endpoint failure silently defaults to open mode with no distinction between transient and auth errors.
+Impact: Unauthorized access if domain context API is temporarily down.
+FE-5 [HIGH] Silent Failures in Form Submission
+File: blocks/BlockForm.tsx
+Issue: Track and signal endpoints have catch(() => {}) swallowing errors silently.
+Impact: Missing conversion data; broken analytics without user awareness.
+FE-6 [HIGH] Missing Error State in Builder
+File: pages/builder/BuilderEditor.tsx
+Issue: fetchPage() and fetchBrandConfig() can partially fail leaving builder inconsistent.
+Impact: Blank builder or data corruption from partial loads.
+FE-7 [HIGH] Non-null Assertion on Root
+File: main.tsx
+Issue: document.getElementById("root")! with no null check causes crash if root div missing.
+Impact: Complete app failure with cryptic error.
+Medium
+FE-8 [MEDIUM] No CSRF Protection
+File: Multiple endpoints
+Issue: No CSRF tokens sent with state-changing requests using credentials: include.
+Impact: Cross-site request forgery on POST/PATCH/DELETE operations.
+FE-9 [MEDIUM] Race Condition in Auth Init
+File: context/AuthContext.tsx
+Issue: Two independent useEffects fetch domain context and user data in parallel without coordination.
+Impact: Inconsistent auth state during initialization.
+FE-10 [MEDIUM] Auth Token in localStorage
+File: components/PasswordGate.tsx
+Issue: Auth-related token stored in localStorage, exposable via XSS.
+Impact: XSS can access stored authentication state.
+FE-11 [MEDIUM] Stale Closure in Email
+File: pages/sales/sales-outreach.tsx
+Issue: getFinalHtml() useCallback references editorRef.current outside dependency array.
+Impact: Stale email content when sending.
+FE-12 [MEDIUM] Event Listener Leak
+File: blocks/BlockPopup.tsx
+Issue: Document-level mouseout listener accumulates on frequent mount/unmount.
+Impact: Memory leak with repeated popup toggling.
+
+3. Database & Config Findings
+Critical
+DB-1 [CRITICAL] Missing FK Cascade Rules
+File: schema/salesEmails.ts, sfdcIntegration.ts, tenantMembers.ts
+Issue: Foreign keys on templateId, accountId, roleId lack onDelete handlers. Default RESTRICT prevents parent deletion.
+Impact: Cascade failures; inability to delete records with references.
+DB-2 [CRITICAL] Missing FK on Email Sends contactId
+File: schema/salesEmails.ts
+Issue: contactId is NOT NULL but has no foreign key reference to salesContactsTable.
+Impact: Orphaned email sends after contact deletion; data integrity violations.
+DB-3 [CRITICAL] Missing Primary Key on Presence Table
+File: schema/lpCollaboration.ts
+Issue: lpPagePresenceTable has no primary key. No duplicate protection.
+Impact: Duplicate presence records; cannot uniquely identify viewer state.
+DB-4 [CRITICAL] Hardcoded tenantId Default(1)
+File: schema/*.ts (11 tables)
+Issue: Every multi-tenant table defaults tenantId to 1. INSERT without explicit tenantId silently assigns to Dandy.
+Impact: Cross-tenant data leaks if app layer fails to set tenantId.
+DB-5 [CRITICAL] Boolean Stored as Text
+File: schema/salesInbound.ts
+Issue: isRead is text type with default("false") instead of boolean.
+Impact: Boolean logic errors; string comparison issues in queries.
+High
+DB-6 [HIGH] Missing Indexes on Filtered Columns
+File: schema/salesAccounts.ts, contacts.ts, signals.ts, lpLeads.ts
+Issue: No indexes on tenantId, accountId, salesforceId, or type columns used in WHERE/JOIN.
+Impact: Full table scans degrading as data grows.
+DB-7 [HIGH] Missing FK on hotlinkId
+File: schema/salesEmails.ts
+Issue: hotlinkId references salesHotlinksTable but has no FK constraint.
+Impact: Orphaned hotlink references; no DB-level validation.
+DB-8 [HIGH] No Pool Error Handlers
+File: lib/db/src/index.ts
+Issue: Pool created without pool.on("error") handler or retry logic.
+Impact: Silent connection failures; no visibility into pool issues.
+DB-9 [HIGH] Migration Strategy Risk
+File: scripts/post-merge.sh, drizzle.config.ts
+Issue: Drizzle push avoided. Schema changes applied manually with no version tracking.
+Impact: Schema drift between environments; difficult rollback.
+Medium
+DB-10 [MEDIUM] Missing Index on Comment parentId
+File: schema/lpCollaboration.ts
+Issue: No index on parentId used for thread traversal.
+Impact: O(n) comment thread reconstruction.
+DB-11 [MEDIUM] OpenAPI Allows Arbitrary Fields
+File: lib/api-spec/openapi.yaml
+Issue: VariantConfig uses additionalProperties: true; blocks has empty schema.
+Impact: No validation of block or config shape.
+DB-12 [MEDIUM] Pool Timeout Too Tight for Serverless
+File: lib/db/src/index.ts
+Issue: 5s connectionTimeout with no retry is tight for Neon cold starts.
+Impact: Transient failures cause immediate application errors.
+DB-13 [MEDIUM] SSL Not Enforced at Pool Level
+File: lib/db/src/index.ts
+Issue: URL has sslmode=require but pool does not explicitly enforce SSL.
+Impact: Misconfigured URL could bypass SSL.
+DB-14 [MEDIUM] .env Credentials in Plaintext
+File: .env
+Issue: DATABASE_URL contains Neon credentials. .gitignore excludes .env but past commits may have it.
+Impact: Credential leak if git history exposed.
+
+4. Recommendations by Priority
+Block Production (Fix Before Launch)
+1. Replace Math.random() with crypto.randomBytes() for token generation; increase to 16+ characters.
+2. Add rate limiting to /resolve/:token, contact import, and all public endpoints.
+3. Remove tenantId ?? 1 fallback everywhere; require authenticated tenant context.
+4. Remove .default(1) from tenantId columns; require explicit tenant in app layer.
+5. Sanitize all dangerouslySetInnerHTML content using DOMPurify.
+6. Validate URL protocols (allow only http/https) before window.location.href.
+7. Fix sql.raw() injection with parameterized queries for the days parameter.
+8. Stop returning error.message to clients; log server-side only.
+9. Add missing FK constraints and onDelete cascade rules to sales email tables.
+10. Add primary key to lpPagePresenceTable.
+High Priority (First Sprint Post-Launch)
+1. Add database indexes on tenantId, accountId, and commonly-filtered columns.
+2. Add pool.on("error") handler and connection retry logic.
+3. Change isRead from text to boolean in salesInbound schema.
+4. Add CSRF token handling to state-changing API requests.
+5. Handle domain context failures gracefully instead of defaulting to open mode.
+6. Add constant-time comparison for admin password verification.
+7. Implement error boundaries and proper error states in the builder.
+8. Establish versioned migration tracking strategy.
+Recommended (Ongoing)
+1. Enable Content Security Policy with appropriate directives.
+2. Add request timeouts to all frontend fetch calls.
+3. Pin dependency versions for production builds.
+4. Add OpenAPI schema validation for block structures and variant configs.
+5. Audit git history for previously committed .env or credential files.
+6. Clean up event listeners and fix stale closures in React hooks.
