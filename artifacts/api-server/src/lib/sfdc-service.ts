@@ -1,5 +1,6 @@
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable, salesAccountsTable, salesContactsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { logger } from "./logger";
 
 const SFDC_AUTH_URL = "https://login.salesforce.com";
@@ -84,7 +85,7 @@ export class SfdcService {
       redirect_uri: redirectUri,
       response_type: "code",
       scope: "api full",
-      state: require("crypto").randomBytes(16).toString("base64url"),
+      state: randomBytes(16).toString("base64url"),
     });
     return `${SFDC_AUTH_URL}/services/oauth2/authorize?${params.toString()}`;
   }

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
@@ -123,7 +124,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   const queryParsed = GetPageConfigQueryParams.safeParse(req.query);
   const sessionId = queryParsed.success && queryParsed.data.sessionId
     ? queryParsed.data.sessionId
-    : `anon-${Date.now()}-${require("crypto").randomBytes(8).toString("base64url")}`;
+    : `anon-${Date.now()}-${randomBytes(8).toString("base64url")}`;
 
   // Preview mode: bypass session assignment, no tracking
   const previewVariantId = req.query.previewVariantId
@@ -264,7 +265,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     // Fallback: weighted random assignment based on trafficWeight
     if (!assignedVariant) {
       const totalWeight = variants.reduce((sum, v) => sum + v.trafficWeight, 0);
-      let rand = (require("crypto").randomBytes(4).readUInt32BE(0) / 0x100000000) * totalWeight;
+      let rand = (randomBytes(4).readUInt32BE(0) / 0x100000000) * totalWeight;
       for (const variant of variants) {
         rand -= variant.trafficWeight;
         if (rand <= 0) {

@@ -1,5 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
@@ -44,7 +45,6 @@ interface LinkWithPage extends LinkRow {
 }
 
 function generateToken(): string {
-  const { randomBytes } = require("crypto");
   return randomBytes(12).toString("base64url").slice(0, 16);
 }
 

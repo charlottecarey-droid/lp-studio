@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import rateLimit from "express-rate-limit";
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -160,7 +161,6 @@ router.get("/microsites/overview", async (_req, res): Promise<void> => {
 // ─── Token generation (matches existing LP Studio pattern) ──
 
 function generateToken(): string {
-  const { randomBytes } = require("crypto");
   return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
