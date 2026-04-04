@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpTestsTable, lpVariantsTable, lpPagesTable } from "@workspace/db";
 import {
