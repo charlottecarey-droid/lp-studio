@@ -7,7 +7,7 @@ const links = {
 
 export default function Footer() {
   return (
-    <footer style={{ background: "#000", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+    <footer style={{ background: "#001f18", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
       <div className="max-w-6xl mx-auto px-6 py-16">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
           <div className="col-span-2 md:col-span-1">
@@ -15,8 +15,8 @@ export default function Footer() {
               <span style={{ color: "#C7E738" }}>LP</span>
               <span>Studio</span>
             </div>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              The all-in-one landing page platform built for direct-response teams who don't settle for average.
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
+              The landing page platform for revenue teams who need to move fast without going off-brand.
             </p>
           </div>
 
@@ -26,7 +26,10 @@ export default function Footer() {
               <ul className="flex flex-col gap-2.5">
                 {items.map(item => (
                   <li key={item}>
-                    <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">{item}</a>
+                    <a href="#" className="text-sm transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.85)")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                    >{item}</a>
                   </li>
                 ))}
               </ul>
@@ -35,8 +38,8 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-xs text-gray-600">© {new Date().getFullYear()} LP Studio, Inc. All rights reserved.</p>
-          <p className="text-xs text-gray-600">Made for direct-response teams everywhere.</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>© {new Date().getFullYear()} LP Studio, Inc. All rights reserved.</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Made for revenue teams everywhere.</p>
         </div>
       </div>
     </footer>

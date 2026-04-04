@@ -4,39 +4,39 @@ const features = [
   {
     icon: "✦",
     title: "Visual Builder",
-    desc: "Drag-and-drop blocks, real-time preview, and pixel-perfect control. No design tools required — just drag, drop, and publish.",
+    desc: "Drag-and-drop blocks, real-time preview, pixel-perfect control. Go from blank canvas to live page without touching code or waiting on a designer.",
   },
   {
     icon: "⚡",
-    title: "A/B Testing",
-    desc: "Run multi-variant tests with statistical significance tracking. Know exactly which version converts before going wide.",
-  },
-  {
-    icon: "✍️",
     title: "AI Copy",
-    desc: "Generate high-converting headlines, CTAs, and body copy with AI trained on direct-response best practices.",
-  },
-  {
-    icon: "🔥",
-    title: "Heatmaps",
-    desc: "See where visitors click, scroll, and drop off. Make data-backed decisions to optimize every fold.",
-  },
-  {
-    icon: "🎯",
-    title: "Smart Traffic",
-    desc: "Route visitors to the best-performing variant automatically. Let the algorithm maximize your conversion rate.",
+    desc: "Generate headlines, CTAs, and body copy specific to each account — in your brand voice. Not generic filler. Actual sentences you'd write yourself.",
   },
   {
     icon: "🎨",
     title: "Brand System",
-    desc: "Set your fonts, colors, and logo once. Every page you create stays on-brand automatically — zero rework.",
+    desc: "Set your fonts, colors, logo, and tone of voice once. Every page your team builds stays on-brand automatically — no QA, no rework.",
+  },
+  {
+    icon: "🔀",
+    title: "A/B Testing",
+    desc: "Run multi-variant tests with significance tracking. Know exactly which version converts before you scale spend or send to more accounts.",
+  },
+  {
+    icon: "🔥",
+    title: "Heatmaps",
+    desc: "See where visitors click, scroll, and drop off. Make data-backed decisions on what to fix and what to keep.",
+  },
+  {
+    icon: "🎯",
+    title: "Smart Traffic",
+    desc: "Route visitors to your best-performing variant automatically. Set it up once and let the algorithm do the work.",
   },
 ];
 
 export default function Features() {
   const { ref, inView } = useInView();
   return (
-    <section id="features" className="px-6 py-20 md:py-28" style={{ background: "#000" }}>
+    <section id="features" className="px-6 py-20 md:py-28" style={{ background: "#003A30" }}>
       <div
         ref={ref}
         className="max-w-6xl mx-auto"
@@ -47,11 +47,11 @@ export default function Features() {
             style={{ background: "rgba(199,231,56,0.08)", color: "#C7E738", border: "1px solid rgba(199,231,56,0.18)" }}>
             Everything You Need
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Outfit, sans-serif" }}>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
             Six capabilities. <span style={{ color: "#C7E738" }}>One platform.</span>
           </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Stop stitching together a dozen tools. LP Studio has everything your direct-response team needs to launch, test, and optimize.
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Stop stitching together a dozen tools. LP Studio has everything a revenue team needs to build fast, stay on brand, and keep improving.
           </p>
         </div>
 
@@ -61,22 +61,22 @@ export default function Features() {
               key={f.title}
               className="group p-6 rounded-2xl transition-all cursor-default"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
                 animationDelay: `${i * 0.08}s`
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = "rgba(199,231,56,0.04)";
-                e.currentTarget.style.borderColor = "rgba(199,231,56,0.2)";
+                e.currentTarget.style.background = "rgba(199,231,56,0.06)";
+                e.currentTarget.style.borderColor = "rgba(199,231,56,0.22)";
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
               }}
             >
               <div className="text-2xl mb-4">{f.icon}</div>
               <h3 className="text-lg font-bold mb-2 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>{f.title}</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{f.desc}</p>
             </div>
           ))}
         </div>

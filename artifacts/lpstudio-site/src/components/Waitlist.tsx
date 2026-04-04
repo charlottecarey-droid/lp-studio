@@ -7,7 +7,7 @@ export default function Waitlist() {
     <section
       id="get-started"
       className="px-6 py-20 md:py-28"
-      style={{ background: "#000", borderTop: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "#003A30", borderTop: "1px solid rgba(199,231,56,0.12)" }}
     >
       <div
         ref={ref}
@@ -20,10 +20,10 @@ export default function Waitlist() {
           Free to start — no credit card required
         </div>
 
-        <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Outfit, sans-serif" }}>
+        <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
           Ready to build pages that <span style={{ color: "#C7E738" }}>convert?</span>
         </h2>
-        <p className="text-gray-400 text-lg mb-10">
+        <p className="text-lg mb-10" style={{ color: "rgba(255,255,255,0.55)" }}>
           Sign in with Google, create your workspace in 30 seconds, and start building.
         </p>
 
@@ -33,9 +33,9 @@ export default function Waitlist() {
             className="px-10 py-4 rounded-full text-base font-bold transition-all"
             style={{
               background: "#C7E738",
-              color: "#000",
+              color: "#003A30",
               fontFamily: "Outfit, sans-serif",
-              boxShadow: "0 0 40px rgba(199,231,56,0.2)"
+              boxShadow: "0 0 40px rgba(199,231,56,0.25)"
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "#d6f54a"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#C7E738"; e.currentTarget.style.transform = "translateY(0)"; }}
@@ -44,7 +44,7 @@ export default function Waitlist() {
           </a>
         </div>
 
-        <p className="text-xs text-gray-600 mt-6">
+        <p className="text-xs mt-6" style={{ color: "rgba(255,255,255,0.3)" }}>
           Sign in with Google · No setup required · Cancel any time
         </p>
       </div>

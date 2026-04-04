@@ -1,24 +1,24 @@
 import { useInView } from "@/hooks/useInView";
 
 const stats = [
-  { value: "5-day", label: "Delivery guarantee" },
-  { value: "3×", label: "Faster than code" },
-  { value: "100+", label: "Teams onboarded" },
+  { value: "< 1 hr", label: "From brief to live page" },
+  { value: "3×", label: "Faster than building from code" },
+  { value: "100+", label: "Revenue teams onboarded" },
   { value: "99.9%", label: "Uptime SLA" },
 ];
 
 const tags = [
-  "Built for direct-response teams",
-  "No-code, no compromise",
+  "Built for revenue teams",
+  "On-brand, every time",
+  "AI copy that actually sounds human",
   "A/B testing built-in",
-  "AI-powered copywriting",
-  "Real-time analytics",
+  "Instant publishing",
 ];
 
 export default function SocialProof() {
   const { ref, inView } = useInView();
   return (
-    <section style={{ background: "#003A30", borderTop: "1px solid rgba(199,231,56,0.12)", borderBottom: "1px solid rgba(199,231,56,0.12)" }}>
+    <section style={{ background: "#002B24", borderTop: "1px solid rgba(199,231,56,0.12)", borderBottom: "1px solid rgba(199,231,56,0.12)" }}>
       <div
         ref={ref}
         className="max-w-6xl mx-auto px-6 py-12 md:py-16"
@@ -28,7 +28,7 @@ export default function SocialProof() {
           {stats.map(s => (
             <div key={s.value} className="text-center">
               <div className="text-3xl md:text-4xl font-bold mb-1" style={{ fontFamily: "Outfit, sans-serif", color: "#C7E738" }}>{s.value}</div>
-              <div className="text-sm text-gray-400">{s.label}</div>
+              <div className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{s.label}</div>
             </div>
           ))}
         </div>

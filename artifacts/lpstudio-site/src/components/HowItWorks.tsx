@@ -4,27 +4,27 @@ const steps = [
   {
     num: "01",
     title: "Build",
-    desc: "Use the visual builder to drag and drop blocks, customize your layout, and set your brand styles. Go from idea to live page in under an hour.",
-    detail: "Choose from 50+ conversion-optimized blocks. Drop them in, customize them, and preview in real time.",
+    desc: "Pick a layout, drop in blocks, and customize for the account or campaign. Your brand styles are already baked in.",
+    detail: "Choose from conversion-tested blocks. AI fills the copy. You review and launch — usually under an hour from start to live.",
   },
   {
     num: "02",
     title: "Test",
-    desc: "Create variants, split your traffic, and let the data decide. Built-in A/B testing with automatic significance detection.",
-    detail: "Define your winning metric — clicks, signups, purchases. LP Studio tracks everything and tells you when a winner is ready.",
+    desc: "Create variants, split traffic, and let the numbers decide. Built-in A/B testing with automatic significance detection.",
+    detail: "Define your winning metric — clicks, signups, booked meetings. LP Studio tracks everything and tells you when a winner is clear.",
   },
   {
     num: "03",
     title: "Optimize",
-    desc: "Use heatmaps, scroll depth, and AI recommendations to keep improving. Smart Traffic routes visitors to the best variant automatically.",
-    detail: "Continuous optimization runs in the background. Your pages get better while you focus on what's next.",
+    desc: "Use heatmaps and AI recommendations to keep improving. Smart Traffic routes visitors to the best variant automatically.",
+    detail: "Continuous optimization runs in the background. Your pages get better while you focus on the next campaign.",
   },
 ];
 
 export default function HowItWorks() {
   const { ref, inView } = useInView();
   return (
-    <section id="how-it-works" className="px-6 py-20 md:py-28" style={{ background: "linear-gradient(180deg, #000 0%, #001f18 60%, #003A30 100%)" }}>
+    <section id="how-it-works" className="px-6 py-20 md:py-28" style={{ background: "#002B24" }}>
       <div
         ref={ref}
         className="max-w-6xl mx-auto"
@@ -35,10 +35,10 @@ export default function HowItWorks() {
             style={{ background: "rgba(199,231,56,0.08)", color: "#C7E738", border: "1px solid rgba(199,231,56,0.18)" }}>
             How It Works
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Outfit, sans-serif" }}>
-            Three steps to <span style={{ color: "#C7E738" }}>peak performance.</span>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
+            Build. Test. <span style={{ color: "#C7E738" }}>Win.</span>
           </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+          <p className="text-lg max-w-xl mx-auto" style={{ color: "rgba(255,255,255,0.55)" }}>
             A repeatable system to launch fast, learn faster, and never stop improving.
           </p>
         </div>
@@ -51,7 +51,7 @@ export default function HowItWorks() {
               )}
               <div
                 className="relative rounded-2xl p-8 flex flex-col gap-4"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
               >
                 <div className="flex items-center gap-4 mb-2">
                   <span
@@ -63,7 +63,7 @@ export default function HowItWorks() {
                   <h3 className="text-2xl font-bold" style={{ fontFamily: "Outfit, sans-serif", color: "#C7E738" }}>{step.title}</h3>
                 </div>
                 <p className="text-white font-medium leading-snug">{step.desc}</p>
-                <p className="text-sm text-gray-400 leading-relaxed">{step.detail}</p>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{step.detail}</p>
               </div>
             </div>
           ))}
