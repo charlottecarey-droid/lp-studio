@@ -1,8 +1,8 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
-import geoip from "geoip-lite";
+import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 
 interface LinkWithPage {
   id: number;
@@ -22,12 +22,6 @@ interface VisitRow {
 
 interface AlertEmailRow {
   email: string;
-}
-
-function getClientIp(req: Request): string {
-  const fwd = req.headers["x-forwarded-for"];
-  if (fwd) return (typeof fwd === "string" ? fwd : fwd[0]).split(",")[0].trim();
-  return req.socket?.remoteAddress ?? req.ip ?? "";
 }
 
 function escapeHtml(str: string): string {
@@ -135,11 +129,7 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
 
     const link = linkResult.rows[0] as LinkWithPage;
     const ip = getClientIp(req);
-    const rawIp = ip.replace(/^::ffff:/, "");
-    const geo = geoip.lookup(rawIp);
-    const city = geo?.city ?? null;
-    const region = geo?.region ?? null;
-    const country = geo?.country ?? null;
+    const { city, region, country } = await lookupGeoAsync(ip);
 
     const visitResult = await db.execute(sql`
       INSERT INTO lp_personalized_link_visits (link_id, ip, city, region, country, scroll_depth_pct, cta_clicks)

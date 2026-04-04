@@ -1,10 +1,10 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
-import geoip from "geoip-lite";
+import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import {
   collectFeatures,
   pickVariantThompson,
@@ -12,27 +12,6 @@ import {
   recordConversion,
   type VisitorFeatures,
 } from "../../lib/smart-traffic";
-
-function getClientIp(req: Request): string {
-  const fwd = req.headers["x-forwarded-for"];
-  if (fwd) {
-    return (typeof fwd === "string" ? fwd : fwd[0]).split(",")[0].trim();
-  }
-  return req.socket?.remoteAddress ?? req.ip ?? "";
-}
-
-function lookupGeo(req: Request) {
-  const raw = getClientIp(req);
-  const ip = raw.replace(/^::ffff:/, "");
-  const geo = geoip.lookup(ip);
-  if (!geo) return { city: null, region: null, country: null, countryCode: null };
-  return {
-    city: geo.city || null,
-    region: geo.region || null,
-    country: geo.country || null,
-    countryCode: geo.country || null,
-  };
-}
 
 function applyBlockOverrides(blocks: unknown[], blockOverrides: Record<string, unknown>): unknown[] {
   if (!blockOverrides || Object.keys(blockOverrides).length === 0) return blocks;
@@ -165,12 +144,14 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
     if (builderPage) {
       // Record a geo-tagged visit for builder pages (fire-and-forget)
-      const geo = lookupGeo(req);
-      db.insert(lpPageVisitsTable).values({
-        pageId: builderPage.id,
-        sessionId,
-        ...geo,
-      }).onConflictDoNothing().catch(() => undefined);
+      const clientIp = getClientIp(req);
+      lookupGeoAsync(clientIp).then((geo) =>
+        db.insert(lpPageVisitsTable).values({
+          pageId: builderPage.id,
+          sessionId,
+          ...geo,
+        }).onConflictDoNothing()
+      ).catch(() => undefined);
 
       // Cache published pages at the HTTP layer — browsers and CDNs can reuse
       // the response for 60 s. Draft pages are never cached so editors see changes immediately.
@@ -253,7 +234,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   }
 
   if (!assignedVariant) {
-    const geo = lookupGeo(req);
+    const geo = await lookupGeoAsync(getClientIp(req));
     const features = collectFeatures(req, geo.countryCode);
 
     // Smart Traffic: use Thompson Sampling when enabled
@@ -321,8 +302,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       ? applyBlockOverrides(basePage.blocks as unknown[], blockOverrides as Record<string, unknown>)
       : basePage.blocks as unknown[];
 
-    const geo = lookupGeo(req);
-    db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing().catch(() => undefined);
+    lookupGeoAsync(getClientIp(req)).then((geo) =>
+      db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing()
+    ).catch(() => undefined);
 
     // A/B test responses are session-personalised — never cache
     res.set("Cache-Control", "no-store");
