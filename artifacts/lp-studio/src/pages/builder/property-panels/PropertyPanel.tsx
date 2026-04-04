@@ -33,6 +33,7 @@ import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { DsoMeetTeamPanel } from "./DsoMeetTeamPanel";
+import { DsoPracticeNavPanel } from "./DsoPracticeNavPanel";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
@@ -2697,6 +2698,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-practice-nav":
+        return (
+          <div className="p-4">
+            <DsoPracticeNavPanel
+              props={block.props}
+              onChange={(updated) => onChange({ ...block, props: updated })}
+            />
+          </div>
+        );
       case "dso-practice-hero": {
         const p = block.props;
         return (

@@ -56,6 +56,8 @@ import type {
   DsoActivationStepsBlockProps,
   DsoPromisesBlockProps,
   DsoTestimonialsBlockProps,
+  DsoPracticeNavBlockProps,
+  DsoPracticeNavLink,
   DsoPracticeHeroBlockProps,
   DsoStatRowBlockProps,
   DsoFaqBlockProps,
@@ -1906,6 +1908,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "dso-practice-nav" as const,
+    label: "DSO Practice Nav",
+    category: "DSO Practices" as BlockCategory,
+    defaultProps: (): DsoPracticeNavBlockProps => ({
+      dsoName: "",
+      links: [
+        { label: "How it works", anchor: "#steps" },
+        { label: "Products", anchor: "#products" },
+        { label: "Partnership perks", anchor: "#perks" },
+        { label: "Meet your rep", anchor: "#team" },
+      ],
+      ctaText: "Book a Demo",
+      ctaUrl: "",
+      ctaMode: "chilipiper",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect width="120" height="18" fill="#003A30" />
+        <rect x="6" y="6" width="16" height="5" rx="1" fill="white" opacity="0.7" />
+        <rect x="28" y="7" width="10" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="41" y="7" width="12" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="56" y="7" width="14" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="73" y="7" width="12" height="3" rx="1" fill="white" opacity="0.4" />
+        <rect x="96" y="5" width="18" height="8" rx="4" fill="#C7E738" />
+        <rect x="8" y="26" width="60" height="5" rx="1" fill="#003A30" opacity="0.4" />
+        <rect x="8" y="35" width="90" height="3" rx="1" fill="#94a3b8" opacity="0.3" />
+        <rect x="8" y="42" width="70" height="3" rx="1" fill="#94a3b8" opacity="0.25" />
+      </svg>
+    ),
+  },
+  {
     type: "dso-practice-hero" as const,
     label: "DSO Practice Hero",
     category: "DSO Practices" as BlockCategory,
@@ -2299,6 +2333,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-activation-steps": return { id, type: "dso-activation-steps", props: props as DsoActivationStepsBlockProps };
     case "dso-promises": return { id, type: "dso-promises", props: props as DsoPromisesBlockProps };
     case "dso-testimonials": return { id, type: "dso-testimonials", props: props as DsoTestimonialsBlockProps };
+    case "dso-practice-nav": return { id, type: "dso-practice-nav", props: props as DsoPracticeNavBlockProps };
     case "dso-practice-hero": return { id, type: "dso-practice-hero", props: props as DsoPracticeHeroBlockProps };
     case "dso-stat-row": return { id, type: "dso-stat-row", props: props as DsoStatRowBlockProps };
     case "dso-faq": return { id, type: "dso-faq", props: props as DsoFaqBlockProps };

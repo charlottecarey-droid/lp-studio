@@ -74,6 +74,8 @@ export type {
   DsoPromisesBlockProps,
   DsoTestimonialItem,
   DsoTestimonialsBlockProps,
+  DsoPracticeNavLink,
+  DsoPracticeNavBlockProps,
   DsoPracticeHeroBlockProps,
   DsoStatRowItem,
   DsoStatRowBlockProps,

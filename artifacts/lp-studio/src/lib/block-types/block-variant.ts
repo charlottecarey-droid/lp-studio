@@ -54,6 +54,7 @@ import type {
   DsoActivationStepsBlockProps,
   DsoPromisesBlockProps,
   DsoTestimonialsBlockProps,
+  DsoPracticeNavBlockProps,
   DsoPracticeHeroBlockProps,
   DsoStatRowBlockProps,
   DsoFaqBlockProps,
@@ -125,6 +126,7 @@ export type BlockVariant =
   | { type: "dso-activation-steps"; props: DsoActivationStepsBlockProps }
   | { type: "dso-promises"; props: DsoPromisesBlockProps }
   | { type: "dso-testimonials"; props: DsoTestimonialsBlockProps }
+  | { type: "dso-practice-nav"; props: DsoPracticeNavBlockProps }
   | { type: "dso-practice-hero"; props: DsoPracticeHeroBlockProps }
   | { type: "dso-stat-row"; props: DsoStatRowBlockProps }
   | { type: "dso-faq"; props: DsoFaqBlockProps }

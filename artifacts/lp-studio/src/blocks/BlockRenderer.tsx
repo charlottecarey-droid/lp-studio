@@ -30,6 +30,7 @@ import { BlockDsoPromoCards } from "./BlockDsoPromoCards";
 import { BlockDsoActivationSteps } from "./BlockDsoActivationSteps";
 import { BlockDsoPromises } from "./BlockDsoPromises";
 import { BlockDsoTestimonials } from "./BlockDsoTestimonials";
+import { BlockDsoPracticeNav } from "./BlockDsoPracticeNav";
 import { BlockDsoPracticeHero } from "./BlockDsoPracticeHero";
 import { BlockDsoStatRow } from "./BlockDsoStatRow";
 import { BlockDsoFaq } from "./BlockDsoFaq";
@@ -500,6 +501,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockDsoPromises props={block.props} brand={brand} />;
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} brand={brand} />;
+      case "dso-practice-nav":
+        return <BlockDsoPracticeNav props={block.props} brand={brand} />;
       case "dso-practice-hero":
         return <BlockDsoPracticeHero props={block.props} brand={brand} />;
       case "dso-stat-row":

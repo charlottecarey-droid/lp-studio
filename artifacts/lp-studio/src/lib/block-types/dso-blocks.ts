@@ -2,6 +2,19 @@ import type React from "react";
 import type { BackgroundStyle } from "../bg-styles";
 import type { CtaMode } from "./common";
 
+export interface DsoPracticeNavLink {
+  label: string;
+  anchor: string;
+}
+
+export interface DsoPracticeNavBlockProps {
+  dsoName?: string;
+  links: DsoPracticeNavLink[];
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaMode?: CtaMode;
+}
+
 export interface DsoInsightsDashboardBlockProps {
   eyebrow: string;
   headline: string;
