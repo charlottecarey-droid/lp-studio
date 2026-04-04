@@ -9,13 +9,28 @@ export const SESSION_COOKIE = "lp_sid";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // In-memory cache for domain-context lookups — avoids 2 DB queries per page load.
-// TTL is 5 minutes; cache is per-process so it resets on restart.
+// TTL is 5 minutes; bounded to MAX_ENTRIES so it never grows unbounded in
+// multi-tenant setups where thousands of unique hostnames could appear.
 const DOMAIN_CTX_TTL_MS = 5 * 60 * 1000;
+const DOMAIN_CTX_MAX_ENTRIES = 500;
 interface DomainCtxEntry {
   data: Record<string, unknown>;
   expiresAt: number;
 }
 const domainCtxCache = new Map<string, DomainCtxEntry>();
+
+function domainCtxSet(domain: string, entry: DomainCtxEntry) {
+  // Evict all expired entries first; if still at max, evict the oldest insertion.
+  const now = Date.now();
+  for (const [key, val] of domainCtxCache) {
+    if (val.expiresAt <= now) domainCtxCache.delete(key);
+  }
+  if (domainCtxCache.size >= DOMAIN_CTX_MAX_ENTRIES) {
+    const oldest = domainCtxCache.keys().next().value;
+    if (oldest !== undefined) domainCtxCache.delete(oldest);
+  }
+  domainCtxCache.set(domain, entry);
+}
 
 function getRedirectUri(requestHost?: string): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -518,7 +533,7 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
         tenantSlug: t.slug,
         micrositeDomain: t.microsite_domain ?? null,
       };
-      domainCtxCache.set(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+      domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
       res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
       res.json(data);
       return;
@@ -539,14 +554,14 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
         tenantSlug: t.slug,
         micrositeDomain: t.microsite_domain ?? null,
       };
-      domainCtxCache.set(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+      domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
       res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
       res.json(data);
       return;
     }
 
     const openData = { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
-    domainCtxCache.set(domain, { data: openData, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+    domainCtxSet(domain, { data: openData, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
     res.json(openData);
   } catch (err) {
