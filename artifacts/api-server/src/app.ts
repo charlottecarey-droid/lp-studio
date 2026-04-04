@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -27,6 +28,7 @@ app.use(
   }),
 );
 
+app.use(compression());
 app.use(
   cors({
     origin: true,
