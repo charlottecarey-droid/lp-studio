@@ -5,7 +5,26 @@ import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesT
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
+import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+
+/** Extract UTM parameters from the request query string */
+function extractUtm(req: Request): {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmTerm: string | null;
+  utmContent: string | null;
+} {
+  const qs = req.query;
+  return {
+    utmSource: typeof qs.utm_source === "string" && qs.utm_source ? qs.utm_source : null,
+    utmMedium: typeof qs.utm_medium === "string" && qs.utm_medium ? qs.utm_medium : null,
+    utmCampaign: typeof qs.utm_campaign === "string" && qs.utm_campaign ? qs.utm_campaign : null,
+    utmTerm: typeof qs.utm_term === "string" && qs.utm_term ? qs.utm_term : null,
+    utmContent: typeof qs.utm_content === "string" && qs.utm_content ? qs.utm_content : null,
+  };
+}
 import {
   collectFeatures,
   pickVariantThompson,
@@ -157,12 +176,14 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
       // Record a geo-tagged visit for builder pages (fire-and-forget)
       const clientIp = getClientIp(req);
+      const utm = extractUtm(req);
       lookupGeoAsync(clientIp)
         .then((geo) =>
           db.insert(lpPageVisitsTable).values({
             pageId: builderPage.id,
             sessionId,
             ...geo,
+            ...utm,
           }).onConflictDoNothing()
         )
         .catch((err) => {
@@ -281,13 +302,15 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       if (!assignedVariant) assignedVariant = variants[0];
     }
 
-    // Store session assignment with geo + features
+    // Store session assignment with geo + features + UTM
+    const utmParams = extractUtm(req);
     await db.insert(lpSessionsTable).values({
       sessionId,
       testId: test.id,
       variantId: assignedVariant.id,
       ...geo,
       features,
+      ...utmParams,
     }).onConflictDoNothing();
 
     // Record impression for smart traffic stats (fire-and-forget)
@@ -318,9 +341,10 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       ? applyBlockOverrides(basePage.blocks as unknown[], blockOverrides as Record<string, unknown>)
       : basePage.blocks as unknown[];
 
+    const utmForVisit = extractUtm(req);
     lookupGeoAsync(getClientIp(req))
       .then((geo) =>
-        db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing()
+        db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo, ...utmForVisit }).onConflictDoNothing()
       )
       .catch((err) => {
         console.warn("Error recording A/B test page visit for page", basePage.id, ":", err);
