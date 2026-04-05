@@ -60,6 +60,7 @@ const API_BASE = "/api";
 interface Account {
   id: number;
   name: string;
+  displayName: string | null;
   domain: string | null;
   industry: string | null;
   segment: string | null;
@@ -320,6 +321,7 @@ function AccountListView() {
     const q = search.toLowerCase();
     const matchesSearch = !search ||
       a.name.toLowerCase().includes(q) ||
+      (a.displayName ?? "").toLowerCase().includes(q) ||
       (a.domain ?? "").toLowerCase().includes(q) ||
       (a.owner ?? "").toLowerCase().includes(q) ||
       (a.practiceSegment ?? "").toLowerCase().includes(q);
@@ -723,7 +725,7 @@ function AccountListView() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="font-semibold text-foreground text-sm">{account.name}</span>
+                    <span className="font-semibold text-foreground text-sm">{account.displayName ?? account.name}</span>
                     {account.abmTier && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         {account.abmTier}
@@ -736,6 +738,7 @@ function AccountListView() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                    {account.displayName && <span className="text-muted-foreground/50 truncate max-w-[160px]" title={account.name}>SF: {account.name}</span>}
                     {account.practiceSegment && <span>{account.practiceSegment}</span>}
                     {account.domain && (
                       <span className="flex items-center gap-1">
@@ -1367,6 +1370,26 @@ function AccountDetailView({ id }: { id: string }) {
   // AI email draft
   const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
 
+  // Display name inline editing
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+
+  async function saveDisplayName() {
+    if (!account) return;
+    const value = displayNameInput.trim();
+    setEditingDisplayName(false);
+    if (value === (account.displayName ?? "")) return;
+    const res = await fetch(`${API_BASE}/sales/accounts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: value }),
+    });
+    if (res.ok) {
+      const updated = await res.json() as Account;
+      setAccount(updated);
+    }
+  }
+
   // Last signal time for Overview stat
   const [lastSignalTime, setLastSignalTime] = useState<string | null>(null);
   useEffect(() => {
@@ -1525,15 +1548,35 @@ function AccountDetailView({ id }: { id: string }) {
           </Button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-display font-bold text-foreground truncate">
-                {account.name}
-              </h1>
+              {editingDisplayName ? (
+                <input
+                  autoFocus
+                  className="text-2xl font-display font-bold bg-transparent border-b-2 border-primary outline-none text-foreground min-w-0 w-72"
+                  value={displayNameInput}
+                  onChange={e => setDisplayNameInput(e.target.value)}
+                  onBlur={saveDisplayName}
+                  onKeyDown={e => { if (e.key === "Enter") saveDisplayName(); if (e.key === "Escape") setEditingDisplayName(false); }}
+                  placeholder={account.name}
+                />
+              ) : (
+                <h1
+                  className="text-2xl font-display font-bold text-foreground truncate cursor-pointer group flex items-center gap-2"
+                  onClick={() => { setDisplayNameInput(account.displayName ?? ""); setEditingDisplayName(true); }}
+                  title="Click to set a clean display name"
+                >
+                  {account.displayName ?? account.name}
+                  <Pencil className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
+                </h1>
+              )}
               {account.abmStage && (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${abmStageStyle(account.abmStage)}`}>
                   {account.abmStage}
                 </span>
               )}
             </div>
+            {account.displayName && account.displayName !== account.name && (
+              <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">SF: {account.name}</p>
+            )}
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5 flex-wrap">
               {account.domain && (
                 <span className="flex items-center gap-1">
@@ -1966,7 +2009,7 @@ function AccountDetailView({ id }: { id: string }) {
       <GenerateMicrositeModal
         open={showMicrositeModal}
         onClose={() => setShowMicrositeModal(false)}
-        accountName={account.name}
+        accountName={account.displayName ?? account.name}
         accountId={id}
         onCreated={() => { fetchMicrosites(); fetchHotlinks(); }}
       />
@@ -1975,7 +2018,7 @@ function AccountDetailView({ id }: { id: string }) {
         <DraftEmailModal
           contact={draftEmailContact}
           accountId={Number(id)}
-          accountName={account.name}
+          accountName={account.displayName ?? account.name}
           onClose={() => setDraftEmailContact(null)}
         />
       )}

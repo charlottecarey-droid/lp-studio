@@ -22,6 +22,7 @@ const API_BASE = "/api";
 interface Account {
   id: number;
   name: string;
+  displayName?: string | null;
   domain?: string;
   segment?: string;
   abmTier?: string | null;
@@ -434,7 +435,7 @@ export default function SalesDashboard() {
 
                           {/* Account info */}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
+                            <p className="text-sm font-semibold text-foreground truncate">{acct.displayName ?? acct.name}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                               <span className="font-medium text-foreground/70">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
                               {acct.lastSignal && (
@@ -539,7 +540,7 @@ export default function SalesDashboard() {
                       return (
                         <Card key={acct.id} className="group flex flex-col gap-2.5 p-4 rounded-xl border border-border/60 hover:border-amber-200 hover:shadow-sm transition-all">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
+                            <p className="text-sm font-semibold text-foreground truncate">{acct.displayName ?? acct.name}</p>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${noMicrosite ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
                               {reason}
                             </span>
