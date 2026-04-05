@@ -132,10 +132,16 @@ function buildQueryBuilder(table: string) {
         }),
       });
       const json = await res.json();
-      if (!res.ok) return { data: null, error: { message: json.error || "Request failed" }, count: null };
+      if (!res.ok) {
+        const errorMsg = json.error || `HTTP ${res.status}: Request failed`;
+        console.warn(`[DSO API] ${_method} on ${table} failed:`, errorMsg);
+        return { data: null, error: { message: errorMsg, status: res.status }, count: null };
+      }
       return { data: json.data, error: null, count: json.count ?? null };
     } catch (e: any) {
-      return { data: null, error: { message: e.message }, count: null };
+      const errorMsg = e.message || "Network or parsing error";
+      console.warn(`[DSO API] Exception in ${_method} on ${table}:`, errorMsg);
+      return { data: null, error: { message: errorMsg }, count: null };
     }
   }
 
@@ -145,45 +151,80 @@ function buildQueryBuilder(table: string) {
 const storageProxy = {
   from: (bucket: string) => ({
     upload: async (filePath: string, file: File) => {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("bucket", bucket);
-      form.append("path", filePath);
-      const res = await fetch(`${API}/storage/upload`, { method: "POST", body: form });
-      const json = await res.json();
-      return res.ok ? { data: json, error: null } : { data: null, error: json };
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("bucket", bucket);
+        form.append("path", filePath);
+        const res = await fetch(`${API}/storage/upload`, { method: "POST", body: form });
+        const json = await res.json();
+        if (!res.ok) {
+          console.warn(`[DSO Storage] upload to ${bucket}/${filePath} failed: HTTP ${res.status}`, json);
+          return { data: null, error: json };
+        }
+        return { data: json, error: null };
+      } catch (e: any) {
+        console.warn(`[DSO Storage] upload exception:`, e.message);
+        return { data: null, error: { message: e.message } };
+      }
     },
     getPublicUrl: (filePath: string) => ({
       data: { publicUrl: `${API}/storage/file?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(filePath)}` },
     }),
     list: async (prefix?: string) => {
-      const params = new URLSearchParams({ bucket, prefix: prefix || "" });
-      const res = await fetch(`${API}/storage/list?${params}`);
-      const json = await res.json();
-      return res.ok ? { data: json.files, error: null } : { data: null, error: json };
+      try {
+        const params = new URLSearchParams({ bucket, prefix: prefix || "" });
+        const res = await fetch(`${API}/storage/list?${params}`);
+        const json = await res.json();
+        if (!res.ok) {
+          console.warn(`[DSO Storage] list ${bucket}/${prefix || ""} failed: HTTP ${res.status}`, json);
+          return { data: null, error: json };
+        }
+        return { data: json.files, error: null };
+      } catch (e: any) {
+        console.warn(`[DSO Storage] list exception:`, e.message);
+        return { data: null, error: { message: e.message } };
+      }
     },
     remove: async (paths: string[]) => {
-      const res = await fetch(`${API}/storage/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket, paths }),
-      });
-      const json = await res.json();
-      return res.ok ? { data: json, error: null } : { data: null, error: json };
+      try {
+        const res = await fetch(`${API}/storage/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bucket, paths }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          console.warn(`[DSO Storage] remove from ${bucket} failed: HTTP ${res.status}`, json);
+          return { data: null, error: json };
+        }
+        return { data: json, error: null };
+      } catch (e: any) {
+        console.warn(`[DSO Storage] remove exception:`, e.message);
+        return { data: null, error: { message: e.message } };
+      }
     },
   }),
 };
 
 const functionsProxy = {
   invoke: async (name: string, opts?: { body?: any }) => {
-    const res = await fetch(`${API}/functions/${name}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opts?.body || {}),
-    });
-    const data = await res.json();
-    if (!res.ok) return { data: null, error: data };
-    return { data, error: null };
+    try {
+      const res = await fetch(`${API}/functions/${name}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(opts?.body || {}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.warn(`[DSO Functions] invoke ${name} failed: HTTP ${res.status}`, data);
+        return { data: null, error: data };
+      }
+      return { data, error: null };
+    } catch (e: any) {
+      console.warn(`[DSO Functions] invoke ${name} exception:`, e.message);
+      return { data: null, error: { message: e.message } };
+    }
   },
 };
 

@@ -6,6 +6,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
+import { logger } from "../../lib/logger";
 
 function getOpenAIClient(): OpenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
@@ -77,7 +78,7 @@ function quoteIdentifier(name: string): string {
 // ─── Generic CRUD endpoint ───────────────────────────────────────────────────
 router.post("/db/:table", async (req: Request, res: Response) => {
   try {
-    const sourceTable = req.params.table;
+    const sourceTable = String(req.params.table);
     const dsoTable = ALLOWED_TABLES[sourceTable];
     if (!dsoTable) {
       return res.status(400).json({ error: `Unknown table: ${sourceTable}` });
@@ -244,7 +245,7 @@ router.post("/db/:table", async (req: Request, res: Response) => {
 
     return res.status(400).json({ error: `Unknown method: ${method}` });
   } catch (err: any) {
-    console.error("DSO DB error:", err);
+    logger.error({ err }, "DSO DB error");
     return res.status(500).json({ error: "Database error" });
   }
 });
@@ -265,28 +266,28 @@ router.post("/storage/upload", upload.single("file"), (req: Request, res: Respon
     if (req.file) fs.renameSync(req.file.path, dest);
     res.json({ path: filePath, bucket });
   } catch (err: any) {
-    console.error("Upload error:", err);
+    logger.error({ err }, "Upload error");
     res.status(500).json({ error: "Upload failed" });
   }
 });
 
-router.get("/storage/list", (req: Request, res: Response) => {
+router.get("/storage/list", (req: Request, res: Response): void => {
   const bucket = (req.query.bucket as string) || "default";
   const prefix = (req.query.prefix as string) || "";
   const dir = path.join(STORAGE_DIR, bucket, prefix);
-  if (!fs.existsSync(dir)) return res.json({ files: [] });
+  if (!fs.existsSync(dir)) { res.json({ files: [] }); return; }
   const files = fs.readdirSync(dir).map(name => ({ name, id: name }));
   res.json({ files });
 });
 
-router.get("/storage/file", (req: Request, res: Response) => {
+router.get("/storage/file", (req: Request, res: Response): void => {
   const bucket = (req.query.bucket as string) || "default";
   const filePath = (req.query.path as string) || "";
-  if (!filePath) return res.status(400).json({ error: "Missing path" });
+  if (!filePath) { res.status(400).json({ error: "Missing path" }); return; }
   const safeFilePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, "");
   const fullPath = path.join(STORAGE_DIR, bucket, safeFilePath);
-  if (!fullPath.startsWith(STORAGE_DIR)) return res.status(400).json({ error: "Invalid path" });
-  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: "Not found" });
+  if (!fullPath.startsWith(STORAGE_DIR)) { res.status(400).json({ error: "Invalid path" }); return; }
+  if (!fs.existsSync(fullPath)) { res.status(404).json({ error: "Not found" }); return; }
   res.sendFile(fullPath);
 });
 
@@ -333,9 +334,9 @@ router.get("/track-email-open", async (req: Request, res: Response) => {
   res.send(PIXEL);
 });
 
-router.get("/track-email-click", async (req: Request, res: Response) => {
+router.get("/track-email-click", async (req: Request, res: Response): Promise<void> => {
   const { campaign_id, contact_id, url: destination } = req.query as Record<string, string>;
-  if (!destination) return res.status(400).send("Missing url");
+  if (!destination) { res.status(400).send("Missing url"); return; }
 
   if (campaign_id && contact_id) {
     try {
@@ -397,7 +398,7 @@ async function handleGenerateEmail(req: Request, res: Response, body: any) {
       const email = response.text ?? "Could not generate email.";
       return res.json({ email });
     } catch (err: any) {
-      console.error("AI generation error:", err);
+      logger.error({ err }, "AI generation error");
       return res.status(500).json({ error: "AI generation failed" });
     }
   }
@@ -451,7 +452,7 @@ DSO BUYING COMMITTEE PERSONAS:
 `;
 
 // Helper: fetch with timeout
-async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs: number): Promise<globalThis.Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -471,7 +472,7 @@ async function handleAccountBriefing(req: Request, res: Response, body: any) {
   const additional_context: string | undefined = body?.additional_context ?? body?.knownHQ;
   const tier: string | undefined = body?.tier;
 
-  console.log("[account-briefing] received body keys:", Object.keys(body || {}), "→ company_name:", company_name);
+  logger.debug({ bodyKeys: Object.keys(body || {}), company_name }, "[account-briefing] received body");
 
   if (!company_name) {
     return res.status(400).json({ success: false, error: "Missing company_name" });
@@ -513,7 +514,7 @@ Be specific and cite sources.`;
           researchText = perplexityData.choices?.[0]?.message?.content ?? "";
           const citations = perplexityData.citations ?? [];
           allSources.push(...citations);
-          console.log("[account-briefing] Perplexity research done, chars:", researchText.length);
+          logger.debug({ textLength: researchText.length }, "[account-briefing] Perplexity research done");
         } else {
           console.warn("[account-briefing] Perplexity error:", await perplexityRes.text());
         }
@@ -619,7 +620,7 @@ Based on the research data above, create a detailed, actionable briefing. Return
     // Primary: Replit OpenAI integration (or direct key)
     if (oai) {
       try {
-        console.log("[account-briefing] Starting OpenAI synthesis...");
+        logger.debug(null, "[account-briefing] Starting OpenAI synthesis...");
         const oaiRes = await oai.chat.completions.create({
           model: "gpt-4.1",
           messages: [{ role: "user", content: synthPrompt }],
@@ -627,7 +628,7 @@ Based on the research data above, create a detailed, actionable briefing. Return
           max_completion_tokens: 4096,
         });
         briefingJson = oaiRes.choices?.[0]?.message?.content ?? "";
-        console.log("[account-briefing] OpenAI synthesis done, chars:", briefingJson.length);
+        logger.debug({ textLength: briefingJson.length }, "[account-briefing] OpenAI synthesis done");
       } catch (e: any) {
         console.warn("[account-briefing] OpenAI synthesis failed:", e.message);
       }
@@ -638,14 +639,14 @@ Based on the research data above, create a detailed, actionable briefing. Return
       const gemini = getGeminiClient();
       if (gemini) {
         try {
-          console.log("[account-briefing] Falling back to Gemini...");
+          logger.debug(null, "[account-briefing] Falling back to Gemini...");
           const geminiRes = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
             contents: [{ role: "user", parts: [{ text: synthPrompt }] }],
             config: { temperature: 0.3, maxOutputTokens: 8192 },
           });
           briefingJson = geminiRes.text ?? "";
-          console.log("[account-briefing] Gemini synthesis done, chars:", briefingJson.length);
+          logger.debug({ textLength: briefingJson.length }, "[account-briefing] Gemini synthesis done");
         } catch (e: any) {
           console.warn("[account-briefing] Gemini synthesis failed:", e.message);
         }
@@ -766,7 +767,7 @@ Based on the research data above, create a detailed, actionable briefing. Return
 
     return res.json({ success: true, briefing });
   } catch (err: any) {
-    console.error("account-briefing error:", err);
+    logger.error({ err }, "account-briefing error");
     return res.status(500).json({ success: false, error: "Briefing generation failed" });
   }
 }
@@ -813,7 +814,7 @@ async function handleDeleteAllContacts(_req: Request, res: Response, _body: any)
     const deleted = result.rowCount ?? 0;
     return res.json({ success: true, deleted });
   } catch (err: any) {
-    console.error("delete-all-contacts error:", err);
+    logger.error({ err }, "delete-all-contacts error");
     return res.status(500).json({ success: false, error: "Internal server error" });
   }
 }
@@ -1086,7 +1087,7 @@ async function handleSendCampaign(req: Request, res: Response, body: any) {
     try {
       await query(`INSERT INTO "dso_email_campaign_sends" (${cols}) VALUES ${valuesClauses.join(", ")}`, params)
     } catch (err) {
-      console.error("Failed to insert send records:", err);
+      logger.error({ err }, "Failed to insert send records");
     }
   }
 

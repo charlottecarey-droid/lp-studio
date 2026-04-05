@@ -76,7 +76,12 @@ export class ObjectStorageService {
       "Content-Type": (metadata.contentType as string) || "application/octet-stream",
       "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
     };
-    if (metadata.size) headers["Content-Length"] = String(metadata.size);
+    // Set Content-Length if size is known; otherwise use chunked transfer encoding
+    if (metadata.size) {
+      headers["Content-Length"] = String(metadata.size);
+    } else {
+      headers["Transfer-Encoding"] = "chunked";
+    }
     return new Response(stream, { headers });
   }
 }

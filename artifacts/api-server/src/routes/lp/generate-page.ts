@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 
@@ -703,7 +704,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const systemPrompt = useDsoPractices ? DSO_PRACTICES_SYSTEM_PROMPT : useDso ? DSO_SYSTEM_PROMPT : SYSTEM_PROMPT;
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
-  console.log(`[generate-page] prompt path: ${promptPath} | segment: ${segmentContext?.name ?? "none"} | first 120 chars: ${prompt.slice(0, 120).replace(/\n/g, " ")}`);
+  logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   const segmentSection = segmentContext && typeof segmentContext === "object" ? buildSegmentSection(segmentContext) : "";
 

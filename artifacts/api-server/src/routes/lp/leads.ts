@@ -33,6 +33,13 @@ const SubmitLeadBody = z.object({
   fields: z.record(z.unknown()),
 });
 
+// Table schema extension type for idempotency key (if column exists)
+interface LeadWithIdempotencyKey {
+  id: number;
+  idempotencyKey?: string | null;
+  [key: string]: unknown;
+}
+
 function getClientIp(req: Request): string {
   const fwd = req.headers["x-forwarded-for"];
   if (fwd) return (typeof fwd === "string" ? fwd : fwd[0]).split(",")[0].trim();
@@ -47,6 +54,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   }
 
   const { pageId, variantId, formId, fields } = parsed.data;
+  const idempotencyKey = req.headers["x-idempotency-key"] as string | undefined;
 
   const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
   if (!page) {
@@ -57,13 +65,35 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   const ip = getClientIp(req);
   const userAgent = req.headers["user-agent"] ?? null;
 
-  const [lead] = await db.insert(lpLeadsTable).values({
-    pageId,
-    variantId: variantId ?? null,
-    fields,
-    ip,
-    userAgent,
-  }).returning();
+  // Check for idempotent resubmission if key is provided
+  let lead: LeadWithIdempotencyKey;
+  if (idempotencyKey) {
+    const [existing] = await db.select().from(lpLeadsTable).where(eq((lpLeadsTable as any).idempotencyKey, idempotencyKey));
+    if (existing) {
+      res.status(201).json({ success: true, leadId: existing.id, isRetry: true });
+      return;
+    }
+    const [newLead] = await db.insert(lpLeadsTable).values({
+      tenantId: page.tenantId,
+      pageId,
+      variantId: variantId ?? null,
+      fields,
+      ip,
+      userAgent,
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    } as any).returning();
+    lead = newLead as LeadWithIdempotencyKey;
+  } else {
+    const [newLead] = await db.insert(lpLeadsTable).values({
+      tenantId: page.tenantId,
+      pageId,
+      variantId: variantId ?? null,
+      fields,
+      ip,
+      userAgent,
+    }).returning();
+    lead = newLead as LeadWithIdempotencyKey;
+  }
 
   res.status(201).json({ success: true, leadId: lead.id });
 
@@ -82,7 +112,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         pageTitle: page.title,
         variantName,
         fields: fields as Record<string, unknown>,
-        submittedAt: lead.createdAt.toISOString(),
+        submittedAt: (lead.createdAt as Date).toISOString(),
       };
 
       let emailRecipients: string[] = [];
@@ -109,39 +139,59 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       }
 
       if (emailRecipients.length > 0) {
-        await sendEmailNotification(emailRecipients, payload);
+        await sendEmailNotification(emailRecipients, payload).catch(err =>
+          console.error("Email notification error for lead", lead.id, ":", err)
+        );
       }
       if (webhookUrl) {
-        await deliverWebhook(webhookUrl, payload);
+        await deliverWebhook(webhookUrl, payload).catch(err =>
+          console.error("Webhook delivery error for lead", lead.id, ":", err)
+        );
       }
+
+      const pageTenantId = page.tenantId;
+      if (!pageTenantId) {
+        console.error("Page", page.id, "has no tenant - skipping integrations");
+        return;
+      }
+
       const perFormMarketo = marketoConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
       const perFormSalesforce = salesforceConfig as { enabled?: boolean; fieldMappings?: Record<string, string> } | null;
-      const pageTenantId = page.tenantId;
-      if (!pageTenantId) { res.status(400).json({ error: "Page has no tenant" }); return; }
-      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId);
-      await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled, pageTenantId);
+
+      await syncLeadToMarketo(payload, perFormMarketo?.fieldMappings, perFormMarketo?.enabled, pageTenantId).catch(err =>
+        console.error("Marketo sync error for lead", lead.id, ":", err)
+      );
+      await syncLeadToSalesforce(payload, perFormSalesforce?.fieldMappings, perFormSalesforce?.enabled, pageTenantId).catch(err =>
+        console.error("Salesforce sync error for lead", lead.id, ":", err)
+      );
       await syncLeadToSheets({
         submittedAt: payload.submittedAt,
         pageTitle: payload.pageTitle,
         pageSlug: payload.pageSlug,
         variantName: payload.variantName,
         fields: payload.fields,
-      }, pageTenantId);
+      }, pageTenantId).catch(err =>
+        console.error("Sheets sync error for lead", lead.id, ":", err)
+      );
 
       // SFDC write-back: create Lead in Salesforce from form submission
-      const conn = await sfdcService.getActiveConnection();
-      if (conn) {
-        const f = fields as Record<string, string>;
-        await sfdcService.createLead(conn.id, {
-          firstName: f.first_name || f.firstName || f.First_Name || undefined,
-          lastName: f.last_name || f.lastName || f.Last_Name || "Unknown",
-          email: f.email || f.Email || f.work_email || undefined,
-          company: f.company || f.Company || f.practice_name || f.organization || undefined,
-          title: f.title || f.Title || f.job_title || undefined,
-          phone: f.phone || f.Phone || f.phone_number || undefined,
-          leadSource: `LP Studio: ${page.title}`,
-          description: `Form submission from page "${page.title}" (${page.slug}) at ${lead.createdAt.toISOString()}`,
-        }).catch(err => console.error("SFDC Lead creation error:", err));
+      try {
+        const conn = await sfdcService.getActiveConnection();
+        if (conn) {
+          const f = fields as Record<string, string>;
+          await sfdcService.createLead(conn.id, {
+            firstName: f.first_name || f.firstName || f.First_Name || undefined,
+            lastName: f.last_name || f.lastName || f.Last_Name || "Unknown",
+            email: f.email || f.Email || f.work_email || undefined,
+            company: f.company || f.Company || f.practice_name || f.organization || undefined,
+            title: f.title || f.Title || f.job_title || undefined,
+            phone: f.phone || f.Phone || f.phone_number || undefined,
+            leadSource: `LP Studio: ${page.title}`,
+            description: `Form submission from page "${page.title}" (${page.slug}) at ${(lead.createdAt as Date).toISOString()}`,
+          });
+        }
+      } catch (err) {
+        console.error("SFDC Lead creation error:", err);
       }
     } catch (err) {
       console.error("Error processing lead notifications:", err);

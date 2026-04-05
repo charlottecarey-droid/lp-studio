@@ -227,7 +227,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
         .limit(1);
       const isNew = existingCheck.length === 0;
 
-      const hotlink = await getOrCreateHotlink(contact.id, Number(pageId), contact.salesforceId);
+      const hotlink = await getOrCreateHotlink(contact.id, Number(pageId));
       if (isNew) hotlinksCreated++;
 
       const micrositeUrl = `${host}/p/${hotlink.token}`;
@@ -264,6 +264,7 @@ router.post("/campaign-pages/launch", async (req, res): Promise<void> => {
         if (result.ok) {
           sent++;
           await db.insert(salesSignalsTable).values({
+            tenantId,
             accountId: contact.accountId,
             contactId: contact.id,
             hotlinkId: hotlink.id,

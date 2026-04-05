@@ -8,7 +8,7 @@ import { logger } from "./lib/logger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
-async function runMigrations() {
+async function runMigrations(): Promise<void> {
   try {
     await db.execute(sql`
       ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS city text;
@@ -655,6 +655,15 @@ async function runMigrations() {
         applied_at timestamptz NOT NULL DEFAULT now()
       );
 
+      -- Short-lived exchange codes for cross-domain session handoff (prevents tokens in URLs)
+      CREATE TABLE IF NOT EXISTS auth_exchange_codes (
+        code text PRIMARY KEY,
+        sid text NOT NULL REFERENCES app_sessions(sid) ON DELETE CASCADE,
+        expires_at timestamptz NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_auth_exchange_codes_expires ON auth_exchange_codes(expires_at);
+
       -- Tenant onboarding tracking
       ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
 
@@ -675,7 +684,8 @@ async function runMigrations() {
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
-    logger.error({ err }, "Migration failed — continuing anyway");
+    logger.error({ err }, "Migration failed — halting server startup");
+    throw err;
   }
 }
 
@@ -686,13 +696,18 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-runMigrations().then(() => {
-  app.listen(port, (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
+runMigrations()
+  .then(() => {
+    app.listen(port, (err) => {
+      if (err) {
+        logger.error({ err }, "Error listening on port");
+        process.exit(1);
+      }
 
-    logger.info({ port }, "Server listening");
+      logger.info({ port }, "Server listening");
+    });
+  })
+  .catch((err) => {
+    logger.error({ err }, "Failed to start server: migrations failed");
+    process.exit(1);
   });
-});

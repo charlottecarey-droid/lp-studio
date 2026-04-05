@@ -1047,13 +1047,14 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
       const slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
       try {
         const [inserted] = await db.insert(lpPagesTable).values({
+          tenantId: account.tenantId,
           title: parsed.title,
           slug,
           blocks: normalizedBlocks,
           status: "draft",
           mode: "sales",
           accountId,
-          sfdcAccountId: account.sfdcId ?? null,
+          sfdcAccountId: account.salesforceId ?? null,
         }).returning();
         page = inserted as typeof page;
         break;

@@ -103,7 +103,7 @@ router.get("/contacts/:id", async (req, res): Promise<void> => {
 // Create contact
 router.post("/contacts", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { accountId, sfdcId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
+  const { accountId, salesforceId, firstName, lastName, email, title, role, phone, status, metadata } = req.body;
   if (!accountId || !firstName || !lastName) {
     res.status(400).json({ error: "accountId, firstName, and lastName are required" });
     return;
@@ -113,7 +113,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
       .insert(salesContactsTable)
       .values({
         tenantId,
-        sfdcId: sfdcId ?? null,
+        salesforceId: salesforceId ?? null,
         accountId: Number(accountId),
         firstName,
         lastName,

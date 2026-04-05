@@ -15,6 +15,7 @@ import {
 import { lpPagesTable } from "@workspace/db";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 
@@ -27,19 +28,31 @@ const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBR
 
 // ─── Unsubscribe token helpers ─────────────────────────────
 const UNSUB_SECRET = process.env.UNSUB_SECRET ?? process.env.RESEND_API_KEY ?? "dandy-unsub-secret";
+const UNSUB_TOKEN_EXPIRY_DAYS = 30;
 
 function makeUnsubToken(contactId: number): string {
-  const mac = createHmac("sha256", UNSUB_SECRET).update(String(contactId)).digest("hex");
-  return Buffer.from(`${contactId}.${mac}`).toString("base64url");
+  const expiresAt = Math.floor(Date.now() / 1000) + (UNSUB_TOKEN_EXPIRY_DAYS * 24 * 60 * 60);
+  const mac = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
+  return Buffer.from(`${contactId}.${expiresAt}.${mac}`).toString("base64url");
 }
 
 function verifyUnsubToken(token: string): number | null {
   try {
     const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const [idStr, mac] = decoded.split(".");
+    const parts = decoded.split(".");
+    if (parts.length !== 3) return null;
+
+    const [idStr, expiryStr, mac] = parts;
     const contactId = parseInt(idStr, 10);
-    if (isNaN(contactId)) return null;
-    const expected = createHmac("sha256", UNSUB_SECRET).update(String(contactId)).digest("hex");
+    const expiresAt = parseInt(expiryStr, 10);
+
+    if (isNaN(contactId) || isNaN(expiresAt)) return null;
+
+    // Check if token has expired
+    const now = Math.floor(Date.now() / 1000);
+    if (now > expiresAt) return null;
+
+    const expected = createHmac("sha256", UNSUB_SECRET).update(`${contactId}.${expiresAt}`).digest("hex");
     return mac === expected ? contactId : null;
   } catch {
     return null;
@@ -130,7 +143,7 @@ router.get("/campaigns", async (req, res): Promise<void> => {
       .orderBy(desc(salesEmailCampaignsTable.updatedAt));
     res.json(campaigns);
   } catch (err) {
-    console.error("GET /sales/campaigns error:", err);
+    logger.error({ err }, "GET /sales/campaigns error");
     res.status(500).json({ error: "Failed to load campaigns" });
   }
 });
@@ -172,7 +185,7 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
 
     res.json({ ...campaign, template, sends, account });
   } catch (err) {
-    console.error("GET /sales/campaigns/:id error:", err);
+    logger.error({ err }, "GET /sales/campaigns/:id error");
     res.status(500).json({ error: "Failed to load campaign" });
   }
 });
@@ -217,7 +230,7 @@ router.post("/campaigns", requirePermission("sales_campaigns"), async (req, res)
       .returning();
     res.status(201).json(campaign);
   } catch (err) {
-    console.error("POST /sales/campaigns error:", err);
+    logger.error({ err }, "POST /sales/campaigns error");
     res.status(500).json({ error: "Failed to create campaign" });
   }
 });
@@ -239,7 +252,7 @@ router.post("/campaigns/:id/clone", requirePermission("sales_campaigns"), async 
     }).returning();
     res.status(201).json(clone);
   } catch (err) {
-    console.error("POST /sales/campaigns/:id/clone error:", err);
+    logger.error({ err }, "POST /sales/campaigns/:id/clone error");
     res.status(500).json({ error: "Failed to clone campaign" });
   }
 });
@@ -260,7 +273,7 @@ router.patch("/campaigns/:id", requirePermission("sales_campaigns"), async (req,
     if (!updated) { res.status(404).json({ error: "Campaign not found" }); return; }
     res.json(updated);
   } catch (err) {
-    console.error("PATCH /sales/campaigns/:id error:", err);
+    logger.error({ err }, "PATCH /sales/campaigns/:id error");
     res.status(500).json({ error: "Failed to update campaign" });
   }
 });
@@ -275,7 +288,7 @@ router.delete("/campaigns/:id", requirePermission("sales_campaigns"), async (req
     if (!deleted) { res.status(404).json({ error: "Campaign not found" }); return; }
     res.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /sales/campaigns/:id error:", err);
+    logger.error({ err }, "DELETE /sales/campaigns/:id error");
     res.status(500).json({ error: "Failed to delete campaign" });
   }
 });
@@ -283,6 +296,7 @@ router.delete("/campaigns/:id", requirePermission("sales_campaigns"), async (req
 // ─── Campaign Send ──────────────────────────────────────────
 
 router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const campaignId = Number(req.params.id);
   try {
     // Load campaign
@@ -397,6 +411,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         sent++;
         // Create signal for email sent
         const [sig1] = await db.insert(salesSignalsTable).values({
+          tenantId,
           accountId: contact.accountId,
           contactId: contact.id,
           hotlinkId: hotlink?.id ?? null,
@@ -440,7 +455,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
     res.json({ sent, failed, skipped: skippedCount, total: sendable.length + skippedCount });
   } catch (err) {
-    console.error("POST /sales/campaigns/:id/send error:", err);
+    logger.error({ err }, "POST /sales/campaigns/:id/send error");
     res.status(500).json({ error: "Failed to send campaign" });
   }
 });
@@ -454,7 +469,7 @@ router.get("/campaigns/:id/sends", async (req, res): Promise<void> => {
       .orderBy(desc(salesEmailSendsTable.createdAt));
     res.json(sends);
   } catch (err) {
-    console.error("GET /sales/campaigns/:id/sends error:", err);
+    logger.error({ err }, "GET /sales/campaigns/:id/sends error");
     res.status(500).json({ error: "Failed to load sends" });
   }
 });
@@ -469,11 +484,17 @@ router.get("/track/open", async (req, res): Promise<void> => {
         .set({ status: "opened", openedAt: new Date() })
         .where(eq(salesEmailSendsTable.id, Number(id)));
 
-      // Get the send record to create a signal
-      const [send] = await db.select().from(salesEmailSendsTable)
+      // Get the send record and campaign to create a signal
+      const sendWithCampaign = await db.select({
+        send: salesEmailSendsTable,
+        tenantId: salesEmailCampaignsTable.tenantId,
+      }).from(salesEmailSendsTable)
+        .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
         .where(eq(salesEmailSendsTable.id, Number(id)));
-      if (send) {
+      if (sendWithCampaign.length > 0) {
+        const { send, tenantId } = sendWithCampaign[0];
         const [sig2] = await db.insert(salesSignalsTable).values({
+          tenantId: tenantId ?? 0, // fallback to 0 if no campaign
           contactId: send.contactId,
           hotlinkId: send.hotlinkId,
           type: "email_open",
@@ -483,7 +504,7 @@ router.get("/track/open", async (req, res): Promise<void> => {
         broadcastSignal(sig2);
       }
     } catch (err) {
-      console.error("Tracking pixel error:", err);
+      logger.error({ err }, "Tracking pixel error");
     }
   }
   res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
@@ -500,10 +521,16 @@ router.get("/track/click", async (req, res): Promise<void> => {
         .set({ status: "clicked", clickedAt: new Date() })
         .where(eq(salesEmailSendsTable.id, Number(sendId)));
 
-      const [send] = await db.select().from(salesEmailSendsTable)
+      const sendWithCampaign = await db.select({
+        send: salesEmailSendsTable,
+        tenantId: salesEmailCampaignsTable.tenantId,
+      }).from(salesEmailSendsTable)
+        .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
         .where(eq(salesEmailSendsTable.id, Number(sendId)));
-      if (send) {
+      if (sendWithCampaign.length > 0) {
+        const { send, tenantId } = sendWithCampaign[0];
         const [sig3] = await db.insert(salesSignalsTable).values({
+          tenantId: tenantId ?? 0, // fallback to 0 if no campaign
           contactId: send.contactId,
           hotlinkId: send.hotlinkId,
           type: "email_click",
@@ -513,7 +540,7 @@ router.get("/track/click", async (req, res): Promise<void> => {
         broadcastSignal(sig3);
       }
     } catch (err) {
-      console.error("Click tracking error:", err);
+      logger.error({ err }, "Click tracking error");
     }
   }
   res.redirect(302, destination);
@@ -525,26 +552,34 @@ router.get("/track/open-hotlink", async (req, res): Promise<void> => {
   const hotlinkId = req.query.h as string;
   if (hotlinkId) {
     try {
-      const [hotlink] = await db.select().from(salesHotlinksTable)
+      const hotlinkWithPage = await db.select({
+        hotlink: salesHotlinksTable,
+        tenantId: lpPagesTable.tenantId,
+      }).from(salesHotlinksTable)
+        .leftJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
         .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
-      if (hotlink) {
-        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
-          .from(salesContactsTable)
-          .where(eq(salesContactsTable.id, hotlink.contactId));
-        const [page] = await db.select({ title: lpPagesTable.title })
-          .from(lpPagesTable)
-          .where(eq(lpPagesTable.id, hotlink.pageId));
-        await db.insert(salesSignalsTable).values({
-          accountId: contact?.accountId ?? null,
-          contactId: hotlink.contactId,
-          hotlinkId: hotlink.id,
-          type: "email_open",
-          source: page?.title ?? "Campaign Page",
-          metadata: { pageId: hotlink.pageId },
-        });
+      if (hotlinkWithPage.length > 0) {
+        const { hotlink, tenantId } = hotlinkWithPage[0];
+        if (hotlink && hotlink.contactId) {
+          const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+            .from(salesContactsTable)
+            .where(eq(salesContactsTable.id, hotlink.contactId));
+          const [page] = await db.select({ title: lpPagesTable.title })
+            .from(lpPagesTable)
+            .where(eq(lpPagesTable.id, hotlink.pageId));
+          await db.insert(salesSignalsTable).values({
+            tenantId: tenantId ?? 0,
+            accountId: contact?.accountId ?? null,
+            contactId: hotlink.contactId,
+            hotlinkId: hotlink.id,
+            type: "email_open",
+            source: page?.title ?? "Campaign Page",
+            metadata: { pageId: hotlink.pageId },
+          });
+        }
       }
     } catch (err) {
-      console.error("Hotlink open tracking error:", err);
+      logger.error({ err }, "Hotlink open tracking error");
     }
   }
   res.set({ "Content-Type": "image/gif", "Cache-Control": "no-store, no-cache" });
@@ -589,7 +624,7 @@ router.get("/sends", async (req, res): Promise<void> => {
 
     res.json(filtered);
   } catch (err) {
-    console.error("GET /sales/sends error:", err);
+    logger.error({ err }, "GET /sales/sends error");
     res.status(500).json({ error: "Failed to load sends" });
   }
 });
@@ -602,26 +637,34 @@ router.get("/track/click-hotlink", async (req, res): Promise<void> => {
 
   if (hotlinkId) {
     try {
-      const [hotlink] = await db.select().from(salesHotlinksTable)
+      const hotlinkWithPage = await db.select({
+        hotlink: salesHotlinksTable,
+        tenantId: lpPagesTable.tenantId,
+      }).from(salesHotlinksTable)
+        .leftJoin(lpPagesTable, eq(salesHotlinksTable.pageId, lpPagesTable.id))
         .where(eq(salesHotlinksTable.id, Number(hotlinkId)));
-      if (hotlink) {
-        const [contact] = await db.select({ accountId: salesContactsTable.accountId })
-          .from(salesContactsTable)
-          .where(eq(salesContactsTable.id, hotlink.contactId));
-        const [page] = await db.select({ title: lpPagesTable.title })
-          .from(lpPagesTable)
-          .where(eq(lpPagesTable.id, hotlink.pageId));
-        await db.insert(salesSignalsTable).values({
-          accountId: contact?.accountId ?? null,
-          contactId: hotlink.contactId,
-          hotlinkId: hotlink.id,
-          type: "email_click",
-          source: page?.title ?? "Campaign Page",
-          metadata: { pageId: hotlink.pageId, destination },
-        });
+      if (hotlinkWithPage.length > 0) {
+        const { hotlink, tenantId } = hotlinkWithPage[0];
+        if (hotlink && hotlink.contactId) {
+          const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+            .from(salesContactsTable)
+            .where(eq(salesContactsTable.id, hotlink.contactId));
+          const [page] = await db.select({ title: lpPagesTable.title })
+            .from(lpPagesTable)
+            .where(eq(lpPagesTable.id, hotlink.pageId));
+          await db.insert(salesSignalsTable).values({
+            tenantId: tenantId ?? 0,
+            accountId: contact?.accountId ?? null,
+            contactId: hotlink.contactId,
+            hotlinkId: hotlink.id,
+            type: "email_click",
+            source: page?.title ?? "Campaign Page",
+            metadata: { pageId: hotlink.pageId, destination },
+          });
+        }
       }
     } catch (err) {
-      console.error("Hotlink click tracking error:", err);
+      logger.error({ err }, "Hotlink click tracking error");
     }
   }
   res.redirect(302, destination);
@@ -630,6 +673,7 @@ router.get("/track/click-hotlink", async (req, res): Promise<void> => {
 // ─── Single send (one-off email to a contact) ──────────────
 
 router.post("/send-email", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { contactId, subject, bodyHtml, bodyText, senderName, senderEmail, replyTo } = req.body;
   if (!contactId || !subject || (!bodyHtml && !bodyText)) {
     res.status(400).json({ error: "contactId, subject, and either bodyHtml or bodyText are required" });
@@ -713,6 +757,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     // Create signal
     const [sig4] = await db.insert(salesSignalsTable).values({
+      tenantId,
       accountId: contact.accountId,
       contactId: contact.id,
       hotlinkId: hotlink?.id ?? null,
@@ -736,7 +781,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     res.json({ ok: true, sendId: sendRecord.id });
   } catch (err) {
-    console.error("POST /sales/send-email error:", err);
+    logger.error({ err }, "POST /sales/send-email error");
     res.status(500).json({ error: "Failed to send email" });
   }
 });

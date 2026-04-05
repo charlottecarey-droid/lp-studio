@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 
@@ -78,12 +79,12 @@ async function sendVisitAlert(
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "(unreadable)");
-      console.error(`Resend rejected visit alert: HTTP ${res.status}`, body, { recipients });
+      logger.error({ status: res.status, body, recipients }, "Resend rejected visit alert");
     } else {
-      console.log(`Visit alert sent to ${recipients.join(", ")} for ${opts.contactName}`);
+      logger.info({ recipients, contactName: opts.contactName }, "Visit alert sent");
     }
   } catch (err) {
-    console.error("Failed to send visit alert email (network error):", err);
+    logger.error({ err }, "Failed to send visit alert email (network error)");
   }
 }
 
@@ -112,7 +113,7 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
           eq(lpPagesTable.accountId, salesAccountsTable.id),
           and(
             isNotNull(lpPagesTable.sfdcAccountId),
-            eq(lpPagesTable.sfdcAccountId, salesAccountsTable.sfdcId),
+            eq(lpPagesTable.sfdcAccountId, salesAccountsTable.salesforceId),
           ),
         ),
       ))
@@ -141,20 +142,16 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
       ));
 
     // Index hotlinks by pageId
-    const hotlinksByPage = new Map<number, { hotlinkId: number; token: string; contactId: number; contactName: string }[]>();
+    type HotlinkResult = typeof hotlinks[0];
+    const hotlinksByPage = new Map<number, HotlinkResult[]>();
     for (const hl of hotlinks) {
       if (!hl.pageId) continue;
       if (!hotlinksByPage.has(hl.pageId)) hotlinksByPage.set(hl.pageId, []);
-      hotlinksByPage.get(hl.pageId)!.push({
-        hotlinkId: hl.hotlinkId,
-        token: hl.token,
-        contactId: hl.contactId,
-        contactName: `${hl.contactFirst} ${hl.contactLast}`.trim(),
-      });
+      hotlinksByPage.get(hl.pageId)!.push(hl);
     }
 
     // 3. Group pages by account (null accountId → "unattached" bucket with id=-1)
-    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: typeof hotlinks[0][] };
+    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkResult[] };
     type AccountEntry = { accountId: number; accountName: string; pages: Map<number, PageEntry> };
     const accountMap = new Map<number, AccountEntry>();
 
@@ -185,7 +182,7 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
 
     res.json(result);
   } catch (err) {
-    console.error("GET /sales/microsites/overview error:", err);
+    logger.error({ err }, "GET /sales/microsites/overview error");
     res.status(500).json({ error: "Failed to load microsites overview" });
   }
 });
@@ -256,7 +253,7 @@ router.get("/hotlinks", async (req, res): Promise<void> => {
     }
     res.json(hotlinks);
   } catch (err) {
-    console.error("GET /sales/hotlinks error:", err);
+    logger.error({ err }, "GET /sales/hotlinks error");
     res.status(500).json({ error: "Failed to load hotlinks" });
   }
 });
@@ -300,7 +297,7 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
 
     res.status(201).json(hotlink);
   } catch (err) {
-    console.error("POST /sales/hotlinks error:", err);
+    logger.error({ err }, "POST /sales/hotlinks error");
     res.status(500).json({ error: "Failed to create hotlink" });
   }
 });
@@ -353,7 +350,7 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
 
     res.status(201).json(created);
   } catch (err) {
-    console.error("POST /sales/hotlinks/bulk error:", err);
+    logger.error({ err }, "POST /sales/hotlinks/bulk error");
     res.status(500).json({ error: "Failed to create hotlinks" });
   }
 });
@@ -370,7 +367,7 @@ const resolveLimiter = rateLimit({
 
 router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> => {
   try {
-    const { token } = req.params;
+    const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
     const [hotlink] = await db.select().from(salesHotlinksTable)
       .where(eq(salesHotlinksTable.token, token));
 
@@ -380,7 +377,12 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
     }
 
     // Get page info
-    const [page] = await db.select().from(lpPagesTable)
+    const [page] = await db.select({
+      id: lpPagesTable.id,
+      title: lpPagesTable.title,
+      slug: lpPagesTable.slug,
+      tenantId: lpPagesTable.tenantId,
+    }).from(lpPagesTable)
       .where(eq(lpPagesTable.id, hotlink.pageId));
     if (!page) {
       res.status(404).json({ error: "Page not found" });
@@ -388,8 +390,12 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
     }
 
     // Get contact info
-    const [contact] = await db.select().from(salesContactsTable)
-      .where(eq(salesContactsTable.id, hotlink.contactId));
+    let contact: typeof salesContactsTable.$inferSelect | undefined;
+    if (hotlink.contactId) {
+      const contactResult = await db.select().from(salesContactsTable)
+        .where(eq(salesContactsTable.id, hotlink.contactId));
+      contact = contactResult[0];
+    }
 
     // Get account info for company name
     let company = "";
@@ -402,6 +408,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
 
     // Create page_view signal
     const [pvSignal] = await db.insert(salesSignalsTable).values({
+      tenantId: page.tenantId,
       accountId: contact?.accountId ?? null,
       contactId: hotlink.contactId,
       hotlinkId: hotlink.id,
@@ -421,7 +428,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
           SELECT email FROM lp_page_alert_emails WHERE page_id = ${hotlink.pageId}
         `);
         const recipients = (alertResult.rows as { email: string }[]).map(r => r.email).filter(Boolean);
-        console.log(`[visit-alert] pageId=${hotlink.pageId} recipients=${JSON.stringify(recipients)}`);
+        logger.info({ pageId: hotlink.pageId, recipients }, "[visit-alert] processing visit");
         if (recipients.length > 0) {
           const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Unknown";
           await sendVisitAlert(recipients, {
@@ -433,7 +440,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
           });
         }
       } catch (err) {
-        console.error("Failed to process visit alert for hotlink:", err);
+        logger.error({ err }, "Failed to process visit alert for hotlink");
       }
     });
 
@@ -463,7 +470,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
       accountId: contact?.accountId ?? null,
     });
   } catch (err) {
-    console.error("GET /sales/resolve/:token error:", err);
+    logger.error({ err }, "GET /sales/resolve/:token error");
     res.status(500).json({ error: "Failed to resolve token" });
   }
 });

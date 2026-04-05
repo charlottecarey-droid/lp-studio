@@ -179,25 +179,30 @@ export class SfdcService {
    * Get connection with valid token, refreshing if necessary.
    */
   async getConnectionWithValidToken(connectionId: number) {
-    const [connection] = await db
-      .select()
-      .from(sfdcConnectionsTable)
-      .where(eq(sfdcConnectionsTable.id, connectionId));
+    try {
+      const [connection] = await db
+        .select()
+        .from(sfdcConnectionsTable)
+        .where(eq(sfdcConnectionsTable.id, connectionId));
 
-    if (!connection) {
-      throw new Error(`Connection ${connectionId} not found`);
+      if (!connection) {
+        throw new Error(`Connection ${connectionId} not found`);
+      }
+
+      // Check if token is expired or expiring soon (within 5 minutes)
+      const now = Date.now();
+      const expiryBuffer = 5 * 60 * 1000;
+      if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt).getTime() < now + expiryBuffer) {
+        logger.info({ connectionId }, "Token expiring soon, refreshing...");
+        const newToken = await this.refreshAccessToken(connectionId);
+        return { ...connection, accessToken: newToken };
+      }
+
+      return connection;
+    } catch (err) {
+      logger.error({ connectionId, err }, "Error retrieving connection with valid token");
+      throw err;
     }
-
-    // Check if token is expired or expiring soon (within 5 minutes)
-    const now = Date.now();
-    const expiryBuffer = 5 * 60 * 1000;
-    if (connection.tokenExpiresAt && new Date(connection.tokenExpiresAt).getTime() < now + expiryBuffer) {
-      logger.info({ connectionId }, "Token expiring soon, refreshing...");
-      const newToken = await this.refreshAccessToken(connectionId);
-      return { ...connection, accessToken: newToken };
-    }
-
-    return connection;
   }
 
   /**
@@ -238,7 +243,7 @@ export class SfdcService {
   /**
    * Sync Salesforce Accounts into sales_accounts table.
    */
-  async syncAccounts(connectionId: number): Promise<{ created: number; updated: number }> {
+  async syncAccounts(connectionId: number, tenantId: number = 1): Promise<{ created: number; updated: number }> {
     logger.info({ connectionId }, "Starting accounts sync");
 
     const logId = (await db
@@ -287,6 +292,7 @@ export class SfdcService {
             updated++;
           } else {
             await db.insert(salesAccountsTable).values({
+              tenantId,
               salesforceId: account.Id,
               name: account.Name,
               domain,
@@ -336,7 +342,7 @@ export class SfdcService {
   /**
    * Sync Salesforce Contacts into sales_contacts table.
    */
-  async syncContacts(connectionId: number): Promise<{ created: number; updated: number }> {
+  async syncContacts(connectionId: number, tenantId: number = 1): Promise<{ created: number; updated: number }> {
     logger.info({ connectionId }, "Starting contacts sync");
 
     const logId = (await db
@@ -389,6 +395,7 @@ export class SfdcService {
             updated++;
           } else {
             await db.insert(salesContactsTable).values({
+              tenantId,
               salesforceId: contact.Id,
               accountId: sfdcAccount.id,
               firstName: contact.FirstName || "",
@@ -917,7 +924,8 @@ export class SfdcService {
         .where(eq(sfdcConnectionsTable.status, "connected"))
         .limit(1);
       return connection || null;
-    } catch {
+    } catch (err) {
+      logger.error({ err }, "Error retrieving active SFDC connection");
       return null;
     }
   }

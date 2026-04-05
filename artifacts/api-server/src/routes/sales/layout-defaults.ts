@@ -17,7 +17,7 @@ router.get("/layout-defaults/:key", async (req, res): Promise<void> => {
       .where(
         and(
           eq(salesLayoutDefaultsTable.tenantId, tenantId),
-          eq(salesLayoutDefaultsTable.templateKey, req.params.key),
+          eq(salesLayoutDefaultsTable.templateKey, String(req.params.key)),
         )
       );
     if (!row) {
@@ -70,7 +70,7 @@ router.put("/layout-defaults/:key", requirePermission("sales_campaigns"), async 
       .where(
         and(
           eq(salesLayoutDefaultsTable.tenantId, tenantId),
-          eq(salesLayoutDefaultsTable.templateKey, req.params.key),
+          eq(salesLayoutDefaultsTable.templateKey, String(req.params.key)),
         )
       );
 
@@ -86,7 +86,7 @@ router.put("/layout-defaults/:key", requirePermission("sales_campaigns"), async 
         .insert(salesLayoutDefaultsTable)
         .values({
           tenantId,
-          templateKey: req.params.key,
+          templateKey: String(req.params.key),
           config,
         })
         .returning();
@@ -108,7 +108,7 @@ router.delete("/layout-defaults/:key", requirePermission("sales_campaigns"), asy
       .where(
         and(
           eq(salesLayoutDefaultsTable.tenantId, tenantId),
-          eq(salesLayoutDefaultsTable.templateKey, req.params.key),
+          eq(salesLayoutDefaultsTable.templateKey, String(req.params.key)),
         )
       );
     res.json({ ok: true });

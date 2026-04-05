@@ -58,16 +58,53 @@ function extractDomain(referer: string | undefined): string {
   }
 }
 
-export function collectFeatures(req: Request, countryCode: string | null): VisitorFeatures {
+export function collectFeatures(req: Request, countryCode: string | null, timezone?: string): VisitorFeatures {
   const ua = req.headers["user-agent"] ?? "";
   const now = new Date();
+
+  // NOTE: Currently using UTC for dayOfWeek and hourOfDay. To use local timezone,
+  // pass timezone param (e.g., from geo-IP header). Without timezone support,
+  // all visitors are bucketed by UTC time regardless of their local zone.
+  let dayOfWeek = now.getUTCDay();
+  let hourOfDay = now.getUTCHours();
+
+  // If timezone is provided, apply offset to calculate local time
+  if (timezone) {
+    try {
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(now);
+      const partsMap = new Map(parts.map(p => [p.type, p.value]));
+      const localDate = new Date(
+        parseInt(partsMap.get("year")!),
+        parseInt(partsMap.get("month")!) - 1,
+        parseInt(partsMap.get("day")!),
+        parseInt(partsMap.get("hour")!),
+        parseInt(partsMap.get("minute")!),
+        parseInt(partsMap.get("second")!)
+      );
+      dayOfWeek = localDate.getDay();
+      hourOfDay = localDate.getHours();
+    } catch {
+      // Fallback to UTC if timezone format is invalid
+    }
+  }
+
   return {
     device: parseDevice(ua),
     browser: parseBrowser(ua),
     os: parseOs(ua),
     country: (countryCode ?? "unknown").toLowerCase(),
-    dayOfWeek: now.getUTCDay(),
-    hourOfDay: now.getUTCHours(),
+    dayOfWeek,
+    hourOfDay,
     referrerDomain: extractDomain(req.headers.referer),
     utmSource: (req.query.utm_source as string ?? "none").toLowerCase(),
     utmMedium: (req.query.utm_medium as string ?? "none").toLowerCase(),
