@@ -20,6 +20,7 @@ export * from "./salesEmails";
 export * from "./salesSignals";
 export * from "./salesBriefings";
 export * from "./salesInbound";
+export * from "./salesLayoutDefaults";
 
 // Salesforce Integration
 export * from "./sfdcIntegration";

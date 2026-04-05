@@ -15,6 +15,7 @@ import sfdcRouter from "./sfdc";
 import inboundRouter from "./inbound";
 import importRouter from "./import";
 import personBriefRouter from "./person-brief";
+import layoutDefaultsRouter from "./layout-defaults";
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use(sfdcRouter);
 router.use("/inbound", inboundRouter);
 router.use(importRouter);
 router.use(personBriefRouter);
+router.use(layoutDefaultsRouter);
 
 export default router;

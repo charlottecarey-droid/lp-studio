@@ -16,6 +16,8 @@ import {
   X,
   Settings,
   Home,
+  Calculator,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -176,6 +178,18 @@ export function SalesTopNav() {
       icon: <Activity className="w-4 h-4" />,
       permission: "sales_signals",
       matchFn: (loc) => loc === "/sales/signals",
+    },
+    {
+      label: "ROI Calc",
+      href: "/sales/roi-calculator",
+      icon: <Calculator className="w-4 h-4" />,
+      matchFn: (loc) => loc === "/sales/roi-calculator",
+    },
+    {
+      label: "One-Pager",
+      href: "/sales/one-pager",
+      icon: <FileText className="w-4 h-4" />,
+      matchFn: (loc) => loc === "/sales/one-pager",
     },
     {
       label: "Contacts",

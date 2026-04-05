@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Building2, Users, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
-  AlertCircle, ArrowUpRight, Contact, Sparkles, BookmarkCheck, X,
+  AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
-import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -22,24 +21,9 @@ const API_BASE = "/api";
 interface Account {
   id: number;
   name: string;
-  displayName?: string | null;
   domain?: string;
   segment?: string;
-  abmTier?: string | null;
-  owner?: string | null;
-}
-
-interface SavedView {
-  id: string;
-  name: string;
-  filters: { ownerFilters: string[]; abmTierFilter: string };
-  createdAt: string;
-}
-
-interface MicrositeGroup {
-  accountId: number;
-  accountName: string;
-  pages: { pageId: number }[];
+  abmTier?: string;
 }
 
 interface Signal {
@@ -53,6 +37,12 @@ interface Signal {
   createdAt: string;
 }
 
+interface MicrositeGroup {
+  accountId: number;
+  accountName: string;
+  pages: { pageId: number }[];
+}
+
 // ── Engagement scoring (mirrors server-side logic) ────────────────────────────
 
 const SIGNAL_WEIGHTS: Record<string, number> = {
@@ -64,6 +54,7 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
 };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 function computeScore(signals: Signal[], now: number) {
   let score = 0;
@@ -99,37 +90,11 @@ function getGreeting() {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function SalesDashboard() {
-  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [micrositeGroups, setMicrositeGroups] = useState<MicrositeGroup[]>([]);
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [viewDismissed, setViewDismissed] = useState(false);
-
-  // ── Read saved view filters from localStorage (same keys as accounts page) ─
-  const { activeFilter, activeViewName } = useMemo(() => {
-    if (!user?.userId) return { activeFilter: null, activeViewName: null };
-    const lsKey = `sc_acct_filters_${user.userId}`;
-    const viewsKey = `sc_acct_views_${user.userId}`;
-    try {
-      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as { ownerFilters?: string[]; abmTierFilter?: string };
-      const ownerFilters: string[] = Array.isArray(stored.ownerFilters) ? stored.ownerFilters : [];
-      const abmTierFilter: string = stored.abmTierFilter ?? "";
-      const isActive = ownerFilters.length > 0 || !!abmTierFilter;
-      if (!isActive) return { activeFilter: null, activeViewName: null };
-      // Try to find a matching saved view by name
-      const views: SavedView[] = JSON.parse(localStorage.getItem(viewsKey) ?? "[]");
-      const match = views.find(v =>
-        v.filters.abmTierFilter === abmTierFilter &&
-        v.filters.ownerFilters.length === ownerFilters.length &&
-        v.filters.ownerFilters.every(o => ownerFilters.includes(o))
-      );
-      return { activeFilter: { ownerFilters, abmTierFilter }, activeViewName: match?.name ?? null };
-    } catch {
-      return { activeFilter: null, activeViewName: null };
-    }
-  }, [user?.userId]);
 
   useEffect(() => {
     Promise.all([
@@ -148,25 +113,12 @@ export default function SalesDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Apply saved-view filters to accounts ──────────────────────────────────
-
-  const filteredAccounts = useMemo(() => {
-    if (!activeFilter) return accounts;
-    const { ownerFilters, abmTierFilter } = activeFilter;
-    return accounts.filter(a => {
-      const matchesTier  = !abmTierFilter      || a.abmTier === abmTierFilter;
-      const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-      return matchesTier && matchesOwner;
-    });
-  }, [accounts, activeFilter]);
-
   // ── Computed data ─────────────────────────────────────────────────────────
 
   const { hotAccounts, needsAttention, hotCount } = useMemo(() => {
-    if (!filteredAccounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
+    if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
 
     const now = Date.now();
-    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
     // Build microsite lookup: accountId → page count
     const micrositeCounts = new Map<number, number>();
@@ -192,7 +144,7 @@ export default function SalesDashboard() {
       daysSinceLastSignal: number | null;
     };
 
-    const enriched: EnrichedAccount[] = filteredAccounts.map(acct => {
+    const enriched: EnrichedAccount[] = accounts.map(acct => {
       const acctSignals = sigsByAccount.get(acct.id) ?? [];
       const score = computeScore(acctSignals, now);
       const sevenDaysAgo = now - SEVEN_DAYS_MS;
@@ -207,21 +159,22 @@ export default function SalesDashboard() {
       return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
-    // Hot accounts: have any signals in the last 7 days, sorted by score desc
+    // Hot accounts: have any signals, sorted by 7-day score desc
     const hot = enriched
       .filter(a => a.signalCount7d > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
-    // Needs attention: no microsite OR gone quiet (> 14 days since last signal)
+    // Needs attention: no microsite OR gone quiet (last signal > 14 days or no signal at all)
     const attention = enriched
       .filter(a => {
         if (!a.hasMicrosite) return true;
-        if (a.daysSinceLastSignal === null) return true;
-        if (a.daysSinceLastSignal > 14) return true;
+        if (a.daysSinceLastSignal === null) return true; // has microsite but 0 signals ever
+        if (a.daysSinceLastSignal > 14 && a.hasMicrosite) return true;
         return false;
       })
       .sort((a, b) => {
+        // No microsite first, then by longest quiet
         if (!a.hasMicrosite && b.hasMicrosite) return -1;
         if (a.hasMicrosite && !b.hasMicrosite) return 1;
         return (b.daysSinceLastSignal ?? 9999) - (a.daysSinceLastSignal ?? 9999);
@@ -229,25 +182,14 @@ export default function SalesDashboard() {
       .slice(0, 6);
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
-  }, [filteredAccounts, signals, micrositeGroups]);
+  }, [accounts, signals, micrositeGroups]);
 
-  const recentSignals = useMemo(() => {
-    const filteredAccountIds = new Set(filteredAccounts.map(a => a.id));
-    const filtered = activeFilter
-      ? signals.filter(s => s.accountId == null || filteredAccountIds.has(s.accountId))
-      : signals;
-    return [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [signals, filteredAccounts, activeFilter]);
+  const recentSignals = useMemo(
+    () => [...signals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
+    [signals]
+  );
 
-  const SIGNALS_PER_PAGE = 10;
-  const [signalsPage, setSignalsPage] = useState(0);
-  const signalsTotalPages = Math.max(1, Math.ceil(recentSignals.length / SIGNALS_PER_PAGE));
-  const paginatedSignals = recentSignals.slice(signalsPage * SIGNALS_PER_PAGE, (signalsPage + 1) * SIGNALS_PER_PAGE);
-
-  // Reset to page 0 whenever the filter changes
-  useEffect(() => { setSignalsPage(0); }, [activeFilter]);
-
-  const isEmpty = !loading && filteredAccounts.length === 0;
+  const isEmpty = !loading && accounts.length === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -272,8 +214,8 @@ export default function SalesDashboard() {
           {/* Summary strip */}
           <div className="relative flex items-center gap-5 shrink-0">
             <div className="text-center">
-              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{filteredAccounts.length}</p>}
-              <p className="text-xs text-white/50 font-medium">{activeFilter ? "In view" : "Accounts"}</p>
+              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{accounts.length}</p>}
+              <p className="text-xs text-white/50 font-medium">Accounts</p>
             </div>
             <div className="w-px h-8 bg-white/10" />
             <div className="text-center">
@@ -294,37 +236,6 @@ export default function SalesDashboard() {
           </div>
         </div>
 
-        {/* ── Active view banner ──────────────────────────────────────── */}
-        {activeFilter && !viewDismissed && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5">
-            <div className="flex items-center gap-2 text-sm">
-              <BookmarkCheck className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-foreground font-medium">
-                {activeViewName
-                  ? <>Showing <span className="text-primary font-semibold">"{activeViewName}"</span></>
-                  : <>Filtered view active</>}
-                {activeFilter.abmTierFilter && (
-                  <span className="ml-2 text-muted-foreground">· {activeFilter.abmTierFilter}</span>
-                )}
-                {activeFilter.ownerFilters.length > 0 && (
-                  <span className="ml-1 text-muted-foreground">
-                    · {activeFilter.ownerFilters.length === 1 ? activeFilter.ownerFilters[0] : `${activeFilter.ownerFilters.length} owners`}
-                  </span>
-                )}
-              </span>
-              <span className="text-muted-foreground">— {filteredAccounts.length} of {accounts.length} accounts</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Link href="/sales/accounts">
-                <button className="text-xs font-semibold text-primary hover:underline">Change view</button>
-              </Link>
-              <button onClick={() => setViewDismissed(true)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* ── Tool Cards ─────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3">
           <h2 className="text-base font-display font-bold text-foreground">Your tools</h2>
@@ -336,6 +247,8 @@ export default function SalesDashboard() {
               { id: "campaigns",  icon: <Send className="w-5 h-5" />,      title: "Campaigns",    description: "Bulk email outreach. Build audiences, compose templated emails with merge variables, and track performance.", cta: "View Campaigns →", href: "/sales/campaigns" },
               { id: "activity",   icon: <Zap className="w-5 h-5" />,       title: "Activity",     description: "Engagement intelligence. See who visited your microsites, opened emails, clicked CTAs, and submitted forms.", cta: "View Activity →",  href: "/sales/signals" },
               { id: "contacts",   icon: <Contact className="w-5 h-5" />,   title: "Contacts",     description: "Your prospect database. Browse contacts, see engagement scores, and draft personalized emails in one click.", cta: "View Contacts →",  href: "/sales/contacts" },
+              { id: "roi-calc",   icon: <Calculator className="w-5 h-5" />, title: "ROI Calculator", description: "Calculate invisible waste impact for DSO prospects. Model denture workflow and remake savings across practices.", cta: "Open Calculator →", href: "/sales/roi-calculator" },
+              { id: "one-pager",  icon: <FileText className="w-5 h-5" />,  title: "One-Pager",     description: "Generate branded PDF one-pagers for prospects. Choose from 5 templates, customize content, and export.", cta: "Create One-Pager →", href: "/sales/one-pager" },
             ].map(tool => (
               <Link href={tool.href} key={tool.id}>
                 <Card className="group relative h-full flex flex-col gap-3 p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
@@ -443,7 +356,7 @@ export default function SalesDashboard() {
 
                           {/* Account info */}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.displayName ?? acct.name}</p>
+                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                               <span className="font-medium text-foreground/70">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
                               {acct.lastSignal && (
@@ -462,12 +375,12 @@ export default function SalesDashboard() {
 
                           {/* Quick actions */}
                           <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Link href={`/sales/accounts/${acct.id}`}>
+                            <Link href={`/sales/accounts?highlight=${acct.id}`}>
                               <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1">
                                 <Building2 className="w-3 h-3" />View
                               </Button>
                             </Link>
-                            <Link href="/sales/draft-email">
+                            <Link href={`/sales/draft-email?accountId=${acct.id}`}>
                               <Button size="sm" className="h-7 px-2.5 text-xs gap-1" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
                                 <PenTool className="w-3 h-3" />Draft email
                               </Button>
@@ -494,7 +407,7 @@ export default function SalesDashboard() {
                   </Link>
                 </div>
 
-                <div className="flex flex-col gap-1.5 max-h-[420px] overflow-y-auto pr-0.5 scrollbar-thin">
+                <div className="flex flex-col gap-1.5">
                   {loading ? (
                     [...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
                   ) : recentSignals.length === 0 ? (
@@ -503,7 +416,7 @@ export default function SalesDashboard() {
                       <p className="text-xs text-muted-foreground">No signals yet — send outreach to start seeing engagement.</p>
                     </Card>
                   ) : (
-                    paginatedSignals.map(signal => (
+                    recentSignals.map(signal => (
                       <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/20 transition-colors">
                         <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 mt-0.5">
                           {getSignalIcon(signal.type, "w-3.5 h-3.5")}
@@ -523,28 +436,6 @@ export default function SalesDashboard() {
                     ))
                   )}
                 </div>
-
-                {!loading && signalsTotalPages > 1 && (
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      onClick={() => setSignalsPage(p => Math.max(0, p - 1))}
-                      disabled={signalsPage === 0}
-                      className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-2 py-1 rounded-md hover:bg-muted"
-                    >
-                      ← Prev
-                    </button>
-                    <span className="text-[11px] text-muted-foreground">
-                      {signalsPage + 1} / {signalsTotalPages}
-                    </span>
-                    <button
-                      onClick={() => setSignalsPage(p => Math.min(signalsTotalPages - 1, p + 1))}
-                      disabled={signalsPage >= signalsTotalPages - 1}
-                      className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-2 py-1 rounded-md hover:bg-muted"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -556,6 +447,7 @@ export default function SalesDashboard() {
                   <h2 className="text-base font-display font-bold text-foreground">Needs attention</h2>
                   <span className="text-xs text-muted-foreground font-normal">— no microsite or gone quiet</span>
                 </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {loading ? (
                     [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
@@ -570,21 +462,21 @@ export default function SalesDashboard() {
                       return (
                         <Card key={acct.id} className="group flex flex-col gap-2.5 p-4 rounded-xl border border-border/60 hover:border-amber-200 hover:shadow-sm transition-all">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.displayName ?? acct.name}</p>
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${noMicrosite ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
+                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${noMicrosite ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
                               {reason}
                             </span>
                           </div>
                           {acct.segment && <p className="text-xs text-muted-foreground">{acct.segment}</p>}
                           <div className="flex items-center gap-1.5 mt-auto pt-1">
                             {noMicrosite ? (
-                              <Link href={`/sales/accounts/${acct.id}`} className="w-full">
+                              <Link href={`/sales/accounts?highlight=${acct.id}`}>
                                 <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
                                   <Sparkles className="w-3 h-3" />Generate microsite
                                 </Button>
                               </Link>
                             ) : (
-                              <Link href="/sales/draft-email" className="w-full">
+                              <Link href={`/sales/draft-email?accountId=${acct.id}`}>
                                 <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 w-full">
                                   <PenTool className="w-3 h-3" />Re-engage
                                 </Button>

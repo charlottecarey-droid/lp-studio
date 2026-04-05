@@ -8,17 +8,17 @@ const router = Router();
 const ALL_PERMS = {
   pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
   blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-  sales_outreach: true, sales_signals: true, settings: true, team: true, roles: true,
+  sales_outreach: true, sales_campaigns: true, sales_signals: true, settings: true, team: true, roles: true,
 };
 const EDITOR_PERMS = {
   pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
   blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-  sales_outreach: true, sales_signals: true, settings: false, team: false, roles: false,
+  sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
 };
 const VIEWER_PERMS = {
   pages: true, tests: false, analytics: true, forms_leads: false, brand: false,
   blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-  sales_outreach: false, sales_signals: true, settings: false, team: false, roles: false,
+  sales_outreach: false, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
 };
 
 async function seedDefaultRoles(client: any, tenantId: number): Promise<number> {

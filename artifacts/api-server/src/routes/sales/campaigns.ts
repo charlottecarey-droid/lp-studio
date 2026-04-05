@@ -1,4 +1,4 @@
-import { getTenantId } from "../../middleware/requireAuth";
+import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { createHmac } from "crypto";
@@ -177,7 +177,7 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/campaigns", async (req, res): Promise<void> => {
+router.post("/campaigns", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, templateId, accountId, status, scheduledAt, metadata } = req.body;
   if (!name || !templateId) {
@@ -223,7 +223,7 @@ router.post("/campaigns", async (req, res): Promise<void> => {
 });
 
 // ─── Clone campaign ────────────────────────────────────────
-router.post("/campaigns/:id/clone", async (req, res): Promise<void> => {
+router.post("/campaigns/:id/clone", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [original] = await db.select().from(salesEmailCampaignsTable)
@@ -244,7 +244,7 @@ router.post("/campaigns/:id/clone", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/campaigns/:id", async (req, res): Promise<void> => {
+router.patch("/campaigns/:id", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const updates: Record<string, unknown> = {};
@@ -265,7 +265,7 @@ router.patch("/campaigns/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/campaigns/:id", async (req, res): Promise<void> => {
+router.delete("/campaigns/:id", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
@@ -282,7 +282,7 @@ router.delete("/campaigns/:id", async (req, res): Promise<void> => {
 
 // ─── Campaign Send ──────────────────────────────────────────
 
-router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
+router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
   const campaignId = Number(req.params.id);
   try {
     // Load campaign
