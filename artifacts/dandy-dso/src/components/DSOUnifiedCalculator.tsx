@@ -219,6 +219,7 @@ function DSOCalculatorInner() {
       }, 2000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [practices]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 

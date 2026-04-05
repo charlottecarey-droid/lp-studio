@@ -100,7 +100,7 @@ function useEngagementSignal(companyName: string, sfdcId: string | null) {
 
     async function compute() {
       const sites = await findMicrositesBySfdc(sfdcId, companyName);
-      const ids = sites?.map(s => s.id) || [];
+      const ids = sites?.map((s: any) => s.id) || [];
 
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -159,7 +159,7 @@ function useEngagementSignal(companyName: string, sfdcId: string | null) {
           .select("id")
           .eq("salesforce_id", sfdcId);
         if (contacts?.length) {
-          const contactIds = contacts.map(c => c.id);
+          const contactIds = contacts.map((c: any) => c.id);
           const { data: sends } = await supabase
             .from("email_campaign_sends")
             .select("opened_at, clicked_at")

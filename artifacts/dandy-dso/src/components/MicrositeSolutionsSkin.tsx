@@ -467,7 +467,7 @@ const MicrositeSolutionsSkin = ({ data, onOpenDemo: _rawOnOpenDemo, skinConfig, 
     <section key="statsBar" className="bg-white border-b border-gray-100">
       <div className="max-w-5xl mx-auto px-6 py-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }} className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {displayStats.map((stat, i) => (
+          {displayStats.map((stat: any, i: number) => (
             <div key={i} className="text-center">
               <p className="text-4xl md:text-5xl font-bold" style={{ color: primaryColor }}>{stat.value}</p>
               <p className="text-sm text-gray-400 mt-2">{stat.label}</p>

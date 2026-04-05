@@ -74,14 +74,14 @@ export default function AccountTimeline({ companyName, sfdcId }: { companyName: 
             .order("viewed_at", { ascending: false })
             .limit(50);
 
-          const hlIds = (views || []).filter(v => v.hotlink_id).map(v => v.hotlink_id!);
+          const hlIds = (views || []).filter((v: any) => v.hotlink_id).map((v: any) => v.hotlink_id!);
           let hlMap: Record<string, string> = {};
           if (hlIds.length) {
             const { data: hls } = await supabase
               .from("microsite_hotlinks")
               .select("id, recipient_name")
               .in("id", hlIds);
-            hlMap = Object.fromEntries((hls || []).map(h => [h.id, h.recipient_name]));
+            hlMap = Object.fromEntries((hls || []).map((h: any) => [h.id, h.recipient_name]));
           }
 
           for (const v of views || []) {
@@ -169,9 +169,9 @@ export default function AccountTimeline({ companyName, sfdcId }: { companyName: 
             .eq("salesforce_id", sfdcId);
 
           if (contacts?.length) {
-            const contactIds = contacts.map(c => c.id);
+            const contactIds = contacts.map((c: any) => c.id);
             const contactNameMap = Object.fromEntries(
-              contacts.map(c => [c.id, [c.first_name, c.last_name].filter(Boolean).join(" ") || "Unknown"])
+              contacts.map((c: any) => [c.id, [c.first_name, c.last_name].filter(Boolean).join(" ") || "Unknown"])
             );
 
             const { data: campaignSends } = await supabase

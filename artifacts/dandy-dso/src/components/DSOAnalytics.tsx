@@ -355,7 +355,7 @@ const SiteTable = ({ sites, siteStats, getAlerts, getRecentViews, getButtonClick
                               {getRecentViews(site.id).length === 0 ? (
                                 <p className="text-xs text-muted-foreground/50">No views yet</p>
                               ) : (
-                                getRecentViews(site.id).map(v => {
+                                getRecentViews(site.id).map((v: any) => {
                                   const referrerHost = getReferrerHost(v.referrer);
 
                                   return (
@@ -385,7 +385,7 @@ const SiteTable = ({ sites, siteStats, getAlerts, getRecentViews, getButtonClick
                               {getButtonClicks(site.id).length === 0 ? (
                                 <p className="text-xs text-muted-foreground/50">No clicks recorded yet</p>
                               ) : (
-                                getButtonClicks(site.id).map(e => {
+                                getButtonClicks(site.id).map((e: any) => {
                                   const d = e.event_data || {};
                                   const label = d.label || "Unknown";
                                   const section = d.section || null;
@@ -420,7 +420,7 @@ const SiteTable = ({ sites, siteStats, getAlerts, getRecentViews, getButtonClick
                           <div>
                             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Alert Emails</h4>
                             <div className="space-y-2">
-                              {siteAlerts.map(a => (
+                              {siteAlerts.map((a: any) => (
                                 <div key={a.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/5 border border-border/20">
                                   <div className="flex items-center gap-2">
                                     <Bell className="w-3 h-3 text-primary" />
@@ -441,7 +441,7 @@ const SiteTable = ({ sites, siteStats, getAlerts, getRecentViews, getButtonClick
                                     type="email"
                                     placeholder="rep@company.com"
                                     value={emailInput[site.id] || ""}
-                                    onChange={e => setEmailInput(prev => ({ ...prev, [site.id]: e.target.value }))}
+                                    onChange={(e: any) => setEmailInput((prev: any) => ({ ...prev, [site.id]: e.target.value }))}
                                     onKeyDown={e => e.key === "Enter" && addAlertEmail(site.id)}
                                     className="flex-1 h-8 px-3 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
                                     autoFocus

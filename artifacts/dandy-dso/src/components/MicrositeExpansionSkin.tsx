@@ -752,14 +752,14 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
             </div>
           </FadeSection>
           <div className="flex flex-wrap justify-center gap-8">
-            {teamMembers.map((member, i) => (
+            {teamMembers.map((member: any, i: number) => (
               <FadeSection key={i} delay={i * 0.1}>
                 <div className="w-[280px] p-8 rounded-2xl bg-gray-50 border border-gray-100 hover:shadow-lg transition-all text-center">
                   {member.photo ? (
                     <img src={member.photo} alt={member.name} className="w-28 h-28 rounded-full mx-auto mb-6 object-cover ring-2 ring-gray-200" />
                   ) : (
                     <div className="w-28 h-28 rounded-full mx-auto mb-6 flex items-center justify-center text-2xl font-bold text-white ring-2 ring-gray-200" style={{ backgroundColor: BRAND }}>
-                      {member.name.split(" ").map(n => n[0]).join("")}
+                      {member.name.split(" ").map((n: string) => n[0]).join("")}
                     </div>
                   )}
                   <h3 className="text-lg font-bold mb-1" style={{ color: BRAND }}>{member.name}</h3>
@@ -799,7 +799,7 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
             </div>
           </FadeSection>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
-            {perks.map((perk, i) => {
+            {perks.map((perk: any, i: number) => {
               const Icon = PERK_ICONS[perk.icon] || Star;
               return (
                 <FadeSection key={i} delay={i * 0.08}>
@@ -828,7 +828,7 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
             </div>
           </FadeSection>
           <div className="flex flex-wrap justify-center gap-6">
-            {promos.map((promo, i) => (
+            {promos.map((promo: any, i: number) => (
               <FadeSection key={i} delay={i * 0.1}>
                 <div className="relative w-[320px] p-8 rounded-2xl bg-gray-50 hover:shadow-lg transition-all h-full flex flex-col border border-gray-100">
                   {promo.badge && (
@@ -945,7 +945,7 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
                       exit={{ x: `${resourceDir.current * -100}%`, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
                     >
-                      {contentLinks.slice(resourcePage, resourcePage + visible).map((link, i) => {
+                      {contentLinks.slice(resourcePage, resourcePage + visible).map((link: any, i: number) => {
                         const Icon = CONTENT_TYPE_ICONS[link.type] || FileText;
                         return (
                           <motion.a
