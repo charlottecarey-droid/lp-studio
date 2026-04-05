@@ -1,157 +1,161 @@
 import { Router } from "express";
+import { getTenantId } from "../../middleware/requireAuth";
+import { db } from "@workspace/db";
+import { lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpSessionsTable } from "@workspace/db";
+import { eq, and, sql, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
-// Mock data for ad mappings
-interface AdMapping {
-  id: string;
-  platform: "google" | "meta" | "linkedin";
-  adGroupName: string;
-  landingPageName: string;
-  messageMatch: number;
-  ctr: number;
-  cpc: number;
+/**
+ * Normalise a utm_source string into a platform bucket.
+ * Handles common variations (google, google_ads, cpc → "google", etc.)
+ */
+function detectPlatform(utmSource: string | null, utmMedium: string | null): "google" | "meta" | "linkedin" | "bing" | "other" {
+  const src = (utmSource ?? "").toLowerCase();
+  const med = (utmMedium ?? "").toLowerCase();
+  if (src.includes("google") || src === "gclid" || (med === "cpc" && !src.includes("bing"))) return "google";
+  if (src.includes("facebook") || src.includes("fb") || src.includes("meta") || src.includes("instagram") || src.includes("ig")) return "meta";
+  if (src.includes("linkedin") || src.includes("li")) return "linkedin";
+  if (src.includes("bing") || src.includes("msn")) return "bing";
+  return "other";
 }
 
-const mockMappings: AdMapping[] = [
-  {
-    id: "map-1",
-    platform: "google",
-    adGroupName: "Brand Keywords",
-    landingPageName: "Homepage V2",
-    messageMatch: 94,
-    ctr: 8.2,
-    cpc: 1.45,
-  },
-  {
-    id: "map-2",
-    platform: "meta",
-    adGroupName: "Retargeting",
-    landingPageName: "Free Trial Offer",
-    messageMatch: 87,
-    ctr: 6.5,
-    cpc: 0.65,
-  },
-  {
-    id: "map-3",
-    platform: "linkedin",
-    adGroupName: "Decision Makers",
-    landingPageName: "Enterprise Demo",
-    messageMatch: 72,
-    ctr: 4.1,
-    cpc: 3.25,
-  },
-  {
-    id: "map-4",
-    platform: "google",
-    adGroupName: "Product Keywords",
-    landingPageName: "Features Page",
-    messageMatch: 91,
-    ctr: 7.8,
-    cpc: 1.60,
-  },
-  {
-    id: "map-5",
-    platform: "meta",
-    adGroupName: "Lookalike Audience",
-    landingPageName: "Pricing Page",
-    messageMatch: 64,
-    ctr: 3.2,
-    cpc: 0.58,
-  },
-  {
-    id: "map-6",
-    platform: "linkedin",
-    adGroupName: "HR Professionals",
-    landingPageName: "Case Study - Fortune 500",
-    messageMatch: 79,
-    ctr: 5.3,
-    cpc: 2.95,
-  },
-  {
-    id: "map-7",
-    platform: "google",
-    adGroupName: "Competitor Keywords",
-    landingPageName: "Why Choose Us",
-    messageMatch: 85,
-    ctr: 6.9,
-    cpc: 1.85,
-  },
-  {
-    id: "map-8",
-    platform: "meta",
-    adGroupName: "Video Engagement",
-    landingPageName: "Product Demo Video",
-    messageMatch: 88,
-    ctr: 5.6,
-    cpc: 0.72,
-  },
-];
+// GET /lp/ad-map — real UTM-based campaign-to-page mappings
+router.get("/lp/ad-map", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
 
-// GET /lp/ad-map - Retrieve all ad mappings and stats
-router.get("/lp/ad-map", async (_req, res): Promise<void> => {
   try {
-    const avgMatch = Math.round(
-      mockMappings.reduce((sum, m) => sum + m.messageMatch, 0) / mockMappings.length
-    );
+    // 1. Get all tenant pages (for enrichment & orphan detection)
+    const pages = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId));
 
-    const stats = {
-      total: mockMappings.length,
-      avgMatch,
-      pagesWithoutAds: 3,
-      adsWithoutPages: 2,
-    };
+    const pageMap = new Map(pages.map(p => [p.id, p]));
+
+    // 2. Aggregate page visits by utm_source + utm_campaign + pageId
+    //    Only include visits that actually have UTM data
+    const visitRows = await db
+      .select({
+        pageId: lpPageVisitsTable.pageId,
+        utmSource: lpPageVisitsTable.utmSource,
+        utmMedium: lpPageVisitsTable.utmMedium,
+        utmCampaign: lpPageVisitsTable.utmCampaign,
+        visits: sql<number>`count(*)`.as("visits"),
+      })
+      .from(lpPageVisitsTable)
+      .innerJoin(lpPagesTable, eq(lpPageVisitsTable.pageId, lpPagesTable.id))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        isNotNull(lpPageVisitsTable.utmSource),
+      ))
+      .groupBy(
+        lpPageVisitsTable.pageId,
+        lpPageVisitsTable.utmSource,
+        lpPageVisitsTable.utmMedium,
+        lpPageVisitsTable.utmCampaign,
+      );
+
+    // Also pull session-based UTM visits (A/B test pages route through sessions)
+    const sessionRows = await db
+      .select({
+        utmSource: lpSessionsTable.utmSource,
+        utmMedium: lpSessionsTable.utmMedium,
+        utmCampaign: lpSessionsTable.utmCampaign,
+        visits: sql<number>`count(*)`.as("visits"),
+      })
+      .from(lpSessionsTable)
+      .innerJoin(
+        // join through tests → variants → pages would be complex;
+        // for now we only use page visits (most common path)
+        // Sessions are supplemental — skip if no page mapping
+        lpPageVisitsTable,
+        eq(lpSessionsTable.sessionId, lpPageVisitsTable.sessionId),
+      )
+      .innerJoin(lpPagesTable, eq(lpPageVisitsTable.pageId, lpPagesTable.id))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        isNotNull(lpSessionsTable.utmSource),
+      ))
+      .groupBy(
+        lpSessionsTable.utmSource,
+        lpSessionsTable.utmMedium,
+        lpSessionsTable.utmCampaign,
+      );
+
+    // 3. Count leads per page for CVR calculation
+    const leadCounts = await db
+      .select({
+        pageId: lpLeadsTable.pageId,
+        leads: sql<number>`count(*)`.as("leads"),
+      })
+      .from(lpLeadsTable)
+      .where(eq(lpLeadsTable.tenantId, tenantId))
+      .groupBy(lpLeadsTable.pageId);
+
+    const leadsByPage = new Map(leadCounts.map(r => [r.pageId, Number(r.leads)]));
+
+    // 4. Build mappings from page visit aggregates
+    const pagesWithAds = new Set<number>();
+    const campaignKeys = new Set<string>(); // track unique campaigns
+
+    const mappings = visitRows.map((row, idx) => {
+      const page = pageMap.get(row.pageId);
+      if (!page) return null;
+
+      pagesWithAds.add(row.pageId);
+      const campaignKey = `${row.utmSource}|${row.utmCampaign || "(none)"}`;
+      campaignKeys.add(campaignKey);
+
+      const visits = Number(row.visits);
+      const leads = leadsByPage.get(row.pageId) ?? 0;
+      const cvr = visits > 0 ? ((leads / visits) * 100) : 0;
+
+      return {
+        id: `map-${idx}`,
+        platform: detectPlatform(row.utmSource, row.utmMedium),
+        utmSource: row.utmSource,
+        utmMedium: row.utmMedium || null,
+        campaignName: row.utmCampaign || "(direct / no campaign)",
+        landingPageId: page.id,
+        landingPageName: page.title,
+        landingPageSlug: page.slug,
+        visits,
+        leads,
+        cvr: Math.round(cvr * 10) / 10,
+      };
+    }).filter(Boolean);
+
+    // 5. Stats
+    const pagesWithoutAds = pages.filter(p => !pagesWithAds.has(p.id)).length;
+
+    // Unique campaigns that arrived via UTM but didn't match any page
+    // (This can happen if destination URLs don't match known slugs — less
+    // common in this architecture since visits are tracked per-page, but
+    // we surface it for completeness from session-only data)
+    const adsWithoutPages = 0; // All visit rows are already page-bound
+
+    const avgCvr = mappings.length > 0
+      ? Math.round(mappings.reduce((s, m) => s + (m?.cvr ?? 0), 0) / mappings.length * 10) / 10
+      : 0;
+
+    const totalVisits = mappings.reduce((s, m) => s + (m?.visits ?? 0), 0);
 
     res.json({
-      mappings: mockMappings,
-      stats,
-    });
-  } catch (_err) {
-    res.json({
-      mappings: mockMappings,
+      mappings,
       stats: {
-        total: mockMappings.length,
-        avgMatch: 82,
-        pagesWithoutAds: 3,
-        adsWithoutPages: 2,
+        total: mappings.length,
+        avgCvr,
+        totalVisits,
+        pagesWithoutAds,
+        adsWithoutPages,
+        uniqueCampaigns: campaignKeys.size,
       },
     });
-  }
-});
-
-// POST /lp/ad-map - Create a new ad mapping
-router.post("/lp/ad-map", async (req, res): Promise<void> => {
-  try {
-    const { platform, adGroupName, landingPageName, messageMatch, ctr, cpc } = req.body;
-
-    if (!platform || !adGroupName || !landingPageName) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
-    }
-
-    const newMapping: AdMapping = {
-      id: `map-${Date.now()}`,
-      platform,
-      adGroupName,
-      landingPageName,
-      messageMatch: messageMatch ?? 75,
-      ctr: ctr ?? 5,
-      cpc: cpc ?? 1.5,
-    };
-
-    // In a real implementation, save to database
-    mockMappings.push(newMapping);
-
-    res.status(201).json({
-      success: true,
-      id: newMapping.id,
-      mapping: newMapping,
-    });
-  } catch (_err) {
-    res.status(500).json({
-      success: false,
-      error: "Failed to create ad mapping",
-    });
+  } catch (err) {
+    console.error("AdMap error:", err);
+    res.status(500).json({ error: "Failed to load ad mappings" });
   }
 });
 

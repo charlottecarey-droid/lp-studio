@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Menu,
   Store,
-  Layers,
   Target,
   Gauge,
   Link2,
@@ -221,14 +220,6 @@ export function AppSidebar() {
                     <Link href="/templates" className="font-medium">
                       <Store className="w-4 h-4" />
                       <span>Templates</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/smart-sections"}>
-                    <Link href="/smart-sections" className="font-medium">
-                      <Layers className="w-4 h-4" />
-                      <span>Smart Sections</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
