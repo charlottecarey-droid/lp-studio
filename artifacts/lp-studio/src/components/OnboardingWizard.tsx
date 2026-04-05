@@ -90,9 +90,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     e.preventDefault();
   }
 
+  const isFullHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+
   async function handleFinish() {
     setSaving(true);
     setError("");
+
+    const safeColor = (v: string, fallback: string) => isFullHex(v) ? v : fallback;
+    const safePrimary = safeColor(primaryColor, "#1a1a2e");
+    const safeAccent = safeColor(accentColor, "#4f46e5");
+
     try {
       const existing = await fetchBrandConfig();
       await saveBrandConfig({
@@ -100,10 +107,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         brandName: brandName.trim(),
         taglines: tagline.trim() ? [tagline.trim()] : existing.taglines,
         logoUrl: logoUrl || existing.logoUrl,
-        primaryColor,
-        accentColor,
-        ctaBackground: accentColor,
-        ctaText: primaryColor,
+        primaryColor: safePrimary,
+        accentColor: safeAccent,
+        ctaBackground: safeAccent,
+        ctaText: safePrimary,
       });
 
       const completeRes = await fetch("/api/auth/complete-onboarding", {
