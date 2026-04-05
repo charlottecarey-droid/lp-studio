@@ -1918,9 +1918,12 @@ function AccountDetailView({ id }: { id: string }) {
       .catch(() => {});
   }, [id]);
 
-  // Detail tabs
+  // Detail tabs — honour ?tab= query param on mount
   type DetailTab = "overview" | "contacts" | "microsites" | "activity";
-  const [detailTab, setDetailTab] = useState<DetailTab>("overview");
+  const [detailTab, setDetailTab] = useState<DetailTab>(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return (["overview", "contacts", "microsites", "activity"].includes(t ?? "") ? t : "overview") as DetailTab;
+  });
 
   // Contacts section ref for scrolling
   const contactsSectionRef = useRef<HTMLDivElement>(null);

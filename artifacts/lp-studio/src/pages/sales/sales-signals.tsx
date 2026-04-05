@@ -406,34 +406,33 @@ export default function SalesSignals() {
                     width: "100%",
                     transform: `translateY(${virtualRow.start}px)`,
                   };
+                  const dest = signal.accountId
+                    ? `/sales/accounts/${signal.accountId}?tab=activity`
+                    : "/sales/signals";
                   return (
                     <div key={signal.id} style={rowStyle}>
-                      <div className="flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
-                          {getSignalIcon(signal.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">
-                            {signal.contactName ?? "Anonymous"}{" "}
-                            <span className="text-muted-foreground font-normal">
-                              {getSignalLabel(signal.type).toLowerCase()}
-                            </span>
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {signal.accountName && signal.accountId ? (
-                              <Link href={`/sales/accounts/${signal.accountId}`} className="font-medium text-primary hover:underline">
-                                {signal.accountName}
-                              </Link>
-                            ) : signal.accountName ? (
-                              <span className="font-medium">{signal.accountName}</span>
-                            ) : null}
-                            {signal.source && <span className="truncate">{signal.source}</span>}
+                      <Link href={dest} className="block">
+                        <div className="flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer">
+                          <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
+                            {getSignalIcon(signal.type)}
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">
+                              {signal.contactName ?? "Anonymous"}{" "}
+                              <span className="text-muted-foreground font-normal">
+                                {getSignalLabel(signal.type).toLowerCase()}
+                              </span>
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
+                              {signal.source && <span className="truncate">{signal.source}</span>}
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {format(new Date(signal.createdAt), "MMM d, h:mm a")}
+                          </span>
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {format(new Date(signal.createdAt), "MMM d, h:mm a")}
-                        </span>
-                      </div>
+                      </Link>
                     </div>
                   );
                 })}

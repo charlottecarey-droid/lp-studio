@@ -407,7 +407,11 @@ export default function SalesDashboard() {
                   ) : (
                     <div className="max-h-[340px] overflow-y-auto divide-y divide-border/40">
                       {recentSignals.map(signal => (
-                        <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors">
+                        <Link
+                          key={signal.id}
+                          href={signal.accountId ? `/sales/accounts/${signal.accountId}?tab=activity` : "/sales/signals"}
+                          className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors block"
+                        >
                           <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0 mt-0.5">
                             {getSignalIcon(signal.type, "w-3.5 h-3.5")}
                           </div>
@@ -417,18 +421,12 @@ export default function SalesDashboard() {
                               <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
                             </p>
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                              {signal.accountName && signal.accountId ? (
-                                <Link href={`/sales/accounts/${signal.accountId}`} className="font-medium text-primary hover:underline truncate">
-                                  {signal.accountName}
-                                </Link>
-                              ) : signal.accountName ? (
-                                <span className="font-medium truncate">{signal.accountName}</span>
-                              ) : null}
+                              {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
                               <span className="text-border shrink-0">·</span>
                               <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
