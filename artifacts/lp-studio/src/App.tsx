@@ -20,9 +20,37 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   }
   componentDidCatch(err: unknown, info: { componentStack: string }) {
     console.error("[RouteErrorBoundary]", err, info.componentStack);
+    const message = err instanceof Error ? err.message : String(err);
+    const isChunkError =
+      message.includes("Failed to fetch dynamically imported module") ||
+      message.includes("Importing a module script failed") ||
+      message.includes("ChunkLoadError");
+    if (isChunkError) {
+      // Auto-reload once — guard against infinite loops with a timestamp check
+      const key = "chunkErrReloadAt";
+      const last = sessionStorage.getItem(key);
+      const now = Date.now();
+      if (!last || now - parseInt(last, 10) > 15_000) {
+        sessionStorage.setItem(key, String(now));
+        window.location.reload();
+      }
+    }
   }
   render() {
     if (this.state.hasError) {
+      const isChunkError =
+        this.state.message.includes("Failed to fetch dynamically imported module") ||
+        this.state.message.includes("Importing a module script failed") ||
+        this.state.message.includes("ChunkLoadError");
+      // Show a brief "Reloading…" message while the auto-reload fires
+      if (isChunkError) {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-6 text-center bg-background">
+            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-sm text-muted-foreground">Loading latest version…</p>
+          </div>
+        );
+      }
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-6 text-center bg-background">
           <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
