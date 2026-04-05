@@ -195,76 +195,63 @@ export default function SalesDashboard() {
 
   return (
     <SalesLayout>
-      <div className="flex flex-col gap-6 pb-12">
+      <div className="flex flex-col gap-8 pb-12">
 
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <div
-          className="relative rounded-2xl overflow-hidden px-8 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-5"
-          style={{ background: "linear-gradient(135deg, #003A30 0%, #005244 50%, #003A30 100%)" }}
-        >
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #C7E738 0%, transparent 50%), radial-gradient(circle at 80% 20%, #C7E738 0%, transparent 40%)" }}
-          />
-          <div className="relative">
-            <h1 className="text-2xl md:text-3xl font-display font-bold text-white">{getGreeting()}</h1>
-            <p className="text-white/50 mt-1 text-sm">Here's what needs your attention today.</p>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-2">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{getGreeting()}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Here's what needs your attention today.</p>
           </div>
+          <Link href="/sales/accounts" className="hidden sm:block">
+            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />New account
+            </Button>
+          </Link>
+        </div>
 
-          {/* Summary strip */}
-          <div className="relative flex items-center gap-5 shrink-0">
-            <div className="text-center">
-              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{accounts.length}</p>}
-              <p className="text-xs text-white/50 font-medium">Accounts</p>
+        {/* ── Stats strip ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Accounts", value: accounts.length, color: "text-foreground" },
+            { label: "Hot this week", value: hotCount, color: "text-orange-600 dark:text-orange-400" },
+            { label: "Signals today", value: signalsToday, color: "text-foreground" },
+          ].map(stat => (
+            <div key={stat.label} className="bg-card border border-border/50 rounded-xl px-5 py-4">
+              {loading ? (
+                <Skeleton className="h-8 w-12 mb-1" />
+              ) : (
+                <p className={`text-2xl font-semibold tracking-tight ${stat.color}`}>{stat.value}</p>
+              )}
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">{stat.label}</p>
             </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="text-center">
-              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-[#C7E738]">{hotCount}</p>}
-              <p className="text-xs text-white/50 font-medium">Hot this week</p>
-            </div>
-            <div className="w-px h-8 bg-white/10" />
-            <div className="text-center">
-              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{signalsToday}</p>}
-              <p className="text-xs text-white/50 font-medium">Signals today</p>
-            </div>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
-            <Link href="/sales/accounts" className="hidden sm:block">
-              <Button size="sm" className="rounded-xl font-semibold" style={{ backgroundColor: "#C7E738", color: "#003A30" }}>
-                <Plus className="w-4 h-4 mr-1.5" />New account
-              </Button>
-            </Link>
-          </div>
+          ))}
         </div>
 
         {/* ── Tool Cards ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <h2 className="text-base font-display font-bold text-foreground">Your tools</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quick access</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { id: "accounts",   icon: <Building2 className="w-5 h-5" />, title: "Accounts",    description: "Your target DSOs. Search, filter by ABM stage, view engagement history and AI briefings.", cta: "View Accounts →",  href: "/sales/accounts" },
-              { id: "draft",      icon: <PenTool className="w-5 h-5" />,   title: "Draft Email",  description: "AI-powered outreach. Pick a contact and generate a research-driven personalized email in seconds.", cta: "Draft Email →",    href: "/sales/draft-email" },
-              { id: "microsites", icon: <Globe className="w-5 h-5" />,     title: "Microsites",   description: "Personalized landing pages. Create branded microsites for prospects, customize sections, and generate trackable hotlinks.", cta: "View Microsites →", href: "/sales/microsites" },
-              { id: "campaigns",  icon: <Send className="w-5 h-5" />,      title: "Campaigns",    description: "Bulk email outreach. Build audiences, compose templated emails with merge variables, and track performance.", cta: "View Campaigns →", href: "/sales/campaigns" },
-              { id: "activity",   icon: <Zap className="w-5 h-5" />,       title: "Activity",     description: "Engagement intelligence. See who visited your microsites, opened emails, clicked CTAs, and submitted forms.", cta: "View Activity →",  href: "/sales/signals" },
-              { id: "contacts",   icon: <Contact className="w-5 h-5" />,   title: "Contacts",     description: "Your prospect database. Browse contacts, see engagement scores, and draft personalized emails in one click.", cta: "View Contacts →",  href: "/sales/contacts" },
-              { id: "roi-calc",   icon: <Calculator className="w-5 h-5" />, title: "ROI Calculator", description: "Calculate invisible waste impact for DSO prospects. Model denture workflow and remake savings across practices.", cta: "Open Calculator →", href: "/sales/roi-calculator" },
-              { id: "one-pager",  icon: <FileText className="w-5 h-5" />,  title: "One-Pager",     description: "Generate branded PDF one-pagers for prospects. Choose from 5 templates, customize content, and export.", cta: "Create One-Pager →", href: "/sales/one-pager" },
+              { id: "accounts",   icon: <Building2 className="w-4 h-4" />, title: "Accounts",       href: "/sales/accounts" },
+              { id: "draft",      icon: <PenTool className="w-4 h-4" />,   title: "Draft Email",     href: "/sales/draft-email" },
+              { id: "microsites", icon: <Globe className="w-4 h-4" />,     title: "Microsites",      href: "/sales/microsites" },
+              { id: "campaigns",  icon: <Send className="w-4 h-4" />,      title: "Campaigns",       href: "/sales/campaigns" },
+              { id: "activity",   icon: <Zap className="w-4 h-4" />,       title: "Activity",        href: "/sales/signals" },
+              { id: "contacts",   icon: <Contact className="w-4 h-4" />,   title: "Contacts",        href: "/sales/contacts" },
+              { id: "roi-calc",   icon: <Calculator className="w-4 h-4" />, title: "ROI Calculator", href: "/sales/roi-calculator" },
+              { id: "one-pager",  icon: <FileText className="w-4 h-4" />,  title: "One-Pager",       href: "/sales/one-pager" },
             ].map(tool => (
               <Link href={tool.href} key={tool.id}>
-                <Card className="group relative h-full flex flex-col gap-3 p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
-                  <div className="flex items-start justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-[#C7E738]/15 flex items-center justify-center text-[#2D6A4F] group-hover:bg-[#C7E738]/25 transition-colors">
-                      {tool.icon}
-                    </div>
+                <div className="group flex items-center gap-3 px-4 py-3.5 bg-card border border-border/50 rounded-xl hover:border-border hover:shadow-sm transition-all duration-200 cursor-pointer">
+                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:bg-[#1B4332]/10 group-hover:text-[#1B4332] dark:group-hover:bg-[#C7E738]/10 dark:group-hover:text-[#C7E738] transition-colors shrink-0">
+                    {tool.icon}
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-display font-bold text-foreground mb-1.5">{tool.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{tool.description}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
-                    {tool.cta}
-                  </div>
-                </Card>
+                  <span className="text-[13px] font-medium text-foreground">{tool.title}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </div>
               </Link>
             ))}
           </div>
@@ -273,24 +260,24 @@ export default function SalesDashboard() {
         {isEmpty ? (
           /* ── Onboarding ───────────────────────────────────────────── */
           <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-display font-bold text-foreground">Get started</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Get started</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { step: "01", title: "Add an account", desc: "Create your first target account — a DSO, practice, or company you want to engage.", cta: "Add Account", href: "/sales/accounts", icon: <Building2 className="w-5 h-5" />, primary: true },
-                { step: "02", title: "Build a microsite", desc: "Use the page builder to create a personalized microsite for the account.", cta: "Create Microsite", href: "/sales/microsites", icon: <FileText className="w-5 h-5" /> },
-                { step: "03", title: "Send outreach", desc: "Generate a personalized email, attach the microsite link, and send it.", cta: "Start Outreach", href: "/sales/draft-email", icon: <Mail className="w-5 h-5" /> },
+                { step: "1", title: "Add an account", desc: "Create your first target account — a DSO, practice, or company you want to engage.", cta: "Add Account", href: "/sales/accounts", icon: <Building2 className="w-4 h-4" />, primary: true },
+                { step: "2", title: "Build a microsite", desc: "Use the page builder to create a personalized microsite for the account.", cta: "Create Microsite", href: "/sales/microsites", icon: <FileText className="w-4 h-4" /> },
+                { step: "3", title: "Send outreach", desc: "Generate a personalized email, attach the microsite link, and send it.", cta: "Start Outreach", href: "/sales/draft-email", icon: <Mail className="w-4 h-4" /> },
               ].map(item => (
                 <Link href={item.href} key={item.step}>
-                  <Card className={`group h-full flex flex-col gap-4 p-6 rounded-2xl border cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${item.primary ? "border-primary/40 bg-primary/5 hover:border-primary/60" : "border-border/60 bg-card hover:border-primary/20"}`}>
+                  <Card className={`group h-full flex flex-col gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-sm ${item.primary ? "border-[#1B4332]/20 bg-[#1B4332]/[0.03] hover:border-[#1B4332]/30" : "border-border/50 bg-card hover:border-border"}`}>
                     <div className="flex items-start justify-between">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.primary ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors"}`}>{item.icon}</div>
-                      <span className="text-xs font-bold text-muted-foreground/50 font-mono">{item.step}</span>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.primary ? "bg-[#1B4332] text-[#C7E738]" : "bg-muted/60 text-muted-foreground group-hover:bg-muted transition-colors"}`}>{item.icon}</div>
+                      <span className="text-[11px] font-semibold text-muted-foreground/40 tabular-nums">Step {item.step}</span>
                     </div>
                     <div>
-                      <h3 className="font-display font-bold text-foreground mb-1.5">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                      <h3 className="text-sm font-semibold text-foreground mb-1">{item.title}</h3>
+                      <p className="text-[13px] text-muted-foreground leading-relaxed">{item.desc}</p>
                     </div>
-                    <div className="mt-auto flex items-center gap-1 text-sm font-semibold text-primary">{item.cta} <ChevronRight className="w-4 h-4" /></div>
+                    <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-[#1B4332] dark:text-[#C7E738]">{item.cta} <ChevronRight className="w-3.5 h-3.5" /></div>
                   </Card>
                 </Link>
               ))}
@@ -299,55 +286,55 @@ export default function SalesDashboard() {
         ) : (
           <>
             {/* ── Main 2-col layout ─────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
               {/* ── Hot accounts (wider) ─────────────────────────────── */}
               <div className="lg:col-span-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-orange-500" />
-                    <h2 className="text-base font-display font-bold text-foreground">Hot accounts</h2>
-                    <span className="text-xs text-muted-foreground font-normal">— most engaged this week</span>
+                    <Flame className="w-3.5 h-3.5 text-orange-500" />
+                    <h2 className="text-sm font-semibold text-foreground">Hot accounts</h2>
+                    <span className="text-xs text-muted-foreground/60">most engaged this week</span>
                   </div>
                   <Link href="/sales/accounts">
-                    <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1">
-                      All accounts <ArrowUpRight className="w-3 h-3" />
+                    <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
+                      View all <ArrowUpRight className="w-3 h-3" />
                     </span>
                   </Link>
                 </div>
 
-                {loading ? (
-                  <div className="flex flex-col gap-2">
-                    {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-                  </div>
-                ) : hotAccounts.length === 0 ? (
-                  <Card className="flex flex-col items-center gap-3 p-8 rounded-2xl border border-dashed border-border text-center">
-                    <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
-                      <Flame className="w-5 h-5 text-orange-400" />
+                <Card className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
+                  {loading ? (
+                    <div className="p-4 flex flex-col gap-3">
+                      {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">No engagement yet</p>
-                      <p className="text-xs text-muted-foreground mt-1">Accounts will appear here when contacts open emails or visit microsites.</p>
+                  ) : hotAccounts.length === 0 ? (
+                    <div className="flex flex-col items-center gap-3 p-8 text-center">
+                      <div className="w-9 h-9 rounded-lg bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center">
+                        <Flame className="w-4 h-4 text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground text-sm">No engagement yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">Accounts will appear here when contacts open emails or visit microsites.</p>
+                      </div>
+                      <Link href="/sales/microsites">
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-lg">
+                          <Globe className="w-3.5 h-3.5" />Create a microsite
+                        </Button>
+                      </Link>
                     </div>
-                    <Link href="/sales/microsites">
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                        <Globe className="w-3.5 h-3.5" />Create a microsite
-                      </Button>
-                    </Link>
-                  </Card>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {hotAccounts.map(acct => {
+                  ) : (
+                    hotAccounts.map(acct => {
                       const heat = acct.heat as "hot" | "warm" | "cool" | null;
                       const heatCfg = heat ? HEAT_CONFIG[heat] : null;
                       return (
                         <div
                           key={acct.id}
-                          className="group flex items-center gap-3 px-4 py-3.5 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:shadow-sm transition-all"
+                          className="group flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
                         >
                           {/* Heat badge */}
                           {heatCfg ? (
-                            <Badge variant="outline" className={`text-[10px] font-bold shrink-0 flex items-center gap-1 px-2 py-0.5 ${heatCfg.className}`}>
+                            <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md ${heatCfg.className}`}>
                               {heatCfg.icon}{heatCfg.label}
                             </Badge>
                           ) : (
@@ -356,17 +343,17 @@ export default function SalesDashboard() {
 
                           {/* Account info */}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
+                            <p className="text-[13px] font-medium text-foreground truncate">{acct.name}</p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span className="font-medium text-foreground/70">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
+                              <span className="tabular-nums">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
                               {acct.lastSignal && (
                                 <>
-                                  <span>·</span>
-                                  <span className="flex items-center gap-1">
+                                  <span className="text-border">·</span>
+                                  <span className="flex items-center gap-1 truncate">
                                     {getSignalIcon(acct.lastSignal.type, "w-3 h-3")}
                                     {getSignalLabel(acct.lastSignal.type).toLowerCase()}
                                     {" "}{formatDistanceToNow(new Date(acct.lastSignal.createdAt), { addSuffix: true })}
-                                    {acct.lastSignal.contactName && <span className="text-foreground/60">by {acct.lastSignal.contactName}</span>}
+                                    {acct.lastSignal.contactName && <span className="text-muted-foreground/60">by {acct.lastSignal.contactName}</span>}
                                   </span>
                                 </>
                               )}
@@ -376,49 +363,51 @@ export default function SalesDashboard() {
                           {/* Quick actions */}
                           <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <Link href={`/sales/accounts?highlight=${acct.id}`}>
-                              <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground">
                                 <Building2 className="w-3 h-3" />View
                               </Button>
                             </Link>
                             <Link href={`/sales/draft-email?accountId=${acct.id}`}>
-                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
-                                <PenTool className="w-3 h-3" />Draft email
+                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
+                                <PenTool className="w-3 h-3" />Email
                               </Button>
                             </Link>
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
-                )}
+                    })
+                  )}
+                </Card>
               </div>
 
               {/* ── Live signals feed (narrower) ─────────────────────── */}
               <div className="lg:col-span-2 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <h2 className="text-base font-display font-bold text-foreground">Live signals</h2>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <h2 className="text-sm font-semibold text-foreground">Live signals</h2>
                   </div>
                   <Link href="/sales/signals">
-                    <span className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1">
-                      All <ArrowUpRight className="w-3 h-3" />
+                    <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
+                      View all <ArrowUpRight className="w-3 h-3" />
                     </span>
                   </Link>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <Card className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
                   {loading ? (
-                    [...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
+                    <div className="p-3 flex flex-col gap-2">
+                      {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+                    </div>
                   ) : recentSignals.length === 0 ? (
-                    <Card className="flex flex-col items-center gap-2 p-6 rounded-2xl border border-dashed border-border text-center">
-                      <Activity className="w-5 h-5 text-muted-foreground/40" />
+                    <div className="flex flex-col items-center gap-2 p-6 text-center">
+                      <Activity className="w-4 h-4 text-muted-foreground/40" />
                       <p className="text-xs text-muted-foreground">No signals yet — send outreach to start seeing engagement.</p>
-                    </Card>
+                    </div>
                   ) : (
                     recentSignals.map(signal => (
-                      <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/20 transition-colors">
-                        <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 mt-0.5">
+                      <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0 mt-0.5">
                           {getSignalIcon(signal.type, "w-3.5 h-3.5")}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -428,14 +417,14 @@ export default function SalesDashboard() {
                           </p>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
                             {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
-                            <span>·</span>
+                            <span className="text-border">·</span>
                             <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
                           </div>
                         </div>
                       </div>
                     ))
                   )}
-                </div>
+                </Card>
               </div>
             </div>
 
@@ -443,9 +432,9 @@ export default function SalesDashboard() {
             {(loading || needsAttention.length > 0) && (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-500" />
-                  <h2 className="text-base font-display font-bold text-foreground">Needs attention</h2>
-                  <span className="text-xs text-muted-foreground font-normal">— no microsite or gone quiet</span>
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <h2 className="text-sm font-semibold text-foreground">Needs attention</h2>
+                  <span className="text-xs text-muted-foreground/60">no microsite or gone quiet</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -455,15 +444,15 @@ export default function SalesDashboard() {
                     needsAttention.map(acct => {
                       const noMicrosite = !acct.hasMicrosite;
                       const reason = noMicrosite
-                        ? "No microsite yet"
+                        ? "No microsite"
                         : acct.daysSinceLastSignal !== null
-                          ? `Quiet for ${acct.daysSinceLastSignal}d`
-                          : "No engagement yet";
+                          ? `Quiet ${acct.daysSinceLastSignal}d`
+                          : "No engagement";
                       return (
-                        <Card key={acct.id} className="group flex flex-col gap-2.5 p-4 rounded-xl border border-border/60 hover:border-amber-200 hover:shadow-sm transition-all">
+                        <Card key={acct.id} className="group flex flex-col gap-2 p-4 rounded-xl border border-border/50 hover:border-amber-200/60 dark:hover:border-amber-800/40 hover:shadow-sm transition-all">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${noMicrosite ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                            <p className="text-[13px] font-medium text-foreground truncate">{acct.name}</p>
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md shrink-0 ${noMicrosite ? "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>
                               {reason}
                             </span>
                           </div>
@@ -471,13 +460,13 @@ export default function SalesDashboard() {
                           <div className="flex items-center gap-1.5 mt-auto pt-1">
                             {noMicrosite ? (
                               <Link href={`/sales/accounts?highlight=${acct.id}`}>
-                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
+                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
                                   <Sparkles className="w-3 h-3" />Generate microsite
                                 </Button>
                               </Link>
                             ) : (
                               <Link href={`/sales/draft-email?accountId=${acct.id}`}>
-                                <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 w-full">
+                                <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg">
                                   <PenTool className="w-3 h-3" />Re-engage
                                 </Button>
                               </Link>

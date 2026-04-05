@@ -1710,7 +1710,7 @@ function AccountDetailView({ id }: { id: string }) {
       <SalesLayout>
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <p className="text-lg font-semibold text-foreground">Account not found</p>
-          <Button variant="outline" onClick={() => navigate("/sales/accounts")}>
+          <Button variant="outline" onClick={() => window.history.length > 1 ? window.history.back() : navigate("/sales/accounts")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Accounts
           </Button>
@@ -1736,7 +1736,7 @@ function AccountDetailView({ id }: { id: string }) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg mt-1"
-            onClick={() => navigate("/sales/accounts")}
+            onClick={() => window.history.length > 1 ? window.history.back() : navigate("/sales/accounts")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>

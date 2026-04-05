@@ -68,11 +68,9 @@ export default function TestDetail() {
       <div className="pb-20">
         {/* Header Section */}
         <div className="mb-8">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
-            </Button>
-          </Link>
+          <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/")}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
           
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div>

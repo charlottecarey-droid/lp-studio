@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -28,13 +29,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UserPlus, Trash2, Shield } from "lucide-react";
+import { UserPlus, Trash2, Shield, LayoutDashboard, TrendingUp, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+/* ── Permission key → area mapping ──────────────────────────────────── */
+
+const MARKETING_KEYS = ["pages", "tests", "analytics", "forms_leads", "brand", "blocks"];
+const SALES_KEYS = ["sales_dashboard", "sales_accounts", "sales_contacts", "sales_outreach", "sales_signals"];
+const ADMIN_KEYS = ["settings", "team", "roles"];
+
+function describeRoleAccess(perms: Record<string, boolean>, isAdmin: boolean): {
+  marketing: boolean;
+  sales: boolean;
+  admin: boolean;
+  marketingCount: number;
+  salesCount: number;
+} {
+  if (isAdmin) {
+    return { marketing: true, sales: true, admin: true, marketingCount: MARKETING_KEYS.length, salesCount: SALES_KEYS.length };
+  }
+  const marketingCount = MARKETING_KEYS.filter((k) => perms[k]).length;
+  const salesCount = SALES_KEYS.filter((k) => perms[k]).length;
+  const adminCount = ADMIN_KEYS.filter((k) => perms[k]).length;
+  return {
+    marketing: marketingCount > 0,
+    sales: salesCount > 0,
+    admin: adminCount > 0,
+    marketingCount,
+    salesCount,
+  };
+}
+
+/* ── Types ──────────────────────────────────────────────────────────── */
 
 interface Role {
   id: number;
   name: string;
+  permissions: Record<string, boolean>;
   is_admin: boolean;
+  is_system: boolean;
 }
 
 interface Member {
@@ -50,6 +83,8 @@ interface Member {
   invited_at: string;
   accepted_at: string | null;
 }
+
+/* ── Avatar ─────────────────────────────────────────────────────────── */
 
 function MemberAvatar({ member }: { member: Member }) {
   const displayName = member.user_name || member.user_email || member.invite_email || "?";
@@ -69,6 +104,41 @@ function MemberAvatar({ member }: { member: Member }) {
   );
 }
 
+/* ── Area badge ─────────────────────────────────────────────────────── */
+
+function AreaBadges({ role, roles }: { role: { role_name: string; is_admin: boolean; role_id: number }; roles: Role[] }) {
+  const fullRole = roles.find((r) => r.id === role.role_id);
+  if (!fullRole) return null;
+  const access = describeRoleAccess(fullRole.permissions ?? {}, fullRole.is_admin);
+
+  if (fullRole.is_admin) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Badge className="text-[10px] h-5 px-1.5 bg-emerald-100 text-emerald-700 border-0 dark:bg-emerald-900/50 dark:text-emerald-400 gap-1">
+          <LayoutDashboard className="w-3 h-3" /> All access
+        </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {access.marketing && (
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 border-blue-300 text-blue-700 bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:bg-blue-950/30">
+          <Megaphone className="w-3 h-3" /> Marketing
+        </Badge>
+      )}
+      {access.sales && (
+        <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 border-violet-300 text-violet-700 bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:bg-violet-950/30">
+          <TrendingUp className="w-3 h-3" /> Sales
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+/* ── Main content ───────────────────────────────────────────────────── */
+
 function TeamContent() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -76,7 +146,10 @@ function TeamContent() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteArea, setInviteArea] = useState<"marketing" | "sales" | "both" | "">("");
   const [inviteRoleId, setInviteRoleId] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
@@ -95,7 +168,28 @@ function TeamContent() {
     }
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Filter roles based on selected area
+  const filteredRoles = roles.filter((r) => {
+    if (!inviteArea) return true;
+    if (r.is_admin) return true; // Admin always shown
+    const access = describeRoleAccess(r.permissions ?? {}, r.is_admin);
+    if (inviteArea === "marketing") return access.marketing;
+    if (inviteArea === "sales") return access.sales;
+    return true; // "both" shows all
+  });
+
+  // Reset role when area changes (if selected role no longer matches)
+  function handleAreaChange(area: "marketing" | "sales" | "both") {
+    setInviteArea(area);
+    if (inviteRoleId) {
+      const stillValid = filteredRoles.some((r) => String(r.id) === inviteRoleId);
+      if (!stillValid) setInviteRoleId("");
+    }
+  }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -111,6 +205,7 @@ function TeamContent() {
       if (res.ok) {
         toast({ title: "Member added" });
         setInviteEmail("");
+        setInviteArea("");
         setInviteRoleId("");
         setInviteOpen(false);
         loadData();
@@ -164,29 +259,48 @@ function TeamContent() {
 
   const isAdmin = user?.isAdmin ?? false;
 
+  // Build role description for the select dropdown
+  function roleDescription(role: Role): string {
+    if (role.is_admin) return "Full access to everything";
+    const access = describeRoleAccess(role.permissions ?? {}, false);
+    const parts: string[] = [];
+    if (access.marketing) parts.push(`${access.marketingCount} marketing`);
+    if (access.sales) parts.push(`${access.salesCount} sales`);
+    if (access.admin) parts.push("admin");
+    return parts.length > 0 ? parts.join(" + ") + " permissions" : "No permissions";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Team</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Manage who has access to LP Studio and their roles.
+            Manage who has access and their roles.
           </p>
         </div>
         {isAdmin && (
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <Dialog open={inviteOpen} onOpenChange={(open) => {
+            setInviteOpen(open);
+            if (!open) {
+              setInviteEmail("");
+              setInviteArea("");
+              setInviteRoleId("");
+            }
+          }}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <UserPlus className="w-4 h-4" />
-                Add Member
+              <Button size="sm" className="gap-1.5 h-8 text-[13px]">
+                <UserPlus className="w-3.5 h-3.5" />
+                Add member
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[440px]">
               <DialogHeader>
-                <DialogTitle>Add Team Member</DialogTitle>
+                <DialogTitle>Add team member</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleInvite} className="space-y-4 pt-2">
-                <div className="space-y-2">
+              <form onSubmit={handleInvite} className="space-y-5 pt-2">
+                {/* Email */}
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium">Email address</label>
                   <Input
                     type="email"
@@ -196,23 +310,123 @@ function TeamContent() {
                     required
                   />
                 </div>
+
+                {/* Area selector */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Role</label>
-                  <Select value={inviteRoleId} onValueChange={setInviteRoleId} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((r) => (
-                        <SelectItem key={r.id} value={String(r.id)}>
-                          {r.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium">What will they use?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAreaChange("marketing")}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-3 text-center transition-colors ${
+                        inviteArea === "marketing"
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
+                          : "border-border hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20"
+                      }`}
+                    >
+                      <Megaphone className={`w-5 h-5 ${inviteArea === "marketing" ? "text-blue-600" : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-semibold ${inviteArea === "marketing" ? "text-blue-700 dark:text-blue-400" : "text-foreground"}`}>
+                        Marketing
+                      </span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        Pages, experiments, analytics
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAreaChange("sales")}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-3 text-center transition-colors ${
+                        inviteArea === "sales"
+                          ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                          : "border-border hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-950/20"
+                      }`}
+                    >
+                      <TrendingUp className={`w-5 h-5 ${inviteArea === "sales" ? "text-violet-600" : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-semibold ${inviteArea === "sales" ? "text-violet-700 dark:text-violet-400" : "text-foreground"}`}>
+                        Sales
+                      </span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        Accounts, contacts, outreach
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAreaChange("both")}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-3 text-center transition-colors ${
+                        inviteArea === "both"
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
+                          : "border-border hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                      }`}
+                    >
+                      <LayoutDashboard className={`w-5 h-5 ${inviteArea === "both" ? "text-emerald-600" : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-semibold ${inviteArea === "both" ? "text-emerald-700 dark:text-emerald-400" : "text-foreground"}`}>
+                        Both
+                      </span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        Full marketing + sales
+                      </span>
+                    </button>
+                  </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={inviteLoading}>
-                  {inviteLoading ? "Adding…" : "Add Member"}
+
+                {/* Role selector — shown after area is picked */}
+                {inviteArea && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Role</label>
+                    <Select value={inviteRoleId} onValueChange={setInviteRoleId} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredRoles.map((r) => (
+                          <SelectItem key={r.id} value={String(r.id)}>
+                            <div className="flex items-center gap-2">
+                              {r.is_admin && <Shield className="w-3 h-3 text-primary" />}
+                              <span>{r.name}</span>
+                              <span className="text-muted-foreground text-[11px] ml-1">
+                                — {roleDescription(r)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {inviteRoleId && (() => {
+                      const selected = roles.find((r) => String(r.id) === inviteRoleId);
+                      if (!selected || selected.is_admin) return null;
+                      const access = describeRoleAccess(selected.permissions ?? {}, false);
+                      return (
+                        <div className="rounded-md bg-muted/50 px-3 py-2 mt-1.5">
+                          <p className="text-[11px] text-muted-foreground font-medium mb-1">This role grants:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {access.marketing && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-medium">
+                                {access.marketingCount} marketing permissions
+                              </span>
+                            )}
+                            {access.sales && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400 font-medium">
+                                {access.salesCount} sales permissions
+                              </span>
+                            )}
+                            {!access.marketing && !access.sales && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 font-medium">
+                                No permissions yet — configure in Roles
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={inviteLoading || !inviteEmail || !inviteRoleId}
+                >
+                  {inviteLoading ? "Adding..." : "Add member"}
                 </Button>
               </form>
             </DialogContent>
@@ -225,17 +439,19 @@ function TeamContent() {
           <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
         </div>
       ) : members.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          No members yet. Add your first team member above.
-        </div>
+        <Card className="flex flex-col items-center justify-center py-16 text-center">
+          <UserPlus className="w-10 h-10 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No members yet. Add your first team member above.</p>
+        </Card>
       ) : (
-        <div className="border border-border/50 rounded-xl overflow-hidden">
+        <Card className="overflow-hidden border-border">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead>Member</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Role</TableHead>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="font-medium">Member</TableHead>
+                <TableHead className="font-medium">Status</TableHead>
+                <TableHead className="font-medium">Area</TableHead>
+                <TableHead className="font-medium">Role</TableHead>
                 {isAdmin && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
@@ -263,12 +479,17 @@ function TeamContent() {
                     </TableCell>
                     <TableCell>
                       {m.accepted_at ? (
-                        <Badge variant="secondary" className="text-xs">Active</Badge>
+                        <Badge className="text-[10px] h-5 bg-emerald-100 text-emerald-700 border-0 dark:bg-emerald-900/50 dark:text-emerald-400">
+                          Active
+                        </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
+                        <Badge className="text-[10px] h-5 bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/40 dark:text-amber-400">
                           Pending
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <AreaBadges role={m} roles={roles} />
                     </TableCell>
                     <TableCell>
                       {isAdmin && !isCurrentUser ? (
@@ -313,7 +534,7 @@ function TeamContent() {
               })}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       )}
     </div>
   );

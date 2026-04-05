@@ -49,19 +49,26 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !autoplay) return;
+    if (!v) return;
+    // Force mute and strip controls imperatively — React props are unreliable
     v.muted = true;
+    v.loop = true;
+    v.controls = false;
+    v.playsInline = true;
+    v.removeAttribute("controls");
     v.load();
     v.play().catch(() => {});
   }, [videoUrl, autoplay]);
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !props.videoPlayOnScroll) return;
-    if (inView) {
-      v.muted = true;
+    if (!v) return;
+    v.muted = true;
+    v.controls = false;
+    v.removeAttribute("controls");
+    if (props.videoPlayOnScroll && inView) {
       v.play().catch(() => {});
-    } else {
+    } else if (props.videoPlayOnScroll && !inView) {
       v.pause();
     }
   }, [inView, props.videoPlayOnScroll]);
@@ -166,15 +173,22 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
             <video
-              ref={videoRef}
+              ref={(el) => {
+                (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                if (el) {
+                  el.muted = true;
+                  el.controls = false;
+                  el.removeAttribute("controls");
+                  el.setAttribute("playsinline", "");
+                }
+              }}
               key={`ss-video-${videoUrl}-${autoplay}`}
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
-              autoPlay={autoplay}
+              autoPlay
               muted
-              loop={autoplay}
+              loop
               playsInline
-              controls={!autoplay}
               preload="auto"
             />
           ) : (

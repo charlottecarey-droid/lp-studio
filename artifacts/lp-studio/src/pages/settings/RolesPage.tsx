@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useLocation } from "wouter";
@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,9 +14,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Shield } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Trash2, Shield, Check, Minus, MoreHorizontal, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+/* ── Permission definitions ─────────────────────────────────────────── */
 
 const PERMISSION_GROUPS = [
   {
@@ -49,6 +57,10 @@ const PERMISSION_GROUPS = [
   },
 ] as const;
 
+const ALL_PERM_KEYS = PERMISSION_GROUPS.flatMap((g) => g.keys.map((k) => k.key));
+
+/* ── Types ──────────────────────────────────────────────────────────── */
+
 interface Role {
   id: number;
   name: string;
@@ -57,115 +69,52 @@ interface Role {
   is_system: boolean;
 }
 
-function RoleCard({
-  role,
+/* ── Permission cell ────────────────────────────────────────────────── */
+
+function PermCell({
+  granted,
   isAdmin,
-  onUpdate,
-  onDelete,
+  isFullAccess,
+  canEdit,
+  onClick,
 }: {
-  role: Role;
+  granted: boolean;
   isAdmin: boolean;
-  onUpdate: (id: number, permissions: Record<string, boolean>) => void;
-  onDelete: (id: number) => void;
+  isFullAccess: boolean;
+  canEdit: boolean;
+  onClick: () => void;
 }) {
-  const { toast } = useToast();
-  const [perms, setPerms] = useState<Record<string, boolean>>(role.permissions ?? {});
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  function toggle(key: string) {
-    if (!isAdmin || role.is_admin) return;
-    setPerms((p) => ({ ...p, [key]: !p[key] }));
-    setDirty(true);
-  }
-
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/roles/${role.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: perms }),
-      });
-      if (res.ok) {
-        onUpdate(role.id, perms);
-        setDirty(false);
-        toast({ title: "Permissions saved" });
-      } else {
-        toast({ title: "Failed to save", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Network error", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+  if (isFullAccess) {
+    return (
+      <div className="flex items-center justify-center">
+        <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+          <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="border border-border/50 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 bg-muted/20 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          {role.is_admin && <Shield className="w-4 h-4 text-primary" />}
-          <span className="font-semibold">{role.name}</span>
-          {role.is_system && (
-            <Badge variant="outline" className="text-[10px] h-4 px-1.5">System</Badge>
-          )}
-          {role.is_admin && (
-            <Badge className="text-[10px] h-4 px-1.5 bg-primary/20 text-primary border-0">
-              Full access
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {dirty && isAdmin && !role.is_admin && (
-            <Button size="sm" className="h-7 text-xs" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          )}
-          {isAdmin && !role.is_system && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive"
-              onClick={() => onDelete(role.id)}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          )}
-        </div>
-      </div>
-      {role.is_admin ? (
-        <div className="px-5 py-4 text-sm text-muted-foreground">
-          Admins have full access to all features.
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!canEdit}
+      className={`flex items-center justify-center group ${canEdit ? "cursor-pointer" : "cursor-default"}`}
+    >
+      {granted ? (
+        <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center transition-colors group-hover:bg-emerald-200 dark:group-hover:bg-emerald-800/60">
+          <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
         </div>
       ) : (
-        <div className="divide-y divide-border/30">
-          {PERMISSION_GROUPS.map((group) => (
-            <div key={group.label} className="px-5 py-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                {group.label}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-                {group.keys.map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between gap-2 py-1">
-                    <span className="text-sm text-foreground/80">{label}</span>
-                    <Switch
-                      checked={!!perms[key]}
-                      onCheckedChange={() => toggle(key)}
-                      disabled={!isAdmin}
-                      className="data-[state=checked]:bg-primary"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center transition-colors group-hover:bg-gray-200 dark:group-hover:bg-gray-700">
+          <Minus className="w-3 h-3 text-gray-400 dark:text-gray-500" />
         </div>
       )}
-    </div>
+    </button>
   );
 }
+
+/* ── Main content ───────────────────────────────────────────────────── */
 
 function RolesContent() {
   const { user } = useAuth();
@@ -175,19 +124,92 @@ function RolesContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [dirtyRoles, setDirtyRoles] = useState<Set<number>>(new Set());
+  const [savingRoles, setSavingRoles] = useState<Set<number>>(new Set());
 
-  async function loadRoles() {
+  const isAdmin = user?.isAdmin ?? false;
+
+  const loadRoles = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/roles", { credentials: "include" });
-      if (res.ok) setRoles(await res.json());
+      if (res.ok) {
+        setRoles(await res.json());
+        setDirtyRoles(new Set());
+      }
     } catch {
       toast({ title: "Failed to load roles", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  }, [toast]);
+
+  useEffect(() => {
+    loadRoles();
+  }, [loadRoles]);
+
+  /* ── Toggle a single permission ───────────────────────────────────── */
+
+  function togglePerm(roleId: number, key: string) {
+    setRoles((prev) =>
+      prev.map((r) => {
+        if (r.id !== roleId || r.is_admin) return r;
+        return { ...r, permissions: { ...r.permissions, [key]: !r.permissions[key] } };
+      }),
+    );
+    setDirtyRoles((prev) => new Set(prev).add(roleId));
   }
 
-  useEffect(() => { loadRoles(); }, []);
+  /* ── Toggle entire group for a role ───────────────────────────────── */
+
+  function toggleGroup(roleId: number, groupKeys: readonly { key: string; label: string }[]) {
+    setRoles((prev) =>
+      prev.map((r) => {
+        if (r.id !== roleId || r.is_admin) return r;
+        const keys = groupKeys.map((k) => k.key);
+        const allOn = keys.every((k) => r.permissions[k]);
+        const newPerms = { ...r.permissions };
+        for (const k of keys) newPerms[k] = !allOn;
+        return { ...r, permissions: newPerms };
+      }),
+    );
+    setDirtyRoles((prev) => new Set(prev).add(roleId));
+  }
+
+  /* ── Save a role's permissions ────────────────────────────────────── */
+
+  async function saveRole(roleId: number) {
+    const role = roles.find((r) => r.id === roleId);
+    if (!role) return;
+    setSavingRoles((prev) => new Set(prev).add(roleId));
+    try {
+      const res = await fetch(`/api/admin/roles/${roleId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions: role.permissions }),
+      });
+      if (res.ok) {
+        setDirtyRoles((prev) => {
+          const next = new Set(prev);
+          next.delete(roleId);
+          return next;
+        });
+        toast({ title: `${role.name} permissions saved` });
+      } else {
+        toast({ title: "Failed to save", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Network error", variant: "destructive" });
+    } finally {
+      setSavingRoles((prev) => {
+        const next = new Set(prev);
+        next.delete(roleId);
+        return next;
+      });
+    }
+  }
+
+  /* ── Create role ──────────────────────────────────────────────────── */
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -216,8 +238,32 @@ function RolesContent() {
     }
   }
 
+  /* ── Duplicate role ───────────────────────────────────────────────── */
+
+  async function handleDuplicate(role: Role) {
+    try {
+      const res = await fetch("/api/admin/roles", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `${role.name} (copy)`, permissions: role.permissions }),
+      });
+      if (res.ok) {
+        toast({ title: `Duplicated "${role.name}"` });
+        loadRoles();
+      } else {
+        toast({ title: "Failed to duplicate", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Network error", variant: "destructive" });
+    }
+  }
+
+  /* ── Delete role ──────────────────────────────────────────────────── */
+
   async function handleDelete(roleId: number) {
-    if (!confirm("Delete this role? Members assigned to it will need a new role.")) return;
+    const role = roles.find((r) => r.id === roleId);
+    if (!confirm(`Delete "${role?.name}"? Members assigned to it will need a new role.`)) return;
     try {
       const res = await fetch(`/api/admin/roles/${roleId}`, {
         method: "DELETE",
@@ -235,32 +281,51 @@ function RolesContent() {
     }
   }
 
-  function handleUpdate(id: number, permissions: Record<string, boolean>) {
-    setRoles((prev) => prev.map((r) => (r.id === id ? { ...r, permissions } : r)));
+  /* ── Editable (non-admin) roles ───────────────────────────────────── */
+
+  const editableRoles = roles.filter((r) => !r.is_admin);
+  const adminRole = roles.find((r) => r.is_admin);
+
+  /* ── Count helpers ────────────────────────────────────────────────── */
+
+  function countEnabled(role: Role): number {
+    if (role.is_admin) return ALL_PERM_KEYS.length;
+    return ALL_PERM_KEYS.filter((k) => role.permissions[k]).length;
   }
 
-  const isAdmin = user?.isAdmin ?? false;
+  function groupAllOn(role: Role, groupKeys: readonly { key: string; label: string }[]): boolean {
+    if (role.is_admin) return true;
+    return groupKeys.every((k) => role.permissions[k.key]);
+  }
+
+  function groupSomeOn(role: Role, groupKeys: readonly { key: string; label: string }[]): boolean {
+    if (role.is_admin) return true;
+    return groupKeys.some((k) => role.permissions[k.key]);
+  }
+
+  /* ── Render ───────────────────────────────────────────────────────── */
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Roles</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Roles & permissions</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Define what each role can access in LP Studio.
+            Control what each role can access. Click any cell to toggle.
           </p>
         </div>
         {isAdmin && (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                New Role
+              <Button size="sm" className="gap-1.5 h-8 text-[13px]">
+                <Plus className="w-3.5 h-3.5" />
+                New role
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Role</DialogTitle>
+                <DialogTitle>Create role</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4 pt-2">
                 <div className="space-y-2">
@@ -273,7 +338,7 @@ function RolesContent() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={creating}>
-                  {creating ? "Creating…" : "Create Role"}
+                  {creating ? "Creating..." : "Create role"}
                 </Button>
               </form>
             </DialogContent>
@@ -285,18 +350,203 @@ function RolesContent() {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
         </div>
+      ) : roles.length === 0 ? (
+        <Card className="flex flex-col items-center justify-center py-16 text-center">
+          <Shield className="w-10 h-10 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No roles yet. Create one to get started.</p>
+        </Card>
       ) : (
-        <div className="space-y-4">
-          {roles.map((role) => (
-            <RoleCard
-              key={role.id}
-              role={role}
-              isAdmin={isAdmin}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        <Card className="overflow-hidden border-border">
+          {/* Sticky save bar */}
+          {dirtyRoles.size > 0 && (
+            <div className="sticky top-0 z-20 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-700 px-5 py-2.5 flex items-center justify-between">
+              <span className="text-sm text-amber-800 dark:text-amber-300 font-medium">
+                Unsaved changes in {dirtyRoles.size} role{dirtyRoles.size > 1 ? "s" : ""}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={loadRoles}
+                >
+                  Discard
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    for (const id of dirtyRoles) saveRole(id);
+                  }}
+                  disabled={savingRoles.size > 0}
+                >
+                  {savingRoles.size > 0 ? "Saving..." : "Save all"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Matrix table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              {/* Column headers = role names */}
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left font-medium text-foreground/70 text-xs uppercase tracking-wider px-5 py-3 w-[200px] min-w-[200px] sticky left-0 bg-muted/50 z-10">
+                    Permission
+                  </th>
+                  {adminRole && (
+                    <th className="text-center px-4 py-3 min-w-[120px]">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-primary" />
+                          <span className="font-semibold text-[13px]">{adminRole.name}</span>
+                        </div>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Full access</span>
+                      </div>
+                    </th>
+                  )}
+                  {editableRoles.map((role) => (
+                    <th key={role.id} className="text-center px-4 py-3 min-w-[120px]">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-[13px]">{role.name}</span>
+                          {role.is_system && (
+                            <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-normal">
+                              System
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-foreground/60 font-medium">
+                          {countEnabled(role)} of {ALL_PERM_KEYS.length}
+                        </span>
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="mt-0.5 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="center" className="w-36">
+                              <DropdownMenuItem onClick={() => handleDuplicate(role)} className="text-xs gap-2">
+                                <Copy className="w-3.5 h-3.5" /> Duplicate
+                              </DropdownMenuItem>
+                              {!role.is_system && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(role.id)}
+                                  className="text-xs gap-2 text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {PERMISSION_GROUPS.map((group) => (
+                  <>
+                    {/* Group header row */}
+                    <tr key={`group-${group.label}`} className="bg-muted/60">
+                      <td className="px-5 py-2.5 sticky left-0 bg-muted/60 z-10">
+                        <span className="text-[11px] font-bold text-foreground/70 uppercase tracking-[0.08em]">
+                          {group.label}
+                        </span>
+                      </td>
+                      {/* Group-level toggle cells */}
+                      {adminRole && (
+                        <td className="text-center px-4 py-2">
+                          <div className="flex items-center justify-center">
+                            <div className="w-5 h-0.5 rounded-full bg-emerald-300 dark:bg-emerald-700" />
+                          </div>
+                        </td>
+                      )}
+                      {editableRoles.map((role) => {
+                        const allOn = groupAllOn(role, group.keys);
+                        const someOn = groupSomeOn(role, group.keys);
+                        return (
+                          <td key={role.id} className="text-center px-4 py-2">
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleGroup(role.id, group.keys)}
+                                className="inline-flex items-center justify-center"
+                                title={allOn ? `Revoke all ${group.label}` : `Grant all ${group.label}`}
+                              >
+                                <div
+                                  className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full transition-colors ${
+                                    allOn
+                                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-800/60"
+                                      : someOn
+                                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:hover:bg-amber-800/50"
+                                        : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                                  }`}
+                                >
+                                  {allOn ? "All" : someOn ? "Partial" : "None"}
+                                </div>
+                              </button>
+                            ) : (
+                              <span
+                                className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
+                                  allOn
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                                    : someOn
+                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                                      : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                                }`}
+                              >
+                                {allOn ? "All" : someOn ? "Partial" : "None"}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* Individual permission rows */}
+                    {group.keys.map(({ key, label }) => (
+                      <tr
+                        key={key}
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="px-5 py-2.5 text-[13px] text-foreground sticky left-0 bg-background z-10 pl-8">
+                          {label}
+                        </td>
+                        {adminRole && (
+                          <td className="text-center px-4 py-2.5">
+                            <PermCell
+                              granted={true}
+                              isAdmin={isAdmin}
+                              isFullAccess={true}
+                              canEdit={false}
+                              onClick={() => {}}
+                            />
+                          </td>
+                        )}
+                        {editableRoles.map((role) => (
+                          <td key={role.id} className="text-center px-4 py-2.5">
+                            <PermCell
+                              granted={!!role.permissions[key]}
+                              isAdmin={isAdmin}
+                              isFullAccess={false}
+                              canEdit={isAdmin}
+                              onClick={() => togglePerm(role.id, key)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );
