@@ -18,7 +18,7 @@ interface Props {
 export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
   const updateLink = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
-    const navLinks = props.navLinks.map((l, idx) => idx === i ? { ...l, [key]: value } : l);
+    const navLinks = (props.navLinks ?? []).map((l, idx) => idx === i ? { ...l, [key]: value } : l);
     onFieldChange({ ...props, navLinks });
   };
 
@@ -33,9 +33,9 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
           />
         </div>
 
-        {props.navLinks.length > 0 && (
+        {(props.navLinks ?? []).length > 0 && (
           <nav className="hidden md:flex items-center gap-6 flex-1">
-            {props.navLinks.map((link, i) => (
+            {(props.navLinks ?? []).map((link, i) => (
               <a
                 key={i}
                 href={link.url || "#"}

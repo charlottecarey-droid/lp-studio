@@ -12,18 +12,18 @@ interface Props {
 
 export function NavHeaderPanel({ props, onChange }: Props) {
   const updateLink = (i: number, key: keyof NavHeaderLink, value: string) => {
-    const navLinks = props.navLinks.map((l, idx) => idx === i ? { ...l, [key]: value } : l);
+    const navLinks = (props.navLinks ?? []).map((l, idx) => idx === i ? { ...l, [key]: value } : l);
     onChange({ ...props, navLinks });
   };
 
   const addLink = () =>
     onChange({
       ...props,
-      navLinks: [...props.navLinks, { label: "New Link", url: "#" }],
+      navLinks: [...(props.navLinks ?? []), { label: "New Link", url: "#" }],
     });
 
   const removeLink = (i: number) =>
-    onChange({ ...props, navLinks: props.navLinks.filter((_, idx) => idx !== i) });
+    onChange({ ...props, navLinks: (props.navLinks ?? []).filter((_, idx) => idx !== i) });
 
   return (
     <div className="space-y-4">
@@ -59,7 +59,7 @@ export function NavHeaderPanel({ props, onChange }: Props) {
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
         Nav Links
       </Label>
-      {props.navLinks.map((link, i) => (
+      {(props.navLinks ?? []).map((link, i) => (
         <div key={i} className="flex gap-2 items-center">
           <div className="flex-1 grid grid-cols-2 gap-1">
             <Input
