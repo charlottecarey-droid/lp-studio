@@ -289,8 +289,8 @@ function AccountListView() {
   // New account form state
   const [newName, setNewName] = useState("");
   const [newDomain, setNewDomain] = useState("");
-  const [newSegment, setNewSegment] = useState("");
-  const [newIndustry, setNewIndustry] = useState("");
+  const [newAbmTier, setNewAbmTier] = useState("");
+  const [newOwner, setNewOwner] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fetchAccounts = useCallback(() => {
@@ -352,12 +352,12 @@ function AccountListView() {
         body: JSON.stringify({
           name: newName.trim(),
           domain: newDomain.trim() || null,
-          segment: newSegment.trim() || null,
-          industry: newIndustry.trim() || null,
+          abmTier: newAbmTier || null,
+          owner: newOwner.trim() || null,
         }),
       });
       if (res.ok) {
-        setNewName(""); setNewDomain(""); setNewSegment(""); setNewIndustry("");
+        setNewName(""); setNewDomain(""); setNewAbmTier(""); setNewOwner("");
         setShowNewForm(false);
         fetchAccounts();
       }
@@ -411,19 +411,24 @@ function AccountListView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Segment</label>
-                  <Input
-                    value={newSegment}
-                    onChange={(e) => setNewSegment(e.target.value)}
-                    placeholder="e.g. DSO, Independent"
-                  />
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Tier</label>
+                  <select
+                    value={newAbmTier}
+                    onChange={(e) => setNewAbmTier(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="">— Select tier —</option>
+                    <option value="ENT">ENT</option>
+                    <option value="STRAT">STRAT</option>
+                    <option value="LENT">LENT</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Industry</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Account Owner</label>
                   <Input
-                    value={newIndustry}
-                    onChange={(e) => setNewIndustry(e.target.value)}
-                    placeholder="e.g. Dental"
+                    value={newOwner}
+                    onChange={(e) => setNewOwner(e.target.value)}
+                    placeholder="e.g. Jane Smith"
                   />
                 </div>
               </div>
