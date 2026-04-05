@@ -412,12 +412,14 @@ export const generateComparisonOnePager = async (
     doc.text(dsoName, logoEndX + 10, 40);
   }
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.titleFontSize as number | undefined) ?? 20); doc.setTextColor(...white);
-  doc.text("Stronger Systems.", margin, 95);
-  doc.text("Better Outcomes.", margin, 115);
+  const titleSize = (hCfg.titleFontSize as number | undefined) ?? 20;
+  const titleLineH = Math.round(titleSize * 1.32);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(titleSize); doc.setTextColor(...white);
+  doc.text("Stronger Systems.", margin, 90);
+  doc.text("Better Outcomes.", margin, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(200, 215, 210);
   const subLines = doc.splitTextToSize("See how Dandy has matured to deliver more consistent clinical performance across practices.", splitX - margin - 20);
-  doc.text(subLines, margin, 150 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
+  doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
   let y = headerH + 20;
   const col1W = 130;

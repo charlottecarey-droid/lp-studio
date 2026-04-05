@@ -14,7 +14,7 @@ import {
   generateNewPartnerOnePager,
   generateROIOnePager,
   defaultAudienceContent,
-} from "@workspace/one-pager-types/generators";
+} from "./sales-one-pager";
 import {
   OverlayField,
   CustomTemplate,
