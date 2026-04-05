@@ -1,225 +1,129 @@
-# Workspace
+# Overview
 
-## Overview
+This project is a pnpm workspace monorepo using TypeScript, designed to build a comprehensive A/B testing and visual drag-and-drop page builder platform called "Landing Page Studio." The platform aims to provide a robust solution for marketing and sales teams to create, test, and optimize landing pages with advanced features like AI-powered content generation, brand management, and multi-tenant capabilities. The core components include an Express API server, a React-based frontend for the studio, and shared libraries for database access, API specifications, and generated clients. The vision is to offer a powerful, integrated tool for conversion rate optimization and personalized customer experiences.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+# User Preferences
 
-## Stack
+I want iterative development. I prefer detailed explanations. Ask before making major changes.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+# System Architecture
 
-## Structure
+## Monorepo Structure and Technologies
 
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
-```
+The project utilizes a pnpm workspace monorepo with Node.js 24 and TypeScript 5.9.
+- **API Framework**: Express 5 for the backend API server.
+- **Database**: PostgreSQL with Drizzle ORM.
+- **Validation**: Zod for schema validation, with `drizzle-zod` integration.
+- **API Codegen**: Orval generates API clients and Zod schemas from an OpenAPI specification.
+- **Build Tool**: esbuild for CJS bundling.
+- **Frontend**: React with Vite for the Landing Page Studio UI.
 
 ## TypeScript & Composite Projects
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+All packages are TypeScript composite projects, extending `tsconfig.base.json`. Root `tsconfig.json` manages project references, enabling cross-package type checking via `tsc --build --emitDeclarationOnly`.
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+## Core Components
 
-## Root Scripts
+### API Server (`artifacts/api-server`)
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+- Express 5 server handling API requests.
+- Routes are structured in `src/routes/` and use `@workspace/api-zod` for validation and `@workspace/db` for persistence.
+- Handles authentication and authorization.
 
-## Packages
+### Database Layer (`lib/db`)
 
-### `artifacts/api-server` (`@workspace/api-server`)
+- Drizzle ORM with PostgreSQL for all data persistence.
+- Exports a Drizzle client instance and schema models.
+- Migration management for development and production.
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+### API Specification and Codegen (`lib/api-spec`, `lib/api-zod`, `lib/api-client-react`)
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- Manages the OpenAPI 3.1 specification (`openapi.yaml`).
+- Orval generates:
+    - React Query hooks and a fetch client (`lib/api-client-react`).
+    - Zod schemas (`lib/api-zod`) for request/response validation.
 
-### `lib/db` (`@workspace/db`)
+### Landing Page Studio Frontend (`artifacts/lp-studio`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+A React + Vite application providing the user interface for the A/B testing platform and page builder.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+- **Admin Dashboard**: Manages tests, variants, and results.
+- **Pages Gallery**: CRUD operations for builder pages with template selection.
+- **Builder Editor**: A three-panel drag-and-drop interface for designing landing pages with block library, live canvas, and property panels. Supports inline editing with Tiptap WYSIWYG.
+- **Landing Page Viewer**: Serves A/B test variants or builder pages.
+- **Review Shell**: Standalone read-only review page with approval workflow.
+- **Block System**: 16 predefined block types (e.g., Hero, Testimonial, Rich Text) with customizable properties.
+- **Collaboration Features**: Comment mode, share for review, and presence indicators.
+- **Templates**: 5 pre-built page templates.
+- **One-Pager Template Manager** (`/sales/one-pager-templates`): Admin console for managing one-pager templates with gallery card view, visibility toggles, clone/edit/delete, drag-and-drop field placement editor, field properties panel, and PDF generation. Stored in `sales_one_pager_templates` table with image upload via object storage.
+- **Styling**: Uses `@dnd-kit/core` and `@dnd-kit/sortable` for drag-and-drop.
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+## Key Features
 
-### `lib/api-spec` (`@workspace/api-spec`)
+### AI Content Briefs
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
+- **Content Brief Modal**: Allows users to generate AI content briefs based on company, objective, and brand context.
+- **Brief API**: Integrates with OpenAI to produce structured briefs including buyer personas, headlines, value propositions, and tone guidance.
+- **Brand-Aware Briefs**: Injects brand configuration into AI prompts for consistent messaging.
+- **Apply to Page**: Brief context is applied to AI copy generation within the builder.
 
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
+### Brand System
 
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
+- **BrandConfig**: Defines comprehensive brand guidelines including color roles, typography, button styling, voice & messaging, product lines, and audience segments.
+- **Brand Settings UI**: Provides an interface for configuring and managing brand settings, including AI-powered import functionality.
+- **Block Typography Integration**: All blocks inherit brand typography defaults.
 
-### `lib/api-zod` (`@workspace/api-zod`)
+### Multi-tenant Identity & Authorization
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+- **Schema**: Five tables (`tenants`, `app_users`, `app_sessions`, `tenant_roles`, `tenant_members`) manage organizations, users, sessions, roles, and memberships.
+- **Permissions**: Granular permissions (e.g., `pages`, `tests`, `analytics`, `brand`) control access to features.
 
-### `lib/api-client-react` (`@workspace/api-client-react`)
+### Authentication (Google OAuth)
 
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `artifacts/lp-studio` (`@workspace/lp-studio`)
-
-Landing Page Studio — A/B testing platform + visual drag-and-drop page builder. Built with React + Vite.
-
-- **Admin dashboard** at `/lp-studio/` — manage tests, configure variants, view results with statistical significance
-- **Pages gallery** at `/lp-studio/pages` — list, create, edit, delete builder pages; "New Page" modal with template picker
-- **Builder editor** at `/lp-studio/builder/:pageId` — three-panel DnD builder (block library, live canvas, property panel)
-- **Landing page viewer** at `/lp-studio/lp/:slug` — serves A/B test variants OR builder pages (pageType: "builder")
-- **Review shell** at `/lp-studio/review/:pageId?token=xxx` — standalone read-only review page with approve/request changes workflow (no auth required)
-- **API routes** under `/api/lp/` — tests CRUD, variants CRUD, event tracking, page config, stats, AND pages CRUD
-- **Collaboration API routes**: `/api/lp/pages/:pageId/comments`, `/api/lp/pages/:pageId/reviews`, `/api/lp/review/:token`, `/api/lp/pages/:pageId/presence`
-- **DB schema**: `lp_tests`, `lp_variants`, `lp_sessions`, `lp_events`, `lp_pages`, `lp_page_comments`, `lp_page_reviews`, `lp_page_presence`, `lp_brand_presets` tables
-- **Stats engine**: Z-test for significance, p-value calculation, relative uplift vs control
-- **Block system**: 16 block types (hero, trust-bar, pas-section, comparison, stat-callout, benefits-grid, testimonial, how-it-works, product-grid, photo-strip, bottom-cta, video-section, case-studies, resources, rich-text, custom-html) with property panels
-- **Inline editing**: Click to select a block, then use the pencil icon or double-click to edit text inline on the canvas for hero, pas-section, stat-callout, testimonial, bottom-cta, comparison, how-it-works, benefits-grid blocks. Rich Text blocks render a Tiptap WYSIWYG editor inline when selected.
-- **Tiptap WYSIWYG**: `@tiptap/react` installed with StarterKit, Link, Underline, TextAlign, Placeholder extensions. Used in the Rich Text block canvas inline editor and property panel.
-- **Builder ↔ A/B Test connection**: Variants can link to a builder page via `builderPageId` (nullable FK column on `lp_variants` → `lp_pages`). The tracking route fetches the linked page and returns `linkedPage` in the variant. The landing page viewer detects `linkedPage` and renders builder blocks instead of the legacy config.
-- **DnD**: `@dnd-kit/core` + `@dnd-kit/sortable` for drag-and-drop block reordering
-- **Templates**: 5 pre-built templates (video-hero, clean-conversion, social-proof-heavy, comparison-focused, minimal-cta)
-- **Collaboration features**: Comment Mode toggle with per-variant comment threads, Share for Review links with approval workflow, presence strip showing other active viewers
-- The Dandy video (`/dandy-lab-video-2/`) is embedded as an iframe hero component in landing pages
-- Uses generated React Query hooks from `@workspace/api-client-react`
-- New collaboration hooks in `src/hooks/use-collaboration.ts` use direct `/api/...` fetch calls (not the generated client)
-
-#### AI Content Brief
-- **Content Brief Modal** (`src/components/ContentBriefModal.tsx`) — modal dialog for generating AI content briefs; accessible from pages gallery ("Generate Brief" button, "Start with Brief" tab in New Page dialog) and builder editor (right panel under "AI Content Brief" section)
-- **Brief API** (`POST /api/lp/content-brief`) — accepts `company` + `objective` + optional `brandContext`, calls OpenAI to generate structured brief with company overview, buyer personas, suggested headline, value props, tone guidance, recommended blocks, and CTA suggestions
-- **Brand-aware briefs** — automatically fetches brand config (brand name, taglines, tone of voice, tone keywords, avoid phrases, messaging pillars, product lines with value props/claims/keywords, copy examples, copy instructions) and injects it into the brief generation prompt so briefs reflect the company's actual value props, messaging, and voice
-- **Apply to Page** — in the builder, clicking "Apply" sets a module-level brief context (`src/lib/brief-context.ts`) that is automatically injected into all AI copy generation calls (`suggestCopy`, `refreshBlockCopy`), enriching the system prompt with campaign-specific context
-- **Brief context lifecycle** — context is scoped to the builder session; cleared on component unmount to prevent stale context leaking across pages
-
-#### Brand System
-- **BrandConfig** (`src/lib/brand-config.ts`) — comprehensive type with color roles (textColor, ctaBackground, ctaText, pageBackground, cardBackground, navText, borderColor, secondary1-5), typography (displayFont, bodyFont, h1/h2/h3Size, headingWeight, headingLetterSpacing, bodyTextSize, eyebrowStyle), button styling (shape, shadow, padding, weight, case, spacing, secondaryButtonStyle), voice/messaging (brandName, taglines, messagingPillars, toneOfVoice, toneKeywords, avoidPhrases, targetAudience, copyExamples), productLines, and **segments** (AudienceSegment[]: per-segment personas, value props, challenges, stats, comparisonRows — mirrors DSO microsite data model)
-- **Helper functions**: `getButtonClasses()`, `getSecondaryButtonClasses()`, `getHeadingWeightClass()`, `getHeadingLetterSpacingClass()`, `getBodySizeClass()`, `buildCopySystemPrompt()`, `isValidHex()`
-- **Brand Settings UI** (`src/pages/brand-settings.tsx`) — 8 sections: Colors (Core/Interactive/Palette), Typography (live preview + font family), Buttons & UI (primary + secondary preview), Voice & Messaging (tone, keywords, pillars, examples), Product Lines (value props/claims/keywords per product), **Audience Segments** (collapsible segment cards with personas/value props/challenges/stats/comparison rows), AI Import (tabbed modal with per-section import + confidence-based diff table), Presets (save/load/delete/factory-reset)
-- **API routes**: `GET/POST/DELETE /api/lp/brand-presets`, `POST /api/lp/brand-presets/:id/load`, `POST /api/lp/brand-import` (accepts section parameter: colors/typography/buttons/voice/all)
-- **AI import** uses OpenAI via Replit AI Integrations (env vars AI_INTEGRATIONS_OPENAI_BASE_URL + AI_INTEGRATIONS_OPENAI_API_KEY)
-- **Block typography**: All 16 blocks use brand typography defaults (h1/h2/h3 sizes, heading weight/spacing, body text size) via helper functions from brand-config.ts
-
-#### Block System Files
-- `src/lib/block-types.ts` — `BLOCK_REGISTRY` with all block type definitions + default props
-- `src/lib/templates.ts` — `LP_TEMPLATES` with 5 pre-built page templates
-- `src/blocks/BlockRenderer.tsx` — dispatches rendering to individual block components
-- `src/blocks/*.tsx` — individual block components (Hero, TrustBar, PasSection, etc.)
-- `src/pages/builder/BuilderEditor.tsx` — full-screen three-panel builder UI
-- `src/pages/builder/property-panels/` — per-block property editor panels
-- `src/pages/pages-gallery.tsx` — pages list + create modal
-
-### Multi-tenant Identity Schema
-
-Five tables establish the SaaS identity + permissions layer. All live in Neon PostgreSQL.
-
-| Table | Purpose |
-|---|---|
-| `tenants` | One row per customer organisation. **Dandy = Tenant #1** (slug `dandy`, plan `enterprise`). |
-| `app_users` | Human accounts. `google_id` = Google OAuth `sub` claim. `tenant_id` FK to tenants. |
-| `app_sessions` | Server-side session store. `sid` stored as httpOnly cookie (`lp_sid`). `sess` holds JSON snapshot `{userId, tenantId, role, permissions, isAdmin}`. |
-| `tenant_roles` | Role definitions per tenant. Each row has a `permissions` JSONB map (feature → bool). Three system roles seeded: Admin (full), Marketing, Sales. |
-| `tenant_members` | Links users to tenants with a role. Supports pre-invite by email (userId NULL until first sign-in). |
-
-Schema files: `lib/db/src/schema/{tenants,appUsers,appSessions,tenantRoles,tenantMembers}.ts`.
-
-**Permission keys**: `pages`, `tests`, `analytics`, `forms_leads`, `brand`, `blocks`, `sales_dashboard`, `sales_contacts`, `sales_accounts`, `sales_outreach`, `sales_signals`, `settings`, `team`, `roles`.
-
-### Auth System (Google OAuth)
-
-**Backend** (`artifacts/api-server/src/routes/auth.ts`):
-- `GET /api/auth/google` — redirect to Google OAuth
-- `GET /api/auth/google/callback` — exchange code, upsert user, create session, set `lp_sid` cookie
-- `GET /api/auth/me` — return session JSON
-- `POST /api/auth/logout` — delete session + clear cookie
-- `GET /api/auth/domain-context?host=<hostname>` — returns `{ mode: "tenant-locked" | "open", tenantId, tenantName, tenantSlug }` by matching `hostname` against `tenants.domain`
-- `POST /api/auth/signup` — creates a new tenant workspace for an authenticated user with no tenant yet; seeds Admin/Editor/Viewer roles; updates session in-place
-
-**Middleware** (`artifacts/api-server/src/middleware/requireAuth.ts`):
-- `requireAuth` — reads `lp_sid` cookie, queries `app_sessions`, attaches `req.authUser`
-- `requirePermission(key)` — checks `req.authUser.permissions[key]` or `isAdmin`
-
-**Admin routes** (`artifacts/api-server/src/routes/admin.ts`):
-- `POST /api/admin/tenants` — provision a new tenant (protected by `ADMIN_PASSWORD`, no session required). Body: `{ adminPassword, name, slug, adminEmail, domain?, plan? }`. Creates tenant + seeds 3 default roles + upserts first admin user.
-- `GET/POST/PATCH/DELETE /api/admin/members` — manage tenant members (session auth, admin-only)
-- `GET/POST/PATCH/DELETE /api/admin/roles` — manage tenant roles (session auth, admin-only)
+- **Backend Integration**: Handles Google OAuth flow, user upsertion, session creation, and logout.
+- **Middleware**: `requireAuth` and `requirePermission` middleware enforce access control.
+- **Admin Routes**: API endpoints for provisioning new tenants and managing members/roles.
 
 ### Domain-Aware Multi-Tenant Routing
 
-One codebase serves multiple tenants via domain routing:
-- `ent.meetdandy.com` → `tenants.domain = 'ent.meetdandy.com'` → Dandy (tenant 1) → admin/login, invite-only, no self-serve signup. Returns `mode: 'tenant-locked'` + `micrositeDomain: 'partners.meetdandy.com'`.
-- `partners.meetdandy.com` → `tenants.microsite_domain = 'partners.meetdandy.com'` → Dandy → public landing pages only (no admin UI). Returns `mode: 'microsite-only'`. Renders only `/lp/:slug` and `/p/:token` routes.
-- `app.lpstudio.ai` (no matching domain) → mode `open` → self-serve workspace creation
+- **Dynamic Routing**: The application serves multiple tenants based on custom domains.
+- **Domain Context API**: `GET /api/auth/domain-context` determines the operating mode (`tenant-locked`, `microsite-only`, `open`) based on the hostname.
+- **Frontend Logic**: `AuthGate` component adapts UI and access based on `domainContext`, handling sign-in, "Access Pending," or "Create workspace" flows.
+- **Tenant Provisioning**: Supports programmatic provisioning of new tenants and future self-serve signup.
 
-**How it works**: On load, `AuthContext` calls `GET /api/auth/domain-context?host=<window.location.hostname>`. The API checks:
-1. `tenants.domain` first → `mode: 'tenant-locked'` (admin login domain)
-2. `tenants.microsite_domain` next → `mode: 'microsite-only'` (public pages only)
-3. No match → `mode: 'open'`
+# External Dependencies
 
-`App.tsx` (`AppShell`) checks `domainContext.mode`:
-- `'microsite-only'` → renders only public routes, no auth, no admin UI
-- All other modes → route by path (superadmin, public, or `AuthGate`-protected admin)
+- **pnpm**: Monorepo package manager.
+- **Node.js**: Runtime environment (v24).
+- **TypeScript**: Programming language (v5.9).
+- **Express**: Web application framework (v5).
+- **PostgreSQL**: Relational database.
+- **Drizzle ORM**: TypeScript ORM for PostgreSQL.
+- **Zod**: Schema declaration and validation library.
+- **Orval**: OpenAPI code generator.
+- **esbuild**: JavaScript bundler.
+- **React**: Frontend JavaScript library.
+- **Vite**: Frontend build tool.
+- **@dnd-kit/core**, **@dnd-kit/sortable**: Drag-and-drop functionality.
+- **@tiptap/react**, **@tiptap/starter-kit**: WYSIWYG editor for rich text.
+- **OpenAI API**: For AI content brief generation and brand import (via Replit AI Integrations).
+- **Google OAuth**: For user authentication.
+- **`pg`**: PostgreSQL client library.
+- **`jspdf`**: PDF generation library.
+- **`qrcode`**: QR code generation library.
 
-`AuthGate` uses the result for admin domains:
-- Signed in + no tenantId + mode `tenant-locked` → "Access Pending" screen
-- Signed in + no tenantId + mode `open` → "Create workspace" form (calls `POST /api/auth/signup`)
+# Shared Libraries
 
-**Hotlink URLs**: When copying personalized links, the sales console uses `domainContext.micrositeDomain` (from `AuthContext`) as the base URL so links always point to `partners.meetdandy.com/p/{token}`.
+## `@workspace/one-pager-types` (`lib/one-pager-types`)
 
-**Email alerts**: Visit alert emails include a clickable link to `https://{microsite_domain}/p/{token}` (the personalized link) when the tenant has a `microsite_domain` set. Priority: micrositeDomain → SITE_URL env → request origin.
+Shared library used by both LP Studio and Dandy DSO for one-pager PDF generation. Exports:
+- **`src/index.ts`**: Core types (`OverlayField`, `CustomTemplate`, `TEMPLATE_VISIBILITY_KEY`)
+- **`src/pdf.ts`**: `generateCustomTemplatePdf` — renders custom template fields onto a jsPDF document
+- **`src/generators.ts`**: Canonical PDF generators for all 4 built-in templates:
+  - `generatePilotOnePager` — 90-day pilot one-pager (audience-specific, with team contacts, prospect logo)
+  - `generateComparisonOnePager` — Dandy then/now comparison table with stats
+  - `generateNewPartnerOnePager` — Partner announcement with 2×2 feature cards, stats, QR code
+  - `generateROIOnePager` — 2-page ROI document with case studies, ROI breakdown, Dandy difference table
+  - All accept pre-loaded image data (`logoPng`, `headerImgData`) and layout overrides via `opts`
 
-**Database**: `tenants` table has two domain columns:
-- `domain` — the admin/login subdomain (e.g. `ent.meetdandy.com`)
-- `microsite_domain` — the public pages subdomain (e.g. `partners.meetdandy.com`)
-
-**Custom domains** (Replit deployment): Both `ent.meetdandy.com` and `partners.meetdandy.com` must be added as custom domains to the LP Studio artifact deployment via the Replit UI. DNS must point both subdomains to Replit.
-
-**To provision a new tenant** (before self-serve is live at lpstudio.ai):
-```bash
-curl -X POST /api/admin/tenants \
-  -H "Content-Type: application/json" \
-  -d '{ "adminPassword": "<ADMIN_PASSWORD>", "name": "Acme Corp", "slug": "acme", "adminEmail": "ceo@acme.com", "domain": "acme-lp.com" }'
-```
-The admin user then signs in with Google at the app URL to access their workspace.
-
-**Frontend**:
-- `AuthProvider` + `useAuth()` hook at `artifacts/lp-studio/src/context/AuthContext.tsx` — also fetches and exposes `domainContext`
-- `AuthGate` component at `artifacts/lp-studio/src/components/AuthGate.tsx` — domain-aware; shows Google sign-in, "Access Pending", or "Create workspace" depending on state
-- Both sidebars (`app-layout.tsx`, `sales-layout.tsx`) filter nav items via `hasPerm(key)`
-- Settings pages: `/settings/team` (TeamPage) and `/settings/roles` (RolesPage)
-
-**Required env vars**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`, `ADMIN_PASSWORD` (all set).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+DSO imports shared generators and wraps them with asset pre-loading (SVG→PNG conversion, image loading) and layout override fetching from `loadLayoutDefault`.

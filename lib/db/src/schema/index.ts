@@ -21,6 +21,7 @@ export * from "./salesSignals";
 export * from "./salesBriefings";
 export * from "./salesInbound";
 export * from "./salesLayoutDefaults";
+export * from "./salesOnePagerTemplates";
 
 // Salesforce Integration
 export * from "./sfdcIntegration";

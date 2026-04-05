@@ -205,6 +205,13 @@ export function SalesTopNav() {
       icon: <FileText className="w-4 h-4" />,
       matchFn: (loc) => loc === "/sales/one-pager",
     },
+    {
+      label: "One-Pager Templates",
+      href: "/sales/one-pager-templates",
+      icon: <Wrench className="w-4 h-4" />,
+      permission: "sales_campaigns",
+      matchFn: (loc) => loc === "/sales/one-pager-templates",
+    },
   ];
 
   const visiblePrimaryNav = primaryNav.filter((item) => !item.permission || hasPerm(item.permission));

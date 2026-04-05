@@ -633,6 +633,22 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_contact ON sales_inbound_emails(contact_id);
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_received ON sales_inbound_emails(received_at DESC);
 
+      -- Sales one-pager custom templates
+      CREATE TABLE IF NOT EXISTS sales_one_pager_templates (
+        id serial PRIMARY KEY,
+        tenant_id integer NOT NULL,
+        name text NOT NULL,
+        background_url text NOT NULL DEFAULT '',
+        orientation text NOT NULL DEFAULT 'portrait',
+        fields jsonb NOT NULL DEFAULT '[]',
+        header_height integer NOT NULL DEFAULT 30,
+        header_image_url text,
+        is_deleted boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sales_one_pager_templates_tenant ON sales_one_pager_templates(tenant_id);
+
       -- Schema migration marker table (used to run one-time data migrations safely)
       CREATE TABLE IF NOT EXISTS _schema_migration_markers (
         key text PRIMARY KEY,

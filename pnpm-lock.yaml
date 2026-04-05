@@ -424,6 +424,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.20.4
         version: 3.20.4
+      '@workspace/one-pager-types':
+        specifier: workspace:*
+        version: link:../../lib/one-pager-types
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
@@ -689,6 +692,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.20.4
         version: 3.20.4
+      '@workspace/one-pager-types':
+        specifier: workspace:*
+        version: link:../../lib/one-pager-types
       dompurify:
         specifier: ^3.1.0
         version: 3.3.3
@@ -698,6 +704,9 @@ importers:
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
+      pdfjs-dist:
+        specifier: ^5.5.207
+        version: 5.5.207
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -1172,6 +1181,18 @@ importers:
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
+
+  lib/one-pager-types:
+    devDependencies:
+      '@types/qrcode':
+        specifier: ^1.5.6
+        version: 1.5.6
+      jspdf:
+        specifier: ^4.2.1
+        version: 4.2.1
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
 
   scripts:
     devDependencies:

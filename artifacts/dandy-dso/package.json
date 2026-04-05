@@ -83,6 +83,7 @@
     "@tiptap/extension-text-align": "^3.20.4",
     "@tiptap/react": "^3.20.4",
     "@tiptap/starter-kit": "^3.20.4",
+    "@workspace/one-pager-types": "workspace:*",
     "jspdf": "^4.2.1",
     "pdfjs-dist": "^5.5.207",
     "qrcode": "^1.5.4",

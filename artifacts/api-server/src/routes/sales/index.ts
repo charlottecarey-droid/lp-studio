@@ -16,6 +16,7 @@ import inboundRouter from "./inbound";
 import importRouter from "./import";
 import personBriefRouter from "./person-brief";
 import layoutDefaultsRouter from "./layout-defaults";
+import onePagerTemplatesRouter from "./one-pager-templates";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/inbound", inboundRouter);
 router.use(importRouter);
 router.use(personBriefRouter);
 router.use(layoutDefaultsRouter);
+router.use(onePagerTemplatesRouter);
 
 export default router;
