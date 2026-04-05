@@ -19,6 +19,9 @@ import {
   EyeOff,
   Eye,
   ArrowUpDown,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -76,6 +79,10 @@ export default function SalesPages() {
   const [sortBy, setSortBy] = useState<"recent" | "name" | "status">("recent");
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -139,6 +146,48 @@ export default function SalesPages() {
     }
   }
 
+  function toggleSelect(pageId: number) {
+    setSelectedPages(prev => {
+      const next = new Set(prev);
+      if (next.has(pageId)) next.delete(pageId);
+      else next.add(pageId);
+      return next;
+    });
+  }
+
+  function selectAllUnlinked() {
+    const unlinked = overview.find(a => a.accountId === -1);
+    if (!unlinked) return;
+    setSelectedPages(prev => {
+      const next = new Set(prev);
+      unlinked.pages.forEach(p => next.add(p.pageId));
+      return next;
+    });
+    // Make sure the unlinked group is expanded
+    setCollapsed(prev => { const next = new Set(prev); next.delete(-1); return next; });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedPages(new Set());
+    setBulkConfirm(false);
+  }
+
+  async function bulkDelete() {
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selectedPages].map(id =>
+        fetch(`${API_BASE}/lp/pages/${id}`, { method: "DELETE" })
+      ));
+      exitSelectMode();
+      load();
+    } catch (err) {
+      console.error("Bulk delete failed:", err);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   const q = search.toLowerCase();
   const filteredOverview = search
     ? overview.filter(acct =>
@@ -183,11 +232,86 @@ export default function SalesPages() {
               AI-generated pages for your accounts, with per-contact personalized links
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
-            <RefreshCw className="w-3.5 h-3.5" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={selectMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+              className="gap-1.5"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              {selectMode ? "Cancel" : "Select"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {/* Bulk action bar */}
+        {selectMode && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-foreground">
+                {selectedPages.size} selected
+              </span>
+              {overview.some(a => a.accountId === -1) && (
+                <button
+                  onClick={selectAllUnlinked}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Select all unlinked
+                </button>
+              )}
+              {selectedPages.size > 0 && (
+                <button
+                  onClick={() => setSelectedPages(new Set())}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {selectedPages.size > 0 && (
+              <div className="flex items-center gap-2">
+                {bulkConfirm ? (
+                  <>
+                    <span className="text-xs text-destructive font-medium">Delete {selectedPages.size} microsite{selectedPages.size !== 1 ? "s" : ""}?</span>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 px-3 text-xs"
+                      onClick={bulkDelete}
+                      disabled={bulkDeleting}
+                    >
+                      {bulkDeleting ? "Deleting…" : "Yes, delete"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-3 text-xs"
+                      onClick={() => setBulkConfirm(false)}
+                      disabled={bulkDeleting}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-3 text-xs gap-1.5"
+                    onClick={() => setBulkConfirm(true)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete {selectedPages.size}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Search */}
         {overview.length > 0 && (
@@ -310,9 +434,19 @@ export default function SalesPages() {
                       : <ChevronDown className="w-3.5 h-3.5 text-primary" />}
                   </button>
                   {acct.accountId === -1 ? (
-                    <div className="flex-1 min-w-0">
-                      <span className="font-semibold text-sm text-muted-foreground">Unlinked Microsites</span>
-                      <p className="text-[11px] text-muted-foreground/70 leading-tight">These pages aren't linked to an account — open a page to connect it</p>
+                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                      <div>
+                        <span className="font-semibold text-sm text-muted-foreground">Unlinked Microsites</span>
+                        <p className="text-[11px] text-muted-foreground/70 leading-tight">These pages aren't linked to an account — open a page to connect it</p>
+                      </div>
+                      {selectMode && (
+                        <button
+                          onClick={selectAllUnlinked}
+                          className="text-[11px] font-semibold text-primary hover:underline shrink-0"
+                        >
+                          Select all
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <Link href={`/sales/accounts/${acct.accountId}`} className="flex-1 min-w-0">
@@ -327,10 +461,18 @@ export default function SalesPages() {
                 {/* Pages (collapsible) */}
                 {!collapsed.has(acct.accountId) && <div className="divide-y divide-border/40">
                   {acct.pages.map(page => (
-                    <div key={page.pageId} className="px-5 py-4">
+                    <div key={page.pageId} className={`px-5 py-4 transition-colors ${selectMode && selectedPages.has(page.pageId) ? "bg-primary/5" : ""}`}>
                       {/* Page title row */}
                       <div className="flex items-center gap-2 mb-3">
-                        <Layout className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        {selectMode ? (
+                          <button onClick={() => toggleSelect(page.pageId)} className="flex-shrink-0 text-primary">
+                            {selectedPages.has(page.pageId)
+                              ? <CheckSquare className="w-4 h-4" />
+                              : <Square className="w-4 h-4 text-muted-foreground" />}
+                          </button>
+                        ) : (
+                          <Layout className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        )}
                         <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
                           {page.pageTitle}
                         </span>
