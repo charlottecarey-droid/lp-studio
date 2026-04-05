@@ -236,8 +236,16 @@ export default function SalesDashboard() {
     const filtered = activeFilter
       ? signals.filter(s => s.accountId == null || filteredAccountIds.has(s.accountId))
       : signals;
-    return [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+    return [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [signals, filteredAccounts, activeFilter]);
+
+  const SIGNALS_PER_PAGE = 10;
+  const [signalsPage, setSignalsPage] = useState(0);
+  const signalsTotalPages = Math.max(1, Math.ceil(recentSignals.length / SIGNALS_PER_PAGE));
+  const paginatedSignals = recentSignals.slice(signalsPage * SIGNALS_PER_PAGE, (signalsPage + 1) * SIGNALS_PER_PAGE);
+
+  // Reset to page 0 whenever the filter changes
+  useEffect(() => { setSignalsPage(0); }, [activeFilter]);
 
   const isEmpty = !loading && filteredAccounts.length === 0;
 
@@ -486,7 +494,7 @@ export default function SalesDashboard() {
                   </Link>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 max-h-[420px] overflow-y-auto pr-0.5 scrollbar-thin">
                   {loading ? (
                     [...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
                   ) : recentSignals.length === 0 ? (
@@ -495,7 +503,7 @@ export default function SalesDashboard() {
                       <p className="text-xs text-muted-foreground">No signals yet — send outreach to start seeing engagement.</p>
                     </Card>
                   ) : (
-                    recentSignals.map(signal => (
+                    paginatedSignals.map(signal => (
                       <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 bg-card border border-border/60 rounded-xl hover:border-primary/20 transition-colors">
                         <div className="w-7 h-7 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 mt-0.5">
                           {getSignalIcon(signal.type, "w-3.5 h-3.5")}
@@ -515,6 +523,28 @@ export default function SalesDashboard() {
                     ))
                   )}
                 </div>
+
+                {!loading && signalsTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => setSignalsPage(p => Math.max(0, p - 1))}
+                      disabled={signalsPage === 0}
+                      className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-2 py-1 rounded-md hover:bg-muted"
+                    >
+                      ← Prev
+                    </button>
+                    <span className="text-[11px] text-muted-foreground">
+                      {signalsPage + 1} / {signalsTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setSignalsPage(p => Math.min(signalsTotalPages - 1, p + 1))}
+                      disabled={signalsPage >= signalsTotalPages - 1}
+                      className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-2 py-1 rounded-md hover:bg-muted"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
