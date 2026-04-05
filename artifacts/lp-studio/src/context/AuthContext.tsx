@@ -10,6 +10,7 @@ export interface AuthUser {
   permissions: Record<string, boolean>;
   isAdmin: boolean;
   micrositeDomain?: string | null;
+  onboardingCompleted?: boolean;
 }
 
 export interface DomainContext {

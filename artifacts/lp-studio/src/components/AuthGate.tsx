@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ExternalLink, LogOut, ChevronDown, Building2 } from "lucide-react";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 const PUBLIC_PREFIXES = ["/lp/", "/p/", "/review/"];
 
@@ -321,6 +322,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // New tenant that hasn't completed onboarding yet — show the setup wizard
+  if (user.onboardingCompleted === false) {
+    return <OnboardingWizard onComplete={refresh} />;
   }
 
   return <>{children}</>;

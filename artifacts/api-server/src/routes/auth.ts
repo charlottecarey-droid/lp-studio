@@ -362,9 +362,55 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       res.status(401).json({ error: "Session expired" });
       return;
     }
-    res.json(JSON.parse(result.rows[0].sess));
+    const sess = JSON.parse(result.rows[0].sess);
+
+    // Include onboardingCompleted flag from tenants table
+    let onboardingCompleted = true; // default true so existing sessions are never blocked
+    if (sess.tenantId) {
+      const tenantResult = await pool.query(
+        `SELECT onboarding_completed_at FROM tenants WHERE id = $1`,
+        [sess.tenantId]
+      );
+      if (tenantResult.rows.length > 0) {
+        onboardingCompleted = tenantResult.rows[0].onboarding_completed_at !== null;
+      }
+    }
+
+    res.json({ ...sess, onboardingCompleted });
   } catch (err) {
     console.error("[auth] /me error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/complete-onboarding — marks the tenant's onboarding as complete
+router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  try {
+    const sessionResult = await pool.query(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    if (!sessionResult.rows.length) {
+      res.status(401).json({ error: "Session expired" });
+      return;
+    }
+    const sess = JSON.parse(sessionResult.rows[0].sess);
+    if (!sess.tenantId) {
+      res.status(400).json({ error: "No tenant associated with this session" });
+      return;
+    }
+    await pool.query(
+      `UPDATE tenants SET onboarding_completed_at = now() WHERE id = $1`,
+      [sess.tenantId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[auth] /complete-onboarding error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

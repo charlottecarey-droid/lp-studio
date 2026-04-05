@@ -117,6 +117,7 @@ export interface BrandConfig {
   productLines: ProductLine[];
   segments: AudienceSegment[];
   chilipiperUrl?: string;
+  logoUrl?: string;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {

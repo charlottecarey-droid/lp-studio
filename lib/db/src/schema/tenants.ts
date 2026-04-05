@@ -18,6 +18,7 @@ export const tenantsTable = pgTable("tenants", {
   plan: text("plan").notNull().default("trial"),
   status: text("status").notNull().default("active"),
   settings: jsonb("settings").default({}),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
