@@ -11,6 +11,11 @@ export const lpLeadsTable = pgTable("lp_leads", {
   fields: jsonb("fields").notNull().default({}),
   ip: text("ip"),
   userAgent: text("user_agent"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
