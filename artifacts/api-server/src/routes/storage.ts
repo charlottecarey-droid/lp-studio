@@ -476,6 +476,8 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
   try {
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const tag = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
+    const excludeTag = typeof req.query.excludeTag === "string" ? req.query.excludeTag.trim() : "";
+    const onlyTag = typeof req.query.onlyTag === "string" ? req.query.onlyTag.trim() : "";
     const pageNum = Math.max(1, parseInt(typeof req.query.page === "string" ? req.query.page : "1") || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(typeof req.query.limit === "string" ? req.query.limit : "48") || 48));
 
@@ -483,6 +485,10 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
     const conditions = [eq(lpMediaTable.mediaType, "image")];
     if (q) conditions.push(ilike(lpMediaTable.title, `%${q}%`));
     if (tag) conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([tag])}::jsonb`);
+    // excludeTag: hide images that have this tag (e.g. "og-image")
+    if (excludeTag) conditions.push(sql`NOT (${lpMediaTable.tags}::jsonb @> ${JSON.stringify([excludeTag])}::jsonb)`);
+    // onlyTag: show ONLY images that have this tag
+    if (onlyTag) conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([onlyTag])}::jsonb`);
     const where = and(...conditions);
 
     // Paginated items
@@ -500,11 +506,11 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
       .from(lpMediaTable)
       .where(where);
 
-    // All tags for the category sidebar — unfiltered so every category always shows
+    // All tags for the category sidebar — same conditions applied so tags reflect the filtered set
     const allTagRows = await db
       .select({ tags: lpMediaTable.tags })
       .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"));
+      .where(where);
 
     const tagMap = new Map<string, number>();
     for (const row of allTagRows) {

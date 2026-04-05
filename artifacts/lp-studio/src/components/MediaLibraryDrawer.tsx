@@ -43,7 +43,7 @@ export interface MediaLibraryDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (url: string) => void;
   /** If provided, open directly on this tab */
-  defaultTab?: "images" | "videos" | "pdfs";
+  defaultTab?: "images" | "videos" | "pdfs" | "og-images";
 }
 
 const DRAWER_PAGE_SIZE = 24;
@@ -74,6 +74,7 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
       if (activeTag) params.set("tag", activeTag);
       params.set("page", String(pg ?? page));
       params.set("limit", String(DRAWER_PAGE_SIZE));
+      params.set("excludeTag", "og-image");
       const res = await fetch(`/api/lp/media/images?${params}`);
       if (!res.ok) throw new Error("Failed to load");
       const data = (await res.json()) as { items: MediaItem[]; tagCounts: TagCount[]; total: number; page: number; totalPages: number };
@@ -256,6 +257,165 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
                   ? <span key={`e${i}`} className="text-xs text-muted-foreground px-0.5">…</span>
                   : <Button key={p} variant={p === page ? "default" : "outline"} size="sm" className="h-7 w-7 p-0 text-xs" onClick={() => handlePageChange(p as number)} disabled={loading}>{p}</Button>
                 )}
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages || loading} onClick={() => handlePageChange(page + 1)}><ChevronRight className="w-3.5 h-3.5" /></Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── OG Images tab ──────────────────────────────────────────────────────────
+
+function OgImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [editingTags, setEditingTags] = useState<number | null>(null);
+  const [editTagValue, setEditTagValue] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const fetchImages = useCallback(async (pg?: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("onlyTag", "og-image");
+      params.set("page", String(pg ?? page));
+      params.set("limit", String(DRAWER_PAGE_SIZE));
+      const res = await fetch(`/api/lp/media/images?${params}`);
+      if (!res.ok) throw new Error("Failed to load");
+      const data = (await res.json()) as { items: MediaItem[]; total: number; page: number; totalPages: number };
+      setItems(data.items);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+      setPage(data.page);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => { fetchImages(page); }, [fetchImages]);
+
+  const uploadFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setUploadProgress({ current: 0, total: files.length });
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setUploadProgress({ current: i + 1, total: files.length });
+      try {
+        const formData = new FormData();
+        formData.append("file", files[i]);
+        formData.append("folderTags", "og-image");
+        const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+        if (!res.ok) failed++;
+      } catch { failed++; }
+    }
+    await fetchImages();
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (failed > 0) alert(`${failed} of ${files.length} files failed to upload.`);
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadFiles(Array.from(e.target.files ?? []).filter(f => f.type.startsWith("image/")));
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    uploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")));
+  };
+
+  const handleSaveTags = async (id: number) => {
+    const tags = editTagValue.split(",").map(t => t.trim()).filter(Boolean);
+    if (!tags.includes("og-image")) tags.unshift("og-image");
+    try {
+      await fetch(`/api/lp/media/${id}/tags`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags }),
+      });
+      setEditingTags(null);
+      fetchImages();
+    } catch { /* silent */ }
+  };
+
+  const handlePageChange = (pg: number) => {
+    setPage(pg);
+    fetchImages(pg);
+    if (dropZoneRef.current) dropZoneRef.current.scrollTop = 0;
+  };
+
+  return (
+    <>
+      <div className="px-4 py-2.5 border-b border-border bg-amber-50/60 shrink-0">
+        <p className="text-[11px] text-amber-700 leading-snug">
+          <span className="font-semibold">OG / Social sharing images only.</span> These are used for link previews (Open Graph meta tags) and are <span className="font-semibold">never</span> selected by the AI when building page content.
+        </p>
+      </div>
+
+      <div className="px-4 py-3 border-b border-border flex gap-2 shrink-0">
+        <Button variant="outline" size="sm" className="h-9 gap-1.5 shrink-0" disabled={!!uploadProgress} onClick={() => fileInputRef.current?.click()} title="Upload OG images">
+          {uploadProgress
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{uploadProgress.current}/{uploadProgress.total}</>
+            : <><Upload className="w-3.5 h-3.5" />Upload OG Image</>}
+        </Button>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+      </div>
+
+      <div ref={dropZoneRef} className="flex-1 overflow-y-auto px-4 py-4 relative" onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+        {uploadProgress && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+            <span>Uploading {uploadProgress.current} of {uploadProgress.total}…</span>
+          </div>
+        )}
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-8 h-8 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">Drop OG images here or click to upload</p>
+            <p className="text-xs mt-1 opacity-60">1200×630 px recommended · JPG, PNG, WebP</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {items.map(item => (
+              <div key={item.id} className="group relative rounded-lg border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+                <div className="aspect-video" onClick={() => onSelect(item.url)}>
+                  <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                </div>
+                <div className="p-2">
+                  <p className="text-xs font-medium truncate" title={item.title}>{item.title}</p>
+                  {editingTags === item.id ? (
+                    <div className="mt-1.5 flex gap-1">
+                      <Input value={editTagValue} onChange={e => setEditTagValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleSaveTags(item.id); }} placeholder="og-image, tag2, …" className="h-6 text-[10px] flex-1" autoFocus />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleSaveTags(item.id)}><Check className="w-3 h-3" /></Button>
+                    </div>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {item.tags.slice(0, 3).map(t => (
+                        <span key={t} className="inline-block px-1.5 py-0.5 rounded-full bg-amber-100 text-[10px] text-amber-700">{t}</span>
+                      ))}
+                      <button className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        onClick={e => { e.stopPropagation(); setEditingTags(item.id); setEditTagValue(item.tags.join(", ")); }} title="Edit tags">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{total} image{total !== 1 ? "s" : ""} &middot; p.{page}/{totalPages}</p>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1 || loading} onClick={() => handlePageChange(page - 1)}><ChevronLeft className="w-3.5 h-3.5" /></Button>
               <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages || loading} onClick={() => handlePageChange(page + 1)}><ChevronRight className="w-3.5 h-3.5" /></Button>
             </div>
           </div>
@@ -647,13 +807,18 @@ export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = 
 
         <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-6 mt-3 mb-0 shrink-0 w-fit">
-            <TabsTrigger value="images" className="text-xs px-4">Images</TabsTrigger>
-            <TabsTrigger value="videos" className="text-xs px-4">Videos</TabsTrigger>
-            <TabsTrigger value="pdfs" className="text-xs px-4">PDFs</TabsTrigger>
+            <TabsTrigger value="images" className="text-xs px-3">Images</TabsTrigger>
+            <TabsTrigger value="og-images" className="text-xs px-3">OG Images</TabsTrigger>
+            <TabsTrigger value="videos" className="text-xs px-3">Videos</TabsTrigger>
+            <TabsTrigger value="pdfs" className="text-xs px-3">PDFs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
             <ImagesTab onSelect={handleSelect} />
+          </TabsContent>
+
+          <TabsContent value="og-images" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">
+            <OgImagesTab onSelect={handleSelect} />
           </TabsContent>
 
           <TabsContent value="videos" className="flex-1 flex flex-col min-h-0 mt-0 data-[state=inactive]:hidden">

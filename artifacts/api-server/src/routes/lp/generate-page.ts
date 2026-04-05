@@ -916,7 +916,9 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
     // 1. Nav header — prepend if missing
     const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
-    const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string));
+    // full-bleed-hero renders its own sticky navbar — don't inject a second one
+    const SELF_NAV_TYPES = new Set(["full-bleed-hero"]);
+    const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
     if (!hasNav) {
       if (useDsoPractices) {
         // DSO practices get the co-branded sticky practice nav
