@@ -314,7 +314,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
               )}
 
               {/* Contact Brief button + panel */}
-              <div className="rounded-lg border border-border overflow-hidden">
+              <div className="rounded-lg border border-border">
                 <button
                   onClick={brief || briefLoading ? () => setBriefOpen(o => !o) : generateBrief}
                   disabled={briefLoading}
@@ -339,7 +339,7 @@ export default function DraftEmailModal({ contact, accountId, accountName, onClo
                 </button>
 
                 {briefOpen && (brief || briefError) && (
-                  <div className="px-4 py-3 border-t border-border bg-card">
+                  <div className="px-4 py-3 border-t border-border bg-card max-h-72 overflow-y-auto">
                     {briefError && (
                       <p className="text-[12px] text-destructive">{briefError}</p>
                     )}
