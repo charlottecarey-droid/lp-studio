@@ -453,12 +453,12 @@ export default function SalesDashboard() {
 
                           {/* Quick actions */}
                           <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Link href={`/sales/accounts?highlight=${acct.id}`}>
+                            <Link href={`/sales/accounts/${acct.id}`}>
                               <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1">
                                 <Building2 className="w-3 h-3" />View
                               </Button>
                             </Link>
-                            <Link href={`/sales/draft-email?accountId=${acct.id}`}>
+                            <Link href="/sales/draft-email">
                               <Button size="sm" className="h-7 px-2.5 text-xs gap-1" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
                                 <PenTool className="w-3 h-3" />Draft email
                               </Button>
@@ -547,13 +547,13 @@ export default function SalesDashboard() {
                           {acct.segment && <p className="text-xs text-muted-foreground">{acct.segment}</p>}
                           <div className="flex items-center gap-1.5 mt-auto pt-1">
                             {noMicrosite ? (
-                              <Link href={`/sales/accounts?highlight=${acct.id}`} className="w-full">
+                              <Link href={`/sales/accounts/${acct.id}`} className="w-full">
                                 <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
                                   <Sparkles className="w-3 h-3" />Generate microsite
                                 </Button>
                               </Link>
                             ) : (
-                              <Link href={`/sales/draft-email?accountId=${acct.id}`} className="w-full">
+                              <Link href="/sales/draft-email" className="w-full">
                                 <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 w-full">
                                   <PenTool className="w-3 h-3" />Re-engage
                                 </Button>
