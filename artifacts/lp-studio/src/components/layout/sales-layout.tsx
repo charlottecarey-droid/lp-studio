@@ -6,6 +6,7 @@ import {
   Activity,
   Users,
   PlusCircle,
+  Globe,
   Paintbrush,
   Cloud,
   Shield,
@@ -161,6 +162,13 @@ export function SalesTopNav() {
       icon: <PlusCircle className="w-4 h-4" />,
       permission: "sales_campaigns",
       matchFn: (loc) => loc === "/sales/campaigns" || loc.startsWith("/sales/campaigns"),
+    },
+    {
+      label: "Microsites",
+      href: "/sales/microsites",
+      icon: <Globe className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/microsites",
     },
     {
       label: "Activity",

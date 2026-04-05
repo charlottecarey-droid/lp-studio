@@ -40,7 +40,12 @@ router.get("/accounts", async (req, res): Promise<void> => {
             ORDER BY COUNT(*) DESC
             LIMIT 1
           )
-        ) AS abm_tier
+        ) AS abm_tier,
+        (
+          SELECT COUNT(*)::int
+          FROM sales_contacts sc2
+          WHERE sc2.account_id = sa.id
+        ) AS contact_count
       FROM sales_accounts sa
       WHERE sa.tenant_id = ${tenantId}
       ORDER BY sa.updated_at DESC

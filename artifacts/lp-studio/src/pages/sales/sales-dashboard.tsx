@@ -95,31 +95,31 @@ export default function SalesDashboard() {
       }
     }
 
-    // Fetch dashboard stats from sales API
+    // Fetch dashboard stats — use /stats endpoint for accurate counts, avoid client-side capping
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/contacts`).then(r => r.ok ? r.json() : { data: [], totalCount: 0 }),
       fetch(`${API_BASE}/sales/signals?limit=10`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
       fetch(`${API_BASE}/sales/campaigns`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_BASE}/sales/signals?limit=100`).then(r => r.ok ? r.json() : { data: [] }).then(res => Array.isArray(res) ? res : res.data ?? []),
+      fetch(`${API_BASE}/sales/stats`).then(r => r.ok ? r.json() : { signalsToday: 0, emailsSent: 0 }),
       fetch(`${API_BASE}/lp/pages`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?type=email_open&limit=1`).then(r => r.ok ? r.json() : { totalCount: 0 }),
+      fetch(`${API_BASE}/sales/signals?type=email_click&limit=1`).then(r => r.ok ? r.json() : { totalCount: 0 }),
     ])
-      .then(([accounts, contacts, recentSignals, campaigns, allSignals, pages]) => {
+      .then(([accounts, contactsRes, recentSignals, campaigns, serverStats, pages, opensRes, clicksRes]) => {
         const activeCampaigns = campaigns.filter((c: any) => c.status === "sending" || c.status === "sent").length;
-        const emailsSent = campaigns.reduce((sum: number, c: any) => sum + (c.recipientCount ?? 0), 0);
-        const opens = allSignals.filter((s: any) => s.type === "email_open").length;
-        const clicks = allSignals.filter((s: any) => s.type === "email_click").length;
         const publishedMicrosites = pages.filter((p: any) => p.status === "published" && !p.isTemplate).length;
+        const contactCount = Array.isArray(contactsRes) ? contactsRes.length : (contactsRes.totalCount ?? contactsRes.data?.length ?? 0);
 
         setStats({
           accounts: accounts.length ?? 0,
-          contacts: contacts.length ?? 0,
+          contacts: contactCount,
           activeCampaigns,
           microsites: publishedMicrosites,
-          recentSignals: recentSignals.length ?? 0,
-          emailsSent,
-          opens,
-          clicks,
+          recentSignals: serverStats.signalsToday ?? 0,
+          emailsSent: serverStats.emailsSent ?? 0,
+          opens: opensRes.totalCount ?? 0,
+          clicks: clicksRes.totalCount ?? 0,
         });
         setSignals(recentSignals ?? []);
       })
@@ -193,7 +193,7 @@ export default function SalesDashboard() {
       bigIcon: <FileText className="w-5 h-5 text-muted-foreground/20" />,
       color: "text-foreground",
       accent: false,
-      href: "/sales/pages",
+      href: "/sales/microsites",
     },
     {
       label: "Signals Today",
@@ -274,7 +274,7 @@ export default function SalesDashboard() {
                 title: "Microsites",
                 description: "Personalized landing pages. Create branded microsites for prospects, customize sections, and generate trackable hotlinks.",
                 cta: "View Microsites →",
-                href: "/sales/pages",
+                href: "/sales/microsites",
               },
               {
                 id: "campaigns",
@@ -393,7 +393,7 @@ export default function SalesDashboard() {
                   title: "Build a microsite",
                   desc: "Use the page builder to create a personalized microsite for the account with their branding and case studies.",
                   cta: "Create Microsite",
-                  href: "/sales/pages",
+                  href: "/sales/microsites",
                   icon: <FileText className="w-5 h-5" />,
                 },
                 {
@@ -457,11 +457,25 @@ export default function SalesDashboard() {
                   <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center">
                     <Activity className="w-5 h-5 text-muted-foreground" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-foreground text-sm">No signals yet</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Signals will appear as contacts engage with your pages and emails
                     </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link href="/sales/microsites">
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                        <Globe className="w-3.5 h-3.5" />
+                        Create Microsite
+                      </Button>
+                    </Link>
+                    <Link href="/sales/draft-email">
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                        <Mail className="w-3.5 h-3.5" />
+                        Draft Email
+                      </Button>
+                    </Link>
                   </div>
                 </Card>
               ) : (
@@ -507,7 +521,7 @@ export default function SalesDashboard() {
                   Build a personalized microsite for your top account and start tracking engagement.
                 </p>
               </div>
-              <Link href="/sales/pages" className="shrink-0">
+              <Link href="/sales/microsites" className="shrink-0">
                 <Button
                   variant="outline"
                   size="sm"

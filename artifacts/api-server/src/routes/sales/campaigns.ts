@@ -143,7 +143,34 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
       .from(salesEmailCampaignsTable)
       .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, Number(req.params.id))));
     if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
-    res.json(campaign);
+
+    // Enrich with template, sends, and account
+    const [template] = campaign.templateId
+      ? await db.select().from(salesEmailTemplatesTable).where(eq(salesEmailTemplatesTable.id, campaign.templateId))
+      : [null];
+    const sends = await db.select({
+      id: salesEmailSendsTable.id,
+      contactId: salesEmailSendsTable.contactId,
+      email: salesEmailSendsTable.email,
+      status: salesEmailSendsTable.status,
+      sentAt: salesEmailSendsTable.sentAt,
+      openedAt: salesEmailSendsTable.openedAt,
+      clickedAt: salesEmailSendsTable.clickedAt,
+      bouncedAt: salesEmailSendsTable.bouncedAt,
+      contactFirst: salesContactsTable.firstName,
+      contactLast: salesContactsTable.lastName,
+      accountName: salesAccountsTable.name,
+    })
+      .from(salesEmailSendsTable)
+      .leftJoin(salesContactsTable, eq(salesEmailSendsTable.contactId, salesContactsTable.id))
+      .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
+      .where(eq(salesEmailSendsTable.campaignId, campaign.id))
+      .orderBy(desc(salesEmailSendsTable.createdAt));
+    const account = campaign.accountId
+      ? (await db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, campaign.accountId)))[0] ?? null
+      : null;
+
+    res.json({ ...campaign, template, sends, account });
   } catch (err) {
     console.error("GET /sales/campaigns/:id error:", err);
     res.status(500).json({ error: "Failed to load campaign" });
@@ -192,6 +219,28 @@ router.post("/campaigns", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("POST /sales/campaigns error:", err);
     res.status(500).json({ error: "Failed to create campaign" });
+  }
+});
+
+// ─── Clone campaign ────────────────────────────────────────
+router.post("/campaigns/:id/clone", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const [original] = await db.select().from(salesEmailCampaignsTable)
+      .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, Number(req.params.id))));
+    if (!original) { res.status(404).json({ error: "Campaign not found" }); return; }
+    const [clone] = await db.insert(salesEmailCampaignsTable).values({
+      tenantId,
+      name: `${original.name} (copy)`,
+      templateId: original.templateId,
+      accountId: original.accountId,
+      status: "draft",
+      metadata: original.metadata ?? {},
+    }).returning();
+    res.status(201).json(clone);
+  } catch (err) {
+    console.error("POST /sales/campaigns/:id/clone error:", err);
+    res.status(500).json({ error: "Failed to clone campaign" });
   }
 });
 
@@ -261,9 +310,24 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     }
 
     // Filter to contacts with emails and active status
-    const sendable = contacts.filter(c => c.email && c.status === "active");
-    if (sendable.length === 0) {
+    const withEmail = contacts.filter(c => c.email && c.status === "active");
+    if (withEmail.length === 0) {
       res.status(400).json({ error: "No contacts with email addresses to send to" });
+      return;
+    }
+
+    // Idempotency guard: skip contacts already sent to in this campaign
+    const existingSends = await db.select({ contactId: salesEmailSendsTable.contactId })
+      .from(salesEmailSendsTable)
+      .where(and(
+        eq(salesEmailSendsTable.campaignId, campaignId),
+        eq(salesEmailSendsTable.status, "sent"),
+      ));
+    const alreadySentIds = new Set(existingSends.map(s => s.contactId));
+    const sendable = withEmail.filter(c => !alreadySentIds.has(c.id));
+    const skippedCount = withEmail.length - sendable.length;
+    if (sendable.length === 0) {
+      res.status(400).json({ error: `All ${withEmail.length} contacts have already been sent to in this campaign` });
       return;
     }
 
@@ -374,7 +438,7 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
       .set({ status: "sent", sentAt: new Date() })
       .where(eq(salesEmailCampaignsTable.id, campaignId));
 
-    res.json({ sent, failed, total: sendable.length });
+    res.json({ sent, failed, skipped: skippedCount, total: sendable.length + skippedCount });
   } catch (err) {
     console.error("POST /sales/campaigns/:id/send error:", err);
     res.status(500).json({ error: "Failed to send campaign" });

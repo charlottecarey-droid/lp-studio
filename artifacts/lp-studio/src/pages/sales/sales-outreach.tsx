@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { CampaignPagesContent } from "@/pages/sales/sales-campaign-pages";
 import {
@@ -21,6 +22,8 @@ import {
   MousePointerClick,
   Eye,
   X,
+  MoreVertical,
+  Copy,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -589,11 +592,13 @@ function SingleSendTab() {
 // ─── Campaigns Tab ──────────────────────────────────────────
 
 function CampaignsTab() {
+  const [, navigate] = useLocation();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
 
   // Create form
   const [name, setName] = useState("");
@@ -629,25 +634,39 @@ function CampaignsTab() {
         }),
       });
       if (res.ok) {
+        const created = await res.json();
         setName(""); setTemplateId(""); setAccountId("");
         setShowCreate(false);
-        fetchData();
+        navigate(`/sales/campaigns/${created.id}`);
       }
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSendCampaign(id: number) {
+  async function handleDelete(id: number) {
     try {
-      await fetch(`${API_BASE}/sales/campaigns/${id}/send`, { method: "POST" });
+      await fetch(`${API_BASE}/sales/campaigns/${id}`, { method: "DELETE" });
       fetchData();
     } catch {}
+    setMenuOpenId(null);
+  }
+
+  async function handleClone(id: number) {
+    try {
+      const res = await fetch(`${API_BASE}/sales/campaigns/${id}/clone`, { method: "POST" });
+      if (res.ok) {
+        const clone = await res.json();
+        navigate(`/sales/campaigns/${clone.id}`);
+      }
+    } catch {}
+    setMenuOpenId(null);
   }
 
   function statusColor(status: string) {
     switch (status) {
       case "draft": return "bg-muted text-muted-foreground";
+      case "scheduled": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
       case "sending": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
       case "sent": return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
       default: return "bg-muted text-muted-foreground";
@@ -726,7 +745,11 @@ function CampaignsTab() {
       ) : (
         <div className="flex flex-col gap-2.5">
           {campaignsPag.pageItems.map(c => (
-            <div key={c.id} className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
+            <div
+              key={c.id}
+              onClick={() => navigate(`/sales/campaigns/${c.id}`)}
+              className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:shadow-sm transition-all cursor-pointer"
+            >
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Mail className="w-5 h-5 text-primary" />
               </div>
@@ -740,15 +763,34 @@ function CampaignsTab() {
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {c.recipientCount > 0 && <span>{c.recipientCount} recipients</span>}
                   {c.sentAt && <span>Sent {format(new Date(c.sentAt), "MMM d, h:mm a")}</span>}
+                  {!c.sentAt && <span>Created {format(new Date(c.createdAt), "MMM d")}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {c.status === "draft" && (
-                  <Button size="sm" variant="outline" onClick={() => handleSendCampaign(c.id)} className="gap-1.5">
-                    <Send className="w-3.5 h-3.5" />
-                    Send
-                  </Button>
-                )}
+              <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                <div className="relative">
+                  <button
+                    onClick={() => setMenuOpenId(menuOpenId === c.id ? null : c.id)}
+                    className="p-1.5 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {menuOpenId === c.id && (
+                    <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-xl border border-border bg-card shadow-lg py-1">
+                      <button
+                        onClick={() => handleClone(c.id)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Clone
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

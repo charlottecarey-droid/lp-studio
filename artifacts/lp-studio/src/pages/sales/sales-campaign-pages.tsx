@@ -157,7 +157,7 @@ function LaunchModal({
     senderEmail: string;
     sendEmails: boolean;
     alertEmails: string[];
-  }) => Promise<void>;
+  }) => Promise<LaunchResult | void>;
   onCreateAudience: () => void;
   onAudienceCreated: (a: Audience) => void;
 }) {
@@ -243,7 +243,8 @@ function LaunchModal({
       .map(e => e.trim().toLowerCase())
       .filter(e => e.includes("@"));
     try {
-      await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails, alertEmails });
+      const launchResult = await onLaunch({ audienceId: selectedAudienceId, emailSubject: subject, emailBodyHtml: body, senderName, senderEmail, sendEmails, alertEmails });
+      if (launchResult) setResult(launchResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Launch failed");
     } finally {
@@ -914,6 +915,7 @@ export function CampaignPagesContent() {
             if (result) {
               setLaunchResults(prev => ({ ...prev, [launchingPage.id]: result }));
             }
+            return result;
           }}
         />
       )}

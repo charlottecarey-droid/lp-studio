@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, RefreshCw } from "lucide-react";
+import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, RefreshCw, Save } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -53,6 +54,38 @@ export default function SalesDraftEmail() {
   const urlContactId = matched && params?.contactId ? parseInt(params.contactId, 10) : null;
 
   const d = useEmailDraft(urlContactId);
+
+  // ── Save as Template ──────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function saveAsTemplate() {
+    const currentBody = d.textareaRef.current?.value ?? d.body;
+    if (!d.subject && !currentBody) return;
+    setSaving(true);
+    try {
+      const name = d.selectedContact
+        ? `Draft for ${d.fullName}`
+        : `Saved template – ${new Date().toLocaleDateString()}`;
+      const res = await fetch("/api/sales/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          subject: d.subject,
+          bodyHtml: currentBody,
+          bodyText: currentBody,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error("Save as template failed", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Map to DropdownItem shapes
   const accountItems: DropdownItem[] = d.filteredAccounts.map((a) => ({ id: a.id, label: a.name }));
@@ -265,6 +298,9 @@ export default function SalesDraftEmail() {
                   </Button>
                   <Button onClick={d.copyFull} variant="outline" className="gap-2">
                     {d.copiedFull ? (<><Check className="w-4 h-4 text-green-500" />Copied!</>) : (<><Copy className="w-4 h-4" />Copy email</>)}
+                  </Button>
+                  <Button onClick={saveAsTemplate} variant="outline" className="gap-2" disabled={saving || (!d.subject && !d.body)}>
+                    {saved ? (<><Check className="w-4 h-4 text-green-500" />Saved!</>) : saving ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving…</>) : (<><Save className="w-4 h-4" />Save as template</>)}
                   </Button>
 
                   {d.selectedContact?.email && (

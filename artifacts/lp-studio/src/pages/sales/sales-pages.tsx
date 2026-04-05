@@ -14,6 +14,11 @@ import {
   Sparkles,
   RefreshCw,
   Search,
+  MoreVertical,
+  Trash2,
+  EyeOff,
+  Eye,
+  ArrowUpDown,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -67,6 +72,10 @@ export default function SalesPages() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [menuOpen, setMenuOpen] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "status">("recent");
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -98,6 +107,38 @@ export default function SalesPages() {
     });
   }
 
+  async function togglePageStatus(pageId: number, currentStatus: string) {
+    setActionLoading(true);
+    try {
+      const newStatus = currentStatus === "published" ? "draft" : "published";
+      await fetch(`${API_BASE}/lp/pages/${pageId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      load();
+    } catch (err) {
+      console.error("Failed to update page status:", err);
+    } finally {
+      setActionLoading(false);
+      setMenuOpen(null);
+    }
+  }
+
+  async function deletePage(pageId: number) {
+    setActionLoading(true);
+    try {
+      await fetch(`${API_BASE}/lp/pages/${pageId}`, { method: "DELETE" });
+      setConfirmDelete(null);
+      load();
+    } catch (err) {
+      console.error("Failed to delete page:", err);
+    } finally {
+      setActionLoading(false);
+      setMenuOpen(null);
+    }
+  }
+
   const q = search.toLowerCase();
   const filteredOverview = search
     ? overview.filter(acct =>
@@ -106,6 +147,25 @@ export default function SalesPages() {
         acct.pages.some(p => p.hotlinks.some(hl => hl.contactName.toLowerCase().includes(q)))
       )
     : overview;
+
+  // Sort pages within each account
+  const sortedOverview = filteredOverview.map(acct => ({
+    ...acct,
+    pages: [...acct.pages].sort((a, b) => {
+      if (sortBy === "status") return a.pageStatus.localeCompare(b.pageStatus);
+      if (sortBy === "name") return a.pageTitle.localeCompare(b.pageTitle);
+      return new Date(b.pageUpdatedAt).getTime() - new Date(a.pageUpdatedAt).getTime(); // recent first
+    }),
+  })).sort((a, b) => {
+    // Always push "General" (unlinked, id=-1) to the bottom
+    if (a.accountId === -1 && b.accountId !== -1) return 1;
+    if (b.accountId === -1 && a.accountId !== -1) return -1;
+    if (sortBy === "name") return a.accountName.localeCompare(b.accountName);
+    // Sort by most recently updated page
+    const aMax = Math.max(...a.pages.map(p => new Date(p.pageUpdatedAt).getTime()));
+    const bMax = Math.max(...b.pages.map(p => new Date(p.pageUpdatedAt).getTime()));
+    return bMax - aMax;
+  });
 
   // Accounts that don't yet have a microsite (exclude the -1 "General" bucket)
   const accountsWithMicrosites = new Set(overview.filter(a => a.accountId !== -1).map(a => a.accountId));
@@ -190,7 +250,7 @@ export default function SalesPages() {
           <div className="flex flex-col gap-4">
             {[1, 2].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
           </div>
-        ) : filteredOverview.length === 0 && !search ? (
+        ) : sortedOverview.length === 0 && !search ? (
           <Card className="flex flex-col items-center justify-center py-16 px-8 rounded-2xl border border-dashed border-border text-center">
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Layout className="w-7 h-7 text-primary" />
@@ -207,7 +267,7 @@ export default function SalesPages() {
               </Button>
             </Link>
           </Card>
-        ) : filteredOverview.length === 0 && search ? (
+        ) : sortedOverview.length === 0 && search ? (
           <Card className="flex flex-col items-center justify-center py-12 px-8 rounded-2xl border border-dashed border-border text-center">
             <Search className="w-8 h-8 text-muted-foreground mb-3" />
             <h3 className="text-base font-display font-bold text-foreground mb-1">No results for "{search}"</h3>
@@ -215,10 +275,28 @@ export default function SalesPages() {
           </Card>
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {search ? `${filteredOverview.length} of ${overview.length}` : overview.length} account{(search ? filteredOverview.length : overview.length) !== 1 ? "s" : ""}
-            </p>
-            {filteredOverview.map(acct => (
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {(() => {
+                  const realAccounts = (search ? sortedOverview : overview).filter(a => a.accountId !== -1).length;
+                  const total = overview.filter(a => a.accountId !== -1).length;
+                  return search ? `${realAccounts} of ${total}` : total;
+                })()} account{(search ? sortedOverview : overview).filter(a => a.accountId !== -1).length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="text-xs appearance-none bg-transparent text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none"
+                >
+                  <option value="recent">Most recent</option>
+                  <option value="name">Name</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+            </div>
+            {sortedOverview.map(acct => (
               <Card key={acct.accountId} className="rounded-2xl border border-border/60 overflow-hidden">
                 {/* Account header */}
                 <div className="flex items-center gap-3 px-5 py-3.5 bg-muted/30 border-b border-border/50">
@@ -232,7 +310,10 @@ export default function SalesPages() {
                       : <ChevronDown className="w-3.5 h-3.5 text-primary" />}
                   </button>
                   {acct.accountId === -1 ? (
-                    <span className="font-semibold text-sm text-foreground flex-1 min-w-0">{acct.accountName}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm text-muted-foreground">Unlinked Microsites</span>
+                      <p className="text-[11px] text-muted-foreground/70 leading-tight">These pages aren't linked to an account — open a page to connect it</p>
+                    </div>
                   ) : (
                     <Link href={`/sales/accounts/${acct.accountId}`} className="flex-1 min-w-0">
                       <span className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">{acct.accountName}</span>
@@ -271,6 +352,57 @@ export default function SalesPages() {
                             Edit
                           </button>
                         </Link>
+                        {/* Actions menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setMenuOpen(menuOpen === page.pageId ? null : page.pageId)}
+                            className="p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                          {menuOpen === page.pageId && (
+                            <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-border bg-card shadow-lg py-1">
+                              <button
+                                onClick={() => togglePageStatus(page.pageId, page.pageStatus)}
+                                disabled={actionLoading}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+                              >
+                                {page.pageStatus === "published" ? (
+                                  <><EyeOff className="w-3.5 h-3.5" /> Unpublish</>
+                                ) : (
+                                  <><Eye className="w-3.5 h-3.5" /> Publish</>
+                                )}
+                              </button>
+                              {confirmDelete === page.pageId ? (
+                                <div className="px-3 py-2 border-t border-border/50">
+                                  <p className="text-[11px] text-muted-foreground mb-2">Delete this microsite?</p>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => deletePage(page.pageId)}
+                                      disabled={actionLoading}
+                                      className="flex-1 text-[11px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium"
+                                    >
+                                      {actionLoading ? "Deleting…" : "Delete"}
+                                    </button>
+                                    <button
+                                      onClick={() => { setConfirmDelete(null); setMenuOpen(null); }}
+                                      className="flex-1 text-[11px] px-2 py-1 rounded border border-border hover:bg-muted/50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDelete(page.pageId)}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Hotlinks per contact */}

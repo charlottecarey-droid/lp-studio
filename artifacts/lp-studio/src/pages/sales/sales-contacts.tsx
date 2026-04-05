@@ -26,6 +26,12 @@ import {
   ExternalLink,
   Download,
   Linkedin,
+  LinkIcon,
+  Copy,
+  Check,
+  Plus,
+  MailX,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -627,6 +633,7 @@ function ContactListView() {
   const [showAudience, setShowAudience] = useState(false);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grouped">("grouped");
+  const [contactSends, setContactSends] = useState<Record<number, { status: string; sentAt: string | null; campaignName: string | null }>>({});
 
   // Account-level filters inherited from Accounts page
   const [acctFilterOwners, setAcctFilterOwners] = useState<string[]>([]);
@@ -678,8 +685,9 @@ function ContactListView() {
     Promise.all([
       fetch(`${API_BASE}/sales/contacts?limit=2000`).then((r) => (r.ok ? r.json() : { data: [], totalCount: 0 })),
       fetch(`${API_BASE}/sales/signals?limit=500`).then((r) => (r.ok ? r.json() : { data: [] })).then(res => Array.isArray(res) ? res : res.data ?? []),
+      fetch(`${API_BASE}/sales/sends?limit=500`).then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([ctsRes, signals]) => {
+      .then(([ctsRes, signals, sends]) => {
         const cts = Array.isArray(ctsRes) ? ctsRes : (ctsRes.data ?? []);
         setTotalCount(ctsRes.totalCount ?? cts.length);
         setContacts(cts);
@@ -691,6 +699,14 @@ function ContactListView() {
           }
         });
         setContactSignals(grouped);
+        // Build outreach status per contact (most recent send)
+        const sendMap: Record<number, { status: string; sentAt: string | null; campaignName: string | null }> = {};
+        (sends || []).forEach((s: any) => {
+          if (s.contactId && !sendMap[s.contactId]) {
+            sendMap[s.contactId] = { status: s.status, sentAt: s.sentAt, campaignName: s.campaignName };
+          }
+        });
+        setContactSends(sendMap);
       })
       .catch(() => setContacts([]))
       .finally(() => setLoading(false));
@@ -1013,6 +1029,19 @@ function ContactListView() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{contact.firstName} {contact.lastName}</p>
+                          {contact.status === "unsubscribed" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-900/50">
+                              <MailX className="w-3 h-3" />Unsubscribed
+                            </span>
+                          )}
+                          {contact.status === "bounced" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50">
+                              <AlertTriangle className="w-3 h-3" />Bounced
+                            </span>
+                          )}
+                          {engagementScore.label !== "No activity" && (
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${engagementScore.color}`}>{engagementScore.label}</span>
+                          )}
                           {contact.contactRole && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium hidden md:inline">{contact.contactRole}</span>
                           )}
@@ -1025,6 +1054,20 @@ function ContactListView() {
                           {contact.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" />{contact.email}</span>}
                         </div>
                       </div>
+                      {contactSends[contact.id] ? (
+                        <span className={`hidden md:inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                          contactSends[contact.id].status === "sent"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50"
+                            : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50"
+                        }`}>
+                          <Mail className="w-3 h-3" />
+                          {contactSends[contact.id].status === "sent" ? "Emailed" : "Failed"}
+                        </span>
+                      ) : (
+                        <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
+                          Not contacted
+                        </span>
+                      )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setDraftContact(contact); }}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
@@ -1079,6 +1122,16 @@ function ContactListView() {
                             <p className="text-sm font-semibold text-foreground">
                               {contact.firstName} {contact.lastName}
                             </p>
+                            {contact.status === "unsubscribed" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-900/50">
+                                <MailX className="w-3 h-3" />Unsub
+                              </span>
+                            )}
+                            {contact.status === "bounced" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50">
+                                <AlertTriangle className="w-3 h-3" />Bounced
+                              </span>
+                            )}
                             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${engagementScore.color}`}>{engagementScore.label}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1100,6 +1153,20 @@ function ContactListView() {
                         {contact.contactRole && (
                           <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
                             {contact.contactRole}
+                          </span>
+                        )}
+                        {contactSends[contact.id] ? (
+                          <span className={`hidden lg:inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            contactSends[contact.id].status === "sent"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50"
+                              : "bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900/50"
+                          }`}>
+                            <Mail className="w-3 h-3" />
+                            {contactSends[contact.id].status === "sent" ? "Emailed" : "Failed"}
+                          </span>
+                        ) : (
+                          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
+                            Not contacted
                           </span>
                         )}
                         <button
@@ -1158,19 +1225,32 @@ function ContactDetailView({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [accountName, setAccountName] = useState<string>("");
 
+  // Hotlink creation state
+  const [accountPages, setAccountPages] = useState<{ id: number; title: string; slug: string; accountId: number | null }[]>([]);
+  const [creatingHotlink, setCreatingHotlink] = useState(false);
+  const [copiedHotlink, setCopiedHotlink] = useState<number | null>(null);
+
   const fetchData = useCallback(() => {
     Promise.all([
       fetch(`${API_BASE}/sales/contacts/${id}`).then((r) => (r.ok ? r.json() : null)),
       fetch(`${API_BASE}/sales/signals?contactId=${id}&limit=30`).then((r) => (r.ok ? r.json() : { data: [] })).then(res => Array.isArray(res) ? res : res.data ?? []),
+      fetch(`${API_BASE}/sales/hotlinks?contactId=${id}`).then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(async ([ct, sigs]) => {
+      .then(async ([ct, sigs, hl]) => {
         setContact(ct);
         setSignals(sigs ?? []);
-        // Fetch account name
+        setHotlinks(Array.isArray(hl) ? hl : hl.data ?? []);
+        // Fetch account name + pages for hotlink creation
         if (ct?.accountId) {
           try {
-            const acct = await fetch(`${API_BASE}/sales/accounts/${ct.accountId}`).then((r) => r.ok ? r.json() : null);
+            const [acct, ov] = await Promise.all([
+              fetch(`${API_BASE}/sales/accounts/${ct.accountId}`).then((r) => r.ok ? r.json() : null),
+              fetch(`${API_BASE}/sales/microsites/overview`).then((r) => r.ok ? r.json() : []),
+            ]);
             if (acct) setAccountName(acct.name);
+            // Filter pages belonging to this account
+            const pages = (ov ?? []).filter((p: { accountId: number | null }) => p.accountId === ct.accountId);
+            setAccountPages(pages);
           } catch {}
         }
       })
@@ -1179,6 +1259,33 @@ function ContactDetailView({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function createHotlink(pageId: number) {
+    setCreatingHotlink(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/hotlinks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: Number(id), pageId }),
+      });
+      if (res.ok) {
+        const hl = await res.json();
+        setHotlinks((prev) => [...prev.filter((h) => h.id !== hl.id), hl]);
+      }
+    } catch (err) {
+      console.error("Failed to create hotlink", err);
+    } finally {
+      setCreatingHotlink(false);
+    }
+  }
+
+  function copyHotlinkUrl(token: string, hotlinkId: number) {
+    const url = `${window.location.origin}/p/${token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedHotlink(hotlinkId);
+      setTimeout(() => setCopiedHotlink(null), 2000);
+    });
+  }
 
   if (loading) {
     return (
@@ -1310,10 +1417,16 @@ function ContactDetailView({ id }: { id: string }) {
               </div>
             )}
             <div className="flex items-center gap-3">
-              <Activity className="w-4 h-4 text-muted-foreground" />
+              {contact.status === "unsubscribed" ? <MailX className="w-4 h-4 text-orange-500" /> :
+               contact.status === "bounced" ? <AlertTriangle className="w-4 h-4 text-red-500" /> :
+               <Activity className="w-4 h-4 text-muted-foreground" />}
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Status</p>
-                <p className="text-sm text-foreground capitalize">{contact.status}</p>
+                <p className={`text-sm font-medium capitalize ${
+                  contact.status === "unsubscribed" ? "text-orange-600" :
+                  contact.status === "bounced" ? "text-red-600" :
+                  "text-foreground"
+                }`}>{contact.status}</p>
               </div>
             </div>
           </div>
@@ -1332,6 +1445,86 @@ function ContactDetailView({ id }: { id: string }) {
               <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.count}</p>
             </Card>
           ))}
+        </div>
+
+        {/* Personalized Links */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-display font-bold text-foreground">Personalized Links</h2>
+          </div>
+
+          {hotlinks.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {hotlinks.map((hl) => {
+                const page = accountPages.find((p) => p.id === hl.pageId);
+                return (
+                  <div key={hl.id} className="flex items-center gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl">
+                    <LinkIcon className="w-4 h-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{page?.title ?? `Page #${hl.pageId}`}</p>
+                      <p className="text-xs text-muted-foreground truncate">{window.location.origin}/p/{hl.token}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => copyHotlinkUrl(hl.token, hl.id)}
+                    >
+                      {copiedHotlink === hl.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
+                    <a
+                      href={`/p/${hl.token}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Pages available for new hotlinks (exclude pages that already have one) */}
+          {(() => {
+            const existingPageIds = new Set(hotlinks.map((h) => h.pageId));
+            const available = accountPages.filter((p) => !existingPageIds.has(p.id));
+            if (available.length === 0 && hotlinks.length === 0) {
+              return (
+                <Card className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border">
+                  <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                    <LinkIcon className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">No personalized links</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Create a microsite for this account first, then you can generate personalized links here
+                    </p>
+                  </div>
+                </Card>
+              );
+            }
+            if (available.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-2">
+                {available.map((page) => (
+                  <Button
+                    key={page.id}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    disabled={creatingHotlink}
+                    onClick={() => createHotlink(page.id)}
+                  >
+                    <Plus className="w-3 h-3" />
+                    {page.title || `Page ${page.id}`}
+                  </Button>
+                ))}
+                {creatingHotlink && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Engagement History */}
