@@ -116,18 +116,35 @@ export default function SalesSignals() {
   // Initial fetch
   useEffect(() => { fetchSignals(); }, [filter]);
 
-  // SSE real-time updates
+  // SSE real-time updates with reconnect on error
   useEffect(() => {
-    const es = new EventSource(`${API_BASE}/sales/signals/stream`);
-    es.onmessage = (event) => {
-      try {
-        const signal = JSON.parse(event.data);
-        if (signal.type === "connected") return;
-        if (filter && signal.type !== filter) return;
-        setSignals((prev) => [signal, ...prev].slice(0, 500));
-      } catch {}
+    let es: EventSource;
+    let retryTimer: ReturnType<typeof setTimeout>;
+    let active = true;
+
+    function connect() {
+      if (!active) return;
+      es = new EventSource(`${API_BASE}/sales/signals/stream`);
+      es.onmessage = (event) => {
+        try {
+          const signal = JSON.parse(event.data);
+          if (signal.type === "connected") return;
+          if (filter && signal.type !== filter) return;
+          setSignals((prev) => [signal, ...prev].slice(0, 500));
+        } catch {}
+      };
+      es.onerror = () => {
+        es.close();
+        if (active) retryTimer = setTimeout(connect, 5000);
+      };
+    }
+
+    connect();
+    return () => {
+      active = false;
+      clearTimeout(retryTimer);
+      es?.close();
     };
-    return () => es.close();
   }, [filter]);
 
   async function handleClearAll() {

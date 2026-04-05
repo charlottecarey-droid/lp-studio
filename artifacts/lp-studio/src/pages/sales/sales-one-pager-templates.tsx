@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 import {
   Search, Plus, Eye, EyeOff, Copy, Trash2, RotateCcw, Upload, X, Loader2,
   FileText, GripVertical, Settings2, ChevronDown, Save, FileDown, Image as ImageIcon,
@@ -429,6 +430,12 @@ function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onC
 // ════════════════════════════════════════════════════════════════════
 // PDF GENERATE DIALOG
 // ════════════════════════════════════════════════════════════════════
+const PILOT_AUDIENCES = [
+  { value: "executive", label: "Executive" },
+  { value: "clinical", label: "Clinical" },
+  { value: "practice-manager", label: "Practice Manager" },
+] as const;
+
 function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   tpl?: CustomTemplate;
   isBuiltin?: boolean;
@@ -438,6 +445,7 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   const [dsoName, setDsoName] = useState("");
   const [phone, setPhone] = useState("");
   const [qrUrl, setQrUrl] = useState("https://meetdandy.com");
+  const [audience, setAudience] = useState<"executive" | "clinical" | "practice-manager">("executive");
   const [generating, setGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -446,13 +454,13 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
       if (isBuiltin && builtinId) {
         let doc: jsPDF;
         if (builtinId === "roi") doc = await generateROIOnePager(dsoName || "DSO", 50);
-        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || "DSO", "executive", [], phone, null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined);
+        else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || "DSO", audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined);
         else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || "DSO", [], phone, null, { w: 0, h: 0 }, undefined, undefined);
         else doc = await generateNewPartnerOnePager(dsoName || "DSO", null, { w: 0, h: 0 }, qrUrl, {});
         doc.save(`${(dsoName || builtinId).replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
         const values: Record<string, string> = { dso_name: dsoName, phone, qr_url: qrUrl };
-        const doc = await generateCustomTemplatePdf(tpl, values);
+        const doc = await generateCustomTemplatePdf(tpl, values, dandyLogoWhiteUrl);
         doc.save(`${(dsoName || tpl.name).replace(/\s+/g, "_")}_OnePager.pdf`);
       }
       toast({ title: "PDF downloaded" });
@@ -476,6 +484,23 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">DSO / Practice Name</label>
             <input type="text" value={dsoName} onChange={e => setDsoName(e.target.value)} placeholder="e.g. Acme DSO" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
           </div>
+          {/* Audience picker — only relevant for Pilot template */}
+          {builtinId === "pilot" && (
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Audience</label>
+              <div className="inline-flex w-full rounded-lg border border-border overflow-hidden">
+                {PILOT_AUDIENCES.map(a => (
+                  <button
+                    key={a.value}
+                    onClick={() => setAudience(a.value)}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${audience === a.value ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Phone Number</label>
             <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. (555) 123-4567" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
@@ -513,11 +538,30 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [headerImgUploading, setHeaderImgUploading] = useState(false);
+  const [memberPhotoUploading, setMemberPhotoUploading] = useState(false);
+  const [pendingPhotoMemberIdx, setPendingPhotoMemberIdx] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const headerImgRef = useRef<HTMLInputElement>(null);
+  const memberPhotoRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const selectedField = tpl.fields.find(f => f.id === selectedId) ?? null;
+
+  // Regenerate preset background when orientation changes
+  const prevOrientationRef = useRef(tpl.orientation);
+  useEffect(() => {
+    if (prevOrientationRef.current === tpl.orientation) return;
+    prevOrientationRef.current = tpl.orientation;
+    if (!activePresetId) return;
+    setUploading(true);
+    generatePresetBg(activePresetId, tpl.orientation, tpl.headerImageUrl)
+      .then(newBg => {
+        setBgPreview(newBg);
+        setTpl(p => ({ ...p, background_url: newBg }));
+      })
+      .catch(() => {})
+      .finally(() => setUploading(false));
+  }, [tpl.orientation, activePresetId, tpl.headerImageUrl]);
 
   const updateField = (id: string, updates: Partial<OverlayField>) =>
     setTpl(p => ({ ...p, fields: p.fields.map(f => f.id === id ? { ...f, ...updates } : f) }));
@@ -592,6 +636,46 @@ function TemplateEditor({ initial, onSave, onCancel }: {
       toast({ title: "Failed to upload header photo", variant: "destructive" });
     } finally {
       setHeaderImgUploading(false);
+    }
+  };
+
+  const handleMemberPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    if (pendingPhotoMemberIdx === null || !selectedId) return;
+    setMemberPhotoUploading(true);
+    try {
+      let imgUrl: string;
+      try {
+        const formData = new FormData(); formData.append("file", file);
+        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Upload failed");
+        const { url } = await res.json();
+        imgUrl = url;
+      } catch {
+        imgUrl = await new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = ev => res(ev.target?.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+      }
+      setTpl(p => ({
+        ...p,
+        fields: p.fields.map(f => {
+          if (f.id !== selectedId) return f;
+          const members: TeamMember[] = (f.teamMembers ?? []).map((mm: TeamMember, i: number) =>
+            i === pendingPhotoMemberIdx ? { ...mm, photoUrl: imgUrl } : mm
+          );
+          return { ...f, teamMembers: members };
+        }),
+      }));
+      toast({ title: "Photo uploaded" });
+    } catch {
+      toast({ title: "Failed to upload photo", variant: "destructive" });
+    } finally {
+      setMemberPhotoUploading(false);
+      setPendingPhotoMemberIdx(null);
     }
   };
 
@@ -829,6 +913,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
           )}
           <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" />
           <input ref={headerImgRef} type="file" accept="image/*" onChange={handleHeaderImageUpload} className="hidden" />
+          <input ref={memberPhotoRef} type="file" accept="image/*" onChange={handleMemberPhotoUpload} className="hidden" />
         </div>
 
         {/* Right: properties panel */}
@@ -1056,16 +1141,29 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                             }}
                             className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                           />
-                          <input
-                            type="url"
-                            value={m.photoUrl || ""}
-                            placeholder="Photo URL (optional)"
-                            onChange={e => {
-                              const next = (selectedField.teamMembers ?? []).map((mm: TeamMember, i: number) => i === idx ? { ...mm, photoUrl: e.target.value || undefined } : mm);
-                              updateField(selectedField.id, { teamMembers: next });
-                            }}
-                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          />
+                          <div className="flex items-center gap-1.5">
+                            {m.photoUrl && (
+                              <img src={m.photoUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border border-border" />
+                            )}
+                            <input
+                              type="url"
+                              value={m.photoUrl || ""}
+                              placeholder="Photo URL (optional)"
+                              onChange={e => {
+                                const next = (selectedField.teamMembers ?? []).map((mm: TeamMember, i: number) => i === idx ? { ...mm, photoUrl: e.target.value || undefined } : mm);
+                                updateField(selectedField.id, { teamMembers: next });
+                              }}
+                              className="flex-1 min-w-0 rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                            />
+                            <button
+                              onClick={() => { setPendingPhotoMemberIdx(idx); memberPhotoRef.current?.click(); }}
+                              disabled={memberPhotoUploading && pendingPhotoMemberIdx === idx}
+                              className="shrink-0 rounded border border-border bg-background px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                              title="Upload photo"
+                            >
+                              {memberPhotoUploading && pendingPhotoMemberIdx === idx ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1101,9 +1199,28 @@ function TemplateEditor({ initial, onSave, onCancel }: {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-2">
-              <Settings2 className="w-6 h-6 text-muted-foreground opacity-40" />
-              <p className="text-xs text-muted-foreground">Click a placed field to edit its properties</p>
+            <div className="flex flex-col gap-4 p-3">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Template Settings</p>
+              <div>
+                <label className="text-[9px] text-muted-foreground uppercase block mb-1">
+                  Header Height — {tpl.headerHeight ?? 30}mm
+                </label>
+                <input
+                  type="range"
+                  min={15}
+                  max={80}
+                  step={1}
+                  value={tpl.headerHeight ?? 30}
+                  onChange={e => setTpl(p => ({ ...p, headerHeight: Number(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+                <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+                  <span>15mm</span><span>80mm</span>
+                </div>
+              </div>
+              <div className="text-[9px] text-muted-foreground leading-relaxed">
+                Drag a field from the palette onto the canvas, then click it to edit its properties here.
+              </div>
             </div>
           )}
         </div>
