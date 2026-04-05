@@ -56,6 +56,9 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    exclude: ["pdfjs-dist"],
+  },
   server: {
     port,
     host: "0.0.0.0",

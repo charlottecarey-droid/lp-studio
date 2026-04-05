@@ -8,6 +8,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   generatePilotOnePager,
   generateComparisonOnePager,
@@ -32,9 +33,48 @@ export type { OverlayField, CustomTemplate };
 
 const API_BASE = "/api";
 
+// ── Preset starter backgrounds ────────────────────────────────────────
+const PRESET_BACKGROUNDS = [
+  { id: "preset:green-header", label: "Full Green Header", description: "Dark green header bar spanning full width" },
+  { id: "preset:green-split", label: "Green + Image", description: "Green header left, image placeholder right" },
+] as const;
+
+const DARK_GREEN_FILL = "rgb(0,40,32)";
+const MID_GREEN_FILL = "rgb(20,50,40)";
+
+const generatePresetBg = (presetId: string, orientation = "portrait"): Promise<string> =>
+  new Promise(resolve => {
+    const isLandscape = orientation === "landscape";
+    const cw = isLandscape ? 792 : 612;
+    const ch = isLandscape ? 612 : 792;
+    const canvas = document.createElement("canvas");
+    canvas.width = cw * 2; canvas.height = ch * 2;
+    const ctx = canvas.getContext("2d")!;
+    ctx.scale(2, 2);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, cw, ch);
+    const headerH = ch * 0.3;
+    if (presetId === "preset:green-header") {
+      ctx.fillStyle = DARK_GREEN_FILL;
+      ctx.fillRect(0, 0, cw, headerH);
+    } else if (presetId === "preset:green-split") {
+      const splitX = cw * 0.48;
+      ctx.fillStyle = DARK_GREEN_FILL;
+      ctx.fillRect(0, 0, splitX, headerH);
+      ctx.fillStyle = MID_GREEN_FILL;
+      ctx.fillRect(splitX, 0, cw - splitX, headerH);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.font = `bold ${Math.round(headerH * 0.12)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("↑ upload image here", splitX + (cw - splitX) / 2, headerH / 2);
+    }
+    resolve(canvas.toDataURL("image/png"));
+  });
+
 const pdfToImageBlob = async (file: File): Promise<Blob> => {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const page = await pdf.getPage(1);
@@ -562,18 +602,72 @@ function TemplateEditor({ initial, onSave, onCancel }: {
         {/* Center: preview canvas */}
         <div className="flex-1 flex flex-col items-center gap-3 min-w-0">
           {!bgPreview ? (
-            <div className="w-full flex-1 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border bg-muted/20">
-              <div className="text-center space-y-2">
-                <Upload className="w-8 h-8 text-muted-foreground mx-auto" />
-                <p className="text-sm font-medium text-muted-foreground">Upload background image or PDF</p>
-                <p className="text-xs text-muted-foreground/70">PNG, JPG, PDF supported</p>
+            <div className="w-full flex-1 flex flex-col items-start gap-5 rounded-xl border-2 border-dashed border-border bg-muted/20 p-6 overflow-y-auto">
+              {/* Preset starters */}
+              <div className="w-full">
+                <p className="text-xs font-semibold text-foreground mb-3">Start with a preset layout</p>
+                <div className="flex gap-3">
+                  {PRESET_BACKGROUNDS.map(preset => (
+                    <button
+                      key={preset.id}
+                      disabled={uploading}
+                      onClick={async () => {
+                        setUploading(true);
+                        try {
+                          const dataUrl = await generatePresetBg(preset.id, tpl.orientation);
+                          setBgPreview(dataUrl);
+                          setTpl(p => ({ ...p, background_url: dataUrl }));
+                        } catch { toast({ title: "Failed to generate background", variant: "destructive" }); }
+                        finally { setUploading(false); }
+                      }}
+                      className="flex-1 max-w-[140px] rounded-lg border border-border bg-background hover:border-primary/60 hover:shadow-md transition-all overflow-hidden disabled:opacity-50 text-left"
+                    >
+                      {/* Mini visual preview */}
+                      <div className="relative overflow-hidden" style={{ aspectRatio: "8.5/11" }}>
+                        {/* white body */}
+                        <div className="absolute inset-0 bg-white" />
+                        {/* green header */}
+                        <div className="absolute inset-x-0 top-0 h-[30%]" style={{ backgroundColor: "#002820" }} />
+                        {/* right image placeholder for split layout */}
+                        {preset.id === "preset:green-split" && (
+                          <div className="absolute top-0 right-0 w-[52%] h-[30%] flex items-center justify-center" style={{ backgroundColor: "#143228" }}>
+                            <ImageIcon className="w-4 h-4 text-white/30" />
+                          </div>
+                        )}
+                        {/* content lines */}
+                        <div className="absolute bottom-0 inset-x-0 top-[32%] p-2 flex flex-col gap-1">
+                          {[70, 50, 80, 60, 75, 55, 65].map((w, i) => (
+                            <div key={i} className="h-0.5 rounded-full bg-gray-200" style={{ width: `${w}%` }} />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="px-2 py-1.5">
+                        <p className="text-[11px] font-semibold text-foreground truncate">{preset.label}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{preset.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                {uploading ? "Uploading…" : "Choose file"}
-              </button>
-              <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" />
+              {/* Divider */}
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 border-t border-border" />
+                <span className="text-xs text-muted-foreground">or upload your own</span>
+                <div className="flex-1 border-t border-border" />
+              </div>
+              {/* Upload */}
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="text-center space-y-1">
+                  <Upload className="w-7 h-7 text-muted-foreground mx-auto" />
+                  <p className="text-sm font-medium text-muted-foreground">Upload background image or PDF</p>
+                  <p className="text-xs text-muted-foreground/70">PNG, JPG, PDF supported</p>
+                </div>
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploading ? "Processing…" : "Choose file"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="relative flex-1 w-full">
@@ -858,7 +952,7 @@ export default function SalesOnePagerTemplates() {
 
       const pdfBlob = doc.output("blob");
       const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
       const buf = await pdfBlob.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
       const page = await pdf.getPage(1);
