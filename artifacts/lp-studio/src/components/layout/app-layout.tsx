@@ -14,6 +14,13 @@ import {
   LogOut,
   ChevronDown,
   Menu,
+  Store,
+  Layers,
+  Target,
+  Gauge,
+  Link2,
+  Zap,
+  Wand2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -197,6 +204,74 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {showMarketing && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
+              Optimize
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/templates"}>
+                    <Link href="/templates" className="font-medium">
+                      <Store className="w-4 h-4" />
+                      <span>Templates</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/smart-sections"}>
+                    <Link href="/smart-sections" className="font-medium">
+                      <Layers className="w-4 h-4" />
+                      <span>Smart Sections</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/conversion-scoring"}>
+                    <Link href="/conversion-scoring" className="font-medium">
+                      <Target className="w-4 h-4" />
+                      <span>Conversion Scoring</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/page-speed"}>
+                    <Link href="/page-speed" className="font-medium">
+                      <Gauge className="w-4 h-4" />
+                      <span>Page Speed</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/ad-map"}>
+                    <Link href="/ad-map" className="font-medium">
+                      <Link2 className="w-4 h-4" />
+                      <span>AdMap</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/amp"}>
+                    <Link href="/amp" className="font-medium">
+                      <Zap className="w-4 h-4" />
+                      <span>AMP Pages</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/programmatic"}>
+                    <Link href="/programmatic" className="font-medium">
+                      <Wand2 className="w-4 h-4" />
+                      <span>Programmatic</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

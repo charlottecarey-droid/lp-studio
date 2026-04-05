@@ -128,6 +128,15 @@ const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
 const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-templates"));
 
+// New feature pages
+const TemplateMarketplace = lazy(() => import("@/pages/template-marketplace"));
+const SmartSections = lazy(() => import("@/pages/smart-sections"));
+const ConversionScoring = lazy(() => import("@/pages/conversion-scoring"));
+const PageSpeed = lazy(() => import("@/pages/page-speed"));
+const AdMap = lazy(() => import("@/pages/ad-map"));
+const AmpPages = lazy(() => import("@/pages/amp-pages"));
+const ProgrammaticPages = lazy(() => import("@/pages/programmatic-pages"));
+
 // Settings pages
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
 const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
@@ -173,6 +182,15 @@ function AppRouter() {
         <Route path="/pages/new" component={NewPage} />
         <Route path="/pages" component={PagesGallery} />
         <Route path="/reviews" component={ReviewsOverview} />
+
+        {/* New Feature Routes */}
+        <Route path="/templates" component={TemplateMarketplace} />
+        <Route path="/smart-sections" component={SmartSections} />
+        <Route path="/conversion-scoring" component={ConversionScoring} />
+        <Route path="/page-speed" component={PageSpeed} />
+        <Route path="/ad-map" component={AdMap} />
+        <Route path="/amp" component={AmpPages} />
+        <Route path="/programmatic" component={ProgrammaticPages} />
 
         {/* Consolidated Routes */}
         <Route path="/forms-and-leads" component={FormsAndLeads} />

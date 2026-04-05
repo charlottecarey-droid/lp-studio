@@ -27,6 +27,13 @@ import personalizedLinksRouter from "./personalized-links";
 import tokenResolveRouter from "./token-resolve";
 import contentBriefRouter from "./content-brief";
 import inUseImagesRouter from "./in-use-images";
+import templatesRouter from "./templates";
+import conversionScoringRouter from "./conversion-scoring";
+import pageSpeedRouter from "./page-speed";
+import ampPagesRouter from "./amp-pages";
+import programmaticPagesRouter from "./programmatic-pages";
+import smartSectionsRouter from "./smart-sections";
+import adMapRouter from "./ad-map";
 
 const router = Router();
 
@@ -54,9 +61,16 @@ router.use(seoMetaGenerateRouter);
 router.use(integrationsRouter);
 router.use(smartTrafficRouter);
 router.use(heatmapRouter);
+router.use(pageSpeedRouter); // Page Speed Engine routes
 router.use(personalizedLinksRouter);
 router.use(tokenResolveRouter);
 router.use(contentBriefRouter);
 router.use(inUseImagesRouter);
+router.use(templatesRouter);
+router.use(conversionScoringRouter);
+router.use(ampPagesRouter);
+router.use(programmaticPagesRouter);
+router.use(smartSectionsRouter);
+router.use(adMapRouter);
 
 export default router;
