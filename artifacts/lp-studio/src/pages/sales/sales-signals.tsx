@@ -193,6 +193,13 @@ export default function SalesSignals() {
       <div className="flex flex-col gap-6 pb-12">
         <div className="flex items-start justify-between gap-4">
           <div>
+            <button
+              onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales")}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+              Back
+            </button>
             <h1 className="text-2xl font-display font-bold text-foreground">Activity</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Real-time engagement feed{acctFilterActive ? " — filtered to your active view" : " across all accounts"}

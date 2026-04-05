@@ -164,12 +164,10 @@ export default function BlockTestEditor() {
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Top Bar */}
       <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
-        <Link href={`/tests/${testId}`}>
-          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline text-xs">Test</span>
-          </Button>
-        </Link>
+        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign(`/tests/${testId}`)}>
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline text-xs">Back</span>
+        </Button>
 
         <div className="h-4 w-px bg-border mx-1" />
 

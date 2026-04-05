@@ -102,11 +102,11 @@ export default function SalesDraftEmail() {
         {/* Header */}
         <div className="space-y-2">
           <button
-            onClick={() => navigate("/sales/contacts")}
+            onClick={() => window.history.length > 1 ? window.history.back() : navigate("/sales")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to contacts
+            Back
           </button>
           <div className="space-y-1">
             <div className="flex items-center gap-2">

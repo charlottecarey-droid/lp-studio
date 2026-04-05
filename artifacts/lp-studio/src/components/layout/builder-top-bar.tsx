@@ -1,5 +1,5 @@
 import { useState, type RefObject } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, Monitor, Smartphone, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check,
@@ -53,7 +53,16 @@ export function BuilderTopBar({
   onToggleCommentMode,
   onShareForReview,
 }: BuilderTopBarProps) {
+  const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
+
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate("/pages");
+    }
+  }
 
   function handleViewLive(e: React.MouseEvent) {
     // Copy URL to clipboard when clicking "View" on published pages
@@ -66,12 +75,10 @@ export function BuilderTopBar({
 
   return (
     <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
-      <Link href="/pages">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline text-xs">Pages</span>
-        </Button>
-      </Link>
+      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={goBack}>
+        <ArrowLeft className="w-4 h-4" />
+        <span className="hidden sm:inline text-xs">Back</span>
+      </Button>
 
       <div className="h-4 w-px bg-border mx-1" />
 

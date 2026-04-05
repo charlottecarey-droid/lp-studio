@@ -89,20 +89,25 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    v.muted = true; // always mute imperatively (React muted prop unreliable in some versions)
-    if (props.videoAutoplay === false) return;
+    // Force mute and strip controls imperatively — React props are unreliable
+    v.muted = true;
     v.loop = true;
+    v.controls = false;
+    v.playsInline = true;
+    v.removeAttribute("controls");
     v.load();
     v.play().catch(() => {});
   }, [props.videoUrl, props.videoAutoplay]);
 
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !props.videoPlayOnScroll) return;
+    if (!v) return;
     v.muted = true;
-    if (inView) {
+    v.controls = false;
+    v.removeAttribute("controls");
+    if (props.videoPlayOnScroll && inView) {
       v.play().catch(() => {});
-    } else {
+    } else if (props.videoPlayOnScroll && !inView) {
       v.pause();
     }
   }, [inView, props.videoPlayOnScroll]);
@@ -273,15 +278,21 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
-                    ref={videoRef}
+                    ref={(el) => {
+                      (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                      if (el) {
+                        el.muted = true;
+                        el.removeAttribute("controls");
+                        el.setAttribute("playsinline", "");
+                      }
+                    }}
                     key={`iv-video-${props.videoUrl}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
-                    autoPlay={props.videoAutoplay !== false}
+                    autoPlay
                     muted
-                    loop={props.videoAutoplay !== false}
+                    loop
                     playsInline
-                    controls={props.videoAutoplay === false && !props.videoPlayOnScroll}
                     preload="auto"
                   />
                 ) : (

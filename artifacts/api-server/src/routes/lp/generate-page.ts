@@ -65,7 +65,7 @@ function getImagePurpose(img: MediaImage): string {
 }
 
 /** Fetch all images from the media library, separated by purpose for AI context */
-async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText: string }> {
+async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
   try {
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
@@ -84,7 +84,7 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
     // and should never be used as landing page block images.
     const images = allImages.filter(img => !img.tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase())));
 
-    if (images.length === 0) return { images, catalogText: "" };
+    if (images.length === 0) return { images, allImages, catalogText: "" };
 
     // Separate into purpose buckets
     const heroImages = images.filter(i => getImagePurpose(i) === "lp-hero");
@@ -128,9 +128,9 @@ async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; catalogText:
       ? `\nIMAGE LIBRARY — Pick URLs from the correct section for each block type:\n${sections.join("\n\n")}\n`
       : "";
 
-    return { images, catalogText };
+    return { images, allImages, catalogText };
   } catch {
-    return { images: [], catalogText: "" };
+    return { images: [], allImages: [], catalogText: "" };
   }
 }
 
@@ -380,6 +380,97 @@ function fillEmptyImages(blocks: unknown[], images: MediaImage[]): unknown[] {
   });
 }
 
+/**
+ * Validate all image URLs assigned by the AI against the media catalog.
+ * If the AI picked an image whose tags match EXCLUDE_TAGS (OG images, social
+ * sharing images, ad creatives), clear that URL so fillEmptyImages() can
+ * replace it with a properly tagged alternative.
+ *
+ * Also clears URLs that don't exist in the media library at all (hallucinated URLs).
+ */
+function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknown[] {
+  // Build a lookup: url → tags
+  const urlToTags = new Map<string, string[]>();
+  for (const img of allImages) {
+    urlToTags.set(img.url, img.tags);
+  }
+
+  /** Check if a URL is an excluded image (OG, social, ad creative) */
+  function isExcludedUrl(url: string): boolean {
+    const tags = urlToTags.get(url);
+    if (!tags) return false; // URL not in library — could be external, leave it
+    return tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase()));
+  }
+
+  /** Clear a URL if it's excluded, return the cleaned value */
+  function cleanUrl(url: unknown): string {
+    if (typeof url !== "string" || !url) return "";
+    if (isExcludedUrl(url)) return "";
+    return url;
+  }
+
+  return blocks.map((block) => {
+    const b = { ...(block as Record<string, unknown>) };
+    const props = { ...(b.props as Record<string, unknown> ?? {}) };
+
+    // Single imageUrl fields
+    if (typeof props.imageUrl === "string" && props.imageUrl) {
+      props.imageUrl = cleanUrl(props.imageUrl);
+    }
+    if (typeof props.backgroundImageUrl === "string" && props.backgroundImageUrl) {
+      props.backgroundImageUrl = cleanUrl(props.backgroundImageUrl);
+    }
+    if (typeof props.heroImageUrl === "string" && props.heroImageUrl) {
+      props.heroImageUrl = cleanUrl(props.heroImageUrl);
+    }
+
+    // Arrays with imageUrl (rows, chapters, tiles)
+    if (Array.isArray(props.rows)) {
+      props.rows = (props.rows as Record<string, unknown>[]).map(row => ({
+        ...row,
+        imageUrl: typeof row.imageUrl === "string" ? cleanUrl(row.imageUrl) : row.imageUrl,
+      }));
+    }
+    if (Array.isArray(props.chapters)) {
+      props.chapters = (props.chapters as Record<string, unknown>[]).map(ch => ({
+        ...ch,
+        imageUrl: typeof ch.imageUrl === "string" ? cleanUrl(ch.imageUrl) : ch.imageUrl,
+      }));
+    }
+    if (Array.isArray(props.tiles)) {
+      props.tiles = (props.tiles as Record<string, unknown>[]).map(tile => ({
+        ...tile,
+        imageUrl: typeof tile.imageUrl === "string" ? cleanUrl(tile.imageUrl) : tile.imageUrl,
+      }));
+    }
+
+    // Arrays with src (photo-strip images)
+    if (Array.isArray(props.images)) {
+      props.images = (props.images as Record<string, unknown>[]).map(img => ({
+        ...img,
+        src: typeof img.src === "string" ? cleanUrl(img.src) : img.src,
+      }));
+    }
+
+    // Arrays with image (product-grid items, success-stories cases)
+    if (Array.isArray(props.items)) {
+      props.items = (props.items as Record<string, unknown>[]).map(item => ({
+        ...item,
+        image: typeof item.image === "string" ? cleanUrl(item.image) : item.image,
+      }));
+    }
+    if (Array.isArray(props.cases)) {
+      props.cases = (props.cases as Record<string, unknown>[]).map(c => ({
+        ...c,
+        image: typeof c.image === "string" ? cleanUrl(c.image) : c.image,
+      }));
+    }
+
+    b.props = props;
+    return b;
+  });
+}
+
 async function fetchBrand(): Promise<BrandConfig> {
   try {
     const rows = await db.select().from(lpBrandSettingsTable).limit(1);
@@ -536,7 +627,7 @@ These pages are shown to individual dental practices that are part of a DSO netw
 AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
 - "dso-practice-nav": Sticky dark-green co-branded navbar. Props: dsoName (string — e.g. "Heartland Dental"), links (array of {label, anchor} — use anchor IDs matching blockSettings.anchorId on the relevant blocks, e.g. "#steps", "#products", "#perks", "#team"), ctaText (string — "Book a Demo"), ctaUrl (string — use Chili Piper URL if available), ctaMode ("chilipiper"|"link"). ALWAYS include this block first.
 - "dso-practice-hero": Full-width centered hero for practice landing pages. Props: eyebrow (string — use DSO co-brand like "Heartland Dental × Dandy"), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), trustLine (string — e.g. "Join 200+ practices in your network already using Dandy"), backgroundStyle ("dark"|"white"|"muted")
-- "dso-paradigm-shift": Two-column old-way vs new-way visual with checklist bullets. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string), oldWayItems (string[] — REQUIRED, 3–5 non-empty strings), newWayLabel (string), newWayItems (string[] — REQUIRED, 3–5 non-empty strings), backgroundStyle ("dark"|"white"|"muted"). Example: oldWayLabel: "Traditional Lab", oldWayItems: ["7–14 day turnaround", "Inconsistent fit rates", "No dedicated support"], newWayLabel: "Dandy", newWayItems: ["5-day restorations", "96%+ first-time fit rate", "Dedicated rep from day one"]
+- "dso-paradigm-shift": CRITICAL old-way vs new-way comparison — this block MUST always have FULLY POPULATED bullet arrays. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string, e.g. "Traditional Lab"), oldWayItems (string[] — MANDATORY, exactly 4–5 specific pain-point strings, NEVER empty), newWayLabel (string, e.g. "Dandy"), newWayItems (string[] — MANDATORY, exactly 4–5 specific benefit strings that directly counter each oldWayItem, NEVER empty), ctaText (string), ctaUrl (string), backgroundStyle ("dark"|"white"|"muted"). You MUST generate this block with real content tailored to the segment. Example: oldWayLabel: "Traditional Lab", oldWayItems: ["7–14 day turnaround on crowns", "Inconsistent fit rates across locations", "No visibility into case status", "Manual shade matching errors"], newWayLabel: "Dandy", newWayItems: ["5-day average turnaround", "96%+ first-time fit rate", "Real-time digital case tracking", "AI-powered shade matching"]
 - "dso-stat-row": Bold impact metrics in a horizontal grid — 3–4 stats. Props: eyebrow (string), headline (string, optional), items (array of {value (e.g. "96%" or "2x" or "50+"), label (string), detail (string, optional)}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-partnership-perks": Icon grid of partnership benefits/perks. Props: eyebrow (string), headline (string), subheadline (string), perks (array of exactly 6 {icon, title, desc} — icon keys: "trophy","gift","zap","users","clock","star","shield","heart","check","target"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-products-grid": Product card grid with images/icons. Props: eyebrow (string), headline (string), subheadline (string), products (array of {name, detail, price, icon, imageKey} — imageKey options: "posterior-crowns","anterior-crowns","dentures","implants","guided-surgery","aligners","guards","sleep"), backgroundStyle ("white"|"muted"|"dark")
@@ -732,24 +823,70 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         // oldWayItems/newWayItems, or leaves the arrays empty. Patch before rendering.
         if (btype === "dso-paradigm-shift") {
           const asArr = (v: unknown) => (Array.isArray(v) && v.length > 0 ? v : null);
-          if (!asArr(props.oldWayItems)) {
-            props.oldWayItems = asArr(props.oldWayBullets) ?? [
-              "Long turnaround times",
-              "Inconsistent fit rates",
-              "Opaque pricing",
-              "No dedicated support",
+
+          // Try alternate key names the AI sometimes uses
+          const oldCandidates = asArr(props.oldWayItems) ?? asArr(props.oldWayBullets) ?? asArr(props.oldItems) ?? asArr(props.traditionalItems);
+          const newCandidates = asArr(props.newWayItems) ?? asArr(props.newWayBullets) ?? asArr(props.newItems) ?? asArr(props.dandyItems);
+
+          // Segment-aware fallback content
+          const segName = (segmentContext?.name ?? "").toLowerCase();
+          let fallbackOld: string[];
+          let fallbackNew: string[];
+          if (segName.includes("practice") || useDsoPractices) {
+            fallbackOld = [
+              "7–14 day turnaround on crowns and bridges",
+              "Inconsistent fit rates require costly remakes",
+              "No visibility into case status or tracking",
+              "Manual shade matching leads to patient frustration",
+              "Limited support — you're on your own",
             ];
-          }
-          if (!asArr(props.newWayItems)) {
-            props.newWayItems = asArr(props.newWayBullets) ?? [
-              "5-day restorations",
+            fallbackNew = [
+              "5-day average turnaround on restorations",
+              "96%+ first-time fit rate across all cases",
+              "Real-time digital case tracking dashboard",
+              "AI-powered shade matching for precise results",
+              "Dedicated rep and on-site training from day one",
+            ];
+          } else if (useDso) {
+            fallbackOld = [
+              "Fragmented lab relationships across locations",
+              "Inconsistent quality and turnaround network-wide",
+              "No centralized case data or analytics",
+              "High remake rates eroding margins",
+              "Manual onboarding at every new location",
+            ];
+            fallbackNew = [
+              "Single digital lab partner for all locations",
+              "Standardized quality with 96%+ fit rate",
+              "Centralized analytics and case tracking",
+              "2.3% average remake rate across the network",
+              "Scalable onboarding — live in under 2 weeks",
+            ];
+          } else {
+            fallbackOld = [
+              "Long turnaround times delay patient treatment",
+              "Inconsistent fit rates lead to costly remakes",
+              "Opaque pricing makes budgeting difficult",
+              "No dedicated support when issues arise",
+            ];
+            fallbackNew = [
+              "5-day average turnaround on restorations",
               "96%+ first-time fit rate",
               "Transparent per-unit pricing",
               "Dedicated rep from day one",
             ];
           }
+
+          props.oldWayItems = oldCandidates ?? fallbackOld;
+          props.newWayItems = newCandidates ?? fallbackNew;
+
+          // Clean up alternate key names
           delete props.oldWayBullets;
           delete props.newWayBullets;
+          delete props.oldItems;
+          delete props.newItems;
+          delete props.traditionalItems;
+          delete props.dandyItems;
         }
 
         // Fix background style: dandy-green is required for dso-problem, dso-ai-feature, dso-stat-showcase
@@ -765,6 +902,10 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
 
       return b;
     });
+
+    // Sanitize AI-assigned image URLs: clear any that match EXCLUDE_TAGS
+    // (OG images, social, ad creatives) so fillEmptyImages can replace them
+    parsed.blocks = sanitizeAIImageUrls(parsed.blocks, mediaCatalog.allImages);
 
     // Fill in any remaining empty image URLs from the media library
     parsed.blocks = fillEmptyImages(parsed.blocks, mediaCatalog.images);

@@ -1258,9 +1258,16 @@ const SalesOnePager = () => {
     <SalesLayout>
       <div className="py-12">
         <div className="max-w-[900px] mx-auto px-6 md:px-10">
-          <div className="text-center mb-10">
-            <h1 className="text-3xl font-bold text-foreground">One-Pager Generator</h1>
-            <p className="text-sm text-muted-foreground mt-2">Generate branded PDF one-pagers for DSO prospects</p>
+          <div className="mb-10">
+            <button
+              onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales")}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+              Back
+            </button>
+            <h1 className="text-3xl font-bold text-foreground text-center">One-Pager Generator</h1>
+            <p className="text-sm text-muted-foreground mt-2 text-center">Generate branded PDF one-pagers for DSO prospects</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mb-8">

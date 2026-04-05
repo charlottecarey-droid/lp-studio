@@ -1304,7 +1304,7 @@ function ContactDetailView({ id }: { id: string }) {
       <SalesLayout>
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <p className="text-lg font-semibold text-foreground">Contact not found</p>
-          <Button variant="outline" onClick={() => navigate("/sales/contacts")}>
+          <Button variant="outline" onClick={() => window.history.length > 1 ? window.history.back() : navigate("/sales/contacts")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Contacts
           </Button>
@@ -1323,7 +1323,7 @@ function ContactDetailView({ id }: { id: string }) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg"
-            onClick={() => navigate("/sales/contacts")}
+            onClick={() => window.history.length > 1 ? window.history.back() : navigate("/sales/contacts")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>

@@ -327,11 +327,9 @@ export default function SalesCampaignDetail() {
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <AlertCircle className="w-12 h-12 text-muted-foreground" />
           <h2 className="text-lg font-semibold">{error ?? "Campaign not found"}</h2>
-          <Link href="/sales/campaigns">
-            <Button variant="outline" className="gap-1.5">
-              <ArrowLeft className="w-3.5 h-3.5" /> Back to Campaigns
-            </Button>
-          </Link>
+          <Button variant="outline" className="gap-1.5" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales/campaigns")}>
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
+          </Button>
         </div>
       </SalesLayout>
     );
@@ -357,11 +355,9 @@ export default function SalesCampaignDetail() {
         {/* Back + Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <Link href="/sales/campaigns">
-              <button className="mt-1 p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-            </Link>
+            <button className="mt-1 p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/sales/campaigns")}>
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="flex-1 min-w-0">
               {editing ? (
                 <div className="flex items-center gap-2">

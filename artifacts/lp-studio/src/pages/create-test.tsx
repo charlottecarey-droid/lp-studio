@@ -80,13 +80,13 @@ export default function CreateTest() {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto pb-12">
-        <Button 
-          variant="ghost" 
-          onClick={() => setLocation("/")}
+        <Button
+          variant="ghost"
+          onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/")}
           className="mb-6 -ml-4 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
+          Back
         </Button>
 
         <div className="mb-8">
