@@ -328,52 +328,46 @@ export default function SalesDashboard() {
                       const heat = acct.heat as "hot" | "warm" | "cool" | null;
                       const heatCfg = heat ? HEAT_CONFIG[heat] : null;
                       return (
-                        <div
+                        <Link
                           key={acct.id}
-                          className="group flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
+                          href={`/sales/accounts/${acct.id}`}
+                          className="group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors"
                         >
-                          {/* Heat badge */}
-                          {heatCfg ? (
-                            <Badge variant="outline" className={`text-[10px] font-semibold shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md ${heatCfg.className}`}>
-                              {heatCfg.icon}{heatCfg.label}
-                            </Badge>
-                          ) : (
-                            <div className="w-[52px] shrink-0" />
-                          )}
+                          {/* Heat badge — fixed width so column stays aligned */}
+                          <div className="w-[58px] shrink-0 flex">
+                            {heatCfg ? (
+                              <Badge variant="outline" className={`text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md ${heatCfg.className}`}>
+                                {heatCfg.icon}{heatCfg.label}
+                              </Badge>
+                            ) : null}
+                          </div>
 
-                          {/* Account info */}
-                          <div className="flex-1 min-w-0">
+                          {/* Account info — flex-1 with overflow-hidden so text truncates */}
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="text-[13px] font-medium text-foreground truncate">{acct.name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span className="tabular-nums">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5 overflow-hidden">
+                              <span className="shrink-0 tabular-nums">{acct.signalCount7d} signal{acct.signalCount7d !== 1 ? "s" : ""} this week</span>
                               {acct.lastSignal && (
                                 <>
-                                  <span className="text-border">·</span>
-                                  <span className="flex items-center gap-1 truncate">
-                                    {getSignalIcon(acct.lastSignal.type, "w-3 h-3")}
-                                    {getSignalLabel(acct.lastSignal.type).toLowerCase()}
-                                    {" "}{formatDistanceToNow(new Date(acct.lastSignal.createdAt), { addSuffix: true })}
-                                    {acct.lastSignal.contactName && <span className="text-muted-foreground/60">by {acct.lastSignal.contactName}</span>}
+                                  <span className="shrink-0 text-border">·</span>
+                                  <span className="flex items-center gap-1 min-w-0 truncate">
+                                    {getSignalIcon(acct.lastSignal.type, "w-3 h-3 shrink-0")}
+                                    <span className="truncate">{getSignalLabel(acct.lastSignal.type).toLowerCase()}{" "}{formatDistanceToNow(new Date(acct.lastSignal.createdAt), { addSuffix: true })}</span>
                                   </span>
                                 </>
                               )}
                             </div>
                           </div>
 
-                          {/* Quick actions */}
-                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Link href={`/sales/accounts?highlight=${acct.id}`}>
-                              <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground">
-                                <Building2 className="w-3 h-3" />View
-                              </Button>
-                            </Link>
-                            <Link href={`/sales/draft-email?accountId=${acct.id}`}>
+                          {/* Quick actions — hidden on mobile, hover-reveal on desktop */}
+                          <div className="hidden sm:flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <Link href={`/sales/draft-email?accountId=${acct.id}`} onClick={e => e.stopPropagation()}>
                               <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
                                 <PenTool className="w-3 h-3" />Email
                               </Button>
                             </Link>
                           </div>
-                        </div>
+                        </Link>
                       );
                     })
                   )}
@@ -410,17 +404,17 @@ export default function SalesDashboard() {
                         <Link
                           key={signal.id}
                           href={signal.accountId ? `/sales/accounts/${signal.accountId}?tab=activity` : "/sales/signals"}
-                          className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors block"
+                          className="flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors"
                         >
-                          <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0 mt-0.5">
-                            {getSignalIcon(signal.type, "w-3.5 h-3.5")}
+                          <div className="w-8 h-8 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
+                            {getSignalIcon(signal.type, "w-4 h-4")}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground leading-snug">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-xs font-medium text-foreground truncate leading-snug">
                               {signal.contactName ?? signal.accountName ?? "Unknown"}{" "}
                               <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
                             </p>
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 overflow-hidden">
                               {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
                               <span className="text-border shrink-0">·</span>
                               <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
