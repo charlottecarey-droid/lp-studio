@@ -1,5 +1,137 @@
 import { logger } from "./logger";
 
+export interface InvitePayload {
+  inviteeEmail: string;
+  inviterName: string;
+  tenantName: string;
+  roleName: string;
+  isNewUser: boolean;
+  signInUrl: string;
+}
+
+export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    logger.warn("RESEND_API_KEY not set — skipping invite email");
+    return;
+  }
+
+  const { inviteeEmail, inviterName, tenantName, roleName, isNewUser, signInUrl } = invite;
+
+  const actionLabel = isNewUser ? "Create your account" : "Sign in to accept";
+  const headline = isNewUser
+    ? `You've been invited to join ${escapeHtml(tenantName)}`
+    : `You now have access to ${escapeHtml(tenantName)}`;
+  const bodyText = isNewUser
+    ? `${escapeHtml(inviterName)} has invited you to join <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Create your account to get started.`
+    : `${escapeHtml(inviterName)} has added you to <strong>${escapeHtml(tenantName)}</strong> on LP Studio as a <strong>${escapeHtml(roleName)}</strong>. Sign in to access your workspace.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f0f4f0;padding:40px 20px">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;width:100%">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#003A30;border-radius:12px 12px 0 0;padding:32px 40px 28px">
+              <div style="margin-bottom:20px">
+                <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">
+                  <span style="color:#C7E738">LP</span><span style="color:rgba(255,255,255,0.9)"> Studio</span>
+                </span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;line-height:1.3">${headline}</h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:32px 40px">
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">
+                ${bodyText}
+              </p>
+
+              <!-- Role badge -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:28px">
+                <tr>
+                  <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 16px">
+                    <span style="font-size:13px;color:#166534;font-weight:500">Workspace:</span>
+                    <span style="font-size:13px;color:#166534;margin-left:6px">${escapeHtml(tenantName)}</span>
+                    <span style="font-size:13px;color:#9ca3af;margin:0 6px">·</span>
+                    <span style="font-size:13px;color:#166534;font-weight:500">Role:</span>
+                    <span style="font-size:13px;color:#166534;margin-left:6px">${escapeHtml(roleName)}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA button -->
+              <table cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="background:#C7E738;border-radius:8px">
+                    <a href="${escapeHtml(signInUrl)}" target="_blank"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#003A30;text-decoration:none;letter-spacing:-0.1px">
+                      ${escapeHtml(actionLabel)} →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6">
+                Sign in using the Google account associated with <strong style="color:#6b7280">${escapeHtml(inviteeEmail)}</strong>.
+                If you weren't expecting this invitation, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8faf8;border-radius:0 0 12px 12px;padding:20px 40px;border-top:1px solid #e5e7eb">
+              <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5">
+                You're receiving this because an admin at ${escapeHtml(tenantName)} added your email address.
+                &nbsp;·&nbsp;
+                <a href="${escapeHtml(signInUrl)}" style="color:#6b7280;text-decoration:underline">LP Studio</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const subject = isNewUser
+    ? `You've been invited to join ${tenantName} on LP Studio`
+    : `You now have access to ${tenantName} on LP Studio`;
+
+  try {
+    await retryFetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@ent.meetdandy.com>",
+        to: [inviteeEmail],
+        subject,
+        html,
+      }),
+    });
+    logger.info({ inviteeEmail, tenantName }, "Invite email sent");
+  } catch (err) {
+    logger.error({ err, inviteeEmail }, "Failed to send invite email");
+  }
+}
+
 export interface LeadPayload {
   leadId: number;
   pageId: number;

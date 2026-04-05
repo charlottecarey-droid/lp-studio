@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
+import { sendInviteEmail } from "../lib/notifications";
 
 const router = Router();
 
@@ -267,12 +268,16 @@ router.post("/members", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const userResult = await pool.query(
-      `SELECT id FROM app_users WHERE email = $1`,
-      [email]
-    );
+    const [userResult, tenantResult, roleResult] = await Promise.all([
+      pool.query(`SELECT id FROM app_users WHERE email = $1`, [email]),
+      pool.query(`SELECT name FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
+      pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, req.authUser!.tenantId]),
+    ]);
+
     const userId: number | null = userResult.rows[0]?.id ?? null;
     const acceptedAt = userId ? new Date() : null;
+    const tenantName: string = tenantResult.rows[0]?.name ?? "your workspace";
+    const roleName: string = roleResult.rows[0]?.name ?? "Member";
 
     const result = await pool.query(
       `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
@@ -283,6 +288,18 @@ router.post("/members", async (req, res): Promise<void> => {
        RETURNING *`,
       [req.authUser!.tenantId, userId, roleId, email, acceptedAt]
     );
+
+    // Send invite email (fire-and-forget — do not block the response)
+    const signInUrl = process.env["APP_URL"] ?? "https://app.lpstudio.ai";
+    sendInviteEmail({
+      inviteeEmail: email,
+      inviterName: req.authUser!.name,
+      tenantName,
+      roleName,
+      isNewUser: userId === null,
+      signInUrl,
+    }).catch((err) => console.error("[admin] sendInviteEmail error:", err));
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("[admin] POST /members error:", err);
