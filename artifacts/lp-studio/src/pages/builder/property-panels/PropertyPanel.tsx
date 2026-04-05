@@ -34,6 +34,8 @@ import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { DsoMeetTeamPanel } from "./DsoMeetTeamPanel";
 import { DsoPracticeNavPanel } from "./DsoPracticeNavPanel";
+import { DtrTokenInserter } from "@/components/DtrTokenInserter";
+import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
@@ -321,15 +323,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: p.eyebrow + token } })} />
+              </div>
               <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: p.headline + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: p.headline + token } })} />
+                </div>
+              </div>
               <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: p.subheadline + token } })} />
+              </div>
               <Textarea rows={3} value={p.subheadline} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
@@ -468,15 +482,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
 
             {/* Copy */}
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Headline <span className="text-muted-foreground font-normal">(Enter = new line)</span></Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline <span className="text-muted-foreground font-normal">(Enter = new line)</span></Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, title: (p.title ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, title: (p.title ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={3} value={p.title ?? ""} onChange={v => onChange({ ...block, props: { ...p, title: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "title", p.title ?? "", { subtitle: p.subtitle ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Accent Line</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Accent Line</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subtitle: (p.subtitle ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.subtitle ?? ""} onChange={v => onChange({ ...block, props: { ...p, subtitle: v } })} fieldLabel="Accent Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subtitle", p.subtitle ?? "", { title: p.title ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Description</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, description: (p.description ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.description ?? ""} onChange={v => onChange({ ...block, props: { ...p, description: v } })} fieldLabel="Description" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "description", p.description ?? "", { title: p.title ?? "" })} />
             </div>
 
@@ -502,7 +528,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
 
             {/* Quote */}
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Quote</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Quote</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, quote: (p.quote ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.quote ?? ""} onChange={v => onChange({ ...block, props: { ...p, quote: v } })} fieldLabel="Quote" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "quote", p.quote ?? "", { title: p.title ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -567,23 +596,41 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: p.eyebrow + token } })} />
+              </div>
               <Input value={p.eyebrow} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: p.headline + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: p.headline + token } })} />
+                </div>
+              </div>
               <Input value={p.headline} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body text</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body text</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: p.body + token } })} />
+              </div>
               <Textarea rows={3} value={p.body} onChange={e => onChange({ ...block, props: { ...p, body: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Quote</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Quote</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, quote: p.quote + token } })} />
+              </div>
               <Textarea rows={2} value={p.quote} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Quote attribution</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Quote attribution</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, quoteAttribution: p.quoteAttribution + token } })} />
+              </div>
               <Input value={p.quoteAttribution} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
@@ -694,11 +741,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -807,11 +863,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -920,15 +985,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", subheadline: p.subheadline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -1015,19 +1092,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Primary CTA text</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Primary CTA text</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, primaryCtaText: (p.primaryCtaText ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v } })} fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -1099,19 +1191,37 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">DSO company name (column header)</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">DSO company name (column header)</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
+                </div>
+              </div>
               <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="Your DSO" />
             </div>
             <div className="space-y-1.5">
@@ -1279,15 +1389,30 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Company name to highlight (in lime)</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Company name to highlight (in lime)</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
+                </div>
+              </div>
               <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="{company}" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="border-t pt-3 space-y-3">
@@ -1419,11 +1544,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -1537,15 +1671,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -1644,11 +1790,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="border-t pt-3">
@@ -1721,7 +1876,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", {})} />
             </div>
             <div className="border-t pt-3">
@@ -1776,15 +1934,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="border-t pt-3 space-y-1.5">
@@ -1848,23 +2018,38 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <DsoRefreshRow fields={["eyebrow", "stat", "statLabel", "quote", "attribution"]} values={{ eyebrow: p.eyebrow ?? "", stat: p.stat ?? "", statLabel: p.statLabel ?? "", quote: p.quote ?? "", attribution: p.attribution ?? "" }} />
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", {})} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Large Stat</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Large Stat</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, stat: (p.stat ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.stat ?? ""} onChange={v => onChange({ ...block, props: { ...p, stat: v } })} fieldLabel="Stat" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "stat", p.stat ?? "", { statLabel: p.statLabel ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Stat Label</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Stat Label</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, statLabel: (p.statLabel ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.statLabel ?? ""} onChange={v => onChange({ ...block, props: { ...p, statLabel: v } })} fieldLabel="Stat Label" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "statLabel", p.statLabel ?? "", { stat: p.stat ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Quote</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Quote</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, quote: (p.quote ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.quote ?? ""} onChange={v => onChange({ ...block, props: { ...p, quote: v } })} fieldLabel="Quote" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "quote", p.quote ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Attribution</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Attribution</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, attribution: (p.attribution ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.attribution ?? ""} onChange={v => onChange({ ...block, props: { ...p, attribution: v } })} fieldLabel="Attribution" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "attribution", p.attribution ?? "", {})} />
             </div>
           </div>
@@ -1883,15 +2068,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <p className="text-xs text-muted-foreground italic">Stage cards use built-in defaults. Custom stage editing coming soon.</p>
@@ -1911,19 +2108,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Footer Note</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Footer Note</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, footerNote: (p.footerNote ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.footerNote ?? ""} onChange={v => onChange({ ...block, props: { ...p, footerNote: v } })} fieldLabel="Footer Note" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "footerNote", p.footerNote ?? "", {})} />
             </div>
           </div>
@@ -1942,15 +2154,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -1999,7 +2223,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <DsoRefreshRow fields={["eyebrow"]} values={{ eyebrow: p.eyebrow ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", {})} />
             </div>
             <div className="space-y-1.5">
@@ -2086,11 +2313,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="border-t pt-3">
@@ -2231,15 +2467,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <DsoRefreshRow fields={["eyebrow", "headline", "body", "inputLabel", "ctaLabel", "trust1", "trust2", "trust3"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "", inputLabel: p.inputLabel ?? "", ctaLabel: p.ctaLabel ?? "", trust1: p.trust1 ?? "", trust2: p.trust2 ?? "", trust3: p.trust3 ?? "" }} />
             <div className="border-t pt-3 space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="border-t pt-3 space-y-1.5">
@@ -2299,15 +2547,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -2372,15 +2632,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2429,15 +2701,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "muted"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2483,15 +2767,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2542,15 +2838,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", ctaText: p.ctaText ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -2597,15 +2905,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2654,15 +2974,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2717,11 +3049,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="Heartland Dental × Dandy" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", subheadline: p.subheadline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -2755,7 +3096,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
             <div className="space-y-1.5">
-              <Label className="text-xs">Trust Line</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Trust Line</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, trustLine: (p.trustLine ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.trustLine ?? ""} onChange={v => onChange({ ...block, props: { ...p, trustLine: v || undefined } })} placeholder="Join 200+ practices already using Dandy" fieldLabel="Trust Line" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "trustLine", p.trustLine ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2789,11 +3133,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2842,15 +3195,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subheadline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Subheadline</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
@@ -2898,15 +3263,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "body", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "", ctaText: p.ctaText ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", body: p.body ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v || undefined } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
@@ -2955,15 +3332,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <div className="space-y-4 p-4">
             <DsoRefreshRow fields={["eyebrow", "headline", "body", "ctaText"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", body: p.body ?? "", ctaText: p.ctaText ?? "" }} />
             <div className="space-y-1.5">
-              <Label className="text-xs">Eyebrow</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Eyebrow</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+              </div>
               <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Headline</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Headline</Label>
+                <div className="flex items-center gap-1">
+                  <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                  <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+                </div>
+              </div>
               <AiTextField type="textarea" rows={2} value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "", body: p.body ?? "" })} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Body</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Body</Label>
+                <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, body: (p.body ?? "") + token } })} />
+              </div>
               <AiTextField type="textarea" rows={3} value={p.body ?? ""} onChange={v => onChange({ ...block, props: { ...p, body: v || undefined } })} fieldLabel="Body" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "body", p.body ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">

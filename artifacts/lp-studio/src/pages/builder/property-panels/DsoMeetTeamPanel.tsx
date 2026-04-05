@@ -10,6 +10,8 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import type { PageBlock, CtaMode } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
+import { DtrTokenInserter } from "@/components/DtrTokenInserter";
+import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 
 const API_BASE = "/api";
 
@@ -66,15 +68,27 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
   return (
     <div className="space-y-4 p-4">
       <div className="space-y-1.5">
-        <Label className="text-xs">Eyebrow</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Eyebrow</Label>
+          <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, eyebrow: (p.eyebrow ?? "") + token } })} />
+        </div>
         <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Headline</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Headline</Label>
+          <div className="flex items-center gap-1">
+            <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+            <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, headline: (p.headline ?? "") + token } })} />
+          </div>
+        </div>
         <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Subheadline</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Subheadline</Label>
+          <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />
+        </div>
         <AiTextField type="textarea" rows={2} value={p.subheadline ?? ""} onChange={v => onChange({ ...block, props: { ...p, subheadline: v } })} fieldLabel="Subheadline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "subheadline", p.subheadline ?? "", { headline: p.headline ?? "" })} />
       </div>
       <div className="border-t pt-3 space-y-1.5">
