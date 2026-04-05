@@ -477,6 +477,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = ""; // reset so the same file can be re-selected
     setUploading(true);
     let uploadFile = file;
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");

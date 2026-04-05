@@ -152,8 +152,8 @@ router.delete("/one-pager-templates/:id", requirePermission("sales_campaigns"), 
 router.post("/one-pager-templates/upload-bg", requirePermission("sales_campaigns"), upload.single("file"), async (req, res): Promise<void> => {
   try {
     if (!req.file) { res.status(400).json({ error: "No file provided" }); return; }
-    const path = await objectStorage.uploadObjectEntity(req.file.buffer, req.file.mimetype);
-    res.json({ url: path });
+    const storagePath = await objectStorage.uploadObjectEntity(req.file.buffer, req.file.mimetype);
+    res.json({ url: `/api/storage${storagePath}` });
   } catch (err) {
     req.log.error({ err }, "POST /sales/one-pager-templates/upload-bg error");
     res.status(500).json({ error: "Upload failed" });
