@@ -130,8 +130,9 @@ export default function ConversionScoring() {
         return r.json() as Promise<PageOption[]>;
       })
       .then((data) => {
-        setPages(data);
-        if (data.length > 0) setSelectedPageId(data[0].id);
+        const list = Array.isArray(data) ? data : [];
+        setPages(list);
+        if (list.length > 0) setSelectedPageId(list[0].id);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoadingPages(false));
