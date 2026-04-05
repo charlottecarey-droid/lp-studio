@@ -106,13 +106,11 @@ export default function SalesPages() {
   const [cloneModal, setCloneModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
   const [cloneAccountId, setCloneAccountId] = useState<number | "">("");
   const [cloning, setCloning] = useState(false);
-  const [clonedPageId, setClonedPageId] = useState<number | null>(null);
 
   function openCloneModal(pageId: number, pageTitle: string) {
     setCloneModal({ pageId, pageTitle });
     setCloneAccountId("");
     setCloning(false);
-    setClonedPageId(null);
   }
 
   async function doClone() {
@@ -126,11 +124,10 @@ export default function SalesPages() {
       });
       if (!res.ok) throw new Error("Clone failed");
       const page = await res.json();
-      setClonedPageId(page.id);
-      load();
+      setCloneModal(null);
+      navigate(`/builder/${page.id}`);
     } catch (err) {
       console.error("Clone error:", err);
-    } finally {
       setCloning(false);
     }
   }
@@ -632,7 +629,7 @@ export default function SalesPages() {
                               title="Generate personalized tracked links for contacts"
                             >
                               <Globe className="w-3.5 h-3.5" />
-                              <span>Generate links</span>
+                              <span>Generate hotlinks</span>
                             </button>
                           </>
                         )}
@@ -743,49 +740,31 @@ export default function SalesPages() {
             </DialogDescription>
           </DialogHeader>
 
-          {clonedPageId ? (
-            <div className="flex flex-col gap-4 pt-2">
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 rounded-lg px-4 py-3">
-                <Check className="w-4 h-4 shrink-0" />
-                Page cloned and linked to the account.
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => navigate(`/builder/${clonedPageId}`)}
-                >
-                  Open in builder
-                </Button>
-                <Button variant="outline" onClick={() => setCloneModal(null)}>Done</Button>
-              </div>
+          <div className="flex flex-col gap-4 pt-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
+              <select
+                value={cloneAccountId}
+                onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">— Choose an account —</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <div className="flex flex-col gap-4 pt-2">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
-                <select
-                  value={cloneAccountId}
-                  onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">— Choose an account —</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  disabled={!cloneAccountId || cloning}
-                  onClick={doClone}
-                >
-                  {cloning ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Cloning…</> : "Clone & link to account"}
-                </Button>
-                <Button variant="outline" onClick={() => setCloneModal(null)}>Cancel</Button>
-              </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={!cloneAccountId || cloning}
+                onClick={doClone}
+              >
+                {cloning ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Cloning…</> : "Clone & open in builder"}
+              </Button>
+              <Button variant="outline" onClick={() => setCloneModal(null)}>Cancel</Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
 
