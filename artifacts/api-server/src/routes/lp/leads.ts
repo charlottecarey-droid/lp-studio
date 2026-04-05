@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Request } from "express";
 import { eq, desc, gte, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable } from "@workspace/db";
+import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable } from "@workspace/db";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import {
@@ -31,6 +31,12 @@ const SubmitLeadBody = z.object({
   variantId: z.number().int().positive().optional(),
   formId: z.number().int().positive().optional(),
   fields: z.record(z.unknown()),
+  sessionId: z.string().optional(),
+  utmSource: z.string().optional(),
+  utmMedium: z.string().optional(),
+  utmCampaign: z.string().optional(),
+  utmTerm: z.string().optional(),
+  utmContent: z.string().optional(),
 });
 
 // Table schema extension type for idempotency key (if column exists)
@@ -53,7 +59,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
     return;
   }
 
-  const { pageId, variantId, formId, fields } = parsed.data;
+  const { pageId, variantId, formId, fields, sessionId: bodySessionId } = parsed.data;
   const idempotencyKey = req.headers["x-idempotency-key"] as string | undefined;
 
   const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
@@ -64,6 +70,45 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
 
   const ip = getClientIp(req);
   const userAgent = req.headers["user-agent"] ?? null;
+
+  // Resolve UTM parameters — prefer values sent by the client, fall back to
+  // the session or page visit record so attribution is never lost.
+  let utmSource = parsed.data.utmSource ?? null;
+  let utmMedium = parsed.data.utmMedium ?? null;
+  let utmCampaign = parsed.data.utmCampaign ?? null;
+  let utmTerm = parsed.data.utmTerm ?? null;
+  let utmContent = parsed.data.utmContent ?? null;
+
+  if (!utmSource && bodySessionId) {
+    // Try session first (A/B test pages store UTM on sessions)
+    const [sess] = await db
+      .select({ utmSource: lpSessionsTable.utmSource, utmMedium: lpSessionsTable.utmMedium, utmCampaign: lpSessionsTable.utmCampaign, utmTerm: lpSessionsTable.utmTerm, utmContent: lpSessionsTable.utmContent })
+      .from(lpSessionsTable)
+      .where(eq(lpSessionsTable.sessionId, bodySessionId));
+    if (sess?.utmSource) {
+      utmSource = sess.utmSource;
+      utmMedium = utmMedium || sess.utmMedium;
+      utmCampaign = utmCampaign || sess.utmCampaign;
+      utmTerm = utmTerm || sess.utmTerm;
+      utmContent = utmContent || sess.utmContent;
+    }
+    // Fall back to page visit (builder pages store UTM on visits)
+    if (!utmSource) {
+      const [visit] = await db
+        .select({ utmSource: lpPageVisitsTable.utmSource, utmMedium: lpPageVisitsTable.utmMedium, utmCampaign: lpPageVisitsTable.utmCampaign, utmTerm: lpPageVisitsTable.utmTerm, utmContent: lpPageVisitsTable.utmContent })
+        .from(lpPageVisitsTable)
+        .where(and(eq(lpPageVisitsTable.sessionId, bodySessionId), eq(lpPageVisitsTable.pageId, pageId)));
+      if (visit?.utmSource) {
+        utmSource = visit.utmSource;
+        utmMedium = utmMedium || visit.utmMedium;
+        utmCampaign = utmCampaign || visit.utmCampaign;
+        utmTerm = utmTerm || visit.utmTerm;
+        utmContent = utmContent || visit.utmContent;
+      }
+    }
+  }
+
+  const utmFields = { utmSource, utmMedium, utmCampaign, utmTerm, utmContent };
 
   // Check for idempotent resubmission if key is provided
   let lead: LeadWithIdempotencyKey;
@@ -80,6 +125,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       fields,
       ip,
       userAgent,
+      ...utmFields,
       ...(idempotencyKey ? { idempotencyKey } : {}),
     } as any).returning();
     lead = newLead as LeadWithIdempotencyKey;
@@ -91,6 +137,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       fields,
       ip,
       userAgent,
+      ...utmFields,
     }).returning();
     lead = newLead as LeadWithIdempotencyKey;
   }
@@ -179,6 +226,43 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         const conn = await sfdcService.getActiveConnection();
         if (conn) {
           const f = fields as Record<string, string>;
+
+          // Look up configured field mappings for the Lead object so UTM
+          // params map to whatever fields already exist in this SFDC org
+          // (e.g. utm_source__c, UTM_Source__c, GA_Source__c, etc.).
+          const mappings = await db
+            .select({ sfdcField: sfdcFieldMappingsTable.sfdcField, localField: sfdcFieldMappingsTable.localField })
+            .from(sfdcFieldMappingsTable)
+            .where(and(
+              eq(sfdcFieldMappingsTable.connectionId, conn.id),
+              eq(sfdcFieldMappingsTable.sfdcObject, "Lead"),
+              eq(sfdcFieldMappingsTable.localTable, "lp_leads"),
+              eq(sfdcFieldMappingsTable.isActive, true),
+            ));
+
+          // Build a lookup: local column name → SFDC API field name
+          const fieldMap: Record<string, string> = {};
+          for (const m of mappings) {
+            fieldMap[m.localField] = m.sfdcField;
+          }
+
+          // Map UTM values to their configured SFDC field names.
+          // Falls back to common conventions if no mapping is configured.
+          const utmEntries: [string | null, string, string][] = [
+            [utmSource, "utm_source", "utm_source__c"],
+            [utmMedium, "utm_medium", "utm_medium__c"],
+            [utmCampaign, "utm_campaign", "utm_campaign__c"],
+            [utmTerm, "utm_term", "utm_term__c"],
+            [utmContent, "utm_content", "utm_content__c"],
+          ];
+
+          const sfdcUtm: Record<string, string> = {};
+          for (const [value, localCol, fallbackSfdcField] of utmEntries) {
+            if (value) {
+              sfdcUtm[fieldMap[localCol] || fallbackSfdcField] = value;
+            }
+          }
+
           await sfdcService.createLead(conn.id, {
             firstName: f.first_name || f.firstName || f.First_Name || undefined,
             lastName: f.last_name || f.lastName || f.Last_Name || "Unknown",
@@ -188,6 +272,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
             phone: f.phone || f.Phone || f.phone_number || undefined,
             leadSource: `LP Studio: ${page.title}`,
             description: `Form submission from page "${page.title}" (${page.slug}) at ${(lead.createdAt as Date).toISOString()}`,
+            customFields: sfdcUtm,
           });
         }
       } catch (err) {
