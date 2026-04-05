@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Building2, Users, Activity, FileText, Plus, ChevronRight,
+  Building2, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
   AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
 } from "lucide-react";
@@ -99,14 +99,16 @@ export default function SalesDashboard() {
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
-  // Read the owner filter that was set on the Accounts page — reps only see their accounts
-  const savedOwnerFilters = useMemo(() => {
-    if (!user?.userId) return [] as string[];
+  // Read owner + tier filters from localStorage — same key Accounts/Signals/Contacts all use
+  const savedFilters = useMemo(() => {
+    if (!user?.userId) return { ownerFilters: [] as string[], abmTierFilter: "" };
     const lsKey = `sc_acct_filters_${user.userId}`;
     try {
       const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
-      return Array.isArray(stored.ownerFilters) ? (stored.ownerFilters as string[]) : [];
-    } catch { return [] as string[]; }
+      const ownerFilters = Array.isArray(stored.ownerFilters) ? (stored.ownerFilters as string[]) : [];
+      const abmTierFilter = typeof stored.abmTierFilter === "string" ? stored.abmTierFilter : "";
+      return { ownerFilters, abmTierFilter };
+    } catch { return { ownerFilters: [] as string[], abmTierFilter: "" }; }
   }, [user?.userId]);
 
   useEffect(() => {
@@ -128,10 +130,11 @@ export default function SalesDashboard() {
 
   // ── Computed data ─────────────────────────────────────────────────────────
 
-  const { hotAccounts, needsAttention, hotCount } = useMemo(() => {
-    if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
+  const { hotAccounts, needsAttention, hotCount, filteredAccountCount } = useMemo(() => {
+    if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0, filteredAccountCount: 0 };
 
     const now = Date.now();
+    const { ownerFilters, abmTierFilter } = savedFilters;
 
     // Build microsite lookup: accountId → page count
     const micrositeCounts = new Map<number, number>();
@@ -172,10 +175,12 @@ export default function SalesDashboard() {
       return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
-    // Apply saved owner filter — reps only see their accounts
-    const ownerFiltered = savedOwnerFilters.length > 0
-      ? enriched.filter(a => savedOwnerFilters.includes(a.owner ?? ""))
-      : enriched;
+    // Apply saved owner + tier filters — same logic as Accounts, Signals, and Contacts pages
+    const ownerFiltered = enriched.filter(a => {
+      const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
+      const matchesTier  = !abmTierFilter || a.abmTier === abmTierFilter;
+      return matchesOwner && matchesTier;
+    });
 
     // Hot accounts: have any signals, sorted by 7-day score desc
     const hot = ownerFiltered
@@ -199,19 +204,24 @@ export default function SalesDashboard() {
       })
       .slice(0, 6);
 
-    return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
-  }, [accounts, signals, micrositeGroups, savedOwnerFilters]);
+    return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length, filteredAccountCount: ownerFiltered.length };
+  }, [accounts, signals, micrositeGroups, savedFilters]);
 
   const recentSignals = useMemo(() => {
-    // If owner filter active, only show signals from accounts the rep owns
-    const ownerAccountIds = savedOwnerFilters.length > 0
-      ? new Set(accounts.filter(a => savedOwnerFilters.includes(a.owner ?? "")).map(a => a.id))
+    const { ownerFilters, abmTierFilter } = savedFilters;
+    const isFiltered = ownerFilters.length > 0 || !!abmTierFilter;
+    const filteredAccountIds = isFiltered
+      ? new Set(accounts.filter(a => {
+          const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
+          const matchesTier  = !abmTierFilter || a.abmTier === abmTierFilter;
+          return matchesOwner && matchesTier;
+        }).map(a => a.id))
       : null;
     return [...signals]
-      .filter(s => !ownerAccountIds || !s.accountId || ownerAccountIds.has(s.accountId))
+      .filter(s => !filteredAccountIds || !s.accountId || filteredAccountIds.has(s.accountId))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
-  }, [signals, accounts, savedOwnerFilters]);
+  }, [signals, accounts, savedFilters]);
 
   const isEmpty = !loading && accounts.length === 0;
 
@@ -237,7 +247,7 @@ export default function SalesDashboard() {
         {/* ── Stats strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Accounts", value: accounts.length, color: "text-foreground" },
+            { label: "Accounts", value: accounts.length === 0 ? 0 : filteredAccountCount, color: "text-foreground" },
             { label: "Hot this week", value: hotCount, color: "text-orange-600 dark:text-orange-400" },
             { label: "Signals today", value: signalsToday, color: "text-foreground" },
           ].map(stat => (
