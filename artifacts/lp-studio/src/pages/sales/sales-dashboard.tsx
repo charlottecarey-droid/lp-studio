@@ -230,10 +230,13 @@ export default function SalesDashboard() {
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
   }, [filteredAccounts, signals, micrositeGroups]);
 
-  const recentSignals = useMemo(
-    () => [...signals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
-    [signals]
-  );
+  const recentSignals = useMemo(() => {
+    const filteredAccountIds = new Set(filteredAccounts.map(a => a.id));
+    const filtered = activeFilter
+      ? signals.filter(s => s.accountId == null || filteredAccountIds.has(s.accountId))
+      : signals;
+    return [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+  }, [signals, filteredAccounts, activeFilter]);
 
   const isEmpty = !loading && filteredAccounts.length === 0;
 
