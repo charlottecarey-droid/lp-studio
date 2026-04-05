@@ -46,6 +46,9 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-accent-border: var(--accent-border);
 
+  --color-accent-warm: hsl(var(--accent-warm));
+  --color-accent-warm-foreground: hsl(var(--accent-warm-foreground));
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: var(--destructive-border);
@@ -117,6 +120,10 @@
   --border: 150 18% 88%;
   --input: 150 18% 88%;
   --ring: 73 76% 56%;
+
+  /* Accent warm = Dandy Lime (for highlighted values & lime buttons) */
+  --accent-warm: 73 76% 56%;
+  --accent-warm-foreground: 162 100% 11%;
 
   /* Sidebar: Dandy Forest Green — matches enterprise nav #122B21 */
   --sidebar: 155 41% 12%;
@@ -209,6 +216,9 @@
   --chart-3: 184 70% 50%;
   --chart-4: 43 90% 65%;
   --chart-5: 16 85% 65%;
+
+  --accent-warm: 73 76% 56%;
+  --accent-warm-foreground: 162 100% 11%;
 }
 
 @layer base {
@@ -264,6 +274,22 @@
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after { inset: -1px; }
+
+  /* Display headline — matches DSO app sizing */
+  .text-display {
+    font-family: var(--app-font-display);
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+
+  @media (min-width: 1024px) {
+    .text-display {
+      font-size: clamp(3rem, 5.5vw, 5rem);
+      line-height: 1.06;
+    }
+  }
 
   /* Sidebar logo: invert to white since sidebar is dark */
   .sidebar-logo {

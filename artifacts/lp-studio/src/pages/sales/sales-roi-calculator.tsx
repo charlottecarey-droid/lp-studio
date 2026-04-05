@@ -45,8 +45,8 @@ const InputField = ({
 
 const ResultRow = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
   <div className="py-1.5">
-    <p className="text-[10px] font-medium text-primary-foreground/50 uppercase tracking-wider mb-0.5">{label}</p>
-    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-accent-warm" : "text-primary-foreground"}`}>{value}</p>
+    <p className="text-[10px] font-medium text-sidebar-foreground/50 uppercase tracking-wider mb-0.5">{label}</p>
+    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-accent-warm" : "text-sidebar-foreground"}`}>{value}</p>
   </div>
 );
 
@@ -483,38 +483,38 @@ const SalesRoiCalculator = () => {
               </button>
             </div>
 
-            {/* ── RIGHT: Results panel — identical to DSO ── */}
+            {/* ── RIGHT: Results panel — dark forest green, matches DSO ── */}
             <div className="lg:col-span-2">
-              <div className="rounded-2xl bg-primary p-6 md:p-8 space-y-1 sticky top-24">
-                <h3 className="text-2xl font-medium text-primary-foreground tracking-tight mb-6">
+              <div className="rounded-2xl bg-sidebar p-6 md:p-8 space-y-1 sticky top-24">
+                <h3 className="text-2xl font-medium text-sidebar-foreground tracking-tight mb-6">
                   Your results
                 </h3>
 
-                <p className="text-[9px] font-bold text-primary-foreground/40 uppercase tracking-widest pt-2">Denture Workflow</p>
+                <p className="text-[9px] font-bold text-sidebar-foreground/40 uppercase tracking-widest pt-2">Denture Workflow</p>
                 <ResultRow label="Appointments Freed / Month" value={fmt(denture.apptsFreed)} />
                 <ResultRow label="Chair Hours Freed / Month" value={fmtDec(denture.chairHrsFreed)} />
                 <ResultRow label="Incremental Production / Month ($)" value={fmtDollar(denture.incProdMonth)} highlight />
                 <ResultRow label="Incremental Production / Year ($)" value={fmtDollar(denture.incProdYear)} highlight />
 
-                <div className="border-t border-primary-foreground/10 my-3" />
+                <div className="border-t border-sidebar-foreground/10 my-3" />
 
-                <p className="text-[9px] font-bold text-primary-foreground/40 uppercase tracking-widest pt-2">Remake Impact</p>
+                <p className="text-[9px] font-bold text-sidebar-foreground/40 uppercase tracking-widest pt-2">Remake Impact</p>
                 <ResultRow label="Remakes Avoided / Month" value={fmtDec(resto.remakesAvoided)} />
                 <ResultRow label="Recovered Production / Year ($)" value={fmtDollar(resto.recoveredProdYear)} />
                 <ResultRow label="Lab Costs Avoided / Year ($)" value={fmtDollar(resto.labCostsAvoidedYear)} />
                 <ResultRow label="Opportunity Production / Year ($)" value={fmtDollar(resto.opptyProdYear)} highlight />
 
-                <div className="border-t border-primary-foreground/10 my-3" />
+                <div className="border-t border-sidebar-foreground/10 my-3" />
 
                 <div className="pt-2">
                   <p className="text-[10px] font-semibold text-accent-warm uppercase tracking-wider mb-1">
                     Total Financial Upside / Year ($){practices > 1 ? ` (${practices} practices)` : ""}
                   </p>
-                  <p className="text-4xl md:text-5xl font-bold text-primary-foreground tracking-tight">
+                  <p className="text-4xl md:text-5xl font-bold text-sidebar-foreground tracking-tight">
                     {fmtDollar(totalAnnualUpside)}
                   </p>
                   {practices > 1 && (
-                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-primary-foreground/50">
+                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-sidebar-foreground/50">
                       <span>Denture: {fmtDollar(denture.incProdYear * practices)}</span>
                       <span>•</span>
                       <span>Remakes: {fmtDollar(resto.totalUpsideYear * practices)}</span>
