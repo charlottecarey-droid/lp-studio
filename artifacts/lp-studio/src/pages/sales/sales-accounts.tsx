@@ -55,8 +55,45 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
+import { Flame, Thermometer, Zap, Snowflake, TrendingDown, ArrowRight } from "lucide-react";
 
 const API_BASE = "/api";
+
+// ── Engagement heat scoring (mirrors dashboard logic) ─────────────────────────
+
+interface Signal {
+  id: number;
+  type: string;
+  accountId?: number;
+  createdAt: string;
+}
+
+const SIGNAL_WEIGHTS: Record<string, number> = {
+  form_submit: 5,
+  email_click: 3,
+  link_click: 3,
+  email_open: 2,
+  page_view: 1,
+};
+
+const SEVEN_DAYS_MS  = 7  * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+type HeatTier = "hot" | "warm" | "cool" | "cold";
+
+function computeHeatTier(acctSignals: Signal[], refTime: number): HeatTier {
+  const cutoff = refTime - SEVEN_DAYS_MS;
+  const recentSigs = acctSignals.filter(s => new Date(s.createdAt).getTime() > cutoff);
+  if (recentSigs.length === 0) return "cold";
+  let score = 0;
+  for (const s of recentSigs) {
+    score += (SIGNAL_WEIGHTS[s.type] ?? 0) * 1.5;
+  }
+  if (score >= 15) return "hot";
+  if (score >= 8)  return "warm";
+  if (score >= 3)  return "cool";
+  return "cold";
+}
 
 interface Account {
   id: number;

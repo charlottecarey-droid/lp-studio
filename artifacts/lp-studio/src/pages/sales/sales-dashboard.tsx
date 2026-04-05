@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -24,6 +25,7 @@ interface Account {
   domain?: string;
   segment?: string;
   abmTier?: string;
+  owner?: string;
 }
 
 interface Signal {
@@ -90,11 +92,22 @@ function getGreeting() {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function SalesDashboard() {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [micrositeGroups, setMicrositeGroups] = useState<MicrositeGroup[]>([]);
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+
+  // Read the owner filter that was set on the Accounts page — reps only see their accounts
+  const savedOwnerFilters = useMemo(() => {
+    if (!user?.userId) return [] as string[];
+    const lsKey = `sc_acct_filters_${user.userId}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      return Array.isArray(stored.ownerFilters) ? (stored.ownerFilters as string[]) : [];
+    } catch { return [] as string[]; }
+  }, [user?.userId]);
 
   useEffect(() => {
     Promise.all([
@@ -159,14 +172,19 @@ export default function SalesDashboard() {
       return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
+    // Apply saved owner filter — reps only see their accounts
+    const ownerFiltered = savedOwnerFilters.length > 0
+      ? enriched.filter(a => savedOwnerFilters.includes(a.owner ?? ""))
+      : enriched;
+
     // Hot accounts: have any signals, sorted by 7-day score desc
-    const hot = enriched
+    const hot = ownerFiltered
       .filter(a => a.signalCount7d > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
     // Needs attention: no microsite OR gone quiet (last signal > 14 days or no signal at all)
-    const attention = enriched
+    const attention = ownerFiltered
       .filter(a => {
         if (!a.hasMicrosite) return true;
         if (a.daysSinceLastSignal === null) return true; // has microsite but 0 signals ever
@@ -182,12 +200,18 @@ export default function SalesDashboard() {
       .slice(0, 6);
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
-  }, [accounts, signals, micrositeGroups]);
+  }, [accounts, signals, micrositeGroups, savedOwnerFilters]);
 
-  const recentSignals = useMemo(
-    () => [...signals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
-    [signals]
-  );
+  const recentSignals = useMemo(() => {
+    // If owner filter active, only show signals from accounts the rep owns
+    const ownerAccountIds = savedOwnerFilters.length > 0
+      ? new Set(accounts.filter(a => savedOwnerFilters.includes(a.owner ?? "")).map(a => a.id))
+      : null;
+    return [...signals]
+      .filter(s => !ownerAccountIds || !s.accountId || ownerAccountIds.has(s.accountId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+  }, [signals, accounts, savedOwnerFilters]);
 
   const isEmpty = !loading && accounts.length === 0;
 
@@ -303,13 +327,13 @@ export default function SalesDashboard() {
                   </Link>
                 </div>
 
-                <Card className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
+                <Card className="border border-border/50 rounded-xl overflow-hidden flex flex-col" style={{ height: 380 }}>
                   {loading ? (
-                    <div className="p-4 flex flex-col gap-3">
+                    <div className="p-4 flex flex-col gap-3 overflow-hidden">
                       {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
                     </div>
                   ) : hotAccounts.length === 0 ? (
-                    <div className="flex flex-col items-center gap-3 p-8 text-center">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
                       <div className="w-9 h-9 rounded-lg bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center">
                         <Flame className="w-4 h-4 text-orange-400" />
                       </div>
@@ -324,7 +348,8 @@ export default function SalesDashboard() {
                       </Link>
                     </div>
                   ) : (
-                    hotAccounts.map(acct => {
+                    <div className="flex-1 overflow-y-auto divide-y divide-border/40">
+                    {hotAccounts.map(acct => {
                       const heat = acct.heat as "hot" | "warm" | "cool" | null;
                       const heatCfg = heat ? HEAT_CONFIG[heat] : null;
                       return (
@@ -369,7 +394,8 @@ export default function SalesDashboard() {
                           </div>
                         </Link>
                       );
-                    })
+                    })}
+                    </div>
                   )}
                 </Card>
               </div>
@@ -388,18 +414,18 @@ export default function SalesDashboard() {
                   </Link>
                 </div>
 
-                <Card className="border border-border/50 rounded-xl overflow-hidden">
+                <Card className="border border-border/50 rounded-xl overflow-hidden flex flex-col" style={{ height: 380 }}>
                   {loading ? (
-                    <div className="p-3 flex flex-col gap-2">
+                    <div className="p-3 flex flex-col gap-2 overflow-hidden">
                       {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
                     </div>
                   ) : recentSignals.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 p-6 text-center">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
                       <Activity className="w-4 h-4 text-muted-foreground/40" />
                       <p className="text-xs text-muted-foreground">No signals yet — send outreach to start seeing engagement.</p>
                     </div>
                   ) : (
-                    <div className="max-h-[340px] overflow-y-auto divide-y divide-border/40">
+                    <div className="flex-1 overflow-y-auto divide-y divide-border/40">
                       {recentSignals.map(signal => (
                         <Link
                           key={signal.id}
