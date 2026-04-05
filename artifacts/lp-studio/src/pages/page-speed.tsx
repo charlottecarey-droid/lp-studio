@@ -1,118 +1,149 @@
 import { useState, useEffect } from "react";
 import {
-  Zap,
+  Gauge,
   AlertTriangle,
   CheckCircle,
-  Gauge,
-  Loader2,
-  TrendingDown,
+  XCircle,
   Image,
-  Lightbulb,
+  Code2,
+  Layers,
+  Play,
+  Sparkles,
+  Box,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const API_BASE = "/api";
 
-interface PageSpeedMetric {
+interface PageIssue {
+  severity: "critical" | "warning" | "info";
+  category: string;
+  message: string;
+  blockId?: string;
+  blockType?: string;
+}
+
+interface PageSpeedResult {
   pageId: number;
   name: string;
   slug: string;
-  lcp: number; // Largest Contentful Paint in seconds
-  fid: number; // First Input Delay in milliseconds
-  cls: number; // Cumulative Layout Shift
-  score: number; // 1-100
+  score: number;
   status: "passing" | "needs-work" | "failing";
+  blockCount: number;
+  imageCount: number;
+  videoCount: number;
+  formCount: number;
+  customHtmlCount: number;
+  animatedBlocks: number;
+  parallaxImages: number;
+  heavyBlocks: string[];
+  estimatedDomNodes: number;
+  issues: PageIssue[];
 }
 
-interface Suggestion {
-  id: string;
-  title: string;
-  description: string;
-  savings: string;
-  icon: React.ReactNode;
+interface Summary {
+  total: number;
+  passing: number;
+  needsWork: number;
+  failing: number;
+  avgScore: number;
 }
 
-function getMetricColor(metric: string, value: number): string {
-  if (metric === "lcp") {
-    if (value < 2.5) return "text-green-600";
-    if (value < 4) return "text-yellow-600";
-    return "text-red-600";
-  } else if (metric === "fid") {
-    if (value < 100) return "text-green-600";
-    if (value < 300) return "text-yellow-600";
-    return "text-red-600";
-  } else if (metric === "cls") {
-    if (value < 0.1) return "text-green-600";
-    if (value < 0.25) return "text-yellow-600";
-    return "text-red-600";
-  }
-  return "text-gray-600";
-}
-
-function getMetricBgColor(metric: string, value: number): string {
-  if (metric === "lcp") {
-    if (value < 2.5) return "bg-green-50";
-    if (value < 4) return "bg-yellow-50";
-    return "bg-red-50";
-  } else if (metric === "fid") {
-    if (value < 100) return "bg-green-50";
-    if (value < 300) return "bg-yellow-50";
-    return "bg-red-50";
-  } else if (metric === "cls") {
-    if (value < 0.1) return "bg-green-50";
-    if (value < 0.25) return "bg-yellow-50";
-    return "bg-red-50";
-  }
-  return "bg-gray-50";
-}
-
-function getStatusColor(status: string): string {
+function getStatusColor(status: string) {
   if (status === "passing") return "bg-green-100 text-green-800";
   if (status === "needs-work") return "bg-yellow-100 text-yellow-800";
   return "bg-red-100 text-red-800";
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 90) return "text-green-600";
+function getStatusLabel(status: string) {
+  if (status === "passing") return "Passing";
+  if (status === "needs-work") return "Needs Work";
+  return "Failing";
+}
+
+function getScoreColor(score: number) {
+  if (score >= 80) return "text-green-600";
   if (score >= 50) return "text-yellow-600";
   return "text-red-600";
 }
 
-function usePageSpeedMetrics() {
-  const [pages, setPages] = useState<PageSpeedMetric[]>([]);
+function getScoreRingColor(score: number) {
+  if (score >= 80) return "#16a34a";
+  if (score >= 50) return "#ca8a04";
+  return "#dc2626";
+}
+
+function getSeverityColor(severity: string) {
+  if (severity === "critical") return "bg-red-100 text-red-800 border-red-200";
+  if (severity === "warning") return "bg-yellow-100 text-yellow-800 border-yellow-200";
+  return "bg-blue-100 text-blue-800 border-blue-200";
+}
+
+function getSeverityIcon(severity: string) {
+  if (severity === "critical") return <XCircle className="h-4 w-4 text-red-600 shrink-0" />;
+  if (severity === "warning") return <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />;
+  return <CheckCircle className="h-4 w-4 text-blue-600 shrink-0" />;
+}
+
+function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
+  const radius = (size - 8) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color = getScoreRingColor(score);
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e5e7eb" strokeWidth={4} />
+      <circle
+        cx={size / 2} cy={size / 2} r={radius} fill="none"
+        stroke={color} strokeWidth={4} strokeLinecap="round"
+        strokeDasharray={circumference} strokeDashoffset={offset}
+        style={{ transition: "stroke-dashoffset 0.5s ease" }}
+      />
+      <text
+        x={size / 2} y={size / 2}
+        textAnchor="middle" dominantBaseline="central"
+        className="transform rotate-90" style={{ transformOrigin: "center", fontSize: size * 0.3 }}
+        fill={color} fontWeight="bold"
+      >
+        {score}
+      </text>
+    </svg>
+  );
+}
+
+function usePageSpeed() {
+  const [pages, setPages] = useState<PageSpeedResult[]>([]);
+  const [summary, setSummary] = useState<Summary>({ total: 0, passing: 0, needsWork: 0, failing: 0, avgScore: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    fetch(`${API_BASE}/lp/page-speed`)
-      .then((r) => (r.ok ? r.json() : Promise.reject("Failed to load")))
-      .then((data) => setPages(data as PageSpeedMetric[]))
-      .catch(() => setError("Failed to load page speed data"))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    load();
+    setLoading(true);
+    fetch(`${API_BASE}/lp/page-speed`)
+      .then(r => {
+        if (!r.ok) throw new Error("API error");
+        return r.json();
+      })
+      .then(data => {
+        setPages(Array.isArray(data.pages) ? data.pages : []);
+        setSummary(data.summary ?? { total: 0, passing: 0, needsWork: 0, failing: 0, avgScore: 0 });
+      })
+      .catch(() => setError("Could not load page speed data"))
+      .finally(() => setLoading(false));
   }, []);
 
-  return { pages, loading, error, reload: load };
+  return { pages, summary, loading, error };
 }
 
 export default function PageSpeed() {
-  const { pages, loading, error } = usePageSpeedMetrics();
+  const { pages, summary, loading, error } = usePageSpeed();
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
-  const [optimizingPageId, setOptimizingPageId] = useState<number | null>(null);
-  const [optimizingAll, setOptimizingAll] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
 
-  const selectedPage = pages.find((p) => p.pageId === selectedPageId);
+  const selectedPage = pages.find(p => p.pageId === selectedPageId);
 
   useEffect(() => {
     if (pages.length > 0 && !selectedPageId) {
@@ -120,342 +151,251 @@ export default function PageSpeed() {
     }
   }, [pages, selectedPageId]);
 
-  const avgLcp =
-    pages.length > 0
-      ? (pages.reduce((sum, p) => sum + p.lcp, 0) / pages.length).toFixed(2)
-      : "0";
-  const avgFid =
-    pages.length > 0
-      ? (pages.reduce((sum, p) => sum + p.fid, 0) / pages.length).toFixed(0)
-      : "0";
-  const avgCls =
-    pages.length > 0
-      ? (pages.reduce((sum, p) => sum + p.cls, 0) / pages.length).toFixed(2)
-      : "0";
-  const passingCount = pages.filter((p) => p.status === "passing").length;
-
-  const suggestions: Suggestion[] = [
-    {
-      id: "optimize-images",
-      title: "Optimize images",
-      description: "Reduce image file sizes using modern formats",
-      savings: "save ~340KB",
-      icon: <Image className="w-4 h-4" />,
-    },
-    {
-      id: "lazy-loading",
-      title: "Enable lazy loading",
-      description: "Defer loading of below-fold blocks",
-      savings: "save ~200ms LCP",
-      icon: <Zap className="w-4 h-4" />,
-    },
-    {
-      id: "minify-css",
-      title: "Minify inline CSS",
-      description: "Remove unnecessary characters from stylesheets",
-      savings: "save ~45KB",
-      icon: <TrendingDown className="w-4 h-4" />,
-    },
-    {
-      id: "preload-hero",
-      title: "Preload hero image",
-      description: "Add resource hints for critical images",
-      savings: "save ~150ms LCP",
-      icon: <Lightbulb className="w-4 h-4" />,
-    },
-    {
-      id: "remove-unused-js",
-      title: "Remove unused JavaScript",
-      description: "Clean up unused scripts and dependencies",
-      savings: "save ~120KB",
-      icon: <Zap className="w-4 h-4" />,
-    },
-  ];
-
-  const showToastMessage = (message: string) => {
-    setToastMessage(message);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  };
-
-  const handleOptimizeAll = async () => {
-    setOptimizingAll(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      showToastMessage("Auto-optimization applied to all pages");
-    } finally {
-      setOptimizingAll(false);
-    }
-  };
-
-  const handleOptimizePage = async (pageId: number) => {
-    setOptimizingPageId(pageId);
-    try {
-      const response = await fetch(`${API_BASE}/lp/page-speed/${pageId}/optimize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        showToastMessage(
-          `Optimization applied: LCP improved by ${Math.abs(result.improvements?.lcpDelta || 0.4).toFixed(1)}s`
-        );
-      }
-    } catch {
-      showToastMessage("Optimization failed. Please try again.");
-    } finally {
-      setOptimizingPageId(null);
-    }
-  };
-
-  if (error) {
-    return (
-      <AppLayout>
-        <div className="text-center py-12">
-          <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <p className="text-red-600 font-medium">{error}</p>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Page Speed Engine</h1>
-            <p className="text-gray-600 mt-1">
-              Monitor and optimize Core Web Vitals across all your landing pages
-            </p>
-          </div>
-          <Button
-            onClick={handleOptimizeAll}
-            disabled={optimizingAll || loading}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {optimizingAll ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Optimizing...
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4 mr-2" />
-                Auto-Optimize All
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Summary Metrics */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600 mb-1">Avg LCP</p>
-                <p className={`text-2xl font-bold ${getMetricColor("lcp", parseFloat(avgLcp))}`}>
-                  {avgLcp}s
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {parseFloat(avgLcp) < 2.5 ? "✓ Good" : parseFloat(avgLcp) < 4 ? "⚠ Fair" : "✗ Poor"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600 mb-1">Avg FID</p>
-                <p className={`text-2xl font-bold ${getMetricColor("fid", parseFloat(avgFid))}`}>
-                  {avgFid}ms
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {parseFloat(avgFid) < 100 ? "✓ Good" : parseFloat(avgFid) < 300 ? "⚠ Fair" : "✗ Poor"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600 mb-1">Avg CLS</p>
-                <p className={`text-2xl font-bold ${getMetricColor("cls", parseFloat(avgCls))}`}>
-                  {avgCls}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {parseFloat(avgCls) < 0.1 ? "✓ Good" : parseFloat(avgCls) < 0.25 ? "⚠ Fair" : "✗ Poor"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600 mb-1">Passing Pages</p>
-                <p className="text-2xl font-bold text-green-600">{passingCount}</p>
-                <p className="text-xs text-gray-500 mt-2">
-                  {pages.length > 0 ? `${Math.round((passingCount / pages.length) * 100)}%` : "0%"} of pages
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-gray-600 mb-1">Pages Analyzed</p>
-                <p className="text-2xl font-bold text-blue-600">{pages.length}</p>
-                <p className="text-xs text-gray-500 mt-2">Last 30 days</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pages List */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Gauge className="w-5 h-5" />
-                  Pages Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-4">
-                    {[...Array(6)].map((_, i) => (
-                      <Skeleton key={i} className="h-16" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                    {pages.map((page) => (
-                      <div
-                        key={page.pageId}
-                        onClick={() => setSelectedPageId(page.pageId)}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          selectedPageId === page.pageId
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300 bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900">{page.name}</h3>
-                            <p className="text-xs text-gray-500">{page.slug}</p>
-                          </div>
-                          <Badge className={getStatusColor(page.status)}>
-                            {page.status === "passing"
-                              ? "Passing"
-                              : page.status === "needs-work"
-                                ? "Needs Work"
-                                : "Failing"}
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-4 gap-2 text-sm">
-                          <div className={`p-2 rounded ${getMetricBgColor("lcp", page.lcp)}`}>
-                            <p className="text-xs text-gray-600">LCP</p>
-                            <p className={`font-bold ${getMetricColor("lcp", page.lcp)}`}>
-                              {page.lcp.toFixed(1)}s
-                            </p>
-                          </div>
-                          <div className={`p-2 rounded ${getMetricBgColor("fid", page.fid)}`}>
-                            <p className="text-xs text-gray-600">FID</p>
-                            <p className={`font-bold ${getMetricColor("fid", page.fid)}`}>
-                              {page.fid.toFixed(0)}ms
-                            </p>
-                          </div>
-                          <div className={`p-2 rounded ${getMetricBgColor("cls", page.cls)}`}>
-                            <p className="text-xs text-gray-600">CLS</p>
-                            <p className={`font-bold ${getMetricColor("cls", page.cls)}`}>
-                              {page.cls.toFixed(2)}
-                            </p>
-                          </div>
-                          <div className="p-2 rounded bg-gray-100">
-                            <p className="text-xs text-gray-600">Score</p>
-                            <p className={`font-bold ${getScoreColor(page.score)}`}>{page.score}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-slate-900">Page Speed</h1>
+            <p className="text-slate-600 mt-2">Block-level performance analysis across all your landing pages</p>
           </div>
 
-          {/* Suggestions Panel */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {selectedPage ? "Optimization Suggestions" : "Select a Page"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedPage ? (
-                  <div className="space-y-3">
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-900 font-medium">{selectedPage.name}</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Historical: LCP trend 3.2s → 2.8s → 2.1s
-                      </p>
-                    </div>
+          {/* Summary Cards */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+              {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-slate-600 mb-1">Avg Score</p>
+                  <p className={`text-3xl font-bold ${getScoreColor(summary.avgScore)}`}>{summary.avgScore}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-slate-600 mb-1">Passing</p>
+                  <p className="text-3xl font-bold text-green-600">{summary.passing}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-slate-600 mb-1">Needs Work</p>
+                  <p className="text-3xl font-bold text-yellow-600">{summary.needsWork}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-slate-600 mb-1">Failing</p>
+                  <p className="text-3xl font-bold text-red-600">{summary.failing}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-slate-600 mb-1">Pages Analyzed</p>
+                  <p className="text-3xl font-bold text-slate-900">{summary.total}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-                    {suggestions.map((suggestion) => (
-                      <div key={suggestion.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
-                        <div className="flex items-start gap-2 mb-2">
-                          <span className="text-gray-600 flex-shrink-0 mt-0.5">{suggestion.icon}</span>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{suggestion.title}</p>
-                            <p className="text-xs text-gray-600 mt-0.5">{suggestion.description}</p>
-                            <p className="text-xs text-green-600 font-medium mt-1">💾 {suggestion.savings}</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => handleOptimizePage(selectedPage.pageId)}
-                          disabled={optimizingPageId === selectedPage.pageId}
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs h-8"
+          {error ? (
+            <Card>
+              <CardContent className="pt-8">
+                <div className="text-center py-12">
+                  <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600">{error}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : loading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2"><Skeleton className="h-96 rounded-lg" /></div>
+              <Skeleton className="h-96 rounded-lg" />
+            </div>
+          ) : pages.length === 0 ? (
+            <Card>
+              <CardContent className="pt-8">
+                <div className="text-center py-12">
+                  <Gauge className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">No pages to analyze</h3>
+                  <p className="text-slate-500">Create some landing pages and they'll be analyzed automatically.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Pages list */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Gauge className="h-5 w-5" />
+                      All Pages
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 max-h-[640px] overflow-y-auto">
+                      {pages.map(page => (
+                        <div
+                          key={page.pageId}
+                          onClick={() => setSelectedPageId(page.pageId)}
+                          className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            selectedPageId === page.pageId
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-slate-200 hover:border-slate-300 bg-white"
+                          }`}
                         >
-                          {optimizingPageId === selectedPage.pageId ? (
-                            <>
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              Optimizing...
-                            </>
-                          ) : (
-                            "Auto-optimize"
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-4">
+                            <ScoreRing score={page.score} size={52} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-slate-900 truncate">{page.name}</h3>
+                                <Badge className={getStatusColor(page.status)}>
+                                  {getStatusLabel(page.status)}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-slate-500">/{page.slug}</p>
+                            </div>
+                            <div className="flex gap-4 text-sm text-slate-600 shrink-0">
+                              <div className="text-center" title="Blocks">
+                                <Layers className="h-3.5 w-3.5 mx-auto mb-0.5 text-slate-400" />
+                                <span>{page.blockCount}</span>
+                              </div>
+                              <div className="text-center" title="Images">
+                                <Image className="h-3.5 w-3.5 mx-auto mb-0.5 text-slate-400" />
+                                <span>{page.imageCount}</span>
+                              </div>
+                              <div className="text-center" title="Issues">
+                                <AlertTriangle className="h-3.5 w-3.5 mx-auto mb-0.5 text-slate-400" />
+                                <span>{page.issues.length}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Detail panel */}
+              <div>
+                {selectedPage ? (
+                  <div className="space-y-4">
+                    {/* Score + breakdown */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg truncate">{selectedPage.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-4 mb-4">
+                          <ScoreRing score={selectedPage.score} size={80} />
+                          <div>
+                            <Badge className={getStatusColor(selectedPage.status)}>
+                              {getStatusLabel(selectedPage.status)}
+                            </Badge>
+                            <p className="text-xs text-slate-500 mt-1">~{selectedPage.estimatedDomNodes} DOM nodes</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 text-sm">
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Layers className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.blockCount}</p>
+                            <p className="text-xs text-slate-500">blocks</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Image className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.imageCount}</p>
+                            <p className="text-xs text-slate-500">images</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Play className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.videoCount}</p>
+                            <p className="text-xs text-slate-500">videos</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Code2 className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.customHtmlCount}</p>
+                            <p className="text-xs text-slate-500">custom HTML</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Sparkles className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.animatedBlocks}</p>
+                            <p className="text-xs text-slate-500">animated</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-lg p-2.5 text-center">
+                            <Box className="h-4 w-4 mx-auto text-slate-500 mb-1" />
+                            <p className="font-bold text-slate-900">{selectedPage.formCount}</p>
+                            <p className="text-xs text-slate-500">forms</p>
+                          </div>
+                        </div>
+
+                        {selectedPage.heavyBlocks.length > 0 && (
+                          <div className="mt-3 p-2.5 bg-red-50 rounded-lg">
+                            <p className="text-xs font-medium text-red-800">
+                              Heavy blocks: {selectedPage.heavyBlocks.join(", ")}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Issues */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          Issues ({selectedPage.issues.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {selectedPage.issues.length === 0 ? (
+                          <div className="text-center py-6">
+                            <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                            <p className="text-sm text-slate-600">No issues detected</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                            {selectedPage.issues
+                              .sort((a, b) => {
+                                const order = { critical: 0, warning: 1, info: 2 };
+                                return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
+                              })
+                              .map((issue, idx) => (
+                                <div key={idx} className={`flex gap-2 p-2.5 rounded-lg border ${getSeverityColor(issue.severity)}`}>
+                                  {getSeverityIcon(issue.severity)}
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium">{issue.category}</p>
+                                    <p className="text-xs mt-0.5 opacity-80">{issue.message}</p>
+                                    {issue.blockType && (
+                                      <p className="text-xs mt-0.5 opacity-60">Block: {issue.blockType}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm text-center py-8">
-                    Select a page from the list to see optimization suggestions
-                  </p>
+                  <Card>
+                    <CardContent className="pt-8">
+                      <p className="text-slate-500 text-sm text-center py-8">
+                        Select a page to see its performance breakdown
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4">
-          <CheckCircle className="w-5 h-5" />
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
     </AppLayout>
   );
 }

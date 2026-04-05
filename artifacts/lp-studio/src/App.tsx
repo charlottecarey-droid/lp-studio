@@ -130,7 +130,6 @@ const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-
 
 // New feature pages
 const TemplateMarketplace = lazy(() => import("@/pages/template-marketplace"));
-const SmartSections = lazy(() => import("@/pages/smart-sections"));
 const ConversionScoring = lazy(() => import("@/pages/conversion-scoring"));
 const PageSpeed = lazy(() => import("@/pages/page-speed"));
 const AdMap = lazy(() => import("@/pages/ad-map"));
@@ -185,7 +184,6 @@ function AppRouter() {
 
         {/* New Feature Routes */}
         <Route path="/templates" component={TemplateMarketplace} />
-        <Route path="/smart-sections" component={SmartSections} />
         <Route path="/conversion-scoring" component={ConversionScoring} />
         <Route path="/page-speed" component={PageSpeed} />
         <Route path="/ad-map" component={AdMap} />

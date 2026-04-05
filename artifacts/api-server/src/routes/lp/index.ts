@@ -32,7 +32,6 @@ import conversionScoringRouter from "./conversion-scoring";
 import pageSpeedRouter from "./page-speed";
 import ampPagesRouter from "./amp-pages";
 import programmaticPagesRouter from "./programmatic-pages";
-import smartSectionsRouter from "./smart-sections";
 import adMapRouter from "./ad-map";
 
 const router = Router();
@@ -70,7 +69,6 @@ router.use(templatesRouter);
 router.use(conversionScoringRouter);
 router.use(ampPagesRouter);
 router.use(programmaticPagesRouter);
-router.use(smartSectionsRouter);
 router.use(adMapRouter);
 
 export default router;
