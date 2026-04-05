@@ -1,0 +1,235 @@
+LP STUDIO
+Pre-User Testing Audit Report
+April 5, 2026  |  Prepared for Charlotte Carey
+This audit covers the full LP Studio codebase including the API server, frontend applications (mockup sandbox, Dandy DSO, LP Studio builder), shared libraries, and configuration. Findings are cross-referenced against the existing April 2026 audit documents already in the repository.
+Executive Summary
+LP Studio is a React 19 + Express 5 landing page builder and sales enablement platform with 50+ features across marketing and sales workflows. TypeScript errors have been resolved (79 down to 0) and the bundle has been optimized from a single 2,953 KB chunk to ~130 lazy-loaded chunks. The platform is functionally complete for its current scope.
+However, several issues need attention before user testing tomorrow. This audit identified 7 critical issues that could block testing, 14 high-priority issues likely to cause problems during demos, and numerous medium/low items for post-testing cleanup.
+7
+Critical
+14
+High
+15
+Medium
+10
+Low
+
+Must Fix Before User Testing
+These issues will directly impact the testing experience and should be addressed tonight or first thing tomorrow morning.
+Severity
+Area
+Issue
+Fix
+CRITICAL
+Auth
+Unauthenticated requests silently default to tenant 1 data access. Domain context fetch failure also allows full access.
+Add explicit auth check; return 401 on missing tenant instead of defaulting
+CRITICAL
+Security
+SQL injection in heatmap.ts: query parameter passed through sql.raw() without sanitization
+Use parameterized queries for all user input
+CRITICAL
+Security
+Weak token generation (Math.random) for personalized links. Only 48 bits of entropy.
+Replace with crypto.randomBytes(32)
+CRITICAL
+Security
+XSS in RichText block and email preview: dangerouslySetInnerHTML without sanitization
+Add DOMPurify sanitization before rendering
+CRITICAL
+API
+Database migrations fail silently on startup and server continues with mismatched schema
+Add migration version tracking; halt on failure
+CRITICAL
+Frontend
+Supabase client is a custom mock routing to /api/dso/* endpoints. Multiple DSO features will fail at runtime.
+Replace mock with real Supabase SDK or ensure all /api/dso/* endpoints exist
+CRITICAL
+Frontend
+Empty mockup-components.ts: mockup sandbox preview system has no components registered
+Populate with actual component imports
+HIGH
+Auth
+Session token passed in URL query parameter during cross-domain handoff. Leaks to logs, browser history, Referer headers.
+Use POST body or secure code exchange
+HIGH
+API
+Missing tenant ID validation on pageId, testId, variantId lookups. Users can access other tenants' data by guessing IDs.
+Add tenantId to all WHERE clauses
+HIGH
+API
+Database errors leaked to clients, exposing SQL table names and internal details
+Sanitize error messages; return generic errors to client
+HIGH
+API
+No rate limiting on public endpoints including token resolution and hotlinks
+Add rate limiting middleware to all public routes
+HIGH
+Security
+CORS allows broad *.replit.dev regex. Any Replit subdomain can make cross-origin requests.
+Whitelist specific tenant domains only
+HIGH
+Frontend
+PasswordGate stores session token in localStorage with no signing. Token structure is trivially forgeable.
+Use signed JWTs or HTTP-only cookies
+HIGH
+UX
+Builder crashes on partial load: fetchPage/fetchBrandConfig can partially fail leaving editor inconsistent
+Add error boundaries and loading states
+HIGH
+UX
+Silent form submission failures: track/signal endpoints swallow errors without alerting users
+Add user-facing error toasts on submission failure
+
+Should Fix (Medium Priority)
+These won't block testing but may cause confusion or require workarounds during demos.
+Severity
+Area
+Issue
+Fix
+MEDIUM
+API
+No validation on page slug format. Could contain .., //, or special characters.
+Validate slugs: [a-z0-9-] only, max 255 chars
+MEDIUM
+API
+No idempotency key for lead submissions. Double-submit creates duplicate leads.
+Accept idempotency key; check before insert
+MEDIUM
+API
+Webhook URLs stored without validation. No SSRF protection.
+Validate URL scheme (https only); add DNS rebinding checks
+MEDIUM
+API
+Custom CSS stored without sanitization. Potential XSS via CSS expression().
+Sanitize with postcss-safe-parser
+MEDIUM
+API
+Notification delivery (webhooks, email, Sheets) is fire-and-forget with no retry
+Add retry with exponential backoff
+MEDIUM
+API
+Smart Traffic timezone bug: uses UTC hours/day but no user timezone context
+Accept timezone from request or geo-IP
+MEDIUM
+API
+No limit on page block count. Could DoS via huge JSON payload.
+Limit blocks to 1000; total size < 5MB
+MEDIUM
+API
+Healthcheck only returns {status: ok}. Does not verify DB connectivity.
+Add DB ping to health endpoint
+MEDIUM
+Frontend
+Missing @assets path alias in LP Studio vite.config.ts. Build will fail for asset imports.
+Add @assets alias matching dandy-dso config
+MEDIUM
+Frontend
+ErrorBoundary only logs to console. No external error tracking.
+Integrate Sentry or similar service
+MEDIUM
+Config
+Missing PORT and BASE_PATH env vars for artifact builds. No .env.example provided.
+Add .env.example with required values
+MEDIUM
+UX
+Sales Console: 9+ filter buttons overflow on mobile; tab state not preserved on navigation
+Add filter drawer on mobile; persist tab state
+MEDIUM
+UX
+SSE reconnect for signals fails silently. No connection status indicator.
+Add reconnect logic and connection badge
+MEDIUM
+UX
+Dashboard fetches 500 signals then shows only 10. Wasteful API call.
+Add server-side limit parameter
+MEDIUM
+UX
+No pagination or search for large microsite/contact lists
+Add virtualized list + search
+
+Feature Status Overview
+Current state of major features heading into user testing:
+Ready for Testing
+Feature
+Notes
+Page Builder
+Drag-and-drop editor with 61 block types. Bundle optimized to lazy-loaded chunks.
+A/B Testing (Experiments)
+Full variant management, traffic splitting. Smart Traffic algorithm working (Thompson Sampling).
+Forms & Lead Capture
+Working with CSV export. Needs idempotency fix for double-submit edge case.
+Brand Settings
+Colors, fonts, spacing all configurable per tenant.
+AI Page Generation
+Functional with GPT-5/Perplexity. Depends on API keys being configured.
+Salesforce Integration
+OAuth2 flow, bidirectional sync, field mapping all implemented. Needs SFDC custom fields pre-created.
+Sales Dashboard
+Hot accounts, signals, smart next-action buttons. Recently redesigned.
+Draft Email (AI)
+Perplexity research + GPT-5 generation. Citation relevance recently fixed.
+Email Campaigns
+Send tracking working. No scheduled sends yet.
+Partially Ready (Workarounds Needed)
+Feature
+Blocker
+Smart Traffic Dashboard
+Algorithm works but UI toggle and performance dashboard not yet built (Phases 3-4).
+Dandy DSO App
+Supabase mock client will cause runtime failures. Needs real SDK or working /api/dso/* endpoints.
+Mockup Sandbox
+Empty component registry. Preview system non-functional until populated.
+Analytics
+Geographic visitor breakdown only. Full analytics dashboard still limited.
+Personalized Links
+Backend hotlinks exist but UI for template + contact list generation is pending.
+Not Ready (Post-Testing)
+Feature
+Timeline
+Multi-Tenant SaaS (lpstudio.ai)
+Design complete. Implementation is Sprint 1-2 (~2-4 weeks).
+Custom Domains
+Planned for Sprint 6-7.
+Billing & Plans
+Post-MVP. Free/Pro/Enterprise model designed.
+ROI Calculator Migration
+Planned as part of Sales Console consolidation Phase 2.
+
+Recommended Action Plan for Tonight/Tomorrow Morning
+Priority 1: Security Fixes (Est. 2-3 hours)
+	•	Fix default tenant fallback: Return 401 on missing auth instead of defaulting to tenant 1. This is the most dangerous bug for a multi-user demo.
+	•	Parameterize SQL in heatmap.ts: Replace sql.raw() with parameterized query for the days parameter.
+	•	Add DOMPurify to email preview and RichText block: npm install dompurify, wrap dangerouslySetInnerHTML inputs.
+	•	Replace Math.random tokens: Use crypto.randomBytes(32).toString('hex') for personalized link tokens.
+	•	Sanitize error responses: Add global error handler that strips internal details before sending to client.
+Priority 2: Testing Experience Fixes (Est. 1-2 hours)
+	•	Fix migration error handling: Change 'continue anyway' to halt + clear error message on migration failure.
+	•	Add error boundaries to builder: Wrap page builder in React error boundary so partial load failures show a retry button instead of a white screen.
+	•	Add form submission error toasts: Surface errors on form submit so testers know when something went wrong.
+	•	Verify env vars and API keys: Confirm all required environment variables are set. Check AI provider config to avoid placeholder responses.
+Priority 3: Scope Decisions for Testing
+Based on the current state, I recommend the following scope for tomorrow's testing:
+	•	Demo the Page Builder, A/B Testing, Forms, Brand Settings, and Sales Dashboard - these are solid and ready.
+	•	Demo AI page generation and draft email - impressive features, just verify API keys work beforehand.
+	•	Skip the Dandy DSO app and Mockup Sandbox - the Supabase mock and empty component registry mean these will error out.
+	•	Skip Smart Traffic dashboard - the algorithm works but there's no UI to show testers yet.
+	•	Salesforce integration is demoable if custom fields (LP_Studio_Engagement__c, LP_Studio_Engagement_Score__c) are pre-created in the test SFDC org.
+
+Code Health Notes
+For context, the codebase has made significant progress recently. Here are some positive signals alongside areas for continued improvement:
+Strengths
+	•	TypeScript errors fully resolved (79 down to 0)
+	•	Bundle optimized from 2,953 KB single chunk to ~130 lazy-loaded chunks (260 KB initial)
+	•	61 block types in the page builder covering a wide range of landing page patterns
+	•	Salesforce integration is comprehensive: OAuth2, bidirectional sync, field mapping, audit trail
+	•	Smart Traffic uses a proper Thompson Sampling contextual bandit algorithm
+	•	Sales Console recently redesigned with hot-account prioritization and smart next-action buttons
+Technical Debt to Address Post-Testing
+	•	PropertyPanel.tsx is 2,676 lines with 32+ panel types in a single switch statement. Needs splitting into lazy-loaded modules.
+	•	BuilderEditor.tsx is 2,268 lines combining drag-drop, sidebar, and preview. Should be broken into focused components.
+	•	271 uses of 'any' type across the codebase. Enable strictFunctionTypes and gradually migrate.
+	•	Console.log statements in production code (should use structured logger).
+	•	5 stat display block components (BlockStatCallout, BlockDsoStatBar, etc.) could be consolidated into 2 generic components.
+	•	Sidebar navigation has 13 items. Planned consolidation to 8 items (38% reduction) would improve usability.
+End of report. Good luck with testing tomorrow!
