@@ -29,6 +29,7 @@ interface Signal {
   id: number;
   type: string;
   source: string | null;
+  accountId?: number;
   accountName?: string;
   contactName?: string;
   metadata: Record<string, unknown>;
@@ -394,7 +395,7 @@ export default function SalesSignals() {
           /* ── Flat timeline view ─── */
           <>
             <p className="text-xs text-muted-foreground px-1">{filteredSignals.length} signal{filteredSignals.length !== 1 ? "s" : ""}</p>
-            <div ref={signalScrollRef} className="max-h-[70vh] overflow-y-auto rounded-xl" style={{ contain: "strict" }}>
+            <div ref={signalScrollRef} className="h-[70vh] overflow-y-auto rounded-xl">
               <div style={{ height: signalVirtualizer.getTotalSize(), width: "100%", position: "relative" }}>
                 {signalVirtualizer.getVirtualItems().map((virtualRow) => {
                   const signal = filteredSignals[virtualRow.index];
@@ -419,7 +420,13 @@ export default function SalesSignals() {
                             </span>
                           </p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
+                            {signal.accountName && signal.accountId ? (
+                              <Link href={`/sales/accounts/${signal.accountId}`} className="font-medium text-primary hover:underline">
+                                {signal.accountName}
+                              </Link>
+                            ) : signal.accountName ? (
+                              <span className="font-medium">{signal.accountName}</span>
+                            ) : null}
                             {signal.source && <span className="truncate">{signal.source}</span>}
                           </div>
                         </div>

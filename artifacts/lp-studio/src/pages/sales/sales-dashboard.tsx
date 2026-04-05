@@ -394,7 +394,7 @@ export default function SalesDashboard() {
                   </Link>
                 </div>
 
-                <Card className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
+                <Card className="border border-border/50 rounded-xl overflow-hidden">
                   {loading ? (
                     <div className="p-3 flex flex-col gap-2">
                       {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
@@ -405,24 +405,32 @@ export default function SalesDashboard() {
                       <p className="text-xs text-muted-foreground">No signals yet — send outreach to start seeing engagement.</p>
                     </div>
                   ) : (
-                    recentSignals.map(signal => (
-                      <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors">
-                        <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0 mt-0.5">
-                          {getSignalIcon(signal.type, "w-3.5 h-3.5")}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-foreground leading-snug">
-                            {signal.contactName ?? signal.accountName ?? "Unknown"}{" "}
-                            <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
-                          </p>
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                            {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
-                            <span className="text-border">·</span>
-                            <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
+                    <div className="max-h-[340px] overflow-y-auto divide-y divide-border/40">
+                      {recentSignals.map(signal => (
+                        <div key={signal.id} className="flex items-start gap-2.5 px-3.5 py-2.5 hover:bg-muted/30 transition-colors">
+                          <div className="w-7 h-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0 mt-0.5">
+                            {getSignalIcon(signal.type, "w-3.5 h-3.5")}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-foreground leading-snug">
+                              {signal.contactName ?? signal.accountName ?? "Unknown"}{" "}
+                              <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
+                            </p>
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                              {signal.accountName && signal.accountId ? (
+                                <Link href={`/sales/accounts/${signal.accountId}`} className="font-medium text-primary hover:underline truncate">
+                                  {signal.accountName}
+                                </Link>
+                              ) : signal.accountName ? (
+                                <span className="font-medium truncate">{signal.accountName}</span>
+                              ) : null}
+                              <span className="text-border shrink-0">·</span>
+                              <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </Card>
               </div>
