@@ -48,22 +48,22 @@ function UserFooter() {
     : user.email[0].toUpperCase();
 
   return (
-    <div className="mt-auto border-t border-border/30 p-3">
+    <div className="mt-auto border-t border-sidebar-foreground/10 p-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-muted/40 transition-all duration-200 text-left group">
+          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200 text-left group">
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0 ring-1 ring-border/50" />
+              <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-white/10" />
             ) : (
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#1B4332]/20 to-[#1B4332]/10 text-[#1B4332] dark:from-[#C7E738]/20 dark:to-[#C7E738]/10 dark:text-[#C7E738] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-1 ring-border/30">
+              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#C7E738]/30 to-[#C7E738]/10 text-[#C7E738] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-2 ring-[#C7E738]/20">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-foreground truncate">{user.name || user.email}</div>
-              <div className="text-[10px] text-muted-foreground/70 truncate capitalize">{user.role}</div>
+              <div className="text-[13px] font-medium text-sidebar-foreground truncate">{user.name || user.email}</div>
+              <div className="text-[10px] text-sidebar-foreground/40 truncate capitalize">{user.role}</div>
             </div>
-            <ChevronDown className="w-3 h-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0" />
+            <ChevronDown className="w-3 h-3 text-sidebar-foreground/30 group-hover:text-sidebar-foreground/70 transition-colors shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-56 p-1.5">
@@ -98,14 +98,14 @@ export function AppSidebar() {
     hasPerm("brand") || hasPerm("blocks") || hasPerm("team") || hasPerm("roles");
 
   return (
-    <Sidebar className="border-r border-border/40 bg-background/95 backdrop-blur-xl">
+    <Sidebar className="border-r border-sidebar-foreground/8">
       <SidebarContent>
         <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer group">
               <img src={dandyLogo} alt="Dandy" className="h-5 w-auto sidebar-logo opacity-90 group-hover:opacity-100 transition-opacity" />
-              <div className="w-px h-4 bg-border/50" />
-              <span className="text-[11px] font-semibold tracking-[0.16em] uppercase text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+              <div className="w-px h-4 bg-sidebar-foreground/15" />
+              <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60 transition-colors">
                 LP Studio
               </span>
             </div>
@@ -119,7 +119,7 @@ export function AppSidebar() {
 
         {showMarketing && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-[0.12em] mb-1.5 px-3">
+            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
               Platform
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -204,7 +204,7 @@ export function AppSidebar() {
 
         {showSettings && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-[0.12em] mb-1.5 px-3">
+            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
               Settings
             </SidebarGroupLabel>
             <SidebarGroupContent>

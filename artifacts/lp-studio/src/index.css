@@ -118,14 +118,14 @@
   --input: 150 18% 88%;
   --ring: 73 76% 56%;
 
-  /* Sidebar: always Dandy Forest Green */
-  --sidebar: 162 100% 11%;
-  --sidebar-foreground: 0 0% 97%;
-  --sidebar-border: 162 80% 16%;
+  /* Sidebar: Dandy Forest Green — matches enterprise nav #122B21 */
+  --sidebar: 155 41% 12%;
+  --sidebar-foreground: 0 0% 96%;
+  --sidebar-border: 155 25% 16%;
   --sidebar-primary: 73 76% 56%;
   --sidebar-primary-foreground: 162 100% 11%;
-  --sidebar-accent: 162 78% 16%;
-  --sidebar-accent-foreground: 0 0% 97%;
+  --sidebar-accent: 155 25% 20%;
+  --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-ring: 73 76% 56%;
 
   /* Chart colors: lime, forest, teal, amber, coral */
@@ -195,13 +195,13 @@
   --input: 162 60% 15%;
   --ring: 73 76% 56%;
 
-  --sidebar: 162 100% 6%;
-  --sidebar-foreground: 90 40% 97%;
-  --sidebar-border: 162 70% 11%;
+  --sidebar: 155 38% 8%;
+  --sidebar-foreground: 0 0% 96%;
+  --sidebar-border: 155 25% 13%;
   --sidebar-primary: 73 76% 56%;
   --sidebar-primary-foreground: 162 100% 11%;
-  --sidebar-accent: 162 70% 12%;
-  --sidebar-accent-foreground: 90 40% 97%;
+  --sidebar-accent: 155 22% 16%;
+  --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-ring: 73 76% 56%;
 
   --chart-1: 73 76% 56%;
