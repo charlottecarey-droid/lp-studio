@@ -210,8 +210,8 @@ function AppRouter() {
 
         {/* Sales Console Routes */}
         <Route path="/sales">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDashboard /></PermRoute>}</Route>
-        <Route path="/sales/draft-email">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDraftEmail /></PermRoute>}</Route>
-        <Route path="/sales/draft-email/:contactId">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDraftEmail /></PermRoute>}</Route>
+        <Route path="/sales/draft-email">{() => <PermRoute perm="sales_outreach" fallback="/sales"><SalesDraftEmail /></PermRoute>}</Route>
+        <Route path="/sales/draft-email/:contactId">{() => <PermRoute perm="sales_outreach" fallback="/sales"><SalesDraftEmail /></PermRoute>}</Route>
         <Route path="/sales/campaigns/:id">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignDetail /></PermRoute>}</Route>
         <Route path="/sales/campaigns">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
         <Route path="/sales/microsites">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
@@ -221,7 +221,7 @@ function AppRouter() {
         <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
         <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
         <Route path="/sales/campaign-pages">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignPages /></PermRoute>}</Route>
-        <Route path="/sales/outreach">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesOutreach /></PermRoute>}</Route>
+        <Route path="/sales/outreach">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
         <Route path="/sales/signals">{() => <PermRoute perm="sales_signals" fallback="/"><SalesSignals /></PermRoute>}</Route>
         <Route path="/sales/roi-calculator">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesRoiCalculator /></PermRoute>}</Route>
         <Route path="/sales/one-pager/editor">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePagerEditor /></PermRoute>}</Route>
