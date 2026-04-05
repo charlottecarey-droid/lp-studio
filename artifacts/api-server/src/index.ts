@@ -632,6 +632,11 @@ async function runMigrations() {
       );
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_contact ON sales_inbound_emails(contact_id);
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_received ON sales_inbound_emails(received_at DESC);
+
+      -- Tenant onboarding tracking
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
+      -- Backfill: existing tenants are already onboarded — only new signups should see the wizard
+      UPDATE tenants SET onboarding_completed_at = now() WHERE onboarding_completed_at IS NULL;
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {

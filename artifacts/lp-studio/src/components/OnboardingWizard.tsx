@@ -106,10 +106,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         ctaText: primaryColor,
       });
 
-      await fetch("/api/auth/complete-onboarding", {
+      const completeRes = await fetch("/api/auth/complete-onboarding", {
         method: "POST",
         credentials: "include",
       });
+      if (!completeRes.ok) {
+        throw new Error("Failed to complete onboarding");
+      }
 
       await onComplete();
     } catch {

@@ -175,6 +175,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   copyInstructions: "",
   productLines: [],
   segments: [],
+  logoUrl: "",
 };
 
 const BUTTON_RADIUS: Record<ButtonRadius, string> = {
