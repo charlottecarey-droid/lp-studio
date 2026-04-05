@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { Link, useLocation, useRoute } from "wouter";
 import { format } from "date-fns";
 import {
@@ -61,7 +61,7 @@ const API_BASE = "/api";
 
 // ── Engagement heat scoring (mirrors dashboard logic) ─────────────────────────
 
-interface Signal {
+interface HeatSignal {
   id: number;
   type: string;
   accountId?: number;
@@ -81,7 +81,7 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 type HeatTier = "hot" | "warm" | "cool" | "cold";
 
-function computeHeatTier(acctSignals: Signal[], refTime: number): HeatTier {
+function computeHeatTier(acctSignals: HeatSignal[], refTime: number): HeatTier {
   const cutoff = refTime - SEVEN_DAYS_MS;
   const recentSigs = acctSignals.filter(s => new Date(s.createdAt).getTime() > cutoff);
   if (recentSigs.length === 0) return "cold";
@@ -207,6 +207,142 @@ interface SavedView {
   createdAt: string;
 }
 
+/* ─── Engagement Funnel ──────────────────────────────────────── */
+
+interface FunnelProps {
+  counts: Record<HeatTier, number>;
+  trend: Record<HeatTier, { delta: number; pct: number }>;
+  activeFilter: HeatTier | "";
+  onFilter: (tier: HeatTier | "") => void;
+  loading: boolean;
+}
+
+const HEAT_TIERS: { tier: HeatTier; label: string; icon: ReactNode; bg: string; border: string; active: string; text: string }[] = [
+  {
+    tier: "hot",
+    label: "Hot",
+    icon: <Flame className="w-4 h-4" />,
+    bg: "bg-red-50 dark:bg-red-950/20",
+    border: "border-red-200 dark:border-red-800/40",
+    active: "ring-2 ring-red-400 dark:ring-red-500",
+    text: "text-red-600 dark:text-red-400",
+  },
+  {
+    tier: "warm",
+    label: "Warm",
+    icon: <Thermometer className="w-4 h-4" />,
+    bg: "bg-amber-50 dark:bg-amber-950/20",
+    border: "border-amber-200 dark:border-amber-800/40",
+    active: "ring-2 ring-amber-400 dark:ring-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    tier: "cool",
+    label: "Cool",
+    icon: <Zap className="w-4 h-4" />,
+    bg: "bg-blue-50 dark:bg-blue-950/20",
+    border: "border-blue-200 dark:border-blue-800/40",
+    active: "ring-2 ring-blue-400 dark:ring-blue-500",
+    text: "text-blue-600 dark:text-blue-400",
+  },
+  {
+    tier: "cold",
+    label: "Cold",
+    icon: <Snowflake className="w-4 h-4" />,
+    bg: "bg-slate-50 dark:bg-slate-900/30",
+    border: "border-slate-200 dark:border-slate-700/50",
+    active: "ring-2 ring-slate-400 dark:ring-slate-500",
+    text: "text-slate-500 dark:text-slate-400",
+  },
+];
+
+function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: FunnelProps) {
+  const total = counts.hot + counts.warm + counts.cool + counts.cold;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Engagement</h2>
+          <span className="text-xs text-muted-foreground/60">last 7 days · click to filter</span>
+        </div>
+        {activeFilter && (
+          <button
+            onClick={() => onFilter("")}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-3 h-3" />Clear
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        {HEAT_TIERS.map(({ tier, label, icon, bg, border, active, text }) => {
+          const count = counts[tier];
+          const { delta, pct } = trend[tier];
+          const isActive = activeFilter === tier;
+          const hasData = !loading;
+
+          return (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => onFilter(isActive ? "" : tier)}
+              className={`group flex flex-col gap-2 px-4 py-3.5 rounded-xl border transition-all duration-150 text-left
+                ${bg} ${border} ${isActive ? active : "hover:shadow-sm hover:border-opacity-80"}
+                focus:outline-none`}
+            >
+              <div className={`flex items-center gap-1.5 ${text}`}>
+                {icon}
+                <span className="text-xs font-semibold uppercase tracking-wider">{label}</span>
+                {isActive && <ArrowRight className="w-3 h-3 ml-auto opacity-60" />}
+              </div>
+
+              {loading ? (
+                <div className="h-7 w-10 bg-current/10 rounded animate-pulse" />
+              ) : (
+                <div>
+                  <p className={`text-2xl font-bold tabular-nums ${text}`}>{count}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {hasData && (
+                      delta === 0 ? (
+                        <span className="text-[10px] text-muted-foreground">vs last week</span>
+                      ) : (
+                        <>
+                          {delta > 0
+                            ? <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
+                            : <TrendingDown className="w-3 h-3 text-red-400 shrink-0" />}
+                          <span className={`text-[10px] font-medium tabular-nums ${delta > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                            {delta > 0 ? "+" : ""}{delta} ({delta > 0 ? "+" : ""}{pct}%)
+                          </span>
+                        </>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {hasData && total > 0 && (
+                <div className="h-1 rounded-full bg-current/10 overflow-hidden mt-0.5">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      tier === "hot" ? "bg-red-400" :
+                      tier === "warm" ? "bg-amber-400" :
+                      tier === "cool" ? "bg-blue-400" : "bg-slate-300 dark:bg-slate-600"
+                    }`}
+                    style={{ width: `${Math.round((count / total) * 100)}%` }}
+                  />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Account List View ──────────────────────────────────────── */
 
 function AccountListView() {
@@ -231,12 +367,14 @@ function AccountListView() {
   }
 
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [signals, setSignals] = useState<HeatSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [abmTierFilter, setAbmTierFilter] = useState(() => readLsTier());
   const [abmStageFilter, setAbmStageFilter] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("");
   const [ownerFilters, setOwnerFilters] = useState<string[]>(() => readLsOwners());
+  const [heatFilter, setHeatFilter] = useState<HeatTier | "">("");
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -333,13 +471,16 @@ function AccountListView() {
 
   const fetchAccounts = useCallback(() => {
     setIsSyncing(true);
-    fetch(`${API_BASE}/sales/accounts`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        setAccounts(data);
+    Promise.all([
+      fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_BASE}/sales/signals?limit=500`).then(r => r.ok ? r.json() : { data: [] }).then(r => Array.isArray(r) ? r : r.data ?? []),
+    ])
+      .then(([accts, sigs]) => {
+        setAccounts(accts);
+        setSignals(Array.isArray(sigs) ? sigs : []);
         setLastSyncTime(new Date());
       })
-      .catch(() => setAccounts([]))
+      .catch(() => { setAccounts([]); setSignals([]); })
       .finally(() => {
         setLoading(false);
         setIsSyncing(false);
@@ -348,12 +489,59 @@ function AccountListView() {
 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
+  // ── Heat scoring ─────────────────────────────────────────────────────────
+  const { accountHeatMap, funnelCounts, funnelTrend } = useMemo(() => {
+    const now = Date.now();
+    const prevRef = now - SEVEN_DAYS_MS; // 7d ago = "last week" reference point
+
+    const sigsByAccount = new Map<number, HeatSignal[]>();
+    const prevSigsByAccount = new Map<number, HeatSignal[]>();
+
+    for (const s of signals) {
+      if (!s.accountId) continue;
+      const ts = new Date(s.createdAt).getTime();
+      if (ts > now - SEVEN_DAYS_MS) {
+        // current period: last 7 days
+        const arr = sigsByAccount.get(s.accountId) ?? [];
+        arr.push(s);
+        sigsByAccount.set(s.accountId, arr);
+      } else if (ts > now - FOURTEEN_DAYS_MS) {
+        // previous period: 7-14 days ago
+        const arr = prevSigsByAccount.get(s.accountId) ?? [];
+        arr.push(s);
+        prevSigsByAccount.set(s.accountId, arr);
+      }
+    }
+
+    const heatMap = new Map<number, HeatTier>();
+    const counts: Record<HeatTier, number> = { hot: 0, warm: 0, cool: 0, cold: 0 };
+    const prevCounts: Record<HeatTier, number> = { hot: 0, warm: 0, cool: 0, cold: 0 };
+
+    for (const acct of accounts) {
+      const tier = computeHeatTier(sigsByAccount.get(acct.id) ?? [], now);
+      heatMap.set(acct.id, tier);
+      counts[tier]++;
+
+      const prevTier = computeHeatTier(prevSigsByAccount.get(acct.id) ?? [], prevRef);
+      prevCounts[prevTier]++;
+    }
+
+    const trend = {} as Record<HeatTier, { delta: number; pct: number }>;
+    (["hot", "warm", "cool", "cold"] as HeatTier[]).forEach(t => {
+      const delta = counts[t] - prevCounts[t];
+      const pct = prevCounts[t] > 0 ? Math.round((delta / prevCounts[t]) * 100) : (counts[t] > 0 ? 100 : 0);
+      trend[t] = { delta, pct };
+    });
+
+    return { accountHeatMap: heatMap, funnelCounts: counts, funnelTrend: trend };
+  }, [accounts, signals]);
+
   const uniqueAbmTiers    = Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[];
   const uniqueAbmStages   = Array.from(new Set(accounts.map(a => a.abmStage).filter(Boolean))).sort() as string[];
   const uniqueSegments    = Array.from(new Set(accounts.map(a => a.practiceSegment).filter(Boolean))).sort() as string[];
   const uniqueOwners      = Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[];
 
-  const isFiltered = !!(search || abmTierFilter || abmStageFilter || segmentFilter || ownerFilters.length > 0);
+  const isFiltered = !!(search || abmTierFilter || abmStageFilter || segmentFilter || ownerFilters.length > 0 || heatFilter);
 
   const filtered = accounts.filter((a) => {
     const q = search.toLowerCase();
@@ -367,11 +555,12 @@ function AccountListView() {
     const matchesStage   = !abmStageFilter        || a.abmStage === abmStageFilter;
     const matchesSegment = !segmentFilter         || a.practiceSegment === segmentFilter;
     const matchesOwner   = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-    return matchesSearch && matchesTier && matchesStage && matchesSegment && matchesOwner;
+    const matchesHeat    = !heatFilter            || accountHeatMap.get(a.id) === heatFilter;
+    return matchesSearch && matchesTier && matchesStage && matchesSegment && matchesOwner && matchesHeat;
   });
 
   function clearFilters() {
-    setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilters([]);
+    setSearch(""); setAbmTierFilter(""); setAbmStageFilter(""); setSegmentFilter(""); setOwnerFilters([]); setHeatFilter("");
     setActiveViewId(null);
     setDirtyViewId(null);
     if (lsKey) { try { localStorage.removeItem(lsKey); } catch {} }
@@ -481,6 +670,15 @@ function AccountListView() {
             </form>
           </Card>
         )}
+
+        {/* ── Engagement Funnel ── */}
+        <EngagementFunnel
+          counts={funnelCounts}
+          trend={funnelTrend}
+          activeFilter={heatFilter}
+          onFilter={setHeatFilter}
+          loading={loading}
+        />
 
         {/* Search + Filters */}
         <div className="flex flex-col gap-2">
