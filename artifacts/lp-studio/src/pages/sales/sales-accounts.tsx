@@ -1171,8 +1171,8 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
         const Icon = config.icon;
         const contact = signal.contactId ? contactMap.get(signal.contactId) : null;
 
-        return (
-          <div key={signal.id} className="flex items-start gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl">
+        const row = (
+          <div className={`flex items-start gap-3 px-4 py-3 bg-card border border-border/60 rounded-xl transition-colors ${contact ? "hover:bg-muted/30 cursor-pointer" : ""}`}>
             <div className={`mt-0.5 ${config.color}`}>
               <Icon className="w-4 h-4" />
             </div>
@@ -1180,7 +1180,10 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
               <p className="text-sm text-foreground">
                 <span className="font-medium">{config.label}</span>
                 {contact && (
-                  <span className="text-muted-foreground"> by {contact.firstName} {contact.lastName}</span>
+                  <span className="text-muted-foreground"> by </span>
+                )}
+                {contact && (
+                  <span className="font-medium text-foreground">{contact.firstName} {contact.lastName}</span>
                 )}
               </p>
               {signal.source && (
@@ -1191,6 +1194,14 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
               {format(new Date(signal.createdAt), "MMM d, h:mm a")}
             </span>
           </div>
+        );
+
+        return contact ? (
+          <Link key={signal.id} href={`/sales/contacts/${contact.id}`}>
+            {row}
+          </Link>
+        ) : (
+          <div key={signal.id}>{row}</div>
         );
       })}
     </div>
