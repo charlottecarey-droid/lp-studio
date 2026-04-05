@@ -271,7 +271,7 @@ const ThemedTooltip = ({ active, payload, label, t }: any) => {
 /* ── Animated counter ── */
 const useCountUp = (end: number, duration = 1200, decimals = 0, started = false) => {
   const [count, setCount] = useState(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!started) { setCount(0); return; }
     const startTime = performance.now();

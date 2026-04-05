@@ -108,7 +108,7 @@ export default function AccountNextAction({
           const { data: sends } = await supabase
             .from("email_campaign_sends")
             .select("opened_at, clicked_at")
-            .in("contact_id", contacts.map(c => c.id))
+            .in("contact_id", contacts.map((c: any) => c.id))
             .not("sent_at", "is", null);
           for (const s of sends || []) {
             if (s.opened_at) emailOpens++;

@@ -488,11 +488,11 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+      await page.render({ canvasContext: canvas.getContext("2d")!, viewport, canvas }).promise;
       const imgBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"));
 
       const path = `cloned/${crypto.randomUUID()}.png`;
-      const { error } = await supabase.storage.from("template-backgrounds").upload(path, imgBlob, { upsert: true });
+      const { error } = await supabase.storage.from("template-backgrounds").upload(path, imgBlob as any);
       if (error) { toast({ title: "Upload failed", description: error.message, variant: "destructive" }); return; }
       const { data: urlData } = supabase.storage.from("template-backgrounds").getPublicUrl(path);
       const bgUrl = urlData.publicUrl;
@@ -522,7 +522,7 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
       .from("custom_templates")
       .select("*")
       .order("created_at", { ascending: false });
-    if (data) setTemplates(data.map(t => ({ ...t, fields: (t.fields || []) as unknown as OverlayField[], headerHeight: (t as any).header_height ?? 30, headerImageUrl: (t as any).header_image_url || undefined })));
+    if (data) setTemplates(data.map((t: any) => ({ ...t, fields: (t.fields || []) as unknown as OverlayField[], headerHeight: (t as any).header_height ?? 30, headerImageUrl: (t as any).header_image_url || undefined })));
     setLoading(false);
   };
 
@@ -537,7 +537,7 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+    await page.render({ canvasContext: canvas.getContext("2d")!, viewport, canvas }).promise;
     return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("canvas toBlob failed")), "image/png"));
   };
 
@@ -566,7 +566,7 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
 
     const { error } = await supabase.storage
       .from("template-backgrounds")
-      .upload(path, uploadFile, { upsert: true });
+      .upload(path, uploadFile as any);
 
     if (error) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
@@ -1120,7 +1120,7 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
                                         if (!file) return;
                                         const ext = file.name.split(".").pop();
                                         const path = `header-images/${crypto.randomUUID()}.${ext}`;
-                                        const { error } = await supabase.storage.from("template-backgrounds").upload(path, file, { upsert: true });
+                                        const { error } = await supabase.storage.from("template-backgrounds").upload(path, file);
                                         if (error) { toast({ title: "Upload failed", description: error.message, variant: "destructive" }); return; }
                                         const { data: urlData } = supabase.storage.from("template-backgrounds").getPublicUrl(path);
                                         const newUrl = urlData.publicUrl;
@@ -1446,7 +1446,7 @@ const DSOTemplateImporter = forwardRef<DSOTemplateImporterHandle>((_, ref) => {
                                           if (!file) return;
                                           const ext = file.name.split(".").pop();
                                           const path = `logos/${crypto.randomUUID()}.${ext}`;
-                                          const { error } = await supabase.storage.from("template-backgrounds").upload(path, file, { upsert: true });
+                                          const { error } = await supabase.storage.from("template-backgrounds").upload(path, file);
                                           if (error) { toast({ title: "Logo upload failed", description: error.message, variant: "destructive" }); return; }
                                           const { data: urlData } = supabase.storage.from("template-backgrounds").getPublicUrl(path);
                                           updateField(field.id, { logoUrl: urlData.publicUrl });

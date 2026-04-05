@@ -338,7 +338,7 @@ const Microsite = () => {
 
   const handleCaptureSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!captureEmail) return;
+    if (!captureEmail || !data) return;
     setCaptureSubmitting(true);
     trackCTA("Hero Capture Submit");
     try {

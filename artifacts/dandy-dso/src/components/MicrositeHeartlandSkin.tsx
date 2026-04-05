@@ -98,7 +98,7 @@ const PIE_COLORS = ["hsl(72, 70%, 55%)", "hsl(72, 55%, 40%)", "hsl(192, 20%, 30%
 // ─── Animated counter hook ───────────────────────────────────────────
 const useCountUp = (end: number, duration = 1200, decimals = 0, started = false) => {
   const [count, setCount] = useState(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!started) { setCount(0); return; }
     const startTime = performance.now();

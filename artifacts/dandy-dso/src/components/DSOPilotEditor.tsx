@@ -1740,12 +1740,12 @@ const DSOPilotEditor = () => {
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
+      await page.render({ canvasContext: canvas.getContext("2d")!, viewport, canvas }).promise;
       const imgBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"));
 
       // 3. Upload to storage
       const path = `cloned/${crypto.randomUUID()}.png`;
-      const { error } = await supabase.storage.from("template-backgrounds").upload(path, imgBlob, { upsert: true });
+      const { error } = await supabase.storage.from("template-backgrounds").upload(path, imgBlob as any);
       if (error) { toast({ title: "Upload failed", description: error.message, variant: "destructive" }); return; }
       const { data: urlData } = supabase.storage.from("template-backgrounds").getPublicUrl(path);
       const bgUrl = urlData.publicUrl;

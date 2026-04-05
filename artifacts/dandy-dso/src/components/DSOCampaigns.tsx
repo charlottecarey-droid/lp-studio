@@ -379,7 +379,7 @@ const renderPreview = (text: string) => {
 };
 
 const insertAtCursor = (
-  ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement>,
+  ref: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>,
   value: string,
   currentValue: string,
   setter: (v: string) => void,
@@ -1699,7 +1699,7 @@ const MergeVarButtons = ({
   vars, inputRef, currentValue, setter,
 }: {
   vars: string[];
-  inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement>;
+  inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   currentValue: string;
   setter: (v: string) => void;
 }) => (

@@ -48,6 +48,7 @@ const DSOKCYSCalculator = () => {
       }, 2000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [practices]);
 
   const apptsSaved = scenarioApptsSaved[scenario];

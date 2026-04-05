@@ -101,6 +101,10 @@ function buildQueryBuilder(table: string) {
       _single = true;
       return self;
     },
+    maybeSingle() {
+      _single = true;
+      return self;
+    },
     then(resolve: (v: { data: any; error: any; count?: number | null }) => any, reject?: any) {
       return execute().then(resolve, reject);
     },
