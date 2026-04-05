@@ -633,10 +633,29 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_contact ON sales_inbound_emails(contact_id);
       CREATE INDEX IF NOT EXISTS idx_sales_inbound_received ON sales_inbound_emails(received_at DESC);
 
+      -- Schema migration marker table (used to run one-time data migrations safely)
+      CREATE TABLE IF NOT EXISTS _schema_migration_markers (
+        key text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      );
+
       -- Tenant onboarding tracking
       ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
-      -- Backfill: existing tenants are already onboarded — only new signups should see the wizard
-      UPDATE tenants SET onboarding_completed_at = now() WHERE onboarding_completed_at IS NULL;
+
+      -- One-time backfill: mark all tenants that existed BEFORE the onboarding wizard was
+      -- introduced as already onboarded so they never see the wizard. This block only runs
+      -- once (guarded by the migration marker) so new tenants created after deployment keep
+      -- NULL until they complete the wizard themselves.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM _schema_migration_markers WHERE key = 'onboarding_backfill_v1'
+        ) THEN
+          UPDATE tenants SET onboarding_completed_at = now() WHERE onboarding_completed_at IS NULL;
+          INSERT INTO _schema_migration_markers (key) VALUES ('onboarding_backfill_v1');
+        END IF;
+      END;
+      $$;
     `);
     logger.info("Migrations applied successfully");
   } catch (err) {
