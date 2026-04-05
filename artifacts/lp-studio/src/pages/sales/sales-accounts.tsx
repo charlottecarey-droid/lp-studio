@@ -2354,7 +2354,11 @@ function AccountDetailView({ id }: { id: string }) {
                       {groupContacts.map((contact) => {
                         const token = latestByContact.get(contact.id);
                         return (
-                          <div key={contact.id} className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 transition-all">
+                          <div
+                          key={contact.id}
+                          onClick={() => navigate(`/sales/contacts/${contact.id}`)}
+                          className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer"
+                        >
                             <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
                               {contact.firstName[0]}{contact.lastName[0]}
                             </div>
@@ -2381,7 +2385,7 @@ function AccountDetailView({ id }: { id: string }) {
                               </div>
                             </div>
                             <button
-                              onClick={() => setDraftEmailContact(contact)}
+                              onClick={(e) => { e.stopPropagation(); setDraftEmailContact(contact); }}
                               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary text-xs font-medium transition-all shrink-0"
                               title="Draft AI email"
                             >
@@ -2390,7 +2394,7 @@ function AccountDetailView({ id }: { id: string }) {
                             </button>
                             {token && (
                               <button
-                                onClick={() => handleCopyContactLink(contact.id, token)}
+                                onClick={(e) => { e.stopPropagation(); handleCopyContactLink(contact.id, token); }}
                                 title="Copy personalized link"
                                 className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary hover:bg-primary/8 transition-all"
                               >
