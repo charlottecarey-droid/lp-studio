@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Building2, Users, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
-  ArrowUpRight, Contact, BookmarkCheck, X,
+  AlertCircle, ArrowUpRight, Contact, Sparkles, BookmarkCheck, X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -33,6 +33,12 @@ interface SavedView {
   name: string;
   filters: { ownerFilters: string[]; abmTierFilter: string };
   createdAt: string;
+}
+
+interface MicrositeGroup {
+  accountId: number;
+  accountName: string;
+  pages: { pageId: number }[];
 }
 
 interface Signal {
@@ -95,6 +101,7 @@ export default function SalesDashboard() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [micrositeGroups, setMicrositeGroups] = useState<MicrositeGroup[]>([]);
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [viewDismissed, setViewDismissed] = useState(false);
@@ -127,11 +134,13 @@ export default function SalesDashboard() {
     Promise.all([
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/signals?limit=300`).then(r => r.ok ? r.json() : { data: [] }).then(r => Array.isArray(r) ? r : r.data ?? []),
+      fetch(`${API_BASE}/sales/microsites/overview`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/stats`).then(r => r.ok ? r.json() : { signalsToday: 0 }),
     ])
-      .then(([accts, sigs, serverStats]) => {
+      .then(([accts, sigs, overview, serverStats]) => {
         setAccounts(Array.isArray(accts) ? accts : []);
         setSignals(Array.isArray(sigs) ? sigs : []);
+        setMicrositeGroups(Array.isArray(overview) ? overview : []);
         setSignalsToday(serverStats.signalsToday ?? 0);
       })
       .catch(() => {})
@@ -152,10 +161,17 @@ export default function SalesDashboard() {
 
   // ── Computed data ─────────────────────────────────────────────────────────
 
-  const { hotAccounts, hotCount } = useMemo(() => {
-    if (!filteredAccounts.length) return { hotAccounts: [], hotCount: 0 };
+  const { hotAccounts, needsAttention, hotCount } = useMemo(() => {
+    if (!filteredAccounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
 
     const now = Date.now();
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+    // Build microsite lookup: accountId → page count
+    const micrositeCounts = new Map<number, number>();
+    for (const g of micrositeGroups) {
+      if (g.accountId > 0) micrositeCounts.set(g.accountId, g.pages?.length ?? 0);
+    }
 
     // Group signals by account
     const sigsByAccount = new Map<number, Signal[]>();
@@ -171,6 +187,8 @@ export default function SalesDashboard() {
       signalCount7d: number;
       heat: "hot" | "warm" | "cool" | null;
       lastSignal: Signal | null;
+      hasMicrosite: boolean;
+      daysSinceLastSignal: number | null;
     };
 
     const enriched: EnrichedAccount[] = filteredAccounts.map(acct => {
@@ -181,17 +199,36 @@ export default function SalesDashboard() {
       const heat = heatLabel(score, signalCount7d);
       const sorted = [...acctSignals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const lastSignal = sorted[0] ?? null;
-      return { ...acct, score, signalCount7d, heat, lastSignal };
+      const hasMicrosite = (micrositeCounts.get(acct.id) ?? 0) > 0;
+      const daysSinceLastSignal = lastSignal
+        ? Math.floor((now - new Date(lastSignal.createdAt).getTime()) / (24 * 60 * 60 * 1000))
+        : null;
+      return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
-    // Hot accounts: have any signals, sorted by 7-day score desc
+    // Hot accounts: have any signals in the last 7 days, sorted by score desc
     const hot = enriched
       .filter(a => a.signalCount7d > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
-    return { hotAccounts: hot, hotCount: hot.length };
-  }, [filteredAccounts, signals]);
+    // Needs attention: no microsite OR gone quiet (> 14 days since last signal)
+    const attention = enriched
+      .filter(a => {
+        if (!a.hasMicrosite) return true;
+        if (a.daysSinceLastSignal === null) return true;
+        if (a.daysSinceLastSignal > 14) return true;
+        return false;
+      })
+      .sort((a, b) => {
+        if (!a.hasMicrosite && b.hasMicrosite) return -1;
+        if (a.hasMicrosite && !b.hasMicrosite) return 1;
+        return (b.daysSinceLastSignal ?? 9999) - (a.daysSinceLastSignal ?? 9999);
+      })
+      .slice(0, 6);
+
+    return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
+  }, [filteredAccounts, signals, micrositeGroups]);
 
   const recentSignals = useMemo(
     () => [...signals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
@@ -476,6 +513,57 @@ export default function SalesDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* ── Needs attention ──────────────────────────────────── */}
+            {(loading || needsAttention.length > 0) && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <h2 className="text-base font-display font-bold text-foreground">Needs attention</h2>
+                  <span className="text-xs text-muted-foreground font-normal">— no microsite or gone quiet</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {loading ? (
+                    [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+                  ) : (
+                    needsAttention.map(acct => {
+                      const noMicrosite = !acct.hasMicrosite;
+                      const reason = noMicrosite
+                        ? "No microsite yet"
+                        : acct.daysSinceLastSignal !== null
+                          ? `Quiet for ${acct.daysSinceLastSignal}d`
+                          : "No engagement yet";
+                      return (
+                        <Card key={acct.id} className="group flex flex-col gap-2.5 p-4 rounded-xl border border-border/60 hover:border-amber-200 hover:shadow-sm transition-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-semibold text-foreground truncate">{acct.name}</p>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${noMicrosite ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
+                              {reason}
+                            </span>
+                          </div>
+                          {acct.segment && <p className="text-xs text-muted-foreground">{acct.segment}</p>}
+                          <div className="flex items-center gap-1.5 mt-auto pt-1">
+                            {noMicrosite ? (
+                              <Link href={`/sales/accounts?highlight=${acct.id}`} className="w-full">
+                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full" style={{ backgroundColor: "#003A30", color: "#C7E738" }}>
+                                  <Sparkles className="w-3 h-3" />Generate microsite
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Link href={`/sales/draft-email?accountId=${acct.id}`} className="w-full">
+                                <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 w-full">
+                                  <PenTool className="w-3 h-3" />Re-engage
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
 
           </>
         )}
