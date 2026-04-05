@@ -250,7 +250,7 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
         <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 cursor-grab active:cursor-grabbing whitespace-nowrap ${selected ? "ring-2 ring-primary shadow-lg" : "hover:ring-1 hover:ring-primary/50"} ${dragging ? "opacity-80 scale-105" : ""}`}
           style={{ backgroundColor: selected ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)" }}>
           {fieldIcon}
-          <span style={{ color: field.color, fontSize: `${Math.min(scaledSize, 18)}px`, fontWeight: field.bold ? 700 : 400, fontStyle: field.italic ? "italic" : "normal", fontFamily: getFontCss(field.fontFamily), lineHeight: 1.2 }}>{displayText}</span>
+          <span style={{ color: field.color, fontSize: `${Math.min(scaledSize, 18)}px`, fontWeight: field.bold ? 700 : 400, fontStyle: field.italic ? "italic" : "normal", fontFamily: getFontCss(field.fontFamily), lineHeight: field.lineHeight ?? 1.2 }}>{displayText}</span>
         </div>
       </div>
       {ctx && (
@@ -1033,10 +1033,31 @@ function TemplateEditor({ initial, onSave, onCancel }: {
               )}
 
               {(selectedField.type === "heading" || selectedField.type === "footer") && (
-                <div>
-                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Text Content</label>
-                  <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder={selectedField.type === "heading" ? "Section heading…" : "Footer text…"} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
-                </div>
+                <>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Text Content</label>
+                    <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder={selectedField.type === "heading" ? "Section heading…" : "Footer text…"} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                  </div>
+                  {selectedField.type === "heading" && (
+                    <div>
+                      <label className="text-[9px] text-muted-foreground uppercase block mb-1">
+                        Line Height — {(selectedField.lineHeight ?? 1.15).toFixed(2)}×
+                      </label>
+                      <input
+                        type="range"
+                        min={0.7}
+                        max={2.0}
+                        step={0.05}
+                        value={selectedField.lineHeight ?? 1.15}
+                        onChange={e => updateField(selectedField.id, { lineHeight: Number(e.target.value) })}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+                        <span>Tight</span><span>Loose</span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {selectedField.type === "link" && (

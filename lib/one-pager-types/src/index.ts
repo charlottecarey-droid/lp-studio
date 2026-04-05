@@ -38,6 +38,8 @@ export interface OverlayField {
   // divider
   lineThickness?: number;
   width?: number;        // % of page width (default 80)
+  // heading / text
+  lineHeight?: number;   // line-height factor, default 1.15
   // link
   underline?: boolean;
   // meet_the_team
