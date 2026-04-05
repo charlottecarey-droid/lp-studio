@@ -36,6 +36,7 @@ import {
   Bookmark,
   X,
   BookmarkCheck,
+  Tags,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -665,16 +666,14 @@ function AccountListView() {
         {/* Sync Status */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/40">
           <div className="flex-1">
-            <Link href="/sales/sfdc" className="text-muted-foreground hover:text-foreground transition-colors">
-              Data synced from Salesforce
-            </Link>
+            <span className="text-muted-foreground">Data last uploaded</span>
             {lastSyncTime && (
               <span className="text-muted-foreground/70">
-                {" "} · Last updated: {format(lastSyncTime, "MMM d, h:mm a")}
+                {" "} · {format(lastSyncTime, "MMM d, h:mm a")}
               </span>
             )}
           </div>
-          <DisplayNameImportButton onImported={fetchAccounts} />
+          <DataImportButton onImported={fetchAccounts} />
           <Button
             size="sm"
             variant="ghost"
@@ -1195,6 +1194,329 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
         );
       })}
     </div>
+  );
+}
+
+/* ─── Combined Data Import Button ────────────────────────────── */
+
+type ImportMode = null | "contacts" | "display-names";
+
+function DataImportButton({ onImported }: { onImported: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<ImportMode>(null);
+
+  // ── Display-names state ──────────────────────────────────────
+  const dnFileRef = useRef<HTMLInputElement>(null);
+  const [dnRows, setDnRows] = useState<Record<string, string>[]>([]);
+  const [dnPreview, setDnPreview] = useState<{ sfdcId: string | null; accountName: string | null; displayName: string }[]>([]);
+  const [dnLoading, setDnLoading] = useState(false);
+  const [dnResult, setDnResult] = useState<{ updated: number; notFound: number; skipped: number; notFoundNames: string[] } | null>(null);
+  const [dnError, setDnError] = useState("");
+
+  // ── Contacts state ───────────────────────────────────────────
+  const ctFileRef = useRef<HTMLInputElement>(null);
+  const [ctRows, setCtRows] = useState<Record<string, string>[]>([]);
+  const [ctHeaders, setCtHeaders] = useState<string[]>([]);
+  const [ctMapping, setCtMapping] = useState<Record<string, string>>({});
+  const [ctLoading, setCtLoading] = useState(false);
+  const [ctResult, setCtResult] = useState<{ imported: number; errors: number } | null>(null);
+  const [ctError, setCtError] = useState("");
+
+  function resetAll() {
+    setMode(null);
+    setDnRows([]); setDnPreview([]); setDnLoading(false); setDnResult(null); setDnError("");
+    setCtRows([]); setCtHeaders([]); setCtMapping({}); setCtLoading(false); setCtResult(null); setCtError("");
+  }
+  function closeModal() { setOpen(false); resetAll(); }
+
+  // ── Parse CSV ────────────────────────────────────────────────
+  function parseCSV(text: string): Record<string, string>[] {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+    return lines.slice(1).map(line => {
+      const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+      const row: Record<string, string> = {};
+      headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+      return row;
+    });
+  }
+
+  // ── Display-names handlers ───────────────────────────────────
+  function normDnRow(r: Record<string, string>) {
+    return {
+      sfdcId: (r.sfdc_id ?? r.sfdcId ?? r.salesforce_id ?? "").trim() || null,
+      accountName: (r.account_name ?? r.accountName ?? r.name ?? "").trim() || null,
+      displayName: (r.display_name ?? r.displayName ?? r.clean_name ?? "").trim(),
+    };
+  }
+  function handleDnFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const rows = parseCSV(evt.target?.result as string);
+      setDnRows(rows); setDnPreview(rows.slice(0, 5).map(normDnRow)); setDnResult(null); setDnError(""); setMode("display-names"); setOpen(true);
+    };
+    reader.readAsText(file); e.target.value = "";
+  }
+  async function handleDnApply() {
+    setDnLoading(true); setDnError("");
+    try {
+      const res = await fetch(`${API_BASE}/sales/import/display-names`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: dnRows }),
+      });
+      const data = await res.json() as { success?: boolean; summary?: typeof dnResult; error?: string };
+      if (!res.ok || !data.success) throw new Error(data.error ?? "Import failed");
+      setDnResult(data.summary!); onImported();
+    } catch (err) { setDnError(err instanceof Error ? err.message : "Import failed"); }
+    finally { setDnLoading(false); }
+  }
+
+  // ── Contacts handlers ────────────────────────────────────────
+  const CT_FIELD_MAP: Record<string, string> = {
+    "first_name": "firstName", "first name": "firstName", "firstname": "firstName",
+    "last_name": "lastName", "last name": "lastName", "lastname": "lastName",
+    "email": "email", "email_address": "email",
+    "title": "title", "job_title": "title", "job title": "title",
+    "role": "role", "buyer_role": "role",
+    "phone": "phone", "phone_number": "phone",
+    "account_name": "accountName", "account": "accountName",
+  };
+  const CT_TARGET_FIELDS = ["firstName", "lastName", "email", "title", "role", "phone", "accountName"];
+
+  function handleCtFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const rows = parseCSV(evt.target?.result as string);
+      const hdrs = rows.length > 0 ? Object.keys(rows[0]) : [];
+      const autoMap: Record<string, string> = {};
+      hdrs.forEach(h => { const k = h.toLowerCase().trim(); if (CT_FIELD_MAP[k]) autoMap[h] = CT_FIELD_MAP[k]; });
+      setCtRows(rows); setCtHeaders(hdrs); setCtMapping(autoMap); setCtResult(null); setCtError(""); setMode("contacts"); setOpen(true);
+    };
+    reader.readAsText(file); e.target.value = "";
+  }
+  async function handleCtImport() {
+    setCtLoading(true); setCtError("");
+    let imported = 0; let errors = 0;
+    for (const row of ctRows) {
+      const contact: Record<string, unknown> = {};
+      for (const [csvCol, field] of Object.entries(ctMapping)) {
+        if (field && row[csvCol]) contact[field] = row[csvCol];
+      }
+      if (!contact.firstName || !contact.lastName) { errors++; continue; }
+      try {
+        const res = await fetch(`${API_BASE}/sales/contacts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(contact) });
+        if (res.ok) imported++; else errors++;
+      } catch { errors++; }
+    }
+    setCtResult({ imported, errors }); setCtLoading(false);
+    if (imported > 0) onImported();
+  }
+
+  return (
+    <>
+      <input ref={dnFileRef} type="file" accept=".csv" className="hidden" onChange={handleDnFile} />
+      <input ref={ctFileRef} type="file" accept=".csv" className="hidden" onChange={handleCtFile} />
+
+      <Button
+        size="sm" variant="ghost"
+        className="h-7 px-2 text-xs gap-1 text-muted-foreground"
+        onClick={() => { setOpen(true); setMode(null); }}
+      >
+        <Upload className="w-3.5 h-3.5" />
+        Import data
+      </Button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4 p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {mode !== null && (
+                  <button onClick={() => { setMode(null); setDnRows([]); setDnResult(null); setCtRows([]); setCtResult(null); }} className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                  </button>
+                )}
+                <h2 className="text-sm font-bold text-foreground">
+                  {mode === null ? "Import data" : mode === "contacts" ? "Import contacts" : "Import display names"}
+                </h2>
+              </div>
+              <button onClick={closeModal} className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Choice screen */}
+            {mode === null && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => ctFileRef.current?.click()}
+                  className="flex flex-col items-start gap-2 p-4 rounded-xl border border-border hover:border-primary/40 hover:bg-muted/30 transition-all text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Import contacts</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Upload a CSV to bulk-add contacts</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => dnFileRef.current?.click()}
+                  className="flex flex-col items-start gap-2 p-4 rounded-xl border border-border hover:border-primary/40 hover:bg-muted/30 transition-all text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Tags className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Import display names</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Bulk-set clean names for accounts</p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* Display names flow */}
+            {mode === "display-names" && !dnResult && (
+              <>
+                <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border/40">
+                  <p className="font-medium text-foreground mb-1">Expected columns (any order):</p>
+                  <p><code className="font-mono">sfdc_id</code> — Salesforce Account ID (primary match key)</p>
+                  <p><code className="font-mono">account_name</code> — account name (fallback if no sfdc_id)</p>
+                  <p><code className="font-mono">display_name</code> — clean name to use in the UI and outreach</p>
+                  <p className="mt-1 text-muted-foreground/70">Leave display_name blank to clear a name back to the raw value.</p>
+                </div>
+                {dnPreview.length > 0 && (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">Match</th>
+                          <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">Display name</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {dnPreview.map((r, i) => (
+                          <tr key={i}>
+                            <td className="px-3 py-1.5 text-foreground font-mono truncate max-w-[180px]">{r.sfdcId ?? r.accountName ?? <span className="text-destructive">missing</span>}</td>
+                            <td className="px-3 py-1.5 text-foreground truncate max-w-[180px]">{r.displayName || <span className="text-muted-foreground italic">clear</span>}</td>
+                          </tr>
+                        ))}
+                        {dnRows.length > 5 && <tr><td colSpan={2} className="px-3 py-1.5 text-muted-foreground text-center">+ {dnRows.length - 5} more rows</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {dnError && <p className="text-xs text-destructive">{dnError}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => dnFileRef.current?.click()}>Choose different file</Button>
+                  <Button size="sm" onClick={handleDnApply} disabled={dnLoading || dnRows.length === 0}>
+                    {dnLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Applying…</> : `Apply to ${dnRows.length} accounts`}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {mode === "display-names" && dnResult && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-center">
+                    <p className="text-2xl font-bold text-green-700 dark:text-green-400">{dnResult.updated}</p>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">updated</p>
+                  </div>
+                  {dnResult.notFound > 0 && (
+                    <div className="flex-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-center">
+                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{dnResult.notFound}</p>
+                      <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">not found</p>
+                    </div>
+                  )}
+                  {dnResult.skipped > 0 && (
+                    <div className="flex-1 rounded-lg bg-muted/50 border border-border px-4 py-3 text-center">
+                      <p className="text-2xl font-bold text-muted-foreground">{dnResult.skipped}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">skipped</p>
+                    </div>
+                  )}
+                </div>
+                {dnResult.notFoundNames.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 max-h-28 overflow-y-auto">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Not matched:</p>
+                    {dnResult.notFoundNames.map((n, i) => <p key={i} className="text-xs text-muted-foreground font-mono truncate">{n}</p>)}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={closeModal}>Close</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setDnResult(null); dnFileRef.current?.click(); }}>Import another file</Button>
+                </div>
+              </>
+            )}
+
+            {/* Contacts flow */}
+            {mode === "contacts" && !ctResult && ctRows.length > 0 && (
+              <>
+                <p className="text-xs text-muted-foreground">{ctRows.length} rows found · map CSV columns to contact fields</p>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">CSV column</th>
+                        <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">Maps to</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {ctHeaders.map(h => (
+                        <tr key={h}>
+                          <td className="px-3 py-1.5 font-mono text-foreground">{h}</td>
+                          <td className="px-3 py-1">
+                            <select
+                              value={ctMapping[h] ?? ""}
+                              onChange={e => setCtMapping(prev => ({ ...prev, [h]: e.target.value }))}
+                              className="w-full text-xs rounded border border-border bg-background px-2 py-0.5"
+                            >
+                              <option value="">— skip —</option>
+                              {CT_TARGET_FIELDS.map(f => <option key={f} value={f}>{f}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {ctError && <p className="text-xs text-destructive">{ctError}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => ctFileRef.current?.click()}>Choose different file</Button>
+                  <Button size="sm" onClick={handleCtImport} disabled={ctLoading}>
+                    {ctLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Importing…</> : `Import ${ctRows.length} contacts`}
+                  </Button>
+                </div>
+              </>
+            )}
+            {mode === "contacts" && ctResult && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-center">
+                    <p className="text-2xl font-bold text-green-700 dark:text-green-400">{ctResult.imported}</p>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">imported</p>
+                  </div>
+                  {ctResult.errors > 0 && (
+                    <div className="flex-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-center">
+                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{ctResult.errors}</p>
+                      <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">skipped</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={closeModal}>Close</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setCtResult(null); ctFileRef.current?.click(); }}>Import another file</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
