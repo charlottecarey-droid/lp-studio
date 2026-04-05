@@ -222,7 +222,7 @@ export async function generateCustomTemplatePdf(
     }
 
     if (text) {
-      doc.text(text, fx, fy);
+      doc.text(text, fx, fy, { lineHeightFactor: field.lineHeight ?? 1.15 });
       // Underline for links
       if (field.type === "link" && field.underline !== false) {
         const tw = doc.getTextWidth(text);

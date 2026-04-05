@@ -3,13 +3,10 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Target,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
-  Download,
   Zap,
   Eye,
   MessageSquare,
@@ -17,20 +14,19 @@ import {
   Smartphone,
   Shield,
   TrendingUp,
+  BarChart2,
+  Layers,
+  Loader2,
+  type LucideIcon,
 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
-const API_BASE = "/api";
-
-const PAGES = [
-  { id: "page-1", name: "Product Launch Hero" },
-  { id: "page-2", name: "SaaS Pricing Page" },
-  { id: "page-3", name: "E-commerce Sales" },
-  { id: "page-4", name: "B2B Lead Gen Form" },
-  { id: "page-5", name: "Webinar Signup" },
-  { id: "page-6", name: "Free Trial Offer" },
-];
+interface PageOption {
+  id: number;
+  title: string;
+  slug: string;
+  status: string;
+}
 
 interface ScoringCategory {
   name: string;
@@ -44,346 +40,325 @@ interface QuickWin {
   suggestion: string;
 }
 
-interface ScoringData {
-  pageId: string;
+interface ScoringResult {
+  pageId: number;
+  pageTitle: string;
+  pageSlug: string;
   overallScore: number;
+  totalVisits: number;
+  conversions: number;
+  impressions: number;
+  cvr: number;
+  leadCount: number;
   categories: ScoringCategory[];
   quickWins: QuickWin[];
-  history: number[];
+  metrics: {
+    avgScrollDepth: number;
+    clicksPerSession: number;
+    blockCount: number;
+  };
 }
 
-const categoryIcons: Record<string, any> = {
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
   "Headline Clarity": Eye,
   "CTA Effectiveness": Target,
-  "Social Proof": CheckCircle2,
+  "Social Proof": MessageSquare,
   "Form Friction": FileText,
-  "Visual Hierarchy": TrendingUp,
+  "Visual Hierarchy": Layers,
   "Page Speed Impact": Zap,
   "Mobile Responsiveness": Smartphone,
   "Trust Signals": Shield,
 };
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-amber-500";
-  return "bg-red-500";
+function scoreColor(score: number): string {
+  if (score >= 80) return "text-green-600 dark:text-green-400";
+  if (score >= 60) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
 }
 
-function getScoreGradient(score: number): string {
-  if (score >= 80) return "from-emerald-400 to-emerald-600";
-  if (score >= 60) return "from-amber-400 to-amber-600";
-  return "from-red-400 to-red-600";
+function scoreBg(score: number): string {
+  if (score >= 80) return "bg-green-100 dark:bg-green-900/30";
+  if (score >= 60) return "bg-amber-100 dark:bg-amber-900/30";
+  return "bg-red-100 dark:bg-red-900/30";
 }
 
-function getGradeBadgeVariant(grade: string): "default" | "secondary" | "destructive" | "outline" {
-  if (grade.includes("A")) return "default";
-  if (grade.includes("B")) return "secondary";
-  return "destructive";
+function gradeColor(grade: string): string {
+  if (grade.startsWith("A")) return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
+  if (grade.startsWith("B")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300";
+  if (grade.startsWith("C")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
+  return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
 }
 
-function CircularScore({ score }: { score: number }) {
-  const radius = 45;
+// Circular score ring
+function ScoreRing({ score }: { score: number }) {
+  const radius = 54;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
+  const color = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#ef4444";
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="relative w-40 h-40">
-        <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-          {/* Background circle */}
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="2" className="text-muted" />
-          {/* Progress circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className={`text-emerald-500 transition-all duration-500 ${
-              score < 60 ? "text-red-500" : score < 80 ? "text-amber-500" : "text-emerald-500"
-            }`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-3xl font-bold">{score}</div>
-          <div className="text-sm text-muted-foreground">/100</div>
-        </div>
+    <div className="relative w-36 h-36 mx-auto">
+      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+        <circle cx="60" cy="60" r={radius} fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/20" />
+        <circle cx="60" cy="60" r={radius} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.8s ease-out" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={`text-3xl font-bold ${scoreColor(score)}`}>{score}</span>
+        <span className="text-xs text-muted-foreground">/ 100</span>
       </div>
     </div>
   );
 }
 
-function CategoryCard({ category }: { category: ScoringCategory }) {
-  const IconComponent = categoryIcons[category.name];
+export default function ConversionScoring() {
+  const { toast } = useToast();
+  const [pages, setPages] = useState<PageOption[]>([]);
+  const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
+  const [result, setResult] = useState<ScoringResult | null>(null);
+  const [loadingPages, setLoadingPages] = useState(true);
+  const [loadingScore, setLoadingScore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {IconComponent && <IconComponent className="w-4 h-4 text-muted-foreground" />}
-            <CardTitle className="text-sm font-semibold">{category.name}</CardTitle>
-          </div>
-          <Badge variant={getGradeBadgeVariant(category.grade)} className="text-xs">
-            {category.grade}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Score bar */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Score</span>
-            <span className="text-sm font-semibold">{category.score}</span>
-          </div>
-          <Progress value={category.score} className="h-2" />
-        </div>
-
-        {/* Recommendation */}
-        <p className="text-xs text-muted-foreground leading-relaxed">{category.recommendation}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuickWinsSection({ quickWins }: { quickWins: QuickWin[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <AlertCircle className="w-4 h-4" />
-          Top 3 Quick Wins
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {quickWins.map((win, idx) => (
-          <div key={idx} className="flex gap-3 items-start">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 flex-shrink-0">
-              <span className="text-xs font-bold text-amber-700">{idx + 1}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs font-semibold">{win.suggestion}</span>
-                <Badge
-                  variant={win.impact === "high" ? "destructive" : win.impact === "medium" ? "secondary" : "outline"}
-                  className="text-xs capitalize"
-                >
-                  {win.impact} impact
-                </Badge>
-              </div>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function HistorySection({ history }: { history: number[] }) {
-  const historyText = history.join(" → ");
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <TrendingUp className="w-4 h-4" />
-          Score Trend
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 flex-wrap">
-          {history.map((score, idx) => (
-            <div key={idx}>
-              <span className="text-lg font-semibold text-emerald-600">{score}</span>
-              {idx < history.length - 1 && <span className="mx-1.5 text-muted-foreground">→</span>}
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground mt-3">Last 5 analyses showing steady improvement</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function ConversionScoringPage() {
-  const [selectedPageId, setSelectedPageId] = useState<string>("page-1");
-  const [scoringData, setScoringData] = useState<ScoringData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-
-  // Load scoring data when page is selected
+  // Load pages list
   useEffect(() => {
-    if (selectedPageId) {
-      setLoading(true);
-      fetch(`${API_BASE}/lp/conversion-scoring/${selectedPageId}`)
-        .then((r) => r.json() as Promise<ScoringData>)
-        .then((data) => {
-          setScoringData(data);
-          setLoading(false);
-        })
-        .catch(() => {
-          toast.error("Failed to load scoring data");
-          setLoading(false);
-        });
-    }
+    fetch("/api/lp/conversion-scoring/pages")
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<PageOption[]>;
+      })
+      .then((data) => {
+        setPages(data);
+        if (data.length > 0) setSelectedPageId(data[0].id);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoadingPages(false));
+  }, []);
+
+  // Load score when page changes
+  useEffect(() => {
+    if (selectedPageId === null) return;
+    setLoadingScore(true);
+    setError(null);
+    fetch(`/api/lp/conversion-scoring/${selectedPageId}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<ScoringResult>;
+      })
+      .then((data) => setResult(data))
+      .catch((err) => {
+        setError(err.message);
+        setResult(null);
+      })
+      .finally(() => setLoadingScore(false));
   }, [selectedPageId]);
 
-  const handleReanalyze = async () => {
-    if (!selectedPageId || analyzing) return;
-
-    setAnalyzing(true);
-    try {
-      const res = await fetch(`${API_BASE}/lp/conversion-scoring/${selectedPageId}/analyze`, {
-        method: "POST",
-      });
-      const result = await res.json() as { success: boolean; score: number };
-      if (result.success) {
-        toast.success(`Score re-analyzed: ${result.score}/100`);
-        // Reload data
-        const newData = await fetch(`${API_BASE}/lp/conversion-scoring/${selectedPageId}`).then(
-          (r) => r.json() as Promise<ScoringData>,
-        );
-        setScoringData(newData);
-      }
-    } catch {
-      toast.error("Failed to re-analyze page");
-    } finally {
-      setAnalyzing(false);
-    }
+  const handleReanalyze = () => {
+    if (selectedPageId === null) return;
+    setLoadingScore(true);
+    fetch(`/api/lp/conversion-scoring/${selectedPageId}`)
+      .then((r) => r.json() as Promise<ScoringResult>)
+      .then((data) => {
+        setResult(data);
+        toast({ title: "Analysis updated", description: `Score: ${data.overallScore}/100` });
+      })
+      .catch(() => toast({ title: "Analysis failed", variant: "destructive" }))
+      .finally(() => setLoadingScore(false));
   };
-
-  const handleExport = () => {
-    toast.success("Report exported as PDF");
-  };
-
-  const selectedPageName = PAGES.find((p) => p.id === selectedPageId)?.name || "Select a page";
 
   return (
     <AppLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Conversion Scoring</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            AI-powered analysis of your landing pages' conversion potential
-          </p>
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Conversion Scoring</h1>
+            <p className="text-muted-foreground">
+              Analyze your landing pages' conversion potential based on real visitor data and page structure
+            </p>
+          </div>
+          {result && (
+            <Button variant="outline" size="sm" onClick={handleReanalyze} disabled={loadingScore}>
+              {loadingScore ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              Re-analyze
+            </Button>
+          )}
         </div>
 
         {/* Page Selector */}
-        <div className="max-w-xs">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-            Select Page to Analyze
-          </label>
-          <Select value={selectedPageId} onValueChange={setSelectedPageId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGES.map((page) => (
-                <SelectItem key={page.id} value={page.id}>
-                  {page.name}
-                </SelectItem>
+        {loadingPages ? (
+          <Skeleton className="h-10 w-full max-w-sm" />
+        ) : pages.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">No pages found. Create a landing page first to analyze it.</p>
+          </Card>
+        ) : (
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-muted-foreground">Analyze page:</label>
+            <select
+              className="border border-border rounded-md px-3 py-2 text-sm bg-background max-w-md flex-1"
+              value={selectedPageId ?? ""}
+              onChange={(e) => setSelectedPageId(Number(e.target.value))}
+            >
+              {pages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title} ({p.slug}) — {p.status}
+                </option>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </select>
+          </div>
+        )}
 
-        {/* Loading state */}
-        {loading && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="flex justify-center mb-4">
-                <RefreshCw className="w-6 h-6 text-muted-foreground animate-spin" />
-              </div>
-              <p className="text-muted-foreground font-medium">Loading scoring data...</p>
-            </CardContent>
+        {/* Loading */}
+        {loadingScore && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-6"><Skeleton className="h-32 w-full" /></Card>
+            ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {error && !loadingScore && (
+          <Card className="p-6 text-center">
+            <p className="text-destructive">{error}</p>
           </Card>
         )}
 
-        {/* Scoring Dashboard */}
-        {!loading && scoringData && (
-          <div className="space-y-6">
-            {/* Overall Score Section */}
-            <div className="grid md:grid-cols-[auto_1fr] gap-6 items-start">
-              {/* Circular Score */}
-              <Card className="pt-6">
-                <CardContent className="flex justify-center">
-                  <CircularScore score={scoringData.overallScore} />
-                </CardContent>
+        {/* Results */}
+        {result && !loadingScore && (
+          <>
+            {/* Score + Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {/* Overall Score */}
+              <Card className="p-6 flex flex-col items-center justify-center">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Overall Score</p>
+                <ScoreRing score={result.overallScore} />
               </Card>
 
-              {/* Score Interpretation */}
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Overall Assessment</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="font-medium text-sm">{selectedPageName}</span>
-                        <span
-                          className={`text-xs font-bold px-2 py-1 rounded-full text-white ${getScoreColor(
-                            scoringData.overallScore,
-                          )}`}
-                        >
-                          {scoringData.overallScore >= 80
-                            ? "Excellent"
-                            : scoringData.overallScore >= 60
-                              ? "Good"
-                              : "Needs Improvement"}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {scoringData.overallScore >= 80
-                          ? "This page has strong conversion fundamentals. Focus on incremental optimizations to maximize performance."
-                          : scoringData.overallScore >= 60
-                            ? "This page has solid foundations but could benefit from targeted improvements. See quick wins below."
-                            : "This page has significant opportunities for improvement. Prioritize the high-impact quick wins."}
-                      </p>
-                    </div>
+              {/* Key Metrics */}
+              <Card className="p-6">
+                <p className="text-sm font-medium text-muted-foreground mb-4">Traffic</p>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total visits</span>
+                    <span className="font-semibold">{result.totalVisits.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Impressions</span>
+                    <span className="font-semibold">{result.impressions.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Conversions</span>
+                    <span className="font-semibold">{result.conversions.toLocaleString()}</span>
+                  </div>
+                </div>
+              </Card>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        size="sm"
-                        onClick={handleReanalyze}
-                        disabled={analyzing}
-                        className="gap-1.5"
+              <Card className="p-6">
+                <p className="text-sm font-medium text-muted-foreground mb-4">Conversion</p>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">CVR</span>
+                    <span className={`font-semibold ${scoreColor(result.cvr > 3 ? 80 : result.cvr > 1 ? 60 : 30)}`}>{result.cvr}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Leads</span>
+                    <span className="font-semibold">{result.leadCount}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Blocks</span>
+                    <span className="font-semibold">{result.metrics.blockCount}</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <p className="text-sm font-medium text-muted-foreground mb-4">Engagement</p>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Avg scroll depth</span>
+                    <span className="font-semibold">{result.metrics.avgScrollDepth}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Clicks/session</span>
+                    <span className="font-semibold">{result.metrics.clicksPerSession}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Quick Wins */}
+            {result.quickWins.length > 0 && (
+              <Card className="p-6">
+                <CardHeader className="p-0 pb-4">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    Quick Wins
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 space-y-3">
+                  {result.quickWins.map((win, i) => (
+                    <div key={i} className="flex items-start gap-3 text-sm">
+                      <Badge
+                        variant="outline"
+                        className={
+                          win.impact === "high"
+                            ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
+                            : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                        }
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${analyzing ? "animate-spin" : ""}`} />
-                        Re-analyze
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleExport} className="gap-1.5">
-                        <Download className="w-3.5 h-3.5" />
-                        Export Report
-                      </Button>
+                        {win.impact}
+                      </Badge>
+                      <span>{win.suggestion}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Category Scores Grid */}
+            {/* Category Breakdown Grid */}
             <div>
-              <h2 className="text-sm font-semibold mb-4 text-foreground">Category Breakdown</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {scoringData.categories.map((category) => (
-                  <CategoryCard key={category.name} category={category} />
-                ))}
+              <h2 className="text-lg font-semibold mb-4">Category Breakdown</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {result.categories.map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat.name] || BarChart2;
+                  return (
+                    <Card key={cat.name} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${scoreBg(cat.score)}`}>
+                          <Icon className={`h-4 w-4 ${scoreColor(cat.score)}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{cat.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-bold ${scoreColor(cat.score)}`}>{cat.score}</span>
+                              <Badge className={`text-[10px] px-1.5 py-0 ${gradeColor(cat.grade)}`}>
+                                {cat.grade}
+                              </Badge>
+                            </div>
+                          </div>
+                          {/* Score bar */}
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+                            <div
+                              className={`h-full rounded-full transition-all duration-700 ${
+                                cat.score >= 80 ? "bg-green-500" : cat.score >= 60 ? "bg-amber-500" : "bg-red-500"
+                              }`}
+                              style={{ width: `${cat.score}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">{cat.recommendation}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
-
-            {/* Quick Wins and History */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <QuickWinsSection quickWins={scoringData.quickWins} />
-              <HistorySection history={scoringData.history} />
-            </div>
-          </div>
+          </>
         )}
       </div>
     </AppLayout>

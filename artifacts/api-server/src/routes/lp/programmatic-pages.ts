@@ -1,328 +1,294 @@
+// Programmatic Pages — DTR variables from real pages + bulk cloning
 import { Router } from "express";
+import { db } from "@workspace/db";
+import { lpPagesTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
-interface DTRVariable {
-  id: number;
-  variable: string;
-  defaultValue: string;
-  source: "url_param" | "utm" | "cookie" | "api";
-  paramName: string;
-}
+// ─── DTR Rules ────────────────────────────────────────────────────
+// DTR rules are stored in each page's `pageVariables` jsonb field.
+// This endpoint reads from real pages.
 
-interface BatchRequest {
-  templateId: string;
-  dataRowCount: number;
-  columnMapping: Record<string, string>;
-}
-
-interface BatchResponse {
-  success: boolean;
-  pagesGenerated: number;
-  batchId: string;
-}
-
-interface Batch {
-  batchId: string;
-  templateName: string;
-  pagesGenerated: number;
-  createdAt: string;
-  status: "completed" | "in_progress" | "failed";
-}
-
-// In-memory storage for demonstration
-const dtrRulesStore: Map<number, DTRVariable> = new Map([
-  [
-    1,
-    {
-      id: 1,
-      variable: "city",
-      defaultValue: "your city",
-      source: "url_param",
-      paramName: "city",
-    },
-  ],
-  [
-    2,
-    {
-      id: 2,
-      variable: "company",
-      defaultValue: "your company",
-      source: "url_param",
-      paramName: "company",
-    },
-  ],
-  [
-    3,
-    {
-      id: 3,
-      variable: "industry",
-      defaultValue: "your industry",
-      source: "utm",
-      paramName: "utm_content",
-    },
-  ],
-  [
-    4,
-    {
-      id: 4,
-      variable: "product",
-      defaultValue: "our product",
-      source: "url_param",
-      paramName: "product",
-    },
-  ],
-  [
-    5,
-    {
-      id: 5,
-      variable: "region",
-      defaultValue: "North America",
-      source: "cookie",
-      paramName: "region",
-    },
-  ],
-  [
-    6,
-    {
-      id: 6,
-      variable: "company_size",
-      defaultValue: "Enterprise",
-      source: "api",
-      paramName: "company_size",
-    },
-  ],
-]);
-
-const batchesStore: Map<string, Batch> = new Map([
-  [
-    "batch-1",
-    {
-      batchId: "batch-1",
-      templateName: "SaaS Launch Pro",
-      pagesGenerated: 150,
-      createdAt: "2026-04-03T14:00:00Z",
-      status: "completed",
-    },
-  ],
-]);
-
-let nextDtrId = 7;
-let batchCount = 1;
-
-// GET /lp/programmatic/dtr-rules
-// Returns all dynamic text replacement rules
-router.get("/lp/programmatic/dtr-rules", async (_req, res): Promise<void> => {
+// GET /lp/programmatic/pages — list pages with their DTR variables
+router.get("/lp/programmatic/pages", async (req, res): Promise<void> => {
   try {
-    const rules = Array.from(dtrRulesStore.values());
-    res.json(rules);
-  } catch (error) {
-    console.error("Error fetching DTR rules:", error);
-    res.status(500).json({ error: "Failed to fetch DTR rules" });
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+
+    const pages = await db
+      .select({
+        id: lpPagesTable.id,
+        title: lpPagesTable.title,
+        slug: lpPagesTable.slug,
+        pageVariables: lpPagesTable.pageVariables,
+        status: lpPagesTable.status,
+      })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId))
+      .orderBy(lpPagesTable.title);
+
+    // Enrich with variable count
+    const enriched = pages.map((p) => {
+      const vars = (p.pageVariables && typeof p.pageVariables === "object" && !Array.isArray(p.pageVariables))
+        ? p.pageVariables as Record<string, string>
+        : {};
+      return {
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        status: p.status,
+        variableCount: Object.keys(vars).length,
+        variables: vars,
+      };
+    });
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("GET /lp/programmatic/pages error:", err);
+    res.status(500).json({ error: "Failed to load pages" });
   }
 });
 
-// POST /lp/programmatic/dtr-rules
-// Create a new dynamic text replacement rule
-router.post("/lp/programmatic/dtr-rules", async (req, res): Promise<void> => {
+// GET /lp/programmatic/dtr-rules/:pageId — get DTR variables for a specific page
+router.get("/lp/programmatic/dtr-rules/:pageId", async (req, res): Promise<void> => {
   try {
-    const { variable, defaultValue, source, paramName } = req.body;
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
 
-    if (!variable || !defaultValue || !source || !paramName) {
-      res.status(400).json({ error: "Missing required fields" });
+    const pageId = parseInt(String(req.params.pageId), 10);
+    if (isNaN(pageId)) {
+      res.status(400).json({ error: "Invalid pageId" });
       return;
     }
 
-    const newRule: DTRVariable = {
-      id: nextDtrId++,
-      variable,
-      defaultValue,
-      source,
-      paramName,
-    };
+    const [page] = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug, pageVariables: lpPagesTable.pageVariables, blocks: lpPagesTable.blocks })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
 
-    dtrRulesStore.set(newRule.id, newRule);
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const vars = (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
+      ? page.pageVariables as Record<string, string>
+      : {};
+
+    // Also scan blocks for {{token}} usage
+    const blocksStr = JSON.stringify(page.blocks || []);
+    const tokenRegex = /\{\{([^{}|]+?)(?:\|([^{}]*?))?\}\}/g;
+    const tokensInBlocks = new Set<string>();
+    let match;
+    while ((match = tokenRegex.exec(blocksStr)) !== null) {
+      tokensInBlocks.add(match[1].trim().toLowerCase());
+    }
+
+    // Build rules list combining declared variables + detected tokens
+    const rules: Array<{ variable: string; defaultValue: string; source: string; inBlocks: boolean }> = [];
+
+    // Add declared page variables
+    for (const [key, val] of Object.entries(vars)) {
+      rules.push({ variable: key, defaultValue: val, source: "page_variable", inBlocks: tokensInBlocks.has(key.toLowerCase()) });
+      tokensInBlocks.delete(key.toLowerCase());
+    }
+
+    // Add any tokens found in blocks but not declared as variables
+    for (const token of tokensInBlocks) {
+      rules.push({ variable: token, defaultValue: "", source: "detected_in_blocks", inBlocks: true });
+    }
 
     res.json({
-      success: true,
-      id: newRule.id,
-      rule: newRule,
+      pageId: page.id,
+      pageTitle: page.title,
+      pageSlug: page.slug,
+      rules,
+      tokenCount: rules.length,
     });
-  } catch (error) {
-    console.error("Error creating DTR rule:", error);
-    res.status(500).json({ error: "Failed to create DTR rule" });
+  } catch (err) {
+    console.error("GET /lp/programmatic/dtr-rules/:pageId error:", err);
+    res.status(500).json({ error: "Failed to load DTR rules" });
   }
 });
 
-// DELETE /lp/programmatic/dtr-rules/:id
-// Delete a dynamic text replacement rule
-router.delete("/lp/programmatic/dtr-rules/:id", async (req, res): Promise<void> => {
+// PUT /lp/programmatic/dtr-rules/:pageId — update page variables
+router.put("/lp/programmatic/dtr-rules/:pageId", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
 
-    if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid rule ID" });
+    const pageId = parseInt(String(req.params.pageId), 10);
+    if (isNaN(pageId)) {
+      res.status(400).json({ error: "Invalid pageId" });
       return;
     }
 
-    const existed = dtrRulesStore.has(id);
-    dtrRulesStore.delete(id);
-
-    if (!existed) {
-      res.status(404).json({ error: "Rule not found" });
+    const { variables } = req.body as { variables?: Record<string, string> };
+    if (!variables || typeof variables !== "object") {
+      res.status(400).json({ error: "variables must be an object" });
       return;
     }
 
-    res.json({ success: true, message: "Rule deleted" });
-  } catch (error) {
-    console.error("Error deleting DTR rule:", error);
-    res.status(500).json({ error: "Failed to delete DTR rule" });
+    const [updated] = await db
+      .update(lpPagesTable)
+      .set({ pageVariables: variables })
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)))
+      .returning({ id: lpPagesTable.id, pageVariables: lpPagesTable.pageVariables });
+
+    if (!updated) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    res.json({ success: true, pageId: updated.id, variables: updated.pageVariables });
+  } catch (err) {
+    console.error("PUT /lp/programmatic/dtr-rules/:pageId error:", err);
+    res.status(500).json({ error: "Failed to update DTR rules" });
   }
 });
 
-// POST /lp/programmatic/bulk-generate
-// Generate bulk pages from a template and CSV data
+// ─── Bulk Generation ──────────────────────────────────────────────
+
+// GET /lp/programmatic/templates — list pages marked as templates for bulk gen
+router.get("/lp/programmatic/templates", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+
+    const templates = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, slug: lpPagesTable.slug, templateLabel: lpPagesTable.templateLabel })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, true)));
+
+    res.json(templates.map(t => ({ id: t.id, title: t.templateLabel || t.title, slug: t.slug })));
+  } catch (err) {
+    console.error("GET /lp/programmatic/templates error:", err);
+    res.status(500).json({ error: "Failed to load templates" });
+  }
+});
+
+// POST /lp/programmatic/bulk-generate — clone a template page N times with variable overrides
 router.post("/lp/programmatic/bulk-generate", async (req, res): Promise<void> => {
   try {
-    const { templateId, dataRowCount, columnMapping }: BatchRequest = req.body;
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
 
-    if (!templateId || dataRowCount === undefined) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
-    }
-
-    // Validate template ID
-    const validTemplates = ["1", "2", "3"];
-    if (!validTemplates.includes(templateId)) {
-      res.status(400).json({ error: "Invalid template ID" });
-      return;
-    }
-
-    // Validate data row count
-    if (dataRowCount < 1 || dataRowCount > 10000) {
-      res.status(400).json({ error: "Invalid data row count" });
-      return;
-    }
-
-    const templateNames: Record<string, string> = {
-      "1": "SaaS Launch Pro",
-      "2": "eCommerce Blitz",
-      "3": "B2B Lead Gen",
+    const { templateId, rows } = req.body as {
+      templateId?: number;
+      rows?: Array<{ slug: string; variables: Record<string, string> }>;
     };
 
-    const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const batch: Batch = {
-      batchId,
-      templateName: templateNames[templateId],
-      pagesGenerated: dataRowCount,
-      createdAt: new Date().toISOString(),
-      status: "completed",
-    };
+    if (!templateId || !Array.isArray(rows) || rows.length === 0) {
+      res.status(400).json({ error: "templateId and rows[] are required" });
+      return;
+    }
 
-    batchesStore.set(batchId, batch);
+    if (rows.length > 500) {
+      res.status(400).json({ error: "Maximum 500 pages per batch" });
+      return;
+    }
 
-    const response: BatchResponse = {
+    // Get template
+    const [template] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, templateId)));
+
+    if (!template) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    const created: Array<{ id: number; slug: string }> = [];
+    const errors: Array<{ slug: string; error: string }> = [];
+
+    for (const row of rows) {
+      try {
+        // Merge template pageVariables with row-specific overrides
+        const baseVars = (template.pageVariables && typeof template.pageVariables === "object" && !Array.isArray(template.pageVariables))
+          ? template.pageVariables as Record<string, string>
+          : {};
+        const mergedVars = { ...baseVars, ...row.variables };
+
+        const [page] = await db
+          .insert(lpPagesTable)
+          .values({
+            tenantId,
+            title: `${template.title} — ${row.slug}`,
+            slug: row.slug,
+            blocks: Array.isArray(template.blocks) ? template.blocks : [],
+            status: "draft",
+            customCss: template.customCss ?? "",
+            metaTitle: template.metaTitle ?? "",
+            metaDescription: template.metaDescription ?? "",
+            ogImage: template.ogImage ?? "",
+            animationsEnabled: template.animationsEnabled ?? true,
+            pageVariables: mergedVars,
+          })
+          .returning({ id: lpPagesTable.id, slug: lpPagesTable.slug });
+
+        created.push({ id: page.id, slug: page.slug });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isDupe = message.includes("23505") || message.includes("duplicate");
+        errors.push({ slug: row.slug, error: isDupe ? "Slug already exists" : "Failed to create" });
+      }
+    }
+
+    res.json({
       success: true,
-      pagesGenerated: dataRowCount,
-      batchId,
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error("Error generating bulk pages:", error);
-    res.status(500).json({ error: "Failed to generate bulk pages" });
+      pagesGenerated: created.length,
+      errors: errors.length,
+      created,
+      failed: errors,
+    });
+  } catch (err) {
+    console.error("POST /lp/programmatic/bulk-generate error:", err);
+    res.status(500).json({ error: "Failed to generate pages" });
   }
 });
 
-// GET /lp/programmatic/batches
-// Retrieve batch generation history
-router.get("/lp/programmatic/batches", async (_req, res): Promise<void> => {
-  try {
-    const batches = Array.from(batchesStore.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    res.json(batches);
-  } catch (error) {
-    console.error("Error fetching batches:", error);
-    res.status(500).json({ error: "Failed to fetch batches" });
-  }
-});
-
-// GET /lp/programmatic/batches/:batchId
-// Retrieve details for a specific batch
-router.get("/lp/programmatic/batches/:batchId", async (req, res): Promise<void> => {
-  try {
-    const { batchId } = req.params;
-
-    const batch = batchesStore.get(batchId);
-    if (!batch) {
-      res.status(404).json({ error: "Batch not found" });
-      return;
-    }
-
-    res.json(batch);
-  } catch (error) {
-    console.error("Error fetching batch:", error);
-    res.status(500).json({ error: "Failed to fetch batch" });
-  }
-});
-
-// POST /lp/programmatic/preview
-// Generate a preview of a page with DTR variables substituted
+// POST /lp/programmatic/preview — preview DTR replacement on a page's blocks
 router.post("/lp/programmatic/preview", async (req, res): Promise<void> => {
   try {
-    const { templateContent, variables } = req.body;
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
 
-    if (!templateContent || !variables) {
-      res.status(400).json({ error: "Missing required fields" });
+    const { pageId, variables } = req.body as { pageId?: number; variables?: Record<string, string> };
+    if (!pageId) {
+      res.status(400).json({ error: "pageId required" });
       return;
     }
 
-    let rendered = templateContent;
-    for (const [key, value] of Object.entries(variables)) {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
-      rendered = rendered.replace(regex, String(value));
+    const [page] = await db
+      .select({ blocks: lpPagesTable.blocks, title: lpPagesTable.title })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    // Apply DTR replacements
+    const params = variables || {};
+    const blocksStr = JSON.stringify(page.blocks || []);
+    let rendered = blocksStr;
+    for (const [key, value] of Object.entries(params)) {
+      const regex = new RegExp(`\\{\\{${key}(?:\\|[^{}]*)?\\}\\}`, "gi");
+      rendered = rendered.replace(regex, value);
     }
 
     res.json({
       success: true,
-      rendered,
+      title: page.title,
+      renderedBlocks: JSON.parse(rendered),
     });
-  } catch (error) {
-    console.error("Error generating preview:", error);
-    res.status(500).json({ error: "Failed to generate preview" });
-  }
-});
-
-// POST /lp/programmatic/validate-csv
-// Validate CSV data and return column information
-router.post("/lp/programmatic/validate-csv", async (req, res): Promise<void> => {
-  try {
-    const { csvContent } = req.body;
-
-    if (!csvContent) {
-      res.status(400).json({ error: "Missing CSV content" });
-      return;
-    }
-
-    const lines = csvContent.trim().split("\n");
-    if (lines.length < 2) {
-      res.status(400).json({ error: "CSV must contain at least a header and one data row" });
-      return;
-    }
-
-    const headers = lines[0].split(",").map((h: string) => h.trim());
-    const rowCount = lines.length - 1;
-
-    res.json({
-      success: true,
-      headers,
-      rowCount,
-      sampleRow: lines[1].split(",").map((v: string) => v.trim()),
-    });
-  } catch (error) {
-    console.error("Error validating CSV:", error);
-    res.status(500).json({ error: "Failed to validate CSV" });
+  } catch (err) {
+    console.error("POST /lp/programmatic/preview error:", err);
+    res.status(500).json({ error: "Failed to preview" });
   }
 });
 
