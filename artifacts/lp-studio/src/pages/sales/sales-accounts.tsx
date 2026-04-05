@@ -669,6 +669,7 @@ function AccountListView() {
               </span>
             )}
           </div>
+          <DisplayNameImportButton onImported={fetchAccounts} />
           <Button
             size="sm"
             variant="ghost"
@@ -1189,6 +1190,194 @@ function ActivityTimeline({ accountId, contacts }: { accountId: number; contacts
         );
       })}
     </div>
+  );
+}
+
+/* ─── Display Name CSV Import ────────────────────────────────── */
+
+function DisplayNameImportButton({ onImported }: { onImported: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<{ sfdcId: string | null; accountName: string | null; displayName: string }[]>([]);
+  const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ updated: number; notFound: number; skipped: number; notFoundNames: string[] } | null>(null);
+  const [error, setError] = useState("");
+
+  function parseCSV(text: string): Record<string, string>[] {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+    return lines.slice(1).map(line => {
+      const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+      const row: Record<string, string> = {};
+      headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+      return row;
+    });
+  }
+
+  function normRow(r: Record<string, string>) {
+    return {
+      sfdcId: (r.sfdc_id ?? r.sfdcId ?? r.salesforce_id ?? "").trim() || null,
+      accountName: (r.account_name ?? r.accountName ?? r.name ?? "").trim() || null,
+      displayName: (r.display_name ?? r.displayName ?? r.clean_name ?? "").trim(),
+    };
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const rows = parseCSV(evt.target?.result as string);
+      setAllRows(rows);
+      setPreview(rows.slice(0, 5).map(normRow));
+      setResult(null);
+      setError("");
+      setOpen(true);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function handleApply() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/sales/import/display-names`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: allRows }),
+      });
+      const data = await res.json() as { success?: boolean; summary?: typeof result; error?: string };
+      if (!res.ok || !data.success) throw new Error(data.error ?? "Import failed");
+      setResult(data.summary!);
+      onImported();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-xs gap-1 text-muted-foreground"
+        title="Upload a CSV to bulk-set display names"
+        onClick={() => fileRef.current?.click()}
+      >
+        <Upload className="w-3.5 h-3.5" />
+        Display names
+      </Button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg flex flex-col gap-4 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">Import display names</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{allRows.length} rows · matched by SFDC ID then account name</p>
+              </div>
+              <button onClick={() => setOpen(false)} className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {!result ? (
+              <>
+                <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 border border-border/40">
+                  <p className="font-medium text-foreground mb-1">Expected columns (any order):</p>
+                  <p><code className="font-mono">sfdc_id</code> — Salesforce Account ID (primary match key)</p>
+                  <p><code className="font-mono">account_name</code> — account name (fallback if no sfdc_id)</p>
+                  <p><code className="font-mono">display_name</code> — clean name to use in the UI and outreach</p>
+                  <p className="mt-1 text-muted-foreground/70">Leave display_name blank to clear a name back to the raw SF value.</p>
+                </div>
+
+                {preview.length > 0 && (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">Match</th>
+                          <th className="text-left px-3 py-1.5 text-muted-foreground font-medium">Display name</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {preview.map((r, i) => (
+                          <tr key={i}>
+                            <td className="px-3 py-1.5 text-foreground font-mono truncate max-w-[180px]">
+                              {r.sfdcId ?? r.accountName ?? <span className="text-destructive">missing</span>}
+                            </td>
+                            <td className="px-3 py-1.5 text-foreground truncate max-w-[180px]">
+                              {r.displayName || <span className="text-muted-foreground italic">clear</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        {allRows.length > 5 && (
+                          <tr>
+                            <td colSpan={2} className="px-3 py-1.5 text-muted-foreground text-center">
+                              + {allRows.length - 5} more rows
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {error && <p className="text-xs text-destructive">{error}</p>}
+
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleApply} disabled={loading || allRows.length === 0}>
+                    {loading ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Applying…</> : `Apply to ${allRows.length} accounts`}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 text-center">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-400">{result.updated}</p>
+                      <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">updated</p>
+                    </div>
+                    {result.notFound > 0 && (
+                      <div className="flex-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-center">
+                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{result.notFound}</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">not found</p>
+                      </div>
+                    )}
+                    {result.skipped > 0 && (
+                      <div className="flex-1 rounded-lg bg-muted/50 border border-border px-4 py-3 text-center">
+                        <p className="text-2xl font-bold text-muted-foreground">{result.skipped}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">skipped</p>
+                      </div>
+                    )}
+                  </div>
+                  {result.notFoundNames.length > 0 && (
+                    <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 max-h-28 overflow-y-auto">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Not matched:</p>
+                      {result.notFoundNames.map((n, i) => (
+                        <p key={i} className="text-xs text-muted-foreground font-mono truncate">{n}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => { setOpen(false); setResult(null); }}>Close</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setResult(null); fileRef.current?.click(); }}>Import another file</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

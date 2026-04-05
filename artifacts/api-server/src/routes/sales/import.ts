@@ -468,6 +468,97 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
 });
 
 /**
+ * POST /sales/import/display-names
+ *
+ * Bulk-set display names for accounts, matched by Salesforce Account ID (primary)
+ * or account name (fallback). CSV columns accepted:
+ *   sfdc_id / sfdcId / salesforce_id  — SFDC Account ID to match on
+ *   account_name / accountName / name — fallback name match if no sfdc_id
+ *   display_name / displayName / clean_name — the clean name to set
+ *
+ * Sending an empty display_name clears the field (reverts to raw name).
+ */
+router.post("/import/display-names", importLimiter, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { rows } = req.body as { rows: Record<string, string>[] };
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required and must not be empty" });
+    return;
+  }
+
+  const results = {
+    updated: 0,
+    notFound: 0,
+    skipped: 0,
+    notFoundNames: [] as string[],
+  };
+
+  // Normalise each row to { sfdcId, accountName, displayName }
+  type NormRow = { sfdcId: string | null; accountName: string | null; displayName: string };
+  const normRows: NormRow[] = rows.map(r => ({
+    sfdcId: (r.sfdc_id ?? r.sfdcId ?? r.salesforce_id ?? "").trim() || null,
+    accountName: (r.account_name ?? r.accountName ?? r.name ?? "").trim() || null,
+    displayName: (r.display_name ?? r.displayName ?? r.clean_name ?? "").trim(),
+  }));
+
+  // Validate: must have at least one match key
+  const validRows = normRows.filter(r => {
+    if (!r.sfdcId && !r.accountName) { results.skipped++; return false; }
+    return true;
+  });
+
+  // Batch resolve account IDs
+  const sfdcKeys = [...new Set(validRows.map(r => r.sfdcId).filter(Boolean) as string[])];
+  const sfdcIdToAccountId = new Map<string, number>();
+
+  if (sfdcKeys.length > 0) {
+    const { rows: found } = await pool.query<{ id: number; salesforce_id: string }>(
+      `SELECT id, salesforce_id FROM sales_accounts WHERE salesforce_id = ANY($1::text[]) AND tenant_id = $2`,
+      [sfdcKeys, tenantId]
+    );
+    for (const acc of found) if (acc.salesforce_id) sfdcIdToAccountId.set(acc.salesforce_id, acc.id);
+  }
+
+  // For rows without sfdcId, resolve by name
+  const nameOnlyRows = validRows.filter(r => !r.sfdcId && r.accountName);
+  const nameToAccountId = new Map<string, number>();
+
+  for (const r of nameOnlyRows) {
+    const name = r.accountName!.toLowerCase().trim();
+    if (nameToAccountId.has(name)) continue;
+    const { rows: found } = await pool.query<{ id: number }>(
+      `SELECT id FROM sales_accounts WHERE LOWER(TRIM(name)) = $1 AND tenant_id = $2 LIMIT 1`,
+      [name, tenantId]
+    );
+    if (found[0]) nameToAccountId.set(name, found[0].id);
+  }
+
+  // Apply updates in batches of 50
+  for (const batch of chunk(validRows, 50)) {
+    await Promise.all(batch.map(async r => {
+      const accountId = r.sfdcId
+        ? sfdcIdToAccountId.get(r.sfdcId)
+        : nameToAccountId.get(r.accountName!.toLowerCase().trim());
+
+      if (!accountId) {
+        results.notFound++;
+        results.notFoundNames.push(r.sfdcId ?? r.accountName ?? "unknown");
+        return;
+      }
+
+      await pool.query(
+        `UPDATE sales_accounts SET display_name = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+        [r.displayName || null, accountId, tenantId]
+      );
+      results.updated++;
+    }));
+  }
+
+  res.json({ success: true, summary: results });
+});
+
+/**
  * POST /sales/relink
  *
  * Re-associate orphaned hotlinks and stale lp_pages.account_id after a
