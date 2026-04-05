@@ -934,7 +934,7 @@ export default function PagesGallery() {
                       </Button>
                     </Link>
                     <a
-                      href={(isPublished || isRunning) ? getLpPageUrl(page.slug, micrositeDomain) : `/review/${page.id}`}
+                      href={getLpPageUrl(page.slug, micrositeDomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={(isPublished || isRunning) ? "Open live page" : "Preview draft"}
