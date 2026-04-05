@@ -236,6 +236,38 @@ export default function SalesDashboard() {
           </div>
         </div>
 
+        {/* ── Tool Cards ─────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
+          <h2 className="text-base font-display font-bold text-foreground">Your tools</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { id: "accounts",   icon: <Building2 className="w-5 h-5" />, title: "Accounts",    description: "Your target DSOs. Search, filter by ABM stage, view engagement history and AI briefings.", cta: "View Accounts →",  href: "/sales/accounts" },
+              { id: "draft",      icon: <PenTool className="w-5 h-5" />,   title: "Draft Email",  description: "AI-powered outreach. Pick a contact and generate a research-driven personalized email in seconds.", cta: "Draft Email →",    href: "/sales/draft-email" },
+              { id: "microsites", icon: <Globe className="w-5 h-5" />,     title: "Microsites",   description: "Personalized landing pages. Create branded microsites for prospects, customize sections, and generate trackable hotlinks.", cta: "View Microsites →", href: "/sales/microsites" },
+              { id: "campaigns",  icon: <Send className="w-5 h-5" />,      title: "Campaigns",    description: "Bulk email outreach. Build audiences, compose templated emails with merge variables, and track performance.", cta: "View Campaigns →", href: "/sales/campaigns" },
+              { id: "activity",   icon: <Zap className="w-5 h-5" />,       title: "Activity",     description: "Engagement intelligence. See who visited your microsites, opened emails, clicked CTAs, and submitted forms.", cta: "View Activity →",  href: "/sales/signals" },
+              { id: "contacts",   icon: <Contact className="w-5 h-5" />,   title: "Contacts",     description: "Your prospect database. Browse contacts, see engagement scores, and draft personalized emails in one click.", cta: "View Contacts →",  href: "/sales/contacts" },
+            ].map(tool => (
+              <Link href={tool.href} key={tool.id}>
+                <Card className="group relative h-full flex flex-col gap-3 p-5 rounded-2xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer">
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-lg bg-[#C7E738]/15 flex items-center justify-center text-[#2D6A4F] group-hover:bg-[#C7E738]/25 transition-colors">
+                      {tool.icon}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-display font-bold text-foreground mb-1.5">{tool.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{tool.description}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
+                    {tool.cta}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {isEmpty ? (
           /* ── Onboarding ───────────────────────────────────────────── */
           <div className="flex flex-col gap-4">
@@ -457,29 +489,6 @@ export default function SalesDashboard() {
               </div>
             )}
 
-            {/* ── Quick nav tools (compact) ────────────────────────── */}
-            <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Quick access</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                {[
-                  { icon: <Building2 className="w-4 h-4" />, label: "Accounts",  href: "/sales/accounts" },
-                  { icon: <Contact className="w-4 h-4" />,   label: "Contacts",  href: "/sales/contacts" },
-                  { icon: <Globe className="w-4 h-4" />,     label: "Microsites", href: "/sales/microsites" },
-                  { icon: <PenTool className="w-4 h-4" />,   label: "Draft Email", href: "/sales/draft-email" },
-                  { icon: <Send className="w-4 h-4" />,      label: "Campaigns", href: "/sales/campaigns" },
-                  { icon: <Zap className="w-4 h-4" />,       label: "Signals",   href: "/sales/signals" },
-                ].map(tool => (
-                  <Link href={tool.href} key={tool.label}>
-                    <Card className="group flex flex-col items-center gap-2 p-3.5 rounded-xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer text-center">
-                      <div className="w-8 h-8 rounded-lg bg-[#C7E738]/15 flex items-center justify-center text-[#2D6A4F] group-hover:bg-[#C7E738]/25 transition-colors">
-                        {tool.icon}
-                      </div>
-                      <span className="text-xs font-semibold text-foreground">{tool.label}</span>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </>
         )}
       </div>
