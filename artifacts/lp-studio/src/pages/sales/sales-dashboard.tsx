@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Building2, Users, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
-  AlertCircle, ArrowUpRight, Contact, Sparkles,
+  AlertCircle, ArrowUpRight, Contact, Sparkles, BookmarkCheck, X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -23,7 +24,15 @@ interface Account {
   name: string;
   domain?: string;
   segment?: string;
-  abmTier?: string;
+  abmTier?: string | null;
+  owner?: string | null;
+}
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: { ownerFilters: string[]; abmTierFilter: string };
+  createdAt: string;
 }
 
 interface Signal {
@@ -90,11 +99,37 @@ function getGreeting() {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function SalesDashboard() {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [micrositeGroups, setMicrositeGroups] = useState<MicrositeGroup[]>([]);
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [viewDismissed, setViewDismissed] = useState(false);
+
+  // ── Read saved view filters from localStorage (same keys as accounts page) ─
+  const { activeFilter, activeViewName } = useMemo(() => {
+    if (!user?.userId) return { activeFilter: null, activeViewName: null };
+    const lsKey = `sc_acct_filters_${user.userId}`;
+    const viewsKey = `sc_acct_views_${user.userId}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as { ownerFilters?: string[]; abmTierFilter?: string };
+      const ownerFilters: string[] = Array.isArray(stored.ownerFilters) ? stored.ownerFilters : [];
+      const abmTierFilter: string = stored.abmTierFilter ?? "";
+      const isActive = ownerFilters.length > 0 || !!abmTierFilter;
+      if (!isActive) return { activeFilter: null, activeViewName: null };
+      // Try to find a matching saved view by name
+      const views: SavedView[] = JSON.parse(localStorage.getItem(viewsKey) ?? "[]");
+      const match = views.find(v =>
+        v.filters.abmTierFilter === abmTierFilter &&
+        v.filters.ownerFilters.length === ownerFilters.length &&
+        v.filters.ownerFilters.every(o => ownerFilters.includes(o))
+      );
+      return { activeFilter: { ownerFilters, abmTierFilter }, activeViewName: match?.name ?? null };
+    } catch {
+      return { activeFilter: null, activeViewName: null };
+    }
+  }, [user?.userId]);
 
   useEffect(() => {
     Promise.all([
@@ -113,10 +148,22 @@ export default function SalesDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  // ── Apply saved-view filters to accounts ──────────────────────────────────
+
+  const filteredAccounts = useMemo(() => {
+    if (!activeFilter) return accounts;
+    const { ownerFilters, abmTierFilter } = activeFilter;
+    return accounts.filter(a => {
+      const matchesTier  = !abmTierFilter      || a.abmTier === abmTierFilter;
+      const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
+      return matchesTier && matchesOwner;
+    });
+  }, [accounts, activeFilter]);
+
   // ── Computed data ─────────────────────────────────────────────────────────
 
   const { hotAccounts, needsAttention, hotCount } = useMemo(() => {
-    if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
+    if (!filteredAccounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0 };
 
     const now = Date.now();
 
@@ -144,7 +191,7 @@ export default function SalesDashboard() {
       daysSinceLastSignal: number | null;
     };
 
-    const enriched: EnrichedAccount[] = accounts.map(acct => {
+    const enriched: EnrichedAccount[] = filteredAccounts.map(acct => {
       const acctSignals = sigsByAccount.get(acct.id) ?? [];
       const score = computeScore(acctSignals, now);
       const sevenDaysAgo = now - SEVEN_DAYS_MS;
@@ -182,14 +229,14 @@ export default function SalesDashboard() {
       .slice(0, 6);
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length };
-  }, [accounts, signals, micrositeGroups]);
+  }, [filteredAccounts, signals, micrositeGroups]);
 
   const recentSignals = useMemo(
     () => [...signals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
     [signals]
   );
 
-  const isEmpty = !loading && accounts.length === 0;
+  const isEmpty = !loading && filteredAccounts.length === 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -214,8 +261,8 @@ export default function SalesDashboard() {
           {/* Summary strip */}
           <div className="relative flex items-center gap-5 shrink-0">
             <div className="text-center">
-              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{accounts.length}</p>}
-              <p className="text-xs text-white/50 font-medium">Accounts</p>
+              {loading ? <Skeleton className="h-7 w-8 bg-white/10 mx-auto mb-1" /> : <p className="text-2xl font-display font-bold text-white">{filteredAccounts.length}</p>}
+              <p className="text-xs text-white/50 font-medium">{activeFilter ? "In view" : "Accounts"}</p>
             </div>
             <div className="w-px h-8 bg-white/10" />
             <div className="text-center">
@@ -235,6 +282,37 @@ export default function SalesDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* ── Active view banner ──────────────────────────────────────── */}
+        {activeFilter && !viewDismissed && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 text-sm">
+              <BookmarkCheck className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-foreground font-medium">
+                {activeViewName
+                  ? <>Showing <span className="text-primary font-semibold">"{activeViewName}"</span></>
+                  : <>Filtered view active</>}
+                {activeFilter.abmTierFilter && (
+                  <span className="ml-2 text-muted-foreground">· {activeFilter.abmTierFilter}</span>
+                )}
+                {activeFilter.ownerFilters.length > 0 && (
+                  <span className="ml-1 text-muted-foreground">
+                    · {activeFilter.ownerFilters.length === 1 ? activeFilter.ownerFilters[0] : `${activeFilter.ownerFilters.length} owners`}
+                  </span>
+                )}
+              </span>
+              <span className="text-muted-foreground">— {filteredAccounts.length} of {accounts.length} accounts</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link href="/sales/accounts">
+                <button className="text-xs font-semibold text-primary hover:underline">Change view</button>
+              </Link>
+              <button onClick={() => setViewDismissed(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Tool Cards ─────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3">
