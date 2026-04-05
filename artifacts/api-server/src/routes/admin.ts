@@ -52,7 +52,7 @@ router.post("/tenants", async (req, res): Promise<void> => {
 
   // Use constant-time comparison to prevent timing attacks
   const { timingSafeEqual } = crypto;
-  const adminPasswordBuf = Buffer.from(adminPassword ? String(adminPassword) : "").padEnd(64, '\0');
+  const adminPasswordBuf = Buffer.from((adminPassword ? String(adminPassword) : "").padEnd(64, '\0'));
   const envPasswordBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
   let passwordMatches = false;
   try {
@@ -147,11 +147,11 @@ function requireAdminKey(req: any, res: any, next: any): void {
 
   // Use constant-time comparison to prevent timing attacks
   const { timingSafeEqual } = crypto;
-  const keyBuf = Buffer.from(key ? String(key) : "").padEnd(64, '\0');
-  const envPasswordBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
+  const keyBuf = Buffer.from((key ? String(key) : "").padEnd(64, '\0'));
+  const envBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
   let passwordMatches = false;
   try {
-    passwordMatches = timingSafeEqual(keyBuf, envPasswordBuf);
+    passwordMatches = timingSafeEqual(keyBuf, envBuf);
   } catch {
     passwordMatches = false;
   }

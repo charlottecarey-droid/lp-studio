@@ -26,16 +26,20 @@ function checkAIRateLimit(key: string): boolean {
 // POST /person-brief  (mounted under /api/sales by the parent router)
 // Accepts the research text already gathered by draft-email and generates
 // a structured call-prep brief for a specific contact.
-router.post("/person-brief", async (req, res) => {
+router.post("/person-brief", async (req, res): Promise<void> => {
   try {
     // Rate limit: max 10 AI requests per minute per tenant
     const tenantKey = `person-brief-${(req as any).tenantId ?? "global"}`;
     if (!checkAIRateLimit(tenantKey)) {
-      return res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
+      res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
+      return;
     }
 
     const ai = getAIClient();
-    if (!ai) return res.status(503).json({ error: "No AI client configured" });
+    if (!ai) {
+      res.status(503).json({ error: "No AI client configured" });
+      return;
+    }
 
     const { contactId, accountId, researchText } = req.body as {
       contactId?: number;
@@ -43,11 +47,17 @@ router.post("/person-brief", async (req, res) => {
       researchText?: { person?: string; linkedin?: string; company?: string; site?: string; };
     };
 
-    if (!contactId || !accountId) return res.status(400).json({ error: "contactId and accountId required" });
+    if (!contactId || !accountId) {
+      res.status(400).json({ error: "contactId and accountId required" });
+      return;
+    }
 
     const [contact] = await db.select().from(salesContactsTable).where(eq(salesContactsTable.id, contactId)).limit(1);
     const [account] = await db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, accountId)).limit(1);
-    if (!contact || !account) return res.status(404).json({ error: "Contact or account not found" });
+    if (!contact || !account) {
+      res.status(404).json({ error: "Contact or account not found" });
+      return;
+    }
 
     const firstName = contact.firstName ?? "";
     const lastName  = contact.lastName  ?? "";
@@ -57,7 +67,7 @@ router.post("/person-brief", async (req, res) => {
     const domain    = account.domain ?? "";
     const titleLevel      = contact.titleLevel ?? "";
     const contactRole     = contact.contactRole ?? "";
-    const buyerPersona    = contact.buyerPersona ?? "";
+    const buyerPersona    = contact.role ?? "";
     const segment         = account.segment ?? "";
     const numLocations    = account.numLocations ?? "";
     const privateEquityFirm = account.privateEquityFirm ?? "";
@@ -242,14 +252,16 @@ Rules:
         if (!geminiRes.ok) {
           const err = await geminiRes.text();
           console.error("Gemini fallback also failed (person-brief):", err);
-          return res.status(500).json({ error: "AI request failed" });
+          res.status(500).json({ error: "AI request failed" });
+          return;
         }
         const geminiData = await geminiRes.json() as { choices?: { message?: { content?: string } }[] };
         brief = geminiData.choices?.[0]?.message?.content?.trim() ?? "";
       } else {
         const err = await response.text();
         console.error("AI error (person-brief):", err);
-        return res.status(500).json({ error: "AI request failed" });
+        res.status(500).json({ error: "AI request failed" });
+        return;
       }
     } else {
       const json = await response.json() as { choices?: { message?: { content?: string } }[] };

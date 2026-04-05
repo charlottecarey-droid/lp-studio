@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Transition } from 'framer-motion';
 
 // Geometry constants (SVG units, viewBox 800×420)
 const PX = 400; // pivot x
@@ -12,16 +12,16 @@ const PAN_R = 32; // pan circle radius
 const BEAM_KF  = [-16, 13, 0];
 const PAN_KF   = [16, -13, 0]; // opposite, keeps pans hanging level
 const DURATION = 4.2;
-const TIMES    = [0, 0.44, 1] as const;
-const EASE     = 'easeInOut';
+const TIMES    = [0, 0.44, 1];
+const EASE     = [0.4, 0, 0.2, 1];
 
 // Shared transition
-const tx = (extra: object = {}) => ({
+const tx = (extra: object = {}): Transition => ({
   duration: DURATION,
   times: TIMES,
   ease: EASE,
   ...extra,
-});
+} as unknown as Transition);
 
 export default function BalanceScale({ delay = 0 }: { delay?: number }) {
   return (

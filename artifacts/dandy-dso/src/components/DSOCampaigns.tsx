@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import DOMPurify from "dompurify";
 import { usePaginatedList } from "@/hooks/use-paginated-list";
 import PaginationControls from "@/components/PaginationControls";
 import { supabase } from "@/integrations/supabase/client";
@@ -922,7 +923,7 @@ const TemplateEditor = () => {
                       <p className="text-[11px]"><span className="font-medium text-foreground">Subject:</span> <span className="text-foreground font-medium">{renderPreview(subject) || "(no subject)"}</span></p>
                     </div>
                     <div className="min-h-[300px]">
-                      {body ? <div dangerouslySetInnerHTML={{ __html: renderPreview(styledPreviewHTML) }} /> : <p className="text-sm text-muted-foreground italic p-6">Start typing to see a preview…</p>}
+                      {body ? <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderPreview(styledPreviewHTML)) }} /> : <p className="text-sm text-muted-foreground italic p-6">Start typing to see a preview…</p>}
                     </div>
                   </div>
                 </div>

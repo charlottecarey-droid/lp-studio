@@ -171,6 +171,7 @@ router.post("/", async (req, res): Promise<void> => {
     // Create a signal if we matched a contact
     if (contact?.accountId) {
       await db.insert(salesSignalsTable).values({
+        tenantId: contact.tenantId,
         accountId: contact.accountId,
         contactId: contact.id,
         type: "email_replied",

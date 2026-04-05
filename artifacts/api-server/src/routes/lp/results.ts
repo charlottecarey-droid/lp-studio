@@ -194,7 +194,7 @@ router.get("/lp/tests/:testId/results", async (req, res): Promise<void> => {
   const sortedDays = [...dailyMap.keys()].sort();
   for (const day of sortedDays) {
     const dayData = dailyMap.get(day)!;
-    const entry: Record<string, number | string> = { day };
+    const entry: { day: string; [key: string]: number | string } = { day };
     for (const v of variants) {
       const d = dayData.get(v.id);
       entry[`v${v.id}_impressions`] = d?.impressions ?? 0;

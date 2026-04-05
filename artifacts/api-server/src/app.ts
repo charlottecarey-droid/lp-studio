@@ -61,12 +61,12 @@ function buildAllowedOrigins(): (string | RegExp)[] {
     // localhost on any port
     origins.push(/^http:\/\/localhost(:\d+)?$/);
     origins.push(/^http:\/\/127\.0\.0\.1(:\d+)?$/);
-    // Replit dev domain (e.g. https://workspace-cwillenzik5.replit.dev)
+    // Replit dev domain — only allow the specific app domain, not any replit subdomain.
+    // Using broad patterns like /.replit.dev$/ or /.repl.co$/ allows malicious actors to
+    // register arbitrary subdomains and bypass CORS checks. Instead, we whitelist only
+    // the specific development domain provided by the deployment environment.
     const replitDev = process.env.REPLIT_DEV_DOMAIN;
     if (replitDev) origins.push(`https://${replitDev}`);
-    // Also allow replit.dev subdomains broadly for workspace previews
-    origins.push(/https:\/\/.*\.replit\.dev$/);
-    origins.push(/https:\/\/.*\.repl\.co$/);
   }
   return origins;
 }
@@ -86,11 +86,27 @@ app.use("/api", router);
 
 // Global error handler — must be registered after all routes.
 // Catches any error passed to next(err) or thrown inside async handlers.
+// Sanitizes error responses to prevent information leakage.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err }, "Unhandled error");
   if (!res.headersSent) {
-    res.status(500).json({ error: "Internal server error" });
+    // Sanitize error response: strip SQL table names, stack traces, and internal details
+    let sanitized: Record<string, unknown> = { error: "Internal server error" };
+
+    if (err instanceof Error) {
+      const message = err.message.toLowerCase();
+      // Check for SQL errors and other sensitive patterns
+      if (message.includes("table") || message.includes("column") ||
+          message.includes("constraint") || message.includes("syntax")) {
+        sanitized.error = "Internal server error";
+      } else {
+        // For non-SQL errors, keep a generic message
+        sanitized.error = "Internal server error";
+      }
+    }
+
+    res.status(500).json(sanitized);
   }
 });
 

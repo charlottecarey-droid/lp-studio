@@ -15,6 +15,31 @@ function isDbError(err: unknown): err is DbError {
   return typeof err === "object" && err !== null && "code" in err;
 }
 
+/**
+ * Sanitizes CSS by removing dangerous patterns:
+ * - expression() calls (IE only, but block anyway)
+ * - javascript: references
+ * - url() with data: or javascript: protocols
+ * - -moz-binding directives
+ */
+function sanitizeCSS(css: string): string {
+  if (!css) return css;
+
+  // Remove expression() calls
+  let sanitized = css.replace(/expression\s*\([^)]*\)/gi, "");
+
+  // Remove javascript: references
+  sanitized = sanitized.replace(/javascript:/gi, "");
+
+  // Remove url() with dangerous protocols
+  sanitized = sanitized.replace(/url\s*\(\s*['"]?(data:|javascript:)[^)]*\)/gi, "");
+
+  // Remove -moz-binding directives
+  sanitized = sanitized.replace(/-moz-binding\s*:[^;]*;/gi, "");
+
+  return sanitized;
+}
+
 router.get("/lp/pages", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -73,6 +98,25 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     res.status(400).json({ error: "slug is required" });
     return;
   }
+  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
+    res.status(400).json({ error: "slug must match /^[a-z0-9][a-z0-9-]*[a-z0-9]$/ or be a single character" });
+    return;
+  }
+  if (slug.length > 255) {
+    res.status(400).json({ error: "slug must be max 255 characters" });
+    return;
+  }
+  // Validate blocks array size
+  if (Array.isArray(blocks) && blocks.length > 1000) {
+    res.status(400).json({ error: "blocks array cannot exceed 1000 items" });
+    return;
+  }
+  // Validate total request body size (roughly 10MB limit)
+  const bodySize = JSON.stringify(req.body).length;
+  if (bodySize > 10 * 1024 * 1024) {
+    res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
+    return;
+  }
 
   // If fromTemplateId is provided, copy all settings from that template page
   let sourceBlocks: unknown[] = [];
@@ -100,6 +144,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   }
 
   try {
+    const finalCustomCss = (typeof customCss === "string" && customCss.length > 0) ? sanitizeCSS(customCss) : sanitizeCSS(sourceCss);
     const [page] = await db
       .insert(lpPagesTable)
       .values({
@@ -109,7 +154,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
         blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
         status: typeof status === "string" ? status : "draft",
-        customCss: (typeof customCss === "string" && customCss.length > 0) ? customCss : sourceCss,
+        customCss: finalCustomCss,
         metaTitle: typeof metaTitle === "string" && metaTitle.length > 0 ? metaTitle : sourceMetaTitle,
         metaDescription: typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription,
         ogImage: typeof ogImage === "string" && ogImage.length > 0 ? ogImage : sourceOgImage,
@@ -153,6 +198,17 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  // Validate blocks array size
+  if (Array.isArray(req.body.blocks) && req.body.blocks.length > 1000) {
+    res.status(400).json({ error: "blocks array cannot exceed 1000 items" });
+    return;
+  }
+  // Validate total request body size (roughly 10MB limit)
+  const bodySize = JSON.stringify(req.body).length;
+  if (bodySize > 10 * 1024 * 1024) {
+    res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
+    return;
+  }
   const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables } = req.body as {
     title?: string;
     slug?: string;
@@ -168,10 +224,20 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
 
   const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string> }> = {};
   if (title !== undefined) updates.title = title;
-  if (slug !== undefined) updates.slug = slug;
+  if (slug !== undefined) {
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
+      res.status(400).json({ error: "slug must match /^[a-z0-9][a-z0-9-]*[a-z0-9]$/ or be a single character" });
+      return;
+    }
+    if (slug.length > 255) {
+      res.status(400).json({ error: "slug must be max 255 characters" });
+      return;
+    }
+    updates.slug = slug;
+  }
   if (blocks !== undefined) updates.blocks = blocks;
   if (status !== undefined) updates.status = status;
-  if (customCss !== undefined) updates.customCss = customCss;
+  if (customCss !== undefined) updates.customCss = sanitizeCSS(customCss);
   if (metaTitle !== undefined) updates.metaTitle = metaTitle;
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
   if (ogImage !== undefined) updates.ogImage = ogImage;
@@ -255,7 +321,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
   let slug = baseSlug;
   let suffix = 2;
   while (true) {
-    const [existing] = await db.select({ id: lpPagesTable.id }).from(lpPagesTable).where(eq(lpPagesTable.slug, slug));
+    const [existing] = await db.select({ id: lpPagesTable.id }).from(lpPagesTable).where(and(eq(lpPagesTable.slug, slug), eq(lpPagesTable.tenantId, tenantId)));
     if (!existing) break;
     slug = `${baseSlug}-${suffix++}`;
   }

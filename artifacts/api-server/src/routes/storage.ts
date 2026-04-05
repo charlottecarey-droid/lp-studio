@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { db, lpMediaTable } from "@workspace/db";
 import { desc, eq, sql, ilike, and, count } from "drizzle-orm";
+import { getTenantId } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -329,7 +330,10 @@ router.post("/lp/upload", (req: Request, res: Response) => {
       }
 
       // Save to media table so it appears in the library
+      const tenantId = getTenantId(req, res);
+      if (tenantId == null) return;
       const [record] = await db.insert(lpMediaTable).values({
+        tenantId,
         title,
         url: serveUrl,
         mediaType: "image",
@@ -371,7 +375,10 @@ router.post("/lp/media/upload", (req: Request, res: Response) => {
       const title = (req.body as { title?: string }).title
         ?? req.file.originalname.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
 
+      const tenantId = getTenantId(req, res);
+      if (tenantId == null) return;
       const [record] = await db.insert(lpMediaTable).values({
+        tenantId,
         title,
         url: serveUrl,
         mediaType: "video",
@@ -417,7 +424,10 @@ router.post("/lp/pdf/upload", (req: Request, res: Response) => {
       const serveUrl = `/api/storage${servePath}`;
       const title = req.file.originalname?.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ") ?? "Untitled";
 
+      const tenantId = getTenantId(req, res);
+      if (tenantId == null) return;
       const [record] = await db.insert(lpMediaTable).values({
+        tenantId,
         title,
         url: serveUrl,
         mediaType: "pdf",
@@ -549,7 +559,7 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
 /** Update tags for a media item */
 router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const { tags } = req.body as { tags?: string[] };
@@ -566,7 +576,7 @@ router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
 
 router.delete("/lp/media/:id", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     await db.delete(lpMediaTable).where(eq(lpMediaTable.id, id));
     res.json({ success: true });

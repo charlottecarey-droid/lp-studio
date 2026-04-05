@@ -32,6 +32,26 @@ import { ExpansionSkinConfig } from "@/lib/microsite-skin-config";
 /* ── CTA helper ── */
 const isVideoUrl = (url: string) => /youtube\.com|youtu\.be|vimeo\.com|loom\.com|wistia\.com/i.test(url);
 const isAnchorUrl = (url: string) => url.startsWith("#");
+
+/**
+ * Validates that a URL uses a safe protocol.
+ * Blocks javascript:, data:, vbscript: and other dangerous protocols.
+ */
+const isSafeUrl = (url: string): boolean => {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+  // Allow relative URLs and fragments
+  if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
+  // Allow safe protocols
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return true;
+  if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return true;
+  // Allow protocol-relative URLs
+  if (trimmed.startsWith("//")) return true;
+  // If no protocol, assume relative URL or bare domain
+  if (!trimmed.includes(":")) return true;
+  // Block everything else (javascript:, data:, vbscript:, etc.)
+  return false;
+};
 const toEmbedUrl = (url: string) =>
   url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/").replace("vimeo.com/", "player.vimeo.com/video/");
 
@@ -373,7 +393,11 @@ const MicrositeExpansionSkin = ({ data, skinConfig, trackingCtx }: Props) => {
     } else if (isBookingUrl(url)) {
       setBookingModalUrl(url);
     } else {
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (isSafeUrl(url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } else {
+        console.warn("Blocked navigation to unsafe URL:", url);
+      }
     }
   };
 

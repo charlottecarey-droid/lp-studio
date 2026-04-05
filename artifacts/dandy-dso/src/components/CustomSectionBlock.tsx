@@ -14,6 +14,26 @@ interface Props {
   theme: "dark" | "light";
 }
 
+/**
+ * Validates that a URL uses a safe protocol.
+ * Blocks javascript:, data:, vbscript: and other dangerous protocols.
+ */
+function isSafeUrl(url: string): boolean {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+  // Allow relative URLs and fragments
+  if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
+  // Allow safe protocols
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return true;
+  if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return true;
+  // Allow protocol-relative URLs
+  if (trimmed.startsWith("//")) return true;
+  // If no protocol, assume relative URL or bare domain
+  if (!trimmed.includes(":")) return true;
+  // Block everything else (javascript:, data:, vbscript:, etc.)
+  return false;
+}
+
 const CustomSectionBlock = ({ sec, index, primaryColor, accentColor, headlineWeight, headlineSizeCls, fontFamily, theme }: Props) => {
   const [showVideo, setShowVideo] = useState(false);
   const isDark = theme === "dark";
@@ -24,7 +44,13 @@ const CustomSectionBlock = ({ sec, index, primaryColor, accentColor, headlineWei
 
   const handleButtonClick = () => {
     if (sec.buttonVideoUrl) setShowVideo(true);
-    else if (sec.buttonUrl) window.open(sec.buttonUrl, "_blank");
+    else if (sec.buttonUrl) {
+      if (isSafeUrl(sec.buttonUrl)) {
+        window.open(sec.buttonUrl, "_blank", "noopener,noreferrer");
+      } else {
+        console.warn("Blocked navigation to unsafe URL:", sec.buttonUrl);
+      }
+    }
   };
 
   return (

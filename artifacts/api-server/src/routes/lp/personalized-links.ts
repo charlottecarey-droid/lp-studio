@@ -162,7 +162,7 @@ router.post("/lp/personalized-links", async (req, res): Promise<void> => {
       VALUES (${tenantId}, ${pageId}, ${contactName.trim()}, ${company ? String(company).trim() : null}, ${email ? String(email).trim() : null}, ${token})
       RETURNING id, page_id, contact_name, company, email, token, created_at
     `);
-    res.status(201).json((insertResult.rows[0] as LinkRow));
+    res.status(201).json((insertResult.rows[0] as unknown as LinkRow));
   } catch (err) {
     logger.error({ err }, "Failed to create personalized link");
     res.status(500).json({ error: "Failed to create link" });
@@ -197,7 +197,7 @@ router.get("/lp/personalized-links", async (req, res): Promise<void> => {
       GROUP BY pl.id
       ORDER BY pl.created_at DESC
     `);
-    res.json(result.rows as LinkWithStats[]);
+    res.json(result.rows as unknown as LinkWithStats[]);
   } catch (err) {
     logger.error({ err }, "Failed to list personalized links");
     res.status(500).json({ error: "Failed to list links" });
@@ -225,7 +225,7 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
       return;
     }
 
-    const link = linkResult.rows[0] as LinkWithPage;
+    const link = linkResult.rows[0] as unknown as LinkWithPage;
     const ip = getClientIp(req);
     const { city, region, country } = await lookupGeoAsync(ip);
 
@@ -243,7 +243,7 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
       RETURNING id, visited_at
     `);
 
-    const visit = visitResult.rows[0] as VisitRow;
+    const visit = visitResult.rows[0] as unknown as VisitRow;
     res.json({ success: true, visitId: visit.id });
 
     setImmediate(async () => {
@@ -251,7 +251,7 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
         const alertResult = await db.execute(sql`
           SELECT email FROM lp_page_alert_emails WHERE page_id = ${link.page_id}
         `);
-        const recipients = (alertResult.rows as AlertEmailRow[]).map(r => r.email).filter(Boolean);
+        const recipients = (alertResult.rows as unknown as AlertEmailRow[]).map(r => r.email).filter(Boolean);
         if (recipients.length > 0) {
           const origin =
             (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])

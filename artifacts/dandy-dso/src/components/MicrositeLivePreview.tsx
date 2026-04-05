@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from "react";
+import DOMPurify from "dompurify";
 import {
   Link2, Play, X, Phone, Mail, Calendar, Gift, Star, Zap, Shield, TrendingUp, Award, Sparkles,
   CheckCircle2, ArrowRight, Building2,
@@ -85,7 +86,7 @@ const EditableText = ({
           : "hover:ring-1 hover:ring-white/20 hover:rounded-lg hover:px-2 hover:-mx-2"
       }`}
       style={style}
-      dangerouslySetInnerHTML={{ __html: value }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }}
     />
   );
 };
@@ -154,7 +155,7 @@ const EditableButton = ({
             : "hover:ring-1 hover:ring-white/20 hover:rounded-lg"
         }`}
         style={style}
-        dangerouslySetInnerHTML={{ __html: text }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text) }}
       />
       <button
         onClick={(e) => { e.stopPropagation(); setShowLink(!showLink); }}

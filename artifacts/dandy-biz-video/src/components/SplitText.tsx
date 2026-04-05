@@ -1,12 +1,12 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Easing } from 'framer-motion';
 
 interface SplitTextProps {
   text: string;
   delay?: number;
   stagger?: number;
   className?: string;
-  ease?: number[];
+  ease?: Easing;
   duration?: number;
 }
 
@@ -15,7 +15,7 @@ export function SplitText({
   delay = 0,
   stagger = 0.07,
   className = '',
-  ease = [0.16, 1, 0.3, 1],
+  ease = [0.16, 1, 0.3, 1] as unknown as Easing,
   duration = 0.6,
 }: SplitTextProps) {
   const words = text.split(' ');

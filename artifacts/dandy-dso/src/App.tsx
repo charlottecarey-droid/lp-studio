@@ -11,6 +11,7 @@ import MicrositeSkinEditor from "./components/MicrositeSkinEditor";
 import Unsubscribe from "./pages/Unsubscribe";
 import NotFound from "./pages/NotFound";
 import PasswordGate from "./components/PasswordGate";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -22,27 +23,29 @@ const MicrositeRedirect = () => {
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/dso";
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter basename={basename}>
-        <Routes>
-          <Route path="/:slug" element={<Microsite />} />
-          <Route path="/microsite/:slug" element={<MicrositeRedirect />} />
-          <Route path="/unsubscribe" element={<Unsubscribe />} />
+  <ErrorBoundary fallbackLabel="Application Error">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter basename={basename}>
+          <Routes>
+            <Route path="/:slug" element={<ErrorBoundary><Microsite /></ErrorBoundary>} />
+            <Route path="/microsite/:slug" element={<ErrorBoundary><MicrositeRedirect /></ErrorBoundary>} />
+            <Route path="/unsubscribe" element={<ErrorBoundary><Unsubscribe /></ErrorBoundary>} />
 
-          <Route path="/" element={<PasswordGate><Index /></PasswordGate>} />
-          <Route path="/index" element={<PasswordGate><Index /></PasswordGate>} />
-          <Route path="/microsite-edit/:id" element={<PasswordGate><MicrositeEditor /></PasswordGate>} />
-          <Route path="/skin-editor" element={<PasswordGate><MicrositeSkinEditor /></PasswordGate>} />
-          <Route path="/import-contacts" element={<PasswordGate><ContactImporter /></PasswordGate>} />
+            <Route path="/" element={<ErrorBoundary><PasswordGate><Index /></PasswordGate></ErrorBoundary>} />
+            <Route path="/index" element={<ErrorBoundary><PasswordGate><Index /></PasswordGate></ErrorBoundary>} />
+            <Route path="/microsite-edit/:id" element={<ErrorBoundary><PasswordGate><MicrositeEditor /></PasswordGate></ErrorBoundary>} />
+            <Route path="/skin-editor" element={<ErrorBoundary><PasswordGate><MicrositeSkinEditor /></PasswordGate></ErrorBoundary>} />
+            <Route path="/import-contacts" element={<ErrorBoundary><PasswordGate><ContactImporter /></PasswordGate></ErrorBoundary>} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -290,7 +290,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
 
     // If the user came from a different domain (e.g. meetdandy-lp.com) but our
     // canonical callback lives on app.lpstudio.ai, we need to hand the session
-    // across domains via the /api/auth/accept endpoint.
+    // across domains via the /api/auth/accept endpoint using a short-lived exchange code.
     const callbackHost = (() => {
       try {
         const uri = process.env.GOOGLE_REDIRECT_URI;
@@ -300,9 +300,15 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     })();
     const originHostname = originHost.split(":")[0].toLowerCase();
     if (callbackHost && originHostname && originHostname !== callbackHost) {
-      // Cross-domain: hand session token to the origin domain
+      // Cross-domain: generate a short-lived exchange code (valid for 5 minutes, single-use)
+      const exchangeCode = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute expiry
+      await pool.query(
+        `INSERT INTO auth_exchange_codes (code, sid, expires_at) VALUES ($1, $2, $3)`,
+        [exchangeCode, sid, expiresAt]
+      );
       const proto = "https";
-      res.redirect(`${proto}://${originHostname}/api/auth/accept?t=${encodeURIComponent(sid)}`);
+      res.redirect(`${proto}://${originHostname}/api/auth/accept?code=${encodeURIComponent(exchangeCode)}`);
     } else {
       res.redirect("/");
     }
@@ -312,26 +318,44 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
   }
 });
 
-// GET /api/auth/accept — cross-domain session handoff
+// GET /api/auth/accept — cross-domain session handoff via short-lived exchange code
 // Called when the OAuth callback domain differs from the origin domain (e.g. Dandy on meetdandy-lp.com).
-// Accepts a session token `t`, verifies it's fresh, then sets the cookie for the current domain.
+// Uses a short-lived exchange code instead of passing the session token in the URL.
+// This prevents session tokens from appearing in browser history, logs, or referrer headers.
 router.get("/auth/accept", async (req, res): Promise<void> => {
-  const { t } = req.query as { t?: string };
-  if (!t) {
-    res.redirect("/?error=missing_token");
+  const { code } = req.query as { code?: string };
+  if (!code) {
+    res.redirect("/?error=missing_code");
     return;
   }
   try {
-    // Verify the session exists and hasn't expired
-    const result = await pool.query(
-      `SELECT sid FROM app_sessions WHERE sid = $1 AND expire > now()`,
-      [t]
+    // Look up the exchange code and retrieve the associated session
+    // Exchange codes are single-use and expire after 5 minutes
+    const codeResult = await pool.query(
+      `SELECT sid FROM auth_exchange_codes WHERE code = $1 AND expires_at > now() LIMIT 1`,
+      [code]
     );
-    if (result.rows.length === 0) {
-      res.redirect("/?error=invalid_token");
+    if (codeResult.rows.length === 0) {
+      res.redirect("/?error=invalid_code");
       return;
     }
-    res.cookie(SESSION_COOKIE, t, {
+
+    const sid = codeResult.rows[0].sid;
+
+    // Verify the session exists and hasn't expired
+    const sessionResult = await pool.query(
+      `SELECT sid FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid]
+    );
+    if (sessionResult.rows.length === 0) {
+      res.redirect("/?error=invalid_session");
+      return;
+    }
+
+    // Delete the used exchange code (single-use)
+    await pool.query(`DELETE FROM auth_exchange_codes WHERE code = $1`, [code]);
+
+    res.cookie(SESSION_COOKIE, sid, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

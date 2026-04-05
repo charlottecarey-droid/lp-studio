@@ -36,9 +36,11 @@ async function sleep(ms: number) {
 
 async function retryFetch(url: string, options: RequestInit, maxAttempts = 3): Promise<Response> {
   let lastError: unknown;
+  const delayMs = [0, 1000, 4000, 16000]; // delays: immediate, 1s, 4s, 16s for attempts 0-3
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
-      await sleep(Math.pow(2, attempt - 1) * 1000);
+      const delay = delayMs[Math.min(attempt, delayMs.length - 1)];
+      await sleep(delay);
     }
     try {
       const response = await fetch(url, options);

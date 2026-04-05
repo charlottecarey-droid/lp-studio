@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+import rateLimit from "express-rate-limit";
 
 interface LinkWithPage {
   id: number;
@@ -102,13 +103,26 @@ async function sendVisitAlert(
 
 const router = Router();
 
+// Rate limit token resolution: 30 per IP per minute to prevent enumeration attacks
+const tokenResolveLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many token resolution requests. Please try again later." },
+  skip: (req) => {
+    // Allow internal/health checks through (optional, remove if not needed)
+    return false;
+  },
+});
+
 /**
  * Resolves a personalized link token. Returns the page slug and token so the
  * frontend can redirect to /lp/:slug?_plToken=<token>, enabling engagement
  * tracking (scroll depth, CTA clicks) to be attributed to the same visitor.
  */
-router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
-  const { token } = req.params;
+router.get("/lp/resolve-token/:token", tokenResolveLimiter, async (req, res): Promise<void> => {
+  const token = String(req.params.token);
 
   try {
     const linkResult = await db.execute(sql`
@@ -127,7 +141,7 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
       return;
     }
 
-    const link = linkResult.rows[0] as LinkWithPage;
+    const link = linkResult.rows[0] as unknown as LinkWithPage;
     const ip = getClientIp(req);
     const { city, region, country } = await lookupGeoAsync(ip);
 
@@ -137,14 +151,14 @@ router.get("/lp/resolve-token/:token", async (req, res): Promise<void> => {
       RETURNING id, visited_at
     `);
 
-    const visit = visitResult.rows[0] as VisitRow;
+    const visit = visitResult.rows[0] as unknown as VisitRow;
 
     setImmediate(async () => {
       try {
         const alertResult = await db.execute(sql`
           SELECT email FROM lp_page_alert_emails WHERE page_id = ${link.page_id}
         `);
-        const recipients = (alertResult.rows as AlertEmailRow[]).map(r => r.email).filter(Boolean);
+        const recipients = (alertResult.rows as unknown as AlertEmailRow[]).map(r => r.email).filter(Boolean);
         logger.info({ pageId: link.page_id, recipients }, "Visit alert: checking recipients");
         if (!process.env["RESEND_API_KEY"]) {
           logger.warn("Visit alert skipped: RESEND_API_KEY is not set");

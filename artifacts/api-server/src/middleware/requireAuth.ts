@@ -59,6 +59,24 @@ export function getTenantId(req: Request, res: Response): number | null {
   return tenantId;
 }
 
+/**
+ * Middleware that requires tenantId to be present.
+ * Throws 403 if user is not authenticated or has no tenant.
+ * Use in routes that must have a valid tenant context.
+ */
+export function requireTenantId(req: Request, res: Response, next: NextFunction): void {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (user.tenantId == null) {
+    res.status(403).json({ error: "No tenant associated with this account" });
+    return;
+  }
+  next();
+}
+
 export function requirePermission(permission: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = req.authUser;

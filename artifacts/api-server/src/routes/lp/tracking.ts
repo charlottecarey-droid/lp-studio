@@ -106,8 +106,9 @@ router.post("/lp/track", async (req, res): Promise<void> => {
             await recordConversion(parsed.data.testId, parsed.data.variantId, features);
           }
         }
-      } catch {
-        // Silently ignore — smart traffic stats are best-effort
+      } catch (err) {
+        // Log error but don't fail — smart traffic stats are best-effort
+        console.warn("Error recording conversion for smart traffic (test", parsed.data.testId, "):", err);
       }
     })();
   }
@@ -156,13 +157,17 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
       // Record a geo-tagged visit for builder pages (fire-and-forget)
       const clientIp = getClientIp(req);
-      lookupGeoAsync(clientIp).then((geo) =>
-        db.insert(lpPageVisitsTable).values({
-          pageId: builderPage.id,
-          sessionId,
-          ...geo,
-        }).onConflictDoNothing()
-      ).catch(() => undefined);
+      lookupGeoAsync(clientIp)
+        .then((geo) =>
+          db.insert(lpPageVisitsTable).values({
+            pageId: builderPage.id,
+            sessionId,
+            ...geo,
+          }).onConflictDoNothing()
+        )
+        .catch((err) => {
+          console.warn("Error recording page visit for page", builderPage.id, ":", err);
+        });
 
       // Cache published pages at the HTTP layer — browsers and CDNs can reuse
       // the response for 60 s. Draft pages are never cached so editors see changes immediately.
@@ -313,9 +318,13 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       ? applyBlockOverrides(basePage.blocks as unknown[], blockOverrides as Record<string, unknown>)
       : basePage.blocks as unknown[];
 
-    lookupGeoAsync(getClientIp(req)).then((geo) =>
-      db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing()
-    ).catch(() => undefined);
+    lookupGeoAsync(getClientIp(req))
+      .then((geo) =>
+        db.insert(lpPageVisitsTable).values({ pageId: basePage.id, sessionId, ...geo }).onConflictDoNothing()
+      )
+      .catch((err) => {
+        console.warn("Error recording A/B test page visit for page", basePage.id, ":", err);
+      });
 
     // A/B test responses are session-personalised — never cache
     res.set("Cache-Control", "no-store");

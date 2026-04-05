@@ -36,9 +36,31 @@ export function setBaseUrl(url: string | null): void {
  *
  * Useful for Expo bundles making token-gated API calls.
  * Pass `null` to clear the getter.
+ *
+ * WARNING: If auth is required but not configured, requests may silently fail.
+ * Ensure setAuthTokenGetter is called during app initialization, or implement
+ * error handling in your API response handlers to detect authentication failures.
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
-  _authTokenGetter = getter;
+  if (getter === null) {
+    _authTokenGetter = null;
+    return;
+  }
+
+  // Wrap the getter to provide clearer error context
+  _authTokenGetter = async () => {
+    try {
+      const token = await getter();
+      if (token === null || token === undefined) {
+        // Log warning if auth is expected but not available
+        console.warn("setAuthTokenGetter: getter returned null/undefined. Authentication may not be configured.");
+      }
+      return token;
+    } catch (err) {
+      console.error("setAuthTokenGetter: error retrieving token:", err);
+      throw err;
+    }
+  };
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
