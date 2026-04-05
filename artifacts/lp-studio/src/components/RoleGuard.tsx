@@ -1,33 +1,26 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-
-function getRoleLockedMode(role: string | undefined): "marketing" | "sales" | null {
-  if (!role) return null;
-  const r = role.toLowerCase();
-  if (r === "sales") return "sales";
-  if (r === "marketing") return "marketing";
-  return null;
-}
+import { SALES_PERMS, MARKETING_PERMS } from "@/lib/mode-context";
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
   const [location, navigate] = useLocation();
 
-  const lockedMode = getRoleLockedMode(user?.role);
-
   useEffect(() => {
-    if (!lockedMode || !user) return;
+    if (!user) return;
+
+    const hasSales = SALES_PERMS.some(k => hasPerm(k));
+    const hasMarketing = MARKETING_PERMS.some(k => hasPerm(k));
 
     const isSalesRoute = location === "/sales" || location.startsWith("/sales/");
-    const isMarketingRoute = !isSalesRoute;
 
-    if (lockedMode === "sales" && isMarketingRoute) {
+    if (hasSales && !hasMarketing && !isSalesRoute) {
       navigate("/sales");
-    } else if (lockedMode === "marketing" && isSalesRoute) {
+    } else if (hasMarketing && !hasSales && isSalesRoute) {
       navigate("/");
     }
-  }, [location, lockedMode, user, navigate]);
+  }, [location, user, hasPerm, navigate]);
 
   return <>{children}</>;
 }

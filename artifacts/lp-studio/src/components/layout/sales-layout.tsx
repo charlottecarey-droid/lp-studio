@@ -91,12 +91,14 @@ function SettingsDropdown() {
         <DropdownMenuLabel className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground px-2">
           Settings
         </DropdownMenuLabel>
-        <Link href="/sales/sfdc">
-          <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/sfdc") ? "bg-accent" : ""}`}>
-            <Cloud className="w-4 h-4 text-muted-foreground" />
-            <span>Salesforce</span>
-          </DropdownMenuItem>
-        </Link>
+        {(hasPerm("settings") || user?.isAdmin) && (
+          <Link href="/sales/sfdc">
+            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/sfdc") ? "bg-accent" : ""}`}>
+              <Cloud className="w-4 h-4 text-muted-foreground" />
+              <span>Salesforce</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
         {hasPerm("brand") && (
           <Link href="/brand">
             <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/brand") ? "bg-accent" : ""}`}>
@@ -197,12 +199,14 @@ export function SalesTopNav() {
       label: "ROI Calculator",
       href: "/sales/roi-calculator",
       icon: <Calculator className="w-4 h-4" />,
+      permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/roi-calculator",
     },
     {
       label: "One-Pager Generator",
       href: "/sales/one-pager",
       icon: <FileText className="w-4 h-4" />,
+      permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/one-pager",
     },
     {

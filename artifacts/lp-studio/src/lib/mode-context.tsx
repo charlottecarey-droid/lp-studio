@@ -4,6 +4,15 @@ export type AppMode = "marketing" | "sales";
 
 const STORAGE_KEY = "lp-studio-mode";
 
+export const SALES_PERMS = [
+  "sales_dashboard", "sales_accounts", "sales_contacts",
+  "sales_signals", "sales_outreach", "sales_campaigns",
+] as const;
+
+export const MARKETING_PERMS = [
+  "pages", "tests", "analytics", "forms_leads", "brand", "blocks",
+] as const;
+
 export function getSavedMode(): AppMode {
   try {
     return localStorage.getItem(STORAGE_KEY) === "sales" ? "sales" : "marketing";
@@ -12,11 +21,15 @@ export function getSavedMode(): AppMode {
   }
 }
 
-function getRoleLockedMode(role: string | undefined): AppMode | null {
-  if (!role) return null;
-  const r = role.toLowerCase();
-  if (r === "sales") return "sales";
-  if (r === "marketing") return "marketing";
+export function getLockedModeFromPerms(
+  permissions: Record<string, boolean>,
+  isAdmin: boolean
+): AppMode | null {
+  if (isAdmin) return null;
+  const hasSales = SALES_PERMS.some(k => permissions[k]);
+  const hasMarketing = MARKETING_PERMS.some(k => permissions[k]);
+  if (hasSales && !hasMarketing) return "sales";
+  if (hasMarketing && !hasSales) return "marketing";
   return null;
 }
 
@@ -29,8 +42,16 @@ interface ModeContextValue {
 
 const ModeContext = createContext<ModeContextValue | undefined>(undefined);
 
-export function ModeProvider({ children, userRole }: { children: ReactNode; userRole?: string }) {
-  const lockedMode = getRoleLockedMode(userRole);
+export function ModeProvider({
+  children,
+  permissions = {},
+  isAdmin = false,
+}: {
+  children: ReactNode;
+  permissions?: Record<string, boolean>;
+  isAdmin?: boolean;
+}) {
+  const lockedMode = getLockedModeFromPerms(permissions, isAdmin);
   const [mode, setModeState] = useState<AppMode>(() => lockedMode ?? getSavedMode());
 
   useEffect(() => {

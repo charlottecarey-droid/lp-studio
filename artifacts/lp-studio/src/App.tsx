@@ -150,6 +150,20 @@ const LoadingFallback = () => (
   </div>
 );
 
+function PermRoute({
+  perm,
+  fallback = "/",
+  children,
+}: {
+  perm: string;
+  fallback?: string;
+  children: React.ReactNode;
+}) {
+  const { hasPerm } = useAuth();
+  if (!hasPerm(perm)) return <Redirect to={fallback} />;
+  return <>{children}</>;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -165,22 +179,22 @@ function AppRouter() {
       <Switch>
         {/* Platform Routes */}
         <Route path="/" component={Dashboard} />
-        <Route path="/tests/new" component={CreateTest} />
-        <Route path="/tests/:testId" component={TestDetail} />
-        <Route path="/tests" component={AllTests} />
-        <Route path="/brand" component={BrandSettings} />
-        <Route path="/analytics" component={Analytics} />
-        <Route path="/pages/new" component={NewPage} />
-        <Route path="/pages" component={PagesGallery} />
+        <Route path="/tests/new">{() => <PermRoute perm="tests" fallback="/"><CreateTest /></PermRoute>}</Route>
+        <Route path="/tests/:testId">{() => <PermRoute perm="tests" fallback="/"><TestDetail /></PermRoute>}</Route>
+        <Route path="/tests">{() => <PermRoute perm="tests" fallback="/"><AllTests /></PermRoute>}</Route>
+        <Route path="/brand">{() => <PermRoute perm="brand" fallback="/"><BrandSettings /></PermRoute>}</Route>
+        <Route path="/analytics">{() => <PermRoute perm="analytics" fallback="/"><Analytics /></PermRoute>}</Route>
+        <Route path="/pages/new">{() => <PermRoute perm="pages" fallback="/sales"><NewPage /></PermRoute>}</Route>
+        <Route path="/pages">{() => <PermRoute perm="pages" fallback="/sales"><PagesGallery /></PermRoute>}</Route>
         <Route path="/reviews" component={ReviewsOverview} />
 
         {/* Consolidated Routes */}
-        <Route path="/forms-and-leads" component={FormsAndLeads} />
-        <Route path="/blocks" component={BlocksSettings} />
+        <Route path="/forms-and-leads">{() => <PermRoute perm="forms_leads" fallback="/"><FormsAndLeads /></PermRoute>}</Route>
+        <Route path="/blocks">{() => <PermRoute perm="blocks" fallback="/"><BlocksSettings /></PermRoute>}</Route>
 
         {/* Settings Routes */}
-        <Route path="/settings/team" component={TeamPage} />
-        <Route path="/settings/roles" component={RolesPage} />
+        <Route path="/settings/team">{() => <PermRoute perm="team" fallback="/"><TeamPage /></PermRoute>}</Route>
+        <Route path="/settings/roles">{() => <PermRoute perm="roles" fallback="/"><RolesPage /></PermRoute>}</Route>
 
         {/* Admin Routes — /admin/users redirects to the Team page */}
         <Route path="/admin/users">{() => <Redirect to="/settings/team" />}</Route>
@@ -195,25 +209,25 @@ function AppRouter() {
         <Route path="/custom-blocks" component={CustomBlocksPage} />
 
         {/* Sales Console Routes */}
-        <Route path="/sales" component={SalesDashboard} />
-        <Route path="/sales/draft-email" component={SalesDraftEmail} />
-        <Route path="/sales/draft-email/:contactId" component={SalesDraftEmail} />
-        <Route path="/sales/campaigns/:id" component={SalesCampaignDetail} />
-        <Route path="/sales/campaigns" component={SalesOutreach} />
-        <Route path="/sales/microsites" component={SalesPages} />
-        <Route path="/sales/accounts/:id" component={SalesAccounts} />
-        <Route path="/sales/accounts" component={SalesAccounts} />
-        <Route path="/sales/contacts/:id" component={SalesContacts} />
-        <Route path="/sales/contacts" component={SalesContacts} />
-        <Route path="/sales/pages" component={SalesPages} />
-        <Route path="/sales/campaign-pages" component={SalesCampaignPages} />
-        <Route path="/sales/outreach" component={SalesOutreach} />
-        <Route path="/sales/signals" component={SalesSignals} />
-        <Route path="/sales/roi-calculator" component={SalesRoiCalculator} />
-        <Route path="/sales/one-pager" component={SalesOnePager} />
-        <Route path="/sales/one-pager/editor" component={SalesOnePagerEditor} />
-        <Route path="/sales/one-pager-templates" component={SalesOnePagerTemplates} />
-        <Route path="/sales/sfdc" component={SfdcSettings} />
+        <Route path="/sales">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDashboard /></PermRoute>}</Route>
+        <Route path="/sales/draft-email">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDraftEmail /></PermRoute>}</Route>
+        <Route path="/sales/draft-email/:contactId">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDraftEmail /></PermRoute>}</Route>
+        <Route path="/sales/campaigns/:id">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignDetail /></PermRoute>}</Route>
+        <Route path="/sales/campaigns">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
+        <Route path="/sales/microsites">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
+        <Route path="/sales/accounts/:id">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
+        <Route path="/sales/accounts">{() => <PermRoute perm="sales_accounts" fallback="/"><SalesAccounts /></PermRoute>}</Route>
+        <Route path="/sales/contacts/:id">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
+        <Route path="/sales/contacts">{() => <PermRoute perm="sales_contacts" fallback="/"><SalesContacts /></PermRoute>}</Route>
+        <Route path="/sales/pages">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesPages /></PermRoute>}</Route>
+        <Route path="/sales/campaign-pages">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesCampaignPages /></PermRoute>}</Route>
+        <Route path="/sales/outreach">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesOutreach /></PermRoute>}</Route>
+        <Route path="/sales/signals">{() => <PermRoute perm="sales_signals" fallback="/"><SalesSignals /></PermRoute>}</Route>
+        <Route path="/sales/roi-calculator">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesRoiCalculator /></PermRoute>}</Route>
+        <Route path="/sales/one-pager/editor">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePagerEditor /></PermRoute>}</Route>
+        <Route path="/sales/one-pager">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePager /></PermRoute>}</Route>
+        <Route path="/sales/one-pager-templates">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOnePagerTemplates /></PermRoute>}</Route>
+        <Route path="/sales/sfdc">{() => <PermRoute perm="settings" fallback="/sales"><SfdcSettings /></PermRoute>}</Route>
 
         {/* Builder Editor (no app layout — full screen) */}
         <Route path="/builder/:pageId" component={BuilderEditor} />
@@ -241,7 +255,9 @@ function AppRouter() {
 // Routes /superadmin and prospect-facing paths outside the AuthGate; everything else requires auth.
 function AppShell() {
   const [location] = useLocation();
-  const { domainContext, user } = useAuth();
+  const { domainContext, user, permOverride } = useAuth();
+  const effectivePermissions = permOverride ?? user?.permissions ?? {};
+  const effectiveIsAdmin = permOverride !== null ? false : (user?.isAdmin ?? false);
 
   // While domain context is still loading, show a neutral spinner so we don't
   // flash the login screen on microsite/partner domains before context arrives.
@@ -317,7 +333,7 @@ function AppShell() {
 
   return (
     <AuthGate>
-      <ModeProvider userRole={user?.role}>
+      <ModeProvider permissions={effectivePermissions} isAdmin={effectiveIsAdmin}>
         <RoleGuard>
           <RouteErrorBoundaryWithReset locationKey={location}>
             <AppRouter />
