@@ -1,7 +1,24 @@
+export interface TeamMember {
+  name: string;
+  title: string;
+  photoUrl?: string;
+}
+
 export interface OverlayField {
   id: string;
   label: string;
-  type: "dso_name" | "phone" | "custom_text" | "qr_code" | "logo" | "dandy_logo";
+  type:
+    | "dso_name"
+    | "phone"
+    | "custom_text"
+    | "qr_code"
+    | "logo"
+    | "dandy_logo"
+    | "heading"
+    | "divider"
+    | "footer"
+    | "link"
+    | "meet_the_team";
   x: number;
   y: number;
   fontSize: number;
@@ -10,6 +27,7 @@ export interface OverlayField {
   bold: boolean;
   italic: boolean;
   defaultValue: string;
+  // text / qr / logo
   qrSize?: number;
   logoUrl?: string;
   logoScale?: number;
@@ -17,6 +35,16 @@ export interface OverlayField {
   logoHeight?: number;
   prefix?: string;
   suffix?: string;
+  // divider
+  lineThickness?: number;
+  width?: number;        // % of page width (default 80)
+  // link
+  underline?: boolean;
+  // meet_the_team
+  sectionTitle?: string;
+  teamMembers?: TeamMember[];
+  cardBg?: string;       // hex bg color for each card (default "rgba(0,0,0,0)")
+  photoSize?: number;    // % of page width per photo circle (default 7)
 }
 
 export interface CustomTemplate {

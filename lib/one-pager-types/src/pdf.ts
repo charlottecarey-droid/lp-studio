@@ -28,11 +28,51 @@ export const loadImg = (src: string): Promise<string> =>
     img.onerror = reject; img.src = src;
   });
 
+// Draw a circle clipped image (or initials fallback) for a team member photo.
+async function drawTeamPhoto(
+  doc: jsPDF,
+  photoUrl: string | undefined,
+  initials: string,
+  cx: number, cy: number, radius: number,
+  bgColor: [number, number, number],
+) {
+  // Draw circle background
+  doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+  doc.circle(cx, cy, radius, "F");
+
+  if (photoUrl) {
+    try {
+      const imgData = await loadImg(photoUrl);
+      // jsPDF doesn't natively clip to circle — draw square image then overlay
+      // Use a canvas to produce a circular PNG
+      const sz = Math.round(radius * 2 * 4); // 4× for quality
+      const canvas = document.createElement("canvas");
+      canvas.width = sz; canvas.height = sz;
+      const ctx = canvas.getContext("2d")!;
+      ctx.beginPath();
+      ctx.arc(sz / 2, sz / 2, sz / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      const img = new Image();
+      await new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); img.src = imgData; });
+      ctx.drawImage(img, 0, 0, sz, sz);
+      const circleData = canvas.toDataURL("image/png");
+      doc.addImage(circleData, "PNG", cx - radius, cy - radius, radius * 2, radius * 2);
+      return;
+    } catch { /* fall through to initials */ }
+  }
+
+  // Initials fallback
+  const fontSize = Math.max(8, radius * 0.9);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(fontSize);
+  doc.setTextColor(255, 255, 255);
+  const tw = doc.getTextWidth(initials);
+  doc.text(initials, cx - tw / 2, cy + fontSize * 0.35);
+}
+
 /**
  * Generate a PDF from a custom template by drawing field overlays on top of the background image.
- * @param tpl The custom template to generate a PDF from
- * @param values Field values to inject (e.g. { dso_name: "Acme DSO", phone: "555-1234" })
- * @param dandyLogoSvgPath Optional path to the Dandy logo SVG (defaults to /src/assets/dandy-logo.svg)
  */
 export async function generateCustomTemplatePdf(
   tpl: CustomTemplate,
@@ -58,6 +98,7 @@ export async function generateCustomTemplatePdf(
     const fx = w * (field.x / 100);
     const fy = h * (field.y / 100);
 
+    // ── QR Code ───────────────────────────────────────────────────────
     if (field.type === "qr_code") {
       const url = values.qr_url || field.defaultValue || "https://meetdandy.com";
       try {
@@ -68,6 +109,7 @@ export async function generateCustomTemplatePdf(
       continue;
     }
 
+    // ── Dandy Logo ────────────────────────────────────────────────────
     if (field.type === "dandy_logo") {
       try {
         const dandyPng = await svgToPng(dandyLogoSvgPath, 206, 74);
@@ -82,6 +124,7 @@ export async function generateCustomTemplatePdf(
       continue;
     }
 
+    // ── Logo (prospect) ───────────────────────────────────────────────
     if (field.type === "logo") {
       const logoUrl = values.logo_url || field.logoUrl;
       if (logoUrl) {
@@ -97,6 +140,69 @@ export async function generateCustomTemplatePdf(
       continue;
     }
 
+    // ── Divider ───────────────────────────────────────────────────────
+    if (field.type === "divider") {
+      const rgb = hexToRgb(field.color || "#CCCCCC");
+      doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+      doc.setLineWidth(field.lineThickness || 0.75);
+      const lineW = w * ((field.width ?? 80) / 100);
+      doc.line(fx, fy, fx + lineW, fy);
+      continue;
+    }
+
+    // ── Meet The Team ─────────────────────────────────────────────────
+    if (field.type === "meet_the_team") {
+      const members = field.teamMembers ?? [];
+      if (members.length === 0) continue;
+
+      const sectionTitle = field.sectionTitle || "Meet The Team";
+      const blockW = w * ((field.width ?? 80) / 100);
+      const titleFontSize = field.fontSize || 14;
+      const nameFontSize = Math.max(8, titleFontSize - 2);
+      const subtitleFontSize = Math.max(6, titleFontSize - 4);
+      const photoRadius = w * ((field.photoSize ?? 5) / 100);
+      const cardW = blockW / members.length;
+      const sectionRgb = hexToRgb(field.color || "#FFFFFF");
+
+      // Section heading
+      doc.setFont(field.fontFamily || "helvetica", "bold");
+      doc.setFontSize(titleFontSize);
+      doc.setTextColor(sectionRgb[0], sectionRgb[1], sectionRgb[2]);
+      doc.text(sectionTitle, fx, fy);
+
+      const cardsY = fy + titleFontSize * 1.5;
+
+      for (let i = 0; i < members.length; i++) {
+        const m = members[i];
+        const cardX = fx + i * cardW + cardW / 2; // center of card
+        const initials = m.name.split(" ").map(n => n[0] ?? "").join("").toUpperCase().slice(0, 2);
+
+        // Photo circle — use a muted dark green for the bg
+        await drawTeamPhoto(doc, m.photoUrl, initials, cardX, cardsY + photoRadius, photoRadius, [30, 80, 60]);
+
+        // Name
+        doc.setFont(field.fontFamily || "helvetica", "bold");
+        doc.setFontSize(nameFontSize);
+        doc.setTextColor(sectionRgb[0], sectionRgb[1], sectionRgb[2]);
+        const nameW = doc.getTextWidth(m.name);
+        doc.text(m.name, cardX - nameW / 2, cardsY + photoRadius * 2 + nameFontSize * 1.4);
+
+        // Title
+        doc.setFont(field.fontFamily || "helvetica", "normal");
+        doc.setFontSize(subtitleFontSize);
+        const titleRgb: [number, number, number] = [
+          Math.min(255, sectionRgb[0] + 40),
+          Math.min(255, sectionRgb[1] + 40),
+          Math.min(255, sectionRgb[2] + 40),
+        ];
+        doc.setTextColor(titleRgb[0], titleRgb[1], titleRgb[2]);
+        const titleW = doc.getTextWidth(m.title);
+        doc.text(m.title, cardX - titleW / 2, cardsY + photoRadius * 2 + nameFontSize * 1.4 + subtitleFontSize * 1.3);
+      }
+      continue;
+    }
+
+    // ── Text-based fields (heading / footer / link / custom_text / dso_name / phone) ──
     const rgb = hexToRgb(field.color || "#000000");
     const fontStyle = field.bold && field.italic ? "bolditalic" : field.bold ? "bold" : field.italic ? "italic" : "normal";
     doc.setFont(field.fontFamily || "helvetica", fontStyle);
@@ -104,12 +210,27 @@ export async function generateCustomTemplatePdf(
     doc.setTextColor(rgb[0], rgb[1], rgb[2]);
 
     let text = "";
-    if (field.type === "dso_name") text = `${field.prefix || ""}${values.dso_name || field.defaultValue || ""}${field.suffix || ""}`;
-    else if (field.type === "phone") text = values.phone || field.defaultValue || "";
-    else text = values[`custom_${field.id}`] || field.defaultValue || (field as OverlayField).label || "";
+    if (field.type === "dso_name") {
+      text = `${field.prefix || ""}${values.dso_name || field.defaultValue || ""}${field.suffix || ""}`;
+    } else if (field.type === "phone") {
+      text = values.phone || field.defaultValue || "";
+    } else if (field.type === "link") {
+      text = field.defaultValue || "";
+    } else {
+      // heading, footer, custom_text
+      text = field.defaultValue || field.label || "";
+    }
 
     if (text) {
       doc.text(text, fx, fy);
+      // Underline for links
+      if (field.type === "link" && field.underline !== false) {
+        const tw = doc.getTextWidth(text);
+        const lineY = fy + 1.5;
+        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+        doc.setLineWidth(0.5);
+        doc.line(fx, lineY, fx + tw, lineY);
+      }
     }
   }
 

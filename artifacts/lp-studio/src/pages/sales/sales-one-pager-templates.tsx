@@ -3,7 +3,9 @@ import {
   Search, Plus, Eye, EyeOff, Copy, Trash2, RotateCcw, Upload, X, Loader2,
   FileText, GripVertical, Settings2, ChevronDown, Save, FileDown, Image as ImageIcon,
   QrCode, Type, User, Phone, AlertCircle, Check, ArrowLeft, LayoutTemplate, Move,
+  Heading1, Minus, Link, Users, AlignJustify,
 } from "lucide-react";
+import type { TeamMember } from "@workspace/one-pager-types";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -139,7 +141,12 @@ const getFontCss = (f: string) => FONT_OPTIONS.find(o => o.value === f)?.css || 
 const FIELD_TYPES: { type: OverlayField["type"]; label: string; icon: React.ReactNode; defaultProps: Partial<OverlayField> }[] = [
   { type: "dso_name", label: "DSO Name", icon: <User className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", bold: true } },
   { type: "phone", label: "Phone", icon: <Phone className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#FFFFFF", bold: false } },
-  { type: "custom_text", label: "Custom Text", icon: <Type className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#333333", bold: false, defaultValue: "Text here" } },
+  { type: "heading", label: "Heading", icon: <Heading1 className="w-3.5 h-3.5" />, defaultProps: { fontSize: 22, color: "#FFFFFF", bold: true, defaultValue: "Section Heading" } },
+  { type: "custom_text", label: "Body Text", icon: <Type className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#333333", bold: false, defaultValue: "Text here" } },
+  { type: "footer", label: "Footer", icon: <AlignJustify className="w-3.5 h-3.5" />, defaultProps: { fontSize: 9, color: "#FFFFFF", bold: false, defaultValue: "Footer text" } },
+  { type: "link", label: "Link / URL", icon: <Link className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#7EC8E3", bold: false, underline: true, defaultValue: "https://meetdandy.com" } },
+  { type: "divider", label: "Divider Line", icon: <Minus className="w-3.5 h-3.5" />, defaultProps: { fontSize: 10, color: "#FFFFFF", lineThickness: 0.75, width: 80 } },
+  { type: "meet_the_team", label: "Meet the Team", icon: <Users className="w-3.5 h-3.5" />, defaultProps: { fontSize: 13, color: "#FFFFFF", bold: true, sectionTitle: "Meet The Team", width: 80, photoSize: 5, teamMembers: [{ name: "Rep Name", title: "Account Executive" }] } },
   { type: "qr_code", label: "QR Code", icon: <QrCode className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#000000", qrSize: 12, defaultValue: "https://meetdandy.com" } },
   { type: "logo", label: "Logo", icon: <ImageIcon className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#FFFFFF", logoScale: 15 } },
   { type: "dandy_logo", label: "Dandy Logo", icon: <FileText className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", logoScale: 13, bold: true } },
@@ -177,11 +184,27 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
     setCtx({ x: e.clientX, y: e.clientY });
   };
 
-  const displayText = field.type === "dso_name" ? `${field.prefix || ""}{DSO Name}${field.suffix || ""}`
-    : field.type === "phone" ? "{Phone}" : field.type === "qr_code" ? "{QR}" : field.type === "logo" ? "{Logo}"
-    : field.type === "dandy_logo" ? "{Dandy Logo}" : (field.defaultValue || field.label || "{Text}");
+  const displayText =
+    field.type === "dso_name" ? `${field.prefix || ""}{DSO Name}${field.suffix || ""}` :
+    field.type === "phone" ? "{Phone}" :
+    field.type === "qr_code" ? "{QR}" :
+    field.type === "logo" ? "{Logo}" :
+    field.type === "dandy_logo" ? "{Dandy Logo}" :
+    field.type === "divider" ? `— divider (${field.width ?? 80}% wide) —` :
+    field.type === "meet_the_team" ? `👥 ${field.sectionTitle || "Meet The Team"} (${field.teamMembers?.length ?? 0} members)` :
+    (field.defaultValue || field.label || "{Text}");
 
   const scaledSize = Math.max(10, (field.fontSize / 612) * 500);
+
+  const fieldIcon =
+    field.type === "qr_code" ? <QrCode className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    (field.type === "logo" || field.type === "dandy_logo") ? <ImageIcon className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    field.type === "divider" ? <Minus className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    field.type === "meet_the_team" ? <Users className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    field.type === "link" ? <Link className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    field.type === "heading" ? <Heading1 className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    field.type === "footer" ? <AlignJustify className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
+    <Move className="w-3 h-3 shrink-0" style={{ color: field.color }} />;
 
   return (
     <>
@@ -195,9 +218,7 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
       >
         <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 cursor-grab active:cursor-grabbing whitespace-nowrap ${selected ? "ring-2 ring-primary shadow-lg" : "hover:ring-1 hover:ring-primary/50"} ${dragging ? "opacity-80 scale-105" : ""}`}
           style={{ backgroundColor: selected ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)" }}>
-          {field.type === "qr_code" ? <QrCode className="w-3 h-3 shrink-0" style={{ color: field.color }} />
-            : (field.type === "logo" || field.type === "dandy_logo") ? <ImageIcon className="w-3 h-3 shrink-0" style={{ color: field.color }} />
-            : <Move className="w-3 h-3 shrink-0" style={{ color: field.color }} />}
+          {fieldIcon}
           <span style={{ color: field.color, fontSize: `${Math.min(scaledSize, 18)}px`, fontWeight: field.bold ? 700 : 400, fontStyle: field.italic ? "italic" : "normal", fontFamily: getFontCss(field.fontFamily), lineHeight: 1.2 }}>{displayText}</span>
         </div>
       </div>
@@ -735,7 +756,12 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                 <select value={selectedField.type} onChange={e => updateField(selectedField.id, { type: e.target.value as OverlayField["type"] })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none">
                   <option value="dso_name">DSO Name</option>
                   <option value="phone">Phone</option>
-                  <option value="custom_text">Custom Text</option>
+                  <option value="heading">Heading</option>
+                  <option value="custom_text">Body Text</option>
+                  <option value="footer">Footer</option>
+                  <option value="link">Link / URL</option>
+                  <option value="divider">Divider Line</option>
+                  <option value="meet_the_team">Meet the Team</option>
                   <option value="qr_code">QR Code</option>
                   <option value="logo">Logo</option>
                   <option value="dandy_logo">Dandy Logo</option>
@@ -753,7 +779,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                 </div>
               </div>
 
-              {selectedField.type !== "qr_code" && selectedField.type !== "logo" && selectedField.type !== "dandy_logo" && (
+              {selectedField.type !== "qr_code" && selectedField.type !== "logo" && selectedField.type !== "dandy_logo" && selectedField.type !== "divider" && selectedField.type !== "meet_the_team" && (
                 <>
                   <div>
                     <label className="text-[9px] text-muted-foreground uppercase block mb-1">Font Family</label>
@@ -815,8 +841,134 @@ function TemplateEditor({ initial, onSave, onCancel }: {
 
               {selectedField.type === "custom_text" && (
                 <div>
-                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Default Value</label>
-                  <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="Text content" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Text Content</label>
+                  <textarea rows={3} value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="Text content" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none" />
+                </div>
+              )}
+
+              {(selectedField.type === "heading" || selectedField.type === "footer") && (
+                <div>
+                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Text Content</label>
+                  <input type="text" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder={selectedField.type === "heading" ? "Section heading…" : "Footer text…"} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                </div>
+              )}
+
+              {selectedField.type === "link" && (
+                <>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">URL</label>
+                    <input type="url" value={selectedField.defaultValue || ""} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
+                    <input type="checkbox" checked={selectedField.underline !== false} onChange={e => updateField(selectedField.id, { underline: e.target.checked })} className="rounded" /> Show underline
+                  </label>
+                </>
+              )}
+
+              {selectedField.type === "divider" && (
+                <>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Width (%)</label>
+                    <input type="number" min={10} max={100} value={selectedField.width ?? 80} onChange={e => updateField(selectedField.id, { width: Number(e.target.value) })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Thickness (pt)</label>
+                    <input type="number" min={0.25} max={6} step={0.25} value={selectedField.lineThickness ?? 0.75} onChange={e => updateField(selectedField.id, { lineThickness: Number(e.target.value) })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Color</label>
+                    <div className="flex gap-1">
+                      <input type="color" value={selectedField.color} onChange={e => updateField(selectedField.id, { color: e.target.value })} className="w-8 h-[30px] rounded border border-border p-0 cursor-pointer shrink-0" />
+                      <input type="text" value={selectedField.color} maxLength={7} onChange={e => { let v = e.target.value; if (!v.startsWith("#")) v = "#" + v; if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateField(selectedField.id, { color: v }); }} className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedField.type === "meet_the_team" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Section Title</label>
+                    <input type="text" value={selectedField.sectionTitle || "Meet The Team"} onChange={e => updateField(selectedField.id, { sectionTitle: e.target.value })} placeholder="Meet The Team" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] text-muted-foreground uppercase block mb-1">Width (%)</label>
+                      <input type="number" min={20} max={100} value={selectedField.width ?? 80} onChange={e => updateField(selectedField.id, { width: Number(e.target.value) })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground uppercase block mb-1">Photo Size (%)</label>
+                      <input type="number" min={2} max={15} value={selectedField.photoSize ?? 5} onChange={e => updateField(selectedField.id, { photoSize: Number(e.target.value) })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Font Size (pt)</label>
+                    <input type="number" min={6} max={36} value={selectedField.fontSize || 13} onChange={e => updateField(selectedField.id, { fontSize: Number(e.target.value) })} className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground uppercase block mb-1">Text Color</label>
+                    <div className="flex gap-1">
+                      <input type="color" value={selectedField.color} onChange={e => updateField(selectedField.id, { color: e.target.value })} className="w-8 h-[30px] rounded border border-border p-0 cursor-pointer shrink-0" />
+                      <input type="text" value={selectedField.color} maxLength={7} onChange={e => { let v = e.target.value; if (!v.startsWith("#")) v = "#" + v; if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateField(selectedField.id, { color: v }); }} className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none" />
+                    </div>
+                  </div>
+                  {/* Team member list */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[9px] text-muted-foreground uppercase">Team Members</label>
+                      <button
+                        onClick={() => updateField(selectedField.id, { teamMembers: [...(selectedField.teamMembers ?? []), { name: "New Member", title: "Title" }] })}
+                        className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" /> Add
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {(selectedField.teamMembers ?? []).map((m: TeamMember, idx: number) => (
+                        <div key={idx} className="rounded-lg border border-border bg-muted/30 p-2 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-semibold text-muted-foreground uppercase">Member {idx + 1}</span>
+                            <button onClick={() => {
+                              const next = (selectedField.teamMembers ?? []).filter((_: TeamMember, i: number) => i !== idx);
+                              updateField(selectedField.id, { teamMembers: next });
+                            }} className="text-destructive/60 hover:text-destructive transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={m.name}
+                            placeholder="Full name"
+                            onChange={e => {
+                              const next = (selectedField.teamMembers ?? []).map((mm: TeamMember, i: number) => i === idx ? { ...mm, name: e.target.value } : mm);
+                              updateField(selectedField.id, { teamMembers: next });
+                            }}
+                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+                          <input
+                            type="text"
+                            value={m.title}
+                            placeholder="Job title"
+                            onChange={e => {
+                              const next = (selectedField.teamMembers ?? []).map((mm: TeamMember, i: number) => i === idx ? { ...mm, title: e.target.value } : mm);
+                              updateField(selectedField.id, { teamMembers: next });
+                            }}
+                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+                          <input
+                            type="url"
+                            value={m.photoUrl || ""}
+                            placeholder="Photo URL (optional)"
+                            onChange={e => {
+                              const next = (selectedField.teamMembers ?? []).map((mm: TeamMember, i: number) => i === idx ? { ...mm, photoUrl: e.target.value || undefined } : mm);
+                              updateField(selectedField.id, { teamMembers: next });
+                            }}
+                            className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
