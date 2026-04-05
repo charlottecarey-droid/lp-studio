@@ -826,7 +826,8 @@ export default function PagesGallery() {
               <span className="text-right">Actions</span>
             </div>
 
-            <div className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
+            {/* No overflow-hidden on the container so dropdown menus aren't clipped */}
+            <div className="border border-border/50 rounded-xl divide-y divide-border/40">
               {pagesPag.pageItems.map(page => {
                 const isPublished = page.status === "published";
                 const isRunning = runningTests.some(t => t.slug === page.slug);
@@ -839,74 +840,124 @@ export default function PagesGallery() {
                   }
                 } catch {}
 
+                const statusBadge = (
+                  <span className={cn(
+                    "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md shrink-0",
+                    isPublished ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
+                    isRunning ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" :
+                    "bg-muted text-muted-foreground"
+                  )}>
+                    {isPublished ? <><Globe className="w-2.5 h-2.5" /> Live</> :
+                     isRunning ? <><Globe className="w-2.5 h-2.5" /> Running</> :
+                     <><Clock className="w-2.5 h-2.5" /> Draft</>}
+                  </span>
+                );
+
                 return (
-                  <div
-                    key={page.id}
-                    className="group grid grid-cols-1 md:grid-cols-[1fr_100px_80px_80px_100px_120px] gap-2 md:gap-3 items-center px-4 py-3 hover:bg-muted/30 transition-colors"
-                  >
-                    {/* Page name + slug */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <Link href={`/builder/${page.id}`}>
-                            <span className="text-[13px] font-medium text-foreground hover:underline truncate cursor-pointer">{page.title}</span>
-                          </Link>
-                          {page.isTemplate && (
-                            <span title={`Template: ${page.templateLabel ?? page.title}`}>
-                              <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                            </span>
-                          )}
+                  <div key={page.id} className="hover:bg-muted/30 transition-colors first:rounded-t-xl last:rounded-b-xl">
+
+                    {/* ── Mobile layout (hidden on md+) ── */}
+                    <div className="md:hidden px-4 py-4 flex flex-col gap-3">
+                      {/* Title row + status badge */}
+                      <div className="flex items-start gap-3">
+                        <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link href={`/builder/${page.id}`}>
+                              <span className="text-[13px] font-medium text-foreground hover:underline cursor-pointer">{page.title}</span>
+                            </Link>
+                            {page.isTemplate && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
+                            {statusBadge}
+                          </div>
+                          <code className="text-[11px] text-muted-foreground/70 font-mono mt-0.5 block truncate">
+                            {micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}
+                          </code>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <code className="text-[11px] text-muted-foreground/70 font-mono truncate">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</code>
-                          {liveUrl && <CopyButton url={liveUrl} />}
+                      </div>
+
+                      {/* Actions row — always visible on mobile */}
+                      <div className="flex items-center gap-2 pl-5">
+                        <Link href={`/builder/${page.id}`}>
+                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 rounded-lg">
+                            <Edit2 className="w-3 h-3" /> Edit
+                          </Button>
+                        </Link>
+                        {liveUrl && (
+                          <a href={liveUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 rounded-lg">
+                              <ExternalLink className="w-3 h-3" /> Preview
+                            </Button>
+                          </a>
+                        )}
+                        {liveUrl && <CopyButton url={liveUrl} />}
+                        <div className="ml-auto">
+                          <PageActionsMenu
+                            page={page}
+                            cloningPageId={cloningPageId}
+                            onClone={() => handleClone(page)}
+                            onAbTest={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
+                            onLinks={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
+                            onShare={() => setSharePageId({ id: page.id, title: page.title })}
+                            onDelete={() => handleDelete(page)}
+                            onTemplateSaved={handleTemplateSaved}
+                          />
                         </div>
                       </div>
                     </div>
 
-                    {/* Status */}
-                    <div>
-                      <span className={cn(
-                        "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md",
-                        isPublished ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
-                        isRunning ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400" :
-                        "bg-muted text-muted-foreground"
-                      )}>
-                        {isPublished ? <><Globe className="w-2.5 h-2.5" /> Live</> :
-                         isRunning ? <><Globe className="w-2.5 h-2.5" /> Running</> :
-                         <><Clock className="w-2.5 h-2.5" /> Draft</>}
-                      </span>
-                    </div>
+                    {/* ── Desktop layout (hidden on mobile) ── */}
+                    <div className="hidden md:grid grid-cols-[1fr_100px_80px_80px_100px_120px] gap-3 items-center px-4 py-3.5 group">
+                      {/* Page name + slug */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <Link href={`/builder/${page.id}`}>
+                              <span className="text-[13px] font-medium text-foreground hover:underline truncate cursor-pointer">{page.title}</span>
+                            </Link>
+                            {page.isTemplate && (
+                              <span title={`Template: ${page.templateLabel ?? page.title}`}>
+                                <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <code className="text-[11px] text-muted-foreground/70 font-mono truncate">{micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}</code>
+                            {liveUrl && <CopyButton url={liveUrl} />}
+                          </div>
+                        </div>
+                      </div>
 
-                    {/* Blocks */}
-                    <span className="text-xs text-muted-foreground tabular-nums">{page.blocks?.length ?? 0}</span>
+                      {/* Status */}
+                      <div>{statusBadge}</div>
 
-                    {/* Score */}
-                    <div className="flex items-center gap-1.5">
-                      {seoScore && (
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-semibold", gradeBgColor(seoScore.grade))}>
-                          {seoScore.grade}
-                        </Badge>
-                      )}
-                      {perf && perf.visits > 0 && (
-                        <span className={cn(
-                          "text-[11px] font-medium tabular-nums",
-                          perf.composite >= 70 ? "text-emerald-600" :
-                          perf.composite >= 40 ? "text-amber-600" :
-                          "text-red-500"
-                        )}>
-                          {perf.composite}
-                        </span>
-                      )}
-                    </div>
+                      {/* Blocks */}
+                      <span className="text-xs text-muted-foreground tabular-nums">{page.blocks?.length ?? 0}</span>
 
-                    {/* Updated */}
-                    <span className="text-xs text-muted-foreground tabular-nums">{formatDate(page.updatedAt)}</span>
+                      {/* Score */}
+                      <div className="flex items-center gap-1.5">
+                        {seoScore && (
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-semibold", gradeBgColor(seoScore.grade))}>
+                            {seoScore.grade}
+                          </Badge>
+                        )}
+                        {perf && perf.visits > 0 && (
+                          <span className={cn(
+                            "text-[11px] font-medium tabular-nums",
+                            perf.composite >= 70 ? "text-emerald-600" :
+                            perf.composite >= 40 ? "text-amber-600" :
+                            "text-red-500"
+                          )}>
+                            {perf.composite}
+                          </span>
+                        )}
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 justify-end">
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Updated */}
+                      <span className="text-xs text-muted-foreground tabular-nums">{formatDate(page.updatedAt)}</span>
+
+                      {/* Actions — always visible on desktop too */}
+                      <div className="flex items-center gap-1 justify-end">
                         <Link href={`/builder/${page.id}`}>
                           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground">
                             <Edit2 className="w-3 h-3" /> Edit
@@ -917,18 +968,19 @@ export default function PagesGallery() {
                             <ExternalLink className="w-3 h-3" />
                           </Button>
                         </a>
+                        <PageActionsMenu
+                          page={page}
+                          cloningPageId={cloningPageId}
+                          onClone={() => handleClone(page)}
+                          onAbTest={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
+                          onLinks={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
+                          onShare={() => setSharePageId({ id: page.id, title: page.title })}
+                          onDelete={() => handleDelete(page)}
+                          onTemplateSaved={handleTemplateSaved}
+                        />
                       </div>
-                      <PageActionsMenu
-                        page={page}
-                        cloningPageId={cloningPageId}
-                        onClone={() => handleClone(page)}
-                        onAbTest={() => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
-                        onLinks={() => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
-                        onShare={() => setSharePageId({ id: page.id, title: page.title })}
-                        onDelete={() => handleDelete(page)}
-                        onTemplateSaved={handleTemplateSaved}
-                      />
                     </div>
+
                   </div>
                 );
               })}
