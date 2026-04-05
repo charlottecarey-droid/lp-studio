@@ -27,12 +27,12 @@ const SIGNAL_CONFIG: Record<
   string,
   { label: string; Icon: typeof Activity; color: string }
 > = {
-  page_view:      { label: "Viewed page",            Icon: Eye,               color: "text-blue-500" },
-  email_open:     { label: "Opened email",            Icon: Mail,              color: "text-emerald-500" },
-  email_click:    { label: "Clicked link in email",   Icon: MousePointerClick, color: "text-amber-500" },
-  form_submit:    { label: "Submitted a form",        Icon: FileText,          color: "text-violet-500" },
-  email_sent:     { label: "Email sent",              Icon: Send,              color: "text-primary" },
-  email_replied:  { label: "Replied to email",        Icon: Mail,              color: "text-violet-500" },
+  page_view:      { label: "Page view",    Icon: Eye,               color: "text-blue-500" },
+  email_open:     { label: "Email open",   Icon: Mail,              color: "text-emerald-500" },
+  email_click:    { label: "Email click",  Icon: MousePointerClick, color: "text-amber-500" },
+  form_submit:    { label: "Form submit",  Icon: FileText,          color: "text-violet-500" },
+  email_sent:     { label: "Email sent",   Icon: Send,              color: "text-primary" },
+  email_replied:  { label: "Email reply",  Icon: Mail,              color: "text-violet-500" },
 };
 
 const FALLBACK = { label: "", Icon: Activity, color: "text-muted-foreground" };

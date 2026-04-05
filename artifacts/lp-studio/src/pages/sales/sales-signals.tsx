@@ -183,8 +183,9 @@ export default function SalesSignals() {
   const signalVirtualizer = useVirtualizer({
     count: filteredSignals.length,
     getScrollElement: () => signalScrollRef.current,
-    estimateSize: () => 64,
-    overscan: 15,
+    estimateSize: () => 80,
+    overscan: 10,
+    measureElement: el => el?.getBoundingClientRect().height ?? 80,
   });
 
   const types = SIGNAL_TYPES;
@@ -410,9 +411,15 @@ export default function SalesSignals() {
                     ? `/sales/accounts/${signal.accountId}?tab=activity`
                     : "/sales/signals";
                   return (
-                    <div key={signal.id} style={rowStyle}>
-                      <Link href={dest} className="block">
-                        <div className="flex items-center gap-4 px-5 py-3.5 mb-2 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer">
+                    <div
+                      key={signal.id}
+                      data-index={virtualRow.index}
+                      ref={signalVirtualizer.measureElement}
+                      style={rowStyle}
+                      className="pb-2"
+                    >
+                      <Link href={dest} className="block text-foreground no-underline">
+                        <div className="flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer">
                           <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center">
                             {getSignalIcon(signal.type)}
                           </div>
@@ -423,12 +430,12 @@ export default function SalesSignals() {
                                 {getSignalLabel(signal.type).toLowerCase()}
                               </span>
                             </p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {signal.accountName && <span className="font-medium">{signal.accountName}</span>}
-                              {signal.source && <span className="truncate">{signal.source}</span>}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              {signal.accountName && <span className="font-medium text-muted-foreground">{signal.accountName}</span>}
+                              {signal.source && <><span className="text-border">·</span><span>{signal.source}</span></>}
                             </div>
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0">
+                          <span className="text-xs text-muted-foreground shrink-0 ml-2">
                             {format(new Date(signal.createdAt), "MMM d, h:mm a")}
                           </span>
                         </div>
