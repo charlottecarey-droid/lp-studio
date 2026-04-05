@@ -124,6 +124,7 @@ const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages
 const SalesCampaignDetail = lazy(() => import("@/pages/sales/sales-campaign-detail"));
 const SalesRoiCalculator = lazy(() => import("@/pages/sales/sales-roi-calculator"));
 const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
+const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 
 // Settings pages
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
@@ -208,6 +209,7 @@ function AppRouter() {
         <Route path="/sales/signals" component={SalesSignals} />
         <Route path="/sales/roi-calculator" component={SalesRoiCalculator} />
         <Route path="/sales/one-pager" component={SalesOnePager} />
+        <Route path="/sales/one-pager/editor" component={SalesOnePagerEditor} />
         <Route path="/sales/sfdc" component={SfdcSettings} />
 
         {/* Builder Editor (no app layout — full screen) */}

@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link as RouterLink } from "wouter";
 import {
-  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode
+  FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2
 } from "lucide-react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -190,6 +190,7 @@ export const generatePilotOnePager = async (
   editedContent: typeof defaultAudienceContent[Audience],
   customLinkText?: string,
   customLinkUrl?: string,
+  _layoutOverride?: Record<string, any>,
 ) => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   const w = doc.internal.pageSize.getWidth();
@@ -197,8 +198,8 @@ export const generatePilotOnePager = async (
   const margin = 48;
   const contentW = w - margin * 2;
 
-  let layoutOverrides: { headerCfg?: any; bodyCfg?: any; teamCfg?: any; footerCfg?: any } = {};
-  try {
+  let layoutOverrides: { headerCfg?: any; bodyCfg?: any; teamCfg?: any; footerCfg?: any } = _layoutOverride ?? {};
+  if (!_layoutOverride) try {
     const saved = await loadLayoutDefault("dandy_pilot_template_layout");
     if (saved) layoutOverrides = saved;
   } catch { }
@@ -462,9 +463,10 @@ export const generateComparisonOnePager = async (
   prospectLogoDims: { w: number; h: number },
   customLinkText?: string,
   customLinkUrl?: string,
+  _layoutOverride?: Record<string, any>,
 ) => {
-  let layoutOverrides: { headerCfg?: any; teamCfg?: any; footerCfg?: any; comparisonRows?: any[]; stats?: any[] } = {};
-  try {
+  let layoutOverrides: { headerCfg?: any; teamCfg?: any; footerCfg?: any; comparisonRows?: any[]; stats?: any[] } = _layoutOverride ?? {};
+  if (!_layoutOverride) try {
     const saved = await loadLayoutDefault("dandy_comparison_template_layout");
     if (saved) layoutOverrides = saved;
   } catch { }
@@ -660,9 +662,10 @@ export const generateNewPartnerOnePager = async (
   prospectLogoData: string | null,
   prospectLogoDims: { w: number; h: number },
   qrUrl: string,
+  _layoutOverride?: Record<string, any>,
 ) => {
-  let saved: Record<string, any> | null = null;
-  try {
+  let saved: Record<string, any> | null = _layoutOverride ?? null;
+  if (!_layoutOverride) try {
     saved = await loadLayoutDefault("dandy_partner_template_layout");
   } catch { }
 
@@ -1268,6 +1271,16 @@ const SalesOnePager = () => {
             </button>
             <h1 className="text-3xl font-bold text-foreground text-center">One-Pager Generator</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">Generate branded PDF one-pagers for DSO prospects</p>
+            {isAdmin && (
+              <div className="flex justify-center mt-3">
+                <RouterLink href="/sales/one-pager/editor">
+                  <button className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 bg-background hover:bg-muted/40 transition-all">
+                    <Settings2 className="w-3.5 h-3.5" />
+                    Edit Templates
+                  </button>
+                </RouterLink>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
