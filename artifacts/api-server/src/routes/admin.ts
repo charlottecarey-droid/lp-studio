@@ -270,13 +270,14 @@ router.post("/members", async (req, res): Promise<void> => {
   try {
     const [userResult, tenantResult, roleResult] = await Promise.all([
       pool.query(`SELECT id FROM app_users WHERE email = $1`, [email]),
-      pool.query(`SELECT name FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
+      pool.query(`SELECT name, domain FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
       pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, req.authUser!.tenantId]),
     ]);
 
     const userId: number | null = userResult.rows[0]?.id ?? null;
     const acceptedAt = userId ? new Date() : null;
     const tenantName: string = tenantResult.rows[0]?.name ?? "your workspace";
+    const tenantDomain: string | null = tenantResult.rows[0]?.domain ?? null;
     const roleName: string = roleResult.rows[0]?.name ?? "Member";
 
     const result = await pool.query(
@@ -289,8 +290,16 @@ router.post("/members", async (req, res): Promise<void> => {
       [req.authUser!.tenantId, userId, roleId, email, acceptedAt]
     );
 
+    // Derive per-tenant URLs from the tenant's custom domain when available,
+    // so Dandy and LP Studio each get their own branded sign-in link and from-address.
+    const signInUrl = tenantDomain
+      ? `https://${tenantDomain}`
+      : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
+    const fromEmail = tenantDomain
+      ? `LP Studio <noreply@${tenantDomain}>`
+      : undefined; // falls back to RESEND_FROM_EMAIL env var or default in notifications.ts
+
     // Send invite email (fire-and-forget — do not block the response)
-    const signInUrl = process.env["APP_URL"] ?? "https://app.lpstudio.ai";
     sendInviteEmail({
       inviteeEmail: email,
       inviterName: req.authUser!.name,
@@ -298,6 +307,7 @@ router.post("/members", async (req, res): Promise<void> => {
       roleName,
       isNewUser: userId === null,
       signInUrl,
+      fromEmail,
     }).catch((err) => console.error("[admin] sendInviteEmail error:", err));
 
     res.status(201).json(result.rows[0]);

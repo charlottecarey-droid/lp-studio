@@ -7,6 +7,7 @@ export interface InvitePayload {
   roleName: string;
   isNewUser: boolean;
   signInUrl: string;
+  fromEmail?: string;
 }
 
 export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
@@ -120,7 +121,7 @@ export async function sendInviteEmail(invite: InvitePayload): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@ent.meetdandy.com>",
+        from: invite.fromEmail ?? process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <noreply@lpstudio.ai>",
         to: [inviteeEmail],
         subject,
         html,
