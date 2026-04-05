@@ -14,6 +14,11 @@ export const lpSessionsTable = pgTable("lp_sessions", {
   country: text("country"),
   countryCode: text("country_code"),
   features: jsonb("features").notNull().default({}),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

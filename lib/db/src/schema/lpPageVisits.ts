@@ -9,6 +9,11 @@ export const lpPageVisitsTable = pgTable("lp_page_visits", {
   region: text("region"),
   country: text("country"),
   countryCode: text("country_code"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("lp_page_visits_page_id_idx").on(table.pageId),

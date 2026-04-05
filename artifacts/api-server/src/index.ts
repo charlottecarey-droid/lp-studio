@@ -649,6 +649,20 @@ async function runMigrations(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS idx_sales_one_pager_templates_tenant ON sales_one_pager_templates(tenant_id);
 
+      -- UTM tracking columns on sessions and page visits
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_source text;
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_medium text;
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_campaign text;
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_term text;
+      ALTER TABLE lp_sessions ADD COLUMN IF NOT EXISTS utm_content text;
+      ALTER TABLE lp_page_visits ADD COLUMN IF NOT EXISTS utm_source text;
+      ALTER TABLE lp_page_visits ADD COLUMN IF NOT EXISTS utm_medium text;
+      ALTER TABLE lp_page_visits ADD COLUMN IF NOT EXISTS utm_campaign text;
+      ALTER TABLE lp_page_visits ADD COLUMN IF NOT EXISTS utm_term text;
+      ALTER TABLE lp_page_visits ADD COLUMN IF NOT EXISTS utm_content text;
+      CREATE INDEX IF NOT EXISTS lp_sessions_utm_source_idx ON lp_sessions (utm_source) WHERE utm_source IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS lp_page_visits_utm_source_idx ON lp_page_visits (utm_source) WHERE utm_source IS NOT NULL;
+
       -- Schema migration marker table (used to run one-time data migrations safely)
       CREATE TABLE IF NOT EXISTS _schema_migration_markers (
         key text PRIMARY KEY,
