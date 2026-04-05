@@ -44,7 +44,7 @@ const PRESET_BACKGROUNDS = [
 const DARK_GREEN_FILL = "rgb(0,40,32)";
 const MID_GREEN_FILL = "rgb(20,50,40)";
 
-const generatePresetBg = (presetId: string, orientation = "portrait"): Promise<string> =>
+const generatePresetBg = (presetId: string, orientation = "portrait", headerImgUrl?: string): Promise<string> =>
   new Promise(resolve => {
     const isLandscape = orientation === "landscape";
     const cw = isLandscape ? 792 : 612;
@@ -56,22 +56,52 @@ const generatePresetBg = (presetId: string, orientation = "portrait"): Promise<s
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, cw, ch);
     const headerH = ch * 0.3;
+
+    const finish = () => resolve(canvas.toDataURL("image/png"));
+
     if (presetId === "preset:green-header") {
       ctx.fillStyle = DARK_GREEN_FILL;
       ctx.fillRect(0, 0, cw, headerH);
+      finish();
     } else if (presetId === "preset:green-split") {
       const splitX = cw * 0.48;
+      const panelW = cw - splitX;
       ctx.fillStyle = DARK_GREEN_FILL;
       ctx.fillRect(0, 0, splitX, headerH);
-      ctx.fillStyle = MID_GREEN_FILL;
-      ctx.fillRect(splitX, 0, cw - splitX, headerH);
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.font = `bold ${Math.round(headerH * 0.12)}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("↑ upload image here", splitX + (cw - splitX) / 2, headerH / 2);
+
+      if (headerImgUrl) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // Cover-fit the image into the right panel
+          const imgAr = img.width / img.height;
+          const panelAr = panelW / headerH;
+          let sx = 0, sy = 0, sw = img.width, sh = img.height;
+          if (imgAr > panelAr) { sw = img.height * panelAr; sx = (img.width - sw) / 2; }
+          else { sh = img.width / panelAr; sy = (img.height - sh) / 2; }
+          ctx.drawImage(img, sx, sy, sw, sh, splitX, 0, panelW, headerH);
+          finish();
+        };
+        img.onerror = () => {
+          // Fallback to placeholder if image fails
+          ctx.fillStyle = MID_GREEN_FILL;
+          ctx.fillRect(splitX, 0, panelW, headerH);
+          finish();
+        };
+        img.src = headerImgUrl;
+      } else {
+        ctx.fillStyle = MID_GREEN_FILL;
+        ctx.fillRect(splitX, 0, panelW, headerH);
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.font = `bold ${Math.round(headerH * 0.12)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("↑ upload image here", splitX + panelW / 2, headerH / 2);
+        finish();
+      }
+    } else {
+      finish();
     }
-    resolve(canvas.toDataURL("image/png"));
   });
 
 const pdfToImageBlob = async (file: File): Promise<Blob> => {
@@ -481,7 +511,10 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragType, setDragType] = useState<OverlayField["type"] | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [headerImgUploading, setHeaderImgUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const headerImgRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const selectedField = tpl.fields.find(f => f.id === selectedId) ?? null;
@@ -525,6 +558,41 @@ function TemplateEditor({ initial, onSave, onCancel }: {
       reader.readAsDataURL(uploadFile);
     }
     setUploading(false);
+  };
+
+  const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    setHeaderImgUploading(true);
+    try {
+      // Upload to object storage
+      let imgUrl: string;
+      try {
+        const formData = new FormData(); formData.append("file", file);
+        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Upload failed");
+        const { url } = await res.json();
+        imgUrl = url;
+      } catch {
+        // Fallback to local data URL
+        imgUrl = await new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = ev => res(ev.target?.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+      }
+      // Composite the image into the split-header background and save
+      const presetId = activePresetId ?? "preset:green-split";
+      const newBg = await generatePresetBg(presetId, tpl.orientation, imgUrl);
+      setBgPreview(newBg);
+      setTpl(p => ({ ...p, background_url: newBg, headerImageUrl: imgUrl }));
+      toast({ title: "Header photo updated" });
+    } catch {
+      toast({ title: "Failed to upload header photo", variant: "destructive" });
+    } finally {
+      setHeaderImgUploading(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -638,7 +706,8 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                         try {
                           const dataUrl = await generatePresetBg(preset.id, tpl.orientation);
                           setBgPreview(dataUrl);
-                          setTpl(p => ({ ...p, background_url: dataUrl }));
+                          setActivePresetId(preset.id);
+                          setTpl(p => ({ ...p, background_url: dataUrl, headerImageUrl: undefined }));
                         } catch { toast({ title: "Failed to generate background", variant: "destructive" }); }
                         finally { setUploading(false); }
                       }}
@@ -723,11 +792,43 @@ function TemplateEditor({ initial, onSave, onCancel }: {
             </div>
           )}
           {bgPreview && (
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <Upload className="w-3.5 h-3.5" /> Change background
-            </button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Upload className="w-3.5 h-3.5" /> Change background
+              </button>
+              {/* Header image uploader — shown for split preset or when a header image is already set */}
+              {(activePresetId === "preset:green-split" || tpl.headerImageUrl) && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => headerImgRef.current?.click()}
+                    disabled={headerImgUploading}
+                    className="flex items-center gap-1.5 text-xs text-primary/80 hover:text-primary transition-colors font-medium"
+                  >
+                    {headerImgUploading
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <ImageIcon className="w-3.5 h-3.5" />}
+                    {tpl.headerImageUrl ? "Change header photo" : "Upload header photo →"}
+                  </button>
+                  {tpl.headerImageUrl && (
+                    <button
+                      title="Remove header photo"
+                      onClick={async () => {
+                        const presetId = activePresetId ?? "preset:green-split";
+                        const newBg = await generatePresetBg(presetId, tpl.orientation, undefined);
+                        setBgPreview(newBg);
+                        setTpl(p => ({ ...p, background_url: newBg, headerImageUrl: undefined }));
+                      }}
+                      className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" />
+          <input ref={headerImgRef} type="file" accept="image/*" onChange={handleHeaderImageUpload} className="hidden" />
         </div>
 
         {/* Right: properties panel */}
