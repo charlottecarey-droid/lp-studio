@@ -159,7 +159,7 @@ router.post("/draft-email", async (req, res): Promise<void> => {
       const [a] = await db.select().from(salesAccountsTable)
         .where(eq(salesAccountsTable.id, Number(accountId)));
       if (a) {
-        accountName       = a.name ?? "";
+        accountName       = a.displayName ?? a.name ?? "";
         domain            = a.domain ?? "";
         industry          = a.industry ?? "";
         segment           = a.segment ?? "";

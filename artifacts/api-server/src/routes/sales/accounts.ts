@@ -112,9 +112,10 @@ router.post("/accounts", async (req, res): Promise<void> => {
 router.patch("/accounts/:id", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const { name, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
+    const { name, displayName, sfdcId, domain, industry, segment, parentAccountId, status, owner, notes, metadata } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
+    if (displayName !== undefined) updates.displayName = displayName === "" ? null : displayName;
     if (sfdcId !== undefined) updates.sfdcId = sfdcId;
     if (domain !== undefined) updates.domain = domain;
     if (industry !== undefined) updates.industry = industry;

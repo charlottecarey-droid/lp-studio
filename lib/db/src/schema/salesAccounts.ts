@@ -11,6 +11,7 @@ export const salesAccountsTable = pgTable("sales_accounts", {
   tenantId: integer("tenant_id").notNull(),
   salesforceId: text("salesforce_id").unique(),  // SFDC Account ID (001...)
   name: text("name").notNull(),
+  displayName: text("display_name"),         // clean display name (overrides raw name in outreach/UI)
   domain: text("domain"),
   industry: text("industry"),
   segment: text("segment"),                  // e.g. "DSO", "DSO Practice", "Independent"

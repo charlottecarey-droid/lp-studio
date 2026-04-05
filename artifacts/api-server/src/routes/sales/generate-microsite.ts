@@ -946,7 +946,7 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     const systemPrompt = buildSystemPrompt(audience, brand, templateBlockTypes);
 
     const contextParts: string[] = [];
-    contextParts.push(`ACCOUNT: ${account.name}`);
+    contextParts.push(`ACCOUNT: ${account.displayName ?? account.name}`);
     if (account.domain) contextParts.push(`Domain: ${account.domain}`);
     if (account.segment) contextParts.push(`Segment: ${account.segment}`);
     if (account.industry) contextParts.push(`Industry: ${account.industry}`);
@@ -997,7 +997,7 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     }
 
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
-    contextParts.push(`\nGenerate a personalised microsite for ${account.name} targeting ${audience} audience. Make every block specific to their business.`);
+    contextParts.push(`\nGenerate a personalised microsite for ${account.displayName ?? account.name} targeting ${audience} audience. Make every block specific to their business.`);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
