@@ -7,6 +7,7 @@ import { ModeProvider } from "@/lib/mode-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AuthGate } from "@/components/AuthGate";
 import { RoleGuard } from "@/components/RoleGuard";
+import { DevToolsPanel } from "@/components/DevToolsPanel";
 
 // ─── Route-level error boundary ────────────────────────────────────────────────
 // Wraps each rendered route so a single page crash doesn't white-screen the
@@ -321,6 +322,7 @@ function AppShell() {
           </RouteErrorBoundaryWithReset>
         </RoleGuard>
       </ModeProvider>
+      <DevToolsPanel />
       <Toaster />
     </AuthGate>
   );

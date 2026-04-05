@@ -428,4 +428,110 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/superadmin/my-tenants
+// Returns all tenants for superadmin users (session-auth, no admin-key needed).
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/superadmin/my-tenants", requireAuth, async (req, res): Promise<void> => {
+  if (!req.authUser?.isAdmin) {
+    res.status(403).json({ error: "Superadmin access required" });
+    return;
+  }
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id, t.name, t.slug, t.domain, t.microsite_domain, t.plan, t.status, t.created_at,
+        COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
+        COUNT(DISTINCT p.id)::int AS page_count
+      FROM tenants t
+      LEFT JOIN tenant_members tm ON tm.tenant_id = t.id
+      LEFT JOIN lp_pages p ON p.tenant_id = t.id
+      GROUP BY t.id
+      ORDER BY t.name ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /my-tenants error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/admin/superadmin/switch-tenant
+// Superadmin only (requireAuth + isAdmin check). Updates the session's tenantId
+// in the database so the caller's subsequent API calls run in the new tenant's
+// context. Returns the updated /me payload so the frontend can refresh its state.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/superadmin/switch-tenant", requireAuth, async (req, res): Promise<void> => {
+  if (!req.authUser?.isAdmin) {
+    res.status(403).json({ error: "Superadmin access required" });
+    return;
+  }
+
+  const { tenantId } = req.body as { tenantId: number | null };
+
+  try {
+    // Load the target tenant (null = restore to original)
+    let newTenantId: number | null = null;
+    let micrositeDomain: string | null = null;
+    let roleName = "Admin";
+
+    if (tenantId !== null) {
+      const tenantResult = await pool.query(
+        `SELECT id, microsite_domain FROM tenants WHERE id = $1`,
+        [tenantId]
+      );
+      if (!tenantResult.rows.length) {
+        res.status(404).json({ error: "Tenant not found" });
+        return;
+      }
+      newTenantId = tenantResult.rows[0].id;
+      micrositeDomain = tenantResult.rows[0].microsite_domain ?? null;
+
+      // Look up admin role for the tenant so permissions are populated
+      const roleResult = await pool.query(
+        `SELECT name FROM tenant_roles WHERE tenant_id = $1 AND is_admin = true ORDER BY id LIMIT 1`,
+        [newTenantId]
+      );
+      if (roleResult.rows.length) roleName = roleResult.rows[0].name;
+    }
+
+    // Build the new session payload — keep user identity, change tenant context.
+    // isAdmin stays true so all permission checks still pass.
+    const { SESSION_COOKIE } = await import("../middleware/requireAuth");
+    const sid = req.cookies?.[SESSION_COOKIE];
+    if (!sid) { res.status(401).json({ error: "No session" }); return; }
+
+    const existing = req.authUser!;
+    const newSess = {
+      ...existing,
+      tenantId: newTenantId,
+      micrositeDomain,
+      role: roleName,
+      // Keep ALL_PERMS so every sub-route works while impersonating
+      permissions: ALL_PERMS,
+    };
+
+    await pool.query(
+      `UPDATE app_sessions SET sess = $1 WHERE sid = $2`,
+      [JSON.stringify(newSess), sid]
+    );
+
+    res.json({
+      userId: existing.userId,
+      email: existing.email,
+      name: existing.name,
+      avatarUrl: existing.avatarUrl ?? null,
+      tenantId: newTenantId,
+      role: roleName,
+      permissions: ALL_PERMS,
+      isAdmin: true,
+      micrositeDomain,
+    });
+  } catch (err) {
+    console.error("[superadmin] POST /switch-tenant error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;
