@@ -57,7 +57,6 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
 };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 function computeScore(signals: Signal[], now: number) {
   let score = 0;
