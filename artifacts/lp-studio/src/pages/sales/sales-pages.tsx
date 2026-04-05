@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   Layout,
@@ -22,12 +22,17 @@ import {
   CheckSquare,
   Square,
   X,
+  Layers,
+  Loader2,
+  Users,
+  Globe,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -60,6 +65,18 @@ interface Account {
   name: string;
 }
 
+interface Contact {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
+interface GeneratedLink {
+  contactName: string;
+  token: string;
+}
+
 function PageStatusBadge({ status }: { status: string }) {
   return <StatusBadge status={status}>{status === "published" ? "Published" : "Draft"}</StatusBadge>;
 }
@@ -69,6 +86,7 @@ function initials(name: string) {
 }
 
 export default function SalesPages() {
+  const [, navigate] = useLocation();
   const [overview, setOverview] = useState<AccountEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +101,102 @@ export default function SalesPages() {
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(false);
+
+  // ── Clone-for-account modal ────────────────────────────────────────────────
+  const [cloneModal, setCloneModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
+  const [cloneAccountId, setCloneAccountId] = useState<number | "">("");
+  const [cloning, setCloning] = useState(false);
+  const [clonedPageId, setClonedPageId] = useState<number | null>(null);
+
+  function openCloneModal(pageId: number, pageTitle: string) {
+    setCloneModal({ pageId, pageTitle });
+    setCloneAccountId("");
+    setCloning(false);
+    setClonedPageId(null);
+  }
+
+  async function doClone() {
+    if (!cloneModal || !cloneAccountId) return;
+    setCloning(true);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${cloneModal.pageId}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: cloneAccountId }),
+      });
+      if (!res.ok) throw new Error("Clone failed");
+      const page = await res.json();
+      setClonedPageId(page.id);
+      load();
+    } catch (err) {
+      console.error("Clone error:", err);
+    } finally {
+      setCloning(false);
+    }
+  }
+
+  // ── Generate-hotlinks modal ────────────────────────────────────────────────
+  const [hotlinksModal, setHotlinksModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
+  const [hlAccountId, setHlAccountId] = useState<number | "">("");
+  const [hlContacts, setHlContacts] = useState<Contact[]>([]);
+  const [hlContactsLoading, setHlContactsLoading] = useState(false);
+  const [hlGenerating, setHlGenerating] = useState(false);
+  const [hlGenerated, setHlGenerated] = useState<GeneratedLink[]>([]);
+  const [hlCopied, setHlCopied] = useState<string | null>(null);
+
+  function openHotlinksModal(pageId: number, pageTitle: string) {
+    setHotlinksModal({ pageId, pageTitle });
+    setHlAccountId("");
+    setHlContacts([]);
+    setHlGenerating(false);
+    setHlGenerated([]);
+    setHlCopied(null);
+  }
+
+  async function loadContacts(accountId: number) {
+    setHlContactsLoading(true);
+    setHlContacts([]);
+    try {
+      const res = await fetch(`${API_BASE}/sales/accounts/${accountId}/contacts`);
+      if (res.ok) {
+        const data = await res.json();
+        setHlContacts(Array.isArray(data) ? data : data.data ?? []);
+      }
+    } catch (err) {
+      console.error("Failed to load contacts:", err);
+    } finally {
+      setHlContactsLoading(false);
+    }
+  }
+
+  async function doGenerateHotlinks() {
+    if (!hotlinksModal || !hlAccountId) return;
+    setHlGenerating(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/hotlinks/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: hlAccountId, pageId: hotlinksModal.pageId }),
+      });
+      if (!res.ok) throw new Error("Bulk hotlinks failed");
+      const created = await res.json() as Array<{ token: string; contactId: number }>;
+      // Map contact IDs → names
+      const contactMap = new Map(hlContacts.map(c => [c.id, `${c.firstName} ${c.lastName}`.trim()]));
+      setHlGenerated(created.map(h => ({ contactName: contactMap.get(h.contactId) ?? "Contact", token: h.token })));
+      load();
+    } catch (err) {
+      console.error("Generate hotlinks error:", err);
+    } finally {
+      setHlGenerating(false);
+    }
+  }
+
+  function copyHlLink(token: string) {
+    navigator.clipboard.writeText(`${window.location.origin}/p/${token}`).then(() => {
+      setHlCopied(token);
+      setTimeout(() => setHlCopied(null), 2000);
+    });
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -443,8 +557,8 @@ export default function SalesPages() {
                   {acct.accountId === -1 ? (
                     <div className="flex-1 min-w-0 flex items-center gap-3">
                       <div>
-                        <span className="font-semibold text-sm text-muted-foreground">Unlinked Microsites</span>
-                        <p className="text-[11px] text-muted-foreground/70 leading-tight">These pages aren't linked to an account — open a page to connect it</p>
+                        <span className="font-semibold text-sm text-muted-foreground">General landing pages</span>
+                        <p className="text-[11px] text-muted-foreground/70 leading-tight max-w-lg">Other landing pages not linked to a specific account. You can turn them into microsites by generating personalized links for specific accounts and contacts or cloning and adding custom variables.</p>
                       </div>
                       {selectMode && (
                         <button
@@ -501,6 +615,27 @@ export default function SalesPages() {
                             Edit
                           </button>
                         </Link>
+                        {/* General-page quick actions */}
+                        {acct.accountId === -1 && !selectMode && (
+                          <>
+                            <button
+                              onClick={() => openCloneModal(page.pageId, page.pageTitle)}
+                              className="hidden sm:flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                              title="Clone this page and link it to an account"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>Clone for account</span>
+                            </button>
+                            <button
+                              onClick={() => openHotlinksModal(page.pageId, page.pageTitle)}
+                              className="hidden sm:flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                              title="Generate personalized tracked links for contacts"
+                            >
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>Generate links</span>
+                            </button>
+                          </>
+                        )}
                         {/* Actions menu */}
                         <div className="relative">
                           <button
@@ -595,6 +730,174 @@ export default function SalesPages() {
           </div>
         )}
       </div>
+
+      {/* ── Clone for account modal ──────────────────────────────────────── */}
+      <Dialog open={!!cloneModal} onOpenChange={open => { if (!open) setCloneModal(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary" /> Clone for an account
+            </DialogTitle>
+            <DialogDescription>
+              Creates a copy of <span className="font-medium text-foreground">"{cloneModal?.pageTitle}"</span> linked to the selected account. The original page stays untouched. You can then customize the copy for that account — it'll appear under the account in the microsites tab.
+            </DialogDescription>
+          </DialogHeader>
+
+          {clonedPageId ? (
+            <div className="flex flex-col gap-4 pt-2">
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 rounded-lg px-4 py-3">
+                <Check className="w-4 h-4 shrink-0" />
+                Page cloned and linked to the account.
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  onClick={() => navigate(`/builder/${clonedPageId}`)}
+                >
+                  Open in builder
+                </Button>
+                <Button variant="outline" onClick={() => setCloneModal(null)}>Done</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 pt-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
+                <select
+                  value={cloneAccountId}
+                  onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">— Choose an account —</option>
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={!cloneAccountId || cloning}
+                  onClick={doClone}
+                >
+                  {cloning ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Cloning…</> : "Clone & link to account"}
+                </Button>
+                <Button variant="outline" onClick={() => setCloneModal(null)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Generate hotlinks modal ──────────────────────────────────────── */}
+      <Dialog open={!!hotlinksModal} onOpenChange={open => { if (!open) setHotlinksModal(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-primary" /> Generate personalized links
+            </DialogTitle>
+            <DialogDescription>
+              Creates a unique tracked link for each contact at the selected account, pointing to <span className="font-medium text-foreground">"{hotlinksModal?.pageTitle}"</span>. No changes are made to the page — share the links in emails to track individual engagement.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 pt-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
+              <select
+                value={hlAccountId}
+                onChange={e => {
+                  const id = e.target.value ? Number(e.target.value) : "";
+                  setHlAccountId(id);
+                  setHlGenerated([]);
+                  if (id) loadContacts(id);
+                  else setHlContacts([]);
+                }}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">— Choose an account —</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Contact preview */}
+            {hlAccountId !== "" && (
+              <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+                <div className="px-3 py-2 border-b border-border/50 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {hlContactsLoading ? "Loading contacts…" : `${hlContacts.filter(c => c.email).length} contacts with email`}
+                  </span>
+                </div>
+                {hlContactsLoading ? (
+                  <div className="p-3 flex flex-col gap-2">
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
+                  </div>
+                ) : hlContacts.filter(c => c.email).length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-3 py-3">No contacts with an email address found for this account. Add contacts first.</p>
+                ) : (
+                  <div className="max-h-36 overflow-y-auto divide-y divide-border/40">
+                    {hlContacts.filter(c => c.email).map(c => (
+                      <div key={c.id} className="flex items-center gap-2 px-3 py-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                          {initials(`${c.firstName} ${c.lastName}`)}
+                        </div>
+                        <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Generated links */}
+            {hlGenerated.length > 0 && (
+              <div className="rounded-lg border border-green-200 dark:border-green-800/40 bg-green-50 dark:bg-green-950/20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-green-200 dark:border-green-800/40">
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400">{hlGenerated.length} link{hlGenerated.length !== 1 ? "s" : ""} generated</p>
+                </div>
+                <div className="max-h-40 overflow-y-auto divide-y divide-green-100 dark:divide-green-900/40">
+                  {hlGenerated.map(hl => (
+                    <div key={hl.token} className="flex items-center gap-2 px-3 py-2">
+                      <span className="text-xs text-foreground flex-1 truncate">{hl.contactName}</span>
+                      <button
+                        onClick={() => copyHlLink(hl.token)}
+                        className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors shrink-0"
+                      >
+                        {hlCopied === hl.token
+                          ? <><Check className="w-3 h-3 text-green-500" /><span className="text-green-500">Copied</span></>
+                          : <><Copy className="w-3 h-3" /><span>Copy</span></>
+                        }
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {hlGenerated.length > 0 ? (
+                <Button variant="outline" className="flex-1" onClick={() => setHotlinksModal(null)}>Done</Button>
+              ) : (
+                <>
+                  <Button
+                    className="flex-1"
+                    disabled={!hlAccountId || hlContactsLoading || hlContacts.filter(c => c.email).length === 0 || hlGenerating}
+                    onClick={doGenerateHotlinks}
+                  >
+                    {hlGenerating ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Generating…</> : "Generate links"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setHotlinksModal(null)}>Cancel</Button>
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </SalesLayout>
   );
 }

@@ -248,6 +248,9 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
     return;
   }
 
+  // Optional: link the clone to a specific account immediately
+  const linkAccountId = req.body?.accountId ? Number(req.body.accountId) : null;
+
   const baseSlug = `${source.slug}-copy`;
   let slug = baseSlug;
   let suffix = 2;
@@ -272,6 +275,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         ogImage: source.ogImage ?? "",
         animationsEnabled: source.animationsEnabled ?? true,
         pageVariables: (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables)) ? source.pageVariables as Record<string, string> : {},
+        ...(linkAccountId ? { accountId: linkAccountId } : {}),
       })
       .returning();
     res.status(201).json(page);
