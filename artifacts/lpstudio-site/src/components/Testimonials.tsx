@@ -2,22 +2,25 @@ import { useInView } from "@/hooks/useInView";
 
 const testimonials = [
   {
-    quote: "We used to wait two weeks for marketing to build a landing page. Now our AEs spin one up themselves in an afternoon — on brand, with real copy. It's changed how we run campaigns.",
-    name: "Sarah M.",
-    role: "VP of Revenue, TechScale",
-    avatar: "SM",
+    quote: "We used to wait two weeks for marketing to build a landing page. Now our AEs spin one up themselves in an afternoon — on brand, with real copy. It's completely changed how we run outbound campaigns.",
+    name: "Rachel T.",
+    role: "VP of Revenue Operations",
+    company: "Series B SaaS · 180 employees",
+    avatar: "RT",
   },
   {
-    quote: "The visual builder is genuinely the best I've used. Fast, intuitive, and the AI copy is actually good — not generic filler. It sounds like something we'd write ourselves.",
-    name: "James K.",
-    role: "Performance Marketing Lead, Launchpad",
-    avatar: "JK",
+    quote: "The visual builder is the best I've used. Fast, intuitive, and the AI copy actually sounds like us — not generic filler. Our conversion rate on outbound pages went up 40% in the first month.",
+    name: "Marcus J.",
+    role: "Head of Demand Generation",
+    company: "Growth-stage fintech",
+    avatar: "MJ",
   },
   {
-    quote: "Smart Traffic changed how we think about optimization. We set it up once and it just keeps improving our conversion rate in the background. No babysitting required.",
-    name: "Priya D.",
-    role: "Head of Growth, Forma Agency",
-    avatar: "PD",
+    quote: "Smart Traffic changed how we think about optimization. Set it up once and it just keeps improving conversion in the background. No babysitting, no analyst needed — it's genuinely set-and-forget.",
+    name: "Priya S.",
+    role: "Director of Performance Marketing",
+    company: "B2B SaaS · Enterprise segment",
+    avatar: "PS",
   },
 ];
 
@@ -59,6 +62,7 @@ export default function Testimonials() {
                 <div>
                   <div className="text-sm font-semibold text-white">{t.name}</div>
                   <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{t.role}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{t.company}</div>
                 </div>
               </div>
             </div>

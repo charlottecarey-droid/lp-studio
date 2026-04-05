@@ -15,6 +15,7 @@ const tiers = [
       "Email support",
     ],
     cta: "Start Free",
+    ctaHref: "https://app.lpstudio.ai",
     highlight: false,
   },
   {
@@ -33,6 +34,7 @@ const tiers = [
       "Priority support",
     ],
     cta: "Get Started",
+    ctaHref: "https://app.lpstudio.ai",
     highlight: true,
   },
   {
@@ -50,6 +52,7 @@ const tiers = [
       "Quarterly business reviews",
     ],
     cta: "Contact Us",
+    ctaHref: "mailto:sales@lpstudio.ai",
     highlight: false,
   },
 ];
@@ -114,7 +117,7 @@ export default function Pricing() {
               </ul>
 
               <a
-                href="https://app.lpstudio.ai"
+                href={tier.ctaHref}
                 className="block w-full text-center py-3 rounded-full text-sm font-bold transition-all"
                 style={{
                   background: tier.highlight ? "#C7E738" : "rgba(255,255,255,0.07)",
