@@ -79,6 +79,7 @@ interface Account {
   privateEquityFirm: string | null;
   city: string | null;
   state: string | null;
+  contactCount?: number;
 }
 
 interface Contact {
@@ -748,6 +749,12 @@ function AccountListView() {
                 </div>
 
                 <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+                  {(account.contactCount ?? 0) > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {account.contactCount}
+                    </span>
+                  )}
                   <span>{format(new Date(account.updatedAt), "MMM d")}</span>
                 </div>
 
@@ -2114,14 +2121,27 @@ function GenerateMicrositeModal({
                   : "No contacts with email found — add contacts to generate hotlinks."}
               </p>
             </div>
+
+            {/* Workflow nudge — next steps */}
+            <div className="w-full rounded-lg bg-muted/40 border border-border/50 px-4 py-3 text-left">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Next steps</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">1</div>
+                  <span className="text-xs text-foreground">Preview & edit in the Builder</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">2</div>
+                  <span className="text-xs text-foreground">Draft outreach emails with personalised links</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">3</div>
+                  <span className="text-xs text-foreground">Track engagement in Activity</span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-2 w-full">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleClose}
-              >
-                Close
-              </Button>
               {createdPageId && (
                 <Button
                   className="flex-1 gap-1.5"
@@ -2131,6 +2151,14 @@ function GenerateMicrositeModal({
                   Open Builder
                 </Button>
               )}
+              <Button
+                variant="outline"
+                className="flex-1 gap-1.5"
+                onClick={() => { handleClose(); navigate("/sales/draft-email"); }}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Draft Email
+              </Button>
             </div>
           </div>
         ) : step === "error" ? (

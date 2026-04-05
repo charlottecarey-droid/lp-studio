@@ -93,6 +93,7 @@ const SalesDraftEmail = lazy(() => import("@/pages/sales/sales-draft-email"));
 const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
+const SalesCampaignDetail = lazy(() => import("@/pages/sales/sales-campaign-detail"));
 
 // Settings pages
 const TeamPage = lazy(() => import("@/pages/settings/TeamPage"));
@@ -164,6 +165,7 @@ function AppRouter() {
         <Route path="/sales" component={SalesDashboard} />
         <Route path="/sales/draft-email" component={SalesDraftEmail} />
         <Route path="/sales/draft-email/:contactId" component={SalesDraftEmail} />
+        <Route path="/sales/campaigns/:id" component={SalesCampaignDetail} />
         <Route path="/sales/campaigns" component={SalesOutreach} />
         <Route path="/sales/microsites" component={SalesPages} />
         <Route path="/sales/accounts/:id" component={SalesAccounts} />

@@ -6,6 +6,23 @@ import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-u
 
 const router = Router();
 
+// ─── Simple in-memory rate limiter for AI routes ────────────
+const AI_RATE_WINDOW_MS = 60_000; // 1 minute
+const AI_RATE_MAX = 10; // max requests per minute
+const aiRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkAIRateLimit(key: string): boolean {
+  const now = Date.now();
+  const bucket = aiRateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    aiRateBuckets.set(key, { count: 1, resetAt: now + AI_RATE_WINDOW_MS });
+    return true;
+  }
+  if (bucket.count >= AI_RATE_MAX) return false;
+  bucket.count++;
+  return true;
+}
+
 async function perplexitySearch(
   apiKey: string,
   query: string,
@@ -76,6 +93,13 @@ async function firecrawlScrape(apiKey: string, domain: string): Promise<string> 
 
 // POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
 router.post("/draft-email", async (req, res): Promise<void> => {
+  // Rate limit: max 10 AI requests per minute per tenant
+  const tenantKey = `draft-email-${(req as any).tenantId ?? "global"}`;
+  if (!checkAIRateLimit(tenantKey)) {
+    res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
+    return;
+  }
+
   const { contactId, accountId } = req.body;
 
   const ai = getAIClient();

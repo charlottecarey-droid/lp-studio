@@ -6,11 +6,34 @@ import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-u
 
 const router = Router();
 
+// ─── Simple in-memory rate limiter for AI routes ────────────
+const AI_RATE_WINDOW_MS = 60_000;
+const AI_RATE_MAX = 10;
+const aiRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkAIRateLimit(key: string): boolean {
+  const now = Date.now();
+  const bucket = aiRateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    aiRateBuckets.set(key, { count: 1, resetAt: now + AI_RATE_WINDOW_MS });
+    return true;
+  }
+  if (bucket.count >= AI_RATE_MAX) return false;
+  bucket.count++;
+  return true;
+}
+
 // POST /person-brief  (mounted under /api/sales by the parent router)
 // Accepts the research text already gathered by draft-email and generates
 // a structured call-prep brief for a specific contact.
 router.post("/person-brief", async (req, res) => {
   try {
+    // Rate limit: max 10 AI requests per minute per tenant
+    const tenantKey = `person-brief-${(req as any).tenantId ?? "global"}`;
+    if (!checkAIRateLimit(tenantKey)) {
+      return res.status(429).json({ error: "Too many AI requests. Please wait a minute before trying again." });
+    }
+
     const ai = getAIClient();
     if (!ai) return res.status(503).json({ error: "No AI client configured" });
 

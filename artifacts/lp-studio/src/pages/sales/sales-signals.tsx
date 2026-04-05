@@ -1,12 +1,18 @@
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useMemo, type CSSProperties } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { format } from "date-fns";
 import {
   Activity,
   Trash2,
   Filter,
+  Globe,
+  Mail,
+  Building2,
+  List,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +52,8 @@ export default function SalesSignals() {
   const [filter, setFilter] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [groupByAccount, setGroupByAccount] = useState(false);
+  const [collapsedAccounts, setCollapsedAccounts] = useState<Set<string>>(new Set());
 
   // Account-level filters inherited from saved view / Accounts page
   const [acctFilterOwners, setAcctFilterOwners] = useState<string[]>([]);
@@ -140,6 +148,32 @@ export default function SalesSignals() {
   const filteredSignals = acctFilterActive
     ? signals.filter(s => !s.accountName || acctAccountNames!.has(s.accountName))
     : signals;
+
+  // Group signals by account
+  const groupedSignals = useMemo(() => {
+    if (!groupByAccount) return null;
+    const groups = new Map<string, Signal[]>();
+    for (const s of filteredSignals) {
+      const key = s.accountName || "Unknown Account";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+    // Sort groups by most recent signal
+    return [...groups.entries()].sort((a, b) => {
+      const aLatest = new Date(a[1][0].createdAt).getTime();
+      const bLatest = new Date(b[1][0].createdAt).getTime();
+      return bLatest - aLatest;
+    });
+  }, [groupByAccount, filteredSignals]);
+
+  function toggleAccountCollapse(accountName: string) {
+    setCollapsedAccounts(prev => {
+      const next = new Set(prev);
+      if (next.has(accountName)) next.delete(accountName);
+      else next.add(accountName);
+      return next;
+    });
+  }
 
   const pag = usePagination(filteredSignals, 25);
 
@@ -250,6 +284,23 @@ export default function SalesSignals() {
               {t.replace(/_/g, " ")}
             </Button>
           ))}
+
+          <div className="ml-auto flex items-center gap-1 border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setGroupByAccount(false)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${!groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <List className="w-3 h-3" />
+              Timeline
+            </button>
+            <button
+              onClick={() => setGroupByAccount(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Building2 className="w-3 h-3" />
+              By Account
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -269,8 +320,71 @@ export default function SalesSignals() {
                 ? "There are no signals from accounts in your active view. Try a different view or clear the filter."
                 : "Signals appear when contacts view your pages, open emails, click links, or submit forms. Start by creating a microsite and sending outreach."}
             </p>
+            {!acctFilterActive && (
+              <div className="flex items-center gap-3 mt-4">
+                <Link href="/sales/microsites">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Globe className="w-3.5 h-3.5" />
+                    Create a Microsite
+                  </Button>
+                </Link>
+                <Link href="/sales/draft-email">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Mail className="w-3.5 h-3.5" />
+                    Draft an Email
+                  </Button>
+                </Link>
+              </div>
+            )}
           </Card>
+        ) : groupByAccount && groupedSignals ? (
+          /* ── Grouped by Account view ─── */
+          <>
+            <p className="text-xs text-muted-foreground px-1">{filteredSignals.length} signal{filteredSignals.length !== 1 ? "s" : ""} across {groupedSignals.length} account{groupedSignals.length !== 1 ? "s" : ""}</p>
+            <div className="flex flex-col gap-3 max-h-[70vh] overflow-y-auto rounded-xl">
+              {groupedSignals.map(([accountName, acctSignals]) => {
+                const isCollapsed = collapsedAccounts.has(accountName);
+                return (
+                  <div key={accountName} className="border border-border/60 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => toggleAccountCollapse(accountName)}
+                      className="w-full flex items-center gap-3 px-5 py-3.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    >
+                      {isCollapsed ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+                      <Building2 className="w-4 h-4 text-primary shrink-0" />
+                      <span className="text-sm font-semibold text-foreground flex-1">{accountName}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{acctSignals.length} signal{acctSignals.length !== 1 ? "s" : ""}</span>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="flex flex-col divide-y divide-border/40">
+                        {acctSignals.map((signal) => (
+                          <div key={signal.id} className="flex items-center gap-4 px-5 py-3 bg-card hover:bg-muted/20 transition-colors">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
+                              {getSignalIcon(signal.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground">
+                                {signal.contactName ?? "Anonymous"}{" "}
+                                <span className="text-muted-foreground font-normal">
+                                  {getSignalLabel(signal.type).toLowerCase()}
+                                </span>
+                              </p>
+                              {signal.source && <p className="text-xs text-muted-foreground truncate">{signal.source}</p>}
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {format(new Date(signal.createdAt), "MMM d, h:mm a")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : (
+          /* ── Flat timeline view ─── */
           <>
             <p className="text-xs text-muted-foreground px-1">{filteredSignals.length} signal{filteredSignals.length !== 1 ? "s" : ""}</p>
             <div ref={signalScrollRef} className="max-h-[70vh] overflow-y-auto rounded-xl" style={{ contain: "strict" }}>
