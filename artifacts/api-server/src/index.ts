@@ -56,6 +56,8 @@ async function runMigrations(): Promise<void> {
         updated_at timestamptz NOT NULL DEFAULT now()
       );
       ALTER TABLE lp_custom_blocks ADD COLUMN IF NOT EXISTS block_settings jsonb NOT NULL DEFAULT '{}';
+      ALTER TABLE lp_custom_blocks ADD COLUMN IF NOT EXISTS tenant_id integer;
+      ALTER TABLE lp_custom_blocks ADD COLUMN IF NOT EXISTS segment text NOT NULL DEFAULT 'core';
 
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
 

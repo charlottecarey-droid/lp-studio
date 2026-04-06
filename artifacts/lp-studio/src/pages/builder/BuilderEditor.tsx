@@ -689,6 +689,23 @@ export default function BuilderEditor() {
 
   const { toast } = useToast();
 
+  const handleSetAsDefault = useCallback(async (block: PageBlock) => {
+    try {
+      const res = await fetch(`${API_BASE}/lp/block-defaults/${block.type}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ props: block.props, blockSettings: block.blockSettings ?? {} }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? "Failed to set default");
+      }
+      toast({ title: "Default saved", description: `${block.type} default updated.` });
+    } catch (err) {
+      toast({ title: "Couldn't set default", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    }
+  }, [toast]);
+
   // Content Brief state
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
@@ -1600,6 +1617,7 @@ export default function BuilderEditor() {
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
                           onSaveToLibrary={setSaveToLibraryBlock}
+                          onSetAsDefault={handleSetAsDefault}
                           commentMode={commentMode}
                           blockIndex={index}
                           blockComments={commentBlocks.find(cb => cb.blockIndex === index)}
@@ -2311,6 +2329,7 @@ interface SortableCanvasBlockProps {
   onTestBlock: () => void;
   onBlockChange: (updated: PageBlock) => void;
   onSaveToLibrary: (block: PageBlock) => void;
+  onSetAsDefault: (block: PageBlock) => void;
   commentMode: boolean;
   blockIndex: number;
   blockComments: BlockComments | undefined;
@@ -2318,7 +2337,7 @@ interface SortableCanvasBlockProps {
   onResolveComment: (commentId: number) => Promise<void>;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, commentMode, blockIndex, blockComments, onAddComment, onResolveComment }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -2327,6 +2346,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
 
   const { toast } = useToast();
   const [refreshingCopy, setRefreshingCopy] = useState(false);
+  const [settingDefault, setSettingDefault] = useState(false);
 
   const blockCopyFields = COPY_FIELDS[block.type];
   const hasCopyFields = Array.isArray(blockCopyFields) && blockCopyFields.length > 0;
@@ -2429,6 +2449,14 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
           title="Save to Library"
         >
           <BookmarkPlus className="w-3.5 h-3.5" />
+        </button>
+        <button
+          className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-amber-500 disabled:opacity-50"
+          onClick={async e => { e.stopPropagation(); if (settingDefault) return; setSettingDefault(true); try { await onSetAsDefault(block); } finally { setSettingDefault(false); } }}
+          title="Set as Default"
+          disabled={settingDefault}
+        >
+          {settingDefault ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />}
         </button>
         <button
           className="p-1.5 rounded-md bg-white/95 border border-border shadow-sm text-muted-foreground hover:text-red-500"

@@ -34,7 +34,7 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
     res.status(400).json({ error: "block_type is required" });
     return;
   }
-  const resolvedSegment = segment === "segment" ? "segment" : "core";
+  const resolvedSegment = (typeof segment === "string" && segment.trim()) ? segment.trim() : "core";
   try {
     const result = await db.execute(
       sql`INSERT INTO lp_custom_blocks (tenant_id, name, block_type, props, block_settings, segment, sort_order)
@@ -66,7 +66,7 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "block_type is required" });
     return;
   }
-  const resolvedSegment = segment === "segment" ? "segment" : "core";
+  const resolvedSegment = (typeof segment === "string" && segment.trim()) ? segment.trim() : "core";
   try {
     const result = await db.execute(
       sql`UPDATE lp_custom_blocks
