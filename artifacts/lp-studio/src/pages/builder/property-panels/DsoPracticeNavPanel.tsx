@@ -51,29 +51,38 @@ export function DsoPracticeNavPanel({ props, onChange }: Props) {
         <p className="text-xs text-muted-foreground leading-relaxed">
           Anchor targets (e.g. <code className="bg-muted px-1 rounded">#team</code>) must match a block's Anchor ID in its Advanced settings.
         </p>
-        <div className="space-y-2 mt-2">
+        <div className="space-y-3 mt-2">
           {links.map((link, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                value={link.label}
-                onChange={e => updateLink(i, "label", e.target.value)}
-                placeholder="Label"
-                className="flex-1"
-              />
-              <Input
-                value={link.anchor}
-                onChange={e => updateLink(i, "anchor", e.target.value)}
-                placeholder="#anchor"
-                className="w-32 font-mono text-xs"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={() => removeLink(i)}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
+            <div key={i} className="rounded-md border bg-muted/30 p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Link {i + 1}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeLink(i)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Link text</Label>
+                <Input
+                  value={link.label}
+                  onChange={e => updateLink(i, "label", e.target.value)}
+                  placeholder="e.g. How it works"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Anchor target</Label>
+                <Input
+                  value={link.anchor}
+                  onChange={e => updateLink(i, "anchor", e.target.value)}
+                  placeholder="#section"
+                  className="h-8 text-sm font-mono"
+                />
+              </div>
             </div>
           ))}
         </div>
