@@ -180,9 +180,9 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</span>
                     </a>
                   )}
-                  {m.calendlyUrl && (
+                  {(m.chilipiperUrl || (m as { chilipiperUrl?: string; calendlyUrl?: string }).calendlyUrl) && (
                     <a
-                      href={m.calendlyUrl}
+                      href={m.chilipiperUrl || (m as { chilipiperUrl?: string; calendlyUrl?: string }).calendlyUrl || ""}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{

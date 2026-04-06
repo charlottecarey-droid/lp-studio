@@ -140,13 +140,13 @@ function ResourceForm({
 }
 
 function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
-  const v = value as { name?: string; role?: string; email?: string; calendlyUrl?: string; photo?: string };
+  const v = value as { name?: string; role?: string; email?: string; chilipiperUrl?: string; photo?: string };
   return (
     <div className="space-y-2">
       <Input placeholder="Full name" value={v.name ?? ""} onChange={e => onChange({ ...v, name: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Role / Title (e.g. Enterprise AE)" value={v.role ?? ""} onChange={e => onChange({ ...v, role: e.target.value })} className="text-xs h-7" />
       <Input placeholder="email@meetdandy.com" value={v.email ?? ""} onChange={e => onChange({ ...v, email: e.target.value })} className="text-xs h-7" />
-      <Input placeholder="ChiliPiper / Calendly URL" value={v.calendlyUrl ?? ""} onChange={e => onChange({ ...v, calendlyUrl: e.target.value })} className="text-xs h-7" />
+      <Input placeholder="Chili Piper URL" value={v.chilipiperUrl ?? ""} onChange={e => onChange({ ...v, chilipiperUrl: e.target.value })} className="text-xs h-7" />
       <ImagePicker label="Headshot" value={v.photo ?? ""} onChange={url => onChange({ ...v, photo: url })} />
     </div>
   );
@@ -156,7 +156,7 @@ function getDefaultContent(type: LibraryType): Record<string, unknown> {
   if (type === "product_showcase") return { name: "", description: "", badge: "", image: "" };
   if (type === "product_grid") return { title: "", description: "", image: "" };
   if (type === "case_study") return { title: "", categories: "", url: "#", image: "", logoUrl: "" };
-  if (type === "team_member") return { name: "", role: "", email: "", calendlyUrl: "", photo: "" };
+  if (type === "team_member") return { name: "", role: "", email: "", chilipiperUrl: "", photo: "" };
   return { title: "", description: "", category: "Article", url: "#", image: "" };
 }
 

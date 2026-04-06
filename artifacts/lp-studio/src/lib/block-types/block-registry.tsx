@@ -1627,9 +1627,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaText: "Book a Meeting",
       ctaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
       members: [
-        { name: "Asad Ahmed", role: "Enterprise AE", email: "asad.ahmed@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/asad-ahmed" },
-        { name: "Dan MacAdam", role: "Strategic AE", email: "dan.macadam@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/dan-macadam" },
-        { name: "Matt Gorski", role: "Large Enterprise AE", email: "matt.gorski@meetdandy.com", calendlyUrl: "https://meetdandy.chilipiper.com/book/me/Matt-Gorski" },
+        { name: "Asad Ahmed", role: "Enterprise AE", email: "asad.ahmed@meetdandy.com", chilipiperUrl: "https://meetdandy.chilipiper.com/book/me/asad-ahmed" },
+        { name: "Dan MacAdam", role: "Strategic AE", email: "dan.macadam@meetdandy.com", chilipiperUrl: "https://meetdandy.chilipiper.com/book/me/dan-macadam" },
+        { name: "Matt Gorski", role: "Large Enterprise AE", email: "matt.gorski@meetdandy.com", chilipiperUrl: "https://meetdandy.chilipiper.com/book/me/Matt-Gorski" },
       ],
       backgroundStyle: "dark",
     }),

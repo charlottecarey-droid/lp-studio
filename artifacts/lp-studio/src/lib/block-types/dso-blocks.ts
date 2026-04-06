@@ -262,7 +262,7 @@ export interface DsoMeetTeamMember {
   role: string;
   photo?: string;
   email?: string;
-  calendlyUrl?: string;
+  chilipiperUrl?: string;
 }
 
 export interface DsoMeetTeamBlockProps {

@@ -15,7 +15,7 @@ import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 
 const API_BASE = "/api";
 
-async function saveRepToLibrary(member: { name: string; role: string; email?: string; calendlyUrl?: string; photo?: string }) {
+async function saveRepToLibrary(member: { name: string; role: string; email?: string; chilipiperUrl?: string; photo?: string }) {
   const res = await fetch(`${API_BASE}/lp/library/team_member`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -51,7 +51,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
     const next = members.map((m, idx) => idx === i ? { ...m, ...patch } : m);
     onChange({ ...block, props: { ...p, members: next } });
   };
-  const addMember = () => onChange({ ...block, props: { ...p, members: [...members, { name: "", role: "", email: "", calendlyUrl: "" }] } });
+  const addMember = () => onChange({ ...block, props: { ...p, members: [...members, { name: "", role: "", email: "", chilipiperUrl: "" }] } });
   const removeMember = (i: number) => onChange({ ...block, props: { ...p, members: members.filter((_, idx) => idx !== i) } });
 
   const handleLibrarySelect = (items: Record<string, unknown>[]) => {
@@ -59,7 +59,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
       name: String(c.name ?? ""),
       role: String(c.role ?? ""),
       email: String(c.email ?? ""),
-      calendlyUrl: String(c.calendlyUrl ?? ""),
+      chilipiperUrl: String(c.chilipiperUrl ?? (c.calendlyUrl ?? "")),
       photo: c.photo ? String(c.photo) : undefined,
     }));
     onChange({ ...block, props: { ...p, members: [...members, ...newMembers] } });
@@ -138,7 +138,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
               <Input value={m.name} onChange={e => updateMember(i, { name: e.target.value })} placeholder="Name" className="h-8 text-xs" />
               <Input value={m.role} onChange={e => updateMember(i, { role: e.target.value })} placeholder="Role / Title" className="h-8 text-xs" />
               <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@meetdandy.com" className="h-8 text-xs" />
-              <Input value={m.calendlyUrl ?? ""} onChange={e => updateMember(i, { calendlyUrl: e.target.value })} placeholder="Calendly / booking URL" className="h-8 text-xs" />
+              <Input value={m.chilipiperUrl ?? ""} onChange={e => updateMember(i, { chilipiperUrl: e.target.value })} placeholder="Chili Piper / booking URL" className="h-8 text-xs" />
               <ImagePicker label="Headshot" value={m.photo ?? ""} onChange={url => updateMember(i, { photo: url })} />
             </div>
           ))}

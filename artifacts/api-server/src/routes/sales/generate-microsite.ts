@@ -169,37 +169,67 @@ function fillEmptyVideos(blocks: unknown[], videoUrls: string[]): unknown[] {
   });
 }
 
+interface CtaOverride {
+  mode: "url" | "chilipiper";
+  url: string;
+}
+
 /** Force brand CTA color, Chili Piper URL, and default CTA URL into every block that needs them. */
-function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>): unknown[] {
+function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>, ctaOverride?: CtaOverride): unknown[] {
   const ctaColor = (brand.ctaBackground as string) || (brand.accentColor as string) || (brand.primaryColor as string);
-  const chilipiperUrl = brand.chilipiperUrl as string | undefined;
-  const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
+
+  // If ctaOverride is present it is authoritative — replace CTA on all relevant blocks unconditionally.
+  // Without an override, fall back to brand-level config (only fill empty/# slots).
+  const overrideUrl = ctaOverride?.url;
+  const overrideMode = ctaOverride?.mode;
+  const isChilipiperOverride = overrideMode === "chilipiper";
+
+  const brandChilipiperUrl = brand.chilipiperUrl as string | undefined;
+  const brandDefaultCtaUrl = brand.defaultCtaUrl as string | undefined;
+
   return blocks.map((block) => {
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown>) };
     if (ctaColor && "ctaColor" in props) props.ctaColor = ctaColor;
-    if (chilipiperUrl && typeof b.type === "string" && b.type.startsWith("dso-")) {
-      if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
-        props.primaryCtaUrl = chilipiperUrl;
-        props.primaryCtaMode = "chilipiper";
+
+    if (overrideUrl) {
+      // ctaOverride is authoritative: replace all CTA URL fields on every block that has them
+      if ("primaryCtaUrl" in props) {
+        props.primaryCtaUrl = overrideUrl;
+        props.primaryCtaMode = isChilipiperOverride ? "chilipiper" : "link";
       }
-      if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
-        props.ctaUrl = chilipiperUrl;
-        props.ctaMode = "chilipiper";
+      if ("ctaUrl" in props) {
+        props.ctaUrl = overrideUrl;
+        props.ctaMode = isChilipiperOverride ? "chilipiper" : "link";
+      }
+      if ("secondaryCtaUrl" in props) {
+        props.secondaryCtaUrl = overrideUrl;
+      }
+    } else {
+      // No override: use brand defaults, but only fill empty / "#" slots
+      if (brandChilipiperUrl && typeof b.type === "string" && b.type.startsWith("dso-")) {
+        if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
+          props.primaryCtaUrl = brandChilipiperUrl;
+          props.primaryCtaMode = "chilipiper";
+        }
+        if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
+          props.ctaUrl = brandChilipiperUrl;
+          props.ctaMode = "chilipiper";
+        }
+      }
+      if (brandDefaultCtaUrl) {
+        if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
+          props.primaryCtaUrl = brandDefaultCtaUrl;
+        }
+        if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
+          props.ctaUrl = brandDefaultCtaUrl;
+        }
+        if ("secondaryCtaUrl" in props && (!props.secondaryCtaUrl || props.secondaryCtaUrl === "#")) {
+          props.secondaryCtaUrl = brandDefaultCtaUrl;
+        }
       }
     }
-    // Fallback: replace any remaining "#" with brand's defaultCtaUrl
-    if (defaultCtaUrl) {
-      if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
-        props.primaryCtaUrl = defaultCtaUrl;
-      }
-      if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
-        props.ctaUrl = defaultCtaUrl;
-      }
-      if ("secondaryCtaUrl" in props && (!props.secondaryCtaUrl || props.secondaryCtaUrl === "#")) {
-        props.secondaryCtaUrl = defaultCtaUrl;
-      }
-    }
+
     b.props = props;
     return b;
   });
@@ -922,7 +952,7 @@ ${forbiddenList.map(p => `- "${p}"`).join("\n")}
  */
 router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (req, res): Promise<void> => {
   const accountId = Number(req.params.accountId);
-  const { prompt: userPrompt, audience, templateId } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number };
+  const { prompt: userPrompt, audience, templateId, ctaOverride } = req.body as { prompt?: string; audience?: MicrositeAudience; templateId?: number; ctaOverride?: CtaOverride };
 
   if (!audience || !["dso-corporate", "dso-practice", "independent"].includes(audience)) {
     res.status(400).json({ error: "audience is required: 'dso-corporate' | 'dso-practice' | 'independent'" });
@@ -1051,7 +1081,7 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
     // Post-process: fill any empty image slots, replace invented video URLs, inject brand
     normalizedBlocks = fillEmptyImages(normalizedBlocks, images) as AiBlock[];
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
-    normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand) as AiBlock[];
+    normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];
 
     // If a template was used, restore images from the template blocks — the AI
     // updated copy but we keep the original carefully chosen images.

@@ -2976,6 +2976,12 @@ interface MarketingTemplate {
   templateDescription: string | null;
 }
 
+interface SalesRep {
+  id: number;
+  name: string;
+  content: { chilipiperUrl?: string; calendlyUrl?: string; role?: string };
+}
+
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -3002,13 +3008,24 @@ function GenerateMicrositeModal({
   const [hotlinkCount, setHotlinkCount] = useState(0);
   const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<MarketingTemplate | null>(null);
+  const [ctaMode, setCtaMode] = useState<"url" | "chilipiper">("url");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [salesReps, setSalesReps] = useState<SalesRep[]>([]);
+  const [selectedRepId, setSelectedRepId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    fetch(`${API_BASE}/lp/templates`)
-      .then(r => r.json())
-      .then((data: MarketingTemplate[]) => setMarketingTemplates(data))
-      .catch(() => {});
+    Promise.all([
+      fetch(`${API_BASE}/lp/templates`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/lp/library/team_member`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/lp/brand`).then(r => r.json()).catch(() => ({})),
+    ]).then(([templates, reps, brand]: [MarketingTemplate[], SalesRep[], Record<string, unknown>]) => {
+      setMarketingTemplates(templates);
+      setSalesReps(reps);
+      const brandConfig = (brand.config ?? brand) as Record<string, unknown>;
+      const defaultUrl = (brandConfig.defaultCtaUrl as string | undefined) ?? "";
+      setCtaUrl(defaultUrl);
+    });
   }, [open]);
 
   function reset() {
@@ -3019,6 +3036,10 @@ function GenerateMicrositeModal({
     setCreatedPageId(null);
     setHotlinkCount(0);
     setSelectedTemplate(null);
+    setCtaMode("url");
+    setCtaUrl("");
+    setSalesReps([]);
+    setSelectedRepId(null);
   }
 
   function handleClose() {
@@ -3033,6 +3054,16 @@ function GenerateMicrositeModal({
     try {
       let pageId: number;
 
+      // Build ctaOverride from the CTA destination selection
+      let ctaOverride: { mode: "url" | "chilipiper"; url: string } | undefined;
+      if (ctaMode === "chilipiper" && selectedRepId !== null) {
+        const rep = salesReps.find(r => r.id === selectedRepId);
+        const repUrl = rep?.content?.chilipiperUrl || rep?.content?.calendlyUrl || "";
+        if (repUrl) ctaOverride = { mode: "chilipiper", url: repUrl };
+      } else if (ctaMode === "url" && ctaUrl.trim()) {
+        ctaOverride = { mode: "url", url: ctaUrl.trim() };
+      }
+
       // Always AI-generate — if a template is selected, its block layout is passed
       // as a fixed constraint so AI customises the copy while preserving the structure
       const genRes = await fetch(`${API_BASE}/sales/accounts/${accountId}/generate-microsite`, {
@@ -3042,6 +3073,7 @@ function GenerateMicrositeModal({
           audience,
           prompt: prompt.trim() || undefined,
           ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
+          ...(ctaOverride ? { ctaOverride } : {}),
         }),
       });
       if (!genRes.ok) {
@@ -3073,6 +3105,15 @@ function GenerateMicrositeModal({
   }
 
   const busy = step === "generating" || step === "linking";
+
+  const selectedRep = selectedRepId !== null ? salesReps.find(r => r.id === selectedRepId) : null;
+  const selectedRepHasUrl = selectedRep
+    ? !!(selectedRep.content?.chilipiperUrl || selectedRep.content?.calendlyUrl)
+    : false;
+  const ctaValid =
+    ctaMode === "url"
+      ? true
+      : selectedRepId !== null && selectedRepHasUrl;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) handleClose(); }}>
@@ -3239,6 +3280,75 @@ function GenerateMicrositeModal({
               />
             </div>
 
+            {/* CTA Destination */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">CTA destination</Label>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setCtaMode("url")}
+                  className={[
+                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                    ctaMode === "url"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border bg-background hover:border-primary/40",
+                    busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <span className="text-sm font-medium leading-tight">URL</span>
+                  <span className="text-xs text-muted-foreground">Send all CTAs to a specific link</span>
+                </button>
+                {ctaMode === "url" && (
+                  <input
+                    type="url"
+                    value={ctaUrl}
+                    onChange={e => setCtaUrl(e.target.value)}
+                    placeholder="https://..."
+                    disabled={busy}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setCtaMode("chilipiper")}
+                  className={[
+                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                    ctaMode === "chilipiper"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border bg-background hover:border-primary/40",
+                    busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                  ].join(" ")}
+                >
+                  <span className="text-sm font-medium leading-tight">Book with a rep (Chili Piper)</span>
+                  <span className="text-xs text-muted-foreground">Route all CTAs to a rep's booking link</span>
+                </button>
+                {ctaMode === "chilipiper" && (
+                  <>
+                    <select
+                      value={selectedRepId ?? ""}
+                      onChange={e => setSelectedRepId(e.target.value ? Number(e.target.value) : null)}
+                      disabled={busy}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                    >
+                      <option value="">Select a rep…</option>
+                      {salesReps.map(rep => (
+                        <option key={rep.id} value={rep.id}>
+                          {rep.name}{rep.content?.role ? ` — ${rep.content.role}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedRepId !== null && !selectedRepHasUrl && (
+                      <p className="text-xs text-amber-600">This rep has no Chili Piper URL saved. Select another rep or add their URL in the Sales Reps library.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
             {busy && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -3250,7 +3360,7 @@ function GenerateMicrositeModal({
               <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
                 Cancel
               </Button>
-              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience}>
+              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience || !ctaValid}>
                 {busy ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
