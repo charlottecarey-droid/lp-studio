@@ -143,9 +143,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
     ctaMode = "link",
   } = props;
   const base = stats && stats.length > 0 ? stats : DEFAULT_STATS;
-  const displayStats = base.length >= 6
-    ? base.slice(0, 6)
-    : [...base, ...DEFAULT_STATS.slice(base.length)].slice(0, 6);
+  const displayStats = base.slice(0, 6);
 
   const dark = isDarkBg(backgroundStyle);
   const fg         = dark ? "hsl(48,100%,96%)"      : P;

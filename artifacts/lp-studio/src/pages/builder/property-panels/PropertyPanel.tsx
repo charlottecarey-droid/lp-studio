@@ -1839,7 +1839,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </div>
                 ))}
                 {stats.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-2">No stats yet — uses defaults.</p>
+                  <div className="text-center py-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">Showing built-in defaults. Load them to start editing.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 gap-1"
+                      onClick={() => onChange({ ...block, props: { ...p, stats: [
+                        { value: "96%",      label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },
+                        { value: "12,000+",  label: "Dental practices",       description: "Trust Dandy for their lab work" },
+                        { value: "4.2 days", label: "Average turnaround",     description: "Including AI review and quality control" },
+                        { value: "$0",       label: "CAPEX to start",         description: "All hardware included at no upfront cost" },
+                        { value: "30%",      label: "Case acceptance lift",   description: "On average across DSO partner networks" },
+                        { value: "100%",     label: "AI quality screened",    description: "Every scan reviewed before it leaves the chair" },
+                      ] } })}
+                    >
+                      <Plus className="w-3 h-3" /> Load defaults to edit
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
