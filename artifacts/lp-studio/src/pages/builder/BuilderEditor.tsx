@@ -89,6 +89,9 @@ interface FetchedPage {
   ogImage?: string;
   animationsEnabled?: boolean;
   pageVariables?: Record<string, string>;
+  isTemplate?: boolean;
+  templateLabel?: string | null;
+  templateDescription?: string | null;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
