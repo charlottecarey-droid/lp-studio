@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
@@ -86,18 +86,17 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   const inView = useInView(containerRef, { once: true, amount: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    // Force mute and strip controls imperatively — React props are unreliable
-    v.muted = true;
-    v.loop = true;
-    v.controls = false;
-    v.playsInline = true;
-    v.removeAttribute("controls");
-    v.load();
-    v.play().catch(() => {});
-  }, [props.videoUrl, props.videoAutoplay]);
+  // Set muted + play imperatively at mount — React's muted prop is unreliable
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    if (!el) return;
+    el.muted = true;
+    el.controls = false;
+    el.removeAttribute("controls");
+    if (props.videoAutoplay !== false) {
+      el.play().catch(() => {});
+    }
+  }, [props.videoUrl, props.videoAutoplay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const v = videoRef.current;
@@ -278,18 +277,11 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
                 {isNativeVideoUrl(props.videoUrl) ? (
                   <video
-                    ref={(el) => {
-                      (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-                      if (el) {
-                        el.muted = true;
-                        el.removeAttribute("controls");
-                        el.setAttribute("playsinline", "");
-                      }
-                    }}
-                    key={`iv-video-${props.videoUrl}`}
+                    ref={attachVideo}
+                    key={`iv-video-${props.videoUrl}-${props.videoAutoplay}`}
                     src={props.videoUrl}
                     className="w-full h-full object-cover"
-                    autoPlay
+                    autoPlay={props.videoAutoplay !== false}
                     muted
                     loop
                     playsInline

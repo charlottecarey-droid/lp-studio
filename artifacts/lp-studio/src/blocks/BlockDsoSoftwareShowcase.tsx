@@ -1,5 +1,5 @@
 import { motion, useInView } from "framer-motion";
-import { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 import type { DsoSoftwareShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -47,18 +47,17 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   const containerRef = useRef<HTMLElement>(null);
   const inView = useInView(containerRef, { once: true, amount: 0 });
 
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    // Force mute and strip controls imperatively — React props are unreliable
-    v.muted = true;
-    v.loop = true;
-    v.controls = false;
-    v.playsInline = true;
-    v.removeAttribute("controls");
-    v.load();
-    v.play().catch(() => {});
-  }, [videoUrl, autoplay]);
+  // Set muted + play imperatively at mount — React's muted prop is unreliable
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    if (!el) return;
+    el.muted = true;
+    el.controls = false;
+    el.removeAttribute("controls");
+    if (autoplay) {
+      el.play().catch(() => {});
+    }
+  }, [videoUrl, autoplay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const v = videoRef.current;
@@ -173,19 +172,11 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
             <video
-              ref={(el) => {
-                (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-                if (el) {
-                  el.muted = true;
-                  el.controls = false;
-                  el.removeAttribute("controls");
-                  el.setAttribute("playsinline", "");
-                }
-              }}
+              ref={attachVideo}
               key={`ss-video-${videoUrl}-${autoplay}`}
               src={videoUrl}
               style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
-              autoPlay
+              autoPlay={autoplay}
               muted
               loop
               playsInline
