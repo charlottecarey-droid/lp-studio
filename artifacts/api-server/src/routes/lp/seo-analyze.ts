@@ -53,11 +53,12 @@ Return ONLY a valid JSON array of suggestion objects. Each object must have:
 Return 5-8 suggestions, ordered by priority (high first). No markdown, no explanation — just the JSON array.`;
 
 router.post("/lp/seo-analyze", async (req, res): Promise<void> => {
-  const { blocks, metaTitle, metaDescription, slug } = req.body as {
+  const { blocks, metaTitle, metaDescription, slug, brandName: bodyBrandName } = req.body as {
     blocks?: unknown[];
     metaTitle?: string;
     metaDescription?: string;
     slug?: string;
+    brandName?: string;
   };
 
   if (!Array.isArray(blocks)) {
@@ -73,7 +74,7 @@ router.post("/lp/seo-analyze", async (req, res): Promise<void> => {
     return;
   }
 
-  const brandName = await fetchBrandName();
+  const brandName = bodyBrandName?.trim() || (await fetchBrandName());
 
   // Extract text content from blocks for the AI
   const contentParts: string[] = [];

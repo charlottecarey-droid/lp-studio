@@ -2054,7 +2054,7 @@ function SeoGeoPanel({
       const res = await fetch("/api/lp/seo-analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks, metaTitle, metaDescription, slug }),
+        body: JSON.stringify({ blocks, metaTitle, metaDescription, slug, brandName: brand.brandName }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Analysis failed" }));
