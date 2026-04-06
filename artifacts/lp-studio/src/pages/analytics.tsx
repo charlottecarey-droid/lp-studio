@@ -220,6 +220,8 @@ function Sparkline({
   showArea?: boolean;
 }) {
   const values = data.map(d => d[dataKey] as number);
+  if (values.length < 2) return null;
+
   const max = Math.max(...values, 1);
   const w = 600;
   const h = height;
