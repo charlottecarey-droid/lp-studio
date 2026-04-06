@@ -47,6 +47,10 @@ interface Page {
   templateDescription?: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 interface Test {
@@ -523,8 +527,9 @@ export default function PagesGallery() {
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
 
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
-  const { domainContext } = useAuth();
+  const { domainContext, user } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
+  const isAdmin = user?.isAdmin ?? false;
 
   const load = () => {
     setIsLoading(true);
@@ -888,7 +893,7 @@ export default function PagesGallery() {
             )}
 
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[28px_1fr_100px_80px_80px_100px_120px] gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+            <div className={`hidden md:grid gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider ${isAdmin ? "grid-cols-[28px_1fr_100px_80px_80px_100px_130px_120px]" : "grid-cols-[28px_1fr_100px_80px_80px_100px_120px]"}`}>
               <span>
                 <input
                   type="checkbox"
@@ -905,6 +910,7 @@ export default function PagesGallery() {
               <span>Blocks</span>
               <span>Score</span>
               <span>Updated</span>
+              {isAdmin && <span>Author</span>}
               <span className="text-right">Actions</span>
             </div>
 
@@ -961,6 +967,11 @@ export default function PagesGallery() {
                           <code className="text-[11px] text-muted-foreground/70 font-mono mt-0.5 block truncate">
                             {micrositeDomain ? `/${page.slug}` : `/lp/${page.slug}`}
                           </code>
+                          {isAdmin && (page.updatedByName || page.updatedBy || page.createdByName || page.createdBy) && (
+                            <span className="text-[11px] text-muted-foreground/50 mt-0.5 block truncate">
+                              {page.updatedByName ?? page.updatedBy ?? page.createdByName ?? page.createdBy}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -995,7 +1006,7 @@ export default function PagesGallery() {
                     </div>
 
                     {/* ── Desktop layout (hidden on mobile) ── */}
-                    <div className="hidden md:grid grid-cols-[28px_1fr_100px_80px_80px_100px_120px] gap-3 items-center px-4 py-3.5 group">
+                    <div className={`hidden md:grid gap-3 items-center px-4 py-3.5 group ${isAdmin ? "grid-cols-[28px_1fr_100px_80px_80px_100px_130px_120px]" : "grid-cols-[28px_1fr_100px_80px_80px_100px_120px]"}`}>
                       {/* Checkbox */}
                       <div className="flex items-center">
                         <input
@@ -1055,6 +1066,23 @@ export default function PagesGallery() {
 
                       {/* Updated */}
                       <span className="text-xs text-muted-foreground tabular-nums">{formatDate(page.updatedAt)}</span>
+
+                      {/* Author (admin only) */}
+                      {isAdmin && (
+                        <div className="flex flex-col min-w-0">
+                          {(page.updatedByName || page.updatedBy) ? (
+                            <span className="text-xs text-muted-foreground truncate" title={page.updatedBy ?? ""}>
+                              {page.updatedByName ?? page.updatedBy}
+                            </span>
+                          ) : (page.createdByName || page.createdBy) ? (
+                            <span className="text-xs text-muted-foreground/50 truncate" title={page.createdBy ?? ""}>
+                              {page.createdByName ?? page.createdBy}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/30">—</span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Actions — always visible on desktop too */}
                       <div className="flex items-center gap-1 justify-end">

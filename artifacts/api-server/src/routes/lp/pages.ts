@@ -48,6 +48,34 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
       .from(lpPagesTable)
       .where(eq(lpPagesTable.tenantId, tenantId))
       .orderBy(lpPagesTable.createdAt);
+
+    // For admins: resolve email → display name from app_users
+    if (req.authUser?.isAdmin) {
+      const emails = new Set<string>();
+      for (const p of pages) {
+        if (p.createdBy) emails.add(p.createdBy);
+        if (p.updatedBy) emails.add(p.updatedBy);
+      }
+      if (emails.size > 0) {
+        const rows = await db.execute(
+          sql`SELECT email, name FROM app_users WHERE email = ANY(ARRAY[${sql.raw(
+            [...emails].map(e => `'${e.replace(/'/g, "''")}'`).join(",")
+          )}])`
+        );
+        const nameMap: Record<string, string> = {};
+        for (const row of rows.rows as { email: string; name: string }[]) {
+          nameMap[row.email] = row.name || row.email;
+        }
+        const enriched = pages.map(p => ({
+          ...p,
+          createdByName: p.createdBy ? (nameMap[p.createdBy] ?? p.createdBy) : null,
+          updatedByName: p.updatedBy ? (nameMap[p.updatedBy] ?? p.updatedBy) : null,
+        }));
+        res.json(enriched);
+        return;
+      }
+    }
+
     res.json(pages);
   } catch (err) {
     const cause = (err as { cause?: Error })?.cause;
@@ -166,6 +194,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           : sourcePageVariables,
         audienceType: typeof audienceType === "string" && audienceType ? audienceType : null,
         segmentId: typeof segmentId === "string" && segmentId ? segmentId : null,
+        createdBy: req.authUser?.email ?? null,
       })
       .returning();
     res.status(201).json(page);
@@ -228,7 +257,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     segmentId?: string | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -251,6 +280,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
   if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
+  updates.updatedBy = req.authUser?.email ?? null;
 
   try {
     const [page] = await db
@@ -349,6 +379,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         ogImage: source.ogImage ?? "",
         animationsEnabled: source.animationsEnabled ?? true,
         pageVariables: (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables)) ? source.pageVariables as Record<string, string> : {},
+        createdBy: req.authUser?.email ?? null,
         ...(linkAccountId ? { accountId: linkAccountId } : {}),
       })
       .returning();

@@ -19,6 +19,7 @@ export const lpPagesTable = pgTable("lp_pages", {
   sfdcAccountId: text("sfdc_account_id"),     // stable SFDC Account ID (e.g. 001xxx)
   mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"
   createdBy: text("created_by"),
+  updatedBy: text("updated_by"),
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),
