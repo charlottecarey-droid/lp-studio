@@ -91,6 +91,12 @@ async function sendVisitAlert(
 // ─── GET /microsites/overview — page-centric, hotlinks optional ─────────────
 router.get("/microsites/overview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const currentUser = req.authUser!;
+  // Non-admin reps only see pages linked to accounts they own (matched by name, case-insensitive).
+  // Admins see everything.
+  const repOwnerFilter = currentUser.isAdmin
+    ? undefined
+    : sql`lower(${salesAccountsTable.owner}) = lower(${currentUser.name})`;
   try {
     // 1. All tenant LP pages (non-template), left-join account
     // Join priority: account_id (integer FK) first, then sfdc_account_id (stable SFDC ID).
@@ -117,7 +123,11 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
           ),
         ),
       ))
-      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, false)))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        eq(lpPagesTable.isTemplate, false),
+        repOwnerFilter,
+      ))
       .orderBy(salesAccountsTable.name, desc(lpPagesTable.updatedAt));
 
     if (pages.length === 0) { res.json([]); return; }
