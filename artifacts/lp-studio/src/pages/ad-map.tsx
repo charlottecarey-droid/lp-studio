@@ -115,7 +115,7 @@ export default function AdMap() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
@@ -281,7 +281,7 @@ export default function AdMap() {
 
           {/* Low-performing callout */}
           {mappings.length > 0 && mappings.some(m => m.visits >= 10 && m.cvr < 1) && (
-            <Card className="mt-8 border-orange-200 bg-orange-50">
+            <Card className="mt-8">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-orange-900">
                   <AlertCircle className="h-5 w-5" />

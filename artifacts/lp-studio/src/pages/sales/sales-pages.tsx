@@ -26,6 +26,10 @@ import {
   Loader2,
   Users,
   Globe,
+  Pencil,
+  Bell,
+  BellRing,
+  Mail,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -35,14 +39,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PageHint } from "@/components/ui/page-hint";
 
 const API_BASE = "/api";
+
+interface HotlinkEntryRaw {
+  hotlinkId: number;
+  token: string;
+  contactId: number;
+  contactName?: string;
+  contactFirst?: string;
+  contactLast?: string;
+}
 
 interface HotlinkEntry {
   hotlinkId: number;
   token: string;
   contactId: number;
   contactName: string;
+}
+
+function normalizeHotlink(hl: HotlinkEntryRaw): HotlinkEntry {
+  return {
+    hotlinkId: hl.hotlinkId,
+    token: hl.token,
+    contactId: hl.contactId,
+    contactName: hl.contactName || [hl.contactFirst, hl.contactLast].filter(Boolean).join(" ").trim() || "",
+  };
 }
 
 interface PageEntry {
@@ -85,6 +108,7 @@ function initials(name: string | null | undefined) {
   if (!name?.trim()) return "?";
   return name.split(" ").map(w => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "?";
 }
+
 
 export default function SalesPages() {
   const [, navigate] = useLocation();
@@ -149,6 +173,8 @@ export default function SalesPages() {
     setHlGenerating(false);
     setHlGenerated([]);
     setHlCopied(null);
+    setAlertInput("");
+    if (!alertEmails.has(pageId)) loadAlertEmails(pageId);
   }
 
   async function loadContacts(accountId: number) {
@@ -189,6 +215,58 @@ export default function SalesPages() {
     }
   }
 
+  // ── Visit alert subscriptions ────────────────────────────────────────────────
+  interface AlertEmail { id: number; email: string }
+  const [alertEmails, setAlertEmails] = useState<Map<number, AlertEmail[]>>(new Map());
+  const [alertInput, setAlertInput] = useState("");
+  const [alertSaving, setAlertSaving] = useState(false);
+  const [alertPageId, setAlertPageId] = useState<number | null>(null);
+
+  async function loadAlertEmails(pageId: number) {
+    try {
+      const res = await fetch(`${API_BASE}/lp/page-alert-emails?pageId=${pageId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAlertEmails(prev => new Map(prev).set(pageId, data));
+      }
+    } catch { /* noop */ }
+  }
+
+  async function addAlertEmail(pageId: number, email: string) {
+    if (!email.trim()) return;
+    setAlertSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/lp/page-alert-emails`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId, email: email.trim() }),
+      });
+      if (res.ok) {
+        setAlertInput("");
+        await loadAlertEmails(pageId);
+      }
+    } catch (err) {
+      console.error("Failed to add alert email:", err);
+    } finally {
+      setAlertSaving(false);
+    }
+  }
+
+  async function removeAlertEmail(alertId: number, pageId: number) {
+    try {
+      await fetch(`${API_BASE}/lp/page-alert-emails/${alertId}`, { method: "DELETE" });
+      await loadAlertEmails(pageId);
+    } catch (err) {
+      console.error("Failed to remove alert email:", err);
+    }
+  }
+
+  function openAlertPanel(pageId: number) {
+    setAlertPageId(alertPageId === pageId ? null : pageId);
+    setAlertInput("");
+    if (!alertEmails.has(pageId)) loadAlertEmails(pageId);
+  }
+
   function copyHlLink(token: string) {
     navigator.clipboard.writeText(`${window.location.origin}/p/${token}`).then(() => {
       setHlCopied(token);
@@ -202,7 +280,21 @@ export default function SalesPages() {
       fetch(`${API_BASE}/sales/microsites/overview`).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []),
     ])
-      .then(([ov, accts]) => { setOverview(ov); setAccounts(accts); })
+      .then(([ov, accts]: [any[], Account[]]) => {
+        // Normalize hotlink entries — API may return contactFirst/contactLast or contactName
+        const normalized: AccountEntry[] = ov.map((a: any) => ({
+          ...a,
+          pages: a.pages.map((p: any) => ({
+            ...p,
+            hotlinks: (p.hotlinks ?? []).map(normalizeHotlink),
+          })),
+        }));
+        setOverview(normalized);
+        setAccounts(accts);
+        // Pre-load alert subscriptions for all pages so the strip shows correct state
+        const allPageIds = normalized.flatMap(a => a.pages.map(p => p.pageId));
+        allPageIds.forEach((pid: number) => loadAlertEmails(pid));
+      })
       .catch((err) => console.error("Failed to load microsites:", err))
       .finally(() => setLoading(false));
   }, []);
@@ -346,7 +438,7 @@ export default function SalesPages() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
               Back
             </button>
-            <h1 className="text-2xl font-display font-bold text-foreground">Microsites</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Microsites</h1>
             <p className="text-sm text-muted-foreground mt-1">
               AI-generated pages for your accounts, with per-contact personalized links
             </p>
@@ -367,6 +459,20 @@ export default function SalesPages() {
             </Button>
           </div>
         </div>
+
+        {/* PageHint banner */}
+        <PageHint
+          id="sales-microsites"
+          title="Personalized Pages for Every Account"
+          description="Microsites are AI-generated landing pages tailored to each account. Each contact gets a unique tracked link so you can see exactly who visited and what they looked at."
+          tips={[
+            "Go to an account and tap 'Generate Microsite' to create a new page",
+            "Use 'Generate hotlinks' to create unique tracked URLs for each contact",
+            "'Clone for account' copies a general page and links it to a specific account"
+          ]}
+          color="blue"
+          icon={Globe}
+        />
 
         {/* Bulk action bar */}
         {selectMode && (
@@ -447,7 +553,7 @@ export default function SalesPages() {
 
         {/* Create for an account */}
         {!loading && accountsWithout.length > 0 && (
-          <Card className="p-4 rounded-xl border border-dashed border-border/80">
+          <Card className="p-4 rounded-lg border border-dashed border-border">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -490,32 +596,31 @@ export default function SalesPages() {
 
         {/* Account microsites list */}
         {loading ? (
-          <div className="flex flex-col gap-4">
-            {[1, 2].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
+          <div className="flex flex-col gap-3">
+            {[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-lg" />)}
           </div>
         ) : sortedOverview.length === 0 && !search ? (
-          <Card className="flex flex-col items-center justify-center py-16 px-8 rounded-2xl border border-dashed border-border text-center">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Layout className="w-7 h-7 text-primary" />
+          <div className="flex flex-col items-center justify-center py-16 px-8 border border-dashed border-border rounded-lg text-center">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center mb-4">
+              <Layout className="w-5 h-5 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-display font-bold text-foreground mb-1">No microsites yet</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Go to an account and tap "Generate Microsite" — the AI will build a personalized page
-              and create unique links for every contact.
+            <h3 className="text-sm font-medium text-foreground mb-1">No microsites yet</h3>
+            <p className="text-[13px] text-muted-foreground max-w-xs mb-5">
+              Go to an account and tap "Generate Microsite" to create a personalized page with unique links for every contact.
             </p>
-            <Link href="/sales/accounts" className="mt-5">
-              <Button className="gap-2">
-                <Building2 className="w-4 h-4" />
+            <Link href="/sales/accounts">
+              <Button size="sm" className="gap-2 rounded-md">
+                <Building2 className="w-3.5 h-3.5" />
                 Go to Accounts
               </Button>
             </Link>
-          </Card>
+          </div>
         ) : sortedOverview.length === 0 && search ? (
-          <Card className="flex flex-col items-center justify-center py-12 px-8 rounded-2xl border border-dashed border-border text-center">
-            <Search className="w-8 h-8 text-muted-foreground mb-3" />
-            <h3 className="text-base font-display font-bold text-foreground mb-1">No results for "{search}"</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">Try a different search term or clear the search.</p>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-12 px-8 border border-dashed border-border rounded-lg text-center">
+            <Search className="w-5 h-5 text-muted-foreground mb-3" />
+            <h3 className="text-sm font-medium text-foreground mb-1">No results for "{search}"</h3>
+            <p className="text-[13px] text-muted-foreground max-w-xs">Try a different search term or clear the search.</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -539,191 +644,215 @@ export default function SalesPages() {
                 </select>
               </div>
             </div>
-            {sortedOverview.map(acct => (
-              <Card key={acct.accountId} className="rounded-2xl border border-border/60 overflow-hidden">
-                {/* Account header */}
-                <div className="flex items-center gap-3 px-5 py-3.5 bg-muted/30 border-b border-border/50">
-                  <button
-                    onClick={() => toggleCollapse(acct.accountId)}
-                    className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
-                    title={collapsed.has(acct.accountId) ? "Expand" : "Collapse"}
-                  >
-                    {collapsed.has(acct.accountId)
-                      ? <ChevronRight className="w-3.5 h-3.5 text-primary" />
-                      : <ChevronDown className="w-3.5 h-3.5 text-primary" />}
-                  </button>
+            {sortedOverview.map((acct, acctIdx) => (
+              <div key={acct.accountId}>
+                {/* Divider before General pages */}
+                {acct.accountId === -1 && acctIdx > 0 && (
+                  <div className="flex items-center gap-3 pt-6 pb-3">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs font-medium text-muted-foreground">General pages</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                )}
+
+              <Card className={`rounded-lg overflow-hidden border ${acct.accountId === -1 ? "border-dashed border-border/60" : "border-border"}`}>
+                {/* ── Account header ─────────────────────────────── */}
+                <button
+                  onClick={() => toggleCollapse(acct.accountId)}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
+                >
+                  {collapsed.has(acct.accountId)
+                    ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+
                   {acct.accountId === -1 ? (
-                    <div className="flex-1 min-w-0 flex items-center gap-3">
-                      <div>
-                        <span className="font-semibold text-sm text-muted-foreground">General landing pages</span>
-                        <p className="text-[11px] text-muted-foreground/70 leading-tight max-w-lg">Other landing pages not linked to a specific account. You can turn them into microsites by generating personalized links for specific accounts and contacts or cloning and adding custom variables.</p>
-                      </div>
-                      {selectMode && (
-                        <button
-                          onClick={selectAllUnlinked}
-                          className="text-[11px] font-semibold text-primary hover:underline shrink-0"
-                        >
-                          Select all
-                        </button>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-muted-foreground">General landing pages</p>
+                      <p className="text-xs text-muted-foreground/60 mt-0.5">Not linked to an account</p>
                     </div>
                   ) : (
-                    <Link href={`/sales/accounts/${acct.accountId}`} className="flex-1 min-w-0">
-                      <span className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">{acct.accountName}</span>
-                    </Link>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {acct.pages.length} microsite{acct.pages.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                {/* Pages (collapsible) */}
-                {!collapsed.has(acct.accountId) && <div className="divide-y divide-border/40">
-                  {acct.pages.map(page => (
-                    <div key={page.pageId} className={`px-5 py-4 transition-colors ${selectMode && selectedPages.has(page.pageId) ? "bg-primary/5" : ""}`}>
-                      {/* Page title row */}
-                      <div className="flex items-center gap-2 mb-3">
-                        {selectMode ? (
-                          <button onClick={() => toggleSelect(page.pageId)} className="flex-shrink-0 text-primary">
-                            {selectedPages.has(page.pageId)
-                              ? <CheckSquare className="w-4 h-4" />
-                              : <Square className="w-4 h-4 text-muted-foreground" />}
-                          </button>
-                        ) : (
-                          <Layout className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
-                          {page.pageTitle}
-                        </span>
-                        <PageStatusBadge status={page.pageStatus} />
-                        <span className="text-xs text-muted-foreground hidden sm:inline">
-                          {format(new Date(page.pageUpdatedAt), "MMM d")}
-                        </span>
-                        <a
-                          href={`/lp/${page.pageSlug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                          title="Preview page"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                        <Link href={`/builder/${page.pageId}`}>
-                          <button className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium">
-                            Edit
-                          </button>
-                        </Link>
-                        {/* General-page quick actions */}
-                        {acct.accountId === -1 && !selectMode && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-foreground">{acct.accountName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{acct.pages.length} page{acct.pages.length !== 1 ? "s" : ""}</span>
+                        {acct.pages.reduce((s, p) => s + p.hotlinks.length, 0) > 0 && (
                           <>
-                            <button
-                              onClick={() => openCloneModal(page.pageId, page.pageTitle)}
-                              className="hidden sm:flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-                              title="Clone this page and link it to an account"
-                            >
-                              <Layers className="w-3.5 h-3.5" />
-                              <span>Clone for account</span>
-                            </button>
-                            <button
-                              onClick={() => openHotlinksModal(page.pageId, page.pageTitle)}
-                              className="hidden sm:flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-                              title="Generate personalized tracked links for contacts"
-                            >
-                              <Globe className="w-3.5 h-3.5" />
-                              <span>Generate hotlinks</span>
-                            </button>
+                            <span className="text-muted-foreground/30">&middot;</span>
+                            <span className="text-xs text-muted-foreground">{acct.pages.reduce((s, p) => s + p.hotlinks.length, 0)} links</span>
                           </>
                         )}
-                        {/* Actions menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setMenuOpen(menuOpen === page.pageId ? null : page.pageId)}
-                            className="p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <MoreVertical className="w-3.5 h-3.5" />
-                          </button>
-                          {menuOpen === page.pageId && (
-                            <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-xl border border-border bg-card shadow-lg py-1">
-                              <button
-                                onClick={() => togglePageStatus(page.pageId, page.pageStatus)}
-                                disabled={actionLoading}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
-                              >
-                                {page.pageStatus === "published" ? (
-                                  <><EyeOff className="w-3.5 h-3.5" /> Unpublish</>
-                                ) : (
-                                  <><Eye className="w-3.5 h-3.5" /> Publish</>
-                                )}
-                              </button>
-                              {confirmDelete === page.pageId ? (
-                                <div className="px-3 py-2 border-t border-border/50">
-                                  <p className="text-[11px] text-muted-foreground mb-2">Delete this microsite?</p>
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => deletePage(page.pageId)}
-                                      disabled={actionLoading}
-                                      className="flex-1 text-[11px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium"
-                                    >
-                                      {actionLoading ? "Deleting…" : "Delete"}
-                                    </button>
-                                    <button
-                                      onClick={() => { setConfirmDelete(null); setMenuOpen(null); }}
-                                      className="flex-1 text-[11px] px-2 py-1 rounded border border-border hover:bg-muted/50"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setConfirmDelete(page.pageId)}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Hotlinks per contact */}
-                      <div className="flex flex-col gap-1.5 pl-5">
-                        {page.hotlinks.map(hl => (
-                          <div
-                            key={hl.hotlinkId}
-                            className="flex items-center gap-3 py-1.5 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                          >
-                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
-                              {initials(hl.contactName)}
-                            </div>
-                            <span className="text-sm text-foreground flex-1 min-w-0 truncate">
-                              {hl.contactName}
-                            </span>
-                            <button
-                              onClick={() => copyLink(hl.token)}
-                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                              title={`Copy ${hl.contactName}'s personalized link`}
-                            >
-                              {copiedToken === hl.token ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-green-500" />
-                                  <span className="text-green-500 font-medium">Copied</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Link2 className="w-3.5 h-3.5" />
-                                  <span className="hidden sm:inline">Copy link</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>}
+                  )}
+
+                  {acct.accountId !== -1 && (
+                    <Link href={`/sales/accounts/${acct.accountId}`} onClick={e => e.stopPropagation()}>
+                      <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                        View account <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </Link>
+                  )}
+                </button>
+
+                {/* ── Pages ────────────────────────────────────────── */}
+                {!collapsed.has(acct.accountId) && (
+                  <div className="border-t border-border">
+                    {acct.pages.map(page => (
+                      <div key={page.pageId} className={`group/page ${selectMode && selectedPages.has(page.pageId) ? "bg-primary/5" : ""}`}>
+                        <div className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-b-0">
+                          {/* Status dot or checkbox */}
+                          <div className="pt-1.5 shrink-0">
+                            {selectMode ? (
+                              <button onClick={() => toggleSelect(page.pageId)} className="text-primary">
+                                {selectedPages.has(page.pageId) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                              </button>
+                            ) : (
+                              <div className={`w-2 h-2 rounded-full ${page.pageStatus === "published" ? "bg-emerald-500" : "bg-amber-400"}`} />
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Link href={`/builder/${page.pageId}`}>
+                                <span className="text-[13px] font-medium text-foreground hover:underline cursor-pointer leading-snug">{page.pageTitle}</span>
+                              </Link>
+                              <PageStatusBadge status={page.pageStatus} />
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground font-mono">/{page.pageSlug}</span>
+                              <span className="text-muted-foreground/30">&middot;</span>
+                              <span className="text-xs text-muted-foreground">{format(new Date(page.pageUpdatedAt), "MMM d")}</span>
+                              {page.hotlinks.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground/30">&middot;</span>
+                                  <span className="text-xs text-muted-foreground">{page.hotlinks.length} link{page.hotlinks.length !== 1 ? "s" : ""}</span>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Contact chips */}
+                            {page.hotlinks.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                {page.hotlinks.map(hl => (
+                                  <button
+                                    key={hl.hotlinkId}
+                                    onClick={() => copyLink(hl.token)}
+                                    className="group/hl inline-flex items-center gap-1.5 text-xs pl-1 pr-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted transition-colors cursor-pointer"
+                                    title={`Copy ${hl.contactName || "contact"}'s link`}
+                                  >
+                                    <div className="w-5 h-5 rounded-full bg-muted-foreground/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
+                                      {initials(hl.contactName)}
+                                    </div>
+                                    <span className="text-foreground font-medium truncate max-w-[120px] leading-none">
+                                      {hl.contactName || <span className="text-muted-foreground italic font-normal">Unknown</span>}
+                                    </span>
+                                    {copiedToken === hl.token
+                                      ? <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                      : <Copy className="w-3 h-3 text-muted-foreground/30 group-hover/hl:text-muted-foreground shrink-0 transition-colors" />
+                                    }
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Alert subscription — microsites only */}
+                            {acct.accountId !== -1 && (
+                              <div className="mt-2">
+                                {(() => {
+                                  const subs = alertEmails.get(page.pageId) ?? [];
+                                  const isExpanded = alertPageId === page.pageId;
+                                  return (
+                                    <>
+                                      <div className="flex items-center gap-2">
+                                        {subs.length > 0 && (
+                                          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                            {subs.slice(0, 2).map(ae => (
+                                              <span key={ae.id} className="text-xs text-muted-foreground">{ae.email}</span>
+                                            ))}
+                                            {subs.length > 2 && <span className="text-xs text-muted-foreground">+{subs.length - 2}</span>}
+                                          </div>
+                                        )}
+                                        <button
+                                          onClick={() => openAlertPanel(page.pageId)}
+                                          className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                                        >
+                                          <Bell className="w-3 h-3" />
+                                          {subs.length > 0 ? "Manage alerts" : "Subscribe to alerts"}
+                                        </button>
+                                      </div>
+                                      {isExpanded && (
+                                        <div className="mt-2 pt-2 border-t border-border/50">
+                                          {subs.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                              {subs.map(ae => (
+                                                <span key={ae.id} className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-md">
+                                                  <Mail className="w-3 h-3" />
+                                                  {ae.email}
+                                                  <button onClick={() => removeAlertEmail(ae.id, page.pageId)} className="ml-0.5 text-muted-foreground/50 hover:text-foreground transition-colors" title="Remove"><X className="w-3 h-3" /></button>
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+                                          <div className="flex items-center gap-2">
+                                            <input type="email" value={alertInput} onChange={e => setAlertInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addAlertEmail(page.pageId, alertInput); }} placeholder="your@email.com" className="flex-1 text-xs px-2.5 py-1.5 rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40" />
+                                            <Button size="sm" className="h-7 px-3 text-xs" disabled={!alertInput.trim() || alertSaving} onClick={() => addAlertEmail(page.pageId, alertInput)}>{alertSaving ? "Saving…" : "Subscribe"}</Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Page actions */}
+                          <div className="flex items-center gap-0.5 shrink-0 pt-0.5">
+                            <a href={`/lp/${page.pageSlug}`} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Preview"><ExternalLink className="w-3.5 h-3.5" /></Button>
+                            </a>
+                            <Link href={`/builder/${page.pageId}`}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
+                            </Link>
+                            {acct.accountId === -1 && !selectMode && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground hidden sm:inline-flex" title="Clone for account" onClick={() => openCloneModal(page.pageId, page.pageTitle)}><Layers className="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground hidden sm:inline-flex" title="Generate hotlinks" onClick={() => openHotlinksModal(page.pageId, page.pageTitle)}><Globe className="w-3.5 h-3.5" /></Button>
+                              </>
+                            )}
+                            <div className="relative">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" onClick={() => setMenuOpen(menuOpen === page.pageId ? null : page.pageId)}><MoreVertical className="w-3.5 h-3.5" /></Button>
+                              {menuOpen === page.pageId && (
+                                <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg border border-border bg-card shadow-lg py-1">
+                                  <button onClick={() => togglePageStatus(page.pageId, page.pageStatus)} disabled={actionLoading} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors">
+                                    {page.pageStatus === "published" ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
+                                  </button>
+                                  {confirmDelete === page.pageId ? (
+                                    <div className="px-3 py-2 border-t border-border">
+                                      <p className="text-xs text-muted-foreground mb-2">Delete this microsite?</p>
+                                      <div className="flex gap-1.5">
+                                        <button onClick={() => deletePage(page.pageId)} disabled={actionLoading} className="flex-1 text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium">{actionLoading ? "Deleting…" : "Delete"}</button>
+                                        <button onClick={() => { setConfirmDelete(null); setMenuOpen(null); }} className="flex-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted">Cancel</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setConfirmDelete(page.pageId)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors">
+                                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Card>
+              </div>
             ))}
           </div>
         )}
@@ -854,6 +983,46 @@ export default function SalesPages() {
                       </button>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alert subscription — appears after generating links */}
+            {hlGenerated.length > 0 && hotlinksModal && (
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-amber-200/60 dark:border-amber-800/30 flex items-center gap-1.5">
+                  <BellRing className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">Get notified when they visit</span>
+                </div>
+                <div className="px-3 py-2.5">
+                  <p className="text-[11px] text-amber-700/70 dark:text-amber-300/60 mb-2">Add your email to get an alert every time a contact views this page.</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={alertInput}
+                      onChange={e => setAlertInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && hotlinksModal) addAlertEmail(hotlinksModal.pageId, alertInput); }}
+                      placeholder="your@email.com"
+                      className="flex-1 text-[12px] px-2.5 py-1.5 rounded-md border border-amber-200 dark:border-amber-800/40 bg-white dark:bg-amber-950/30 focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-amber-400/50"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-[11px] bg-amber-500 hover:bg-amber-600 text-white rounded-md"
+                      disabled={!alertInput.trim() || alertSaving}
+                      onClick={() => { if (hotlinksModal) addAlertEmail(hotlinksModal.pageId, alertInput); }}
+                    >
+                      {alertSaving ? "…" : "Subscribe"}
+                    </Button>
+                  </div>
+                  {(alertEmails.get(hotlinksModal.pageId) ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(alertEmails.get(hotlinksModal.pageId) ?? []).map(ae => (
+                        <span key={ae.id} className="inline-flex items-center gap-1 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-200 px-1.5 py-0.5 rounded">
+                          <Check className="w-2.5 h-2.5" /> {ae.email}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

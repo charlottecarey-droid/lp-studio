@@ -206,7 +206,7 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
 
   if (editing) {
     return (
-      <div className="border rounded-xl p-4 space-y-3 bg-white shadow-sm">
+      <div className="border rounded-lg p-4 space-y-3 bg-card">
         <div>
           <Label className="text-[11px] text-slate-500 mb-1 block">Library name (internal label)</Label>
           <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
@@ -225,7 +225,7 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
   }
 
   return (
-    <div className="border rounded-xl p-4 flex items-start gap-3 bg-white hover:shadow-sm transition-shadow">
+    <div className="border rounded-lg p-4 flex items-start gap-3 bg-card">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-sm font-semibold text-slate-800 truncate">{item.name || "(unnamed)"}</span>
@@ -288,7 +288,7 @@ function AddItemForm({ type, onCreate }: { type: LibraryType; onCreate: (name: s
   }
 
   return (
-    <div className="border-2 border-dashed border-[#C7E738]/60 rounded-xl p-4 space-y-3 bg-[#C7E738]/5">
+    <div className="border-2 border-dashed border-border rounded-lg p-4 space-y-3 bg-background">
       <div>
         <Label className="text-[11px] text-slate-500 mb-1 block">Library name (internal label)</Label>
         <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
@@ -730,7 +730,7 @@ function MediaTab() {
             </div>
           ) : items.length === 0 ? (
             <div
-              className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+              className="text-center py-16 text-muted-foreground border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -745,7 +745,7 @@ function MediaTab() {
                   <div
                     key={item.id}
                     onClick={selectMode ? () => toggleSelect(item.id) : () => openModal(item)}
-                    className={`group relative rounded-xl border overflow-hidden bg-muted/20 transition-all cursor-pointer ${
+                    className={`group relative rounded-lg border overflow-hidden bg-muted/20 transition-all cursor-pointer ${
                       selectMode
                         ? `${isSelected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/40"}`
                         : "border-border hover:border-primary/50 hover:shadow-md hover:scale-[1.01]"
@@ -756,7 +756,7 @@ function MediaTab() {
                     </div>
 
                     {selectMode && (
-                      <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${isSelected ? "bg-primary border-primary" : "bg-white/90 border-slate-400"}`}>
+                      <div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "bg-white/90 border-slate-400"}`}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
                     )}
@@ -1084,14 +1084,14 @@ export function ContentLibraryContent() {
   return (
     <div className="max-w-5xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl">
+        <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg">
           {ALL_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === tab.id
-                  ? "bg-white shadow-sm text-slate-900"
+                  ? "bg-white text-slate-900"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -1120,7 +1120,7 @@ export default function ContentLibrary() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-[#C7E738]" />
+              <BookOpen className="w-6 h-6 text-foreground" />
               Content Library
             </h1>
             <p className="text-sm text-slate-500 mt-1">

@@ -379,7 +379,7 @@ export default function LandingPageViewer() {
   if (isLoading || (!isPreviewMode && !sessionId)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-8 h-8 animate-spin text-[#003A30]" />
+        <Loader2 className="w-8 h-8 animate-spin text-foreground" />
       </div>
     );
   }
@@ -454,8 +454,8 @@ export default function LandingPageViewer() {
   if (error || !config || !config.assignedVariant) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-100 max-w-md">
-          <h1 className="text-2xl font-bold mb-2 text-[#003A30] font-display">Page Not Found</h1>
+        <div className="text-center p-8 bg-card rounded-lg border border-border max-w-md">
+          <h1 className="text-2xl font-bold mb-2 text-foreground font-display">Page Not Found</h1>
           <p className="text-slate-500">The landing page you're looking for doesn't exist or the test has ended.</p>
         </div>
       </div>
@@ -509,10 +509,10 @@ export default function LandingPageViewer() {
         `}</style>
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
-          <div className="bg-[#C7E738] text-[#003A30] py-2 px-4 flex items-center justify-between z-50 relative">
+          <div className="bg-card text-foreground py-2 px-4 flex items-center justify-between z-50 relative">
             <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#003A30] opacity-70" />
+                <span className="w-2 h-2 rounded-full bg-foreground opacity-70" />
                 Preview Mode
               </span>
               <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
@@ -599,8 +599,8 @@ export default function LandingPageViewer() {
 
   return (
     <div className={cn(
-      "min-h-screen w-full font-sans selection:bg-[#C7E738] selection:text-[#003A30]",
-      isDark ? "bg-[#003A30] text-white" : "bg-white text-slate-900"
+      "min-h-screen w-full font-sans",
+      isDark ? "bg-background text-foreground" : "bg-background text-foreground"
     )}>
       
       <style>{`
@@ -621,10 +621,10 @@ export default function LandingPageViewer() {
 
       {/* 1. Banner — preview stripe or running stripe */}
       {isPreviewMode ? (
-        <div className="bg-[#C7E738] text-[#003A30] py-2 px-4 flex items-center justify-between z-50 relative">
+        <div className="bg-card text-foreground py-2 px-4 flex items-center justify-between z-50 relative">
           <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#003A30] opacity-70" />
+              <span className="w-2 h-2 rounded-full bg-foreground opacity-70" />
               Preview Mode
             </span>
             <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
@@ -643,28 +643,23 @@ export default function LandingPageViewer() {
       )}
 
       {/* 2. Nav */}
-      <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
+      <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative bg-background">
         <img
           src={dandyLogoUrl}
           alt="Dandy"
           className="h-8 w-auto"
           style={{ filter: "brightness(0) invert(1)" }}
         />
-        <a
-          href={brand.navCtaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={getButtonClasses(brand)}
-          style={{ backgroundColor: LIME, color: FOREST }}
+        <button
+          className="px-4 py-2 rounded-lg bg-foreground text-background font-semibold"
         >
           {brand.navCtaText}
-        </a>
+        </button>
       </nav>
 
       {/* 3. Hero Section (text + CTA only, plus video in split mode) */}
       <section className={cn(
-        "relative w-full px-6 flex flex-col items-center justify-center flex-1",
-        isDark ? "bg-[#003A30]" : "bg-white"
+        "relative w-full px-6 flex flex-col items-center justify-center flex-1 bg-background"
       )}>
         <div className={cn(
           "max-w-7xl mx-auto w-full",
@@ -673,17 +668,15 @@ export default function LandingPageViewer() {
           
           <div className={cn("space-y-8 z-10", !isSplit && "max-w-4xl mx-auto flex flex-col items-center")}>
             <h1 className={cn(
-              "font-display font-bold tracking-tight leading-[1.05]",
-              isMinimal ? "text-5xl md:text-6xl lg:text-7xl" : "text-4xl md:text-6xl lg:text-7xl",
-              isDark ? "text-white" : "text-[#003A30]"
+              "font-display font-bold tracking-tight leading-[1.05] text-foreground",
+              isMinimal ? "text-5xl md:text-6xl lg:text-7xl" : "text-4xl md:text-6xl lg:text-7xl"
             )}>
               {dtrConf.headline}
             </h1>
             
             {dtrConf.subheadline && (
               <p className={cn(
-                "text-lg md:text-xl leading-relaxed font-sans",
-                isDark ? "text-white/80" : "text-[#003A30]/70",
+                "text-lg md:text-xl leading-relaxed font-sans text-foreground/70",
                 !isSplit && "max-w-2xl"
               )}>
                 {dtrConf.subheadline}
@@ -738,9 +731,9 @@ export default function LandingPageViewer() {
           "absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none transition-opacity duration-500",
           scrolled ? "opacity-0" : "opacity-100"
         )}>
-          <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[#003A30]/15")} />
+          <div className={cn("w-px h-6 rounded-full bg-foreground/15")} />
           <div className="animate-bounce">
-            <ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[#003A30]/30")} />
+            <ChevronDown className={cn("w-5 h-5 text-foreground/30")} />
           </div>
         </div>
       </section>
@@ -751,7 +744,7 @@ export default function LandingPageViewer() {
       {!isSplit && dtrConf.heroType !== "none" && (
         <section className="w-full bg-white py-8 px-6 md:px-10">
           <div className="max-w-5xl mx-auto">
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+            <div className="relative w-full aspect-video rounded-lg overflow-hidden">
               {dtrConf.heroType === "dandy-video" ? (
                 <iframe 
                   src={DANDY_VIDEO_URL} 
@@ -777,7 +770,7 @@ export default function LandingPageViewer() {
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 divide-x-0 md:divide-x divide-slate-200">
             {dtrConf.trustBar.items.map((item, i) => (
               <div key={i} className="flex flex-col items-center text-center px-4">
-                <span className="text-3xl md:text-4xl font-display font-bold text-[#003A30] mb-1">{item.value}</span>
+                <span className="text-3xl md:text-4xl font-display font-bold text-foreground mb-1">{item.value}</span>
                 <span className="text-sm text-[#4A6358] font-medium uppercase tracking-wider">{item.label}</span>
               </div>
             ))}
@@ -808,7 +801,7 @@ export default function LandingPageViewer() {
 
       {/* 7. Pain Section (PAS) */}
       {dtrConf.painSection?.enabled && (
-        <section className={cn("w-full bg-[#003A30] text-white px-6", sectionPy)}>
+        <section className={cn("w-full bg-background text-foreground px-6", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
             <div className="md:w-1/2 space-y-6">
               <h2 className="text-3xl md:text-5xl font-display font-bold leading-tight">
@@ -821,8 +814,8 @@ export default function LandingPageViewer() {
             <div className="md:w-1/2">
               <ul className="space-y-4">
                 {dtrConf.painSection.bullets?.map((bullet, i) => (
-                  <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <AlertTriangle className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
+                  <li key={i} className="flex items-start gap-4 p-4 rounded-lg bg-muted/5 border border-border">
+                    <AlertTriangle className="w-6 h-6 text-foreground shrink-0 mt-0.5" />
                     <span className="text-white/90 font-medium leading-relaxed">{bullet}</span>
                   </li>
                 ))}
@@ -837,19 +830,19 @@ export default function LandingPageViewer() {
         <section className={cn("w-full bg-slate-50 px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
             {dtrConf.comparisonSection.headline && (
-              <h2 className="text-4xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16">
+              <h2 className="text-4xl md:text-5xl font-display font-bold text-center text-foreground mb-16">
                 {dtrConf.comparisonSection.headline}
               </h2>
             )}
             
             <div className="grid md:grid-cols-2 gap-8 items-stretch mb-16">
               {/* Old Way */}
-              <div className="bg-slate-100 rounded-3xl p-8 md:p-12 opacity-80 flex flex-col">
+              <div className="bg-muted rounded-lg p-8 md:p-12 opacity-80 flex flex-col">
                 <div className="mb-8">
                   <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">
                     {dtrConf.comparisonSection.oldWay.sublabel || "OLD WAY"}
                   </span>
-                  <h3 className="text-2xl font-bold text-[#003A30]">
+                  <h3 className="text-2xl font-bold text-foreground">
                     {dtrConf.comparisonSection.oldWay.label}
                   </h3>
                 </div>
@@ -864,23 +857,22 @@ export default function LandingPageViewer() {
               </div>
 
               {/* New Way */}
-              <div className="bg-[#003A30] rounded-3xl p-8 md:p-12 flex flex-col ring-2 ring-[#C7E738]/20 shadow-xl relative overflow-hidden">
+              <div className="bg-card rounded-lg p-8 md:p-12 flex flex-col border border-border relative overflow-hidden">
                 {/* Subtle highlight */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#C7E738] opacity-[0.03] blur-3xl rounded-full" />
-                
+
                 <div className="mb-8 relative z-10">
-                  <span className="text-sm font-bold tracking-widest text-[#C7E738] uppercase mb-2 block">
+                  <span className="text-sm font-bold tracking-widest text-foreground uppercase mb-2 block">
                     {dtrConf.comparisonSection.newWay.sublabel || "NEW WAY"}
                   </span>
-                  <h3 className="text-2xl font-bold text-white">
+                  <h3 className="text-2xl font-bold text-foreground">
                     {dtrConf.comparisonSection.newWay.label}
                   </h3>
                 </div>
                 <ul className="space-y-6 flex-1 relative z-10">
                   {dtrConf.comparisonSection.newWay.bullets.map((bullet, i) => (
                     <li key={i} className="flex items-start gap-4">
-                      <CheckCircle2 className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
-                      <span className="text-white/90 font-medium leading-relaxed">{bullet}</span>
+                      <CheckCircle2 className="w-6 h-6 text-foreground shrink-0 mt-0.5" />
+                      <span className="text-foreground/90 font-medium leading-relaxed">{bullet}</span>
                     </li>
                   ))}
                 </ul>
@@ -903,16 +895,16 @@ export default function LandingPageViewer() {
 
       {/* 9. Stat Callout */}
       {dtrConf.statCallout?.enabled && (
-        <section className={cn("w-full bg-[#003A30] px-6 text-center", sectionPy)}>
+        <section className={cn("w-full bg-background px-6 text-center text-foreground", sectionPy)}>
           <div className="max-w-4xl mx-auto flex flex-col items-center">
-            <div className="text-8xl md:text-[10rem] font-display font-bold leading-none mb-6" style={{ color: LIME }}>
+            <div className="text-8xl md:text-[10rem] font-display font-bold leading-none mb-6 text-foreground">
               {dtrConf.statCallout.stat}
             </div>
-            <p className="text-xl md:text-2xl text-white font-medium max-w-xl mx-auto mb-8 leading-relaxed">
+            <p className="text-xl md:text-2xl text-foreground font-medium max-w-xl mx-auto mb-8 leading-relaxed">
               {dtrConf.statCallout.description}
             </p>
             {dtrConf.statCallout.footnote && (
-              <p className="text-sm text-white/50 max-w-lg mx-auto">
+              <p className="text-sm text-foreground/50 max-w-lg mx-auto">
                 {dtrConf.statCallout.footnote}
               </p>
             )}
@@ -922,10 +914,10 @@ export default function LandingPageViewer() {
 
       {/* 10. Benefits Grid */}
       {dtrConf.benefits?.enabled && (
-        <section className={cn("w-full bg-white px-6", sectionPy)}>
+        <section className={cn("w-full bg-background px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
             {dtrConf.benefits.headline && (
-              <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-16 max-w-3xl mx-auto leading-tight">
+              <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-foreground mb-16 max-w-3xl mx-auto leading-tight">
                 {dtrConf.benefits.headline}
               </h2>
             )}
@@ -936,12 +928,12 @@ export default function LandingPageViewer() {
               {dtrConf.benefits.items.map((benefit, i) => {
                 const Icon = ICON_MAP[benefit.icon] || Zap;
                 return (
-                  <div key={i} className="flex flex-col p-8 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
-                      <Icon className="w-7 h-7 text-[#003A30]" />
+                  <div key={i} className="flex flex-col p-8 rounded-lg bg-card border border-border">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-6">
+                      <Icon className="w-7 h-7 text-foreground" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#003A30] mb-3">{benefit.title}</h3>
-                    <p className="text-[#4A6358] leading-relaxed">{benefit.description}</p>
+                    <h3 className="text-xl font-bold text-foreground mb-3">{benefit.title}</h3>
+                    <p className="text-foreground/70 leading-relaxed">{benefit.description}</p>
                   </div>
                 );
               })}
@@ -952,17 +944,17 @@ export default function LandingPageViewer() {
 
       {/* 11. Testimonial */}
       {dtrConf.testimonial?.enabled && (
-        <section className={cn("w-full bg-[#F0F7F4] px-6 relative overflow-hidden", sectionPy)}>
+        <section className={cn("w-full bg-background px-6 relative overflow-hidden", sectionPy)}>
           <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center text-center">
-            <Quote className="w-16 h-16 text-[#C7E738] mb-8 opacity-50" />
-            <blockquote className="text-2xl md:text-4xl font-display font-medium text-[#003A30] leading-snug mb-10">
+            <Quote className="w-16 h-16 text-foreground mb-8 opacity-50" />
+            <blockquote className="text-2xl md:text-4xl font-display font-medium text-foreground leading-snug mb-10">
               "{dtrConf.testimonial.quote}"
             </blockquote>
             <div className="flex flex-col items-center">
-              <strong className="text-lg text-[#003A30]">{dtrConf.testimonial.author}</strong>
-              <span className="text-[#4A6358]">{dtrConf.testimonial.role}</span>
+              <strong className="text-lg text-foreground">{dtrConf.testimonial.author}</strong>
+              <span className="text-foreground/70">{dtrConf.testimonial.role}</span>
               {dtrConf.testimonial.practiceName && (
-                <span className="text-sm text-[#4A6358] mt-1 opacity-80">{dtrConf.testimonial.practiceName}</span>
+                <span className="text-sm text-foreground/70 mt-1 opacity-80">{dtrConf.testimonial.practiceName}</span>
               )}
             </div>
           </div>
@@ -971,22 +963,22 @@ export default function LandingPageViewer() {
 
       {/* 12. How It Works */}
       {dtrConf.howItWorks?.enabled && (
-        <section className={cn("w-full bg-white px-6", sectionPy)}>
+        <section className={cn("w-full bg-background px-6", sectionPy)}>
           <div className="max-w-6xl mx-auto">
             {dtrConf.howItWorks.headline && (
-              <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-[#003A30] mb-20">
+              <h2 className="text-3xl md:text-5xl font-display font-bold text-center text-foreground mb-20">
                 {dtrConf.howItWorks.headline}
               </h2>
             )}
             <div className="grid md:grid-cols-3 gap-12 relative">
-              <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />
+              <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-border z-0" />
               {dtrConf.howItWorks.steps.map((step, i) => (
                 <div key={i} className="relative z-10 flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-[#003A30] text-[#C7E738] font-display font-bold text-2xl flex items-center justify-center mb-6 shadow-xl border-4 border-white">
+                  <div className="w-16 h-16 rounded-full bg-foreground text-background font-display font-bold text-2xl flex items-center justify-center mb-6 border-4 border-background">
                     {step.number}
                   </div>
-                  <h3 className="text-xl font-bold text-[#003A30] mb-4">{step.title}</h3>
-                  <p className="text-[#4A6358] leading-relaxed">{step.description}</p>
+                  <h3 className="text-xl font-bold text-foreground mb-4">{step.title}</h3>
+                  <p className="text-foreground/70 leading-relaxed">{step.description}</p>
                 </div>
               ))}
             </div>
@@ -996,16 +988,16 @@ export default function LandingPageViewer() {
 
       {/* 13. Product Grid */}
       {dtrConf.productGrid?.enabled && (
-        <section className={cn("w-full bg-white px-6", sectionPy)}>
+        <section className={cn("w-full bg-background px-6", sectionPy)}>
           <div className="max-w-7xl mx-auto">
             <div className="text-center max-w-3xl mx-auto mb-16">
               {dtrConf.productGrid.headline && (
-                <h2 className="text-3xl md:text-5xl font-display font-bold text-[#003A30] mb-6">
+                <h2 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-6">
                   {dtrConf.productGrid.headline}
                 </h2>
               )}
               {dtrConf.productGrid.subheadline && (
-                <p className="text-lg md:text-xl text-[#4A6358] leading-relaxed">
+                <p className="text-lg md:text-xl text-foreground/70 leading-relaxed">
                   {dtrConf.productGrid.subheadline}
                 </p>
               )}
@@ -1013,18 +1005,18 @@ export default function LandingPageViewer() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {dtrConf.productGrid.items.map((item, i) => (
-                <div key={i} className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 bg-white flex flex-col">
-                  <div className="w-full h-52 overflow-hidden bg-slate-50">
-                    <img 
-                      src={item.image} 
-                      alt={item.title} 
+                <div key={i} className="group rounded-lg overflow-hidden border border-border transition-all duration-300 bg-card flex flex-col">
+                  <div className="w-full h-52 overflow-hidden bg-muted">
+                    <img
+                      src={item.image}
+                      alt={item.title}
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
                   <div className="p-6 flex-1 flex flex-col">
-                    <h3 className="text-lg font-bold text-[#003A30] mb-2">{item.title}</h3>
-                    <p className="text-[#4A6358] text-sm leading-relaxed flex-1">{item.description}</p>
+                    <h3 className="text-lg font-bold text-foreground mb-2">{item.title}</h3>
+                    <p className="text-foreground/70 text-sm leading-relaxed flex-1">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -1035,13 +1027,13 @@ export default function LandingPageViewer() {
 
       {/* 14. Bottom CTA Band */}
       {dtrConf.bottomCta?.enabled && (
-        <section className={cn("w-full bg-[#003A30] text-white px-6 text-center", sectionPy)}>
+        <section className={cn("w-full bg-background text-foreground px-6 text-center", sectionPy)}>
           <div className="max-w-3xl mx-auto">
             <h2 className="text-4xl md:text-6xl font-display font-bold mb-6">
               {dtrConf.bottomCta.headline}
             </h2>
             {dtrConf.bottomCta.subheadline && (
-              <p className="text-xl text-white/80 mb-10">
+              <p className="text-xl text-foreground/80 mb-10">
                 {dtrConf.bottomCta.subheadline}
               </p>
             )}
@@ -1065,7 +1057,7 @@ export default function LandingPageViewer() {
       )}
 
       {/* 16. Footer */}
-      <footer className="w-full bg-[#003A30] text-white">
+      <footer className="w-full bg-background text-foreground">
         <div className="max-w-6xl mx-auto px-8 pt-16 pb-10">
           {/* Top row: logo + nav columns */}
           <div className="flex flex-col md:flex-row gap-12 md:gap-16">

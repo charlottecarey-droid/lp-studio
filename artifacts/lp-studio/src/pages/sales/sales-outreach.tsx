@@ -24,6 +24,7 @@ import {
   X,
   MoreVertical,
   Copy,
+  BarChart3,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -34,6 +35,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
+import { PageHint } from "@/components/ui/page-hint";
+import { InfoTip } from "@/components/ui/info-tip";
 import { EmailWYSIWYGEditor, type EmailEditorHandle } from "@/components/EmailWYSIWYGEditor";
 import { sanitizeHtml } from "@/lib/sanitize";
 
@@ -1548,6 +1551,20 @@ export default function SalesOutreach() {
             </button>
           </div>
         </div>
+
+        {/* Page Hint */}
+        <PageHint
+          id="sales-outreach"
+          title="Track All Outreach Activity"
+          description="See every email sent, opened, and clicked across all your campaigns. This is your single source of truth for what's been sent and how prospects are responding."
+          tips={[
+            "Green badges mean the email was opened — these contacts are warm",
+            "Click a campaign to see detailed per-recipient engagement",
+            "Use Quick Campaigns to send personalized pages to multiple accounts at once",
+          ]}
+          color="rose"
+          icon={<BarChart3 className="w-5 h-5" />}
+        />
 
         {outerMode === "single" && (
           <>

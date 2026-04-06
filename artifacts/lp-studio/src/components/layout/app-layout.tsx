@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -13,13 +14,14 @@ import {
   Shield,
   LogOut,
   ChevronDown,
-  Menu,
+  ChevronRight,
   Store,
   Target,
   Gauge,
   Link2,
   Zap,
   Wand2,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,9 +32,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -54,32 +60,31 @@ function UserFooter() {
     : user.email[0].toUpperCase();
 
   return (
-    <div className="mt-auto border-t border-sidebar-foreground/10 p-3">
+    <div className="mt-auto border-t border-sidebar-foreground/8 p-2.5">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200 text-left group">
+          <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-left group">
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-white/10" />
+              <img src={user.avatarUrl} alt={user.name} className="h-6 w-6 rounded-full object-cover shrink-0 ring-1 ring-white/10" />
             ) : (
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#C7E738]/30 to-[#C7E738]/10 text-[#C7E738] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-2 ring-[#C7E738]/20">
+              <div className="h-6 w-6 rounded-full bg-sidebar-foreground/10 text-sidebar-foreground/70 text-[10px] font-medium flex items-center justify-center shrink-0">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-sidebar-foreground truncate">{user.name || user.email}</div>
-              <div className="text-[10px] text-sidebar-foreground/40 truncate capitalize">{user.role}</div>
+              <div className="text-[13px] font-medium text-sidebar-foreground/90 truncate">{user.name || user.email}</div>
             </div>
-            <ChevronDown className="w-3 h-3 text-sidebar-foreground/30 group-hover:text-sidebar-foreground/70 transition-colors shrink-0" />
+            <ChevronDown className="w-3 h-3 text-sidebar-foreground/25 group-hover:text-sidebar-foreground/50 transition-colors shrink-0" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="top" className="w-56 p-1.5">
+        <DropdownMenuContent align="end" side="top" className="w-52 p-1">
           <div className="px-2.5 py-2">
-            <div className="text-sm font-semibold">{user.name}</div>
+            <div className="text-sm font-medium">{user.name}</div>
             <div className="text-xs text-muted-foreground truncate mt-0.5">{user.email}</div>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="gap-2.5 text-destructive focus:text-destructive rounded-md mx-0.5"
+            className="gap-2 text-destructive focus:text-destructive rounded-md mx-0.5"
             onClick={async () => {
               await logout();
               window.location.reload();
@@ -94,6 +99,65 @@ function UserFooter() {
   );
 }
 
+const OPTIMIZE_ITEMS = [
+  { label: "Templates", href: "/templates", icon: Store },
+  { label: "Conversion Scoring", href: "/conversion-scoring", icon: Target },
+  { label: "Page Speed", href: "/page-speed", icon: Gauge },
+  { label: "AdMap", href: "/ad-map", icon: Link2 },
+  { label: "AMP Pages", href: "/amp", icon: Zap },
+  { label: "Programmatic", href: "/programmatic", icon: Wand2 },
+];
+
+function OptimizeBetaMenu({ location }: { location: string }) {
+  const isChildActive = OPTIMIZE_ITEMS.some((item) => location === item.href);
+  const [open, setOpen] = useState(isChildActive);
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel
+        className="text-[10px] font-medium text-sidebar-foreground/30 uppercase tracking-[0.06em] mb-0.5 px-4"
+        style={{ fontFamily: "var(--app-font-mono)" }}
+      >
+        Optimize
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <Collapsible open={open} onOpenChange={setOpen} asChild>
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton className="font-medium">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="flex-1">Optimize Beta</span>
+                  <span className="ml-auto mr-1 text-[9px] font-semibold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded">
+                    Beta
+                  </span>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 text-sidebar-foreground/30 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+                  />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {OPTIMIZE_ITEMS.map((item) => (
+                    <SidebarMenuSubItem key={item.href}>
+                      <SidebarMenuSubButton asChild isActive={location === item.href}>
+                        <Link href={item.href} className="font-medium">
+                          <item.icon className="w-3.5 h-3.5" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { hasPerm, user } = useAuth();
@@ -104,28 +168,25 @@ export function AppSidebar() {
     hasPerm("brand") || hasPerm("blocks") || hasPerm("team") || hasPerm("roles");
 
   return (
-    <Sidebar className="border-r border-sidebar-foreground/8">
+    <Sidebar className="border-r border-sidebar-border">
       <SidebarContent>
-        <div className="px-5 pt-6 pb-4 flex items-center gap-2.5">
-          <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer group">
-              <img src={dandyLogo} alt="Dandy" className="h-5 w-auto sidebar-logo opacity-90 group-hover:opacity-100 transition-opacity" />
-              <div className="w-px h-4 bg-sidebar-foreground/15" />
-              <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60 transition-colors">
-                LP Studio
-              </span>
-            </div>
-          </Link>
-        </div>
-
-        {/* Mode Toggle */}
-        <div className="px-4 pb-3">
+        <div className="px-3 pt-4 pb-2 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between px-1">
+            <Link href="/">
+              <div className="flex items-center gap-2 cursor-pointer group">
+                <img src={dandyLogo} alt="Dandy" className="h-4 w-auto sidebar-logo opacity-80 group-hover:opacity-100 transition-opacity" />
+                <span className="text-[10px] font-medium tracking-[0.08em] uppercase text-sidebar-foreground/35 group-hover:text-sidebar-foreground/55 transition-colors" style={{ fontFamily: "var(--app-font-mono)" }}>
+                  LP Studio
+                </span>
+              </div>
+            </Link>
+          </div>
           <ModeToggle />
         </div>
 
         {showMarketing && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
+            <SidebarGroupLabel className="text-[10px] font-medium text-sidebar-foreground/30 uppercase tracking-[0.06em] mb-0.5 px-4" style={{ fontFamily: "var(--app-font-mono)" }}>
               Platform
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -209,68 +270,12 @@ export function AppSidebar() {
         )}
 
         {showMarketing && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
-              Optimize
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/templates"}>
-                    <Link href="/templates" className="font-medium">
-                      <Store className="w-4 h-4" />
-                      <span>Templates</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/conversion-scoring"}>
-                    <Link href="/conversion-scoring" className="font-medium">
-                      <Target className="w-4 h-4" />
-                      <span>Conversion Scoring</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/page-speed"}>
-                    <Link href="/page-speed" className="font-medium">
-                      <Gauge className="w-4 h-4" />
-                      <span>Page Speed</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/ad-map"}>
-                    <Link href="/ad-map" className="font-medium">
-                      <Link2 className="w-4 h-4" />
-                      <span>AdMap</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/amp"}>
-                    <Link href="/amp" className="font-medium">
-                      <Zap className="w-4 h-4" />
-                      <span>AMP Pages</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/programmatic"}>
-                    <Link href="/programmatic" className="font-medium">
-                      <Wand2 className="w-4 h-4" />
-                      <span>Programmatic</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <OptimizeBetaMenu location={location} />
         )}
 
         {showSettings && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-[0.15em] mb-1 px-3">
+            <SidebarGroupLabel className="text-[10px] font-medium text-sidebar-foreground/30 uppercase tracking-[0.06em] mb-0.5 px-4" style={{ fontFamily: "var(--app-font-mono)" }}>
               Settings
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -331,13 +336,13 @@ export function AppSidebar() {
         )}
 
         {hasPerm("tests") && (
-          <div className="px-4 pb-3">
+          <div className="px-3 pb-2 pt-1">
             <Link href="/tests/new">
               <Button
-                className="w-full justify-start gap-2 rounded-lg text-[13px] font-medium shadow-sm hover:shadow transition-all duration-200 group"
-                style={{ backgroundColor: "#1B4332", color: "#C7E738" }}
+                variant="outline"
+                className="w-full justify-start gap-2 rounded-md text-[13px] font-medium border-sidebar-foreground/10 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent bg-transparent transition-colors group"
               >
-                <PlusCircle className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                <PlusCircle className="w-3.5 h-3.5 opacity-50 group-hover:opacity-80 transition-opacity" />
                 New Experiment
               </Button>
             </Link>
@@ -358,13 +363,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={style}>
-      <div className="flex min-h-screen w-full bg-gradient-to-b from-background to-background/95 selection:bg-primary/20">
+      <div className="flex min-h-screen w-full bg-background selection:bg-primary/10">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="h-12 flex items-center justify-between px-5 border-b border-border/30 bg-background/90 backdrop-blur-xl sticky top-0 z-50">
-            <SidebarTrigger className="hover:bg-muted/40 transition-all duration-200 rounded-md p-1.5" />
+          <header className="h-11 flex items-center justify-between px-5 border-b border-border bg-background sticky top-0 z-50">
+            <SidebarTrigger className="hover:bg-muted transition-colors rounded-md p-1.5" />
           </header>
-          <main className="flex-1 overflow-auto px-5 py-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
+          <main className="flex-1 overflow-auto px-6 py-6 md:px-8 md:py-8">
             <div className="max-w-[1200px] mx-auto w-full">{children}</div>
           </main>
         </div>

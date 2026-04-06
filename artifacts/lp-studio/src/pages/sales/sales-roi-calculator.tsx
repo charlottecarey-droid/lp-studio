@@ -26,27 +26,27 @@ const InputField = ({
   [k: string]: any;
 }) => (
   <div>
-    <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">{label}</label>
+    <label className="text-[10px] font-semibold text-[#2A3A1A] uppercase tracking-wider mb-1 block">{label}</label>
     <div className="relative">
-      {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{prefix}</span>}
+      {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">{prefix}</span>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full rounded-lg border border-border bg-background py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+        className={`w-full rounded-lg border border-border bg-background py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-[#003A30]/20 ${
           prefix ? "pl-7 pr-3" : suffix ? "pl-3 pr-7" : "px-3"
         }`}
         {...props}
       />
-      {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{suffix}</span>}
+      {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">{suffix}</span>}
     </div>
   </div>
 );
 
 const ResultRow = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
-  <div className="py-1.5">
-    <p className="text-[10px] font-medium text-sidebar-foreground/50 uppercase tracking-wider mb-0.5">{label}</p>
-    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-accent-warm" : "text-sidebar-foreground"}`}>{value}</p>
+  <div className="py-1">
+    <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-0">{label}</p>
+    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-[#C7E738]" : "text-white"}`}>{value}</p>
   </div>
 );
 
@@ -130,7 +130,7 @@ const SalesRoiCalculator = () => {
   const totalAnnualUpside = (denture.incProdYear + resto.totalUpsideYear) * practices;
 
   const exportPDF = useCallback(() => {
-    const svgText = `<svg width="103" height="37" viewBox="0 0 103 37" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.9918 1.44019V7.70147C12.9219 7.09911 11.636 6.79355 10.1636 6.79355C7.31926 6.79355 4.74754 7.88547 2.924 9.86779C1.01102 11.9476 0 14.8521 0 18.2691C0 23.3092 2.7146 28.3953 8.77963 28.3953C10.7919 28.3953 12.7823 27.3702 13.9918 25.7471V27.8401H19.7907V0H18.4383L13.9918 1.44019ZM6.01813 16.8004C6.01813 12.3408 7.6999 9.34428 10.2018 9.34428C12.7037 9.34428 13.9907 11.3726 13.9907 15.3712V23.7506C13.0091 24.5994 12.0504 24.9312 10.5966 24.9312C9.14281 24.9312 7.92566 24.0978 7.11204 22.4528C6.4064 21.0257 6.01704 19.0182 6.01704 16.8004H6.01813Z" fill="white"/><path d="M76.4111 1.44019V7.70147C75.3319 7.09911 74.0349 6.79355 72.5497 6.79355C69.6806 6.79355 67.0865 7.88547 65.2471 9.86779C63.3175 11.9476 62.2977 14.8521 62.2977 18.2691C62.2977 23.3092 65.0359 28.3953 71.1536 28.3953C73.1834 28.3953 75.1911 27.3702 76.4111 25.7471V27.8401H82.2605V0H80.8963L76.4111 1.44019ZM68.3692 16.8004C68.3692 12.3408 70.0656 9.34428 72.5893 9.34428C75.113 9.34428 76.4111 11.3726 76.4111 15.3712V23.7506C75.421 24.5994 74.454 24.9312 72.9875 24.9312C71.5211 24.9312 70.2933 24.0978 69.4727 22.4528C68.7609 21.0257 68.3681 19.0182 68.3681 16.8004H68.3692Z" fill="white"/><path d="M54.1175 6.88379C51.8661 6.88379 49.871 7.89657 47.8649 10.0642V6.88379H46.4791L41.9907 8.32048V27.8791H47.8385L47.866 12.8567C49.2364 11.5096 50.5133 10.8541 51.7671 10.8541C54.1999 10.8541 54.7103 12.7671 54.7103 14.3721V27.8791H60.5768L60.5405 13.8181C60.5405 9.41193 58.1989 6.88379 54.1175 6.88379Z" fill="white"/><path d="M101.363 6.88488L96.9346 8.32107L96.951 21.1878C95.5794 22.5792 94.3357 23.2279 93.0384 23.2279C90.623 23.2279 90.1152 21.3156 90.1152 19.7112L90.1556 6.88379H88.7775L84.3256 8.31998V20.2649C84.3256 24.6707 86.6504 27.1968 90.7027 27.1968C92.9216 27.1968 94.9013 26.1866 96.9062 24.0241V29.1933C96.9062 32.5342 95.5412 34.6923 93.4272 34.6923C91.6505 34.6923 90.3174 33.6399 89.5759 31.7276C89.0655 30.4023 88.8807 28.7288 88.8807 26.6543H83.0464C83.0464 29.9325 83.6342 32.5572 84.9203 34.4367C86.5867 36.8783 89.3407 38.0002 93.4272 38.0002C97.5138 38.0002 101.388 35.5289 101.388 29.1625V6.88488H101.363Z" fill="white"/><path d="M28.7046 6.7926C25.2339 6.7926 22.8038 8.6171 21.4301 10.5295V6.88379H19.8591L15.3926 8.32048V36.9394H21.4301V27.8401C22.8038 29.6526 25.2339 31.4001 28.7046 31.4001C35.059 31.4001 37.9128 25.4498 37.9128 19.0965C37.9128 12.7432 35.059 6.7926 28.7046 6.7926ZM26.8984 28.2036C25.2756 28.2036 23.0417 27.4702 21.4301 25.7471V12.4122C23.0417 10.6892 25.2756 9.95576 26.8984 9.95576C30.6578 9.95576 31.8733 14.0169 31.8733 19.0965C31.8733 24.1762 30.6578 28.2036 26.8984 28.2036Z" fill="white"/></svg>`;
+    const svgText = `<svg width="103" height="37" viewBox="0 0 103 37" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.9918 1.44019V7.70147C12.9219 7.09911 11.636 6.79355 10.1636 6.79355C7.31926 6.79355 4.74754 7.88547 2.924 9.86779C1.01102 11.9476 0 14.8521 0 18.2691C0 23.3092 2.7146 28.3953 8.77963 28.3953C10.7919 28.3953 12.7823 27.3702 13.9918 25.7471V27.8401H19.7907V0H18.4383L13.9918 1.44019ZM6.01813 16.8004C6.01813 12.3408 7.6999 9.34428 10.2018 9.34428C12.7037 9.34428 13.9907 11.3726 13.9907 15.3712V23.7506C13.0091 24.5994 12.0504 24.9312 10.5966 24.9312C9.14281 24.9312 7.92566 24.0978 7.11204 22.4528C6.4064 21.0257 6.01704 19.0182 6.01704 16.8004H6.01813Z" fill="white"/><path d="M76.4111 1.44019V7.70147C75.3319 7.09911 74.0349 6.79355 72.5497 6.79355C69.6806 6.79355 67.0865 7.88547 65.2471 9.86779C63.3175 11.9476 62.2977 14.8521 62.2977 18.2691C62.2977 23.3092 65.0359 28.3953 71.1536 28.3953C73.1834 28.3953 75.1911 27.3702 76.4111 25.7471V27.8401H82.2605V0H80.8963L76.4111 1.44019ZM68.3692 16.8004C68.3692 12.3408 70.0656 9.34428 72.5893 9.34428C75.113 9.34428 76.4111 11.3726 76.4111 15.3712V23.7506C75.421 24.5994 74.454 24.9312 72.9875 24.9312C71.5211 24.9312 70.2933 24.0978 69.4727 22.4528C68.7609 21.0257 68.3681 19.0182 68.3681 16.8004H68.3692Z" fill="white"/><path d="M54.1175 6.88379C51.8661 6.88379 49.871 7.89657 47.8649 10.0642V6.88379H46.4791L41.9907 8.32048V27.8791H47.8385L47.866 12.8567C49.2364 11.5096 50.5133 10.8541 51.7671 10.8541C54.1999 10.8541 54.7103 12.7671 54.7103 14.3721V27.8791H60.5768L60.5405 13.8181C60.5405 9.41193 58.1989 6.88379 54.1175 6.88379Z" fill="white"/><path d="M101.363 6.88488L96.9346 8.32107L96.951 21.1878C95.5794 22.5792 94.3357 23.2279 93.0384 23.2279C90.623 23.2279 90.1152 21.3156 90.1152 19.7112L90.1556 6.88379H88.7775L84.3256 8.31998V20.2649C84.3256 24.6707 86.6504 27.1968 90.7027 27.1968C92.9216 27.1968 94.9013 26.1866 96.9062 24.0241V29.1933C96.9062 32.5342 95.5412 34.6923 93.4272 34.6923C91.6505 34.6923 90.5029 33.5751 90.5029 31.8462C90.5029 31.1297 90.7081 30.4111 91.1144 29.711L91.2159 29.5363L86.1852 27.8871L86.1197 28.004C85.5988 28.9246 85.3466 29.7929 85.3466 30.659C85.3466 32.3791 86.2584 33.977 87.9149 35.1576C89.5812 36.3459 91.8624 37.0001 94.34 37.0001C99.599 37.0001 102.74 34.0818 102.74 29.1933V6.88488H101.365H101.363Z" fill="white"/><path d="M39.5814 14.6757C39.5814 9.79648 36.4396 6.88379 31.1754 6.88379C28.6958 6.88379 26.4129 7.53675 24.7453 8.72275C23.0874 9.90113 22.1749 11.4959 22.1749 13.2128C22.1749 14.0761 22.4285 14.9427 22.9487 15.8628L23.0142 15.9794L28.0489 14.3334L27.9472 14.159C27.5407 13.4591 27.3352 12.7419 27.3352 12.0279C27.3352 10.3023 28.4838 9.18713 30.2618 9.18713C32.3764 9.18713 33.7436 11.3411 33.7436 14.6757V15.2556L31.7317 15.7014C29.4575 16.2138 26.8708 16.8504 24.9704 17.9274C22.8754 19.1145 21.8558 20.6886 21.8558 22.7379C21.8558 26.0692 24.2207 28.3954 27.6063 28.3954C30.3602 28.3954 32.2245 27.4514 33.7425 25.2614V27.8231H39.5792V14.6746L39.5814 14.6757ZM27.8915 22.1852C27.8915 19.9222 29.2171 18.6218 32.3229 17.838L33.7447 17.4924V22.6998C32.9993 24.1648 31.8683 24.9072 30.382 24.9072C28.9854 24.9072 27.8915 23.7113 27.8915 22.1852Z" fill="white"/></svg>`;
 
     const canvas = document.createElement("canvas");
     const scale = 4;
@@ -159,7 +159,7 @@ const SalesRoiCalculator = () => {
       const rightCol = pageW - marginR;
 
       const darkGreen: [number, number, number] = [0, 40, 32];
-      const lime: [number, number, number] = [163, 190, 60];
+      const lime: [number, number, number] = [199, 231, 56];
       const white: [number, number, number] = [255, 255, 255];
       const mutedText: [number, number, number] = [90, 100, 95];
       const subtleText: [number, number, number] = [140, 150, 145];
@@ -335,19 +335,20 @@ const SalesRoiCalculator = () => {
             Back
           </button>
 
-          {/* Header — matches DSO style */}
-          <div className="text-center mb-14">
+          {/* Header */}
+          <div className="text-center mb-10">
             <motion.p
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[11px] font-semibold tracking-[0.15em] text-primary mb-5 uppercase"
+              className="text-[10px] font-semibold tracking-[0.15em] text-[#003A30] mb-3 uppercase"
             >
               {accountName ? `For ${accountName}` : "Prove the Impact"}
             </motion.p>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-display text-foreground"
+              className="text-5xl font-bold text-[#1A2A1A] leading-tight"
+              style={{ fontFamily: "'Bagoss Standard','Inter',system-ui,sans-serif" }}
             >
               Calculate the cost of inaction.
             </motion.h2>
@@ -355,7 +356,7 @@ const SalesRoiCalculator = () => {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="mt-4 text-base text-muted-foreground max-w-lg mx-auto"
+              className="mt-3 text-sm text-muted-foreground max-w-lg mx-auto"
             >
               Estimate the cost of remakes and lost chair time across your DSO.
             </motion.p>
@@ -365,16 +366,16 @@ const SalesRoiCalculator = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-10 flex items-center justify-center gap-4"
+            className="mb-8 flex items-center justify-center gap-3"
           >
-            <label className="text-sm font-medium text-foreground">Number of practices:</label>
+            <label className="text-[13px] font-medium text-[#2A3A1A]">Number of practices:</label>
             <input
               type="number"
               min={1}
               max={2000}
               value={practices}
               onChange={(e) => setPractices(Math.max(1, Math.min(2000, parseInt(e.target.value) || 1)))}
-              className="w-20 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] text-foreground text-center focus:outline-none focus:ring-2 focus:ring-[#003A30]/20"
             />
           </motion.div>
 
@@ -385,15 +386,15 @@ const SalesRoiCalculator = () => {
             className="grid lg:grid-cols-5 gap-8 items-start"
           >
             {/* ── LEFT: Two input sections stacked (no Card wrappers — matches DSO) ── */}
-            <div className="lg:col-span-3 space-y-8">
+            <div className="lg:col-span-3 space-y-6">
 
               {/* SECTION 1: Fixed Restoration Remake Impact */}
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Fixed Restoration Remake Impact</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Production recovered and costs avoided by reducing remakes.</p>
+                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>Fixed Restoration Remake Impact</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Production recovered and costs avoided by reducing remakes.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                   <InputField label="Cases per Month:" value={restoCases}
                     onChange={(v) => setRestoCases(Math.max(1, parseInt(v) || 1))} min={1} max={9999} />
                   <InputField label="Average Case Value ($):" value={avgCaseValue} prefix="$"
@@ -415,15 +416,15 @@ const SalesRoiCalculator = () => {
               <div className="border-t border-border" />
 
               {/* SECTION 2: Denture Workflow Impact */}
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Denture Workflow Impact</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Chair time freed by reducing intermediate appointments.</p>
+                  <h3 className="text-xl font-bold text-[#1A2A1A]" style={{ fontFamily: "'Inter', sans-serif" }}>Denture Workflow Impact</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Chair time freed by reducing intermediate appointments.</p>
                 </div>
 
                 {/* Scenario toggle */}
                 <div>
-                  <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-2.5 block">
+                  <label className="text-[10px] font-semibold text-[#2A3A1A] uppercase tracking-wider mb-1.5 block">
                     Benchmark Scenario:
                   </label>
                   <div className="grid grid-cols-3 gap-0 rounded-full border border-border overflow-hidden">
@@ -431,9 +432,9 @@ const SalesRoiCalculator = () => {
                       <button
                         key={s}
                         onClick={() => setScenario(s)}
-                        className={`py-2.5 text-sm font-semibold capitalize transition-all ${
+                        className={`py-2 text-[13px] font-semibold capitalize transition-all ${
                           scenario === s
-                            ? "bg-accent-warm text-accent-warm-foreground"
+                            ? "bg-[#C7E738] text-[#003A30] font-bold"
                             : "bg-background text-muted-foreground hover:text-foreground"
                         }`}
                       >
@@ -444,7 +445,7 @@ const SalesRoiCalculator = () => {
                   <p className="text-[10px] text-muted-foreground mt-1.5">{apptsSaved} appointments saved per case</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                   <InputField label="Denture Cases / Month:" value={dentureCases}
                     onChange={(v) => setDentureCases(Math.max(0, parseInt(v) || 0))} min={0} max={9999} />
                   <InputField label="Avg Production per Hour ($):" value={prodPerHour} prefix="$"
@@ -460,7 +461,7 @@ const SalesRoiCalculator = () => {
                   Advanced settings
                 </button>
                 {showDentureAdvanced && (
-                  <div className="grid grid-cols-2 gap-x-5 gap-y-3 animate-in fade-in-0 slide-in-from-top-2">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 animate-in fade-in-0 slide-in-from-top-2">
                     <InputField label="Avg Min / Appointment:" value={avgMinPerAppt}
                       onChange={(v) => setAvgMinPerAppt(parseInt(v) || 30)} min={5} max={120} />
                     <InputField label="Working Days / Month:" value={workingDays}
@@ -473,48 +474,48 @@ const SalesRoiCalculator = () => {
                 )}
               </div>
 
-              {/* CTA — matches DSO pill style, but triggers PDF download */}
+              {/* CTA — lime green pill */}
               <button
                 onClick={exportPDF}
-                className="w-full rounded-full bg-accent-warm py-3.5 text-sm font-bold uppercase tracking-widest text-accent-warm-foreground hover:brightness-105 transition-all flex items-center justify-center gap-2"
+                className="w-full rounded-full bg-[#C7E738] py-3 text-[13px] font-bold uppercase tracking-widest text-[#003A30] hover:brightness-105 transition-all flex items-center justify-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Download PDF Report
+                Print Results
               </button>
             </div>
 
             {/* ── RIGHT: Results panel — dark forest green, matches DSO ── */}
             <div className="lg:col-span-2">
-              <div className="rounded-2xl bg-sidebar p-6 md:p-8 space-y-1 sticky top-24">
-                <h3 className="text-2xl font-medium text-sidebar-foreground tracking-tight mb-6">
+              <div className="rounded-2xl bg-[#003A30] p-5 md:p-6 space-y-0.5 sticky top-24">
+                <h3 className="text-2xl font-bold text-white tracking-tight mb-4" style={{ fontFamily: "'Inter', sans-serif" }}>
                   Your results
                 </h3>
 
-                <p className="text-[9px] font-bold text-sidebar-foreground/40 uppercase tracking-widest pt-2">Denture Workflow</p>
+                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">Denture Workflow</p>
                 <ResultRow label="Appointments Freed / Month" value={fmt(denture.apptsFreed)} />
                 <ResultRow label="Chair Hours Freed / Month" value={fmtDec(denture.chairHrsFreed)} />
                 <ResultRow label="Incremental Production / Month ($)" value={fmtDollar(denture.incProdMonth)} highlight />
                 <ResultRow label="Incremental Production / Year ($)" value={fmtDollar(denture.incProdYear)} highlight />
 
-                <div className="border-t border-sidebar-foreground/10 my-3" />
+                <div className="border-t border-white/10 my-3" />
 
-                <p className="text-[9px] font-bold text-sidebar-foreground/40 uppercase tracking-widest pt-2">Remake Impact</p>
+                <p className="text-[11px] font-bold text-white/60 uppercase tracking-widest pt-2">Remake Impact</p>
                 <ResultRow label="Remakes Avoided / Month" value={fmtDec(resto.remakesAvoided)} />
                 <ResultRow label="Recovered Production / Year ($)" value={fmtDollar(resto.recoveredProdYear)} />
                 <ResultRow label="Lab Costs Avoided / Year ($)" value={fmtDollar(resto.labCostsAvoidedYear)} />
                 <ResultRow label="Opportunity Production / Year ($)" value={fmtDollar(resto.opptyProdYear)} highlight />
 
-                <div className="border-t border-sidebar-foreground/10 my-3" />
+                <div className="border-t border-white/10 my-3" />
 
                 <div className="pt-2">
-                  <p className="text-[10px] font-semibold text-accent-warm uppercase tracking-wider mb-1">
+                  <p className="text-[11px] font-bold text-[#C7E738] uppercase tracking-wider mb-0.5">
                     Total Financial Upside / Year ($){practices > 1 ? ` (${practices} practices)` : ""}
                   </p>
-                  <p className="text-4xl md:text-5xl font-bold text-sidebar-foreground tracking-tight">
+                  <p className="text-3xl md:text-4xl font-bold text-white tracking-tight">
                     {fmtDollar(totalAnnualUpside)}
                   </p>
                   {practices > 1 && (
-                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-sidebar-foreground/50">
+                    <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
                       <span>Denture: {fmtDollar(denture.incProdYear * practices)}</span>
                       <span>•</span>
                       <span>Remakes: {fmtDollar(resto.totalUpsideYear * practices)}</span>

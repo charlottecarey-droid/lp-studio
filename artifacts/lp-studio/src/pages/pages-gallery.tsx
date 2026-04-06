@@ -312,7 +312,7 @@ function PageActionsMenu({
         </Button>
 
         {open && (
-          <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[200px] bg-popover border border-border rounded-xl shadow-xl overflow-hidden">
+          <div className="absolute bottom-full right-0 mb-1 z-50 min-w-[200px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
             {items.map(item => (
               <button
                 key={item.label}
@@ -763,7 +763,7 @@ export default function PagesGallery() {
               <BookOpen className="w-3.5 h-3.5" />
               Brief
             </Button>
-            <Button size="sm" className="gap-1.5 text-[13px] rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }} onClick={() => setShowCreateModal(true)}>
+            <Button size="sm" className="gap-1.5 text-[13px] rounded-lg" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-3.5 h-3.5" />
               New Page
             </Button>
@@ -797,7 +797,7 @@ export default function PagesGallery() {
                 placeholder="Search pages…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-8 py-1.5 text-[13px] border border-border/50 rounded-lg bg-background outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+                className="w-full pl-8 pr-8 py-1.5 text-[13px] border border-border rounded-lg bg-background outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
               />
               {searchQuery && (
                 <button
@@ -812,7 +812,7 @@ export default function PagesGallery() {
         )}
 
         {isLoading ? (
-          <div className="border border-border/50 rounded-xl overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <div className="p-4 flex flex-col gap-3">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-14 rounded-lg bg-muted/40 animate-pulse" />
@@ -820,17 +820,17 @@ export default function PagesGallery() {
             </div>
           </div>
         ) : pages.length === 0 ? (
-          <div className="border border-border/50 rounded-xl p-12 text-center">
+          <div className="border border-border rounded-lg p-12 text-center">
             <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-foreground mb-1">No pages yet</h3>
             <p className="text-xs text-muted-foreground mb-4">Create your first page to get started.</p>
-            <Button size="sm" className="gap-1.5 text-[13px] rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }} onClick={() => setShowCreateModal(true)}>
+            <Button size="sm" className="gap-1.5 text-[13px] rounded-lg" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-3.5 h-3.5" />
               Create Page
             </Button>
           </div>
         ) : filteredPages.length === 0 ? (
-          <div className="border border-border/50 rounded-xl p-12 text-center">
+          <div className="border border-border rounded-lg p-12 text-center">
             <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-foreground mb-1">No {filterStatus === "All" ? "pages" : filterStatus.toLowerCase() + " pages"}</h3>
             <p className="text-xs text-muted-foreground mb-4">Try a different filter or create a new page.</p>
@@ -842,7 +842,7 @@ export default function PagesGallery() {
           <>
             {/* Bulk action bar */}
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-foreground/5 border border-border/60 rounded-xl">
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-foreground/5 border border-border rounded-lg">
                 <CheckSquare className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-sm font-medium text-foreground">{selectedIds.size} page{selectedIds.size > 1 ? "s" : ""} selected</span>
                 <div className="ml-auto flex items-center gap-2">
@@ -888,7 +888,7 @@ export default function PagesGallery() {
             </div>
 
             {/* No overflow-hidden on the container so dropdown menus aren't clipped */}
-            <div className="border border-border/50 rounded-xl divide-y divide-border/40">
+            <div className="border border-border rounded-lg divide-y divide-border/40">
               {pagesPag.pageItems.map(page => {
                 const isPublished = page.status === "published";
                 const isRunning = runningTests.some(t => t.slug === page.slug);
@@ -915,7 +915,7 @@ export default function PagesGallery() {
                 );
 
                 return (
-                  <div key={page.id} className="hover:bg-muted/30 transition-colors first:rounded-t-xl last:rounded-b-xl">
+                  <div key={page.id} className="hover:bg-muted/30 transition-colors first:rounded-t-lg last:rounded-b-lg">
 
                     {/* ── Mobile layout (hidden on md+) ── */}
                     <div className="md:hidden px-4 py-4 flex flex-col gap-3">
@@ -1113,7 +1113,7 @@ export default function PagesGallery() {
 
           {/* Segment picker — shown when segments exist */}
           {segments.length > 0 && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                   <Users className="w-3 h-3 text-primary" />
@@ -1144,7 +1144,7 @@ export default function PagesGallery() {
               onClick={() => { setCreateMode("template"); setCreateError(null); }}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                createMode === "template" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                createMode === "template" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -1154,7 +1154,7 @@ export default function PagesGallery() {
               onClick={() => { setCreateMode("ai"); setCreateError(null); }}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                createMode === "ai" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                createMode === "ai" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -1164,7 +1164,7 @@ export default function PagesGallery() {
               onClick={() => { setCreateMode("brief"); setCreateError(null); }}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                createMode === "brief" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                createMode === "brief" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <BookOpen className="w-3.5 h-3.5" />
@@ -1208,7 +1208,7 @@ export default function PagesGallery() {
                           key={t.id}
                           onClick={() => setSelectedTemplate(t.id)}
                           className={cn(
-                            "text-left p-3 rounded-xl border text-sm transition-all",
+                            "text-left p-3 rounded-lg border text-sm transition-all",
                             selectedTemplate === t.id
                               ? "border-primary bg-primary/5 ring-1 ring-primary"
                               : "border-border hover:border-primary/30 hover:bg-muted/50"
@@ -1232,14 +1232,14 @@ export default function PagesGallery() {
                           key={t.id}
                           onClick={() => setSelectedTemplate(t.id)}
                           className={cn(
-                            "text-left p-3 rounded-xl border text-sm transition-all relative overflow-hidden",
+                            "text-left p-3 rounded-lg border text-sm transition-all relative overflow-hidden",
                             selectedTemplate === t.id
                               ? "border-primary bg-primary/5 ring-1 ring-primary"
                               : "border-border hover:border-primary/30 hover:bg-muted/50"
                           )}
                         >
                           <div
-                            className="absolute top-0 right-0 w-8 h-8 rounded-bl-xl opacity-60"
+                            className="absolute top-0 right-0 w-8 h-8 rounded-bl-lg opacity-60"
                             style={{ background: t.accentColor }}
                           />
                           <div className="flex items-start gap-1.5 pr-6">
@@ -1277,7 +1277,7 @@ export default function PagesGallery() {
             </div>
           ) : createMode === "ai" ? (
             <div className="space-y-5 py-2">
-              <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+              <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                     <Wand2 className="w-4 h-4 text-primary" />
@@ -1333,7 +1333,7 @@ export default function PagesGallery() {
             </div>
           ) : (
             <div className="space-y-4 py-2">
-              <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+              <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                     <BookOpen className="w-4 h-4 text-primary" />

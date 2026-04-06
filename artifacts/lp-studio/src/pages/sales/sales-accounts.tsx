@@ -37,6 +37,7 @@ import {
   X,
   BookmarkCheck,
   Tags,
+  Target,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -56,6 +57,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { Flame, Thermometer, Zap, Snowflake, TrendingDown, ArrowRight } from "lucide-react";
+import { PageHint } from "@/components/ui/page-hint";
+import { InfoTip } from "@/components/ui/info-tip";
 
 const API_BASE = "/api";
 
@@ -264,7 +267,9 @@ function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: Fu
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Engagement</h2>
+          <InfoTip content="Combined score based on email opens, page visits, and link clicks across all contacts at this account." color="emerald">
+            <h2 className="text-sm font-semibold text-foreground cursor-help">Engagement</h2>
+          </InfoTip>
           <span className="text-xs text-muted-foreground/60">last 7 days · click to filter</span>
         </div>
         {activeFilter && (
@@ -613,6 +618,20 @@ function AccountListView() {
             New Account
           </Button>
         </div>
+
+        {/* PageHint Banner */}
+        <PageHint
+          id="sales-accounts"
+          title="Manage Your Target Accounts"
+          description="Each account represents a company you're selling to. Add contacts, generate personalized microsites, and track engagement — all from the account detail page."
+          tips={[
+            "Click an account to see contacts, engagement signals, and microsites",
+            "Use 'Generate Microsite' on an account to create an AI-personalized landing page",
+            "The engagement score updates automatically as contacts interact with your content"
+          ]}
+          color="emerald"
+          icon={Target}
+        />
 
         {/* New Account Form */}
         {showNewForm && (
@@ -993,10 +1012,12 @@ function AccountListView() {
 
                 <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0">
                   {(account.contactCount ?? 0) > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {account.contactCount}
-                    </span>
+                    <InfoTip content="Total contacts imported for this account. Add more from the account detail page." color="default">
+                      <span className="flex items-center gap-1 cursor-help">
+                        <Users className="w-3 h-3" />
+                        {account.contactCount}
+                      </span>
+                    </InfoTip>
                   )}
                   <span>{format(new Date(account.updatedAt), "MMM d")}</span>
                 </div>

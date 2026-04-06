@@ -88,7 +88,7 @@ export default function Dashboard() {
     {
       label: "Live Pages",
       value: (isLoading || pagesLoading) ? null : running.length + allPages.filter(p => p.status === "published").length,
-      icon: <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />,
+      icon: <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />,
       color: "text-emerald-600 dark:text-emerald-400",
       accent: true,
       href: "/live-pages",
@@ -197,11 +197,7 @@ export default function Dashboard() {
             </p>
           </div>
           <Link href="/pages/new" className="shrink-0">
-            <Button
-              size="sm"
-              className="rounded-lg font-medium text-[13px] shadow-sm"
-              style={{ backgroundColor: "#1B4332", color: "#C7E738" }}
-            >
+            <Button size="sm" className="rounded-md font-medium text-[13px]">
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               New Page
             </Button>
@@ -212,7 +208,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statTiles.map((stat) => (
             <Link href={stat.href} key={stat.label}>
-              <div className={`bg-card border rounded-xl px-5 py-4 cursor-pointer transition-all duration-200 hover:shadow-sm ${stat.accent ? "border-emerald-200/60 dark:border-emerald-800/30" : "border-border/50"}`}>
+              <div className={`bg-card border rounded-lg px-5 py-4 cursor-pointer transition-colors hover:bg-muted/50 ${stat.accent ? "border-border" : "border-border"}`}>
                 {stat.value === null ? (
                   <Skeleton className="h-8 w-12 mb-1" />
                 ) : (
@@ -230,7 +226,7 @@ export default function Dashboard() {
         {isEmpty ? (
           /* ── Empty / Onboarding ────────────────────────────── */
           <div className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Get started</h2>
+            <h2 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Get started</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 {
@@ -260,18 +256,18 @@ export default function Dashboard() {
                 },
               ].map((item) => (
                 <Link href={item.href} key={item.step}>
-                  <Card className={`group h-full flex flex-col gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-sm ${item.primary ? "border-[#1B4332]/20 bg-[#1B4332]/[0.03] hover:border-[#1B4332]/30" : "border-border/50 bg-card hover:border-border"}`}>
+                  <Card className={`group h-full flex flex-col gap-4 p-5 rounded-lg border cursor-pointer transition-colors hover:bg-muted/30 ${item.primary ? "border-foreground/10" : "border-border bg-card"}`}>
                     <div className="flex items-start justify-between">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.primary ? "bg-[#1B4332] text-[#C7E738]" : "bg-muted/60 text-muted-foreground group-hover:bg-muted transition-colors"}`}>
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center ${item.primary ? "bg-foreground text-background" : "bg-muted text-muted-foreground group-hover:text-foreground transition-colors"}`}>
                         {item.icon}
                       </div>
-                      <span className="text-[11px] font-semibold text-muted-foreground/40 tabular-nums">Step {item.step}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground/40 tabular-nums" style={{ fontFamily: "var(--app-font-mono)" }}>0{item.step}</span>
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground mb-1">{item.title}</h3>
+                      <h3 className="text-sm font-medium text-foreground mb-1">{item.title}</h3>
                       <p className="text-[13px] text-muted-foreground leading-relaxed">{item.desc}</p>
                     </div>
-                    <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-[#1B4332] dark:text-[#C7E738]">
+                    <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-foreground">
                       {item.cta} <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </Card>
@@ -284,7 +280,7 @@ export default function Dashboard() {
             {/* ── Recent Work ──────────────────────────────────── */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent work</h2>
+                <h2 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Recent work</h2>
                 <div className="flex items-center gap-4">
                   <Link href="/tests">
                     <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
@@ -299,7 +295,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Card className="border border-border/50 rounded-xl overflow-hidden divide-y divide-border/40">
+              <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
                 {recentWorkLoading ? (
                   <div className="p-4 flex flex-col gap-3">
                     {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 rounded-lg" />)}
@@ -388,7 +384,7 @@ export default function Dashboard() {
             </div>
 
             {/* ── Contextual Prompt ────────────────────────────── */}
-            <div className="flex items-center gap-4 px-5 py-4 bg-card border border-border/50 rounded-xl">
+            <div className="flex items-center gap-4 px-5 py-3.5 bg-card border border-border rounded-lg">
               <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0">
                 {drafts.length > 0 ? (
                   <FileText className="w-4 h-4 text-muted-foreground" />

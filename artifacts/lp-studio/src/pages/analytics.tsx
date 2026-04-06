@@ -64,7 +64,7 @@ function BarRow({ label, sub, count, max, flag }: { label: string; sub?: string;
         {sub && <p className="text-xs text-muted-foreground mb-1">{sub}</p>}
         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#C7E738] rounded-full transition-all duration-500"
+            className="h-full bg-foreground rounded-full transition-all duration-500"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
                   Top Countries
                 </CardTitle>
               </CardHeader>
-              <CardContent className="divide-y divide-border/50">
+              <CardContent className="divide-y divide-border">
                 {loading ? <LoadingSkeleton /> : topCountries.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4">No data</p>
                 ) : topCountries.map(row => (
@@ -212,7 +212,7 @@ export default function AnalyticsPage() {
                   Top Cities
                 </CardTitle>
               </CardHeader>
-              <CardContent className="divide-y divide-border/50">
+              <CardContent className="divide-y divide-border">
                 {loading ? <LoadingSkeleton /> : topCities.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4">No data</p>
                 ) : topCities.map(row => (

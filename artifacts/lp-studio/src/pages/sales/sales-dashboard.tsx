@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHint } from "@/components/ui/page-hint";
+import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
@@ -244,6 +246,20 @@ export default function SalesDashboard() {
           </Link>
         </div>
 
+        {/* ── PageHint banner ────────────────────────────────────────── */}
+        <PageHint
+          id="sales-dashboard"
+          title="Your Sales Command Center"
+          description="This dashboard tracks real-time engagement across all your accounts. Metrics update as contacts open emails, visit microsites, and interact with your content."
+          tips={[
+            "Hot Accounts show which prospects are actively engaging right now",
+            "The Signals feed shows every email open, page visit, and link click as it happens",
+            "Click any account to see their full engagement timeline"
+          ]}
+          color="violet"
+          icon={<Zap className="w-4 h-4" />}
+        />
+
         {/* ── Stats strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -327,7 +343,13 @@ export default function SalesDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Flame className="w-3.5 h-3.5 text-orange-500" />
-                    <h2 className="text-sm font-semibold text-foreground">Hot accounts</h2>
+                    <div className="flex items-center gap-1">
+                      <h2 className="text-sm font-semibold text-foreground">Hot accounts</h2>
+                      <InfoTip
+                        content="Accounts ranked by engagement recency and frequency. The heat badge shows how active they've been in the last 7 days."
+                        color="amber"
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground/60">most engaged this week</span>
                   </div>
                   <Link href="/sales/accounts">
@@ -415,7 +437,13 @@ export default function SalesDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <h2 className="text-sm font-semibold text-foreground">Live signals</h2>
+                    <div className="flex items-center gap-1">
+                      <h2 className="text-sm font-semibold text-foreground">Live signals</h2>
+                      <InfoTip
+                        content="Real-time feed of all engagement events — email opens, page visits, link clicks. Most recent activity appears first."
+                        color="blue"
+                      />
+                    </div>
                   </div>
                   <Link href="/sales/signals">
                     <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">

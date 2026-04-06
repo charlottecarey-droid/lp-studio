@@ -122,7 +122,7 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
 
     if (pages.length === 0) { res.json([]); return; }
 
-    // 2. Hotlinks for these pages (optional — left join equivalent)
+    // 2. Hotlinks for these pages — LEFT JOIN so orphaned hotlinks (null contactId after SFDC re-sync) still appear
     const pageIds = [...new Set(pages.map(p => p.pageId))];
     const hotlinks = await db
       .select({
@@ -132,26 +132,54 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
         contactId: salesContactsTable.id,
         contactFirst: salesContactsTable.firstName,
         contactLast: salesContactsTable.lastName,
+        sfdcContactId: salesHotlinksTable.sfdcContactId,
       })
       .from(salesHotlinksTable)
-      .innerJoin(salesContactsTable, eq(salesHotlinksTable.contactId, salesContactsTable.id))
+      .leftJoin(salesContactsTable, and(
+        eq(salesHotlinksTable.contactId, salesContactsTable.id),
+        eq(salesContactsTable.tenantId, tenantId),
+      ))
       .where(and(
         inArray(salesHotlinksTable.pageId, pageIds),
         eq(salesHotlinksTable.isActive, true),
-        eq(salesContactsTable.tenantId, tenantId),
       ));
 
-    // Index hotlinks by pageId
-    type HotlinkResult = typeof hotlinks[0];
-    const hotlinksByPage = new Map<number, HotlinkResult[]>();
+    // For orphaned hotlinks (contactId null), try to resolve name via sfdcContactId
+    const orphanSfdcIds = hotlinks
+      .filter(hl => !hl.contactId && hl.sfdcContactId)
+      .map(hl => hl.sfdcContactId!);
+    const sfdcNameMap = new Map<string, string>();
+    if (orphanSfdcIds.length > 0) {
+      const sfdcContacts = await db
+        .select({ sfdcId: salesContactsTable.salesforceId, first: salesContactsTable.firstName, last: salesContactsTable.lastName })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(salesContactsTable.salesforceId, orphanSfdcIds),
+        ));
+      for (const c of sfdcContacts) {
+        if (c.sfdcId) sfdcNameMap.set(c.sfdcId, [c.first, c.last].filter(Boolean).join(" ").trim());
+      }
+    }
+
+    // Index hotlinks by pageId, combining first+last into contactName
+    type HotlinkMapped = { hotlinkId: number | null; token: string; pageId: number | null; contactId: number; contactName: string };
+    const hotlinksByPage = new Map<number, HotlinkMapped[]>();
     for (const hl of hotlinks) {
       if (!hl.pageId) continue;
       if (!hotlinksByPage.has(hl.pageId)) hotlinksByPage.set(hl.pageId, []);
-      hotlinksByPage.get(hl.pageId)!.push(hl);
+      hotlinksByPage.get(hl.pageId)!.push({
+        hotlinkId: hl.hotlinkId,
+        token: hl.token,
+        pageId: hl.pageId,
+        contactId: hl.contactId ?? 0,
+        contactName: [hl.contactFirst, hl.contactLast].filter(Boolean).join(" ").trim()
+          || (hl.sfdcContactId ? sfdcNameMap.get(hl.sfdcContactId) ?? "" : ""),
+      });
     }
 
     // 3. Group pages by account (null accountId → "unattached" bucket with id=-1)
-    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkResult[] };
+    type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkMapped[] };
     type AccountEntry = { accountId: number; accountName: string; pages: Map<number, PageEntry> };
     const accountMap = new Map<number, AccountEntry>();
 

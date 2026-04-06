@@ -11,6 +11,7 @@ import {
   List,
   ChevronDown,
   ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 import { useLocation, Link } from "wouter";
 
@@ -20,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationBar } from "@/components/ui/pagination-bar";
+import { PageHint } from "@/components/ui/page-hint";
+import { InfoTip } from "@/components/ui/info-tip";
 import { getSignalIcon, getSignalLabel, SIGNAL_TYPES } from "@/lib/signal-types";
 import { useAuth } from "@/context/AuthContext";
 
@@ -256,6 +259,20 @@ export default function SalesSignals() {
           )}
         </div>
 
+        {/* Page Hint */}
+        <PageHint
+          id="sales-signals"
+          title="Real-Time Engagement Signals"
+          description="Every time a contact opens an email, visits a microsite, or clicks a personalized link, it appears here. Use these signals to time your follow-ups when prospects are actively engaged."
+          tips={[
+            "Filter by signal type to focus on what matters — page visits show the strongest intent",
+            "Switch to 'By Account' view to see engagement grouped by company",
+            "Click any signal to jump to that account's full profile",
+          ]}
+          color="amber"
+          icon={<TrendingUp className="w-5 h-5" />}
+        />
+
         {/* Account filter banner */}
         {acctFilterActive && (
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-primary/8 border border-primary/20 rounded-xl text-sm">
@@ -312,20 +329,24 @@ export default function SalesSignals() {
           ))}
 
           <div className="ml-auto flex items-center gap-1 border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setGroupByAccount(false)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${!groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <List className="w-3 h-3" />
-              Timeline
-            </button>
-            <button
-              onClick={() => setGroupByAccount(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Building2 className="w-3 h-3" />
-              By Account
-            </button>
+            <InfoTip content="Shows all signals in chronological order, most recent first." color="default">
+              <button
+                onClick={() => setGroupByAccount(false)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${!groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <List className="w-3 h-3" />
+                Timeline
+              </button>
+            </InfoTip>
+            <InfoTip content="Groups signals by account so you can see each company's engagement pattern." color="default">
+              <button
+                onClick={() => setGroupByAccount(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${groupByAccount ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Building2 className="w-3 h-3" />
+                By Account
+              </button>
+            </InfoTip>
           </div>
         </div>
 
