@@ -45,14 +45,33 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
 });
 
 router.get("/lp/forms/:id", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid form ID" }); return; }
-  const [form] = await db.select().from(lpFormsTable).where(
-    and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id))
-  );
-  if (!form) { res.status(404).json({ error: "Form not found" }); return; }
-  res.json(form);
+
+  const tenantId = req.authUser?.tenantId ?? null;
+
+  if (tenantId !== null) {
+    // Authenticated: return full form scoped to tenant
+    const [form] = await db.select().from(lpFormsTable).where(
+      and(eq(lpFormsTable.tenantId, tenantId), eq(lpFormsTable.id, id))
+    );
+    if (!form) { res.status(404).json({ error: "Form not found" }); return; }
+    res.json(form);
+  } else {
+    // Public (unauthenticated): return only display-safe fields needed to render the form
+    const [form] = await db.select({
+      id: lpFormsTable.id,
+      steps: lpFormsTable.steps,
+      multiStep: lpFormsTable.multiStep,
+      submitButtonText: lpFormsTable.submitButtonText,
+      successMessage: lpFormsTable.successMessage,
+      redirectUrl: lpFormsTable.redirectUrl,
+      backgroundStyle: lpFormsTable.backgroundStyle,
+    }).from(lpFormsTable).where(eq(lpFormsTable.id, id));
+    if (!form) { res.status(404).json({ error: "Form not found" }); return; }
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.json(form);
+  }
 });
 
 router.put("/lp/forms/:id", async (req, res): Promise<void> => {
