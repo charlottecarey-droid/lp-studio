@@ -76,7 +76,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
-    ogImage, animationsEnabled, pageVariables, fromTemplateId,
+    ogImage, animationsEnabled, pageVariables, fromTemplateId, audienceType, segmentId,
   } = req.body as {
     title?: unknown;
     slug?: unknown;
@@ -89,6 +89,8 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     animationsEnabled?: unknown;
     pageVariables?: unknown;
     fromTemplateId?: unknown;
+    audienceType?: unknown;
+    segmentId?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -162,6 +164,8 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables))
           ? pageVariables as Record<string, string>
           : sourcePageVariables,
+        audienceType: typeof audienceType === "string" && audienceType ? audienceType : null,
+        segmentId: typeof segmentId === "string" && segmentId ? segmentId : null,
       })
       .returning();
     res.status(201).json(page);
@@ -209,7 +213,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables, audienceType, segmentId } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -220,9 +224,11 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     ogImage?: string;
     animationsEnabled?: boolean;
     pageVariables?: Record<string, string>;
+    audienceType?: string | null;
+    segmentId?: string | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string> }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -243,6 +249,8 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (ogImage !== undefined) updates.ogImage = ogImage;
   if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
+  if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
+  if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
 
   try {
     const [page] = await db

@@ -2,6 +2,8 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -19,9 +21,9 @@ interface BrandContext {
   productKeywords: string[];
 }
 
-async function fetchBrandContext(): Promise<BrandContext> {
+async function fetchBrandContext(tenantId: number): Promise<BrandContext> {
   try {
-    const rows = await db.select().from(lpBrandSettingsTable).limit(1);
+    const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
     if (rows.length === 0) return { brandName: "", productKeywords: [] };
     const config = rows[0].config as Record<string, unknown> | null;
     const brandName = (config?.brandName as string) ?? "";
@@ -33,11 +35,36 @@ async function fetchBrandContext(): Promise<BrandContext> {
   }
 }
 
+type AudienceType = "dso-corporate" | "dso-practice" | "independent";
+
+function buildAudiencePrompt(audienceType?: AudienceType | null, segmentContext?: Record<string, unknown> | null): string {
+  const parts: string[] = [];
+
+  if (segmentContext?.name) {
+    parts.push(`Target audience: ${segmentContext.name}`);
+    if (segmentContext.description) parts.push(`Audience description: ${segmentContext.description}`);
+    if (segmentContext.messagingAngle) parts.push(`Key message angle: ${segmentContext.messagingAngle}`);
+  } else if (audienceType) {
+    const audienceLabels: Record<AudienceType, string> = {
+      "dso-corporate": "DSO corporate leadership — VP of Operations, CFO, Chief Dental Officer. Focus on network-wide ROI, operational efficiency, and scalability.",
+      "dso-practice": "Individual dental practice within a DSO network — dentist or office manager. Focus on chair-time savings, clinical quality, and seamless onboarding.",
+      "independent": "Independent dental practice — solo dentist or small group. Focus on competitive differentiation, per-case quality, and lab reliability.",
+    };
+    parts.push(`Target audience: ${audienceLabels[audienceType]}`);
+  }
+
+  return parts.join("\n");
+}
+
 router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
-  const { blocks, title, currentSlug } = req.body as {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+  const { blocks, title, currentSlug, audienceType, segmentContext } = req.body as {
     blocks?: unknown[];
     title?: string;
     currentSlug?: string;
+    audienceType?: AudienceType | null;
+    segmentContext?: Record<string, unknown> | null;
   };
 
   if (!Array.isArray(blocks) || blocks.length === 0) {
@@ -53,7 +80,9 @@ router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const { brandName, productKeywords } = await fetchBrandContext();
+  const { brandName, productKeywords } = await fetchBrandContext(tenantId);
+
+  const audiencePrompt = buildAudiencePrompt(audienceType, segmentContext);
 
   // Extract key text from blocks
   const texts: string[] = [];
@@ -67,16 +96,19 @@ router.post("/lp/seo-meta-generate", async (req, res): Promise<void> => {
   }
   const pageContent = texts.slice(0, 10).join("\n");
 
-  const systemPrompt = `Generate SEO-optimized metadata for a landing page.
-
-RULES:
-- metaTitle: 30-60 characters, include the primary keyword, be compelling for clicks
-- metaDescription: 120-155 characters, summarize the page value prop, include a soft CTA
-- suggestedSlug: a short, keyword-rich URL slug (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug is already good, return it unchanged.
-- Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "...", "suggestedSlug": "..."}
-- No markdown, no explanation, just the JSON object
-${brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : ""}
-${productKeywords.length ? `- Target keywords to work in naturally: ${productKeywords.join(", ")}` : ""}`;
+  const systemPrompt = [
+    `Generate SEO-optimized metadata for a landing page.`,
+    ``,
+    `RULES:`,
+    `- metaTitle: 30-60 characters, include the primary keyword, be compelling for clicks`,
+    `- metaDescription: 120-155 characters, summarize the page value prop, include a soft CTA`,
+    `- suggestedSlug: a short, keyword-rich URL slug (lowercase, hyphens only, 2-5 words, no stop words like "the" "and" "for"). If the current slug is already good, return it unchanged.`,
+    `- Return ONLY valid JSON: {"metaTitle": "...", "metaDescription": "...", "suggestedSlug": "..."}`,
+    `- No markdown, no explanation, just the JSON object`,
+    brandName ? `- Brand name: ${brandName} — include it naturally in the meta title` : "",
+    productKeywords.length ? `- Target keywords to work in naturally: ${productKeywords.join(", ")}` : "",
+    audiencePrompt ? `- AUDIENCE CONTEXT: ${audiencePrompt}\n  Tailor the meta title and description to resonate specifically with this audience.` : "",
+  ].filter(Boolean).join("\n");
 
   const userPrompt = [
     `Page title: ${title || "Untitled"}`,

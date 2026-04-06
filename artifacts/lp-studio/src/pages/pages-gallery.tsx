@@ -107,6 +107,8 @@ interface CreatePageData {
   slug: string;
   blocks: PageBlock[];
   status: "draft" | "published";
+  audienceType?: string | null;
+  segmentId?: string | null;
 }
 
 async function createPage(data: CreatePageData) {
@@ -563,13 +565,30 @@ export default function PagesGallery() {
     setNewSlug(slugify(v));
   };
 
+  const inferAudienceType = (segName: string): string | null => {
+    const n = segName.toLowerCase();
+    if (n.includes("dso") && (n.includes("corporate") || n.includes("leadership") || n.includes("executive") || n.includes("c-suite"))) return "dso-corporate";
+    if (n.includes("dso") && (n.includes("practice") || n.includes("office") || n.includes("dentist"))) return "dso-practice";
+    if (n.includes("independent") || n.includes("solo") || n.includes("private")) return "independent";
+    if (n.includes("dso")) return "dso-corporate";
+    if (n.includes("practice")) return "dso-practice";
+    return null;
+  };
+
   const handleCreate = async () => {
     if (!newTitle.trim() || !newSlug.trim()) return;
     setIsCreating(true);
     setCreateError(null);
     try {
       const blocks = getTemplateBlocks(selectedTemplate);
-      const page = await createPage({ title: newTitle.trim(), slug: newSlug.trim(), blocks, status: "draft" });
+      const page = await createPage({
+        title: newTitle.trim(),
+        slug: newSlug.trim(),
+        blocks,
+        status: "draft",
+        segmentId: selectedSegment?.id ?? null,
+        audienceType: selectedSegment ? inferAudienceType(selectedSegment.name) : null,
+      });
       setShowCreateModal(false);
       setNewTitle("");
       setNewSlug("");
@@ -631,6 +650,8 @@ export default function PagesGallery() {
       slug: generated.slug,
       blocks: generated.blocks,
       status: "draft",
+      segmentId: activeSeg?.id ?? null,
+      audienceType: activeSeg ? inferAudienceType(activeSeg.name) : null,
     });
     if (activeSeg) {
       setBriefContext({

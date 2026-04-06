@@ -22,6 +22,8 @@ export const lpPagesTable = pgTable("lp_pages", {
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),
+  audienceType: text("audience_type"),  // "dso-corporate" | "dso-practice" | "independent"
+  segmentId: text("segment_id"),        // brand segment ID applied to this page
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

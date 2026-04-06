@@ -92,12 +92,24 @@ interface FetchedPage {
   isTemplate?: boolean;
   templateLabel?: string | null;
   templateDescription?: string | null;
+  audienceType?: string | null;
+  segmentId?: string | null;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
   const res = await fetch(`${API_BASE}/lp/pages/${id}`);
   if (!res.ok) throw new Error("Failed to load page");
   return res.json() as Promise<FetchedPage>;
+}
+
+function inferBuilderAudienceType(segmentName: string): string | null {
+  const n = segmentName.toLowerCase();
+  if (n.includes("dso") && (n.includes("corporate") || n.includes("leadership") || n.includes("executive") || n.includes("c-suite"))) return "dso-corporate";
+  if (n.includes("dso") && (n.includes("practice") || n.includes("office") || n.includes("dentist"))) return "dso-practice";
+  if (n.includes("independent") || n.includes("solo") || n.includes("private")) return "independent";
+  if (n.includes("dso")) return "dso-corporate";
+  if (n.includes("practice")) return "dso-practice";
+  return null;
 }
 
 interface SavePageData {
@@ -111,6 +123,8 @@ interface SavePageData {
   metaDescription?: string;
   ogImage?: string;
   pageVariables?: Record<string, string>;
+  audienceType?: string | null;
+  segmentId?: string | null;
 }
 
 async function savePage(id: string, data: SavePageData) {
@@ -678,6 +692,7 @@ export default function BuilderEditor() {
   // Content Brief state
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
+  const [pageAudienceType, setPageAudienceType] = useState<string | null>(null);
   const [appliedSegment, setAppliedSegment] = useState<AudienceSegment | null>(() => {
     const ctx = getBriefContext();
     if (ctx?.segmentContext) {
@@ -796,6 +811,15 @@ export default function BuilderEditor() {
         setCustomBlocks(customs);
         setAbTestName(p.title);
         setAbTestSlug(p.slug);
+        // Restore audience/segment from saved page data (only if builder context not already set)
+        if (!getBriefContext() && p.segmentId && Array.isArray(b.segments)) {
+          const savedSeg = (b.segments as AudienceSegment[]).find(s => s.id === p.segmentId);
+          if (savedSeg) {
+            setAppliedSegment(savedSeg);
+            if (!p.audienceType) setPageAudienceType(inferBuilderAudienceType(savedSeg.name));
+          }
+        }
+        if (p.audienceType) setPageAudienceType(p.audienceType);
         setIsLoading(false);
       })
       .catch(err => {
@@ -1080,6 +1104,8 @@ export default function BuilderEditor() {
     metaDescription,
     ogImage,
     pageVariables: Object.keys(pageVariables).length > 0 ? pageVariables : undefined,
+    audienceType: pageAudienceType ?? (appliedSegment ? null : undefined),
+    segmentId: appliedSegment?.id ?? (pageAudienceType ? null : undefined),
     ...overrides,
   });
 
@@ -1481,7 +1507,10 @@ export default function BuilderEditor() {
         initialSegmentId={appliedSegment?.id ?? ""}
         onApply={(brief, company, objective, segment) => {
           setAppliedBrief({ brief, company, objective });
-          if (segment) setAppliedSegment(segment);
+          if (segment) {
+            setAppliedSegment(segment);
+            setPageAudienceType(inferBuilderAudienceType(segment.name));
+          }
           const segLabel = segment ? ` (${segment.name} segment)` : "";
           toast({ title: "Brief Applied", description: `Campaign context from "${company}"${segLabel} is now active for AI copy generation.` });
         }}
@@ -1689,13 +1718,26 @@ export default function BuilderEditor() {
                 <div className="border-t border-border pt-1">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">SEO &amp; Metadata</p>
-                    <AutoMetaButton blocks={blocks} title={title} currentSlug={slug} micrositeDomain={micrositeDomain} onGenerated={(mt, md, sugSlug, og) => {
-                      setMetaTitle(mt);
-                      setMetaDescription(md);
-                      if (sugSlug && sugSlug !== slug) setSuggestedSlug(sugSlug);
-                      if (og) setOgImage(og);
-                      setTimeout(handleSave, 100);
-                    }} />
+                    <AutoMetaButton
+                      blocks={blocks}
+                      title={title}
+                      currentSlug={slug}
+                      micrositeDomain={micrositeDomain}
+                      audienceType={pageAudienceType}
+                      segmentContext={appliedSegment ? {
+                        id: appliedSegment.id,
+                        name: appliedSegment.name,
+                        description: appliedSegment.description,
+                        messagingAngle: appliedSegment.messagingAngle,
+                      } : null}
+                      onGenerated={(mt, md, sugSlug, og) => {
+                        setMetaTitle(mt);
+                        setMetaDescription(md);
+                        if (sugSlug && sugSlug !== slug) setSuggestedSlug(sugSlug);
+                        if (og) setOgImage(og);
+                        setTimeout(handleSave, 100);
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -1963,12 +2005,16 @@ function AutoMetaButton({
   title,
   currentSlug,
   micrositeDomain,
+  audienceType,
+  segmentContext,
   onGenerated,
 }: {
   blocks: PageBlock[];
   title: string;
   currentSlug: string;
   micrositeDomain?: string | null;
+  audienceType?: string | null;
+  segmentContext?: Record<string, unknown> | null;
   onGenerated: (metaTitle: string, metaDescription: string, suggestedSlug: string, ogImage: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -1979,7 +2025,7 @@ function AutoMetaButton({
       const res = await fetch("/api/lp/seo-meta-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks, title, currentSlug }),
+        body: JSON.stringify({ blocks, title, currentSlug, audienceType, segmentContext }),
       });
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json() as { metaTitle: string; metaDescription: string; suggestedSlug: string };

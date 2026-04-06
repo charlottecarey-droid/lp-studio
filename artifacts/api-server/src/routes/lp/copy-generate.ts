@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -75,9 +76,9 @@ function buildBrandSystemPrompt(brand: BrandConfig): string {
   return parts.join("\n");
 }
 
-async function fetchBrand(): Promise<BrandConfig> {
+async function fetchBrand(tenantId: number): Promise<BrandConfig> {
   try {
-    const rows = await db.select().from(lpBrandSettingsTable).limit(1);
+    const rows = await db.select().from(lpBrandSettingsTable).where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1);
     if (rows.length === 0) return {};
     return (rows[0].config as BrandConfig) ?? {};
   } catch {
@@ -211,6 +212,8 @@ function buildSegmentCopyContext(blockType: string, blockCategory?: string): str
 }
 
 router.post("/lp/copy-generate", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
   const body = req.body as {
     blockType?: string;
     blockCategory?: string;
@@ -240,7 +243,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const brand = await fetchBrand();
+  const brand = await fetchBrand(tenantId);
   const brandPrompt = buildBrandSystemPrompt(brand);
   const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
 
