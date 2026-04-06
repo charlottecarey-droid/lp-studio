@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -632,6 +632,11 @@ export default function BuilderEditor() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [isTemplate, setIsTemplate] = useState(false);
+  const [templateLabel, setTemplateLabel] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
   const [customCss, setCustomCss] = useState("");
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [metaTitle, setMetaTitle] = useState("");
@@ -773,6 +778,9 @@ export default function BuilderEditor() {
         setTitle(p.title);
         setSlug(p.slug);
         setStatus(p.status === "published" ? "published" : "draft");
+        setIsTemplate(p.isTemplate ?? false);
+        setTemplateLabel(p.templateLabel ?? p.title);
+        setTemplateDescription(p.templateDescription ?? "");
         setBlocks(p.blocks ?? []);
         setCustomCss(p.customCss ?? "");
         setAnimationsEnabled(p.animationsEnabled !== false);
@@ -1111,6 +1119,29 @@ export default function BuilderEditor() {
     }
   };
 
+  const handleSaveAsTemplate = async () => {
+    setTemplateSaving(true);
+    try {
+      // Save current state first so the template reflects latest content
+      await savePage(pageId, getPageData());
+      const res = await fetch(`${API_BASE}/lp/pages/${pageId}/mark-template`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTemplate: true, templateLabel: templateLabel.trim() || title, templateDescription: templateDescription.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to save template");
+      const updated = await res.json() as { isTemplate: boolean; templateLabel: string | null; templateDescription: string | null };
+      setIsTemplate(updated.isTemplate);
+      setTemplateLabel(updated.templateLabel ?? title);
+      setTemplateDescription(updated.templateDescription ?? "");
+      setShowTemplateDialog(false);
+    } catch {
+      alert("Failed to save as template. Please try again.");
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
   const captureOgScreenshot = async () => {
     const el = canvasRef.current;
     if (!el) return;
@@ -1222,6 +1253,7 @@ export default function BuilderEditor() {
         liveUrl={getLpPageUrl(slug, micrositeDomain)}
         previewUrl={`/lp/${slug}`}
         onSave={handleSave}
+        onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
@@ -1374,6 +1406,54 @@ export default function BuilderEditor() {
         onCreateReview={createReview}
         onDeleteReview={deleteReview}
       />
+
+      {/* Save as Template Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={open => { if (!open) setShowTemplateDialog(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-500" />
+              {isTemplate ? "Update Template" : "Save as Template"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              This page will appear in the sales team's template picker when they create a new microsite.
+            </p>
+            <div>
+              <Label className="text-sm font-medium">Template Name</Label>
+              <Input
+                className="mt-1.5"
+                value={templateLabel}
+                onChange={e => setTemplateLabel(e.target.value)}
+                placeholder="e.g. DSO Heartland Skin"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <textarea
+                className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                rows={2}
+                placeholder="e.g. Dark-mode enterprise skin for large regional DSOs"
+                value={templateDescription}
+                onChange={e => setTemplateDescription(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateDialog(false)} disabled={templateSaving}>Cancel</Button>
+            <Button
+              onClick={handleSaveAsTemplate}
+              disabled={templateSaving || !templateLabel.trim()}
+              className="gap-2"
+            >
+              {templateSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Star className="w-3.5 h-3.5" />}
+              {templateSaving ? "Saving…" : "Save Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save to Library Dialog */}
       <SaveToLibraryDialog

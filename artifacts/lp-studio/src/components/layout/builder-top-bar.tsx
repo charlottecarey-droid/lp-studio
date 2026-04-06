@@ -2,7 +2,7 @@ import { useState, type RefObject } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, Monitor, Smartphone, CheckCircle, FlaskConical,
-  MessageSquare, Share2, Eye, ExternalLink, Check,
+  MessageSquare, Share2, Eye, ExternalLink, Check, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ interface BuilderTopBarProps {
   onTitleBlur: () => void;
   onSetMobile: (mobile: boolean) => void;
   onSave: () => void;
+  onSaveAsTemplate: () => void;
   onOpenAbTest: () => void;
   onPublish: () => void;
   onToggleCommentMode: () => void;
@@ -48,6 +49,7 @@ export function BuilderTopBar({
   onTitleBlur,
   onSetMobile,
   onSave,
+  onSaveAsTemplate,
   onOpenAbTest,
   onPublish,
   onToggleCommentMode,
@@ -174,6 +176,16 @@ export function BuilderTopBar({
       >
         {saveSuccess ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
         <span className="hidden sm:inline">{saveSuccess ? "Saved!" : "Save"}</span>
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+        onClick={onSaveAsTemplate}
+      >
+        <Star className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Template</span>
       </Button>
 
       <Button
