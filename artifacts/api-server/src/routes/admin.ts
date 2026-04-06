@@ -262,14 +262,15 @@ router.post("/members", async (req, res): Promise<void> => {
     res.status(403).json({ error: "Admin only" });
     return;
   }
-  const { email, roleId } = req.body ?? {};
-  if (!email || !roleId) {
+  const { email: rawEmail, roleId } = req.body ?? {};
+  if (!rawEmail || !roleId) {
     res.status(400).json({ error: "email and roleId are required" });
     return;
   }
+  const email = rawEmail.trim().toLowerCase();
   try {
     const [userResult, tenantResult, roleResult] = await Promise.all([
-      pool.query(`SELECT id FROM app_users WHERE email = $1`, [email]),
+      pool.query(`SELECT id FROM app_users WHERE LOWER(email) = $1`, [email]),
       pool.query(`SELECT name, domain FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
       pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, req.authUser!.tenantId]),
     ]);

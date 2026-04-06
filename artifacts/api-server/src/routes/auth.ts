@@ -176,7 +176,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
          FROM tenant_members tm
          JOIN tenant_roles tr ON tr.id = tm.role_id
          WHERE tm.tenant_id = $1
-           AND (tm.user_id = $2 OR (tm.user_id IS NULL AND tm.email = $3))
+           AND (tm.user_id = $2 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($3)))
          ORDER BY tm.user_id NULLS LAST
          LIMIT 1`,
         [domainTenantId, user.id, email]
@@ -218,7 +218,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
          FROM tenant_members tm
          JOIN tenant_roles tr ON tr.id = tm.role_id
          JOIN tenants t ON t.id = tm.tenant_id
-         WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND tm.email = $2))
+         WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($2)))
            AND (t.domain IS NULL OR t.domain = '')
          ORDER BY tm.user_id NULLS LAST
          LIMIT 1`,

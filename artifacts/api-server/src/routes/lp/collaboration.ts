@@ -210,10 +210,20 @@ router.post("/lp/pages/:pageId/presence", async (req, res): Promise<void> => {
   const parsed = UpsertPresenceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  await db
-    .insert(lpPagePresenceTable)
-    .values({ pageId, viewerId: parsed.data.viewerId, displayName: parsed.data.displayName, lastSeen: new Date() })
-    .onConflictDoNothing();
+  try {
+    await db
+      .insert(lpPagePresenceTable)
+      .values({ pageId, viewerId: parsed.data.viewerId, displayName: parsed.data.displayName, lastSeen: new Date() })
+      .onConflictDoNothing();
+  } catch (err: any) {
+    // Page was deleted while the builder tab was still open — FK violation.
+    // Return 404 so the client knows the page is gone.
+    if (err?.message?.includes("foreign key constraint")) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    throw err;
+  }
 
   await db
     .update(lpPagePresenceTable)
