@@ -94,6 +94,7 @@ function RouteErrorBoundaryWithReset({ children, locationKey }: { children: Reac
 const Analytics = lazy(() => import("@/pages/analytics"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const PersonalizedLinkResolver = lazy(() => import("@/pages/personalized-link-resolver"));
+const ThankYou = lazy(() => import("@/pages/thank-you"));
 
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const CreateTest = lazy(() => import("@/pages/create-test"));
@@ -257,6 +258,9 @@ function AppRouter() {
         {/* Review Shell (No App Layout) */}
         <Route path="/review/:token" component={ReviewShell} />
 
+        {/* Thank-you page shown after form submission (No App Layout) */}
+        <Route path="/thank-you" component={ThankYou} />
+
         {/* Personalized link resolver (No App Layout) */}
         <Route path="/p/:token" component={PersonalizedLinkResolver} />
 
@@ -305,6 +309,8 @@ function AppShell() {
           <Switch>
             {/* Personalized token route — must come before /:slug catch-all */}
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
+            {/* Thank-you page after form submission */}
+            <Route path="/thank-you" component={ThankYou} />
             {/* Short slug routes: partners.meetdandy.com/{slug} */}
             <Route path="/:slug" component={LandingPageViewer} />
             {/* Keep /lp/:slug for backward compatibility */}
@@ -329,7 +335,8 @@ function AppShell() {
   const isPublicRoute =
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
-    location.startsWith("/review/") || location === "/review";
+    location.startsWith("/review/") || location === "/review" ||
+    location.startsWith("/thank-you");
 
   if (isPublicRoute) {
     return (
@@ -339,6 +346,7 @@ function AppShell() {
             <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             <Route path="/review/:token" component={ReviewShell} />
+            <Route path="/thank-you" component={ThankYou} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>
