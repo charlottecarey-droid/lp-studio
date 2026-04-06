@@ -81,8 +81,9 @@ function PageStatusBadge({ status }: { status: string }) {
   return <StatusBadge status={status}>{status === "published" ? "Published" : "Draft"}</StatusBadge>;
 }
 
-function initials(name: string) {
-  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+function initials(name: string | null | undefined) {
+  if (!name?.trim()) return "?";
+  return name.split(" ").map(w => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "?";
 }
 
 export default function SalesPages() {
@@ -821,7 +822,7 @@ export default function SalesPages() {
                     {hlContacts.filter(c => c.email).map(c => (
                       <div key={c.id} className="flex items-center gap-2 px-3 py-2">
                         <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
-                          {initials(`${c.firstName} ${c.lastName}`)}
+                          {initials([c.firstName, c.lastName].filter(Boolean).join(" "))}
                         </div>
                         <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
                         <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
