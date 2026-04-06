@@ -420,6 +420,8 @@ export interface DsoPracticeHeroBlockProps {
   imageUrl?: string;
   imageAlt?: string;
   imageShadow?: boolean;
+  heroHeight?: "compact" | "default" | "large" | "full";
+  imageAspect?: "16/9" | "4/3" | "1/1" | "3/4";
 }
 
 export interface DsoStatRowItem {

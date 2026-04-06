@@ -33,7 +33,15 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
     imageUrl,
     imageAlt = "",
     imageShadow = true,
+    heroHeight = "default",
+    imageAspect = "4/3",
   } = props;
+
+  const heightClass =
+    heroHeight === "full" ? "min-h-screen"
+    : heroHeight === "large" ? "min-h-[85vh]"
+    : heroHeight === "compact" ? "min-h-[40vh]"
+    : "min-h-[60vh]";
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -198,7 +206,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        className="py-24 md:py-36"
+        className={`flex items-center ${heightClass}`}
       >
         <div
           style={{
@@ -227,7 +235,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
     return (
       <section
         style={{ ...sectionBg, position: "relative", overflow: "hidden" }}
-        className="py-20 md:py-28"
+        className={`flex items-center ${heightClass}`}
       >
         {dark && (
           <div
@@ -274,7 +282,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
                     ? "0 32px 64px rgba(0,0,0,0.45)"
                     : "0 24px 48px rgba(0,58,48,0.12)")
                   : "none",
-                aspectRatio: "4/3",
+                aspectRatio: imageAspect,
               }}
             >
               <img
@@ -290,7 +298,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
   }
 
   return (
-    <section style={{ ...sectionBg, position: "relative", overflow: "hidden" }} className="py-24 md:py-36">
+    <section style={{ ...sectionBg, position: "relative", overflow: "hidden" }} className={`flex items-center ${heightClass}`}>
       {dark && (
         <div
           style={{
