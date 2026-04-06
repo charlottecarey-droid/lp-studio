@@ -472,9 +472,12 @@ function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]): unknow
   });
 }
 
-async function fetchBrand(): Promise<BrandConfig> {
+async function fetchBrand(tenantId?: number | null): Promise<BrandConfig> {
   try {
-    const rows = await db.select().from(lpBrandSettingsTable).limit(1);
+    const query = db.select().from(lpBrandSettingsTable);
+    const rows = tenantId
+      ? await query.where(eq(lpBrandSettingsTable.tenantId, tenantId)).limit(1)
+      : await query.limit(1);
     if (rows.length === 0) return {};
     return (rows[0].config as BrandConfig) ?? {};
   } catch {
@@ -698,7 +701,8 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
     return;
   }
 
-  const [brand, mediaCatalog] = await Promise.all([fetchBrand(), fetchMediaCatalog()]);
+  const tenantId = req.authUser?.tenantId ?? null;
+  const [brand, mediaCatalog] = await Promise.all([fetchBrand(tenantId), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
 
   const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");

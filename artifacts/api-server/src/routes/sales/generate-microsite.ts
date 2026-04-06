@@ -938,7 +938,9 @@ router.post("/accounts/:accountId/generate-microsite", micrositeLimiter, async (
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
 
-    const brandRows = await db.select().from(lpBrandSettingsTable).limit(1);
+    const brandRows = await db.select().from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
+      .limit(1);
     const brand = brandRows.length > 0 ? (brandRows[0].config as Record<string, unknown>) : {};
 
     // Fetch media library so the AI uses real assets, not invented URLs
