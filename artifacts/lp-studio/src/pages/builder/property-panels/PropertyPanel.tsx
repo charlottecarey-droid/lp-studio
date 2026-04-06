@@ -800,8 +800,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       <Input value={c.name} onChange={e => updateCase(i, { name: e.target.value })} placeholder="Acme Dental Group" className="h-8 text-xs mt-1" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-400">Card Image URL (optional)</Label>
-                      <Input value={c.image ?? ""} onChange={e => updateCase(i, { image: e.target.value || undefined })} placeholder="https://images.unsplash.com/…" className="h-8 text-xs mt-1" />
+                      <Label className="text-[11px] text-slate-400">Card Image (optional)</Label>
+                      <ImagePicker value={c.image ?? ""} onChange={v => updateCase(i, { image: v || undefined })} placeholder="https://images.unsplash.com/…" className="mt-1" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
