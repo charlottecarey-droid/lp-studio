@@ -99,7 +99,7 @@ function buildFullEmailHTML(
 
 // ─── Merge var chips ────────────────────────────────────────
 
-const MERGE_VARS = ["{{first_name}}", "{{last_name}}", "{{company}}", "{{microsite_url}}"];
+const MERGE_VARS = ["{{first_name}}", "{{last_name}}", "{{company}}", "{{microsite_url}}", "{{sender_name}}"];
 
 function MergeVarChips({ bodyRef, body, setBody }: { bodyRef: React.RefObject<HTMLTextAreaElement | null>; body: string; setBody: (v: string) => void }) {
   return (
@@ -203,6 +203,7 @@ interface Template {
   format: string;
   category: string;
   isActive: boolean;
+  mergeVars: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -273,12 +274,17 @@ function SingleSendTab() {
   const [ctaUrl, setCtaUrl] = useState("{{microsite_url}}");
   const [showSignature, setShowSignature] = useState(true);
 
+  // Template picker
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+
   const editorRef = useRef<EmailEditorHandle>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const previewTextRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/sales/accounts`).then(r => r.ok ? r.json() : []).then(setAccounts);
+    fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []).then(setTemplates);
   }, []);
 
   useEffect(() => {
@@ -293,6 +299,29 @@ function SingleSendTab() {
     setBodyHtml("");
     setBodyText("");
     editorRef.current?.setContent("");
+  }
+
+  function loadTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    const t = templates.find(t => String(t.id) === templateId);
+    if (!t) return;
+    const fmt = (t.format === "styled" ? "styled" : "plain") as "plain" | "styled";
+    setEmailFormat(fmt);
+    setSubject(t.subject);
+    if (fmt === "styled") {
+      const chrome = (t.mergeVars as any)?.chrome;
+      setShowBanner(chrome?.showBanner ?? true);
+      setCtaText(chrome?.ctaText ?? "");
+      setCtaUrl(chrome?.ctaUrl ?? "{{microsite_url}}");
+      setShowSignature(chrome?.showSignature ?? true);
+      const bodyContent = t.bodyText || t.bodyHtml;
+      setBodyHtml(bodyContent);
+      setTimeout(() => editorRef.current?.setContent(bodyContent), 50);
+    } else {
+      setBodyText(t.bodyText || "");
+      setBodyHtml("");
+      editorRef.current?.setContent("");
+    }
   }
 
   async function handleGenerate() {
@@ -457,6 +486,38 @@ function SingleSendTab() {
           </div>
         </div>
       </Card>
+
+      {/* Template Picker */}
+      {templates.length > 0 && (
+        <Card className="p-6 rounded-2xl border border-border/60">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Load from Template</h3>
+          <div className="flex gap-3 items-center">
+            <select
+              value={selectedTemplateId}
+              onChange={e => loadTemplate(e.target.value)}
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">— Select a template —</option>
+              {templates.filter(t => t.isActive).map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.format === "styled" ? "Styled" : "Plain"} · {t.category})
+                </option>
+              ))}
+            </select>
+            {selectedTemplateId && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => { setSelectedTemplateId(""); setSubject(""); setBodyHtml(""); setBodyText(""); editorRef.current?.setContent(""); }}
+                className="text-muted-foreground hover:text-foreground gap-1"
+              >
+                <X className="w-3.5 h-3.5" /> Clear
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* AI Email Composer */}
       <Card className="p-6 rounded-2xl border border-border/60">
@@ -879,8 +940,28 @@ function TemplatesTab() {
     setEditId(t.id);
     setShowCreate(true);
     if (fmt === "styled") {
-      setBodyHtml(t.bodyHtml);
-      setTimeout(() => editorRef.current?.setContent(t.bodyHtml), 50);
+      // Restore chrome options from mergeVars.chrome (new format) or defaults
+      const chrome = (t.mergeVars as any)?.chrome;
+      setShowBanner(chrome?.showBanner ?? true);
+      setCtaText(chrome?.ctaText ?? "");
+      setCtaUrl(chrome?.ctaUrl ?? "{{microsite_url}}");
+      setShowSignature(chrome?.showSignature ?? true);
+      if (t.bodyText) {
+        // New format: body content stored cleanly in bodyText — load directly
+        setBodyHtml(t.bodyText);
+        setTimeout(() => editorRef.current?.setContent(t.bodyText!), 50);
+      } else {
+        // Legacy format: full email HTML in bodyHtml — let editor parse & extract body
+        setBodyHtml("");
+        setTimeout(() => {
+          editorRef.current?.setContent(t.bodyHtml);
+          // After TipTap parses, sync bodyHtml state with the processed editor content
+          setTimeout(() => {
+            const processed = editorRef.current?.getHTML();
+            if (processed) setBodyHtml(processed);
+          }, 150);
+        }, 50);
+      }
     } else {
       setBodyText(t.bodyText || t.bodyHtml);
     }
@@ -893,11 +974,17 @@ function TemplatesTab() {
     try {
       const payload: Record<string, unknown> = { name, subject: tplSubject, category, format: emailFormat };
       if (emailFormat === "styled") {
+        // body content (what the editor holds) — stored in bodyText for clean re-editing
+        const bodyContent = editorRef.current?.getHTML() || bodyHtml;
+        // full wrapped email stored in bodyHtml — used by campaign send
         payload.bodyHtml = getFullStyledHTML();
-        payload.bodyText = null;
+        payload.bodyText = bodyContent;
+        // chrome options stored in mergeVars.chrome for restoration on edit
+        payload.mergeVars = { chrome: { showBanner, ctaText: ctaText.trim() || null, ctaUrl: ctaUrl.trim() || "{{microsite_url}}", showSignature } };
       } else {
         payload.bodyText = bodyText;
         payload.bodyHtml = "";
+        payload.mergeVars = [];
       }
       const url = editId ? `${API_BASE}/sales/templates/${editId}` : `${API_BASE}/sales/templates`;
       const method = editId ? "PATCH" : "POST";

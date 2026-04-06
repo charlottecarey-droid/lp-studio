@@ -25,7 +25,13 @@ const MergeVariable = TiptapNode.create({
 
   addAttributes() {
     return {
-      variable: { default: null },
+      variable: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-merge-variable"),
+        renderHTML: (attributes) => ({
+          "data-merge-variable": attributes.variable,
+        }),
+      },
     };
   },
 
@@ -41,7 +47,7 @@ const MergeVariable = TiptapNode.create({
         style:
           "background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:4px;font-size:13px;font-family:monospace;user-select:all;",
       },
-      `{{${HTMLAttributes.variable}}}`,
+      `{{${HTMLAttributes.variable ?? ""}}}`,
     ];
   },
 });

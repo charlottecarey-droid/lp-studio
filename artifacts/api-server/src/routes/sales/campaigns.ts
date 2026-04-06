@@ -351,6 +351,15 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       .where(inArray(salesHotlinksTable.contactId, sendableIds));
     const hotlinkByContactId = new Map(allHotlinks.map(h => [h.contactId, h]));
 
+    // Batch-load accounts for {{company}} variable
+    const accountIds = [...new Set(sendable.map(c => c.accountId).filter((id): id is number => id != null))];
+    const allAccounts = accountIds.length > 0
+      ? await db.select({ id: salesAccountsTable.id, name: salesAccountsTable.name })
+          .from(salesAccountsTable)
+          .where(inArray(salesAccountsTable.id, accountIds))
+      : [];
+    const accountNameById = new Map(allAccounts.map(a => [a.id, a.name]));
+
     // Mark campaign as sending
     await db.update(salesEmailCampaignsTable)
       .set({ status: "sending", recipientCount: sendable.length })
@@ -368,13 +377,15 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
     for (const contact of sendable) {
       const unsubUrl = `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`;
+      const companyName = contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "";
       const vars: Record<string, string> = {
         "{{first_name}}": contact.firstName ?? "",
         "{{last_name}}": contact.lastName ?? "",
-        "{{company}}": "", // will be populated from account if available
+        "{{company}}": companyName,
         "{{sender_name}}": senderName,
         "{{email}}": contact.email!,
         "{{unsubscribe_url}}": unsubUrl,
+        "{{microsite_url}}": "", // fallback: replaced below if hotlink exists
       };
 
       // Build microsite URL if hotlink exists (pre-loaded batch)
@@ -384,15 +395,27 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
       }
 
       const subject = replaceVars(template.subject, vars);
-      let body = replaceVars(template.bodyHtml, vars);
 
-      // Inject tracking pixel (will be set up after send record is created)
+      // Build email body — plain templates use bodyText, styled use bodyHtml
+      let emailHtml: string;
+      if (template.format === "plain") {
+        const plainText = replaceVars(template.bodyText ?? "", vars);
+        // Convert plain text to HTML preserving line breaks (escape HTML entities first)
+        const escaped = plainText
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        emailHtml = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
+      } else {
+        emailHtml = replaceVars(template.bodyHtml, vars);
+      }
+
       const payload = {
         from: `${senderName} <${senderLocal}@${SENDER_DOMAIN}>`,
         reply_to: DEFAULT_REPLY_TO,
         to: [contact.email!],
         subject,
-        html: body,
+        html: emailHtml,
       };
 
       const result = await sendViaResend(payload);
