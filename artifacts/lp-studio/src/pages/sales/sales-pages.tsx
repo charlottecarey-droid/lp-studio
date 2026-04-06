@@ -159,11 +159,26 @@ export default function SalesPages() {
   const [cloneModal, setCloneModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
   const [cloneAccountId, setCloneAccountId] = useState<number | "">("");
   const [cloning, setCloning] = useState(false);
+  const [cloneStep, setCloneStep] = useState<"account" | "hotlinks" | "results">("account");
+  const [clonePageId, setClonePageId] = useState<number | null>(null);
+  const [cloneContacts, setCloneContacts] = useState<Contact[]>([]);
+  const [cloneContactsLoading, setCloneContactsLoading] = useState(false);
+  const [cloneHlMode, setCloneHlMode] = useState<"all" | "specific">("all");
+  const [cloneSelectedIds, setCloneSelectedIds] = useState<Set<number>>(new Set());
+  const [cloneGenerating, setCloneGenerating] = useState(false);
+  const [cloneGenerated, setCloneGenerated] = useState<GeneratedLink[]>([]);
 
   function openCloneModal(pageId: number, pageTitle: string) {
     setCloneModal({ pageId, pageTitle });
     setCloneAccountId("");
     setCloning(false);
+    setCloneStep("account");
+    setClonePageId(null);
+    setCloneContacts([]);
+    setCloneHlMode("all");
+    setCloneSelectedIds(new Set());
+    setCloneGenerating(false);
+    setCloneGenerated([]);
   }
 
   async function doClone() {
@@ -177,11 +192,57 @@ export default function SalesPages() {
       });
       if (!res.ok) throw new Error("Clone failed");
       const page = await res.json();
-      setCloneModal(null);
-      navigate(`/builder/${page.id}`);
+      setClonePageId(page.id);
+      // Load contacts for this account so the hotlinks step is ready
+      setCloneContactsLoading(true);
+      setCloneStep("hotlinks");
+      try {
+        const cr = await fetch(`${API_BASE}/sales/accounts/${cloneAccountId}/contacts`);
+        if (cr.ok) {
+          const data = await cr.json();
+          setCloneContacts(Array.isArray(data) ? data : data.data ?? []);
+        }
+      } finally {
+        setCloneContactsLoading(false);
+      }
     } catch (err) {
       console.error("Clone error:", err);
       setCloning(false);
+    }
+  }
+
+  function toggleCloneContact(id: number) {
+    setCloneSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function doCloneHotlinks() {
+    if (!clonePageId || !cloneAccountId) return;
+    setCloneGenerating(true);
+    try {
+      const contactsWithEmail = cloneContacts.filter(c => c.email);
+      const body: Record<string, unknown> = { accountId: cloneAccountId, pageId: clonePageId };
+      if (cloneHlMode === "specific") {
+        body.contactIds = contactsWithEmail.filter(c => cloneSelectedIds.has(c.id)).map(c => c.id);
+      }
+      const res = await fetch(`${API_BASE}/sales/hotlinks/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to generate hotlinks");
+      const created = await res.json() as Array<{ token: string; contactId: number }>;
+      const contactMap = new Map(cloneContacts.map(c => [c.id, `${c.firstName} ${c.lastName}`.trim()]));
+      setCloneGenerated(created.map(h => ({ contactName: contactMap.get(h.contactId) ?? "Contact", token: h.token })));
+      setCloneStep("results");
+      load();
+    } catch (err) {
+      console.error("Clone hotlinks error:", err);
+    } finally {
+      setCloneGenerating(false);
     }
   }
 
@@ -1069,40 +1130,184 @@ export default function SalesPages() {
 
       {/* ── Clone for account modal ──────────────────────────────────────── */}
       <Dialog open={!!cloneModal} onOpenChange={open => { if (!open) setCloneModal(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" /> Clone for an account
+              <Layers className="w-4 h-4 text-primary" />
+              {cloneStep === "account" ? "Clone for an account" : cloneStep === "hotlinks" ? "Generate personalized links" : "Links generated"}
             </DialogTitle>
             <DialogDescription>
-              Creates a copy of <span className="font-medium text-foreground">"{cloneModal?.pageTitle}"</span> linked to the selected account. The original page stays untouched. You can then customize the copy for that account — it'll appear under the account in the microsites tab.
+              {cloneStep === "account"
+                ? <>Creates a copy of <span className="font-medium text-foreground">"{cloneModal?.pageTitle}"</span> linked to the selected account. You can customize it in the builder — it'll appear under the account in the microsites tab.</>
+                : cloneStep === "hotlinks"
+                  ? "Optionally create unique tracked links for contacts at this account. You can skip this and do it later."
+                  : `${cloneGenerated.length} personalized link${cloneGenerated.length !== 1 ? "s" : ""} created.`
+              }
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 pt-2">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
-              <select
-                value={cloneAccountId}
-                onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">— Choose an account —</option>
-                {accounts.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                disabled={!cloneAccountId || cloning}
-                onClick={doClone}
-              >
-                {cloning ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Cloning…</> : "Clone & open in builder"}
-              </Button>
-              <Button variant="outline" onClick={() => setCloneModal(null)}>Cancel</Button>
-            </div>
+          <div className="flex flex-col gap-4 pt-2 overflow-y-auto flex-1 min-h-0 pr-0.5">
+
+            {/* ── Step 1: Pick account ── */}
+            {cloneStep === "account" && (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
+                  <select
+                    value={cloneAccountId}
+                    onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">— Choose an account —</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1" disabled={!cloneAccountId || cloning} onClick={doClone}>
+                    {cloning ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Cloning…</> : "Clone page"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setCloneModal(null)}>Cancel</Button>
+                </div>
+              </>
+            )}
+
+            {/* ── Step 2: Hotlinks ── */}
+            {cloneStep === "hotlinks" && (
+              <>
+                {/* Mode selector */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">Who gets a personalized link?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCloneHlMode("all")}
+                      className={[
+                        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30",
+                        cloneHlMode === "all" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-background hover:border-primary/40",
+                      ].join(" ")}
+                    >
+                      <span className="text-sm font-medium">All contacts</span>
+                      <span className="text-xs text-muted-foreground">Every contact with an email</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCloneHlMode("specific"); setCloneSelectedIds(new Set()); }}
+                      className={[
+                        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30",
+                        cloneHlMode === "specific" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-background hover:border-primary/40",
+                      ].join(" ")}
+                    >
+                      <span className="text-sm font-medium">Specific contacts</span>
+                      <span className="text-xs text-muted-foreground">Choose who to include</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contact list */}
+                <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border/50 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {cloneContactsLoading ? "Loading contacts…" : `${cloneContacts.filter(c => c.email).length} contacts with email`}
+                    </span>
+                    {cloneHlMode === "specific" && !cloneContactsLoading && cloneContacts.filter(c => c.email).length > 0 && (
+                      <button
+                        onClick={() => {
+                          const ids = cloneContacts.filter(c => c.email).map(c => c.id);
+                          setCloneSelectedIds(prev => prev.size === ids.length ? new Set() : new Set(ids));
+                        }}
+                        className="ml-auto text-[11px] text-primary hover:underline"
+                      >
+                        {cloneSelectedIds.size === cloneContacts.filter(c => c.email).length ? "Deselect all" : "Select all"}
+                      </button>
+                    )}
+                  </div>
+                  {cloneContactsLoading ? (
+                    <div className="p-3 flex flex-col gap-2">
+                      {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
+                    </div>
+                  ) : cloneContacts.filter(c => c.email).length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts with an email address found for this account.</p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
+                      {cloneContacts.filter(c => c.email).map(c => (
+                        <div
+                          key={c.id}
+                          className={["flex items-center gap-2 px-3 py-2", cloneHlMode === "specific" ? "cursor-pointer hover:bg-muted/40" : ""].join(" ")}
+                          onClick={() => cloneHlMode === "specific" && toggleCloneContact(c.id)}
+                        >
+                          {cloneHlMode === "specific" && (
+                            <div className={["w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors", cloneSelectedIds.has(c.id) ? "bg-primary border-primary" : "border-border"].join(" ")}>
+                              {cloneSelectedIds.has(c.id) && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
+                          )}
+                          <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                            {initials([c.firstName, c.lastName].filter(Boolean).join(" "))}
+                          </div>
+                          <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    disabled={cloneContactsLoading || cloneGenerating || cloneContacts.filter(c => c.email).length === 0 || (cloneHlMode === "specific" && cloneSelectedIds.size === 0)}
+                    onClick={doCloneHotlinks}
+                  >
+                    {cloneGenerating
+                      ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Generating…</>
+                      : cloneHlMode === "all"
+                        ? `Generate links for all ${cloneContacts.filter(c => c.email).length} contacts`
+                        : `Generate links for ${cloneSelectedIds.size} contact${cloneSelectedIds.size !== 1 ? "s" : ""}`
+                    }
+                  </Button>
+                  <Button variant="outline" onClick={() => { if (clonePageId) { setCloneModal(null); navigate(`/builder/${clonePageId}`); } }}>
+                    Skip
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* ── Step 3: Results ── */}
+            {cloneStep === "results" && (
+              <>
+                <div className="rounded-lg border border-green-200 dark:border-green-800/40 bg-green-50 dark:bg-green-950/20 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-green-200 dark:border-green-800/40">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400">{cloneGenerated.length} link{cloneGenerated.length !== 1 ? "s" : ""} generated</p>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-green-100 dark:divide-green-900/40">
+                    {cloneGenerated.map(hl => (
+                      <div key={hl.token} className="flex items-center gap-2 px-3 py-2">
+                        <span className="text-xs text-foreground flex-1 truncate">{hl.contactName}</span>
+                        <button
+                          onClick={() => copyHlLink(hl.token)}
+                          className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors shrink-0"
+                        >
+                          {hlCopied === hl.token
+                            ? <><Check className="w-3 h-3 text-green-500" /><span className="text-green-500">Copied</span></>
+                            : <><Copy className="w-3 h-3" /><span>Copy</span></>
+                          }
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {clonePageId && (
+                    <Button className="flex-1 gap-1.5" onClick={() => { setCloneModal(null); navigate(`/builder/${clonePageId}`); }}>
+                      <ExternalLink className="w-3.5 h-3.5" /> Open in Builder
+                    </Button>
+                  )}
+                  <Button variant="outline" className="flex-1" onClick={() => setCloneModal(null)}>Done</Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

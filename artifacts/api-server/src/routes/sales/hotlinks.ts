@@ -337,15 +337,21 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
 
 // Bulk-create hotlinks for all contacts of an account for a specific page
 router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
-  const { accountId, pageId } = req.body;
+  const { accountId, pageId, contactIds } = req.body;
   if (!accountId || !pageId) {
     res.status(400).json({ error: "accountId and pageId are required" });
     return;
   }
 
   try {
-    const contacts = await db.select().from(salesContactsTable)
+    let contacts = await db.select().from(salesContactsTable)
       .where(eq(salesContactsTable.accountId, Number(accountId)));
+
+    // If specific contactIds provided, filter to only those
+    if (Array.isArray(contactIds) && contactIds.length > 0) {
+      const idSet = new Set(contactIds.map(Number));
+      contacts = contacts.filter(c => idSet.has(c.id));
+    }
 
     if (contacts.length === 0) {
       res.status(201).json([]);
