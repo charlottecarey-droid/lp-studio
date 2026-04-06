@@ -52,11 +52,12 @@ interface HeaderConfig {
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
-  featureTitleFontSize: number; featureDescFontSize: number; showIntro: boolean;
+  featureTitleFontSize: number; featureDescFontSize: number; featureTitleDescSpacing: number; showIntro: boolean;
   contentOffsetX: number; sectionSpacing: number; statValueFontSize: number;
   statDescFontSize: number; bulletOffsetX: number; bulletOffsetY: number;
   checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number;
   dividerOffsetX: number; dividerOffsetY: number; dividerLength: number;
+  quoteShow: boolean; quoteText: string; quoteFontSize: number;
 }
 interface TeamConfig { show: boolean; headingFontSize: number; nameFontSize: number; }
 interface FooterConfig { fontSize: number; show: boolean; link: string; height: number; }
@@ -66,12 +67,16 @@ const defaultHeaderConfig: HeaderConfig = {
   subtitleFontSize: 11, subtitleOffsetY: 0, headerImage: null,
   imageCropAnchor: "center", partnerLogoScale: 100, partnerLogoOffsetX: 0, partnerLogoOffsetY: 0,
 };
+const DEFAULT_QUOTE_TEXT = "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
+
 const defaultBodyConfig: BodyConfig = {
   headlineText: "Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.",
   headlineFontSize: 16, introFontSize: 9.5, featureTitleFontSize: 10, featureDescFontSize: 8.5,
-  showIntro: true, contentOffsetX: 0, sectionSpacing: 16, statValueFontSize: 30,
-  statDescFontSize: 8, bulletOffsetX: 0, bulletOffsetY: 0, checklistSpacing: 10,
-  checklistShowDividers: false, checklistFontSize: 9, dividerOffsetX: 0, dividerOffsetY: 0, dividerLength: 0,
+  featureTitleDescSpacing: 14, showIntro: true, contentOffsetX: 0, sectionSpacing: 16,
+  statValueFontSize: 30, statDescFontSize: 8, bulletOffsetX: 0, bulletOffsetY: 0,
+  checklistSpacing: 10, checklistShowDividers: false, checklistFontSize: 9,
+  dividerOffsetX: 0, dividerOffsetY: 0, dividerLength: 0,
+  quoteShow: true, quoteText: DEFAULT_QUOTE_TEXT, quoteFontSize: 9.5,
 };
 const defaultTeamConfig: TeamConfig = { show: true, headingFontSize: 13, nameFontSize: 10 };
 const defaultFooterConfig: FooterConfig = { fontSize: 10, show: true, link: "meetdandy.com", height: 36 };
@@ -205,7 +210,24 @@ export default function SalesOnePagerEditor() {
 
   // Layout configs
   const [headerCfg, setHeaderCfg] = useState<HeaderConfig>({ ...defaultHeaderConfig });
-  const [bodyCfg, setBodyCfg] = useState<BodyConfig>({ ...defaultBodyConfig });
+  // bodyCfg is per-audience for pilot; shared for comparison/partner
+  const [audienceBodyCfgs, setAudienceBodyCfgs] = useState<Record<Audience, BodyConfig>>({
+    executive: { ...defaultBodyConfig },
+    clinical: { ...defaultBodyConfig },
+    "practice-manager": { ...defaultBodyConfig },
+  });
+  const [sharedBodyCfg, setSharedBodyCfg] = useState<BodyConfig>({ ...defaultBodyConfig });
+  const bodyCfg: BodyConfig = editorTemplate === "pilot" ? audienceBodyCfgs[audience] : sharedBodyCfg;
+  const setBodyCfg = (updater: BodyConfig | ((prev: BodyConfig) => BodyConfig)) => {
+    if (editorTemplate === "pilot") {
+      setAudienceBodyCfgs(p => {
+        const val = typeof updater === "function" ? updater(p[audience]) : updater;
+        return { ...p, [audience]: val };
+      });
+    } else {
+      setSharedBodyCfg(prev => typeof updater === "function" ? updater(prev) : updater);
+    }
+  };
   const [teamCfg, setTeamCfg] = useState<TeamConfig>({ ...defaultTeamConfig });
   const [footerCfg, setFooterCfg] = useState<FooterConfig>({ ...defaultFooterConfig });
 
@@ -251,8 +273,53 @@ export default function SalesOnePagerEditor() {
 
   // ── Load saved defaults on mount + template switch ────────────────
   const loadDefaults = useCallback(async (tmpl: EditorTemplate) => {
+    if (tmpl === "pilot") {
+      // Load shared pilot configs (header/team/footer/content)
+      const shared = await loadLayoutDefault("dandy_pilot_template_layout");
+      if (shared) {
+        if (shared.headerCfg) setHeaderCfg(p => ({ ...p, ...shared.headerCfg }));
+        if (shared.teamCfg) setTeamCfg(p => ({ ...p, ...shared.teamCfg }));
+        if (shared.footerCfg) setFooterCfg(p => ({ ...p, ...shared.footerCfg }));
+        if (shared.audienceHeaderImages) {
+          setAudienceHeaderImages(p => ({ ...p, ...shared.audienceHeaderImages }));
+          const img = shared.audienceHeaderImages[audience];
+          if (img !== undefined) setHeaderCfg(p => ({ ...p, headerImage: img }));
+        }
+        if (shared.audienceContent) setAudienceContent((p: typeof defaultAudienceContent) => ({ ...p, ...shared.audienceContent }));
+        // Legacy: bodyCfg in shared key → seed all three audiences
+        if (shared.bodyCfg) {
+          setAudienceBodyCfgs({
+            executive: { ...defaultBodyConfig, ...shared.bodyCfg },
+            clinical: { ...defaultBodyConfig, ...shared.bodyCfg },
+            "practice-manager": { ...defaultBodyConfig, ...shared.bodyCfg },
+          });
+        }
+      }
+      // Load per-audience body configs
+      const audienceKeyMap: Record<Audience, string> = {
+        executive: "dandy_pilot_executive_layout",
+        clinical: "dandy_pilot_clinical_layout",
+        "practice-manager": "dandy_pilot_practicemgr_layout",
+      };
+      const newBodyCfgs: Record<Audience, BodyConfig> = {
+        executive: { ...defaultBodyConfig },
+        clinical: { ...defaultBodyConfig },
+        "practice-manager": { ...defaultBodyConfig },
+      };
+      let anyAudienceSaved = false;
+      for (const aud of (["executive", "clinical", "practice-manager"] as Audience[])) {
+        const saved = await loadLayoutDefault(audienceKeyMap[aud]);
+        if (saved?.bodyCfg) {
+          newBodyCfgs[aud] = { ...defaultBodyConfig, ...saved.bodyCfg };
+          anyAudienceSaved = true;
+        }
+      }
+      if (anyAudienceSaved) setAudienceBodyCfgs(newBodyCfgs);
+      return;
+    }
+
     const keyMap: Record<EditorTemplate, string> = {
-      pilot: "dandy_pilot_template_layout",
+      pilot: "",
       comparison: "dandy_comparison_template_layout",
       partner: "dandy_partner_template_layout",
       roi: "",
@@ -263,18 +330,10 @@ export default function SalesOnePagerEditor() {
     if (!saved) return;
 
     if (saved.headerCfg) setHeaderCfg(p => ({ ...p, ...saved.headerCfg }));
-    if (saved.bodyCfg) setBodyCfg(p => ({ ...p, ...saved.bodyCfg }));
+    if (saved.bodyCfg) setSharedBodyCfg(p => ({ ...p, ...saved.bodyCfg }));
     if (saved.teamCfg) setTeamCfg(p => ({ ...p, ...saved.teamCfg }));
     if (saved.footerCfg) setFooterCfg(p => ({ ...p, ...saved.footerCfg }));
 
-    if (tmpl === "pilot") {
-      if (saved.audienceHeaderImages) {
-        setAudienceHeaderImages(p => ({ ...p, ...saved.audienceHeaderImages }));
-        const img = saved.audienceHeaderImages[audience];
-        if (img !== undefined) setHeaderCfg(p => ({ ...p, headerImage: img }));
-      }
-      if (saved.audienceContent) setAudienceContent((p: typeof defaultAudienceContent) => ({ ...p, ...saved.audienceContent }));
-    }
     if (tmpl === "comparison") {
       if (saved.comparisonRows) setComparisonRows(saved.comparisonRows);
       if (saved.stats) setComparisonStats(saved.stats);
@@ -352,10 +411,17 @@ export default function SalesOnePagerEditor() {
     try {
       if (editorTemplate === "pilot") {
         const finalImages = { ...audienceHeaderImages, [audience]: headerCfg.headerImage };
+        // Save shared configs (header/team/footer/content) to shared key
         await saveLayoutDefault("dandy_pilot_template_layout", {
-          headerCfg, bodyCfg, teamCfg, footerCfg,
-          audienceHeaderImages: finalImages, audienceContent,
+          headerCfg, teamCfg, footerCfg, audienceHeaderImages: finalImages, audienceContent,
         });
+        // Save current audience's bodyCfg to its own key
+        const audienceKeyMap: Record<Audience, string> = {
+          executive: "dandy_pilot_executive_layout",
+          clinical: "dandy_pilot_clinical_layout",
+          "practice-manager": "dandy_pilot_practicemgr_layout",
+        };
+        await saveLayoutDefault(audienceKeyMap[audience], { bodyCfg });
       } else if (editorTemplate === "comparison") {
         await saveLayoutDefault("dandy_comparison_template_layout", {
           headerCfg, teamCfg, footerCfg, comparisonRows, stats: comparisonStats,
@@ -627,6 +693,7 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Intro Text Size" value={bodyCfg.introFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, introFontSize: v }))} />
                     <SliderRow label="Feature Title Size" value={bodyCfg.featureTitleFontSize} min={7} max={16} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, featureTitleFontSize: v }))} />
                     <SliderRow label="Feature Desc Size" value={bodyCfg.featureDescFontSize} min={6} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, featureDescFontSize: v }))} />
+                    <SliderRow label="Title → Desc Spacing" value={bodyCfg.featureTitleDescSpacing} min={6} max={28} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, featureTitleDescSpacing: v }))} />
                     <SliderRow label="Content Offset X" value={bodyCfg.contentOffsetX} min={-80} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, contentOffsetX: v }))} />
                     <SliderRow label="Bullet Offset X" value={bodyCfg.bulletOffsetX} min={-80} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, bulletOffsetX: v }))} />
                     <SliderRow label="Bullet Offset Y" value={bodyCfg.bulletOffsetY} min={-80} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, bulletOffsetY: v }))} />
@@ -636,8 +703,30 @@ export default function SalesOnePagerEditor() {
                       <SliderRow label="Checklist Spacing" value={bodyCfg.checklistSpacing} min={2} max={30} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistSpacing: v }))} />
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={bodyCfg.checklistShowDividers} onChange={e => setBodyCfg(p => ({ ...p, checklistShowDividers: e.target.checked }))} className="rounded border-border" />
-                        <span className="text-xs text-muted-foreground">Show dividers between checklist items</span>
+                        <span className="text-xs text-muted-foreground">Show dividers between items</span>
                       </label>
+                      {bodyCfg.checklistShowDividers && (<>
+                        <SliderRow label="Divider Length (0=auto)" value={bodyCfg.dividerLength} min={0} max={300} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, dividerLength: v }))} />
+                        <SliderRow label="Divider Offset X" value={bodyCfg.dividerOffsetX} min={-50} max={50} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, dividerOffsetX: v }))} />
+                        <SliderRow label="Divider Offset Y" value={bodyCfg.dividerOffsetY} min={-10} max={10} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, dividerOffsetY: v }))} />
+                      </>)}
+                    </>)}
+                    {audience === "clinical" && (<>
+                      <div className="border-t border-border pt-3 mt-1">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Testimonial Quote</span>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={bodyCfg.quoteShow} onChange={e => setBodyCfg(p => ({ ...p, quoteShow: e.target.checked }))} className="rounded border-border" />
+                        <span className="text-xs text-muted-foreground">Show testimonial quote</span>
+                      </label>
+                      {bodyCfg.quoteShow && (<>
+                        <SliderRow label="Quote Font Size" value={bodyCfg.quoteFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, quoteFontSize: v }))} />
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Quote Copy</label>
+                          <textarea rows={3} value={bodyCfg.quoteText} onChange={e => setBodyCfg(p => ({ ...p, quoteText: e.target.value }))}
+                            className={`mt-1 ${textareaCls}`} placeholder="Enter quote text…" />
+                        </div>
+                      </>)}
                     </>)}
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={bodyCfg.showIntro} onChange={e => setBodyCfg(p => ({ ...p, showIntro: e.target.checked }))} className="rounded border-border" />

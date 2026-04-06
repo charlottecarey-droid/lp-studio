@@ -192,16 +192,25 @@ export const generatePilotOnePager = async (
     y += introLines.length * 13 + sectionGap;
   }
 
+  const titleDescGap = (bCfg.featureTitleDescSpacing as number | undefined) ?? 14;
+
   if (audience === "practice-manager" && content.checklist) {
     y += 4;
     const leftColW = contentW * 0.42;
     const rightColX = margin + contentW * 0.48;
     const rightColW = contentW * 0.52;
     const checkGreen: [number, number, number] = [0, 80, 60];
+    const checkFontSize = (bCfg.checklistFontSize as number | undefined) ?? 9;
+    const checkSpacing = (bCfg.checklistSpacing as number | undefined) ?? 10;
+    const showDividers = (bCfg.checklistShowDividers as boolean | undefined) ?? false;
+    const divLen = (bCfg.dividerLength as number | undefined) ?? 0;
+    const divOffX = (bCfg.dividerOffsetX as number | undefined) ?? 0;
+    const divOffY = (bCfg.dividerOffsetY as number | undefined) ?? 0;
+
     doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...textDark);
     doc.text("How to get the most out of this pilot:", margin, y);
     let checkY = y + 20;
-    content.checklist.forEach((item) => {
+    content.checklist.forEach((item, idx) => {
       if (checkboxImgData) {
         try { doc.addImage(checkboxImgData, "PNG", margin + 4, checkY - 9, 11, 11); }
         catch {
@@ -212,19 +221,28 @@ export const generatePilotOnePager = async (
         doc.setDrawColor(...checkGreen); doc.setLineWidth(1.2);
         doc.line(margin + 6, checkY - 2, margin + 8, checkY); doc.line(margin + 8, checkY, margin + 12, checkY - 6);
       }
-      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textDark);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(checkFontSize); doc.setTextColor(...textDark);
+      const lineH = checkFontSize * 1.35;
       const lines = doc.splitTextToSize(item, leftColW - 40);
       doc.text(lines, margin + 22, checkY);
-      checkY += lines.length * 12 + 10;
+      checkY += lines.length * lineH + checkSpacing;
+      if (showDividers && idx < content.checklist!.length - 1) {
+        const dLen = divLen > 0 ? divLen : leftColW - 20;
+        drawSep(doc, margin + divOffX, checkY - checkSpacing / 2 + divOffY, dLen, lineColor);
+      }
     });
     let featY = y;
-    content.features.forEach((feat) => {
+    content.features.forEach((feat, idx) => {
       doc.setFont("helvetica", "bold"); doc.setFontSize((bCfg.featureTitleFontSize as number | undefined) ?? 10); doc.setTextColor(...textDark);
       doc.text(feat.title, rightColX + 28, featY);
       doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
       const descLines = doc.splitTextToSize(feat.description, rightColW - 40);
-      doc.text(descLines, rightColX + 28, featY + 14);
-      featY += 14 + descLines.length * 11 + 18;
+      doc.text(descLines, rightColX + 28, featY + titleDescGap);
+      featY += titleDescGap + descLines.length * 11 + 18;
+      if (showDividers && idx < content.features.length - 1) {
+        const dLen = divLen > 0 ? divLen : rightColW - 20;
+        drawSep(doc, rightColX + divOffX, featY - 9 + divOffY, dLen, lineColor);
+      }
     });
     y = Math.max(checkY, featY) + 4;
   } else {
@@ -246,26 +264,30 @@ export const generatePilotOnePager = async (
         doc.text(feat.title, fx, fy);
         doc.setFont("helvetica", "normal"); doc.setFontSize((bCfg.featureDescFontSize as number | undefined) ?? 8.5); doc.setTextColor(...textMuted);
         const descLines = doc.splitTextToSize(feat.description, colW - 32);
-        doc.text(descLines, fx, fy + 14);
+        doc.text(descLines, fx, fy + titleDescGap);
       }
     }
     y += rows * rowH + 4;
     if (audience === "clinical") {
-      y -= 20;
-      drawSep(doc, margin, y, contentW, lineColor);
-      y += 30;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...lime);
-      doc.text("\u201C", margin, y + 7);
-      const quoteText = "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
-      doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(...textDark);
-      const quoteLines = doc.splitTextToSize(quoteText, contentW - 30);
-      doc.text(quoteLines, margin + 18, y);
-      y += quoteLines.length * 13 + 8;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textDark);
-      doc.text("Dr. Tania Arthur", margin + 18, y);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
-      doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18, y + 12);
-      y += 30;
+      const quoteShow = (bCfg.quoteShow as boolean | undefined) !== false;
+      if (quoteShow) {
+        y -= 20;
+        drawSep(doc, margin, y, contentW, lineColor);
+        y += 30;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...lime);
+        doc.text("\u201C", margin, y + 7);
+        const quoteText = (bCfg.quoteText as string | undefined) ?? "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
+        const quoteFontSize = (bCfg.quoteFontSize as number | undefined) ?? 9.5;
+        doc.setFont("helvetica", "italic"); doc.setFontSize(quoteFontSize); doc.setTextColor(...textDark);
+        const quoteLines = doc.splitTextToSize(quoteText, contentW - 30);
+        doc.text(quoteLines, margin + 18, y);
+        y += quoteLines.length * 13 + 8;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textDark);
+        doc.text("Dr. Tania Arthur", margin + 18, y);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
+        doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18, y + 12);
+        y += 30;
+      }
     }
   }
 
