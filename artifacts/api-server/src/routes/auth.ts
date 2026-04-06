@@ -260,6 +260,15 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       if (tdResult.rows.length > 0) micrositeDomain = tdResult.rows[0].microsite_domain ?? null;
     }
 
+    // Clean up any stale "no-tenant" sessions for this user before creating a new one.
+    // This prevents users from getting stuck on "Access Pending" after being added to a workspace.
+    await pool.query(
+      `DELETE FROM app_sessions
+       WHERE (sess::jsonb->>'userId')::int = $1
+         AND (sess::jsonb->>'tenantId') IS NULL`,
+      [user.id]
+    );
+
     // Create server-side session
     const sid = crypto.randomUUID();
     const sess = JSON.stringify({
