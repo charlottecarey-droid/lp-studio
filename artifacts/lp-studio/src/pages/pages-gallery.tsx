@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star, CheckSquare } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -513,6 +513,8 @@ export default function PagesGallery() {
   const [, navigate] = useLocation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const { data: runningTests = [], isLoading: testsLoading } = useRunningTests();
 
@@ -676,6 +678,28 @@ export default function PagesGallery() {
     if (!confirm(`Delete "${page.title}"? This cannot be undone.`)) return;
     await deletePage(page.id);
     setPages(prev => prev.filter(p => p.id !== page.id));
+    setSelectedIds(prev => { const next = new Set(prev); next.delete(page.id); return next; });
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} page${count > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selectedIds].map(id => deletePage(id)));
+      setPages(prev => prev.filter(p => !selectedIds.has(p.id)));
+      setSelectedIds(new Set());
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   const handleTemplateSaved = (updated: Page) => {
@@ -816,8 +840,45 @@ export default function PagesGallery() {
           </div>
         ) : (
           <>
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-foreground/5 border border-border/60 rounded-xl">
+                <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm font-medium text-foreground">{selectedIds.size} page{selectedIds.size > 1 ? "s" : ""} selected</span>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Clear selection
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5 text-xs h-7 px-3 rounded-lg"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[1fr_100px_80px_80px_100px_120px] gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-[28px_1fr_100px_80px_80px_100px_120px] gap-3 px-4 pb-1 text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+              <span>
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 rounded border-muted-foreground/40 accent-primary cursor-pointer mt-0.5"
+                  checked={pagesPag.pageItems.length > 0 && pagesPag.pageItems.every(p => selectedIds.has(p.id))}
+                  onChange={e => {
+                    if (e.target.checked) setSelectedIds(prev => new Set([...prev, ...pagesPag.pageItems.map(p => p.id)]));
+                    else setSelectedIds(prev => { const next = new Set(prev); pagesPag.pageItems.forEach(p => next.delete(p.id)); return next; });
+                  }}
+                />
+              </span>
               <span>Page</span>
               <span>Status</span>
               <span>Blocks</span>
@@ -860,6 +921,13 @@ export default function PagesGallery() {
                     <div className="md:hidden px-4 py-4 flex flex-col gap-3">
                       {/* Title row + status badge */}
                       <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-muted-foreground/40 accent-primary cursor-pointer mt-1"
+                          checked={selectedIds.has(page.id)}
+                          onChange={() => toggleSelect(page.id)}
+                          onClick={e => e.stopPropagation()}
+                        />
                         <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -906,7 +974,18 @@ export default function PagesGallery() {
                     </div>
 
                     {/* ── Desktop layout (hidden on mobile) ── */}
-                    <div className="hidden md:grid grid-cols-[1fr_100px_80px_80px_100px_120px] gap-3 items-center px-4 py-3.5 group">
+                    <div className="hidden md:grid grid-cols-[28px_1fr_100px_80px_80px_100px_120px] gap-3 items-center px-4 py-3.5 group">
+                      {/* Checkbox */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="w-3.5 h-3.5 rounded border-muted-foreground/40 accent-primary cursor-pointer"
+                          checked={selectedIds.has(page.id)}
+                          onChange={() => toggleSelect(page.id)}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </div>
+
                       {/* Page name + slug */}
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
