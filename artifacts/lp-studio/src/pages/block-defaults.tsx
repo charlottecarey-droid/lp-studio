@@ -98,7 +98,7 @@ export default function BlockDefaultsPage() {
   };
 
   const coreCategories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"];
-  const segmentCategories: BlockCategory[] = ["DSO"];
+  const segmentCategories: BlockCategory[] = ["DSO", "DSO Practices"];
   const savedCount = Object.keys(blockDefaults).length;
 
   const renderCategoryList = (cats: BlockCategory[], accent?: string) =>
@@ -334,7 +334,7 @@ export function BlockDefaultsContent() {
   };
 
   const coreCategories: BlockCategory[] = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture"];
-  const segmentCategories: BlockCategory[] = ["DSO"];
+  const segmentCategories: BlockCategory[] = ["DSO", "DSO Practices"];
   const savedCount = Object.keys(blockDefaults).length;
 
   const renderCategoryList = (cats: BlockCategory[], accent?: string) =>
