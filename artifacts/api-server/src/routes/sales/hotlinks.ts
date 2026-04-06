@@ -91,12 +91,6 @@ async function sendVisitAlert(
 // ─── GET /microsites/overview — page-centric, hotlinks optional ─────────────
 router.get("/microsites/overview", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const currentUser = req.authUser!;
-  // Non-admin reps only see pages linked to accounts they own (matched by name, case-insensitive).
-  // Admins see everything.
-  const repOwnerFilter = currentUser.isAdmin
-    ? undefined
-    : sql`lower(${salesAccountsTable.owner}) = lower(${currentUser.name})`;
   try {
     // 1. All tenant LP pages (non-template), left-join account
     // Join priority: account_id (integer FK) first, then sfdc_account_id (stable SFDC ID).
@@ -111,6 +105,7 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
         sfdcAccountId: lpPagesTable.sfdcAccountId,
         accountId: salesAccountsTable.id,
         accountName: salesAccountsTable.name,
+        accountOwner: salesAccountsTable.owner,
       })
       .from(lpPagesTable)
       .leftJoin(salesAccountsTable, and(
@@ -126,7 +121,6 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
       .where(and(
         eq(lpPagesTable.tenantId, tenantId),
         eq(lpPagesTable.isTemplate, false),
-        repOwnerFilter,
       ))
       .orderBy(salesAccountsTable.name, desc(lpPagesTable.updatedAt));
 
@@ -190,14 +184,14 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
 
     // 3. Group pages by account (null accountId → "unattached" bucket with id=-1)
     type PageEntry = { pageId: number; pageTitle: string; pageSlug: string; pageStatus: string; pageUpdatedAt: Date; hotlinks: HotlinkMapped[] };
-    type AccountEntry = { accountId: number; accountName: string; pages: Map<number, PageEntry> };
+    type AccountEntry = { accountId: number; accountName: string; accountOwner: string | null; pages: Map<number, PageEntry> };
     const accountMap = new Map<number, AccountEntry>();
 
     for (const row of pages) {
       const acctId = row.accountId ?? -1;
       const acctName = row.accountName ?? "General";
       if (!accountMap.has(acctId)) {
-        accountMap.set(acctId, { accountId: acctId, accountName: acctName, pages: new Map() });
+        accountMap.set(acctId, { accountId: acctId, accountName: acctName, accountOwner: row.accountOwner ?? null, pages: new Map() });
       }
       const acct = accountMap.get(acctId)!;
       if (!acct.pages.has(row.pageId)) {
@@ -215,6 +209,7 @@ router.get("/microsites/overview", async (req, res): Promise<void> => {
     const result = Array.from(accountMap.values()).map(acct => ({
       accountId: acct.accountId,
       accountName: acct.accountName,
+      accountOwner: acct.accountOwner,
       pages: Array.from(acct.pages.values()),
     }));
 

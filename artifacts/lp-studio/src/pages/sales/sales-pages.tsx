@@ -81,7 +81,25 @@ interface PageEntry {
 interface AccountEntry {
   accountId: number;
   accountName: string;
+  accountOwner: string | null;
   pages: PageEntry[];
+}
+
+interface SavedList {
+  id: string;
+  name: string;
+  accountIds: number[];
+}
+
+const LISTS_STORAGE_KEY = "microsites_saved_lists";
+
+function loadSavedLists(): SavedList[] {
+  try { return JSON.parse(localStorage.getItem(LISTS_STORAGE_KEY) ?? "[]"); }
+  catch { return []; }
+}
+
+function persistSavedLists(lists: SavedList[]): void {
+  localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify(lists));
 }
 
 interface Account {
@@ -128,6 +146,14 @@ export default function SalesPages() {
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(false);
+
+  // ── View filter + saved lists ──────────────────────────────────────────────
+  const [viewFilter, setViewFilter] = useState<string>("all"); // "all" | "mine" | "list:{id}"
+  const [savedLists, setSavedLists] = useState<SavedList[]>(() => loadSavedLists());
+  const [buildListMode, setBuildListMode] = useState(false);
+  const [buildListSelection, setBuildListSelection] = useState<Set<number>>(new Set());
+  const [buildListName, setBuildListName] = useState("");
+  const [showListNameInput, setShowListNameInput] = useState(false);
 
   // ── Clone-for-account modal ────────────────────────────────────────────────
   const [cloneModal, setCloneModal] = useState<{ pageId: number; pageTitle: string } | null>(null);
@@ -394,14 +420,71 @@ export default function SalesPages() {
     }
   }
 
+  // ── Saved list helpers ─────────────────────────────────────────────────────
+  function saveNewList() {
+    if (!buildListName.trim() || buildListSelection.size === 0) return;
+    const newList: SavedList = {
+      id: Date.now().toString(),
+      name: buildListName.trim(),
+      accountIds: [...buildListSelection],
+    };
+    const updated = [...savedLists, newList];
+    setSavedLists(updated);
+    persistSavedLists(updated);
+    setViewFilter(`list:${newList.id}`);
+    setBuildListMode(false);
+    setBuildListSelection(new Set());
+    setBuildListName("");
+    setShowListNameInput(false);
+  }
+
+  function deleteList(listId: string) {
+    const updated = savedLists.filter(l => l.id !== listId);
+    setSavedLists(updated);
+    persistSavedLists(updated);
+    if (viewFilter === `list:${listId}`) setViewFilter("all");
+  }
+
+  function toggleBuildSelection(accountId: number) {
+    setBuildListSelection(prev => {
+      const next = new Set(prev);
+      if (next.has(accountId)) next.delete(accountId);
+      else next.add(accountId);
+      return next;
+    });
+  }
+
+  function exitBuildListMode() {
+    setBuildListMode(false);
+    setBuildListSelection(new Set());
+    setBuildListName("");
+    setShowListNameInput(false);
+  }
+
+  // ── Apply view filter then search ─────────────────────────────────────────
+  const viewFilteredOverview = (() => {
+    if (viewFilter === "all") return overview;
+    if (viewFilter === "mine") {
+      const myName = user?.name?.toLowerCase() ?? "";
+      return overview.filter(a => a.accountOwner?.toLowerCase() === myName);
+    }
+    if (viewFilter.startsWith("list:")) {
+      const listId = viewFilter.slice(5);
+      const list = savedLists.find(l => l.id === listId);
+      if (!list) return overview;
+      return overview.filter(a => list.accountIds.includes(a.accountId));
+    }
+    return overview;
+  })();
+
   const q = search.toLowerCase();
   const filteredOverview = search
-    ? overview.filter(acct =>
+    ? viewFilteredOverview.filter(acct =>
         acct.accountName.toLowerCase().includes(q) ||
         acct.pages.some(p => p.pageTitle.toLowerCase().includes(q)) ||
         acct.pages.some(p => p.hotlinks.some(hl => hl.contactName.toLowerCase().includes(q)))
       )
-    : overview;
+    : viewFilteredOverview;
 
   // Sort pages within each account
   const sortedOverview = filteredOverview.map(acct => ({
@@ -440,14 +523,7 @@ export default function SalesPages() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
               Back
             </button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Microsites</h1>
-              {!user?.isAdmin && (
-                <span className="text-[11px] font-medium text-muted-foreground bg-muted border border-border px-2 py-0.5 rounded-full">
-                  Your accounts
-                </span>
-              )}
-            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Microsites</h1>
             <p className="text-sm text-muted-foreground mt-1">
               AI-generated pages for your accounts, with per-contact personalized links
             </p>
@@ -468,6 +544,106 @@ export default function SalesPages() {
             </Button>
           </div>
         </div>
+
+        {/* View filter bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* All */}
+          <button
+            onClick={() => { setViewFilter("all"); exitBuildListMode(); }}
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+              viewFilter === "all" && !buildListMode
+                ? "bg-foreground text-background border-foreground"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+            }`}
+          >
+            All
+          </button>
+
+          {/* My Accounts */}
+          <button
+            onClick={() => { setViewFilter("mine"); exitBuildListMode(); }}
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+              viewFilter === "mine" && !buildListMode
+                ? "bg-foreground text-background border-foreground"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+            }`}
+          >
+            My Accounts
+          </button>
+
+          {/* Saved lists */}
+          {savedLists.map(list => (
+            <span key={list.id} className={`inline-flex items-center gap-1 rounded-full text-xs font-medium border transition-colors ${
+              viewFilter === `list:${list.id}` && !buildListMode
+                ? "bg-foreground text-background border-foreground pl-3 pr-1.5 py-1.5"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/40 pl-3 pr-1.5 py-1.5"
+            }`}>
+              <button onClick={() => { setViewFilter(`list:${list.id}`); exitBuildListMode(); }}>
+                {list.name}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteList(list.id); }}
+                className="ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                title="Delete list"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+
+          {/* Build new list button */}
+          {!buildListMode ? (
+            <button
+              onClick={() => { setBuildListMode(true); exitSelectMode(); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground border border-dashed border-border hover:text-foreground hover:border-foreground/40 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              New List
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+              Selecting accounts — click to add/remove
+            </span>
+          )}
+        </div>
+
+        {/* Build list save bar */}
+        {buildListMode && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+              <span className="text-sm font-medium text-foreground">
+                {buildListSelection.size} account{buildListSelection.size !== 1 ? "s" : ""} selected
+              </span>
+              {buildListSelection.size > 0 && !showListNameInput && (
+                <button
+                  onClick={() => setShowListNameInput(true)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Save as list →
+                </button>
+              )}
+              {showListNameInput && (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={buildListName}
+                    onChange={e => setBuildListName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveNewList(); if (e.key === "Escape") setShowListNameInput(false); }}
+                    placeholder="List name…"
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-input bg-background outline-none focus:ring-1 focus:ring-ring w-40"
+                  />
+                  <Button size="sm" className="h-7 px-3 text-xs" onClick={saveNewList} disabled={!buildListName.trim() || buildListSelection.size === 0}>
+                    Save
+                  </Button>
+                </div>
+              )}
+            </div>
+            <button onClick={exitBuildListMode} className="text-xs text-muted-foreground hover:text-foreground">
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* PageHint banner */}
         <PageHint
@@ -635,10 +811,10 @@ export default function SalesPages() {
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 {(() => {
-                  const realAccounts = (search ? sortedOverview : overview).filter(a => a.accountId !== -1).length;
+                  const showing = sortedOverview.filter(a => a.accountId !== -1).length;
                   const total = overview.filter(a => a.accountId !== -1).length;
-                  return search ? `${realAccounts} of ${total}` : total;
-                })()} account{(search ? sortedOverview : overview).filter(a => a.accountId !== -1).length !== 1 ? "s" : ""}
+                  return showing < total ? `${showing} of ${total}` : total;
+                })()} account{sortedOverview.filter(a => a.accountId !== -1).length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
@@ -664,15 +840,33 @@ export default function SalesPages() {
                   </div>
                 )}
 
-              <Card className={`rounded-lg overflow-hidden border ${acct.accountId === -1 ? "border-dashed border-border/60" : "border-border"}`}>
+              <Card className={`rounded-lg overflow-hidden border ${
+                buildListMode && acct.accountId !== -1 && buildListSelection.has(acct.accountId)
+                  ? "border-primary bg-primary/3"
+                  : acct.accountId === -1 ? "border-dashed border-border/60" : "border-border"
+              }`}>
                 {/* ── Account header ─────────────────────────────── */}
                 <button
-                  onClick={() => toggleCollapse(acct.accountId)}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
+                  onClick={() => {
+                    if (buildListMode && acct.accountId !== -1) {
+                      toggleBuildSelection(acct.accountId);
+                    } else {
+                      toggleCollapse(acct.accountId);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
+                    buildListMode && acct.accountId !== -1 ? "hover:bg-primary/5" : "hover:bg-muted/30"
+                  }`}
                 >
-                  {collapsed.has(acct.accountId)
-                    ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                    : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+                  {buildListMode && acct.accountId !== -1 ? (
+                    buildListSelection.has(acct.accountId)
+                      ? <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                      : <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    collapsed.has(acct.accountId)
+                      ? <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                      : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  )}
 
                   {acct.accountId === -1 ? (
                     <div className="flex-1 min-w-0">
@@ -690,11 +884,17 @@ export default function SalesPages() {
                             <span className="text-xs text-muted-foreground">{acct.pages.reduce((s, p) => s + p.hotlinks.length, 0)} links</span>
                           </>
                         )}
+                        {acct.accountOwner && (
+                          <>
+                            <span className="text-muted-foreground/30">&middot;</span>
+                            <span className="text-xs text-muted-foreground/60">{acct.accountOwner}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {acct.accountId !== -1 && (
+                  {acct.accountId !== -1 && !buildListMode && (
                     <Link href={`/sales/accounts/${acct.accountId}`} onClick={e => e.stopPropagation()}>
                       <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
                         View account <ChevronRight className="w-3 h-3" />

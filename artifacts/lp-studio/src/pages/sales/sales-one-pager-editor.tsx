@@ -529,10 +529,10 @@ export default function SalesOnePagerEditor() {
           </div>
 
           {/* Main layout: editor + preview */}
-          <div className={`flex gap-6 ${previewVisible ? "flex-col lg:flex-row" : ""}`}>
+          <div className={`flex gap-6 ${previewVisible ? "flex-col md:flex-row items-start" : ""}`}>
 
             {/* ── LEFT: Controls ── */}
-            <div className={previewVisible ? "w-full lg:w-1/2 xl:w-[45%] shrink-0" : "max-w-[960px] mx-auto w-full"}>
+            <div className={previewVisible ? "w-full md:w-[40%] shrink-0 md:max-h-[calc(100vh-80px)] md:overflow-y-auto md:pr-1" : "max-w-[960px] mx-auto w-full"}>
 
               {/* Preview name + logo row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -858,12 +858,12 @@ export default function SalesOnePagerEditor() {
             {/* ── RIGHT: Live preview ── */}
             {previewVisible && (
               <div className="flex-1 min-w-0">
-                <div className="sticky top-20">
+                <div className="sticky top-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Live Preview</span>
                     <span className="text-[10px] text-muted-foreground">Updates automatically as you edit</span>
                   </div>
-                  <div className="rounded-xl border border-border overflow-hidden bg-muted/10" style={{ height: "calc(100vh - 180px)" }}>
+                  <div className="rounded-xl border border-border overflow-hidden bg-muted/10" style={{ height: "calc(100vh - 100px)" }}>
                     {previewUrl ? (
                       <iframe src={previewUrl} className="w-full h-full" title="PDF Preview" />
                     ) : (
