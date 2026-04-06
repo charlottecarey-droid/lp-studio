@@ -128,6 +128,7 @@ const SalesRoiCalculator = lazy(() => import("@/pages/sales/sales-roi-calculator
 const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
 const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-templates"));
+const SalesMarketplace = lazy(() => import("@/pages/sales/sales-marketplace"));
 
 // New feature pages
 const TemplateMarketplace = lazy(() => import("@/pages/template-marketplace"));
@@ -244,6 +245,7 @@ function AppRouter() {
         <Route path="/sales/one-pager/editor">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePagerEditor /></PermRoute>}</Route>
         <Route path="/sales/one-pager">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePager /></PermRoute>}</Route>
         <Route path="/sales/one-pager-templates">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOnePagerTemplates /></PermRoute>}</Route>
+        <Route path="/sales/marketplace">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesMarketplace /></PermRoute>}</Route>
         <Route path="/sales/sfdc">{() => <PermRoute perm="settings" fallback="/sales"><SfdcSettings /></PermRoute>}</Route>
 
         {/* Builder Editor (no app layout — full screen) */}

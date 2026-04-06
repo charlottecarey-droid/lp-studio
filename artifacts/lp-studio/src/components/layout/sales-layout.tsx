@@ -18,6 +18,7 @@ import {
   Calculator,
   FileText,
   Wrench,
+  LayoutTemplate,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -215,6 +216,13 @@ export function SalesTopNav() {
       icon: <Wrench className="w-4 h-4" />,
       permission: "sales_campaigns",
       matchFn: (loc) => loc === "/sales/one-pager-templates",
+    },
+    {
+      label: "Template Library",
+      href: "/sales/marketplace",
+      icon: <LayoutTemplate className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/marketplace",
     },
   ];
 
