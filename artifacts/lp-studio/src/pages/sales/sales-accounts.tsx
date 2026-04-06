@@ -3117,8 +3117,8 @@ function GenerateMicrositeModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) handleClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             Generate Microsite
@@ -3189,7 +3189,8 @@ function GenerateMicrositeModal({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-4 py-2">
+          <>
+          <div className="flex flex-col gap-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="text-sm text-muted-foreground">
               Dandy AI will create a personalised landing page for <strong>{accountName}</strong> and
               generate unique hotlinks for each contact with an email address.
@@ -3355,21 +3356,23 @@ function GenerateMicrositeModal({
                 {step === "generating" ? "Generating personalised copy…" : "Creating contact hotlinks…"}
               </div>
             )}
-
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
-                Cancel
-              </Button>
-              <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience || !ctaValid}>
-                {busy ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                Generate
-              </Button>
-            </div>
           </div>
+
+          {/* Pinned action row — always visible outside the scroll area */}
+          <div className="flex gap-2 flex-shrink-0 pt-2 border-t border-border/50">
+            <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !audience || !ctaValid}>
+              {busy ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              Generate
+            </Button>
+          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
