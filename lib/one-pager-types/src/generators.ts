@@ -17,6 +17,41 @@ function drawSep(doc: jsPDF, x: number, y: number, len: number, color: [number, 
   doc.line(x, y, x + len, y);
 }
 
+async function cropImage(
+  src: string,
+  targetW: number,
+  targetH: number,
+  anchor: "top" | "center" | "bottom" = "center",
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const srcAspect = img.naturalWidth / img.naturalHeight;
+      const dstAspect = targetW / targetH;
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (srcAspect > dstAspect) {
+        sw = Math.round(img.naturalHeight * dstAspect);
+        sx = Math.round((img.naturalWidth - sw) / 2);
+      } else {
+        sh = Math.round(img.naturalWidth / dstAspect);
+        if (anchor === "top") sy = 0;
+        else if (anchor === "bottom") sy = img.naturalHeight - sh;
+        else sy = Math.round((img.naturalHeight - sh) / 2);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(targetW * 2);
+      canvas.height = Math.round(targetH * 2);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(src); return; }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+
 function drawDandyLogo(doc: jsPDF, x: number, y: number, logoPng: string | null, w = 80, h = 28) {
   if (logoPng) {
     try { doc.addImage(logoPng, "PNG", x, y, w, h); return; } catch { }
@@ -130,8 +165,9 @@ export const generatePilotOnePager = async (
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
-    const imgFormat = headerImgData.startsWith("data:image/png") ? "PNG" : "JPEG";
-    doc.addImage(headerImgData, imgFormat, splitX, 0, w - splitX, headerH);
+    const cropAnchor = (hCfg.imageCropAnchor as "top" | "center" | "bottom" | undefined) ?? "center";
+    const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
+    doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
     doc.setFillColor(20, 50, 40);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
@@ -404,8 +440,9 @@ export const generateComparisonOnePager = async (
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
-    const imgFormat = headerImgData.startsWith("data:image/png") ? "PNG" : "JPEG";
-    doc.addImage(headerImgData, imgFormat, splitX, 0, w - splitX, headerH);
+    const cropAnchor = (hCfg.imageCropAnchor as "top" | "center" | "bottom" | undefined) ?? "center";
+    const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
+    doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
     doc.setFillColor(20, 50, 40);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
@@ -607,8 +644,9 @@ export const generateNewPartnerOnePager = async (
   doc.rect(0, 0, splitX, headerH, "F");
 
   if (headerImgData) {
-    const headerFormat = headerImgData.startsWith("data:image/png") ? "PNG" : "JPEG";
-    doc.addImage(headerImgData, headerFormat, splitX, 0, w - splitX, headerH);
+    const cropAnchor = (hCfg.imageCropAnchor as "top" | "center" | "bottom" | undefined) ?? "center";
+    const croppedHeader = await cropImage(headerImgData, w - splitX, headerH, cropAnchor);
+    doc.addImage(croppedHeader, "JPEG", splitX, 0, w - splitX, headerH);
   } else {
     doc.setFillColor(20, 50, 40);
     doc.rect(splitX, 0, w - splitX, headerH, "F");
