@@ -15,8 +15,10 @@ interface Props {
 }
 
 export default function CaseStudiesPanel({ props, onChange }: Props) {
+  const safeItems = props.items ?? [];
+
   const updateItem = (idx: number, patch: Partial<CaseStudyItem>) => {
-    const items = [...props.items];
+    const items = [...safeItems];
     items[idx] = { ...items[idx], ...patch };
     onChange({ ...props, items });
   };
@@ -25,14 +27,14 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
     onChange({
       ...props,
       items: [
-        ...props.items,
+        ...safeItems,
         { image: "", logoUrl: "", title: "New case study", categories: "", url: "#" },
       ],
     });
   };
 
   const removeItem = (idx: number) => {
-    onChange({ ...props, items: props.items.filter((_, i) => i !== idx) });
+    onChange({ ...props, items: safeItems.filter((_, i) => i !== idx) });
   };
 
   const handleLoadDefaults = (items: Record<string, unknown>[]) => {
@@ -41,7 +43,7 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
   };
 
   const handleAddFromLibrary = (items: Record<string, unknown>[]) => {
-    onChange({ ...props, items: [...props.items, ...(items as unknown as CaseStudyItem[])] });
+    onChange({ ...props, items: [...safeItems, ...(items as unknown as CaseStudyItem[])] });
   };
 
   return (
@@ -123,7 +125,7 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
         </div>
 
         <div className="space-y-4">
-          {props.items.map((item, idx) => (
+          {safeItems.map((item, idx) => (
             <div
               key={idx}
               className="border rounded-lg p-3 space-y-2 bg-slate-50"
@@ -139,7 +141,7 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
                     content={item as unknown as Record<string, unknown>}
                     defaultName={item.title || `Case Study ${idx + 1}`}
                   />
-                  {props.items.length > 1 && (
+                  {safeItems.length > 1 && (
                     <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-500">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

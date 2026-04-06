@@ -24,7 +24,8 @@ function Placeholder({ className }: { className?: string }) {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function BlockCaseStudies({ props, brand, animationsEnabled = true }: Props) {
-  const { headline, subheadline, items, backgroundStyle } = props;
+  const { headline, subheadline, backgroundStyle } = props;
+  const items = props.items ?? [];
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
   const isDark = isDarkBg(backgroundStyle);
