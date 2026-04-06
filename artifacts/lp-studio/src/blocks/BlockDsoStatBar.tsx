@@ -105,13 +105,13 @@ export function BlockDsoStatBar({ props }: Props) {
                     items except the first
         */}
         <div
-          className="grid grid-cols-2 sm:flex sm:flex-row"
+          className="grid grid-cols-2 sm:flex sm:flex-row sm:justify-center"
           style={{ "--divider-color": dividerColor } as React.CSSProperties}
         >
           {displayStats.map((stat, i) => (
             <div
               key={stat.label}
-              className={`sm:flex-1${i > 0 ? " sm:border-l" : ""}`}
+              className={`sm:w-56${i > 0 ? " sm:border-l" : ""}`}
               style={i > 0 ? { borderColor: "var(--divider-color)" } : {}}
             >
               <StatItem stat={stat} i={i} dark={dark} />
