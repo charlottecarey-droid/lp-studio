@@ -151,6 +151,13 @@ export default function SalesCampaignDetail() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
 
+  // Sender settings
+  const [senderName, setSenderName] = useState("Dandy");
+  const [senderEmail, setSenderEmail] = useState("partnerships");
+  const [replyTo, setReplyTo] = useState("sales@meetdandy.com");
+  const [previewText, setPreviewText] = useState("");
+  const [savingSender, setSavingSender] = useState(false);
+
   // Available accounts/templates for editing
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -164,6 +171,11 @@ export default function SalesCampaignDetail() {
       setCampaign(data);
       setEditName(data.name);
       setEditAccountId(data.accountId ? String(data.accountId) : "");
+      const meta = (data.metadata ?? {}) as Record<string, unknown>;
+      setSenderName((meta.senderName as string) ?? "Dandy");
+      setSenderEmail((meta.senderEmail as string) ?? "partnerships");
+      setReplyTo((meta.replyTo as string) ?? "sales@meetdandy.com");
+      setPreviewText((meta.previewText as string) ?? "");
       if (data.scheduledAt) {
         const d = new Date(data.scheduledAt);
         setEditScheduledAt(d.toISOString().slice(0, 16));
@@ -287,6 +299,28 @@ export default function SalesCampaignDetail() {
       fetchCampaign();
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleSaveSender() {
+    if (!campaign) return;
+    setSavingSender(true);
+    try {
+      const updatedMeta = {
+        ...(campaign.metadata ?? {}),
+        senderName: senderName.trim() || "Dandy",
+        senderEmail: senderEmail.trim() || "partnerships",
+        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        previewText: previewText.trim(),
+      };
+      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: updatedMeta }),
+      });
+      fetchCampaign();
+    } finally {
+      setSavingSender(false);
     }
   }
 
@@ -588,6 +622,61 @@ export default function SalesCampaignDetail() {
             </div>
           </Card>
         )}
+
+        {/* Sender Settings */}
+        <Card className="p-5 rounded-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Sender Settings</h3>
+            {isDraft && (
+              <Button size="sm" onClick={handleSaveSender} disabled={savingSender} className="gap-1.5">
+                <Save className="w-3.5 h-3.5" />
+                {savingSender ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Sender Name</Label>
+              {isDraft ? (
+                <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="Dandy" />
+              ) : (
+                <p className="text-sm text-foreground">{senderName || "Dandy"}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">From Address</Label>
+              {isDraft ? (
+                <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
+                  <Input
+                    value={senderEmail}
+                    onChange={e => setSenderEmail(e.target.value)}
+                    placeholder="partnerships"
+                    className="border-0 rounded-none focus-visible:ring-0"
+                  />
+                  <span className="px-3 text-sm text-muted-foreground bg-muted border-l border-input whitespace-nowrap">@ent.meetdandy.com</span>
+                </div>
+              ) : (
+                <p className="text-sm text-foreground">{senderEmail || "partnerships"}@ent.meetdandy.com</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Reply-To</Label>
+              {isDraft ? (
+                <Input value={replyTo} onChange={e => setReplyTo(e.target.value)} placeholder="sales@meetdandy.com" />
+              ) : (
+                <p className="text-sm text-foreground">{replyTo || "sales@meetdandy.com"}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Preview Text</Label>
+              {isDraft ? (
+                <Input value={previewText} onChange={e => setPreviewText(e.target.value)} placeholder="Short teaser shown in inbox…" />
+              ) : (
+                <p className="text-sm text-foreground">{previewText ? previewText : <span className="text-muted-foreground italic">None</span>}</p>
+              )}
+            </div>
+          </div>
+        </Card>
 
         {/* Email Preview */}
         {campaign.template && (

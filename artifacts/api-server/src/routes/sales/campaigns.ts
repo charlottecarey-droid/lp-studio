@@ -368,6 +368,8 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
     const host = `${req.protocol}://${req.get("host")}`;
     const senderName = (campaign.metadata as any)?.senderName ?? "Dandy";
     const senderLocal = (campaign.metadata as any)?.senderEmail ?? "partnerships";
+    const replyToAddress = (campaign.metadata as any)?.replyTo ?? DEFAULT_REPLY_TO;
+    const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
     const sendRecords: Array<{
@@ -398,6 +400,9 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
       // Build email body — plain templates use bodyText, styled use bodyHtml
       let emailHtml: string;
+      const preheaderHtml = campaignPreviewText
+        ? `<div style="display:none;font-size:1px;color:#f4f4f4;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${campaignPreviewText}${"&zwnj;&nbsp;".repeat(80)}</div>`
+        : "";
       if (template.format === "plain") {
         const plainText = replaceVars(template.bodyText ?? "", vars);
         // Convert plain text to HTML preserving line breaks (escape HTML entities first)
@@ -405,14 +410,19 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
-        emailHtml = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
+        emailHtml = `${preheaderHtml}<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap;padding:20px;">${escaped}</div>`;
       } else {
-        emailHtml = replaceVars(template.bodyHtml, vars);
+        // Inject preheader into styled template after <body tag
+        let html = replaceVars(template.bodyHtml, vars);
+        if (preheaderHtml) {
+          html = html.replace(/(<body[^>]*>)/i, `$1${preheaderHtml}`);
+        }
+        emailHtml = html;
       }
 
       const payload = {
         from: `${senderName} <${senderLocal}@${SENDER_DOMAIN}>`,
-        reply_to: DEFAULT_REPLY_TO,
+        reply_to: replyToAddress,
         to: [contact.email!],
         subject,
         html: emailHtml,
