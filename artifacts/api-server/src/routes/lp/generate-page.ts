@@ -489,6 +489,7 @@ function buildBrandContext(brand: BrandConfig): string {
   const ctaHex = brand.ctaBackground || brand.accentColor || brand.primaryColor;
   if (ctaHex) parts.push(`CTA button color: "${ctaHex}" — use this exact hex for ALL ctaColor props`);
   if (brand.chilipiperUrl) parts.push(`Chili Piper booking URL: "${brand.chilipiperUrl}" — use this for ctaUrl on ALL DSO blocks; set ctaMode: "chilipiper" on every DSO block that has ctaText/ctaUrl props`);
+  if (brand.defaultCtaUrl && !brand.chilipiperUrl) parts.push(`Default CTA URL: "${brand.defaultCtaUrl}" — use this as ctaUrl on EVERY block that has a ctaUrl prop. Never leave ctaUrl as "#".`);
   if (brand.messagingPillars?.length) {
     parts.push(`Key themes: ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
   }
@@ -817,6 +818,20 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
           props.ctaMode = "chilipiper";
           if (!props.ctaText) {
             props.ctaText = "Schedule a Demo";
+          }
+        }
+
+        // Fallback: replace any remaining "#" ctaUrls with the brand's defaultCtaUrl
+        const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
+        if (defaultCtaUrl) {
+          if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
+            props.primaryCtaUrl = defaultCtaUrl;
+          }
+          if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
+            props.ctaUrl = defaultCtaUrl;
+          }
+          if ("secondaryCtaUrl" in props && (!props.secondaryCtaUrl || props.secondaryCtaUrl === "#")) {
+            props.secondaryCtaUrl = defaultCtaUrl;
           }
         }
 

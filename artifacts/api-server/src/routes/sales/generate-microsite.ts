@@ -169,10 +169,11 @@ function fillEmptyVideos(blocks: unknown[], videoUrls: string[]): unknown[] {
   });
 }
 
-/** Force brand CTA color and Chili Piper URL into every block that needs them. */
+/** Force brand CTA color, Chili Piper URL, and default CTA URL into every block that needs them. */
 function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>): unknown[] {
   const ctaColor = (brand.ctaBackground as string) || (brand.accentColor as string) || (brand.primaryColor as string);
   const chilipiperUrl = brand.chilipiperUrl as string | undefined;
+  const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
   return blocks.map((block) => {
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown>) };
@@ -185,6 +186,18 @@ function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>
       if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
         props.ctaUrl = chilipiperUrl;
         props.ctaMode = "chilipiper";
+      }
+    }
+    // Fallback: replace any remaining "#" with brand's defaultCtaUrl
+    if (defaultCtaUrl) {
+      if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
+        props.primaryCtaUrl = defaultCtaUrl;
+      }
+      if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
+        props.ctaUrl = defaultCtaUrl;
+      }
+      if ("secondaryCtaUrl" in props && (!props.secondaryCtaUrl || props.secondaryCtaUrl === "#")) {
+        props.secondaryCtaUrl = defaultCtaUrl;
       }
     }
     b.props = props;
@@ -744,6 +757,9 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
   ];
   const forbiddenList = [...new Set([...coreForbidden, ...(avoidPhrases ?? [])])];
 
+  const chilipiperUrl = brand.chilipiperUrl as string | undefined;
+  const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
+
   const brandSection = [
     tone              ? `VOICE: ${tone}` : null,
     toneKeywords?.length ? `Style words — your copy should feel: ${toneKeywords.join(", ")}` : null,
@@ -751,6 +767,8 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
     taglines?.length  ? `Brand taglines (reference these, don't repeat them verbatim): ${taglines.join(" | ")}` : null,
     copyExamples?.length ? `Copy that nails the voice — study these and write in this register:\n${copyExamples.map(e => `  "${e}"`).join("\n")}` : null,
     copyInstructions?.trim() ? copyInstructions.trim() : null,
+    chilipiperUrl ? `Chili Piper booking URL: "${chilipiperUrl}" — use this as ctaUrl for ALL blocks; set ctaMode: "chilipiper" on every block with ctaText/ctaUrl props` : null,
+    !chilipiperUrl && defaultCtaUrl ? `Default CTA URL: "${defaultCtaUrl}" — use this as ctaUrl on EVERY block that has a ctaUrl prop. Never leave ctaUrl as "#".` : null,
   ].filter(Boolean).join("\n");
 
   const copyPrinciples = `
