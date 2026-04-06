@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import {
   Building2, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
   AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
+  ChevronDown, SlidersHorizontal,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -95,23 +96,51 @@ function getGreeting() {
 
 export default function SalesDashboard() {
   const { user } = useAuth();
+  const lsKey = user?.userId ? `sc_acct_filters_${user.userId}` : null;
+
+  function readLsArr(key: string): string[] {
+    if (!lsKey) return [];
+    try {
+      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      if (Array.isArray(stored[key])) return stored[key] as string[];
+      if (key === "ownerFilters" && typeof stored.ownerFilter === "string" && stored.ownerFilter) return [stored.ownerFilter];
+      if (key === "abmTierFilters" && typeof stored.abmTierFilter === "string" && stored.abmTierFilter) return [stored.abmTierFilter];
+      return [];
+    } catch { return []; }
+  }
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [micrositeGroups, setMicrositeGroups] = useState<MicrositeGroup[]>([]);
   const [signalsToday, setSignalsToday] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
-  // Read owner + tier filters from localStorage — same key Accounts/Signals/Contacts all use
-  const savedFilters = useMemo(() => {
-    if (!user?.userId) return { ownerFilters: [] as string[], abmTierFilter: "" };
-    const lsKey = `sc_acct_filters_${user.userId}`;
+  // Filter state — same localStorage key as the Accounts page
+  const [ownerFilters, setOwnerFilters] = useState<string[]>(() => readLsArr("ownerFilters"));
+  const [abmTierFilters, setAbmTierFilters] = useState<string[]>(() => readLsArr("abmTierFilters"));
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
+  const [showTierDropdown, setShowTierDropdown] = useState(false);
+  const ownerDropdownRef = useRef<HTMLDivElement>(null);
+  const tierDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Persist filter changes back to localStorage so Accounts page picks them up too
+  useEffect(() => {
+    if (!lsKey) return;
     try {
-      const stored = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
-      const ownerFilters = Array.isArray(stored.ownerFilters) ? (stored.ownerFilters as string[]) : [];
-      const abmTierFilter = typeof stored.abmTierFilter === "string" ? stored.abmTierFilter : "";
-      return { ownerFilters, abmTierFilter };
-    } catch { return { ownerFilters: [] as string[], abmTierFilter: "" }; }
-  }, [user?.userId]);
+      const existing = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
+      localStorage.setItem(lsKey, JSON.stringify({ ...existing, ownerFilters, abmTierFilters }));
+    } catch {}
+  }, [ownerFilters, abmTierFilters, lsKey]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) setShowOwnerDropdown(false);
+      if (tierDropdownRef.current && !tierDropdownRef.current.contains(e.target as Node)) setShowTierDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -132,11 +161,13 @@ export default function SalesDashboard() {
 
   // ── Computed data ─────────────────────────────────────────────────────────
 
+  const uniqueOwners   = useMemo(() => Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[], [accounts]);
+  const uniqueAbmTiers = useMemo(() => Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[], [accounts]);
+
   const { hotAccounts, needsAttention, hotCount, filteredAccountCount } = useMemo(() => {
     if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0, filteredAccountCount: 0 };
 
     const now = Date.now();
-    const { ownerFilters, abmTierFilter } = savedFilters;
 
     // Build microsite lookup: accountId → page count
     const micrositeCounts = new Map<number, number>();
@@ -177,10 +208,10 @@ export default function SalesDashboard() {
       return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
-    // Apply saved owner + tier filters — same logic as Accounts, Signals, and Contacts pages
+    // Apply owner + tier filters
     const ownerFiltered = enriched.filter(a => {
       const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-      const matchesTier  = !abmTierFilter || a.abmTier === abmTierFilter;
+      const matchesTier  = abmTierFilters.length === 0 || abmTierFilters.includes(a.abmTier ?? "");
       return matchesOwner && matchesTier;
     });
 
@@ -207,15 +238,14 @@ export default function SalesDashboard() {
       .slice(0, 6);
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length, filteredAccountCount: ownerFiltered.length };
-  }, [accounts, signals, micrositeGroups, savedFilters]);
+  }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters]);
 
   const recentSignals = useMemo(() => {
-    const { ownerFilters, abmTierFilter } = savedFilters;
-    const isFiltered = ownerFilters.length > 0 || !!abmTierFilter;
+    const isFiltered = ownerFilters.length > 0 || abmTierFilters.length > 0;
     const filteredAccountIds = isFiltered
       ? new Set(accounts.filter(a => {
           const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-          const matchesTier  = !abmTierFilter || a.abmTier === abmTierFilter;
+          const matchesTier  = abmTierFilters.length === 0 || abmTierFilters.includes(a.abmTier ?? "");
           return matchesOwner && matchesTier;
         }).map(a => a.id))
       : null;
@@ -223,7 +253,7 @@ export default function SalesDashboard() {
       .filter(s => !filteredAccountIds || !s.accountId || filteredAccountIds.has(s.accountId))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
-  }, [signals, accounts, savedFilters]);
+  }, [signals, accounts, ownerFilters, abmTierFilters]);
 
   const isEmpty = !loading && accounts.length === 0;
 
@@ -252,6 +282,7 @@ export default function SalesDashboard() {
           title="Your Sales Command Center"
           description="This dashboard tracks real-time engagement across all your accounts. Metrics update as contacts open emails, visit microsites, and interact with your content."
           tips={[
+            <><strong>Filter by your name and save it as a list view in Accounts</strong> — the dashboard will automatically show only your accounts every time you return.</>,
             "Hot Accounts show which prospects are actively engaging right now",
             "The Signals feed shows every email open, page visit, and link click as it happens",
             "Click any account to see their full engagement timeline"
@@ -277,6 +308,135 @@ export default function SalesDashboard() {
             </div>
           ))}
         </div>
+
+        {/* ── Account filters ────────────────────────────────────────── */}
+        {!loading && accounts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filter accounts:</span>
+            </div>
+
+            {/* My Accounts quick chip */}
+            {user?.name && (
+              <button
+                type="button"
+                onClick={() => setOwnerFilters(prev => prev.includes(user.name) ? prev.filter(o => o !== user.name) : [...prev, user.name])}
+                className={`flex items-center gap-1.5 h-7 px-3 rounded-md border text-xs font-medium transition-colors ${
+                  ownerFilters.includes(user.name)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-input bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                My Accounts
+              </button>
+            )}
+
+            {/* Owner multi-select dropdown */}
+            <div className="relative" ref={ownerDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowOwnerDropdown(v => !v)}
+                className={`flex items-center gap-1.5 h-7 pl-3 pr-2 rounded-md border text-xs transition-colors ${
+                  ownerFilters.length > 0
+                    ? "border-primary/50 bg-primary/5 text-foreground"
+                    : "border-input bg-background text-foreground"
+                }`}
+              >
+                <span>
+                  {ownerFilters.length === 0 ? "All Owners" : ownerFilters.length === 1 ? ownerFilters[0] : `${ownerFilters.length} Owners`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+              {showOwnerDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-xl border border-border bg-card shadow-lg py-1 max-h-64 overflow-y-auto">
+                  {uniqueOwners.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">No owners found</p>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => setOwnerFilters([])} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                        Clear selection
+                      </button>
+                      <div className="border-t border-border/50 my-1" />
+                      {uniqueOwners.map(owner => (
+                        <label key={owner} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer rounded-sm transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={ownerFilters.includes(owner)}
+                            onChange={() => setOwnerFilters(prev => prev.includes(owner) ? prev.filter(o => o !== owner) : [...prev, owner])}
+                            className="w-3.5 h-3.5 accent-primary"
+                          />
+                          <span className="text-xs text-foreground truncate">{owner}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ABM Tier multi-select dropdown */}
+            <div className="relative" ref={tierDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowTierDropdown(v => !v)}
+                className={`flex items-center gap-1.5 h-7 pl-3 pr-2 rounded-md border text-xs transition-colors ${
+                  abmTierFilters.length > 0
+                    ? "border-primary/50 bg-primary/5 text-foreground"
+                    : "border-input bg-background text-foreground"
+                }`}
+              >
+                <span>
+                  {abmTierFilters.length === 0 ? "All ABM Tiers" : abmTierFilters.length === 1 ? abmTierFilters[0] : `${abmTierFilters.length} Tiers`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+              {showTierDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 w-44 rounded-xl border border-border bg-card shadow-lg py-1 max-h-64 overflow-y-auto">
+                  {uniqueAbmTiers.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">No tiers found</p>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => setAbmTierFilters([])} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                        Clear selection
+                      </button>
+                      <div className="border-t border-border/50 my-1" />
+                      {uniqueAbmTiers.map(tier => (
+                        <label key={tier} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer rounded-sm transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={abmTierFilters.includes(tier)}
+                            onChange={() => setAbmTierFilters(prev => prev.includes(tier) ? prev.filter(t => t !== tier) : [...prev, tier])}
+                            className="w-3.5 h-3.5 accent-primary"
+                          />
+                          <span className="text-xs text-foreground truncate">{tier}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Clear all badge */}
+            {(ownerFilters.length > 0 || abmTierFilters.length > 0) && (
+              <button
+                type="button"
+                onClick={() => { setOwnerFilters([]); setAbmTierFilters([]); }}
+                className="flex items-center gap-1 h-7 px-2.5 rounded-md text-xs text-muted-foreground hover:text-foreground border border-transparent hover:border-input transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+
+            {/* Active filter count badge */}
+            {(ownerFilters.length > 0 || abmTierFilters.length > 0) && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                Showing {filteredAccountCount} of {accounts.length} accounts
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── Tool Cards ─────────────────────────────────────────────── */}
         <div className="flex flex-col gap-4">

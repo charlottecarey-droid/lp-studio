@@ -18,8 +18,8 @@ interface PageHintProps {
   title: string;
   /** Longer description of what this page does and how to use it */
   description: string;
-  /** Optional bullet-point tips */
-  tips?: string[];
+  /** Optional bullet-point tips — accepts plain strings or JSX (e.g. with <strong> for bold) */
+  tips?: ReactNode[];
   /** Color theme */
   color?: HintColor;
   /** Custom icon — pass a LucideIcon component (e.g. Zap) or a JSX element (e.g. <Zap />) */
