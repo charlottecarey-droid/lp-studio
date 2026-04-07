@@ -507,11 +507,6 @@ export function FormPanel({ props, onChange, pageId }: Props) {
       </TabsList>
 
       <TabsContent value="fields" className="space-y-4 mt-0">
-      {linkedForm && (
-        <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-          Fields are managed in the <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a> under "{linkedForm.name}".
-        </div>
-      )}
         <div>
           <Label className={LABEL_CLS}>Headline</Label>
           <Input value={props.headline} onChange={e => set("headline", e.target.value)} className="text-sm" />
@@ -521,31 +516,41 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <Input value={props.subheadline} onChange={e => set("subheadline", e.target.value)} className="text-sm" />
         </div>
 
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <Label className={LABEL_CLS + " !mb-0"}>Multi-step Form</Label>
-            <p className="text-xs text-muted-foreground">Split fields across multiple steps</p>
+        {linkedForm ? (
+          <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+            Fields, steps, and settings are managed in the{" "}
+            <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a>{" "}
+            under "{linkedForm.name}".
           </div>
-          <Switch checked={props.multiStep} onCheckedChange={v => set("multiStep", v)} />
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <Label className={LABEL_CLS + " !mb-0"}>Multi-step Form</Label>
+                <p className="text-xs text-muted-foreground">Split fields across multiple steps</p>
+              </div>
+              <Switch checked={props.multiStep} onCheckedChange={v => set("multiStep", v)} />
+            </div>
 
-        <div className="space-y-3">
-          {props.steps.map((step, i) => (
-            <StepEditor
-              key={i}
-              step={step}
-              stepIndex={i}
-              onChange={s => setStep(i, s)}
-              onDelete={() => removeStep(i)}
-              canDelete={props.steps.length > 1}
-            />
-          ))}
-          {props.multiStep && (
-            <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStep}>
-              <Plus className="w-3.5 h-3.5" /> Add Step
-            </Button>
-          )}
-        </div>
+            <div className="space-y-3">
+              {props.steps.map((step, i) => (
+                <StepEditor
+                  key={i}
+                  step={step}
+                  stepIndex={i}
+                  onChange={s => setStep(i, s)}
+                  onDelete={() => removeStep(i)}
+                  canDelete={props.steps.length > 1}
+                />
+              ))}
+              {props.multiStep && (
+                <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addStep}>
+                  <Plus className="w-3.5 h-3.5" /> Add Step
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </TabsContent>
 
       <TabsContent value="settings" className="space-y-4 mt-0">
