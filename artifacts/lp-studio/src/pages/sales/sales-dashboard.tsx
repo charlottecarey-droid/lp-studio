@@ -27,8 +27,9 @@ interface Account {
   id: number;
   name: string;
   domain?: string;
-  segment?: string;
+  practiceSegment?: string;
   abmTier?: string;
+  abmStage?: string;
   owner?: string;
 }
 
@@ -127,10 +128,16 @@ export default function SalesDashboard() {
   // Filter state — same localStorage key as the Accounts page
   const [ownerFilters, setOwnerFilters] = useState<string[]>(() => readLsArr("ownerFilters"));
   const [abmTierFilters, setAbmTierFilters] = useState<string[]>(() => readLsArr("abmTierFilters"));
+  const [abmStageFilters, setAbmStageFilters] = useState<string[]>(() => readLsArr("abmStageFilters"));
+  const [segmentFilters, setSegmentFilters] = useState<string[]>(() => readLsArr("segmentFilters"));
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const [showTierDropdown, setShowTierDropdown] = useState(false);
+  const [showStageDropdown, setShowStageDropdown] = useState(false);
+  const [showSegmentDropdown, setShowSegmentDropdown] = useState(false);
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
   const tierDropdownRef = useRef<HTMLDivElement>(null);
+  const stageDropdownRef = useRef<HTMLDivElement>(null);
+  const segmentDropdownRef = useRef<HTMLDivElement>(null);
 
   // Saved views — same key as Accounts page so they share views
   const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
@@ -148,16 +155,17 @@ export default function SalesDashboard() {
   useEffect(() => {
     if (!lsKey) return;
     try {
-      const existing = JSON.parse(localStorage.getItem(lsKey) ?? "{}") as Record<string, unknown>;
-      localStorage.setItem(lsKey, JSON.stringify({ ...existing, ownerFilters, abmTierFilters }));
+      localStorage.setItem(lsKey, JSON.stringify({ ownerFilters, abmTierFilters, abmStageFilters, segmentFilters }));
     } catch {}
-  }, [ownerFilters, abmTierFilters, lsKey]);
+  }, [ownerFilters, abmTierFilters, abmStageFilters, segmentFilters, lsKey]);
 
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) setShowOwnerDropdown(false);
       if (tierDropdownRef.current && !tierDropdownRef.current.contains(e.target as Node)) setShowTierDropdown(false);
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(e.target as Node)) setShowStageDropdown(false);
+      if (segmentDropdownRef.current && !segmentDropdownRef.current.contains(e.target as Node)) setShowSegmentDropdown(false);
       if (viewsDropdownRef.current && !viewsDropdownRef.current.contains(e.target as Node)) setShowViewsDropdown(false);
     }
     document.addEventListener("mousedown", handleClick);
@@ -176,8 +184,16 @@ export default function SalesDashboard() {
     markDirty();
     setAbmTierFilters(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   }
+  function toggleStage(val: string) {
+    markDirty();
+    setAbmStageFilters(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  }
+  function toggleSegment(val: string) {
+    markDirty();
+    setSegmentFilters(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  }
   function currentFilters(): SavedView["filters"] {
-    return { ownerFilters, abmTierFilters, abmStageFilters: [], segmentFilters: [] };
+    return { ownerFilters, abmTierFilters, abmStageFilters, segmentFilters };
   }
   function saveView() {
     if (!saveViewName.trim() || !viewsKey) return;
@@ -196,6 +212,8 @@ export default function SalesDashboard() {
   function loadView(view: SavedView) {
     setOwnerFilters(view.filters.ownerFilters ?? []);
     setAbmTierFilters(view.filters.abmTierFilters ?? []);
+    setAbmStageFilters(view.filters.abmStageFilters ?? []);
+    setSegmentFilters(view.filters.segmentFilters ?? []);
     setActiveViewId(view.id); setDirtyViewId(null); setShowViewsDropdown(false);
   }
   function deleteView(id: string) {
@@ -225,8 +243,10 @@ export default function SalesDashboard() {
 
   // ── Computed data ─────────────────────────────────────────────────────────
 
-  const uniqueOwners   = useMemo(() => Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[], [accounts]);
-  const uniqueAbmTiers = useMemo(() => Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[], [accounts]);
+  const uniqueOwners     = useMemo(() => Array.from(new Set(accounts.map(a => a.owner).filter(Boolean))).sort() as string[], [accounts]);
+  const uniqueAbmTiers   = useMemo(() => Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[], [accounts]);
+  const uniqueAbmStages  = useMemo(() => Array.from(new Set(accounts.map(a => a.abmStage).filter(Boolean))).sort() as string[], [accounts]);
+  const uniqueSegments   = useMemo(() => Array.from(new Set(accounts.map(a => a.practiceSegment).filter(Boolean))).sort() as string[], [accounts]);
 
   const { hotAccounts, needsAttention, hotCount, filteredAccountCount } = useMemo(() => {
     if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0, filteredAccountCount: 0 };
@@ -272,11 +292,13 @@ export default function SalesDashboard() {
       return { ...acct, score, signalCount7d, heat, lastSignal, hasMicrosite, daysSinceLastSignal };
     });
 
-    // Apply owner + tier filters
+    // Apply all filters
     const ownerFiltered = enriched.filter(a => {
-      const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-      const matchesTier  = abmTierFilters.length === 0 || abmTierFilters.includes(a.abmTier ?? "");
-      return matchesOwner && matchesTier;
+      const matchesOwner   = ownerFilters.length === 0   || ownerFilters.includes(a.owner ?? "");
+      const matchesTier    = abmTierFilters.length === 0  || abmTierFilters.includes(a.abmTier ?? "");
+      const matchesStage   = abmStageFilters.length === 0 || abmStageFilters.includes(a.abmStage ?? "");
+      const matchesSegment = segmentFilters.length === 0  || segmentFilters.includes(a.practiceSegment ?? "");
+      return matchesOwner && matchesTier && matchesStage && matchesSegment;
     });
 
     // Hot accounts: have any signals, sorted by 7-day score desc
@@ -302,22 +324,24 @@ export default function SalesDashboard() {
       .slice(0, 6);
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length, filteredAccountCount: ownerFiltered.length };
-  }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters]);
+  }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters, abmStageFilters, segmentFilters]);
 
   const recentSignals = useMemo(() => {
-    const isFiltered = ownerFilters.length > 0 || abmTierFilters.length > 0;
+    const isFiltered = ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0;
     const filteredAccountIds = isFiltered
       ? new Set(accounts.filter(a => {
-          const matchesOwner = ownerFilters.length === 0 || ownerFilters.includes(a.owner ?? "");
-          const matchesTier  = abmTierFilters.length === 0 || abmTierFilters.includes(a.abmTier ?? "");
-          return matchesOwner && matchesTier;
+          const matchesOwner   = ownerFilters.length === 0   || ownerFilters.includes(a.owner ?? "");
+          const matchesTier    = abmTierFilters.length === 0  || abmTierFilters.includes(a.abmTier ?? "");
+          const matchesStage   = abmStageFilters.length === 0 || abmStageFilters.includes(a.abmStage ?? "");
+          const matchesSegment = segmentFilters.length === 0  || segmentFilters.includes(a.practiceSegment ?? "");
+          return matchesOwner && matchesTier && matchesStage && matchesSegment;
         }).map(a => a.id))
       : null;
     return [...signals]
       .filter(s => !filteredAccountIds || !s.accountId || filteredAccountIds.has(s.accountId))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
-  }, [signals, accounts, ownerFilters, abmTierFilters]);
+  }, [signals, accounts, ownerFilters, abmTierFilters, abmStageFilters, segmentFilters]);
 
   const isEmpty = !loading && accounts.length === 0;
 
@@ -346,7 +370,7 @@ export default function SalesDashboard() {
           title="Your Sales Command Center"
           description="This dashboard tracks real-time engagement across all your accounts. Metrics update as contacts open emails, visit microsites, and interact with your content."
           tips={[
-            <><strong>Filter by your name and save it as a list view in Accounts</strong> — the dashboard will automatically show only your accounts every time you return.</>,
+            <><strong>Filter by owner, ABM tier, stage, or segment</strong> — then save the view to return to that filtered view instantly on any page.</>,
             "Hot Accounts show which prospects are actively engaging right now",
             "The Signals feed shows every email open, page visit, and link click as it happens",
             "Click any account to see their full engagement timeline"
@@ -483,11 +507,79 @@ export default function SalesDashboard() {
                 )}
               </div>
 
+              {/* ABM Stage multi-select */}
+              {uniqueAbmStages.length > 0 && (
+                <div className="relative" ref={stageDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStageDropdown(v => !v)}
+                    className={`flex items-center gap-1.5 h-7 pl-3 pr-2 rounded-md border text-xs transition-colors ${
+                      abmStageFilters.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-input bg-background text-foreground"
+                    }`}
+                  >
+                    <span>
+                      {abmStageFilters.length === 0 ? "All ABM Stages" : abmStageFilters.length === 1 ? abmStageFilters[0] : `${abmStageFilters.length} Stages`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                  {showStageDropdown && (
+                    <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-xl border border-border bg-card shadow-lg py-1 max-h-64 overflow-y-auto">
+                      <button type="button" onClick={() => { markDirty(); setAbmStageFilters([]); }} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                        Clear selection
+                      </button>
+                      <div className="border-t border-border/50 my-1" />
+                      {uniqueAbmStages.map(stage => (
+                        <label key={stage} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer rounded-sm transition-colors">
+                          <input type="checkbox" checked={abmStageFilters.includes(stage)} onChange={() => toggleStage(stage)} className="w-3.5 h-3.5 accent-primary" />
+                          <span className="text-xs text-foreground truncate">{stage}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Segment multi-select */}
+              {uniqueSegments.length > 0 && (
+                <div className="relative" ref={segmentDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSegmentDropdown(v => !v)}
+                    className={`flex items-center gap-1.5 h-7 pl-3 pr-2 rounded-md border text-xs transition-colors ${
+                      segmentFilters.length > 0
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-input bg-background text-foreground"
+                    }`}
+                  >
+                    <span>
+                      {segmentFilters.length === 0 ? "All Segments" : segmentFilters.length === 1 ? segmentFilters[0] : `${segmentFilters.length} Segments`}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                  {showSegmentDropdown && (
+                    <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-xl border border-border bg-card shadow-lg py-1 max-h-64 overflow-y-auto">
+                      <button type="button" onClick={() => { markDirty(); setSegmentFilters([]); }} className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                        Clear selection
+                      </button>
+                      <div className="border-t border-border/50 my-1" />
+                      {uniqueSegments.map(seg => (
+                        <label key={seg} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 cursor-pointer rounded-sm transition-colors">
+                          <input type="checkbox" checked={segmentFilters.includes(seg)} onChange={() => toggleSegment(seg)} className="w-3.5 h-3.5 accent-primary" />
+                          <span className="text-xs text-foreground truncate">{seg}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Clear all */}
-              {(ownerFilters.length > 0 || abmTierFilters.length > 0) && (
+              {(ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0) && (
                 <button
                   type="button"
-                  onClick={() => { markDirty(); setOwnerFilters([]); setAbmTierFilters([]); }}
+                  onClick={() => { markDirty(); setOwnerFilters([]); setAbmTierFilters([]); setAbmStageFilters([]); setSegmentFilters([]); }}
                   className="flex items-center gap-1 h-7 px-2.5 rounded-md text-xs text-muted-foreground hover:text-foreground border border-transparent hover:border-input transition-colors"
                 >
                   Clear filters
@@ -495,7 +587,7 @@ export default function SalesDashboard() {
               )}
 
               {/* Save list view / Update view button */}
-              {(ownerFilters.length > 0 || abmTierFilters.length > 0) && !activeViewId && (() => {
+              {(ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0) && !activeViewId && (() => {
                 const dirtyView = dirtyViewId ? savedViews.find(v => v.id === dirtyViewId) : null;
                 if (dirtyView) {
                   return (
@@ -526,7 +618,7 @@ export default function SalesDashboard() {
 
               {/* Saved views dropdown */}
               {savedViews.length > 0 && (
-                <div className={`relative ${(ownerFilters.length > 0 || abmTierFilters.length > 0) && !activeViewId ? "" : "ml-auto"}`} ref={viewsDropdownRef}>
+                <div className={`relative ${(ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0) && !activeViewId ? "" : "ml-auto"}`} ref={viewsDropdownRef}>
                   <button type="button" onClick={() => setShowViewsDropdown(v => !v)}
                     className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors ${
                       activeViewId ? "border-primary/50 bg-primary/8 text-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"
@@ -574,14 +666,14 @@ export default function SalesDashboard() {
             )}
 
             {/* Active view / filter count indicator */}
-            {(ownerFilters.length > 0 || abmTierFilters.length > 0) && !showSaveDialog && (
+            {(ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0) && !showSaveDialog && (
               <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg text-xs text-muted-foreground">
                 {activeViewId && <BookmarkCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
                 <span>
                   {activeViewId && <span className="font-medium text-foreground mr-1">{savedViews.find(v => v.id === activeViewId)?.name} · </span>}
                   Showing {filteredAccountCount} of {accounts.length} accounts
                 </span>
-                <button onClick={() => { markDirty(); setOwnerFilters([]); setAbmTierFilters([]); setActiveViewId(null); setDirtyViewId(null); }}
+                <button onClick={() => { setOwnerFilters([]); setAbmTierFilters([]); setAbmStageFilters([]); setSegmentFilters([]); setActiveViewId(null); setDirtyViewId(null); }}
                   className="text-xs text-primary hover:underline ml-1">Clear all</button>
               </div>
             )}
