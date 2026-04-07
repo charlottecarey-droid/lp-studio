@@ -2,10 +2,11 @@
  * Webhook endpoints for third-party visitor identification services.
  * These are public (no auth) endpoints — external services POST to them.
  *
- * POST /webhooks/rb2b   — RB2B LinkedIn visitor identification
- * POST /webhooks/apollo — Apollo.io website visitor identification
+ * POST /webhooks/rb2b        — RB2B LinkedIn visitor identification
+ * POST /webhooks/apollo      — Apollo.io website visitor identification
+ * POST /webhooks/letterdrop  — Letterdrop lead/visitor identification
  *
- * Both endpoints:
+ * All endpoints:
  *   1. Parse the payload
  *   2. Extract LP slug from the page URL
  *   3. Match visitor to an existing account (by domain) and contact (by LinkedIn / email)
@@ -229,6 +230,79 @@ router.post("/apollo", async (req, res): Promise<void> => {
     res.status(201).json({ ok: true });
   } catch (err) {
     console.error("POST /webhooks/apollo error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// ─── POST /webhooks/letterdrop ───────────────────────────────
+/**
+ * Letterdrop sends lead/visitor identification events here.
+ *
+ * Letterdrop payload shape (flexible — we capture all common variants):
+ * {
+ *   "event":       "lead_identified" | "visitor_identified" | "new_lead",
+ *   "firstName":   "Jane",
+ *   "lastName":    "Doe",
+ *   "email":       "jane@acmedental.com",
+ *   "title":       "Office Manager",
+ *   "company":     "Acme Dental",
+ *   "domain":      "acmedental.com",
+ *   "linkedinUrl": "https://www.linkedin.com/in/janedoe",
+ *   "pageUrl":     "https://partners.meetdandy.com/faster-dentures",
+ *   "source":      "letterdrop"
+ * }
+ *
+ * Nested variants (e.g. { lead: { ... } } or { visitor: { ... } }) are
+ * also handled by flattening the first nested object found.
+ */
+router.post("/letterdrop", async (req, res): Promise<void> => {
+  try {
+    // Flatten nested payloads — Letterdrop sometimes wraps in lead/visitor/person/contact
+    const raw = req.body ?? {};
+    const props: Record<string, string | undefined> =
+      raw.lead ?? raw.visitor ?? raw.person ?? raw.contact ?? raw;
+
+    const firstName: string     = props.firstName ?? props.first_name ?? "";
+    const lastName: string      = props.lastName  ?? props.last_name  ?? "";
+    const email: string | null  = props.email ?? null;
+    const title: string         = props.title ?? props.job_title ?? "";
+    const companyName: string   = props.company ?? props.company_name ?? props.organization ?? "";
+    const companyDomain: string | null = normaliseDomain(props.domain ?? props.company_domain);
+    const linkedinUrl: string | null   = props.linkedinUrl ?? props.linkedin_url ?? props.linkedin ?? null;
+    const pageUrl: string | null       = props.pageUrl ?? props.page_url ?? props.url ?? null;
+    const slug = slugFromUrl(pageUrl ?? undefined);
+
+    const [accountId, contactId] = await Promise.all([
+      findAccountByDomain(companyDomain),
+      findContact(linkedinUrl, email),
+    ]);
+
+    const [signal] = await db
+      .insert(salesSignalsTable)
+      .values({
+        tenantId: 1,
+        accountId,
+        contactId,
+        type: "visitor_identified",
+        source: "letterdrop",
+        metadata: {
+          firstName,
+          lastName,
+          email,
+          title,
+          companyName,
+          companyDomain,
+          linkedinUrl,
+          pageUrl,
+          slug,
+        },
+      })
+      .returning();
+
+    broadcastSignal(signal);
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    console.error("POST /webhooks/letterdrop error:", err);
     res.status(500).json({ error: "Internal error" });
   }
 });
