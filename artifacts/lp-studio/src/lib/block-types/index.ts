@@ -88,6 +88,9 @@ export type {
   DsoFinalCtaBlockProps,
   DsoComparisonBlockProps,
   DsoInsightsVideoBlockProps,
+  DsoCaseStudyBlockProps,
+  DsoCaseStudyBodySection,
+  DsoCaseStudyResultItem,
 } from "./dso-blocks";
 
 // Utility block types

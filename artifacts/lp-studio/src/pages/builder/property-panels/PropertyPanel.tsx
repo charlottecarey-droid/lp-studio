@@ -3446,6 +3446,36 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dso-case-study": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Background</Label>
+              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Eyebrow</Label>
+              <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Headline</Label>
+              <Textarea value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="text-xs min-h-[80px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Subheadline</Label>
+              <Textarea value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} className="text-xs min-h-[60px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Pull Quote</Label>
+              <Textarea value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} className="text-xs min-h-[80px]" />
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

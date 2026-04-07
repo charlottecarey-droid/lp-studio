@@ -544,6 +544,30 @@ export interface DsoComparisonBlockProps {
   overlayColor?: string;
 }
 
+export interface DsoCaseStudyBodySection {
+  heading: string;
+  body: string;
+}
+
+export interface DsoCaseStudyResultItem {
+  value: string;
+  label: string;
+  description: string;
+}
+
+export interface DsoCaseStudyBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  stats?: { value: string; label: string }[];
+  challenge?: DsoCaseStudyBodySection;
+  solution?: DsoCaseStudyBodySection;
+  quote?: string;
+  results?: DsoCaseStudyResultItem[];
+  whyItMatters?: DsoCaseStudyBodySection;
+  backgroundStyle?: BackgroundStyle;
+}
+
 export interface DsoInsightsVideoBlockProps {
   title?: string;
   subtitle?: string;

@@ -61,6 +61,7 @@ import type {
   DsoSplitFeatureBlockProps,
   DsoSoftwareShowcaseBlockProps,
   DsoInsightsVideoBlockProps,
+  DsoCaseStudyBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -132,7 +133,8 @@ export type BlockVariant =
   | { type: "dso-faq"; props: DsoFaqBlockProps }
   | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps }
   | { type: "dso-software-showcase"; props: DsoSoftwareShowcaseBlockProps }
-  | { type: "dso-insights-video"; props: DsoInsightsVideoBlockProps };
+  | { type: "dso-insights-video"; props: DsoInsightsVideoBlockProps }
+  | { type: "dso-case-study"; props: DsoCaseStudyBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 

@@ -63,6 +63,7 @@ import type {
   DsoSplitFeatureBlockProps,
   DsoSoftwareShowcaseBlockProps,
   DsoInsightsVideoBlockProps,
+  DsoCaseStudyBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -2197,6 +2198,82 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dso-case-study" as const,
+    label: "DSO Case Study",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DsoCaseStudyBlockProps => ({
+      eyebrow: "Customer Story",
+      headline: "Enable Dental cuts appointments per denture in half — and frees 9,600 hours of chair time",
+      subheadline: "How a 45-location DSO reduced denture appointments from 4 to 1.6 per case, unlocking $9.2M in annualized value through Dandy's digital workflow.",
+      backgroundStyle: "white" as BackgroundStyle,
+      stats: [
+        { value: "1.6", label: "Fewer appointments per denture" },
+        { value: "9,600", label: "Freed appointments" },
+        { value: "$2.5M", label: "Hard cost savings" },
+        { value: "$9.2M+", label: "Total annualized value" },
+      ],
+      challenge: {
+        heading: "The Challenge",
+        body: "Enable Dental operates 45 locations across the Southeast and Midwest. Like many growing DSOs, they were running a hybrid model — part analog, part digital — for denture workflows. Each denture case required an average of 4 patient appointments, tying up chair time and staff resources. With rising labor costs and a post-pandemic surge in demand, Enable needed a way to scale their denture production without proportionally scaling their headcount or infrastructure.",
+      },
+      solution: {
+        heading: "The Solution",
+        body: "Enable Dental partnered with Dandy to standardize their denture workflow across all 45 locations using Dandy's fully digital denture process. Dandy's platform replaced the traditional try-in appointment with a precision-fit approach powered by intraoral scanning, AI-assisted design, and Dandy's proprietary manufacturing pipeline. A phased rollout starting with 10 pilot practices allowed the clinical team to validate outcomes before scaling system-wide.",
+      },
+      quote: "Dandy didn't just improve our lab turnaround — they gave us our schedule back. We went from four appointments per denture case to fewer than two, and our patients can't believe how fast and comfortable the process is now.",
+      results: [
+        {
+          value: "1.6",
+          label: "Avg. appointments per denture",
+          description: "Down from 4.0 appointments in the pre-Dandy workflow — a 60% reduction",
+        },
+        {
+          value: "9,600",
+          label: "Appointments freed annually",
+          description: "Hours recaptured for higher-value procedures across all 45 locations",
+        },
+        {
+          value: "$2.5M",
+          label: "Hard cost savings",
+          description: "From reduced lab fees, eliminated remakes, and lower denture COGS",
+        },
+        {
+          value: "$9.2M+",
+          label: "Total annualized value",
+          description: "Including freed chair time at market rate across the full practice network",
+        },
+      ],
+      whyItMatters: {
+        heading: "Why It Matters",
+        body: "Dentures represent one of the highest-value, highest-complexity production categories for DSOs. Every appointment saved is a slot that can be filled with an exam, a crown, or an implant consult. For a 45-location group, recapturing 9,600 appointments per year isn't an operational win — it's a revenue transformation. Enable Dental's results demonstrate that the biggest gains from digital dentistry don't come from technology alone. They come from standardizing the workflow across every location, then letting the data compound.",
+      },
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#fff" rx="4" />
+        {/* eyebrow */}
+        <rect x="8" y="7" width="22" height="2.5" rx="1.25" fill="hsl(152,42%,12%)" opacity="0.4" />
+        {/* headline */}
+        <rect x="8" y="13" width="90" height="5" rx="2" fill="hsl(152,42%,12%)" opacity="0.85" />
+        <rect x="8" y="21" width="70" height="3.5" rx="1.5" fill="hsl(152,8%,48%)" opacity="0.45" />
+        {/* stat bar */}
+        <rect x="8" y="28" width="104" height="0.75" rx="0.375" fill="rgba(0,58,48,0.10)" />
+        {[0, 1, 2, 3].map(i => (
+          <g key={i} transform={`translate(${8 + i * 26}, 30)`}>
+            <rect width="7" height="4" rx="1.5" fill="hsl(152,42%,12%)" opacity="0.8" />
+            <rect width="14" height="2" rx="1" fill="hsl(152,8%,48%)" opacity="0.35" y="6" />
+          </g>
+        ))}
+        <rect x="8" y="40" width="104" height="0.75" rx="0.375" fill="rgba(0,58,48,0.10)" />
+        {/* body sections */}
+        <rect x="8" y="44" width="30" height="3" rx="1.5" fill="hsl(152,42%,12%)" opacity="0.6" />
+        <rect x="8" y="50" width="104" height="2" rx="1" fill="hsl(152,8%,48%)" opacity="0.3" />
+        <rect x="8" y="55" width="90" height="2" rx="1" fill="hsl(152,8%,48%)" opacity="0.2" />
+        <rect x="8" y="60" width="50" height="2" rx="1" fill="hsl(152,8%,48%)" opacity="0.15" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2269,6 +2346,7 @@ export function createBlock(type: "dso-faq"): Extract<PageBlock, { type: "dso-fa
 export function createBlock(type: "dso-split-feature"): Extract<PageBlock, { type: "dso-split-feature" }>;
 export function createBlock(type: "dso-software-showcase"): Extract<PageBlock, { type: "dso-software-showcase" }>;
 export function createBlock(type: "dso-insights-video"): Extract<PageBlock, { type: "dso-insights-video" }>;
+export function createBlock(type: "dso-case-study"): Extract<PageBlock, { type: "dso-case-study" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2339,6 +2417,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-split-feature": return { id, type: "dso-split-feature", props: props as DsoSplitFeatureBlockProps };
     case "dso-software-showcase": return { id, type: "dso-software-showcase", props: props as DsoSoftwareShowcaseBlockProps };
     case "dso-insights-video": return { id, type: "dso-insights-video", props: props as DsoInsightsVideoBlockProps };
+    case "dso-case-study": return { id, type: "dso-case-study", props: props as DsoCaseStudyBlockProps };
   }
 }
 
