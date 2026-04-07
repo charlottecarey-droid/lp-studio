@@ -564,6 +564,9 @@ export interface DsoCaseStudyBlockProps {
   solution?: DsoCaseStudyBodySection;
   quote?: string;
   results?: DsoCaseStudyResultItem[];
+  heroBackgroundStyle?: BackgroundStyle;
+  bodyBackgroundStyle?: BackgroundStyle;
+  resultsBackgroundStyle?: BackgroundStyle;
   whyItMatters?: DsoCaseStudyBodySection;
   backgroundStyle?: BackgroundStyle;
 }

@@ -62,19 +62,23 @@ const DEFAULT_WHY: DsoCaseStudyBodySection = {
 };
 
 export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
-  const backgroundStyle = props.backgroundStyle ?? "white";
-  const dark = isDarkBg(backgroundStyle);
-  const dividerColor = dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
-  const statDivider = dark ? "rgba(255,255,255,0.10)" : "rgba(0,58,48,0.10)";
+  const fallback = props.backgroundStyle ?? "white";
+  const heroBg    = props.heroBackgroundStyle    ?? fallback;
+  const bodyBg    = props.bodyBackgroundStyle    ?? fallback;
+  const resultsBg = props.resultsBackgroundStyle ?? fallback;
 
-  const eyebrow = props.eyebrow ?? "Customer Story";
-  const headline = props.headline ?? "Enable Dental cuts appointments per denture in half — and frees 9,600 hours of chair time";
+  const heroDark    = isDarkBg(heroBg);
+  const bodyDark    = isDarkBg(bodyBg);
+  const resultsDark = isDarkBg(resultsBg);
+
+  const eyebrow     = props.eyebrow     ?? "Customer Story";
+  const headline    = props.headline    ?? "Enable Dental cuts appointments per denture in half — and frees 9,600 hours of chair time";
   const subheadline = props.subheadline ?? "How a 45-location DSO reduced denture appointments from 4 to 1.6 per case, unlocking $9.2M in annualized value through Dandy's digital workflow.";
-  const stats = props.stats ?? DEFAULT_STATS;
-  const challenge = props.challenge ?? DEFAULT_CHALLENGE;
-  const solution = props.solution ?? DEFAULT_SOLUTION;
-  const quote = props.quote ?? DEFAULT_QUOTE;
-  const results = props.results ?? DEFAULT_RESULTS;
+  const stats       = props.stats       ?? DEFAULT_STATS;
+  const challenge   = props.challenge   ?? DEFAULT_CHALLENGE;
+  const solution    = props.solution    ?? DEFAULT_SOLUTION;
+  const quote       = props.quote       ?? DEFAULT_QUOTE;
+  const results     = props.results     ?? DEFAULT_RESULTS;
   const whyItMatters = props.whyItMatters ?? DEFAULT_WHY;
 
   const upd = onFieldChange
@@ -99,135 +103,136 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
     upd({ results: next });
   };
 
+  const heroStatDivider = heroDark ? "rgba(255,255,255,0.10)" : "rgba(0,58,48,0.10)";
+  const bodyDivider     = bodyDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+  const resDivider      = resultsDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+
   return (
-    <section style={{ ...getBgStyle(backgroundStyle), position: "relative" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "4rem 1.5rem 5rem" }}>
+    <>
+      {/* ── Section 1: Hero ─────────────────────────────────────────── */}
+      <section style={{ ...getBgStyle(heroBg), position: "relative" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "4rem 1.5rem 0" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+            style={{ marginBottom: "3rem" }}
+          >
+            <InlineText
+              as="p"
+              value={eyebrow}
+              onUpdate={upd ? (v) => upd({ eyebrow: v }) : undefined}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: heroDark ? AW : FG,
+                marginBottom: "1rem",
+                display: "block",
+              }}
+            />
+            <InlineText
+              as="h1"
+              value={headline}
+              onUpdate={upd ? (v) => upd({ headline: v }) : undefined}
+              multiline
+              style={{
+                fontFamily: DISPLAY_FONT,
+                fontSize: "clamp(1.75rem,4vw,2.75rem)",
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.15,
+                color: heroDark ? "#fff" : FG,
+                marginBottom: "1.25rem",
+                display: "block",
+              }}
+            />
+            <InlineText
+              as="p"
+              value={subheadline}
+              onUpdate={upd ? (v) => upd({ subheadline: v }) : undefined}
+              multiline
+              style={{
+                fontSize: "1.0625rem",
+                lineHeight: 1.7,
+                color: heroDark ? "rgba(255,255,255,0.60)" : MU,
+                maxWidth: 680,
+                display: "block",
+              }}
+            />
+          </motion.div>
 
-        {/* ── 1. Hero ─────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-          style={{ marginBottom: "3rem" }}
-        >
-          <InlineText
-            as="p"
-            value={eyebrow}
-            onUpdate={upd ? (v) => upd({ eyebrow: v }) : undefined}
+          {/* Stat Bar */}
+          <div
             style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: dark ? AW : FG,
-              marginBottom: "1rem",
-              display: "block",
+              borderTop: `1px solid ${heroStatDivider}`,
+              borderBottom: `1px solid ${heroStatDivider}`,
             }}
-          />
-          <InlineText
-            as="h1"
-            value={headline}
-            onUpdate={upd ? (v) => upd({ headline: v }) : undefined}
-            multiline
-            style={{
-              fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(1.75rem,4vw,2.75rem)",
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.15,
-              color: dark ? "#fff" : FG,
-              marginBottom: "1.25rem",
-              display: "block",
-            }}
-          />
-          <InlineText
-            as="p"
-            value={subheadline}
-            onUpdate={upd ? (v) => upd({ subheadline: v }) : undefined}
-            multiline
-            style={{
-              fontSize: "1.0625rem",
-              lineHeight: 1.7,
-              color: dark ? "rgba(255,255,255,0.60)" : MU,
-              maxWidth: 680,
-              display: "block",
-            }}
-          />
-        </motion.div>
-
-        {/* ── 2. Stat Bar ─────────────────────────────────────────── */}
-        <div
-          style={{
-            borderTop: `1px solid ${statDivider}`,
-            borderBottom: `1px solid ${statDivider}`,
-            marginBottom: "3.5rem",
-          }}
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-4">
-            {stats.map((stat, i) => (
-              <StatCell
-                key={i}
-                stat={stat}
-                i={i}
-                dark={dark}
-                divider={statDivider}
-                total={stats.length}
-                onUpdateValue={upd ? (v) => updStat(i, "value", v) : undefined}
-                onUpdateLabel={upd ? (v) => updStat(i, "label", v) : undefined}
-              />
-            ))}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4">
+              {stats.map((stat, i) => (
+                <StatCell
+                  key={i}
+                  stat={stat}
+                  i={i}
+                  dark={heroDark}
+                  divider={heroStatDivider}
+                  total={stats.length}
+                  onUpdateValue={upd ? (v) => updStat(i, "value", v) : undefined}
+                  onUpdateLabel={upd ? (v) => updStat(i, "label", v) : undefined}
+                />
+              ))}
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* ── 3. The Challenge ────────────────────────────────────── */}
-        <BodySection
-          section={challenge}
-          dark={dark}
-          onUpdateHeading={upd ? (v) => updSection("challenge", "heading", v) : undefined}
-          onUpdateBody={upd ? (v) => updSection("challenge", "body", v) : undefined}
-        />
-
-        {/* ── 4. The Solution ─────────────────────────────────────── */}
-        <BodySection
-          section={solution}
-          dark={dark}
-          onUpdateHeading={upd ? (v) => updSection("solution", "heading", v) : undefined}
-          onUpdateBody={upd ? (v) => updSection("solution", "body", v) : undefined}
-        />
-
-        {/* ── Divider ─────────────────────────────────────────────── */}
-        <div style={{ height: 1, background: dividerColor, marginBottom: "3rem" }} />
-
-        {/* ── 5. Pull Quote ───────────────────────────────────────── */}
-        <PullQuote
-          quote={quote}
-          dark={dark}
-          onUpdate={upd ? (v) => upd({ quote: v }) : undefined}
-        />
-
-        {/* ── Divider ─────────────────────────────────────────────── */}
-        <div style={{ height: 1, background: dividerColor, marginBottom: "3rem" }} />
-
-        {/* ── 6. Results Grid ─────────────────────────────────────── */}
-        <ResultsGrid
-          results={results}
-          dark={dark}
-          onUpdateResult={upd ? updResult : undefined}
-        />
-
-        {/* ── 7. Why It Matters ───────────────────────────────────── */}
-        <div style={{ marginTop: "3.5rem" }}>
-          <div style={{ height: 1, background: dividerColor, marginBottom: "3rem" }} />
+      {/* ── Section 2: Body (Challenge + Solution + Quote) ──────────── */}
+      <section style={{ ...getBgStyle(bodyBg), position: "relative" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem" }}>
           <BodySection
-            section={whyItMatters}
-            dark={dark}
-            onUpdateHeading={upd ? (v) => updSection("whyItMatters", "heading", v) : undefined}
-            onUpdateBody={upd ? (v) => updSection("whyItMatters", "body", v) : undefined}
+            section={challenge}
+            dark={bodyDark}
+            onUpdateHeading={upd ? (v) => updSection("challenge", "heading", v) : undefined}
+            onUpdateBody={upd ? (v) => updSection("challenge", "body", v) : undefined}
+          />
+          <BodySection
+            section={solution}
+            dark={bodyDark}
+            onUpdateHeading={upd ? (v) => updSection("solution", "heading", v) : undefined}
+            onUpdateBody={upd ? (v) => updSection("solution", "body", v) : undefined}
+          />
+          <div style={{ height: 1, background: bodyDivider, marginBottom: "3rem" }} />
+          <PullQuote
+            quote={quote}
+            dark={bodyDark}
+            onUpdate={upd ? (v) => upd({ quote: v }) : undefined}
           />
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* ── Section 3: Results + Why It Matters ─────────────────────── */}
+      <section style={{ ...getBgStyle(resultsBg), position: "relative" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem 5rem" }}>
+          <ResultsGrid
+            results={results}
+            dark={resultsDark}
+            onUpdateResult={upd ? updResult : undefined}
+          />
+          <div style={{ marginTop: "3.5rem" }}>
+            <div style={{ height: 1, background: resDivider, marginBottom: "3rem" }} />
+            <BodySection
+              section={whyItMatters}
+              dark={resultsDark}
+              onUpdateHeading={upd ? (v) => updSection("whyItMatters", "heading", v) : undefined}
+              onUpdateBody={upd ? (v) => updSection("whyItMatters", "body", v) : undefined}
+            />
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
 

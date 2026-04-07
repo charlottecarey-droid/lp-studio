@@ -3450,12 +3450,29 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="space-y-2 pb-2 border-b">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Section Colors</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Hero &amp; Stats</Label>
+                <Select value={p.heroBackgroundStyle ?? p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, heroBackgroundStyle: v as BackgroundStyle } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Challenge, Solution &amp; Quote</Label>
+                <Select value={p.bodyBackgroundStyle ?? p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, bodyBackgroundStyle: v as BackgroundStyle } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Results &amp; Why It Matters</Label>
+                <Select value={p.resultsBackgroundStyle ?? p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, resultsBackgroundStyle: v as BackgroundStyle } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow</Label>
