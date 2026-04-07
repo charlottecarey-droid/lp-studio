@@ -161,8 +161,8 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
       return;
     }
 
-    const pageTitle = page.metaTitle || page.title || "Dandy";
-    const pageDesc = page.metaDescription || "";
+    const pageTitle = page.metaTitle || "Meet Dandy | The Modern Operating System for Dentistry";
+    const pageDesc = page.metaDescription || "See what Dandy can do for your dental practice.";
     const pageImage = page.ogImage || "";
 
     // Derive canonical public URL from request origin
