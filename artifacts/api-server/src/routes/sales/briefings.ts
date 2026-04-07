@@ -22,16 +22,43 @@ const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY ?? "";
 
 // ─── Perplexity Research ────────────────────────────────────
 
-async function perplexityResearch(companyName: string, domain?: string | null): Promise<{ text: string; sources: string[] }> {
+interface AccountContext {
+  name: string;
+  domain?: string | null;
+  industry?: string | null;
+  segment?: string | null;
+  city?: string | null;
+  state?: string | null;
+  privateEquityFirm?: string | null;
+  numLocations?: number | null;
+  dsoSize?: string | null;
+}
+
+async function perplexityResearch(account: AccountContext): Promise<{ text: string; sources: string[] }> {
   if (!PERPLEXITY_API_KEY) return { text: "", sources: [] };
 
+  // Build disambiguating context to prevent wrong-company matches
+  const contextParts: string[] = [];
+  if (account.domain) contextParts.push(`website: ${account.domain}`);
+  if (account.city && account.state) contextParts.push(`headquartered in ${account.city}, ${account.state}`);
+  else if (account.state) contextParts.push(`based in ${account.state}`);
+  if (account.segment) contextParts.push(`segment: ${account.segment}`);
+  if (account.dsoSize) contextParts.push(`DSO size: ${account.dsoSize}`);
+  if (account.numLocations) contextParts.push(`${account.numLocations} locations`);
+  if (account.privateEquityFirm) contextParts.push(`PE-backed by ${account.privateEquityFirm}`);
+
+  const industryCtx = account.industry ?? "dental / dental service organization (DSO)";
+  const contextStr = contextParts.length > 0 ? ` (${contextParts.join(", ")})` : "";
+
   const query = [
-    `Research the company "${companyName}"${domain ? ` (${domain})` : ""}.`,
+    `Research the ${industryCtx} company named "${account.name}"${contextStr}.`,
+    "This is a dental industry company — do not confuse with any non-dental company of a similar name.",
+    account.domain ? `Their website is ${account.domain} — use this to confirm you have the right company.` : "",
     "Provide: executive leadership (name + title), number of locations/offices,",
     "states/regions they operate in, PE backer or ownership structure, recent news,",
     "any technology stack or vendor partnerships, estimated revenue or size indicators.",
-    "Focus on factual, verifiable information.",
-  ].join(" ");
+    "Focus on factual, verifiable information specific to this company.",
+  ].filter(Boolean).join(" ");
 
   try {
     const controller = new AbortController();
@@ -94,16 +121,16 @@ async function scrapeWebsite(url: string): Promise<string> {
 // ─── AI Synthesis ───────────────────────────────────────────
 
 async function synthesizeBriefing(
-  companyName: string,
+  account: AccountContext,
   researchText: string,
   websiteContent: string,
   sources: string[],
 ): Promise<Record<string, unknown>> {
   const openai = getOpenAIClient();
-  if (!openai) return buildFallbackBriefing(companyName);
+  if (!openai) return buildFallbackBriefing(account.name);
 
   const systemPrompt = [
-    "You are a B2B sales intelligence analyst. Given research data about a company, synthesize a structured account briefing.",
+    "You are a B2B sales intelligence analyst specializing in the dental industry. Given research data about a dental company or DSO (Dental Service Organization), synthesize a structured account briefing for a dental lab sales team.",
     "Return ONLY valid JSON matching this exact schema:",
     JSON.stringify({
       companyName: "string",
@@ -137,8 +164,19 @@ async function synthesizeBriefing(
     "If data is insufficient for a field, use null or empty arrays. Never fabricate data.",
   ].join("\n");
 
+  const accountMeta = [
+    account.domain ? `Website: ${account.domain}` : null,
+    account.industry ? `Industry: ${account.industry}` : "Industry: Dental / DSO",
+    account.segment ? `Segment: ${account.segment}` : null,
+    account.city && account.state ? `Location: ${account.city}, ${account.state}` : account.state ? `State: ${account.state}` : null,
+    account.numLocations ? `Locations: ${account.numLocations}` : null,
+    account.dsoSize ? `DSO Size: ${account.dsoSize}` : null,
+    account.privateEquityFirm ? `PE Firm: ${account.privateEquityFirm}` : null,
+  ].filter(Boolean).join("\n");
+
   const userPrompt = [
-    `Company: ${companyName}`,
+    `Company: ${account.name}`,
+    accountMeta ? `\n--- Account Info ---\n${accountMeta}` : "",
     researchText ? `\n--- Research Data ---\n${researchText}` : "",
     websiteContent ? `\n--- Website Content ---\n${websiteContent.slice(0, 4000)}` : "",
     sources.length > 0 ? `\n--- Sources ---\n${sources.join("\n")}` : "",
@@ -161,7 +199,7 @@ async function synthesizeBriefing(
     return parsed;
   } catch (err) {
     console.error("Briefing synthesis error:", err);
-    return buildFallbackBriefing(companyName);
+    return buildFallbackBriefing(account.name);
   }
 }
 
@@ -214,15 +252,20 @@ router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => 
       .where(eq(salesAccountsTable.id, accountId));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
-    // Run research pipeline
+    // Normalize domain → scrape URL (handle cases where domain already has https://)
+    const scrapeUrl = account.domain
+      ? (account.domain.startsWith("http") ? account.domain : `https://${account.domain}`)
+      : null;
+
+    // Run research pipeline in parallel
     const [research, website] = await Promise.all([
-      perplexityResearch(account.name, account.domain),
-      account.domain ? scrapeWebsite(`https://${account.domain}`) : Promise.resolve(""),
+      perplexityResearch(account),
+      scrapeUrl ? scrapeWebsite(scrapeUrl) : Promise.resolve(""),
     ]);
 
-    // Synthesize with AI
+    // Synthesize with AI — pass full account context for disambiguation
     const briefingData = await synthesizeBriefing(
-      account.name,
+      account,
       research.text,
       website,
       research.sources,
