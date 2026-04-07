@@ -270,15 +270,16 @@ router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => 
     return;
   }
   try {
-    // Load account + brand settings in parallel
-    const [[account], brandRows] = await Promise.all([
-      db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, accountId)),
-      db.select().from(lpBrandSettingsTable),  // will filter below after we have tenantId
-    ]);
+    // Load account first — we need tenantId before querying brand settings
+    const [account] = await db.select().from(salesAccountsTable)
+      .where(eq(salesAccountsTable.id, accountId));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
-    // Find matching brand settings for this account's tenant
-    const brandConfig = brandRows.find(r => r.tenantId === account.tenantId)?.config as Record<string, unknown> | undefined ?? {};
+    // Load brand settings scoped to this tenant
+    const [brandRow] = await db.select().from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
+      .limit(1);
+    const brandConfig = (brandRow?.config as Record<string, unknown> | undefined) ?? {};
 
     // Build enriched account context with brand-derived industry info
     const accountCtx: AccountContext = {
