@@ -1,0 +1,10 @@
+name       = "og-bot-router"
+main       = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Routes: only intercept traffic on partners.meetdandy.com
+# The /* wildcard means all paths reach the worker, but the script itself
+# only re-routes /lp/:slug requests — everything else is passed through.
+routes = [
+  { pattern = "partners.meetdandy.com/*", zone_name = "meetdandy.com" }
+]
