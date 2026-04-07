@@ -444,6 +444,8 @@ export function FormPanel({ props, onChange, pageId }: Props) {
   }, []);
 
   const linkedForm = globalForms.find(f => f.id === props.formId);
+  // Use formId directly — don't wait on API response to decide whether to hide the field editor
+  const hasLinkedForm = props.formId != null;
 
   const setStep = (i: number, step: FormStep) => {
     const steps = [...props.steps];
@@ -516,11 +518,11 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <Input value={props.subheadline} onChange={e => set("subheadline", e.target.value)} className="text-sm" />
         </div>
 
-        {linkedForm ? (
+        {hasLinkedForm ? (
           <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
             Fields, steps, and settings are managed in the{" "}
-            <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a>{" "}
-            under "{linkedForm.name}".
+            <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a>
+            {linkedForm ? <>{" "}under "{linkedForm.name}"</> : null}.
           </div>
         ) : (
           <>
@@ -637,9 +639,11 @@ export function FormPanel({ props, onChange, pageId }: Props) {
       </TabsContent>
 
       <TabsContent value="notifications" className="mt-0">
-        {linkedForm ? (
+        {hasLinkedForm ? (
           <div className="rounded-lg border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-            Notifications are managed in the <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a> under "{linkedForm.name}".
+            Notifications are managed in the{" "}
+            <a href="/forms" target="_blank" className="underline font-medium text-foreground">Forms library</a>
+            {linkedForm ? <>{" "}under "{linkedForm.name}"</> : null}.
           </div>
         ) : pageId != null ? (
           <NotificationsTab pageId={pageId} />
