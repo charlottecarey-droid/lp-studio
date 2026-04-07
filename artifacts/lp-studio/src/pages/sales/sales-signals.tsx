@@ -480,8 +480,14 @@ export default function SalesSignals() {
                                 ? (() => {
                                     const m = signal.metadata as Record<string, string | undefined>;
                                     const slug = m.slug ?? (m.pageUrl ? m.pageUrl.split("/").filter(Boolean).pop() : null);
+                                    const activity = m.lastActivity || m.activityType?.replace(/_/g, " ");
                                     return <>
-                                      <span>Visited {slug ? <span className="font-mono text-[11px]">/{slug}</span> : "a page"}</span>
+                                      {slug
+                                        ? <span>Visited <span className="font-mono text-[11px]">/{slug}</span></span>
+                                        : activity
+                                          ? <span className="capitalize">{activity}</span>
+                                          : <span>Identified</span>
+                                      }
                                       {signal.source && <><span className="text-border">·</span><span className="capitalize">{signal.source}</span></>}
                                       {m.linkedinUrl && <><span className="text-border">·</span><a href={m.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>LinkedIn</a></>}
                                     </>;

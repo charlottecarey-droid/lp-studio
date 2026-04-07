@@ -257,49 +257,71 @@ router.post("/apollo", async (req, res): Promise<void> => {
  */
 router.post("/letterdrop", async (req, res): Promise<void> => {
   try {
-    // Flatten nested payloads — Letterdrop sometimes wraps in lead/visitor/person/contact
+    // Letterdrop sends either a single lead object or an array of leads
     const raw = req.body ?? {};
-    const props: Record<string, string | undefined> =
-      raw.lead ?? raw.visitor ?? raw.person ?? raw.contact ?? raw;
+    const leads: Record<string, string | undefined>[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw.leads)
+        ? raw.leads
+        : [raw.lead ?? raw.visitor ?? raw.person ?? raw];
 
-    const firstName: string     = props.firstName ?? props.first_name ?? "";
-    const lastName: string      = props.lastName  ?? props.last_name  ?? "";
-    const email: string | null  = props.email ?? null;
-    const title: string         = props.title ?? props.job_title ?? "";
-    const companyName: string   = props.company ?? props.company_name ?? props.organization ?? "";
-    const companyDomain: string | null = normaliseDomain(props.domain ?? props.company_domain);
-    const linkedinUrl: string | null   = props.linkedinUrl ?? props.linkedin_url ?? props.linkedin ?? null;
-    const pageUrl: string | null       = props.pageUrl ?? props.page_url ?? props.url ?? null;
-    const slug = slugFromUrl(pageUrl ?? undefined);
+    for (const props of leads) {
+      // Letterdrop uses "name" (full name) — split on first space
+      const fullName = props.name ?? "";
+      const spaceIdx = fullName.indexOf(" ");
+      const firstName = spaceIdx > -1 ? fullName.slice(0, spaceIdx) : fullName;
+      const lastName  = spaceIdx > -1 ? fullName.slice(spaceIdx + 1) : "";
 
-    const [accountId, contactId] = await Promise.all([
-      findAccountByDomain(companyDomain),
-      findContact(linkedinUrl, email),
-    ]);
+      const email: string | null       = props.email ?? null;
+      const title: string              = props.job_title ?? props.title ?? "";
+      const companyName: string        = props.company_name ?? props.company ?? props.organization ?? "";
+      const companyDomain: string | null = normaliseDomain(props.domain ?? props.company_domain);
+      const linkedinUrl: string | null   = props.linkedin_url ?? props.linkedinUrl ?? props.linkedin ?? null;
+      const pageUrl: string | null       = props.pageUrl ?? props.page_url ?? props.url ?? null;
+      const slug = slugFromUrl(pageUrl ?? undefined);
 
-    const [signal] = await db
-      .insert(salesSignalsTable)
-      .values({
-        tenantId: 1,
-        accountId,
-        contactId,
-        type: "visitor_identified",
-        source: "letterdrop",
-        metadata: {
-          firstName,
-          lastName,
-          email,
-          title,
-          companyName,
-          companyDomain,
-          linkedinUrl,
-          pageUrl,
-          slug,
-        },
-      })
-      .returning();
+      // Letterdrop-specific fields
+      const activityType: string   = props.last_activity_type ?? props.activity_type ?? "";
+      const lastActivity: string   = props.last_activity ?? "";
+      const engagedWith: string    = props.engaged_with ?? "";
+      const postUrl: string        = props.last_engaged_linkedin_post_url ?? props.post_url ?? "";
+      const lastEngagedDate: string = props.last_engaged_date ?? "";
 
-    broadcastSignal(signal);
+      const [accountId, contactId] = await Promise.all([
+        findAccountByDomain(companyDomain),
+        findContact(linkedinUrl, email),
+      ]);
+
+      const [signal] = await db
+        .insert(salesSignalsTable)
+        .values({
+          tenantId: 1,
+          accountId,
+          contactId,
+          type: "visitor_identified",
+          source: "letterdrop",
+          metadata: {
+            firstName,
+            lastName,
+            email,
+            title,
+            companyName,
+            companyDomain,
+            linkedinUrl,
+            pageUrl,
+            slug,
+            activityType,
+            lastActivity,
+            engagedWith,
+            postUrl,
+            lastEngagedDate,
+          },
+        })
+        .returning();
+
+      broadcastSignal(signal);
+    }
+
     res.status(201).json({ ok: true });
   } catch (err) {
     console.error("POST /webhooks/letterdrop error:", err);
