@@ -182,25 +182,45 @@ export const generatePilotOnePager = async (
       loadLayoutDefault("dandy_pilot_template_layout").catch(() => null),
       loadLayoutDefault(audienceKeyMap[audience]).catch(() => null),
     ]);
+    // Per-audience header image: the editor saves them in audienceHeaderImages[audience]
+    // inside the shared pilot key. Pull it out and merge into headerCfg so the generator
+    // uses the right image for each audience.
+    const sharedData = shared ?? {};
+    const audienceHeaderImages = (sharedData.audienceHeaderImages ?? {}) as Record<string, string | null>;
+    const savedAudienceImg = audienceHeaderImages[audience] ?? null;
     layoutOverrides = {
-      ...(shared ?? {}),
+      ...sharedData,
       // audience-specific bodyCfg takes precedence over any bodyCfg in the shared key
       ...(audienceData?.bodyCfg ? { bodyCfg: audienceData.bodyCfg } : {}),
+      // Merge saved per-audience image into headerCfg (only if not overridden in headerCfg itself)
+      headerCfg: {
+        ...(sharedData.headerCfg as Record<string, unknown> ?? {}),
+        ...(savedAudienceImg !== null && !(sharedData.headerCfg as Record<string, unknown> | undefined)?.headerImage
+          ? { headerImage: savedAudienceImg }
+          : {}),
+      },
     };
   }
-  const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
+  const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string | null };
 
   let logoPng: string | null = null;
   let headerImgData: string | null = null;
   try {
-    if (hCfg.headerImage) {
+    // Priority: saved per-audience image (in headerCfg) > editedContent.headerImage fallback
+    const resolvedImg = hCfg.headerImage ?? editedContent.headerImage;
+    if (resolvedImg) {
       logoPng = await svgToPng(dandyLogoWhite, 206, 74);
-      headerImgData = hCfg.headerImage;
+      // If it's already a data URL (uploaded image), use it directly
+      if (resolvedImg.startsWith("data:")) {
+        headerImgData = resolvedImg;
+      } else {
+        [logoPng, headerImgData] = await Promise.all([
+          svgToPng(dandyLogoWhite, 206, 74),
+          loadImageAsBase64(resolvedImg),
+        ]);
+      }
     } else {
-      [logoPng, headerImgData] = await Promise.all([
-        svgToPng(dandyLogoWhite, 206, 74),
-        loadImageAsBase64(editedContent.headerImage),
-      ]);
+      logoPng = await svgToPng(dandyLogoWhite, 206, 74);
     }
   } catch { /* continue without assets */ }
 
@@ -473,8 +493,20 @@ const SalesOnePager = () => {
           doc.save(`${ct.name.replace(/\s+/g, "_")}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
         }
       } else if (template === "pilot") {
-        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, editedContent[audience], customLinkText, customLinkUrl);
-        doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot.pdf`);
+        // Load the freshest saved audienceContent from the API so edits made in the
+        // template editor always flow through, even if the user has had this tab open a while.
+        let freshContent = editedContent[audience];
+        try {
+          const savedLayout = await loadLayoutDefault("dandy_pilot_template_layout");
+          if (savedLayout?.audienceContent && typeof savedLayout.audienceContent === "object") {
+            const savedAud = (savedLayout.audienceContent as Record<string, unknown>)[audience];
+            if (savedAud && typeof savedAud === "object") {
+              freshContent = { ...freshContent, ...savedAud as object } as typeof freshContent;
+            }
+          }
+        } catch { /* use local editedContent */ }
+        doc = await generatePilotOnePager(dsoName.trim(), audience, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, freshContent, customLinkText, customLinkUrl);
+        doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_90Day_Pilot_${audience}.pdf`);
       } else if (template === "comparison") {
         doc = await generateComparisonOnePager(dsoName.trim(), teamContacts, phoneNumber, prospectLogoData, prospectLogoDims, customLinkText, customLinkUrl);
         doc.save(`Dandy_Evolution_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
