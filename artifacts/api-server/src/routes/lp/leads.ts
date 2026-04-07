@@ -108,6 +108,22 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
     }
   }
 
+  // Last-resort: extract UTMs from the submitted fields JSON.
+  // Forms with hidden UTM fields (e.g. the SFDC global form) store them
+  // under labels like "UTM Source", "UTM Medium", etc.
+  if (!utmSource && fields) {
+    const f = fields as Record<string, unknown>;
+    const pick = (label: string): string | null => {
+      const v = f[label];
+      return typeof v === "string" && v ? v : null;
+    };
+    utmSource   = utmSource   ?? pick("UTM Source")   ?? pick("utm_source");
+    utmMedium   = utmMedium   ?? pick("UTM Medium")   ?? pick("utm_medium");
+    utmCampaign = utmCampaign ?? pick("UTM Campaign") ?? pick("utm_campaign");
+    utmTerm     = utmTerm     ?? pick("UTM Term")     ?? pick("utm_term");
+    utmContent  = utmContent  ?? pick("UTM Content")  ?? pick("utm_content");
+  }
+
   const utmFields = { utmSource, utmMedium, utmCampaign, utmTerm, utmContent };
 
   // Check for idempotent resubmission if key is provided
