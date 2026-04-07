@@ -106,6 +106,7 @@ export interface BrandConfig {
   bodyTextSize: BodyTextSize;
   eyebrowStyle: EyebrowStyle;
   brandName: string;
+  companyDescription: string;
   taglines: string[];
   messagingPillars: MessagingPillar[];
   toneOfVoice: string;
@@ -165,6 +166,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   bodyTextSize: "md",
   eyebrowStyle: "uppercase",
   brandName: "",
+  companyDescription: "",
   taglines: [],
   messagingPillars: [],
   toneOfVoice: "",
@@ -296,6 +298,9 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
   const parts: string[] = [];
   if (brand.brandName) {
     parts.push(`You are writing copy for ${brand.brandName}.`);
+  }
+  if (brand.companyDescription) {
+    parts.push(`Company context: ${brand.companyDescription}`);
   }
   if (brand.toneOfVoice) {
     parts.push(`Tone: ${brand.toneOfVoice}.`);

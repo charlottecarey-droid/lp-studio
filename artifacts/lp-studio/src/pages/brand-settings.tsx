@@ -1373,6 +1373,16 @@ export default function BrandSettings() {
                   placeholder="e.g. Dandy"
                 />
                 <div>
+                  <Label className="text-sm font-medium mb-1.5 block">Company description</Label>
+                  <p className="text-xs text-muted-foreground mb-2">1–2 sentences describing your company and what you sell. Used to personalize AI research and microsite copy for your industry.</p>
+                  <Textarea
+                    value={config.companyDescription ?? ""}
+                    onChange={(e) => update("companyDescription", e.target.value)}
+                    placeholder="e.g. Dandy is a dental technology company that provides in-office digital dentistry — crowns, aligners, and implants — to dental practices and DSOs across the US."
+                    className="min-h-[80px] text-sm resize-none"
+                  />
+                </div>
+                <div>
                   <Label className="text-sm font-medium mb-1.5 block">Tone of Voice</Label>
                   <p className="text-xs text-muted-foreground mb-2">1-3 sentences describing brand voice</p>
                   <Textarea

@@ -770,6 +770,8 @@ function buildSystemPrompt(audience: MicrositeAudience, brand: Record<string, un
   const copyExamples    = brand.copyExamples as string[] | undefined;
   const copyInstructions = brand.copyInstructions as string | undefined;
   const brandName       = (brand.brandName as string | undefined) ?? "Dandy";
+  const companyDescription = brand.companyDescription as string | undefined;
+  const targetAudience  = brand.targetAudience as string | undefined;
 
   // Core forbidden list always applied; brand's avoidPhrases add to it
   const coreForbidden = [
@@ -847,8 +849,13 @@ NEVER USE any of the following — not in headlines, not in body copy, not anywh
 ${forbiddenList.map(p => `- "${p}"`).join("\n")}
 `.trim();
 
+  // Build dynamic identity — use companyDescription if set, else compose from brandName + targetAudience
+  const sellerIdentity = companyDescription?.trim()
+    || (targetAudience ? `${brandName}, serving ${targetAudience}` : `${brandName}, a B2B technology company`);
+  const audienceDescription = targetAudience ? `${targetAudience} accounts` : "specific accounts";
+
   const header = [
-    `You are an expert B2B copywriter for ${brandName}, a dental technology company. You write personalized microsites for specific dental accounts.`,
+    `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
     "",
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
     "",

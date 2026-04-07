@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { salesBriefingsTable, salesAccountsTable } from "@workspace/db";
+import { salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
 import OpenAI from "openai";
 
 const router = Router();
@@ -32,6 +32,9 @@ interface AccountContext {
   privateEquityFirm?: string | null;
   numLocations?: number | null;
   dsoSize?: string | null;
+  brandCompanyDescription?: string | null;
+  brandTargetAudience?: string | null;
+  brandName?: string | null;
 }
 
 async function perplexityResearch(account: AccountContext): Promise<{ text: string; sources: string[] }> {
@@ -47,12 +50,23 @@ async function perplexityResearch(account: AccountContext): Promise<{ text: stri
   if (account.numLocations) contextParts.push(`${account.numLocations} locations`);
   if (account.privateEquityFirm) contextParts.push(`PE-backed by ${account.privateEquityFirm}`);
 
-  const industryCtx = account.industry ?? "dental / dental service organization (DSO)";
+  // Derive industry label from: account.industry → brand.targetAudience → brand.companyDescription → fallback
+  const industryCtx = account.industry
+    ?? (account.brandTargetAudience ? `company serving ${account.brandTargetAudience}` : null)
+    ?? (account.brandCompanyDescription ? "company" : null)
+    ?? "B2B company";
+
+  // Disambiguation hint — tell Perplexity what kind of company this is so it doesn't match the wrong one
+  const industryHint = account.industry
+    ?? account.brandTargetAudience
+    ?? (account.brandCompanyDescription ? account.brandCompanyDescription : null)
+    ?? "a B2B company";
+
   const contextStr = contextParts.length > 0 ? ` (${contextParts.join(", ")})` : "";
 
   const query = [
-    `Research the ${industryCtx} company named "${account.name}"${contextStr}.`,
-    "This is a dental industry company — do not confuse with any non-dental company of a similar name.",
+    `Research the ${industryCtx} named "${account.name}"${contextStr}.`,
+    `This company operates in the following space: ${industryHint} — do not confuse it with companies in unrelated industries with similar names.`,
     account.domain ? `Their website is ${account.domain} — use this to confirm you have the right company.` : "",
     "Provide: executive leadership (name + title), number of locations/offices,",
     "states/regions they operate in, PE backer or ownership structure, recent news,",
@@ -129,8 +143,17 @@ async function synthesizeBriefing(
   const openai = getOpenAIClient();
   if (!openai) return buildFallbackBriefing(account.name);
 
+  // Build a dynamic analyst identity from brand context
+  const sellerDesc = account.brandCompanyDescription
+    ?? (account.brandName && account.brandTargetAudience
+      ? `${account.brandName}, which sells to ${account.brandTargetAudience}`
+      : (account.brandName ?? "a B2B company"));
+  const prospectIndustry = account.industry
+    ?? (account.brandTargetAudience ? `companies in this space: ${account.brandTargetAudience}` : null)
+    ?? "B2B companies";
+
   const systemPrompt = [
-    "You are a B2B sales intelligence analyst specializing in the dental industry. Given research data about a dental company or DSO (Dental Service Organization), synthesize a structured account briefing for a dental lab sales team.",
+    `You are a B2B sales intelligence analyst. Given research data about a prospect, synthesize a structured account briefing for the sales team at ${sellerDesc}. The prospect being researched is: ${prospectIndustry}.`,
     "Return ONLY valid JSON matching this exact schema:",
     JSON.stringify({
       companyName: "string",
@@ -166,7 +189,7 @@ async function synthesizeBriefing(
 
   const accountMeta = [
     account.domain ? `Website: ${account.domain}` : null,
-    account.industry ? `Industry: ${account.industry}` : "Industry: Dental / DSO",
+    account.industry ? `Industry: ${account.industry}` : (account.brandTargetAudience ? `Target market: ${account.brandTargetAudience}` : null),
     account.segment ? `Segment: ${account.segment}` : null,
     account.city && account.state ? `Location: ${account.city}, ${account.state}` : account.state ? `State: ${account.state}` : null,
     account.numLocations ? `Locations: ${account.numLocations}` : null,
@@ -247,10 +270,23 @@ router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => 
     return;
   }
   try {
-    // Load account
-    const [account] = await db.select().from(salesAccountsTable)
-      .where(eq(salesAccountsTable.id, accountId));
+    // Load account + brand settings in parallel
+    const [[account], brandRows] = await Promise.all([
+      db.select().from(salesAccountsTable).where(eq(salesAccountsTable.id, accountId)),
+      db.select().from(lpBrandSettingsTable),  // will filter below after we have tenantId
+    ]);
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
+
+    // Find matching brand settings for this account's tenant
+    const brandConfig = brandRows.find(r => r.tenantId === account.tenantId)?.config as Record<string, unknown> | undefined ?? {};
+
+    // Build enriched account context with brand-derived industry info
+    const accountCtx: AccountContext = {
+      ...account,
+      brandCompanyDescription: (brandConfig.companyDescription as string | undefined) || null,
+      brandTargetAudience: (brandConfig.targetAudience as string | undefined) || null,
+      brandName: (brandConfig.brandName as string | undefined) || null,
+    };
 
     // Normalize domain → scrape URL (handle cases where domain already has https://)
     const scrapeUrl = account.domain
@@ -259,13 +295,13 @@ router.post("/accounts/:accountId/briefing", async (req, res): Promise<void> => 
 
     // Run research pipeline in parallel
     const [research, website] = await Promise.all([
-      perplexityResearch(account),
+      perplexityResearch(accountCtx),
       scrapeUrl ? scrapeWebsite(scrapeUrl) : Promise.resolve(""),
     ]);
 
-    // Synthesize with AI — pass full account context for disambiguation
+    // Synthesize with AI — pass full account + brand context for disambiguation
     const briefingData = await synthesizeBriefing(
-      account,
+      accountCtx,
       research.text,
       website,
       research.sources,
