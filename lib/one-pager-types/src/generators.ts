@@ -666,29 +666,35 @@ export const generateNewPartnerOnePager = async (
   drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
 
   const logoSepX = margin + 78;
+  const logoScale = ((hCfg.partnerLogoScale as number | undefined) ?? 100) / 100;
+  const logoOffX = (hCfg.partnerLogoOffsetX as number | undefined) ?? 0;
+  const logoOffY = (hCfg.partnerLogoOffsetY as number | undefined) ?? 0;
   if (prospectLogoData) {
     doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
     doc.line(logoSepX, 20, logoSepX, 50);
     try {
-      const maxW = 70, maxH = 26;
+      const maxW = 70 * logoScale, maxH = 26 * logoScale;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
       const format = prospectLogoData.startsWith("data:image/png") ? "PNG" : "JPEG";
-      doc.addImage(prospectLogoData, format, logoSepX + 10, 35 - lh / 2, lw, lh);
+      doc.addImage(prospectLogoData, format, logoSepX + 10 + logoOffX, 35 - lh / 2 + logoOffY, lw, lh);
     } catch { }
   } else if (dsoName) {
     doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
     doc.line(logoSepX, 20, logoSepX, 50);
     doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.setTextColor(...white);
-    doc.text(dsoName, logoSepX + 10, 38);
+    doc.text(dsoName, logoSepX + 10 + logoOffX, 38 + logoOffY);
   }
 
-  doc.setFont("helvetica", "italic"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 14); doc.setTextColor(200, 215, 210);
-  doc.text(`Dandy & ${dsoName}:`, margin, 72);
-  doc.setFont("helvetica", "bold"); doc.setFontSize((hCfg.titleFontSize as number | undefined) ?? 22); doc.setTextColor(...white);
+  const subtitleFontSize = (hCfg.subtitleFontSize as number | undefined) ?? 12;
+  const subtitleOffY = (hCfg.subtitleOffsetY as number | undefined) ?? 0;
+  doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(200, 215, 210);
+  doc.text(`Dandy & ${dsoName}:`, margin, 65 + subtitleOffY);
+  const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
-  doc.text(titleLines, margin, 92);
+  doc.text(titleLines, margin, 65 + subtitleOffY + subtitleFontSize + 14);
 
   let y = headerH + 40;
 
@@ -717,22 +723,24 @@ export const generateNewPartnerOnePager = async (
       const cy = y + row * (cardH + cardGap);
       doc.setFillColor(...cardOffWhite); doc.roundedRect(cx, cy, cardW, cardH, 4, 4, "F");
       doc.setFillColor(...cardBorderColor); doc.roundedRect(cx, cy, cardBorderW, cardH, 2, 0, "F");
+      const featTitleFs = (bCfg.featureTitleFontSize as number | undefined) ?? 11;
+      const featDescFs = (bCfg.featureDescFontSize as number | undefined) ?? 9;
       if (idx === 3) {
-        doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...textDark);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
         doc.text("Learn more about the", cx + 16, cy + 28);
-        doc.text("Dandy experience", cx + 16, cy + 42);
+        doc.text("Dandy experience", cx + 16, cy + 28 + featTitleFs + 4);
         try {
           const QRCode = (await import("qrcode")).default;
           const qrDataUrl: string = await QRCode.toDataURL(savedQrUrl || "https://meetdandy.com", { width: 400, margin: 1 });
           doc.addImage(qrDataUrl, "PNG", cx + cardW - 72, cy + 14, 58, 58);
         } catch { }
       } else if (feat) {
-        doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...textDark);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(featTitleFs); doc.setTextColor(...textDark);
         doc.text(feat.title, cx + 16, cy + 28);
         if (feat.desc) {
-          doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
+          doc.setFont("helvetica", "normal"); doc.setFontSize(featDescFs); doc.setTextColor(...textMuted);
           const descLines = doc.splitTextToSize(feat.desc, cardW - 36);
-          doc.text(descLines, cx + 16, cy + 44);
+          doc.text(descLines, cx + 16, cy + 28 + featTitleFs + 6);
         }
       }
     }
@@ -747,15 +755,17 @@ export const generateNewPartnerOnePager = async (
   const statW = (contentW - statGap * 2) / 3;
   const statH = 120;
 
+  const statValueFs = (bCfg.statValueFontSize as number | undefined) ?? 36;
+  const statDescFs = (bCfg.statDescFontSize as number | undefined) ?? 8.5;
   stats.forEach((stat, i) => {
     const sx = margin + (statW + statGap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...darkGreen);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueFs); doc.setTextColor(...darkGreen);
     doc.text(stat.value, sx + statW / 2, y + 45, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(statDescFs); doc.setTextColor(...textMuted);
     const statDesc = stat.desc;
     const statLines = doc.splitTextToSize(statDesc, statW - 24);
-    doc.text(statLines, sx + statW / 2, y + 62, { align: "center", maxWidth: statW - 24 });
+    doc.text(statLines, sx + statW / 2, y + 45 + statValueFs * 0.4 + 6, { align: "center", maxWidth: statW - 24 });
   });
   y += statH + 30;
 
