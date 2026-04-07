@@ -62,6 +62,7 @@ interface BodyConfig {
   compTableFontSize: number; compTableHeaderFontSize: number;
   compTableRowHeight: number; compTableHeaderHeight: number; compTableCapColWidth: number;
   compStatValueSize: number; compStatLabelSize: number; compStatCardHeight: number;
+  compTableAboveSpacing: number; compTableBelowSpacing: number;
 }
 interface TeamConfig { show: boolean; headingFontSize: number; nameFontSize: number; }
 interface FooterConfig { fontSize: number; show: boolean; link: string; height: number; }
@@ -88,6 +89,7 @@ const defaultBodyConfig: BodyConfig = {
   compTableFontSize: 8, compTableHeaderFontSize: 8,
   compTableRowHeight: 40, compTableHeaderHeight: 28, compTableCapColWidth: 130,
   compStatValueSize: 22, compStatLabelSize: 7.5, compStatCardHeight: 80,
+  compTableAboveSpacing: 20, compTableBelowSpacing: 24,
 };
 const defaultTeamConfig: TeamConfig = { show: true, headingFontSize: 13, nameFontSize: 10 };
 const defaultFooterConfig: FooterConfig = { fontSize: 10, show: true, link: "meetdandy.com", height: 36 };
@@ -840,6 +842,11 @@ export default function SalesOnePagerEditor() {
                   </EditorSection>
 
                   <EditorSection title="Comparison Table" icon={<Table className="w-4 h-4 text-muted-foreground" />} open={openSections.table} onToggle={() => toggle("table")}>
+                    <div className="border-b border-border pb-3 mb-3 space-y-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Spacing</span>
+                      <SliderRow label="Space Above Table" value={bodyCfg.compTableAboveSpacing} min={0} max={60} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableAboveSpacing: v }))} />
+                      <SliderRow label="Space Between Table & Stats" value={bodyCfg.compTableBelowSpacing} min={0} max={60} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableBelowSpacing: v }))} />
+                    </div>
                     <div className="border-b border-border pb-3 mb-3 space-y-2">
                       <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Table Layout</span>
                       <SliderRow label="Row Font Size" value={bodyCfg.compTableFontSize} min={5} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableFontSize: v }))} />

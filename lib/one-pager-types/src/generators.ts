@@ -483,7 +483,7 @@ export const generateComparisonOnePager = async (
   const subLines = doc.splitTextToSize("See how Dandy has matured to deliver more consistent clinical performance across practices.", splitX - margin - 20);
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
-  let y = headerH + 20;
+  let y = headerH + ((bCfg.compTableAboveSpacing as number | undefined) ?? 20);
   const col1W = (bCfg.compTableCapColWidth as number | undefined) ?? 130;
   const col2W = (contentW - col1W) / 2;
   const tableHeaderH = (bCfg.compTableHeaderHeight as number | undefined) ?? 28;
@@ -517,7 +517,7 @@ export const generateComparisonOnePager = async (
     doc.text(nowLines, margin + col1W + col2W + 12, y + rowH * 0.35);
     y += rowH;
   });
-  y += 24;
+  y += (bCfg.compTableBelowSpacing as number | undefined) ?? 24;
 
   const statGap = 14;
   const statW = (contentW - statGap * 2) / 3;
