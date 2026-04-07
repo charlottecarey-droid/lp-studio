@@ -275,10 +275,6 @@ export const generatePilotOnePager = async (
       const descLines = doc.splitTextToSize(feat.description, rightColW - 40);
       doc.text(descLines, rightColX + 28, featY + titleDescGap);
       featY += titleDescGap + descLines.length * 11 + 18;
-      if (showDividers && idx < content.features.length - 1) {
-        const dLen = divLen > 0 ? divLen : rightColW - 20;
-        drawSep(doc, rightColX + divOffX, featY - 9 + divOffY, dLen, lineColor);
-      }
     });
     y = Math.max(checkY, featY) + 4;
   } else {

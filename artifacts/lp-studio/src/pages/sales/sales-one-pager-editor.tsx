@@ -415,13 +415,15 @@ export default function SalesOnePagerEditor() {
         await saveLayoutDefault("dandy_pilot_template_layout", {
           headerCfg, teamCfg, footerCfg, audienceHeaderImages: finalImages, audienceContent,
         });
-        // Save current audience's bodyCfg to its own key
+        // Save ALL three audiences' bodyCfg to their own keys so each persists independently
         const audienceKeyMap: Record<Audience, string> = {
           executive: "dandy_pilot_executive_layout",
           clinical: "dandy_pilot_clinical_layout",
           "practice-manager": "dandy_pilot_practicemgr_layout",
         };
-        await saveLayoutDefault(audienceKeyMap[audience], { bodyCfg });
+        await Promise.all((["executive", "clinical", "practice-manager"] as Audience[]).map(aud =>
+          saveLayoutDefault(audienceKeyMap[aud], { bodyCfg: audienceBodyCfgs[aud] })
+        ));
       } else if (editorTemplate === "comparison") {
         await saveLayoutDefault("dandy_comparison_template_layout", {
           headerCfg, teamCfg, footerCfg, comparisonRows, stats: comparisonStats,
