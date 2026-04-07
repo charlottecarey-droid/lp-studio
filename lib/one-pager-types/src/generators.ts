@@ -359,17 +359,20 @@ export const generatePilotOnePager = async (
     y = maxContactBottom + 10;
   }
 
-  const footerH = customLinkText?.trim() && customLinkUrl?.trim() ? 56 : 44;
+  const showFooter = (fCfg.show as boolean | undefined) !== false;
+  const footerH = showFooter ? (customLinkText?.trim() && customLinkUrl?.trim() ? 56 : 44) : 0;
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
-  doc.setFillColor(...darkGreen);
-  doc.rect(0, footerY, w, footerH, "F");
-  doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
-  const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "www.meetdandy.com/dso";
-  doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
-  if (customLinkText?.trim() && customLinkUrl?.trim()) {
-    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(180, 210, 195);
-    doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 38, { url: customLinkUrl });
+  if (showFooter) {
+    doc.setFillColor(...darkGreen);
+    doc.rect(0, footerY, w, footerH, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(...white);
+    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "www.meetdandy.com/dso";
+    doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 20 : 28), { align: "center" });
+    if (customLinkText?.trim() && customLinkUrl?.trim()) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 10); doc.setTextColor(180, 210, 195);
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 38, { url: customLinkUrl });
+    }
   }
 
   return doc;
@@ -529,8 +532,9 @@ export const generateComparisonOnePager = async (
   });
   y += statH + 20;
 
+  const showTeam = (tCfg.show as boolean | undefined) !== false;
   const filteredContacts = teamContacts.filter(c => c.name.trim());
-  if (filteredContacts.length > 0) {
+  if (showTeam && filteredContacts.length > 0) {
     drawSep(doc, margin, y, contentW, lineColor); y += 29;
     doc.setFont("helvetica", "bold"); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
@@ -559,16 +563,19 @@ export const generateComparisonOnePager = async (
     y = maxContactBottom + 30;
   }
 
-  const footerH = customLinkText?.trim() && customLinkUrl?.trim() ? 38 : 30;
+  const showFooter = (fCfg.show as boolean | undefined) !== false;
+  const footerH = showFooter ? (customLinkText?.trim() && customLinkUrl?.trim() ? 38 : 30) : 0;
   const footerY = h - footerH;
   if (y < footerY) { doc.setFillColor(255, 255, 255); doc.rect(0, y, w, footerY - y, "F"); }
-  doc.setFillColor(...darkGreen); doc.rect(0, footerY, w, footerH, "F");
-  doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
-  const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "meetdandy.com";
-  doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
-  if (customLinkText?.trim() && customLinkUrl?.trim()) {
-    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(180, 210, 195);
-    doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 28, { url: customLinkUrl });
+  if (showFooter) {
+    doc.setFillColor(...darkGreen); doc.rect(0, footerY, w, footerH, "F");
+    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(...white);
+    const footerText = phoneNumber.trim() ? `To contact us, please call: ${phoneNumber}` : "meetdandy.com";
+    doc.text(footerText, w / 2, footerY + (customLinkText?.trim() && customLinkUrl?.trim() ? 16 : 24), { align: "center" });
+    if (customLinkText?.trim() && customLinkUrl?.trim()) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 8); doc.setTextColor(180, 210, 195);
+      doc.textWithLink(`${customLinkText}`, w / 2 - doc.getTextWidth(customLinkText) / 2, footerY + 28, { url: customLinkUrl });
+    }
   }
 
   return doc;
@@ -746,8 +753,10 @@ export const generateNewPartnerOnePager = async (
   });
   y += statH + 30;
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...textMuted);
-  doc.text(footerLink, w / 2, y, { align: "center" });
+  if ((fCfg.show as boolean | undefined) !== false) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize((fCfg.fontSize as number | undefined) ?? 11); doc.setTextColor(...textMuted);
+    doc.text(footerLink, w / 2, y, { align: "center" });
+  }
   void h;
 
   return doc;
