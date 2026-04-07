@@ -55,7 +55,7 @@ interface BodyConfig {
   featureTitleFontSize: number; featureDescFontSize: number; featureTitleDescSpacing: number; showIntro: boolean;
   contentOffsetX: number; sectionSpacing: number; statValueFontSize: number;
   statDescFontSize: number; bulletOffsetX: number; bulletOffsetY: number;
-  checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number;
+  checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number; checklistHeadingFontSize: number;
   dividerOffsetX: number; dividerOffsetY: number; dividerLength: number;
   quoteShow: boolean; quoteText: string; quoteFontSize: number;
   // Comparison-specific
@@ -81,7 +81,7 @@ const defaultBodyConfig: BodyConfig = {
   headlineFontSize: 16, introFontSize: 9.5, featureTitleFontSize: 10, featureDescFontSize: 8.5,
   featureTitleDescSpacing: 14, showIntro: true, contentOffsetX: 0, sectionSpacing: 16,
   statValueFontSize: 30, statDescFontSize: 8, bulletOffsetX: 0, bulletOffsetY: 0,
-  checklistSpacing: 10, checklistShowDividers: false, checklistFontSize: 9,
+  checklistSpacing: 10, checklistShowDividers: false, checklistFontSize: 9, checklistHeadingFontSize: 10,
   dividerOffsetX: 0, dividerOffsetY: 0, dividerLength: 0,
   quoteShow: true, quoteText: DEFAULT_QUOTE_TEXT, quoteFontSize: 9.5,
   // Comparison-specific defaults (match generator hard-coded values)
@@ -749,7 +749,8 @@ export default function SalesOnePagerEditor() {
                     <SliderRow label="Bullet Offset Y" value={bodyCfg.bulletOffsetY} min={-80} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, bulletOffsetY: v }))} />
                     <SliderRow label="Section Spacing" value={bodyCfg.sectionSpacing} min={0} max={60} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, sectionSpacing: v }))} />
                     {audience === "practice-manager" && (<>
-                      <SliderRow label="Checklist Font Size" value={bodyCfg.checklistFontSize} min={6} max={16} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistFontSize: v }))} />
+                      <SliderRow label="Checklist Heading Size" value={bodyCfg.checklistHeadingFontSize} min={7} max={16} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistHeadingFontSize: v }))} />
+                      <SliderRow label="Checklist Item Size" value={bodyCfg.checklistFontSize} min={6} max={16} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistFontSize: v }))} />
                       <SliderRow label="Checklist Spacing" value={bodyCfg.checklistSpacing} min={2} max={30} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, checklistSpacing: v }))} />
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={bodyCfg.checklistShowDividers} onChange={e => setBodyCfg(p => ({ ...p, checklistShowDividers: e.target.checked }))} className="rounded border-border" />

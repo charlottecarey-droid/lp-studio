@@ -243,7 +243,8 @@ export const generatePilotOnePager = async (
     const divOffX = (bCfg.dividerOffsetX as number | undefined) ?? 0;
     const divOffY = (bCfg.dividerOffsetY as number | undefined) ?? 0;
 
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...textDark);
+    const checkHeadingFontSize = (bCfg.checklistHeadingFontSize as number | undefined) ?? 10;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(checkHeadingFontSize); doc.setTextColor(...textDark);
     doc.text("How to get the most out of this pilot:", margin, y);
     let checkY = y + 20;
     content.checklist.forEach((item, idx) => {
