@@ -347,7 +347,6 @@ const OverviewView = ({ t, liveOffset = 0 }: { t: Theme; liveOffset?: number }) 
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <LiveEventTicker t={t} />
     </div>
   );
 };
