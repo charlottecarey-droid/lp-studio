@@ -37,6 +37,7 @@ interface Signal {
   id: number;
   type: string;
   source?: string;
+  metadata?: Record<string, unknown>;
   accountId?: number;
   accountName?: string;
   contactId?: number;
@@ -71,10 +72,25 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
+function visitorWeight(s: Signal): number {
+  const source = s.source ?? "";
+  const meta   = (s.metadata ?? {}) as Record<string, string | undefined>;
+  if (source === "rb2b")       return 3;
+  if (source === "apollo")     return 2;
+  if (source === "letterdrop") {
+    const activity = meta.activityType ?? meta.lastActivity ?? "";
+    if (activity.includes("comment"))               return 4;
+    if (activity.includes("organization_follower")) return 2;
+    if (activity.includes("profile_view"))          return 1;
+    return 2;
+  }
+  return 2;
+}
+
 function computeScore(signals: Signal[], now: number) {
   let score = 0;
   for (const s of signals) {
-    const w = SIGNAL_WEIGHTS[s.type] ?? 0;
+    const w = s.type === "visitor_identified" ? visitorWeight(s) : (SIGNAL_WEIGHTS[s.type] ?? 0);
     const isRecent = now - new Date(s.createdAt).getTime() < SEVEN_DAYS_MS;
     score += w * (isRecent ? 1.5 : 1);
   }

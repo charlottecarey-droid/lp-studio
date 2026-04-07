@@ -67,6 +67,8 @@ const API_BASE = "/api";
 interface HeatSignal {
   id: number;
   type: string;
+  source?: string | null;
+  metadata?: Record<string, unknown>;
   accountId?: number;
   createdAt: string;
 }
@@ -80,6 +82,22 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
   page_view:          1,
 };
 
+/** Source + activity-aware weight for visitor_identified signals. */
+function visitorWeight(s: HeatSignal): number {
+  const source   = s.source ?? "";
+  const meta     = (s.metadata ?? {}) as Record<string, string | undefined>;
+  if (source === "rb2b")       return 3;
+  if (source === "apollo")     return 2;
+  if (source === "letterdrop") {
+    const activity = meta.activityType ?? meta.lastActivity ?? "";
+    if (activity.includes("comment"))               return 4;
+    if (activity.includes("organization_follower")) return 2;
+    if (activity.includes("profile_view"))          return 1;
+    return 2;
+  }
+  return 2;
+}
+
 const SEVEN_DAYS_MS  = 7  * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -91,7 +109,8 @@ function computeHeatTier(acctSignals: HeatSignal[], refTime: number): HeatTier {
   if (recentSigs.length === 0) return "cold";
   let score = 0;
   for (const s of recentSigs) {
-    score += (SIGNAL_WEIGHTS[s.type] ?? 0) * 1.5;
+    const w = s.type === "visitor_identified" ? visitorWeight(s) : (SIGNAL_WEIGHTS[s.type] ?? 0);
+    score += w * 1.5;
   }
   if (score >= 15) return "hot";
   if (score >= 8)  return "warm";
