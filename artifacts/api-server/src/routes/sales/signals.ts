@@ -194,17 +194,35 @@ async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
     const weights: Record<string, number> = {
       form_submit: 5,
       email_click: 3,
-      link_click: 3,
-      email_open: 2,
-      page_view: 1,
-      email_sent: 0,
+      link_click:  3,
+      email_open:  2,
+      page_view:   1,
+      email_sent:  0,
     };
+
+    /** Source + activity-aware weight for visitor_identified signals. */
+    function visitorWeight(sig: typeof signals[number]): number {
+      const source = sig.source ?? "";
+      const meta   = (sig.metadata ?? {}) as Record<string, string | undefined>;
+      if (source === "rb2b")        return 3;  // specific person on LP page
+      if (source === "apollo")      return 2;  // company-level on LP page
+      if (source === "letterdrop") {
+        const activity = meta.activityType ?? meta.lastActivity ?? "";
+        if (activity.includes("comment"))              return 4;
+        if (activity.includes("organization_follower")) return 2;
+        if (activity.includes("profile_view"))          return 1;
+        return 2;
+      }
+      return 2; // default for unknown sources
+    }
 
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     let score = 0;
 
     for (const sig of signals) {
-      const weight = weights[sig.type] ?? 1;
+      const weight = sig.type === "visitor_identified"
+        ? visitorWeight(sig)
+        : (weights[sig.type] ?? 1);
       const isRecent = sig.createdAt && new Date(sig.createdAt).getTime() > sevenDaysAgo;
       score += weight * (isRecent ? 1.5 : 1);
     }

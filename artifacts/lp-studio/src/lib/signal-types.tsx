@@ -53,10 +53,11 @@ export function getSignalLabel(type: string): string {
 
 /** Engagement scoring weights (also used by backend in signals.ts). */
 export const SIGNAL_WEIGHTS: Record<string, number> = {
-  form_submit: 5,
-  email_click: 3,
-  link_click: 3,
-  email_open: 2,
-  page_view: 1,
-  email_sent: 0,
+  form_submit:         5,
+  email_click:         3,
+  link_click:          3,
+  visitor_identified:  2,  // base; backend uses source+activity for finer scoring
+  email_open:          2,
+  page_view:           1,
+  email_sent:          0,
 };

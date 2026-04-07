@@ -60,11 +60,12 @@ interface SavedView {
 // ── Engagement scoring (mirrors server-side logic) ────────────────────────────
 
 const SIGNAL_WEIGHTS: Record<string, number> = {
-  form_submit: 5,
-  email_click: 3,
-  link_click: 3,
-  email_open: 2,
-  page_view: 1,
+  form_submit:        5,
+  email_click:        3,
+  link_click:         3,
+  visitor_identified: 2,
+  email_open:         2,
+  page_view:          1,
 };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
