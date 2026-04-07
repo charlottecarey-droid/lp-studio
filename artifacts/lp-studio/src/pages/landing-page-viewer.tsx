@@ -298,6 +298,63 @@ export default function LandingPageViewer() {
     fetchBrandConfig().then(setBrand);
   }, []);
 
+  // ── Page-specific title + OG meta tags ──────────────────────────────────────
+  // Updates the browser tab title and social media meta tags as soon as page
+  // data is available. This works for JS-enabled crawlers (Twitter/X, Google,
+  // some LinkedIn) and fixes the browser tab title for all users.
+  // For non-JS bots (Facebook, Slack), route /lp/:slug through the API server's
+  // /api/lp/og-preview/:slug endpoint via a Cloudflare Worker.
+  useEffect(() => {
+    if (!config) return;
+    const originalTitle = document.title;
+
+    let pageTitle = "";
+    let pageMeta = "";
+    let pageOgImage = "";
+
+    if (isBuilderPageResponse(config)) {
+      const bp = config as import("@/lib/page-types").BuilderPageResponse;
+      pageTitle = bp.metaTitle || bp.title || "";
+      pageMeta = bp.metaDescription || "";
+      pageOgImage = bp.ogImage || "";
+    } else if (config.assignedVariant) {
+      pageTitle = (config.assignedVariant as { name?: string }).name || "";
+    }
+
+    if (pageTitle) document.title = pageTitle;
+
+    function setOrCreateMeta(selector: string, attrKey: string, attrValue: string, content: string) {
+      let el = document.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attrKey, attrValue);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    }
+
+    if (pageTitle) {
+      setOrCreateMeta('meta[property="og:title"]', "property", "og:title", pageTitle);
+      setOrCreateMeta('meta[name="twitter:title"]', "name", "twitter:title", pageTitle);
+    }
+    if (pageMeta) {
+      setOrCreateMeta('meta[name="description"]', "name", "description", pageMeta);
+      setOrCreateMeta('meta[property="og:description"]', "property", "og:description", pageMeta);
+      setOrCreateMeta('meta[name="twitter:description"]', "name", "twitter:description", pageMeta);
+    }
+    if (pageOgImage) {
+      setOrCreateMeta('meta[property="og:image"]', "property", "og:image", pageOgImage);
+      setOrCreateMeta('meta[name="twitter:image"]', "name", "twitter:image", pageOgImage);
+      setOrCreateMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+    }
+    setOrCreateMeta('meta[property="og:url"]', "property", "og:url", window.location.href);
+
+    // Restore on unmount so navigating back to the app doesn't leave stale tags
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [config]);
+
   useEffect(() => {
     const onScroll = () => { if (window.scrollY > 40) setScrolled(true); };
     window.addEventListener("scroll", onScroll, { passive: true });

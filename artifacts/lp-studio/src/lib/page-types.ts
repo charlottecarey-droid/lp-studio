@@ -9,6 +9,9 @@ export interface BuilderPageResponse {
   status: "draft" | "published";
   customCss?: string;
   animationsEnabled?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {

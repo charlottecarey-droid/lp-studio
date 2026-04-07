@@ -135,6 +135,79 @@ router.post("/lp/track", async (req, res): Promise<void> => {
   res.json({ success: true, eventId: event.id });
 });
 
+// ─── Social media / bot OG preview endpoint ─────────────────────────────────
+// Serves a minimal HTML shell with correct OG tags so social media scrapers,
+// Slack, Telegram, etc. see per-page metadata instead of the LP Studio fallback.
+// Usage: route bot user-agents (e.g. via Cloudflare Worker) from /lp/:slug to
+//        /api/lp/og-preview/:slug and let regular browsers continue to the SPA.
+
+const SOCIAL_BOT_UA = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|TelegramBot|WhatsApp|Googlebot|Applebot|Discordbot|redditbot|pinterest/i;
+
+router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
+  const slug = req.params.slug?.trim();
+  if (!slug) { res.status(400).send("Bad request"); return; }
+
+  try {
+    const [page] = await db.select({
+      title: lpPagesTable.title,
+      metaTitle: lpPagesTable.metaTitle,
+      metaDescription: lpPagesTable.metaDescription,
+      ogImage: lpPagesTable.ogImage,
+      status: lpPagesTable.status,
+    }).from(lpPagesTable).where(eq(lpPagesTable.slug, slug)).limit(1);
+
+    if (!page || page.status === "draft") {
+      res.status(404).send("Not found");
+      return;
+    }
+
+    const pageTitle = page.metaTitle || page.title || "Dandy";
+    const pageDesc = page.metaDescription || "";
+    const pageImage = page.ogImage || "";
+
+    // Derive canonical public URL from request origin
+    const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "partners.meetdandy.com";
+    const proto = req.headers["x-forwarded-proto"] || "https";
+    const canonicalUrl = `${proto}://${host}/lp/${slug}`;
+
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(pageTitle)}</title>
+  <meta name="description" content="${escapeHtml(pageDesc)}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <meta property="og:title" content="${escapeHtml(pageTitle)}" />
+  <meta property="og:description" content="${escapeHtml(pageDesc)}" />
+  ${pageImage ? `<meta property="og:image" content="${escapeHtml(pageImage)}" />` : ""}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(pageTitle)}" />
+  <meta name="twitter:description" content="${escapeHtml(pageDesc)}" />
+  ${pageImage ? `<meta name="twitter:image" content="${escapeHtml(pageImage)}" />` : ""}
+  <meta http-equiv="refresh" content="0; url=${escapeHtml(canonicalUrl)}" />
+</head>
+<body>
+  <a href="${escapeHtml(canonicalUrl)}">${escapeHtml(pageTitle)}</a>
+</body>
+</html>`);
+  } catch (err) {
+    console.error("OG preview error:", err);
+    res.status(500).send("Internal server error");
+  }
+});
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   const params = GetPageConfigParams.safeParse(req.params);
   if (!params.success) {
@@ -207,6 +280,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         status: builderPage.status,
         customCss: builderPage.customCss ?? "",
         animationsEnabled: builderPage.animationsEnabled,
+        metaTitle: builderPage.metaTitle || "",
+        metaDescription: builderPage.metaDescription || "",
+        ogImage: builderPage.ogImage || "",
       });
       return;
     }
