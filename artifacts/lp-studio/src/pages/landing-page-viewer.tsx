@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { motion, useInView, type TargetAndTransition } from "framer-motion";
 import { safeNavigate } from "@/lib/safe-url";
 import { useRoute } from "wouter";
@@ -284,6 +284,17 @@ export default function LandingPageViewer() {
   });
   const hasPageVars = Object.keys(pageVars).length > 0;
 
+  // Merge URL-based vars with Apollo IP-identified account name.
+  // Keys use the {{varName}} literal format consumed by deepApplyVars.
+  const enrichedVars = useMemo<Record<string, string>>(() => {
+    const apolloName = isBuilderPageResponse(config)
+      ? ((config as BuilderPageResponse).accountNameApollo ?? "")
+      : "";
+    if (!apolloName) return pageVars;
+    return { ...pageVars, "{{accountNameApollo}}": apolloName };
+  }, [config, pageVars]);
+  const hasEnrichedVars = Object.keys(enrichedVars).length > 0;
+
   // Derive pageId for heatmap tracking across all render paths
   const heatmapPageId = (() => {
     if (!config) return undefined;
@@ -445,9 +456,9 @@ export default function LandingPageViewer() {
   if (isBuilderPageResponse(config)) {
     const builderPage: BuilderPageResponse = config;
     const rawBlocks = builderPage.blocks ?? [];
-    // Apply {{company}}, {{first_name}} etc. from campaign page URL vars
-    const blocks = hasPageVars
-      ? (deepApplyVars(rawBlocks, pageVars) as typeof rawBlocks)
+    // Apply {{company}}, {{first_name}}, {{accountNameApollo}} etc.
+    const blocks = hasEnrichedVars
+      ? (deepApplyVars(rawBlocks, enrichedVars) as typeof rawBlocks)
       : rawBlocks;
     const customCss = builderPage.customCss ?? "";
     const animationsEnabled = builderPage.animationsEnabled !== false;
@@ -525,8 +536,8 @@ export default function LandingPageViewer() {
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
     const rawLinkedBlocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
-    const blocks = hasPageVars
-      ? (deepApplyVars(rawLinkedBlocks, pageVars) as typeof rawLinkedBlocks)
+    const blocks = hasEnrichedVars
+      ? (deepApplyVars(rawLinkedBlocks, enrichedVars) as typeof rawLinkedBlocks)
       : rawLinkedBlocks;
     const linkedPageCss = linkedPage?.customCss ?? "";
     const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";

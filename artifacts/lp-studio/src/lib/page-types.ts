@@ -12,6 +12,7 @@ export interface BuilderPageResponse {
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
+  accountNameApollo?: string;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {

@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
 import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+import { revealAccountName } from "../../lib/apollo-reveal";
 
 /** Extract UTM parameters from the request query string */
 function extractUtm(req: Request): {
@@ -271,6 +272,20 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         res.set("Cache-Control", "no-store");
       }
 
+      // Apollo IP reveal — only called when the page uses {{accountNameApollo}}
+      // so pages without the placeholder have zero extra latency.
+      const blocksJson = JSON.stringify(builderPage.blocks ?? []);
+      const needsApollo = blocksJson.includes("{{accountNameApollo}}");
+      const accountNameApollo = needsApollo
+        ? await revealAccountName(getClientIp(req))
+        : "";
+
+      // Pages with Apollo personalization must not be cached at the CDN layer
+      // because the response differs per visitor IP.
+      if (needsApollo) {
+        res.set("Cache-Control", "no-store");
+      }
+
       res.json({
         pageType: "builder",
         id: builderPage.id,
@@ -283,6 +298,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         metaTitle: builderPage.metaTitle || "",
         metaDescription: builderPage.metaDescription || "",
         ogImage: builderPage.ogImage || "",
+        accountNameApollo,
       });
       return;
     }
