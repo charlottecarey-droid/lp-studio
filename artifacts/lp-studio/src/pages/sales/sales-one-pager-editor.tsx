@@ -48,7 +48,7 @@ interface HeaderConfig {
   height: number; splitRatio: number; titleText: string; titleFontSize: number;
   subtitleFontSize: number; subtitleOffsetY: number; headerImage: string | null;
   imageCropAnchor: "top" | "center" | "bottom"; partnerLogoScale: number;
-  partnerLogoOffsetX: number; partnerLogoOffsetY: number;
+  partnerLogoOffsetX: number; partnerLogoOffsetY: number; titleLineSpacing: number;
 }
 interface BodyConfig {
   headlineText: string; headlineFontSize: number; introFontSize: number;
@@ -58,6 +58,10 @@ interface BodyConfig {
   checklistSpacing: number; checklistShowDividers: boolean; checklistFontSize: number;
   dividerOffsetX: number; dividerOffsetY: number; dividerLength: number;
   quoteShow: boolean; quoteText: string; quoteFontSize: number;
+  // Comparison-specific
+  compTableFontSize: number; compTableHeaderFontSize: number;
+  compTableRowHeight: number; compTableHeaderHeight: number; compTableCapColWidth: number;
+  compStatValueSize: number; compStatLabelSize: number; compStatCardHeight: number;
 }
 interface TeamConfig { show: boolean; headingFontSize: number; nameFontSize: number; }
 interface FooterConfig { fontSize: number; show: boolean; link: string; height: number; }
@@ -66,6 +70,7 @@ const defaultHeaderConfig: HeaderConfig = {
   height: 280, splitRatio: 48, titleText: "", titleFontSize: 28,
   subtitleFontSize: 11, subtitleOffsetY: 0, headerImage: null,
   imageCropAnchor: "center", partnerLogoScale: 100, partnerLogoOffsetX: 0, partnerLogoOffsetY: 0,
+  titleLineSpacing: 1.32,
 };
 const DEFAULT_QUOTE_TEXT = "I've used Dandy Dental Lab for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.";
 
@@ -77,6 +82,10 @@ const defaultBodyConfig: BodyConfig = {
   checklistSpacing: 10, checklistShowDividers: false, checklistFontSize: 9,
   dividerOffsetX: 0, dividerOffsetY: 0, dividerLength: 0,
   quoteShow: true, quoteText: DEFAULT_QUOTE_TEXT, quoteFontSize: 9.5,
+  // Comparison-specific defaults (match generator hard-coded values)
+  compTableFontSize: 8, compTableHeaderFontSize: 8,
+  compTableRowHeight: 40, compTableHeaderHeight: 28, compTableCapColWidth: 130,
+  compStatValueSize: 22, compStatLabelSize: 7.5, compStatCardHeight: 80,
 };
 const defaultTeamConfig: TeamConfig = { show: true, headingFontSize: 13, nameFontSize: 10 };
 const defaultFooterConfig: FooterConfig = { fontSize: 10, show: true, link: "meetdandy.com", height: 36 };
@@ -426,7 +435,7 @@ export default function SalesOnePagerEditor() {
         ));
       } else if (editorTemplate === "comparison") {
         await saveLayoutDefault("dandy_comparison_template_layout", {
-          headerCfg, teamCfg, footerCfg, comparisonRows, stats: comparisonStats,
+          headerCfg, bodyCfg, teamCfg, footerCfg, comparisonRows, stats: comparisonStats,
         });
       } else if (editorTemplate === "partner") {
         await saveLayoutDefault("dandy_partner_template_layout", {
@@ -774,8 +783,10 @@ export default function SalesOnePagerEditor() {
                   <EditorSection title="Header" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.header} onToggle={() => toggle("header")}>
                     <SliderRow label="Header Height" value={headerCfg.height} min={120} max={300} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, height: v }))} />
                     <SliderRow label="Split Ratio (left %)" value={headerCfg.splitRatio} min={30} max={70} unit="%" onChange={v => setHeaderCfg(p => ({ ...p, splitRatio: v }))} />
-                    <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={12} max={32} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
-                    <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
+                    <SliderRow label="Headline Font Size" value={headerCfg.titleFontSize} min={12} max={32} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
+                    <SliderRow label="Headline Line Spacing" value={headerCfg.titleLineSpacing} min={0.8} max={3.0} step={0.01} unit="×" onChange={v => setHeaderCfg(p => ({ ...p, titleLineSpacing: v }))} />
+                    <SliderRow label="Subheadline Font Size" value={headerCfg.subtitleFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
+                    <SliderRow label="Subheadline Offset Y" value={headerCfg.subtitleOffsetY} min={-60} max={60} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleOffsetY: v }))} />
                     <div>
                       <span className="text-[11px] font-medium text-muted-foreground">Header Image</span>
                       <div className="flex items-center gap-3 mt-1.5">
@@ -789,6 +800,14 @@ export default function SalesOnePagerEditor() {
                   </EditorSection>
 
                   <EditorSection title="Comparison Table" icon={<Table className="w-4 h-4 text-muted-foreground" />} open={openSections.table} onToggle={() => toggle("table")}>
+                    <div className="border-b border-border pb-3 mb-3 space-y-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Table Layout</span>
+                      <SliderRow label="Row Font Size" value={bodyCfg.compTableFontSize} min={5} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableFontSize: v }))} />
+                      <SliderRow label="Header Label Font Size" value={bodyCfg.compTableHeaderFontSize} min={5} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableHeaderFontSize: v }))} />
+                      <SliderRow label="Row Height" value={bodyCfg.compTableRowHeight} min={24} max={80} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableRowHeight: v }))} />
+                      <SliderRow label="Header Row Height" value={bodyCfg.compTableHeaderHeight} min={16} max={50} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableHeaderHeight: v }))} />
+                      <SliderRow label="Capability Column Width" value={bodyCfg.compTableCapColWidth} min={60} max={220} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compTableCapColWidth: v }))} />
+                    </div>
                     <p className="text-[11px] text-muted-foreground mb-2">Capability | Then (old Dandy) | Now (Dandy today)</p>
                     <div className="space-y-3">
                       {comparisonRows.map((row: typeof defaultComparisonRows[0], i: number) => (
@@ -802,7 +821,10 @@ export default function SalesOnePagerEditor() {
                   </EditorSection>
 
                   <EditorSection title="Stats" icon={<BarChart3 className="w-4 h-4 text-muted-foreground" />} open={openSections.stats} onToggle={() => toggle("stats")}>
-                    <div className="space-y-2">
+                    <SliderRow label="Stat Number Font Size" value={bodyCfg.compStatValueSize} min={12} max={40} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compStatValueSize: v }))} />
+                    <SliderRow label="Stat Label Font Size" value={bodyCfg.compStatLabelSize} min={5} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compStatLabelSize: v }))} />
+                    <SliderRow label="Stat Card Height" value={bodyCfg.compStatCardHeight} min={50} max={140} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, compStatCardHeight: v }))} />
+                    <div className="border-t border-border pt-3 mt-1 space-y-2">
                       {comparisonStats.map((stat: typeof defaultComparisonStats[0], i: number) => (
                         <div key={i} className="grid grid-cols-[80px_1fr] gap-2">
                           <input type="text" value={stat.value} onChange={e => updateComparisonStat(i, "value", e.target.value)} placeholder="88%" className={`${inputCls} font-bold`} />

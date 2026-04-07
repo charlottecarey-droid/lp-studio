@@ -396,6 +396,7 @@ export interface ComparisonOpts {
   headerImgData?: string | null;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
+    bodyCfg?: Record<string, unknown>;
     teamCfg?: Record<string, unknown>;
     footerCfg?: Record<string, unknown>;
     comparisonRows?: Array<{ capability: string; then: string; now: string }>;
@@ -420,6 +421,7 @@ export const generateComparisonOnePager = async (
   const contentW = w - margin * 2;
 
   const hCfg = opts?.layoutOverrides?.headerCfg ?? {};
+  const bCfg = opts?.layoutOverrides?.bodyCfg ?? {};
   const tCfg = opts?.layoutOverrides?.teamCfg ?? {};
   const fCfg = opts?.layoutOverrides?.footerCfg ?? {};
   const activeRows = (opts?.layoutOverrides?.comparisonRows?.length
@@ -471,7 +473,8 @@ export const generateComparisonOnePager = async (
   }
 
   const titleSize = (hCfg.titleFontSize as number | undefined) ?? 20;
-  const titleLineH = Math.round(titleSize * 1.32);
+  const titleLineSpacing = (hCfg.titleLineSpacing as number | undefined) ?? 1.32;
+  const titleLineH = Math.round(titleSize * titleLineSpacing);
   doc.setFont("helvetica", "normal"); doc.setFontSize(titleSize); doc.setTextColor(...white);
   doc.text("Stronger Systems.", margin, 90);
   doc.text("Better Outcomes.", margin, 90 + titleLineH);
@@ -480,51 +483,55 @@ export const generateComparisonOnePager = async (
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
   let y = headerH + 20;
-  const col1W = 130;
+  const col1W = (bCfg.compTableCapColWidth as number | undefined) ?? 130;
   const col2W = (contentW - col1W) / 2;
-  const tableHeaderH = 28;
+  const tableHeaderH = (bCfg.compTableHeaderHeight as number | undefined) ?? 28;
+  const tableHeaderFontSize = (bCfg.compTableHeaderFontSize as number | undefined) ?? 8;
 
   doc.setFillColor(...darkGreen);
   doc.roundedRect(margin, y, contentW, tableHeaderH, 4, 4, "F");
   doc.rect(margin, y + 4, contentW, tableHeaderH - 4, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(180, 200, 190);
-  doc.text("CAPABILITY", margin + 12, y + 18);
-  doc.setTextColor(...lime); doc.text("DANDY 2022", margin + col1W + 12, y + 18);
-  doc.text("DANDY TODAY", margin + col1W + col2W + 12, y + 18);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(tableHeaderFontSize); doc.setTextColor(180, 200, 190);
+  doc.text("CAPABILITY", margin + 12, y + tableHeaderH * 0.65);
+  doc.setTextColor(...lime); doc.text("DANDY 2022", margin + col1W + 12, y + tableHeaderH * 0.65);
+  doc.text("DANDY TODAY", margin + col1W + col2W + 12, y + tableHeaderH * 0.65);
   y += tableHeaderH;
 
-  const rowH = 40;
+  const rowH = (bCfg.compTableRowHeight as number | undefined) ?? 40;
+  const tableFontSize = (bCfg.compTableFontSize as number | undefined) ?? 8;
   activeRows.forEach((row, i) => {
     const bgColor: [number, number, number] = i % 2 === 0 ? offWhite : white;
     const isLast = i === activeRows.length - 1;
     doc.setFillColor(...bgColor);
     if (isLast) { doc.roundedRect(margin, y, contentW, rowH, 4, 4, "F"); doc.rect(margin, y, contentW, rowH - 4, "F"); }
     else { doc.rect(margin, y, contentW, rowH, "F"); }
-    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...darkGreen);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(tableFontSize); doc.setTextColor(...darkGreen);
     const capLines = doc.splitTextToSize(row.capability, col1W - 24);
-    doc.text(capLines, margin + 12, y + 14);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...subtleText);
+    doc.text(capLines, margin + 12, y + rowH * 0.35);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(tableFontSize); doc.setTextColor(...subtleText);
     const thenLines = doc.splitTextToSize(row.then, col2W - 24);
-    doc.text(thenLines, margin + col1W + 12, y + 14);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(40, 80, 65);
+    doc.text(thenLines, margin + col1W + 12, y + rowH * 0.35);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(tableFontSize); doc.setTextColor(40, 80, 65);
     const nowLines = doc.splitTextToSize(row.now, col2W - 24);
-    doc.text(nowLines, margin + col1W + col2W + 12, y + 14);
+    doc.text(nowLines, margin + col1W + col2W + 12, y + rowH * 0.35);
     y += rowH;
   });
   y += 24;
 
   const statGap = 14;
   const statW = (contentW - statGap * 2) / 3;
-  const statH = 80;
+  const statH = (bCfg.compStatCardHeight as number | undefined) ?? 80;
+  const statValueSize = (bCfg.compStatValueSize as number | undefined) ?? 22;
+  const statLabelSize = (bCfg.compStatLabelSize as number | undefined) ?? 7.5;
   stats.forEach((stat, i) => {
     const sx = margin + (statW + statGap) * i;
     doc.setFillColor(...offWhite); doc.roundedRect(sx, y, statW, statH, 6, 6, "F");
     doc.setFillColor(...lime); doc.roundedRect(sx, y, statW, 3, 3, 3, "F"); doc.rect(sx, y + 2, statW, 2, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...darkGreen);
-    doc.text(stat.value, sx + statW / 2, y + 32, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...textMuted);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(statValueSize); doc.setTextColor(...darkGreen);
+    doc.text(stat.value, sx + statW / 2, y + statH * 0.4, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(statLabelSize); doc.setTextColor(...textMuted);
     const labelLines = doc.splitTextToSize(stat.label, statW - 24);
-    doc.text(labelLines, sx + statW / 2, y + 48, { align: "center", maxWidth: statW - 24 });
+    doc.text(labelLines, sx + statW / 2, y + statH * 0.6, { align: "center", maxWidth: statW - 24 });
   });
   y += statH + 20;
 
