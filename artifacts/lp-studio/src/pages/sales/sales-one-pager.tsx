@@ -373,6 +373,7 @@ const SalesOnePager = () => {
   const [deletedBuiltins, setDeletedBuiltins] = useState<Record<string, boolean>>({});
   const [selectedCustomId, setSelectedCustomId] = useState<number | null>(null);
   const [customTemplateError, setCustomTemplateError] = useState<string | null>(null);
+  const [visibilityLoaded, setVisibilityLoaded] = useState(false);
 
   const loadCustomTemplates = useCallback(async () => {
     setCustomTemplateError(null);
@@ -388,6 +389,8 @@ const SalesOnePager = () => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load custom templates";
       setCustomTemplateError(msg);
+    } finally {
+      setVisibilityLoaded(true);
     }
   }, []);
 
@@ -574,7 +577,7 @@ const SalesOnePager = () => {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+          <div className={`flex flex-wrap items-center justify-center gap-3 mb-8 transition-opacity duration-150 ${visibilityLoaded ? "opacity-100" : "opacity-0"}`}>
             <div className="inline-flex rounded-full border border-border overflow-hidden flex-wrap">
               {!deletedBuiltins["roi"] && templateVisibility["roi"] !== false && (
                 <button
