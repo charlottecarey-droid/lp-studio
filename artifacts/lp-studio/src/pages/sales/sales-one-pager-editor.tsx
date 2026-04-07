@@ -46,7 +46,7 @@ type Audience = "executive" | "clinical" | "practice-manager";
 
 interface HeaderConfig {
   height: number; splitRatio: number; titleText: string; titleFontSize: number;
-  subtitleFontSize: number; subtitleOffsetY: number; headerImage: string | null;
+  subtitleFontSize: number; subtitleOffsetY: number; subtitleText: string; headerImage: string | null;
   imageCropAnchor: "top" | "center" | "bottom"; partnerLogoScale: number;
   partnerLogoOffsetX: number; partnerLogoOffsetY: number; titleLineSpacing: number;
 }
@@ -68,7 +68,9 @@ interface FooterConfig { fontSize: number; show: boolean; link: string; height: 
 
 const defaultHeaderConfig: HeaderConfig = {
   height: 280, splitRatio: 48, titleText: "", titleFontSize: 28,
-  subtitleFontSize: 11, subtitleOffsetY: 0, headerImage: null,
+  subtitleFontSize: 11, subtitleOffsetY: 0,
+  subtitleText: "Your custom partnership overview — built for scale, savings & growth",
+  headerImage: null,
   imageCropAnchor: "center", partnerLogoScale: 100, partnerLogoOffsetX: 0, partnerLogoOffsetY: 0,
   titleLineSpacing: 1.32,
 };
@@ -327,6 +329,20 @@ export default function SalesOnePagerEditor() {
       return;
     }
 
+    if (tmpl === "roi") {
+      // Start with ROI-specific defaults (shorter header than other templates)
+      setHeaderCfg({
+        ...defaultHeaderConfig,
+        height: 160,
+        titleFontSize: 22,
+        subtitleFontSize: 11,
+        subtitleText: "Your custom partnership overview — built for scale, savings & growth",
+      });
+      const saved = await loadLayoutDefault("dandy_roi_template_layout");
+      if (saved?.headerCfg) setHeaderCfg(p => ({ ...p, ...saved.headerCfg }));
+      return;
+    }
+
     const keyMap: Record<EditorTemplate, string> = {
       pilot: "",
       comparison: "dandy_comparison_template_layout",
@@ -395,7 +411,7 @@ export default function SalesOnePagerEditor() {
             { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
           );
         } else {
-          doc = await generateROIOnePager(dsoName, numPractices);
+          doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
         }
         const blob = doc.output("blob");
         const url = URL.createObjectURL(blob);
@@ -442,6 +458,8 @@ export default function SalesOnePagerEditor() {
           headerCfg, bodyCfg, teamCfg, footerCfg,
           partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl,
         });
+      } else if (editorTemplate === "roi") {
+        await saveLayoutDefault("dandy_roi_template_layout", { headerCfg });
       }
       setSavedIndicator(true);
       setTimeout(() => setSavedIndicator(false), 2500);
@@ -481,7 +499,7 @@ export default function SalesOnePagerEditor() {
         doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl });
         doc.save(`Dandy_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
       } else {
-        doc = await generateROIOnePager(dsoName, numPractices);
+        doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
         doc.save(`Dandy_for_${dsoName.replace(/\s+/g, "_")}.pdf`);
       }
     } finally { setGenerating(false); }
@@ -591,13 +609,11 @@ export default function SalesOnePagerEditor() {
               {previewVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               {previewVisible ? "Hide Preview" : "Show Preview"}
             </button>
-            {editorTemplate !== "roi" && (
-              <button onClick={handleSave} disabled={saving}
-                className={`flex items-center gap-1.5 text-xs font-medium transition-all border rounded-lg px-3 py-1.5 ${savedIndicator ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "text-primary hover:text-primary/80 border-primary/30 bg-background hover:bg-primary/5"}`}>
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedIndicator ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                {saving ? "Saving…" : savedIndicator ? "Saved!" : "Save as Default"}
-              </button>
-            )}
+            <button onClick={handleSave} disabled={saving}
+              className={`flex items-center gap-1.5 text-xs font-medium transition-all border rounded-lg px-3 py-1.5 ${savedIndicator ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "text-primary hover:text-primary/80 border-primary/30 bg-background hover:bg-primary/5"}`}>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedIndicator ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+              {saving ? "Saving…" : savedIndicator ? "Saved!" : "Save as Default"}
+            </button>
             <button onClick={handleDownload} disabled={generating}
               className="flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all border border-primary/30 rounded-lg px-3 py-1.5 disabled:opacity-60">
               {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
@@ -909,14 +925,45 @@ export default function SalesOnePagerEditor() {
                 </>)}
 
                 {/* ═══ ROI ═══ */}
-                {editorTemplate === "roi" && (
+                {editorTemplate === "roi" && (<>
+                  <EditorSection title="Header" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.header} onToggle={() => toggle("header")}>
+                    <SliderRow label="Header Height" value={headerCfg.height} min={100} max={280} step={4} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, height: v }))} />
+                    <SliderRow label="Title Font Size" value={headerCfg.titleFontSize} min={10} max={34} step={1} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, titleFontSize: v }))} />
+                    <SliderRow label="Subtitle Font Size" value={headerCfg.subtitleFontSize} min={7} max={18} step={0.5} unit="pt" onChange={v => setHeaderCfg(p => ({ ...p, subtitleFontSize: v }))} />
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground">Subtitle Text</label>
+                      <input
+                        type="text"
+                        value={headerCfg.subtitleText}
+                        onChange={e => setHeaderCfg(p => ({ ...p, subtitleText: e.target.value }))}
+                        placeholder="Your custom partnership overview…"
+                        className={`mt-1 ${inputCls}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">Custom Header Image</label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <span className="rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors">
+                          {headerCfg.headerImage ? "Replace image" : "Upload image"}
+                        </span>
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0]; if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => setHeaderCfg(p => ({ ...p, headerImage: reader.result as string }));
+                          reader.readAsDataURL(file);
+                        }} />
+                        {headerCfg.headerImage && (
+                          <button onClick={() => setHeaderCfg(p => ({ ...p, headerImage: null }))} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors">Remove</button>
+                        )}
+                      </label>
+                    </div>
+                  </EditorSection>
                   <div className="rounded-xl border border-border bg-card p-5">
                     <p className="text-sm text-muted-foreground">
-                      The ROI Brief is automatically calculated from the number of practices — no content editing needed.
-                      Adjust the DSO name and practice count above to customize the preview.
+                      ROI metrics and case studies are auto-calculated from the practice count above — no content editing needed.
                     </p>
                   </div>
-                )}
+                </>)}
 
                 {/* ═══ SHARED: Team & Footer (pilot + comparison + partner) ═══ */}
                 {editorTemplate !== "roi" && (<>

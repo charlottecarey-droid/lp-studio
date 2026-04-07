@@ -792,7 +792,7 @@ export const generateROIOnePager = async (
   const logoPng = opts?.logoPng ?? null;
   const headerImgData = (hCfg.headerImage as string | undefined) ?? opts?.headerImgData ?? null;
 
-  const headerH = 160;
+  const headerH = (hCfg.height as number | undefined) ?? 160;
   doc.setFillColor(...darkGreen);
   doc.rect(0, 0, w, headerH, "F");
 
@@ -807,15 +807,19 @@ export const generateROIOnePager = async (
     doc.rect(0, 0, imgX + imgW * 0.05, headerH, "F");
   }
 
-  drawDandyLogo(doc, margin, 36, logoPng);
+  drawDandyLogo(doc, margin, Math.round(headerH * 0.225), logoPng);
 
-  const roiNameSize = dsoName.length > 15 ? 16 : 22;
+  const defaultNameSize = dsoName.length > 15 ? 16 : 22;
+  const roiNameSize = (hCfg.titleFontSize as number | undefined) ?? defaultNameSize;
+  const titleY = Math.round(headerH * 0.575);
   doc.setFont("helvetica", "normal"); doc.setFontSize(roiNameSize); doc.setTextColor(...white);
-  doc.text("& ", margin, 92);
+  doc.text("& ", margin, titleY);
   const ampWidth = doc.getTextWidth("& ");
-  doc.text(dsoName, margin + ampWidth, 92);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(180, 210, 195);
-  doc.text("Your custom partnership overview — built for scale, savings & growth", margin, 128);
+  doc.text(dsoName, margin + ampWidth, titleY);
+  const subtitleText = (hCfg.subtitleText as string | undefined) ?? "Your custom partnership overview — built for scale, savings & growth";
+  const subtitleY = Math.round(headerH * 0.8);
+  doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11); doc.setTextColor(180, 210, 195);
+  doc.text(subtitleText, margin, subtitleY);
 
   let y = headerH + 28;
   const metricsH = 70;

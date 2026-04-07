@@ -283,8 +283,12 @@ export const generateNewPartnerOnePager = async (
   return sharedGenerateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, qrUrl, {}, opts);
 };
 
-export const generateROIOnePager = async (dsoName: string, numPractices: number) => {
-  const layoutOverrides = await loadLayoutDefault("dandy_roi_template_layout").catch(() => null) ?? {};
+export const generateROIOnePager = async (
+  dsoName: string,
+  numPractices: number,
+  layoutOverride?: Record<string, unknown>,
+) => {
+  const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_roi_template_layout").catch(() => null) ?? {};
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
 
   let logoPng: string | null = null;
