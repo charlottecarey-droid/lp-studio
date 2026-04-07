@@ -284,15 +284,42 @@ export default function LandingPageViewer() {
   });
   const hasPageVars = Object.keys(pageVars).length > 0;
 
-  // Merge URL-based vars with Apollo IP-identified account name.
+  // RB2B visitor identification — resolves async after page load on partners.meetdandy.com
+  const [accountNameRB2B, setAccountNameRB2B] = useState("");
+  useEffect(() => {
+    // RB2B only loads on partners.meetdandy.com — skip everywhere else
+    if (typeof window === "undefined" || !(window as { reb2b?: unknown }).reb2b) return;
+
+    function tryRegister(): boolean {
+      const rb2b = (window as { reb2b?: { push?: (fn: () => void) => void } }).reb2b;
+      if (!rb2b?.push) return false;
+      rb2b.push(function (this: Record<string, string>) {
+        const name = this?.company || this?.organization || this?.companyName || "";
+        if (name) setAccountNameRB2B(name);
+      });
+      return true;
+    }
+
+    if (!tryRegister()) {
+      // Script still loading — poll until ready, give up after 10 s
+      const interval = setInterval(() => { if (tryRegister()) clearInterval(interval); }, 300);
+      const timeout = setTimeout(() => clearInterval(interval), 10_000);
+      return () => { clearInterval(interval); clearTimeout(timeout); };
+    }
+  }, []);
+
+  // Merge URL-based vars + Apollo + RB2B into one substitution map.
   // Keys use the {{varName}} literal format consumed by deepApplyVars.
   const enrichedVars = useMemo<Record<string, string>>(() => {
     const apolloName = isBuilderPageResponse(config)
       ? ((config as BuilderPageResponse).accountNameApollo ?? "")
       : "";
-    if (!apolloName) return pageVars;
-    return { ...pageVars, "{{accountNameApollo}}": apolloName };
-  }, [config, pageVars]);
+    return {
+      ...pageVars,
+      "{{accountNameApollo}}": apolloName,
+      "{{accountNameRB2B}}": accountNameRB2B,
+    };
+  }, [config, pageVars, accountNameRB2B]);
   const hasEnrichedVars = Object.keys(enrichedVars).length > 0;
 
   // Derive pageId for heatmap tracking across all render paths
