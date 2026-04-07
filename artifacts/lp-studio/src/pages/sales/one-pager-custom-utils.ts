@@ -12,7 +12,10 @@ export async function apiLoadLayoutDefault(key: string): Promise<Record<string, 
     const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`);
     if (res.ok) {
       const d = await res.json();
-      if (d) { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(d)); return d; }
+      if (d) {
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(d)); } catch { /* quota exceeded — API is source of truth */ }
+        return d;
+      }
     }
   } catch {}
   try { const r = localStorage.getItem(`lp_studio_${key}`); return r ? JSON.parse(r) : null; } catch { return null; }

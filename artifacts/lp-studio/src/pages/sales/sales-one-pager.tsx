@@ -33,8 +33,7 @@ async function loadLayoutDefault(key: string): Promise<Record<string, any> | nul
     if (res.ok) {
       const data = await res.json();
       if (data) {
-        // Cache in localStorage
-        localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data));
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch { /* quota exceeded — API is source of truth */ }
         return data;
       }
     }

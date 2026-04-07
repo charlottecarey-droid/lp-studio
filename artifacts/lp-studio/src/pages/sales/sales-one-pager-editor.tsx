@@ -25,9 +25,12 @@ async function loadLayoutDefault(key: string): Promise<Record<string, any> | nul
     const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data) { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); return data; }
+      if (data) {
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch { /* quota exceeded — API is source of truth */ }
+        return data;
+      }
     }
-  } catch {}
+  } catch { /* network error — fall back to localStorage */ }
   try { const raw = localStorage.getItem(`lp_studio_${key}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
 
