@@ -197,12 +197,14 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
             dark={bodyDark}
             onUpdateHeading={upd ? (v) => updSection("challenge", "heading", v) : undefined}
             onUpdateBody={upd ? (v) => updSection("challenge", "body", v) : undefined}
+            onUpdateImage={upd ? (v) => updSection("challenge", "imageUrl", v) : undefined}
           />
           <BodySection
             section={solution}
             dark={bodyDark}
             onUpdateHeading={upd ? (v) => updSection("solution", "heading", v) : undefined}
             onUpdateBody={upd ? (v) => updSection("solution", "body", v) : undefined}
+            onUpdateImage={upd ? (v) => updSection("solution", "imageUrl", v) : undefined}
           />
           <div style={{ height: 1, background: bodyDivider, marginBottom: "3rem" }} />
           <PullQuote
@@ -219,7 +221,9 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
           <ResultsGrid
             results={results}
             dark={resultsDark}
+            imageUrl={props.resultsImageUrl}
             onUpdateResult={upd ? updResult : undefined}
+            onUpdateImage={upd ? (v) => upd({ resultsImageUrl: v || undefined }) : undefined}
           />
           <div style={{ marginTop: "3.5rem" }}>
             <div style={{ height: 1, background: resDivider, marginBottom: "3rem" }} />
@@ -228,6 +232,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
               dark={resultsDark}
               onUpdateHeading={upd ? (v) => updSection("whyItMatters", "heading", v) : undefined}
               onUpdateBody={upd ? (v) => updSection("whyItMatters", "body", v) : undefined}
+              onUpdateImage={upd ? (v) => updSection("whyItMatters", "imageUrl", v) : undefined}
             />
           </div>
         </div>
@@ -241,11 +246,13 @@ function BodySection({
   dark,
   onUpdateHeading,
   onUpdateBody,
+  onUpdateImage,
 }: {
   section: DsoCaseStudyBodySection;
   dark: boolean;
   onUpdateHeading?: (v: string) => void;
   onUpdateBody?: (v: string) => void;
+  onUpdateImage?: (v: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
@@ -258,6 +265,37 @@ function BodySection({
       transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
       style={{ marginBottom: "3rem" }}
     >
+      {section.imageUrl && (
+        <div style={{ marginBottom: "1.5rem" }}>
+          <img
+            src={section.imageUrl}
+            alt=""
+            style={{
+              width: "100%",
+              maxHeight: 400,
+              objectFit: "cover",
+              borderRadius: "0.75rem",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
+      {!section.imageUrl && onUpdateImage && (
+        <div
+          style={{
+            marginBottom: "1.5rem",
+            border: `2px dashed ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+            borderRadius: "0.75rem",
+            padding: "1.5rem",
+            textAlign: "center",
+            cursor: "pointer",
+            color: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)",
+            fontSize: "0.8125rem",
+          }}
+        >
+          Add image (optional)
+        </div>
+      )}
       <InlineText
         as="h3"
         value={section.heading}
@@ -426,11 +464,15 @@ function PullQuote({
 function ResultsGrid({
   results,
   dark,
+  imageUrl,
   onUpdateResult,
+  onUpdateImage,
 }: {
   results: DsoCaseStudyResultItem[];
   dark: boolean;
+  imageUrl?: string;
   onUpdateResult?: (i: number, field: keyof DsoCaseStudyResultItem, val: string) => void;
+  onUpdateImage?: (v: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
@@ -438,6 +480,36 @@ function ResultsGrid({
 
   return (
     <div ref={ref}>
+      {imageUrl && (
+        <div style={{ marginBottom: "1.5rem" }}>
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              width: "100%",
+              maxHeight: 400,
+              objectFit: "cover",
+              borderRadius: "0.75rem",
+              display: "block",
+            }}
+          />
+        </div>
+      )}
+      {!imageUrl && onUpdateImage && (
+        <div
+          style={{
+            marginBottom: "1.5rem",
+            border: `2px dashed ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+            borderRadius: "0.75rem",
+            padding: "1.5rem",
+            textAlign: "center",
+            color: dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)",
+            fontSize: "0.8125rem",
+          }}
+        >
+          Add image (optional)
+        </div>
+      )}
       <motion.h3
         initial={{ opacity: 0, y: 16 }}
         animate={inView ? { opacity: 1, y: 0 } : {}}

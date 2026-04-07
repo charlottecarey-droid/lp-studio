@@ -3490,6 +3490,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Pull Quote</Label>
               <Textarea value={p.quote ?? ""} onChange={e => onChange({ ...block, props: { ...p, quote: e.target.value } })} className="text-xs min-h-[80px]" />
             </div>
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Section Images</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Challenge Image</Label>
+                <ImagePicker value={p.challenge?.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, challenge: { heading: p.challenge?.heading ?? "The Challenge", body: p.challenge?.body ?? "", imageUrl: v || undefined } } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Solution Image</Label>
+                <ImagePicker value={p.solution?.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, solution: { heading: p.solution?.heading ?? "The Solution", body: p.solution?.body ?? "", imageUrl: v || undefined } } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Results Image</Label>
+                <ImagePicker value={p.resultsImageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, resultsImageUrl: v || undefined } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Why It Matters Image</Label>
+                <ImagePicker value={p.whyItMatters?.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, whyItMatters: { heading: p.whyItMatters?.heading ?? "Why It Matters", body: p.whyItMatters?.body ?? "", imageUrl: v || undefined } } })} />
+              </div>
+            </div>
           </div>
         );
       }

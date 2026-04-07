@@ -547,6 +547,7 @@ export interface DsoComparisonBlockProps {
 export interface DsoCaseStudyBodySection {
   heading: string;
   body: string;
+  imageUrl?: string;
 }
 
 export interface DsoCaseStudyResultItem {
@@ -564,6 +565,7 @@ export interface DsoCaseStudyBlockProps {
   solution?: DsoCaseStudyBodySection;
   quote?: string;
   results?: DsoCaseStudyResultItem[];
+  resultsImageUrl?: string;
   heroBackgroundStyle?: BackgroundStyle;
   bodyBackgroundStyle?: BackgroundStyle;
   resultsBackgroundStyle?: BackgroundStyle;
