@@ -167,7 +167,27 @@ export const generatePilotOnePager = async (
   customLinkUrl?: string,
   layoutOverride?: Record<string, unknown>,
 ) => {
-  const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_pilot_template_layout").catch(() => null) ?? {};
+  // When no override is passed (normal generation), load both the shared config AND the
+  // per-audience body config — the editor saves bodyCfg to separate audience-specific keys.
+  let layoutOverrides: Record<string, unknown>;
+  if (layoutOverride) {
+    layoutOverrides = layoutOverride;
+  } else {
+    const audienceKeyMap: Record<Audience, string> = {
+      executive: "dandy_pilot_executive_layout",
+      clinical: "dandy_pilot_clinical_layout",
+      "practice-manager": "dandy_pilot_practicemgr_layout",
+    };
+    const [shared, audienceData] = await Promise.all([
+      loadLayoutDefault("dandy_pilot_template_layout").catch(() => null),
+      loadLayoutDefault(audienceKeyMap[audience]).catch(() => null),
+    ]);
+    layoutOverrides = {
+      ...(shared ?? {}),
+      // audience-specific bodyCfg takes precedence over any bodyCfg in the shared key
+      ...(audienceData?.bodyCfg ? { bodyCfg: audienceData.bodyCfg } : {}),
+    };
+  }
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
 
   let logoPng: string | null = null;
@@ -355,6 +375,22 @@ const SalesOnePager = () => {
         .catch(() => { });
     }
     loadCustomTemplates();
+    // Seed editedContent from saved template-editor audienceContent so custom
+    // subtitles, intro text, and feature copy from the editor flow into generated PDFs.
+    loadLayoutDefault("dandy_pilot_template_layout").then(saved => {
+      if (saved?.audienceContent && typeof saved.audienceContent === "object") {
+        setEditedContent(prev => {
+          const updated = { ...prev };
+          for (const aud of ["executive", "clinical", "practice-manager"] as Audience[]) {
+            const savedAud = (saved.audienceContent as Record<string, unknown>)[aud];
+            if (savedAud && typeof savedAud === "object") {
+              updated[aud] = { ...prev[aud], ...savedAud as object };
+            }
+          }
+          return updated;
+        });
+      }
+    }).catch(() => {});
   }, [loadCustomTemplates]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
