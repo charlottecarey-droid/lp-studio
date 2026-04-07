@@ -5,12 +5,13 @@ import {
   Building2, Activity, FileText, Plus, ChevronRight,
   Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
   AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
-  ChevronDown, SlidersHorizontal,
+  ChevronDown, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2, X,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -46,6 +47,13 @@ interface MicrositeGroup {
   accountId: number;
   accountName: string;
   pages: { pageId: number }[];
+}
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: { ownerFilters: string[]; abmTierFilters: string[]; abmStageFilters: string[]; segmentFilters: string[] };
+  createdAt: string;
 }
 
 // ── Engagement scoring (mirrors server-side logic) ────────────────────────────
