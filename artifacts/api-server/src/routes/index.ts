@@ -16,6 +16,7 @@ const LP_PUBLIC = [
   /^\/lp\/track/,
   /^\/lp\/page\//,           // GET /lp/page/:slug (variant config for public viewer)
   /^\/lp\/leads$/,           // POST /lp/leads (form submissions)
+  /^\/lp\/forms\/\d+$/,      // GET /lp/forms/:id — public form config for landing page rendering
   /^\/lp\/review\//,         // GET/PATCH /lp/review/:token
   /^\/lp\/resolve-token\//,  // GET /lp/resolve-token/:token
   /^\/lp\/personalized\//,   // personalized link tracking
