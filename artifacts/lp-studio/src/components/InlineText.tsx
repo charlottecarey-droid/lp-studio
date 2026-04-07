@@ -12,6 +12,31 @@ interface InlineTextProps {
   style?: React.CSSProperties;
 }
 
+function valueToHtml(value: string): string {
+  if (!value) return "<p></p>";
+  return value
+    .split("\n\n")
+    .map(para => `<p>${para.replace(/\n/g, "<br/>") || "<br/>"}</p>`)
+    .join("");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function editorToValue(editor: any): string {
+  if (!editor) return "";
+  const json = editor.getJSON();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paragraphs = (json.content ?? []).map((node: any) => {
+    if (node.type !== "paragraph") return "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (node.content ?? []).map((c: any) => {
+      if (c.type === "text") return c.text ?? "";
+      if (c.type === "hardBreak") return "\n";
+      return "";
+    }).join("");
+  });
+  return paragraphs.join("\n\n").replace(/\n\n$/, "");
+}
+
 export function InlineText({
   value,
   onUpdate,
@@ -38,10 +63,10 @@ export function InlineText({
         strike: false,
       }),
     ],
-    content: value ? `<p>${value}</p>` : "<p></p>",
+    content: valueToHtml(value),
     editable: false,
     onUpdate: ({ editor }) => {
-      onUpdate?.(editor.getText());
+      onUpdate?.(editorToValue(editor));
     },
     editorProps: {
       attributes: {
@@ -71,9 +96,8 @@ export function InlineText({
 
   useEffect(() => {
     if (editor && !isEditing) {
-      const newContent = value ? `<p>${value}</p>` : "<p></p>";
-      const current = editor.getHTML();
-      if (current !== newContent) {
+      const newContent = valueToHtml(value);
+      if (editor.getHTML() !== newContent) {
         editor.commands.setContent(newContent);
       }
     }
@@ -84,7 +108,11 @@ export function InlineText({
   }, [editor]);
 
   if (!onUpdate) {
-    return <Tag className={className} style={style}>{value}</Tag>;
+    return (
+      <Tag className={className} style={{ whiteSpace: "pre-line", ...style }}>
+        {value}
+      </Tag>
+    );
   }
 
   if (isEditing) {
@@ -99,7 +127,7 @@ export function InlineText({
           onBlur={() => setIsEditing(false)}
         />
         <span className="absolute -bottom-5 left-0 text-[9px] bg-primary text-primary-foreground px-1 rounded whitespace-nowrap z-50 pointer-events-none">
-          Enter or click outside to save
+          {multiline ? "Shift+Enter = new line, Enter = new paragraph" : "Enter or click outside to save"}
         </span>
       </span>
     );
@@ -111,7 +139,7 @@ export function InlineText({
         "cursor-text hover:outline-dashed hover:outline-2 hover:outline-primary/60 hover:outline-offset-1 rounded-sm transition-[outline]",
         className
       )}
-      style={style}
+      style={{ whiteSpace: "pre-line", ...style }}
       onClick={(e: React.MouseEvent) => {
         e.stopPropagation();
         setIsEditing(true);
