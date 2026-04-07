@@ -25,7 +25,9 @@ import {
   Play,
   Pause,
   X,
+  FlaskConical,
 } from "lucide-react";
+import { SendTestEmailModal } from "@/components/SendTestEmailModal";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,6 +152,9 @@ export default function SalesCampaignDetail() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
+
+  // Test email
+  const [showTestEmail, setShowTestEmail] = useState(false);
 
   // Sender settings
   const [senderName, setSenderName] = useState("Dandy");
@@ -442,6 +447,12 @@ export default function SalesCampaignDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {campaign?.template && (
+              <Button size="sm" variant="outline" onClick={() => setShowTestEmail(true)} className="gap-1.5" title="Send a test email to your inbox">
+                <FlaskConical className="w-3.5 h-3.5" />
+                Test
+              </Button>
+            )}
             {isDraft && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setShowSchedule(true)} className="gap-1.5">
@@ -768,6 +779,28 @@ export default function SalesCampaignDetail() {
           )}
         </Card>
       </div>
+
+      {/* Test email modal */}
+      {campaign?.template && (
+        <SendTestEmailModal
+          open={showTestEmail}
+          onClose={() => setShowTestEmail(false)}
+          subject={campaign.template.subject}
+          bodyHtml={campaign.template.bodyHtml || undefined}
+          bodyText={(!campaign.template.bodyHtml && campaign.template.bodyText) || undefined}
+          contacts={sends
+            .filter(s => s.contactId && s.email)
+            .map(s => ({
+              id: s.contactId,
+              firstName: s.contactFirst,
+              lastName: s.contactLast,
+              email: s.email,
+            }))}
+          senderName={senderName}
+          senderEmail={senderEmail}
+          replyTo={replyTo}
+        />
+      )}
     </SalesLayout>
   );
 }

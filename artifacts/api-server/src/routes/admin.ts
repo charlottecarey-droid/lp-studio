@@ -562,4 +562,38 @@ router.post("/superadmin/switch-tenant", requireAuth, async (req, res): Promise<
   }
 });
 
+// ─── POST /api/admin/invite-test ─────────────────────────────────────────────
+// Sends a preview of the invite email to the specified address so admins
+// can see what new members receive before adding them.
+router.post("/invite-test", async (req, res): Promise<void> => {
+  if (!req.authUser!.isAdmin) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const { to } = req.body ?? {};
+  if (!to) {
+    res.status(400).json({ error: "to is required" });
+    return;
+  }
+  try {
+    const tenantResult = await pool.query<{ name: string }>(
+      `SELECT name FROM tenants WHERE id = $1`,
+      [req.authUser!.tenantId],
+    );
+    const tenantName = tenantResult.rows[0]?.name ?? "Your Workspace";
+    await sendInviteEmail({
+      inviteeEmail: to,
+      inviterName: req.authUser!.name,
+      tenantName,
+      roleName: "Member",
+      isNewUser: true,
+      signInUrl: process.env["APP_URL"] ?? "https://app.lpstudio.ai",
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[admin] POST /invite-test error:", err);
+    res.status(500).json({ error: "Failed to send test email" });
+  }
+});
+
 export default router;

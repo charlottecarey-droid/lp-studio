@@ -25,7 +25,9 @@ import {
   MoreVertical,
   Copy,
   BarChart3,
+  FlaskConical,
 } from "lucide-react";
+import { SendTestEmailModal } from "@/components/SendTestEmailModal";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -277,6 +279,9 @@ function SingleSendTab() {
   // Template picker
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+
+  const [showTestEmail, setShowTestEmail] = useState(false);
+  const [testEmailBody, setTestEmailBody] = useState<{ html?: string; text?: string }>({});
 
   const editorRef = useRef<EmailEditorHandle>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -633,7 +638,22 @@ function SingleSendTab() {
               </pre>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const html = emailFormat === "styled" ? getFinalHtml() : undefined;
+                const text = emailFormat === "plain" ? bodyText : undefined;
+                setTestEmailBody({ html: html || undefined, text: text || undefined });
+                setShowTestEmail(true);
+              }}
+              disabled={!subject || !hasBody}
+              className="gap-2"
+              title="Send a test email to your inbox"
+            >
+              <FlaskConical className="w-4 h-4" />
+              Send Test
+            </Button>
             <Button
               onClick={handleSend}
               disabled={sending || !selectedContactId || !subject || !hasBody}
@@ -649,6 +669,24 @@ function SingleSendTab() {
           </div>
         </Card>
       )}
+
+      {/* Test email modal */}
+      <SendTestEmailModal
+        open={showTestEmail}
+        onClose={() => setShowTestEmail(false)}
+        subject={subject}
+        bodyHtml={testEmailBody.html}
+        bodyText={testEmailBody.text}
+        contacts={contacts.filter(c => c.email).map(c => ({
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+          email: c.email,
+        }))}
+        senderName={senderName}
+        senderEmail={senderEmail}
+        replyTo={replyTo}
+      />
     </div>
   );
 }
@@ -887,6 +925,8 @@ function TemplatesTab() {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  const [showTestEmail, setShowTestEmail] = useState(false);
+  const [testEmailBody, setTestEmailBody] = useState<{ html?: string; text?: string }>({});
 
   // Styled chrome options
   const [showBanner, setShowBanner] = useState(true);
@@ -1140,7 +1180,23 @@ function TemplatesTab() {
                 />
               )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!tplSubject || !hasBody}
+                  onClick={() => {
+                    const html = emailFormat === "styled" ? getFullStyledHTML() : undefined;
+                    const text = emailFormat === "plain" ? bodyText : undefined;
+                    setTestEmailBody({ html: html || undefined, text: text || undefined });
+                    setShowTestEmail(true);
+                  }}
+                  className="gap-1.5"
+                  title="Send a test email to your inbox"
+                >
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  Send Test
+                </Button>
                 <Button type="submit" disabled={saving || !name || !tplSubject} className="flex-1">
                   {saving ? "Saving…" : editId ? "Update Template" : "Save Template"}
                 </Button>
@@ -1151,6 +1207,15 @@ function TemplatesTab() {
                 )}
               </div>
             </form>
+
+            {/* Test email modal for template editor */}
+            <SendTestEmailModal
+              open={showTestEmail}
+              onClose={() => setShowTestEmail(false)}
+              subject={tplSubject}
+              bodyHtml={testEmailBody.html}
+              bodyText={testEmailBody.text}
+            />
           </Card>
 
           {/* Live preview panel (styled only) */}

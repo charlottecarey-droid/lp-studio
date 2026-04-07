@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UserPlus, Trash2, Shield, LayoutDashboard, TrendingUp, Megaphone } from "lucide-react";
+import { UserPlus, Trash2, Shield, LayoutDashboard, TrendingUp, Megaphone, FlaskConical, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 /* ── Permission key → area mapping ──────────────────────────────────── */
@@ -152,6 +152,40 @@ function TeamContent() {
   const [inviteArea, setInviteArea] = useState<"marketing" | "sales" | "both" | "">("");
   const [inviteRoleId, setInviteRoleId] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+
+  // Invite email test
+  const [inviteTestOpen, setInviteTestOpen] = useState(false);
+  const [inviteTestTo, setInviteTestTo] = useState(user?.email ?? "");
+  const [inviteTestSending, setInviteTestSending] = useState(false);
+  const [inviteTestSent, setInviteTestSent] = useState(false);
+
+  async function handleInviteTest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteTestTo) return;
+    setInviteTestSending(true);
+    try {
+      const res = await fetch("/api/admin/invite-test", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: inviteTestTo }),
+      });
+      if (res.ok) {
+        setInviteTestSent(true);
+        setTimeout(() => {
+          setInviteTestSent(false);
+          setInviteTestOpen(false);
+        }, 2500);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ title: (data as { error?: string }).error ?? "Failed to send test email", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Network error", variant: "destructive" });
+    } finally {
+      setInviteTestSending(false);
+    }
+  }
 
   async function loadData() {
     try {
@@ -534,6 +568,75 @@ function TeamContent() {
               })}
             </TableBody>
           </Table>
+        </Card>
+      )}
+
+      {/* Invite email section */}
+      {isAdmin && (
+        <Card className="p-5 rounded-2xl border border-border/60">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Invite email</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Preview the email that new members receive when you add them to the workspace.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 shrink-0"
+              onClick={() => { setInviteTestTo(user?.email ?? ""); setInviteTestOpen(true); }}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              Send preview
+            </Button>
+          </div>
+
+          {/* Inline dialog */}
+          <Dialog open={inviteTestOpen} onOpenChange={(open) => { setInviteTestOpen(open); if (!open) { setInviteTestSent(false); } }}>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-muted-foreground" />
+                  Preview invite email
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleInviteTest} className="space-y-4 pt-1">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Send a sample of the invite email to any address so you can see exactly what new members receive.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Send to</label>
+                  <Input
+                    type="email"
+                    value={inviteTestTo}
+                    onChange={(e) => setInviteTestTo(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    disabled={inviteTestSending || inviteTestSent || !inviteTestTo}
+                    className="flex-1 gap-2"
+                  >
+                    {inviteTestSending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : inviteTestSent ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <FlaskConical className="w-4 h-4" />
+                    )}
+                    {inviteTestSending ? "Sending…" : inviteTestSent ? "Sent!" : "Send preview"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setInviteTestOpen(false)} disabled={inviteTestSending}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </Card>
       )}
     </div>

@@ -819,4 +819,91 @@ router.post("/send-email", async (req, res): Promise<void> => {
   }
 });
 
+// ─── POST /sales/send-test-email ──────────────────────────────────────────
+// Sends a test email to the requester's inbox, applying merge variables from
+// a real contact record (if contactId provided) or using sample placeholder values.
+// Does NOT log a send record or create any signals.
+router.post("/send-test-email", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { to, subject, bodyHtml, bodyText, contactId, senderName, senderEmail, replyTo } = req.body;
+  if (!to || !subject || (!bodyHtml && !bodyText)) {
+    res.status(400).json({ error: "to, subject, and either bodyHtml or bodyText are required" });
+    return;
+  }
+
+  try {
+    const fromName = senderName ?? "Dandy";
+    const fromLocal = senderEmail ?? "partnerships";
+    const replyToAddress = replyTo ?? DEFAULT_REPLY_TO;
+
+    const host = `${req.protocol}://${req.get("host")}`;
+
+    // Build merge vars — use real contact data if contactId provided, otherwise sample values
+    let vars: Record<string, string> = {
+      "{{first_name}}": "Sarah",
+      "{{last_name}}": "Johnson",
+      "{{company}}": "Acme Dental",
+      "{{sender_name}}": fromName,
+      "{{email}}": to,
+      "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=PREVIEW`,
+      "{{microsite_url}}": "https://example.com/p/abc12345",
+    };
+
+    if (contactId) {
+      const [contact] = await db.select().from(salesContactsTable)
+        .where(eq(salesContactsTable.id, Number(contactId)));
+      if (contact) {
+        let companyName = "";
+        if (contact.accountId) {
+          const [account] = await db.select({ name: salesAccountsTable.name })
+            .from(salesAccountsTable)
+            .where(eq(salesAccountsTable.id, contact.accountId));
+          companyName = account?.name ?? "";
+        }
+        const [hotlink] = await db.select().from(salesHotlinksTable)
+          .where(eq(salesHotlinksTable.contactId, contact.id));
+        vars = {
+          "{{first_name}}": contact.firstName ?? "",
+          "{{last_name}}": contact.lastName ?? "",
+          "{{company}}": companyName,
+          "{{sender_name}}": fromName,
+          "{{email}}": contact.email ?? to,
+          "{{unsubscribe_url}}": `${host}/api/sales/unsubscribe?token=${makeUnsubToken(contact.id)}`,
+          "{{microsite_url}}": hotlink ? `${host}/p/${hotlink.token}` : "",
+        };
+      }
+    }
+
+    const renderedSubject = `[TEST] ${replaceVars(subject, vars)}`;
+    const htmlBody = bodyHtml
+      ? replaceVars(bodyHtml, vars)
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${replaceVars(bodyText, vars)}</div>`;
+    const textBody = bodyText ? replaceVars(bodyText, vars) : undefined;
+
+    const result = await sendViaResend({
+      from: `${fromName} <${fromLocal}@${SENDER_DOMAIN}>`,
+      reply_to: replyToAddress,
+      to: [to],
+      subject: renderedSubject,
+      html: htmlBody,
+      ...(textBody ? { text: textBody } : {}),
+    });
+
+    if (!result.ok) {
+      let userMessage = "Failed to send test email";
+      try {
+        const parsed = JSON.parse(result.error ?? "");
+        if (parsed.message) userMessage = parsed.message;
+      } catch { /* leave default */ }
+      res.status(500).json({ error: userMessage, detail: result.error });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "POST /sales/send-test-email error");
+    res.status(500).json({ error: "Failed to send test email" });
+  }
+});
+
 export default router;
