@@ -463,14 +463,34 @@ export default function SalesSignals() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground">
-                              {signal.contactName ?? "Anonymous"}{" "}
-                              <span className="text-muted-foreground font-normal">
-                                {getSignalLabel(signal.type).toLowerCase()}
-                              </span>
+                              {signal.type === "visitor_identified"
+                                ? (() => {
+                                    const m = signal.metadata as Record<string, string | undefined>;
+                                    const personName = [m.firstName, m.lastName].filter(Boolean).join(" ");
+                                    const company = signal.accountName ?? m.companyName ?? "Unknown company";
+                                    return personName
+                                      ? <>{personName} <span className="text-muted-foreground font-normal">· {company}</span></>
+                                      : <>{company}</>;
+                                  })()
+                                : <>{signal.contactName ?? "Anonymous"}{" "}<span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span></>
+                              }
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              {signal.accountName && <span className="font-medium text-muted-foreground">{signal.accountName}</span>}
-                              {signal.source && <><span className="text-border">·</span><span>{signal.source}</span></>}
+                              {signal.type === "visitor_identified"
+                                ? (() => {
+                                    const m = signal.metadata as Record<string, string | undefined>;
+                                    const slug = m.slug ?? (m.pageUrl ? m.pageUrl.split("/").filter(Boolean).pop() : null);
+                                    return <>
+                                      <span>Visited {slug ? <span className="font-mono text-[11px]">/{slug}</span> : "a page"}</span>
+                                      {signal.source && <><span className="text-border">·</span><span className="capitalize">{signal.source}</span></>}
+                                      {m.linkedinUrl && <><span className="text-border">·</span><a href={m.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" onClick={e => e.stopPropagation()}>LinkedIn</a></>}
+                                    </>;
+                                  })()
+                                : <>
+                                    {signal.accountName && <span className="font-medium text-muted-foreground">{signal.accountName}</span>}
+                                    {signal.source && <><span className="text-border">·</span><span>{signal.source}</span></>}
+                                  </>
+                              }
                             </div>
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0 ml-2">

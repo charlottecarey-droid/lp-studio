@@ -10,6 +10,7 @@ import {
   MousePointerClick,
   FileText,
   Send,
+  UserSearch,
 } from "lucide-react";
 
 export const SIGNAL_TYPES = [
@@ -19,6 +20,7 @@ export const SIGNAL_TYPES = [
   "email_sent",
   "email_replied",
   "form_submit",
+  "visitor_identified",
 ] as const;
 
 export type SignalType = (typeof SIGNAL_TYPES)[number];
@@ -27,12 +29,13 @@ const SIGNAL_CONFIG: Record<
   string,
   { label: string; Icon: typeof Activity; color: string }
 > = {
-  page_view:      { label: "Page view",    Icon: Eye,               color: "text-blue-500" },
-  email_open:     { label: "Email open",   Icon: Mail,              color: "text-emerald-500" },
-  email_click:    { label: "Email click",  Icon: MousePointerClick, color: "text-amber-500" },
-  form_submit:    { label: "Form submit",  Icon: FileText,          color: "text-violet-500" },
-  email_sent:     { label: "Email sent",   Icon: Send,              color: "text-primary" },
-  email_replied:  { label: "Email reply",  Icon: Mail,              color: "text-violet-500" },
+  page_view:           { label: "Page view",           Icon: Eye,               color: "text-blue-500" },
+  email_open:          { label: "Email open",          Icon: Mail,              color: "text-emerald-500" },
+  email_click:         { label: "Email click",         Icon: MousePointerClick, color: "text-amber-500" },
+  form_submit:         { label: "Form submit",         Icon: FileText,          color: "text-violet-500" },
+  email_sent:          { label: "Email sent",          Icon: Send,              color: "text-primary" },
+  email_replied:       { label: "Email reply",         Icon: Mail,              color: "text-violet-500" },
+  visitor_identified:  { label: "Visitor identified",  Icon: UserSearch,        color: "text-rose-500" },
 };
 
 const FALLBACK = { label: "", Icon: Activity, color: "text-muted-foreground" };

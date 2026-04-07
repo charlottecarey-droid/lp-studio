@@ -7,6 +7,7 @@ import salesRouter from "./sales";
 import videoRouter from "./video";
 import authRouter from "./auth";
 import adminRouter from "./admin";
+import webhooksRouter from "./webhooks";
 import { requireAuth } from "../middleware/requireAuth";
 
 const router: IRouter = Router();
@@ -22,6 +23,7 @@ const LP_PUBLIC = [
   /^\/lp\/personalized\//,   // personalized link tracking
   /^\/lp\/og-preview\//,    // GET /lp/og-preview/:slug — OG meta HTML for social bots
   /^\/sales\/resolve\//,     // GET /sales/resolve/:token — visited by contacts from email (no auth)
+  /^\/webhooks\//,           // POST /webhooks/rb2b, /webhooks/apollo — third-party visitor identification
 ];
 
 // Auth guard for /lp/* and /sales/* (applied before the routers)
@@ -43,5 +45,6 @@ router.use("/dso", dsoRouter);
 router.use("/sales", salesRouter);
 router.use(videoRouter);
 router.use("/admin", adminRouter);
+router.use("/webhooks", webhooksRouter);
 
 export default router;
