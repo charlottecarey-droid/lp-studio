@@ -244,7 +244,12 @@ export default function SalesOnePagerEditor() {
 
   // Pilot content — keyed by audience
   const [audienceContent, setAudienceContent] = useState(JSON.parse(JSON.stringify(defaultAudienceContent)));
-  const [audienceHeaderImages, setAudienceHeaderImages] = useState<Record<Audience, string | null>>({ executive: null, clinical: null, "practice-manager": null });
+  // Full per-audience header configs (every setting, including image, is independent per audience)
+  const [audienceHeaderCfgs, setAudienceHeaderCfgs] = useState<Record<Audience, HeaderConfig>>({
+    executive: { ...defaultHeaderConfig },
+    clinical: { ...defaultHeaderConfig },
+    "practice-manager": { ...defaultHeaderConfig },
+  });
 
   // Comparison content
   const [comparisonRows, setComparisonRows] = useState(JSON.parse(JSON.stringify(defaultComparisonRows)));
@@ -285,47 +290,55 @@ export default function SalesOnePagerEditor() {
   // ── Load saved defaults on mount + template switch ────────────────
   const loadDefaults = useCallback(async (tmpl: EditorTemplate) => {
     if (tmpl === "pilot") {
-      // Load shared pilot configs (header/team/footer/content)
-      const shared = await loadLayoutDefault("dandy_pilot_template_layout");
-      if (shared) {
-        if (shared.headerCfg) setHeaderCfg(p => ({ ...p, ...shared.headerCfg }));
-        if (shared.teamCfg) setTeamCfg(p => ({ ...p, ...shared.teamCfg }));
-        if (shared.footerCfg) setFooterCfg(p => ({ ...p, ...shared.footerCfg }));
-        if (shared.audienceHeaderImages) {
-          setAudienceHeaderImages(p => ({ ...p, ...shared.audienceHeaderImages }));
-          const img = shared.audienceHeaderImages[audience];
-          if (img !== undefined) setHeaderCfg(p => ({ ...p, headerImage: img }));
-        }
-        if (shared.audienceContent) setAudienceContent((p: typeof defaultAudienceContent) => ({ ...p, ...shared.audienceContent }));
-        // Legacy: bodyCfg in shared key → seed all three audiences
-        if (shared.bodyCfg) {
-          setAudienceBodyCfgs({
-            executive: { ...defaultBodyConfig, ...shared.bodyCfg },
-            clinical: { ...defaultBodyConfig, ...shared.bodyCfg },
-            "practice-manager": { ...defaultBodyConfig, ...shared.bodyCfg },
-          });
-        }
-      }
-      // Load per-audience body configs
       const audienceKeyMap: Record<Audience, string> = {
         executive: "dandy_pilot_executive_layout",
         clinical: "dandy_pilot_clinical_layout",
         "practice-manager": "dandy_pilot_practicemgr_layout",
+      };
+      // Load shared pilot key (team, footer, content; headerCfg kept for backward compat)
+      const shared = await loadLayoutDefault("dandy_pilot_template_layout");
+      const sharedData = shared ?? {};
+      if (sharedData.teamCfg) setTeamCfg(p => ({ ...p, ...sharedData.teamCfg }));
+      if (sharedData.footerCfg) setFooterCfg(p => ({ ...p, ...sharedData.footerCfg }));
+      if (sharedData.audienceContent) setAudienceContent((p: typeof defaultAudienceContent) => ({ ...p, ...sharedData.audienceContent }));
+      // Legacy: bodyCfg in shared key → seed all three audiences
+      if (sharedData.bodyCfg) {
+        setAudienceBodyCfgs({
+          executive: { ...defaultBodyConfig, ...sharedData.bodyCfg },
+          clinical: { ...defaultBodyConfig, ...sharedData.bodyCfg },
+          "practice-manager": { ...defaultBodyConfig, ...sharedData.bodyCfg },
+        });
+      }
+
+      // Load per-audience configs (headerCfg + bodyCfg) from each audience key
+      const legacyImages = (sharedData.audienceHeaderImages ?? {}) as Record<string, string | null>;
+      const sharedHeaderBase = (sharedData.headerCfg ?? {}) as Partial<HeaderConfig>;
+      const newHeaderCfgs: Record<Audience, HeaderConfig> = {
+        executive: { ...defaultHeaderConfig, ...sharedHeaderBase },
+        clinical: { ...defaultHeaderConfig, ...sharedHeaderBase },
+        "practice-manager": { ...defaultHeaderConfig, ...sharedHeaderBase },
       };
       const newBodyCfgs: Record<Audience, BodyConfig> = {
         executive: { ...defaultBodyConfig },
         clinical: { ...defaultBodyConfig },
         "practice-manager": { ...defaultBodyConfig },
       };
-      let anyAudienceSaved = false;
       for (const aud of (["executive", "clinical", "practice-manager"] as Audience[])) {
         const saved = await loadLayoutDefault(audienceKeyMap[aud]);
+        if (saved?.headerCfg) {
+          newHeaderCfgs[aud] = { ...defaultHeaderConfig, ...sharedHeaderBase, ...saved.headerCfg as Partial<HeaderConfig> };
+        } else if (legacyImages[aud] !== undefined) {
+          // Backward compat: old saves stored image in shared audienceHeaderImages
+          newHeaderCfgs[aud] = { ...newHeaderCfgs[aud], headerImage: legacyImages[aud] };
+        }
         if (saved?.bodyCfg) {
           newBodyCfgs[aud] = { ...defaultBodyConfig, ...saved.bodyCfg };
-          anyAudienceSaved = true;
         }
       }
-      if (anyAudienceSaved) setAudienceBodyCfgs(newBodyCfgs);
+      setAudienceHeaderCfgs(newHeaderCfgs);
+      setAudienceBodyCfgs(newBodyCfgs);
+      // Apply current audience's headerCfg to the live headerCfg state
+      setHeaderCfg(newHeaderCfgs[audience]);
       return;
     }
 
@@ -374,12 +387,12 @@ export default function SalesOnePagerEditor() {
 
   useEffect(() => { loadDefaults(editorTemplate); }, [editorTemplate]);
 
-  // When audience changes in pilot, restore that audience's header image
+  // When audience changes in pilot, save/restore the full per-audience headerCfg
   const switchAudience = (a: Audience) => {
-    // Save current header image to the current audience slot
-    setAudienceHeaderImages(p => ({ ...p, [audience]: headerCfg.headerImage }));
-    // Restore the new audience's header image
-    setHeaderCfg(p => ({ ...p, headerImage: audienceHeaderImages[a] }));
+    // Snapshot current headerCfg into the current audience's slot
+    setAudienceHeaderCfgs(p => ({ ...p, [audience]: headerCfg }));
+    // Load the target audience's headerCfg (already in state from loadDefaults)
+    setHeaderCfg(audienceHeaderCfgs[a]);
     setAudience(a);
   };
 
@@ -435,19 +448,26 @@ export default function SalesOnePagerEditor() {
     setSaving(true);
     try {
       if (editorTemplate === "pilot") {
-        const finalImages = { ...audienceHeaderImages, [audience]: headerCfg.headerImage };
-        // Save shared configs (header/team/footer/content) to shared key
-        await saveLayoutDefault("dandy_pilot_template_layout", {
-          headerCfg, teamCfg, footerCfg, audienceHeaderImages: finalImages, audienceContent,
-        });
-        // Save ALL three audiences' bodyCfg to their own keys so each persists independently
+        // Capture the current audience's live headerCfg into the per-audience map
+        const allHeaderCfgs = { ...audienceHeaderCfgs, [audience]: headerCfg };
         const audienceKeyMap: Record<Audience, string> = {
           executive: "dandy_pilot_executive_layout",
           clinical: "dandy_pilot_clinical_layout",
           "practice-manager": "dandy_pilot_practicemgr_layout",
         };
+        // Save shared data (team, footer, content) + backward-compat audienceHeaderImages
+        await saveLayoutDefault("dandy_pilot_template_layout", {
+          teamCfg, footerCfg, audienceContent,
+          audienceHeaderImages: Object.fromEntries(
+            (["executive", "clinical", "practice-manager"] as Audience[]).map(a => [a, allHeaderCfgs[a].headerImage])
+          ),
+        });
+        // Save ALL three audiences' full headerCfg + bodyCfg to their own keys
         await Promise.all((["executive", "clinical", "practice-manager"] as Audience[]).map(aud =>
-          saveLayoutDefault(audienceKeyMap[aud], { bodyCfg: audienceBodyCfgs[aud] })
+          saveLayoutDefault(audienceKeyMap[aud], {
+            headerCfg: allHeaderCfgs[aud],
+            bodyCfg: audienceBodyCfgs[aud],
+          })
         ));
       } else if (editorTemplate === "comparison") {
         await saveLayoutDefault("dandy_comparison_template_layout", {
@@ -593,13 +613,16 @@ export default function SalesOnePagerEditor() {
           {/* Toolbar */}
           <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
             {editorTemplate === "pilot" && (
-              <div className="inline-flex rounded-full border border-border overflow-hidden">
-                {(["executive", "clinical", "practice-manager"] as Audience[]).map(a => (
-                  <button key={a} onClick={() => switchAudience(a)}
-                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${audience === a ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
-                    {a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1)}
-                  </button>
-                ))}
+              <div className="flex flex-col items-center gap-1">
+                <div className="inline-flex rounded-full border border-border overflow-hidden">
+                  {(["executive", "clinical", "practice-manager"] as Audience[]).map(a => (
+                    <button key={a} onClick={() => switchAudience(a)}
+                      className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${audience === a ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
+                      {a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10px] text-muted-foreground">All settings below are saved independently per audience</span>
               </div>
             )}
             <button onClick={handleReset} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">

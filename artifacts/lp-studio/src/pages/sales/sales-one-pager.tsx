@@ -192,12 +192,16 @@ export const generatePilotOnePager = async (
       ...sharedData,
       // audience-specific bodyCfg takes precedence over any bodyCfg in the shared key
       ...(audienceData?.bodyCfg ? { bodyCfg: audienceData.bodyCfg } : {}),
-      // Merge saved per-audience image into headerCfg (only if not overridden in headerCfg itself)
+      // audience-specific headerCfg merges on top of shared headerCfg
+      // Priority (highest → lowest): per-audience headerCfg > legacy audienceHeaderImages > shared headerCfg
       headerCfg: {
         ...(sharedData.headerCfg as Record<string, unknown> ?? {}),
-        ...(savedAudienceImg !== null && !(sharedData.headerCfg as Record<string, unknown> | undefined)?.headerImage
+        // backward compat: old saves stored image-only in audienceHeaderImages
+        ...(savedAudienceImg !== null && !audienceData?.headerCfg
           ? { headerImage: savedAudienceImg }
           : {}),
+        // per-audience headerCfg overrides everything (most specific)
+        ...(audienceData?.headerCfg as Record<string, unknown> ?? {}),
       },
     };
   }
