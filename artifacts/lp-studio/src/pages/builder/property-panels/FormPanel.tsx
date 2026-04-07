@@ -568,6 +568,30 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <Input value={props.submitButtonText} onChange={e => set("submitButtonText", e.target.value)} className="text-sm" />
         </div>
         <div>
+          <Label className={LABEL_CLS}>Button Color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={props.submitButtonColor || "#C7E738"}
+              onChange={e => set("submitButtonColor", e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
+            />
+            <Input
+              value={props.submitButtonColor ?? ""}
+              onChange={e => set("submitButtonColor", e.target.value || undefined)}
+              placeholder="e.g. #C7E738"
+              className="h-8 text-xs font-mono flex-1"
+              maxLength={7}
+            />
+            {props.submitButtonColor && (
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => set("submitButtonColor", undefined)}>
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Defaults to brand accent color. Clear to reset.</p>
+        </div>
+        <div>
           <Label className={LABEL_CLS}>Button Text Color</Label>
           <div className="flex items-center gap-2">
             <input
@@ -579,7 +603,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
             <Input
               value={props.submitButtonTextColor ?? ""}
               onChange={e => set("submitButtonTextColor", e.target.value || undefined)}
-              placeholder="e.g. #003A30"
+              placeholder="e.g. #ffffff"
               className="h-8 text-xs font-mono flex-1"
               maxLength={7}
             />
@@ -589,7 +613,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
               </Button>
             )}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">Defaults to dark green on light, dark on dark backgrounds.</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Defaults to dark on light backgrounds, near-black on dark. Clear to reset.</p>
         </div>
         <div>
           <Label className={LABEL_CLS}>Success Message</Label>

@@ -308,7 +308,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     }
   };
 
-  const accentColor = brand.primaryColor || "#C7E738";
+  const accentColor = props.submitButtonColor || brand.primaryColor || "#C7E738";
 
   const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
 
