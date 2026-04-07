@@ -1,5 +1,8 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
+import headerImgExecutiveUrl from "@/assets/ai-scan-review-news.jpg";
+import headerImgClinicalUrl from "@/assets/ai-scan-review-clinical.png";
+import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
   FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2
@@ -123,9 +126,9 @@ type LPAudienceContent = AudienceContent & { headerImage: string };
 // IMAGE URLS
 // =============================================
 
-const headerImgExecutive = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200&q=80";
-const headerImgClinical = "https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=1200&q=80";
-const headerImgPracticeManager = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200&q=80";
+const headerImgExecutive = headerImgExecutiveUrl;
+const headerImgClinical = headerImgClinicalUrl;
+const headerImgPracticeManager = headerImgPracticeManagerUrl;
 const dandyLogoWhite = dandyLogoWhiteUrl;
 
 // =============================================

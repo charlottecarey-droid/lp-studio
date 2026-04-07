@@ -663,31 +663,32 @@ export const generateNewPartnerOnePager = async (
     doc.rect(splitX, 0, w - splitX, headerH, "F");
   }
 
-  drawDandyLogo(doc, w - margin - 160, 30, logoPng, 70, 24);
+  drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
 
-  const logoSepX = w - margin - 82;
+  const logoSepX = margin + 78;
   if (prospectLogoData) {
     doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
-    doc.line(logoSepX, 28, logoSepX, 56);
+    doc.line(logoSepX, 20, logoSepX, 50);
     try {
       const maxW = 70, maxH = 26;
       const ratio = Math.min(maxW / prospectLogoDims.w, maxH / prospectLogoDims.h);
       const lw = prospectLogoDims.w * ratio;
       const lh = prospectLogoDims.h * ratio;
-      doc.addImage(prospectLogoData, "PNG", logoSepX + 8, 42 - lh / 2, lw, lh);
+      const format = prospectLogoData.startsWith("data:image/png") ? "PNG" : "JPEG";
+      doc.addImage(prospectLogoData, format, logoSepX + 10, 35 - lh / 2, lw, lh);
     } catch { }
   } else if (dsoName) {
     doc.setDrawColor(180, 210, 195); doc.setLineWidth(0.75);
-    doc.line(logoSepX, 28, logoSepX, 56);
+    doc.line(logoSepX, 20, logoSepX, 50);
     doc.setFont("helvetica", "italic"); doc.setFontSize(10); doc.setTextColor(...white);
-    doc.text(dsoName, logoSepX + 8, 46);
+    doc.text(dsoName, logoSepX + 10, 38);
   }
 
-  doc.setFont("helvetica", "italic"); doc.setFontSize(16); doc.setTextColor(200, 215, 210);
-  doc.text(`Dandy & ${dsoName}:`, margin, 100);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(30); doc.setTextColor(...white);
-  const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 20);
-  doc.text(titleLines, margin, 135);
+  doc.setFont("helvetica", "italic"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 14); doc.setTextColor(200, 215, 210);
+  doc.text(`Dandy & ${dsoName}:`, margin, 72);
+  doc.setFont("helvetica", "bold"); doc.setFontSize((hCfg.titleFontSize as number | undefined) ?? 22); doc.setTextColor(...white);
+  const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
+  doc.text(titleLines, margin, 92);
 
   let y = headerH + 40;
 
@@ -718,7 +719,8 @@ export const generateNewPartnerOnePager = async (
       doc.setFillColor(...cardBorderColor); doc.roundedRect(cx, cy, cardBorderW, cardH, 2, 0, "F");
       if (idx === 3) {
         doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...textDark);
-        doc.text("Learn more about the\nDandy experience \u2192", cx + 16, cy + 30);
+        doc.text("Learn more about the", cx + 16, cy + 28);
+        doc.text("Dandy experience", cx + 16, cy + 42);
         try {
           const QRCode = (await import("qrcode")).default;
           const qrDataUrl: string = await QRCode.toDataURL(savedQrUrl || "https://meetdandy.com", { width: 400, margin: 1 });

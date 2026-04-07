@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import headerImgExecutiveFallback from "@/assets/ai-scan-review-news.jpg";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, Upload, X, FileDown, Loader2, RotateCcw,
@@ -414,7 +415,7 @@ export default function SalesOnePagerEditor() {
           doc = await generatePilotOnePager(
             dsoName, audience, teamContacts, phoneNumber,
             prospectLogoData, prospectLogoDims,
-            { ...content, headerImage: content.headerImage ?? "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200&q=80" },
+            { ...content, headerImage: content.headerImage ?? headerImgExecutiveFallback },
             customLinkText, customLinkUrl, override,
           );
         } else if (editorTemplate === "comparison") {
