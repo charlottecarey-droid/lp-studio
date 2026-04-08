@@ -571,6 +571,10 @@ export interface DsoCaseStudyBlockProps {
   resultsBackgroundStyle?: BackgroundStyle;
   whyItMatters?: DsoCaseStudyBodySection;
   backgroundStyle?: BackgroundStyle;
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaVariant?: "primary" | "secondary" | "link";
+  ctaMode?: CtaMode;
 }
 
 export interface DsoInsightsVideoBlockProps {

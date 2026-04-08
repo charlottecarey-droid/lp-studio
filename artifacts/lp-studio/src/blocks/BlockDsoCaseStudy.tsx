@@ -3,6 +3,7 @@ import { motion, useInView } from "framer-motion";
 import type { DsoCaseStudyBlockProps, DsoCaseStudyBodySection, DsoCaseStudyResultItem } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
   props: DsoCaseStudyBlockProps;
@@ -235,6 +236,37 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
               onUpdateImage={upd ? (v) => updSection("whyItMatters", "imageUrl", v) : undefined}
             />
           </div>
+
+          {/* ── CTA ──────────────────────────────────────────────── */}
+          {props.ctaText && props.ctaUrl && (() => {
+            const variant = props.ctaVariant ?? "primary";
+            const dark = resultsDark;
+            const btnStyle: React.CSSProperties =
+              variant === "primary"
+                ? { display: "inline-flex", alignItems: "center", gap: "0.5rem", background: AW, color: FG, fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "0.9375rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", textDecoration: "none", cursor: "pointer", border: "none" }
+                : variant === "secondary"
+                ? { display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "transparent", color: dark ? "#fff" : FG, fontFamily: DISPLAY_FONT, fontWeight: 600, fontSize: "0.9375rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", textDecoration: "none", cursor: "pointer", border: `2px solid ${dark ? "rgba(255,255,255,0.4)" : FG}` }
+                : { display: "inline-flex", alignItems: "center", gap: "0.375rem", background: "none", color: dark ? AW : FG, fontFamily: DISPLAY_FONT, fontWeight: 600, fontSize: "1rem", textDecoration: "none", cursor: "pointer", border: "none", padding: 0 };
+
+            return (
+              <div style={{ marginTop: "3rem", textAlign: "center" }}>
+                {props.ctaMode === "chilipiper" ? (
+                  <ChiliPiperButton url={props.ctaUrl!} style={btnStyle}>
+                    {props.ctaText}{variant === "link" && " →"}
+                  </ChiliPiperButton>
+                ) : (
+                  <motion.a
+                    href={props.ctaUrl}
+                    style={btnStyle}
+                    whileHover={{ scale: 1.04, y: -1 }}
+                    whileTap={{ scale: 0.96 }}
+                  >
+                    {props.ctaText}{variant === "link" && " →"}
+                  </motion.a>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </section>
     </>

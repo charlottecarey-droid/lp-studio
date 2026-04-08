@@ -3509,6 +3509,28 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <ImagePicker value={p.whyItMatters?.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, whyItMatters: { heading: p.whyItMatters?.heading ?? "Why It Matters", body: p.whyItMatters?.body ?? "", imageUrl: v || undefined } } })} />
               </div>
             </div>
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">CTA Button</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button Text</Label>
+                <Input value={p.ctaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaText: e.target.value || undefined } })} className="h-8 text-xs" placeholder="e.g. Book a Demo" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Button URL</Label>
+                <Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} className="h-8 text-xs" placeholder="https://..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Style</Label>
+                <Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="primary" className="text-xs">Button</SelectItem>
+                    <SelectItem value="secondary" className="text-xs">Outline</SelectItem>
+                    <SelectItem value="link" className="text-xs">Link →</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         );
       }
