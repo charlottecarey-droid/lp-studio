@@ -465,12 +465,14 @@ export default function SalesSignals() {
                             <p className="text-sm font-medium text-foreground">
                               {signal.type === "visitor_identified"
                                 ? (() => {
-                                    const m = signal.metadata as Record<string, string | undefined>;
+                                    const m = (signal.metadata ?? {}) as Record<string, string | undefined>;
                                     const personName = [m.firstName, m.lastName].filter(Boolean).join(" ");
-                                    const company = signal.accountName ?? m.companyName ?? "Unknown company";
+                                    const company = signal.accountName || m.companyName || "";
                                     return personName
-                                      ? <>{personName} <span className="text-muted-foreground font-normal">· {company}</span></>
-                                      : <>{company}</>;
+                                      ? <>{personName}{company && <span className="text-muted-foreground font-normal"> · {company}</span>}</>
+                                      : company
+                                        ? <>{company}</>
+                                        : <span className="text-muted-foreground font-normal">Unknown visitor</span>;
                                   })()
                                 : <>{signal.contactName ?? "Anonymous"}{" "}<span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span></>
                               }

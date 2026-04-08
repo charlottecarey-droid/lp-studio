@@ -103,17 +103,30 @@ async function findContact(
  */
 router.post("/rb2b", async (req, res): Promise<void> => {
   try {
+    // RB2B fires for every visit; only populate identity when they match someone.
+    // Log the raw body so we can inspect the payload format if needed.
+    console.log("[rb2b] raw body:", JSON.stringify(req.body));
+
     const props = req.body?.properties ?? req.body ?? {};
 
-    const linkedinUrl: string | null = props.linkedInUrl ?? props.linkedin_url ?? null;
-    const email: string | null       = props.email ?? null;
-    const firstName: string          = props.firstName ?? props.first_name ?? "";
-    const lastName: string           = props.lastName ?? props.last_name ?? "";
-    const title: string              = props.title ?? "";
-    const companyName: string        = props.companyName ?? props.company_name ?? "";
+    const linkedinUrl: string | null   = props.linkedInUrl || props.linkedin_url || null;
+    const email: string | null         = props.email || null;
+    const firstName: string            = props.firstName || props.first_name || "";
+    const lastName: string             = props.lastName || props.last_name || "";
+    const title: string                = props.title || "";
+    const companyName: string          = props.companyName || props.company_name || "";
     const companyDomain: string | null = normaliseDomain(props.companyDomain ?? props.company_domain);
-    const pageUrl: string | null     = props.pageUrl ?? props.page_url ?? null;
-    const slug                       = slugFromUrl(pageUrl ?? undefined);
+    const pageUrl: string | null       = props.pageUrl || props.page_url || null;
+    const slug                         = slugFromUrl(pageUrl ?? undefined);
+
+    // Skip signals where RB2B couldn't identify anyone and has no page context.
+    const hasIdentity = firstName || lastName || companyName || linkedinUrl || email;
+    const hasContext  = pageUrl || slug;
+    if (!hasIdentity && !hasContext) {
+      console.log("[rb2b] skipping — no identity or page context in payload");
+      res.status(200).json({ ok: true, skipped: true });
+      return;
+    }
 
     const [accountId, contactId] = await Promise.all([
       findAccountByDomain(companyDomain),
