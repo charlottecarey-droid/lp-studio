@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
   BarChart3,
   Wand2,
   FileText,
+  Upload,
+  Download,
 } from "lucide-react";
 
 const API_BASE = "/api";
@@ -87,6 +89,57 @@ export default function ProgrammaticPages() {
   ]);
   const [generating, setGenerating] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const csvFileRef = useRef<HTMLInputElement>(null);
+
+  // ─── CSV upload ───────────────────────────────────────────────────
+  function parseCsvText(text: string): { slug: string; variables: Record<string, string> }[] {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row.");
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    if (!headers.includes("slug")) throw new Error("CSV must have a 'slug' column.");
+    return lines.slice(1).map(line => {
+      const vals = line.split(",").map(v => v.trim().replace(/^"(.*)"$/, "$1"));
+      const row: { slug: string; variables: Record<string, string> } = { slug: "", variables: {} };
+      headers.forEach((h, i) => {
+        if (h === "slug") row.slug = vals[i] || "";
+        else row.variables[h] = vals[i] || "";
+      });
+      return row;
+    }).filter(r => r.slug.trim());
+  }
+
+  function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvError(null);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const rows = parseCsvText(ev.target?.result as string);
+        if (rows.length === 0) throw new Error("No valid rows found in CSV.");
+        setBulkRows(rows);
+        setBulkResult(null);
+      } catch (err) {
+        setCsvError(err instanceof Error ? err.message : "Failed to parse CSV.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  function downloadCsvTemplate() {
+    const headers = ["slug", ...templateVarNames];
+    const exampleRow = ["example-slug", ...templateVarNames.map(v => `example_${v}`)];
+    const csv = [headers.join(","), exampleRow.join(",")].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bulk-pages-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // ─── Load pages ──────────────────────────────────────────────────
   useEffect(() => {
@@ -439,10 +492,30 @@ export default function ProgrammaticPages() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-sm font-medium text-slate-700">Pages to Generate</label>
-                          <Button size="sm" variant="outline" onClick={addBulkRow} className="gap-1">
-                            <Plus className="w-3 h-3" /> Add Row
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={downloadCsvTemplate} className="gap-1" title="Download CSV template">
+                              <Download className="w-3 h-3" /> CSV Template
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => csvFileRef.current?.click()} className="gap-1">
+                              <Upload className="w-3 h-3" /> Upload CSV
+                            </Button>
+                            <input
+                              ref={csvFileRef}
+                              type="file"
+                              accept=".csv,text/csv"
+                              className="hidden"
+                              onChange={handleCsvUpload}
+                            />
+                            <Button size="sm" variant="outline" onClick={addBulkRow} className="gap-1">
+                              <Plus className="w-3 h-3" /> Add Row
+                            </Button>
+                          </div>
                         </div>
+                        {csvError && (
+                          <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" /> {csvError}
+                          </div>
+                        )}
 
                         <div className="overflow-x-auto border rounded-lg">
                           <table className="w-full text-sm">
