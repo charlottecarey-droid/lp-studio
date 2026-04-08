@@ -19,6 +19,7 @@ import {
   FileText,
   Wrench,
   LayoutTemplate,
+  BookOpen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -223,6 +224,12 @@ export function SalesTopNav() {
       icon: <LayoutTemplate className="w-4 h-4" />,
       permission: "sales_accounts",
       matchFn: (loc) => loc === "/sales/marketplace",
+    },
+    {
+      label: "User Guide",
+      href: "/sales/guide",
+      icon: <BookOpen className="w-4 h-4" />,
+      matchFn: (loc) => loc === "/sales/guide",
     },
   ];
 

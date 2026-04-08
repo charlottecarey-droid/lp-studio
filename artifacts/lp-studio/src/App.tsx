@@ -130,6 +130,7 @@ const SalesOnePager = lazy(() => import("@/pages/sales/sales-one-pager"));
 const SalesOnePagerEditor = lazy(() => import("@/pages/sales/sales-one-pager-editor"));
 const SalesOnePagerTemplates = lazy(() => import("@/pages/sales/sales-one-pager-templates"));
 const SalesMarketplace = lazy(() => import("@/pages/sales/sales-marketplace"));
+const SalesGuide = lazy(() => import("@/pages/sales/sales-guide"));
 
 // New feature pages
 const TemplateMarketplace = lazy(() => import("@/pages/template-marketplace"));
@@ -243,6 +244,7 @@ function AppRouter() {
         <Route path="/sales/outreach">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOutreach /></PermRoute>}</Route>
         <Route path="/sales/signals">{() => <PermRoute perm="sales_signals" fallback="/"><SalesSignals /></PermRoute>}</Route>
         <Route path="/sales/roi-calculator">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesRoiCalculator /></PermRoute>}</Route>
+        <Route path="/sales/guide"><SalesGuide /></Route>
         <Route path="/sales/one-pager/editor">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePagerEditor /></PermRoute>}</Route>
         <Route path="/sales/one-pager">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesOnePager /></PermRoute>}</Route>
         <Route path="/sales/one-pager-templates">{() => <PermRoute perm="sales_campaigns" fallback="/sales"><SalesOnePagerTemplates /></PermRoute>}</Route>
