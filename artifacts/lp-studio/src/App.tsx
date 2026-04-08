@@ -93,6 +93,7 @@ function RouteErrorBoundaryWithReset({ children, locationKey }: { children: Reac
 // Lazy-loaded page components
 const Analytics = lazy(() => import("@/pages/analytics"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const PartnerHome = lazy(() => import("@/pages/partner-home"));
 const PersonalizedLinkResolver = lazy(() => import("@/pages/personalized-link-resolver"));
 const ThankYou = lazy(() => import("@/pages/thank-you"));
 
@@ -309,6 +310,8 @@ function AppShell() {
       <>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
+            {/* Root: branded holding page for direct visitors */}
+            <Route path="/" component={PartnerHome} />
             {/* Personalized token route — must come before /:slug catch-all */}
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             {/* Thank-you page after form submission */}
