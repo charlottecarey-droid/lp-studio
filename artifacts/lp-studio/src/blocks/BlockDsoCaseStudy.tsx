@@ -81,6 +81,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
   const quote       = props.quote       ?? DEFAULT_QUOTE;
   const results     = props.results     ?? DEFAULT_RESULTS;
   const whyItMatters = props.whyItMatters ?? DEFAULT_WHY;
+  const heroOnly    = props.heroOnly    ?? false;
 
   const upd = onFieldChange
     ? (patch: Partial<DsoCaseStudyBlockProps>) => onFieldChange({ ...props, ...patch })
@@ -191,7 +192,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
       </section>
 
       {/* ── Section 2: Body (Challenge + Solution + Quote) ──────────── */}
-      <section style={{ ...getBgStyle(bodyBg), position: "relative" }}>
+      {!heroOnly && <section style={{ ...getBgStyle(bodyBg), position: "relative" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem" }}>
           <BodySection
             section={challenge}
@@ -214,10 +215,10 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
             onUpdate={upd ? (v) => upd({ quote: v }) : undefined}
           />
         </div>
-      </section>
+      </section>}
 
       {/* ── Section 3: Results + Why It Matters ─────────────────────── */}
-      <section style={{ ...getBgStyle(resultsBg), position: "relative" }}>
+      {!heroOnly && <section style={{ ...getBgStyle(resultsBg), position: "relative" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem 5rem" }}>
           <ResultsGrid
             results={results}
@@ -268,7 +269,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
             );
           })()}
         </div>
-      </section>
+      </section>}
     </>
   );
 }

@@ -3458,6 +3458,18 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const p = block.props;
         return (
           <div className="space-y-4 p-4">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/40 border">
+              <div>
+                <p className="text-xs font-semibold text-foreground">Summary only</p>
+                <p className="text-[11px] text-muted-foreground">Show just the hero &amp; stats, hide the full case study</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, heroOnly: !p.heroOnly } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${p.heroOnly ? "bg-primary" : "bg-input"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform ${p.heroOnly ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
             <div className="space-y-2 pb-2 border-b">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Section Colors</p>
               <div className="space-y-1.5">

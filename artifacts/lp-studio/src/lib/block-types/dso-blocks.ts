@@ -563,6 +563,7 @@ export interface DsoCaseStudyBlockProps {
   headline?: string;
   subheadline?: string;
   stats?: { value: string; label: string }[];
+  heroOnly?: boolean;
   challenge?: DsoCaseStudyBodySection;
   solution?: DsoCaseStudyBodySection;
   quote?: string;
