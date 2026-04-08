@@ -893,15 +893,36 @@ export default function SalesDashboard() {
                             {getSignalIcon(signal.type, "w-4 h-4")}
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-xs font-medium text-foreground truncate leading-snug">
-                              {signal.contactName ?? signal.accountName ?? "Unknown"}{" "}
-                              <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
-                            </p>
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 overflow-hidden">
-                              {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
-                              <span className="text-border shrink-0">·</span>
-                              <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
-                            </div>
+                            {signal.type === "visitor_identified" ? (() => {
+                              const m = (signal.metadata ?? {}) as Record<string, string | undefined>;
+                              const personName = [m.firstName, m.lastName].filter(Boolean).join(" ");
+                              const company = signal.accountName ?? m.companyName ?? "";
+                              const title = m.title ?? "";
+                              const slug = m.slug ?? (m.pageUrl ? m.pageUrl.split("/").filter(Boolean).pop() : null);
+                              return <>
+                                <p className="text-xs font-medium text-foreground truncate leading-snug">
+                                  {personName || company || "Unknown visitor"}
+                                  {company && personName && <span className="text-muted-foreground font-normal"> · {company}</span>}
+                                </p>
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 overflow-hidden">
+                                  {title && <span className="truncate">{title}</span>}
+                                  {title && <span className="text-border shrink-0">·</span>}
+                                  {slug ? <span className="shrink-0">visited <span className="font-mono">/{slug}</span></span> : <span className="shrink-0">identified</span>}
+                                  <span className="text-border shrink-0">·</span>
+                                  <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
+                                </div>
+                              </>;
+                            })() : <>
+                              <p className="text-xs font-medium text-foreground truncate leading-snug">
+                                {signal.contactName ?? signal.accountName ?? "Unknown"}{" "}
+                                <span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span>
+                              </p>
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 overflow-hidden">
+                                {signal.accountName && <span className="font-medium truncate">{signal.accountName}</span>}
+                                <span className="text-border shrink-0">·</span>
+                                <span className="shrink-0">{formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}</span>
+                              </div>
+                            </>}
                           </div>
                         </Link>
                       ))}
