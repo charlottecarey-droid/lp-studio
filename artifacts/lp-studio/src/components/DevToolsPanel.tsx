@@ -242,7 +242,7 @@ function DevToolsInner({
       </AnimatePresence>
 
       {/* ── Floating trigger button ── */}
-      <div ref={panelRef} className="fixed bottom-5 right-5 z-[9998]">
+      <div ref={panelRef} className="fixed bottom-5 left-5 z-[9998]">
         <button
           onClick={() => setOpen(p => !p)}
           className={`
@@ -268,7 +268,7 @@ function DevToolsInner({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ duration: 0.18 }}
-              className="absolute bottom-12 right-0 w-[380px] rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
+              className="absolute bottom-12 left-0 w-[380px] rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
