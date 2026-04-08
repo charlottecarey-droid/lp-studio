@@ -1588,6 +1588,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   }}
                 />
               </div>
+              <div className="space-y-1.5 pt-2">
+                <Label className="text-[11px] text-slate-400">Stat value (overlay)</Label>
+                <Input value={p.statValue ?? "96%"} onChange={e => onChange({ ...block, props: { ...p, statValue: e.target.value } })} placeholder="96%" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-slate-400">Stat label (overlay)</Label>
+                <Input value={p.statLabel ?? "First-time right rate"} onChange={e => onChange({ ...block, props: { ...p, statLabel: e.target.value } })} placeholder="First-time right rate" className="h-8 text-xs" />
+              </div>
             </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">

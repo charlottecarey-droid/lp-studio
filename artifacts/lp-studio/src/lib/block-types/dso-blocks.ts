@@ -104,6 +104,8 @@ export interface DsoProblemBlockProps {
   body: string;
   panels: { icon: DsoProblemPanelIcon; title: string; desc: string }[];
   imageUrls?: string[];
+  statValue?: string;
+  statLabel?: string;
   backgroundStyle?: BackgroundStyle;
   ctaText?: string;
   ctaUrl?: string;

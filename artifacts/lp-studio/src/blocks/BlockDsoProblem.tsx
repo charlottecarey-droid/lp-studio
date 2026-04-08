@@ -53,6 +53,8 @@ export function BlockDsoProblem({ props }: Props) {
     body = "",
     panels,
     imageUrls = [],
+    statValue = "96%",
+    statLabel = "First-time right rate",
     backgroundStyle = "dandy-green",
     ctaText,
     ctaUrl,
@@ -185,8 +187,8 @@ export function BlockDsoProblem({ props }: Props) {
                 }}
               >
                 <div>
-                  <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.75rem", fontWeight: 700, color: "#fff", lineHeight: 1, letterSpacing: "-0.03em" }}>96%</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>First-time right rate</p>
+                  <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.75rem", fontWeight: 700, color: "#fff", lineHeight: 1, letterSpacing: "-0.03em" }}>{statValue}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>{statLabel}</p>
                 </div>
               </div>
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
