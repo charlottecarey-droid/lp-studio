@@ -44,7 +44,7 @@ async function seedDefaultRoles(client: any, tenantId: number): Promise<number> 
 // POST /api/admin/tenants — provision a new tenant
 // Protected by ADMIN_PASSWORD (not session auth — called before any user exists)
 router.post("/tenants", async (req, res): Promise<void> => {
-  const { adminPassword, name, slug, domain, adminEmail, plan } = req.body ?? {};
+  const { adminPassword, name, slug, domain, micrositeDomain, adminEmail, plan, copyBrandFromTenantId } = req.body ?? {};
 
   if (!process.env.ADMIN_PASSWORD) {
     res.status(503).json({ error: "Admin provisioning not configured" });
@@ -87,9 +87,9 @@ router.post("/tenants", async (req, res): Promise<void> => {
     await client.query("BEGIN");
 
     const tenantResult = await client.query(
-      `INSERT INTO tenants (name, slug, domain, plan, status)
-       VALUES ($1, $2, $3, $4, 'active') RETURNING *`,
-      [name.trim(), slugClean, domain ?? null, plan ?? "trial"]
+      `INSERT INTO tenants (name, slug, domain, microsite_domain, plan, status)
+       VALUES ($1, $2, $3, $4, $5, 'active') RETURNING *`,
+      [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "trial"]
     );
     const tenant = tenantResult.rows[0];
 
@@ -115,6 +115,21 @@ router.post("/tenants", async (req, res): Promise<void> => {
       `UPDATE app_users SET tenant_id = $1 WHERE id = $2 AND tenant_id IS NULL`,
       [tenant.id, user.id]
     );
+
+    // Copy brand settings from source tenant if requested
+    if (copyBrandFromTenantId) {
+      const brandRow = await client.query(
+        `SELECT config FROM lp_brand_settings WHERE tenant_id = $1 ORDER BY id DESC LIMIT 1`,
+        [copyBrandFromTenantId]
+      );
+      if (brandRow.rows.length > 0) {
+        await client.query(
+          `INSERT INTO lp_brand_settings (tenant_id, config) VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [tenant.id, JSON.stringify(brandRow.rows[0].config)]
+        );
+      }
+    }
 
     await client.query("COMMIT");
 

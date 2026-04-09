@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -9,7 +10,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
+  Plus, CheckCircle2, Copy, Check, Loader2,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -34,6 +52,7 @@ interface Tenant {
   name: string;
   slug: string;
   domain: string | null;
+  microsite_domain: string | null;
   plan: string;
   status: string;
   created_at: string;
@@ -74,6 +93,263 @@ function fmtDate(s: string | null) {
   if (!s) return "—";
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+// ── New Workspace Modal ───────────────────────────────────────────────────────
+
+interface ProvisionResult {
+  tenant: Tenant;
+  adminUser: { id: number; email: string };
+  message: string;
+}
+
+function NewWorkspaceModal({
+  open,
+  onClose,
+  adminKey,
+  tenants,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  adminKey: string;
+  tenants: Tenant[];
+  onCreated: () => void;
+}) {
+  const [name, setName]                     = useState("");
+  const [slug, setSlug]                     = useState("");
+  const [slugTouched, setSlugTouched]       = useState(false);
+  const [domain, setDomain]                 = useState("");
+  const [micrositeDomain, setMicrositeDomain] = useState("");
+  const [adminEmail, setAdminEmail]         = useState("");
+  const [plan, setPlan]                     = useState("trial");
+  const [copyFrom, setCopyFrom]             = useState("none");
+  const [submitting, setSubmitting]         = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [result, setResult]                 = useState<ProvisionResult | null>(null);
+  const [copied, setCopied]                 = useState(false);
+
+  const autoSlug = (n: string) =>
+    n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const handleNameChange = (v: string) => {
+    setName(v);
+    if (!slugTouched) setSlug(autoSlug(v));
+  };
+
+  const reset = () => {
+    setName(""); setSlug(""); setSlugTouched(false);
+    setDomain(""); setMicrositeDomain(""); setAdminEmail("");
+    setPlan("trial"); setCopyFrom("none");
+    setError(null); setResult(null); setCopied(false);
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const data = await fetch(`${BASE}/api/admin/tenants`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminPassword: adminKey,
+          name: name.trim(),
+          slug: slug.trim(),
+          domain: domain.trim() || undefined,
+          micrositeDomain: micrositeDomain.trim() || undefined,
+          adminEmail: adminEmail.trim(),
+          plan,
+          copyBrandFromTenantId: copyFrom !== "none" ? Number(copyFrom) : undefined,
+        }),
+      });
+      const json = await data.json();
+      if (!data.ok) throw new Error(json.error ?? "Unknown error");
+      setResult(json as ProvisionResult);
+      onCreated();
+    } catch (err: any) {
+      setError(err.message ?? "Failed to create workspace");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyInfo = () => {
+    if (!result) return;
+    const lines = [
+      `Workspace: ${result.tenant.name}`,
+      `Admin login: ${result.adminUser.email}`,
+      result.tenant.domain ? `App URL: https://${result.tenant.domain}` : null,
+      result.tenant.microsite_domain ? `Microsite URL: https://${result.tenant.microsite_domain}` : null,
+    ].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(lines);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-lg">
+        {result ? (
+          /* ── Success screen ── */
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-700">
+                <CheckCircle2 className="w-5 h-5" />
+                Workspace created
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 text-sm">
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                <Row label="Workspace" value={result.tenant.name} />
+                <Row label="Slug" value={result.tenant.slug} mono />
+                <Row label="Tenant ID" value={`#${result.tenant.id}`} mono />
+                <Row label="Admin login" value={result.adminUser.email} />
+                {result.tenant.domain && <Row label="App domain" value={result.tenant.domain} mono />}
+                {result.tenant.microsite_domain && <Row label="Microsite domain" value={result.tenant.microsite_domain} mono />}
+                <Row label="Plan" value={result.tenant.plan} />
+              </div>
+
+              {(result.tenant.domain || result.tenant.microsite_domain) && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+                  <p className="font-semibold text-amber-900 text-xs uppercase tracking-wide">DNS next steps</p>
+                  {result.tenant.domain && (
+                    <p className="text-amber-800 text-xs">Point <code className="font-mono">{result.tenant.domain}</code> → this deployment via Cloudflare or your DNS provider.</p>
+                  )}
+                  {result.tenant.microsite_domain && (
+                    <p className="text-amber-800 text-xs">Point <code className="font-mono">{result.tenant.microsite_domain}</code> → the same deployment for microsite pages.</p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-muted-foreground text-xs">
+                The admin user can sign in with Google using <strong>{result.adminUser.email}</strong> to access their workspace immediately.
+              </p>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={copyInfo} className="gap-1.5">
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "Copied" : "Copy details"}
+              </Button>
+              <Button size="sm" onClick={handleClose}>Done</Button>
+            </DialogFooter>
+          </>
+        ) : (
+          /* ── Creation form ── */
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>New Workspace</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs">Workspace name <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={name}
+                    onChange={e => handleNameChange(e.target.value)}
+                    placeholder="Acme Dental Group"
+                    required
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Slug <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={slug}
+                    onChange={e => { setSlug(e.target.value); setSlugTouched(true); }}
+                    placeholder="acme-dental"
+                    required
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Plan</Label>
+                  <Select value={plan} onValueChange={setPlan}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="pro">Pro</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">App domain <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    value={domain}
+                    onChange={e => setDomain(e.target.value)}
+                    placeholder="ent.theirdomain.com"
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Microsite domain <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    value={micrositeDomain}
+                    onChange={e => setMicrositeDomain(e.target.value)}
+                    placeholder="partners.theirdomain.com"
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs">Admin email <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="email"
+                    value={adminEmail}
+                    onChange={e => setAdminEmail(e.target.value)}
+                    placeholder="admin@theirdomain.com"
+                    required
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs">Copy brand settings from</Label>
+                  <Select value={copyFrom} onValueChange={setCopyFrom}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Start blank —</SelectItem>
+                      {tenants.map(t => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name} <span className="text-muted-foreground">#{t.id}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {copyFrom !== "none" && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Colors, fonts, brand voice, and logo will be copied. The new workspace can customize from there.
+                    </p>
+                  )}
+                </div>
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" size="sm" onClick={handleClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={submitting || !name || !slug || !adminEmail}>
+                {submitting ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Creating…</> : "Create Workspace"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className={`font-medium truncate text-right ${mono ? "font-mono text-xs" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+// ── Tenant Row ────────────────────────────────────────────────────────────────
 
 function TenantRow({
   tenant,
@@ -187,15 +463,15 @@ function TenantRow({
               </div>
 
               {/* Members */}
-              {loadingMembers && <p className="text-sm text-muted-foreground">Loading members…</p>}
-              {!loadingMembers && members?.length === 0 && (
-                <p className="text-sm text-muted-foreground">No members yet.</p>
+              {loadingMembers && <p className="text-xs text-muted-foreground">Loading members…</p>}
+              {members && members.length === 0 && (
+                <p className="text-xs text-muted-foreground">No members yet.</p>
               )}
-              {!loadingMembers && members && members.length > 0 && (
+              {members && members.length > 0 && (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-muted-foreground border-b">
-                      <th className="pb-1.5 font-medium">Name / Email</th>
+                    <tr className="text-xs text-muted-foreground text-left border-b">
+                      <th className="pb-1.5 font-medium">Member</th>
                       <th className="pb-1.5 font-medium">Role</th>
                       <th className="pb-1.5 font-medium">Status</th>
                       <th className="pb-1.5 font-medium">Last login</th>
@@ -236,6 +512,8 @@ function TenantRow({
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function SuperAdminPage() {
   const storedKey = sessionStorage.getItem("sa_key") ?? "";
   const [adminKey, setAdminKey] = useState(storedKey);
@@ -244,6 +522,7 @@ export default function SuperAdminPage() {
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   const fetchTenants = useCallback(async (key: string) => {
     setLoading(true);
@@ -267,7 +546,6 @@ export default function SuperAdminPage() {
     }
   }, []);
 
-  // Auto-login if key is stored
   useEffect(() => {
     if (storedKey) fetchTenants(storedKey);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -322,6 +600,10 @@ export default function SuperAdminPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              New Workspace
+            </Button>
             <Button size="sm" variant="outline" onClick={() => fetchTenants(adminKey)} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -368,6 +650,14 @@ export default function SuperAdminPage() {
           </Table>
         </div>
       </div>
+
+      <NewWorkspaceModal
+        open={showNewModal}
+        onClose={() => setShowNewModal(false)}
+        adminKey={adminKey}
+        tenants={tenants ?? []}
+        onCreated={() => fetchTenants(adminKey)}
+      />
     </div>
   );
 }
