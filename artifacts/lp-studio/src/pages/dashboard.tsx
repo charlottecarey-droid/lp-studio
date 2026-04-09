@@ -196,7 +196,7 @@ export default function Dashboard() {
                 : (() => { const liveCount = running.length + allPages.filter(p => p.status === "published").length; return `${liveCount} page${liveCount !== 1 ? "s" : ""} live · ${tests?.length ?? 0} total experiment${tests?.length !== 1 ? "s" : ""}`; })()}
             </p>
           </div>
-          <Link href="/pages/new" className="shrink-0">
+          <Link href="/pages?new=1" className="shrink-0">
             <Button size="sm" className="rounded-md font-medium text-[13px]">
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               New Page

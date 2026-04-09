@@ -500,7 +500,7 @@ function CreateTestFromPageModal({
 export default function PagesGallery() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(() => new URLSearchParams(window.location.search).get("new") === "1");
   const [createMode, setCreateMode] = useState<"template" | "ai" | "brief">("template");
   const [newTitle, setNewTitle] = useState("");
   const [newSlug, setNewSlug] = useState("");
