@@ -372,6 +372,9 @@ function TenantRow({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [domainEdit, setDomainEdit] = useState(tenant.domain ?? "");
   const [micrositeEdit, setMicrositeEdit] = useState(tenant.microsite_domain ?? "");
+
+  useEffect(() => { setDomainEdit(tenant.domain ?? ""); }, [tenant.domain]);
+  useEffect(() => { setMicrositeEdit(tenant.microsite_domain ?? ""); }, [tenant.microsite_domain]);
   const [savingDomains, setSavingDomains] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
   const [domainsSaved, setDomainsSaved] = useState(false);

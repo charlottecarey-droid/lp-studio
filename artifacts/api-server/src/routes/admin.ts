@@ -184,7 +184,7 @@ router.get("/superadmin/tenants", requireAdminKey, async (req, res): Promise<voi
   try {
     const result = await pool.query(`
       SELECT
-        t.id, t.name, t.slug, t.domain, t.plan, t.status, t.created_at,
+        t.id, t.name, t.slug, t.domain, t.microsite_domain, t.plan, t.status, t.created_at,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NOT NULL)::int AS member_count,
         COUNT(DISTINCT tm.id) FILTER (WHERE tm.accepted_at IS NULL)::int     AS pending_count,
         COUNT(DISTINCT p.id)::int AS page_count
