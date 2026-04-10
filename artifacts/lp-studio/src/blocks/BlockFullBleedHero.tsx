@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowRight } from "lucide-react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
@@ -35,6 +36,7 @@ function hexToRgbParts(hex: string): string {
 export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const LIME = brand.accentColor;
@@ -45,6 +47,14 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
     if (onCtaClick) { onCtaClick(); return; }
     if (isChiliPiper) { setCpOpen(true); return; }
     if (props.ctaUrl && props.ctaUrl !== "#") safeNavigate(props.ctaUrl, "_blank");
+  };
+
+  const toggleVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
   };
 
   // React does not reliably pass `muted` as a DOM attribute on <video>.
@@ -180,16 +190,19 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
       >
         {/* Video background — ref callback sets muted imperatively (React JSX muted prop is unreliable) */}
         {props.backgroundType === "video" && props.backgroundVideoUrl && (
-          <video
-            key={props.backgroundVideoUrl}
-            ref={attachVideo}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            src={props.backgroundVideoUrl}
-            autoPlay={props.videoAutoplay ?? true}
-            muted
-            loop
-            playsInline
-          />
+          <>
+            <video
+              key={props.backgroundVideoUrl}
+              ref={attachVideo}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              src={props.backgroundVideoUrl}
+              autoPlay={props.videoAutoplay ?? true}
+              muted
+              loop
+              playsInline
+            />
+            <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-4 right-4 z-20" />
+          </>
         )}
 
         {/* Dark overlay */}

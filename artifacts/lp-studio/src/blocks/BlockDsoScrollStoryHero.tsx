@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
 import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
@@ -73,6 +74,22 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [bgVideoMuted, setBgVideoMuted] = useState(true);
+
+  const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
+    bgVideoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+  }, []);
+
+  const toggleBgMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = bgVideoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setBgVideoMuted(el.muted);
+  };
 
   const sectionRef = useRef<HTMLElement>(null);
   const sectionInView = useInView(sectionRef, { margin: "-10%" });
@@ -285,12 +302,11 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
       {props.backgroundVideoUrl && (
         <>
           <video
+            ref={attachBgVideo}
             src={props.backgroundVideoUrl}
             autoPlay
-            muted
             loop
             playsInline
-            aria-hidden="true"
             style={{
               position: "absolute",
               inset: 0,
@@ -309,6 +325,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
               zIndex: 1,
             }}
           />
+          <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
         </>
       )}
       {textPanel}

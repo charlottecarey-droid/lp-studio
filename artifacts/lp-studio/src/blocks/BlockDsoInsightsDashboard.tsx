@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   BarChart3, TrendingUp, Users, MapPin, Activity,
@@ -734,7 +735,23 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef     = useRef<HTMLVideoElement>(null);
+  const [videoMuted, setVideoMuted] = useState(true);
   const inView       = useInView(containerRef, { once: true, amount: 0 });
+
+  const toggleVideoMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  }, []);
+
+  const attachDashboardVideo = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+    if (!el) return;
+    el.muted = true;
+    setVideoMuted(true);
+  }, []);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -922,18 +939,20 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
           {props.videoUrl ? (
             <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
               {isNativeVideoUrl(props.videoUrl) ? (
-                <video
-                  ref={videoRef}
-                  key={`id-video-${props.videoUrl}`}
-                  src={props.videoUrl}
-                  className="w-full h-full object-cover"
-                  autoPlay={props.videoAutoplay !== false}
-                  muted
-                  loop={props.videoAutoplay !== false}
-                  playsInline
-                  controls={props.videoAutoplay === false && !props.videoPlayOnScroll}
-                  preload="auto"
-                />
+                <>
+                  <video
+                    ref={attachDashboardVideo}
+                    key={`id-video-${props.videoUrl}`}
+                    src={props.videoUrl}
+                    className="w-full h-full object-cover"
+                    autoPlay={props.videoAutoplay !== false}
+                    muted
+                    loop={props.videoAutoplay !== false}
+                    playsInline
+                    preload="auto"
+                  />
+                  <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+                </>
               ) : (
                 <iframe
                   key={`id-iframe-${props.videoAutoplay}`}

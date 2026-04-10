@@ -1,5 +1,6 @@
 import { motion, useInView } from "framer-motion";
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 import type { DsoSoftwareShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -44,8 +45,17 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
 
   const autoplay = props.videoAutoplay !== false;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoMuted, setVideoMuted] = useState(true);
   const containerRef = useRef<HTMLElement>(null);
   const inView = useInView(containerRef, { once: true, amount: 0 });
+
+  const toggleVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  };
 
   // Set muted + play imperatively at mount — React's muted prop is unreliable
   const attachVideo = useCallback((el: HTMLVideoElement | null) => {
@@ -171,17 +181,20 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
       <div style={{ position: "relative", lineHeight: 0 }}>
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
-            <video
-              ref={attachVideo}
-              key={`ss-video-${videoUrl}-${autoplay}`}
-              src={videoUrl}
-              style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
-              autoPlay={autoplay}
-              muted
-              loop
-              playsInline
-              preload="auto"
-            />
+            <div style={{ position: "relative" }}>
+              <video
+                ref={attachVideo}
+                key={`ss-video-${videoUrl}-${autoplay}`}
+                src={videoUrl}
+                style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
+                autoPlay={autoplay}
+                muted
+                loop
+                playsInline
+                preload="auto"
+              />
+              <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+            </div>
           ) : (
             <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
               <iframe

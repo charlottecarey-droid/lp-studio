@@ -6,7 +6,8 @@ import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, 
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
 
@@ -68,6 +69,23 @@ const BG_CLASSES: Record<string, string> = {
 
 export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
   const [cpOpen, setCpOpen] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+  }, []);
+
+  const toggleVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  };
+
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
 
   const handleCtaClick = () => {
@@ -118,17 +136,23 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     return (
       <div className={cn("w-full relative", bgClass)}>
         {isNativeVideo ? (
-          <video
-            src={props.videoUrl}
-            className="w-full block"
-            style={{ display: "block" }}
-            autoPlay={props.videoAutoplay ?? true}
-            muted={props.videoAutoplay ?? true}
-            loop={props.videoAutoplay ?? true}
-            playsInline
-            controls={!hasOverlay && !(props.videoAutoplay ?? true)}
-            preload="metadata"
-          />
+          <>
+            <video
+              ref={attachVideo}
+              src={props.videoUrl}
+              className="w-full block"
+              style={{ display: "block" }}
+              autoPlay={props.videoAutoplay ?? true}
+              muted
+              loop={props.videoAutoplay ?? true}
+              playsInline
+              controls={!hasOverlay && !(props.videoAutoplay ?? true)}
+              preload="metadata"
+            />
+            {(hasOverlay || (props.videoAutoplay ?? true)) && (
+              <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-4 right-4 z-20" />
+            )}
+          </>
         ) : (
           <div className="relative w-full aspect-video">
             <iframe
@@ -191,16 +215,20 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     <div className={cn("relative w-full rounded-xl overflow-hidden", aspectClass)}>
       {hasVideo ? (
         isNativeVideo ? (
-          <video
-            src={props.videoUrl}
-            className="w-full h-full object-cover"
-            autoPlay={autoplay}
-            muted={autoplay}
-            loop={autoplay}
-            playsInline
-            controls={!autoplay}
-            preload="metadata"
-          />
+          <>
+            <video
+              ref={attachVideo}
+              src={props.videoUrl}
+              className="w-full h-full object-cover"
+              autoPlay={autoplay}
+              muted
+              loop={autoplay}
+              playsInline
+              controls={!autoplay}
+              preload="metadata"
+            />
+            {autoplay && <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />}
+          </>
         ) : (
           <iframe
             src={toAutoEmbedUrl(props.videoUrl, autoplay, autoplay)}

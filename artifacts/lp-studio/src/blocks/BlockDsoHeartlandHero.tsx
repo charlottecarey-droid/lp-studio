@@ -1,6 +1,7 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useCallback } from "react";
 import { ArrowRight } from "lucide-react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
@@ -17,6 +18,22 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const heroRef = useRef<HTMLElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [bgVideoMuted, setBgVideoMuted] = useState(true);
+
+  const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
+    bgVideoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+  }, []);
+
+  const toggleBgMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = bgVideoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setBgVideoMuted(el.muted);
+  };
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
   const contentY    = useTransform(scrollYProgress, [0, 1], ["0px", "60px"]);
@@ -328,14 +345,14 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
         {p.backgroundVideoUrl ? (
           <div className="absolute inset-0">
             <video
+              ref={attachBgVideo}
               src={p.backgroundVideoUrl}
               autoPlay
-              muted
               loop
               playsInline
               className="w-full h-full object-cover"
-              aria-hidden="true"
             />
+            <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
             <div
               className="absolute inset-0"
               style={{

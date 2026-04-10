@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
+import { useRef, useState, useCallback } from "react";
 import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
@@ -47,6 +49,23 @@ export function BlockDsoAiFeature({ props }: Props) {
   const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgba(0,58,48,0.60)";
   const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgba(0,58,48,0.80)";
   const statMu = dark ? "rgba(255,255,255,0.40)" : "rgba(0,58,48,0.45)";
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoMuted, setVideoMuted] = useState(true);
+
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+  }, []);
+
+  const toggleVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  };
   const imgBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const imgBg     = dark ? "hsl(152,30%,6%)"        : "hsl(152,20%,95%)";
   const iconBg    = dark ? `${AW}18` : `${AW}22`;
@@ -206,14 +225,17 @@ export function BlockDsoAiFeature({ props }: Props) {
         }}
       >
         {videoUrl ? (
-          <video
-            src={videoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
+          <>
+            <video
+              ref={attachVideo}
+              src={videoUrl}
+              autoPlay
+              loop
+              playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+            <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+          </>
         ) : (
           <AiScanReviewAnimation imageUrl={imageUrl} />
         )}

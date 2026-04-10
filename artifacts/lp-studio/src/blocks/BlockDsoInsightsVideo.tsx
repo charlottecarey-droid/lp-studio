@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
@@ -85,6 +86,15 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inView = useInView(containerRef, { once: true, amount: 0 });
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoMuted, setVideoMuted] = useState(true);
+
+  const toggleVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setVideoMuted(el.muted);
+  };
 
   // Set muted + play imperatively at mount — React's muted prop is unreliable
   const attachVideo = useCallback((el: HTMLVideoElement | null) => {
@@ -276,17 +286,20 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             {props.videoUrl ? (
               <div className="relative w-full aspect-[16/9] bg-black overflow-hidden">
                 {isNativeVideoUrl(props.videoUrl) ? (
-                  <video
-                    ref={attachVideo}
-                    key={`iv-video-${props.videoUrl}-${props.videoAutoplay}`}
-                    src={props.videoUrl}
-                    className="w-full h-full object-cover"
-                    autoPlay={props.videoAutoplay !== false}
-                    muted
-                    loop
-                    playsInline
-                    preload="auto"
-                  />
+                  <>
+                    <video
+                      ref={attachVideo}
+                      key={`iv-video-${props.videoUrl}-${props.videoAutoplay}`}
+                      src={props.videoUrl}
+                      className="w-full h-full object-cover"
+                      autoPlay={props.videoAutoplay !== false}
+                      muted
+                      loop
+                      playsInline
+                      preload="auto"
+                    />
+                    <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+                  </>
                 ) : (
                   <iframe
                     key={`iv-iframe-${props.videoAutoplay}`}
