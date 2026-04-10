@@ -296,12 +296,45 @@ router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Prom
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // Delete sessions for all members of this tenant first
+    // 1. sfdc tables: reference sales_accounts/contacts via NO ACTION — must go first
     await client.query(
-      `DELETE FROM app_sessions WHERE (sess->>'tenantId')::int = $1`,
+      `DELETE FROM sfdc_leads
+       WHERE account_id IN (SELECT id FROM sales_accounts WHERE tenant_id = $1)
+          OR converted_contact_id IN (SELECT id FROM sales_contacts WHERE tenant_id = $1)`,
       [tenantId]
     );
-    // Cascading deletes handle members, roles, pages, etc. via FK constraints
+    await client.query(
+      `DELETE FROM sfdc_opportunities WHERE account_id IN (SELECT id FROM sales_accounts WHERE tenant_id = $1)`,
+      [tenantId]
+    );
+    // 2. sales_email_campaigns: NO ACTION on both tenants and sales_accounts
+    await client.query(`DELETE FROM sales_email_campaigns WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM sales_email_templates WHERE tenant_id = $1`, [tenantId]);
+    // 3. lp_tests: cascades to events, sessions, stats, variants
+    await client.query(`DELETE FROM lp_tests WHERE tenant_id = $1`, [tenantId]);
+    // 4. lp_leads and lp_personalized_links: NO ACTION on tenant
+    await client.query(`DELETE FROM lp_leads WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_personalized_links WHERE tenant_id = $1`, [tenantId]);
+    // 5. lp_forms: NO ACTION on tenant
+    await client.query(`DELETE FROM lp_forms WHERE tenant_id = $1`, [tenantId]);
+    // 6. lp_pages: cascades to page visits, heatmap, comments, reviews, hotlinks, etc.
+    await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [tenantId]);
+    // 7. Remaining standalone lp tables
+    await client.query(`DELETE FROM lp_block_defaults WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_brand_presets WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_custom_blocks WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM lp_media WHERE tenant_id = $1`, [tenantId]);
+    // 8. Sales tables: signals and audiences are NO ACTION on tenant; accounts cascades contacts/briefings/hotlinks
+    await client.query(`DELETE FROM sales_signals WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM sales_audiences WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [tenantId]);
+    await client.query(`DELETE FROM sales_contacts WHERE tenant_id = $1`, [tenantId]);
+    // 9. Sessions
+    await client.query(`DELETE FROM app_sessions WHERE (sess->>'tenantId')::int = $1`, [tenantId]);
+    // 10. Tenant itself (tenant_members and tenant_roles cascade)
     const result = await client.query(
       `DELETE FROM tenants WHERE id = $1 RETURNING id, name`,
       [tenantId]
