@@ -6,7 +6,7 @@ import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 
-const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=600&fit=crop";
+const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1200&h=900&fit=crop";
 
 interface Props {
   props: DandySideImageV6BlockProps;
@@ -15,7 +15,6 @@ interface Props {
 }
 
 export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
-  const sectionPy = SECTION_PY[brand.sectionPadding];
   const reversed = props.imagePosition === "left";
   const bg = props.bgColor ?? "#FDFCFA";
 
@@ -30,26 +29,26 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   };
 
   const textCol = (
-    <div className="flex flex-col justify-center gap-5">
+    <div className="flex flex-col justify-center gap-6 py-4">
       {props.eyebrow && (
         <p className="text-xs font-bold uppercase tracking-widest text-[#006651]">
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
         </p>
       )}
-      <h2 className="text-3xl md:text-4xl font-bold text-[#003A30] leading-tight">
+      <h2 className="text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight">
         <InlineText value={props.headline} onUpdate={field("headline")} />
       </h2>
       {props.subheadline && (
-        <p className="text-base text-slate-600 leading-relaxed max-w-lg">
+        <p className="text-lg text-slate-600 leading-relaxed">
           <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
         </p>
       )}
       {(props.bullets ?? []).length > 0 && (
-        <ul className="space-y-3">
+        <ul className="space-y-4 mt-1">
           {(props.bullets ?? []).map((b, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-              <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[#C7E738] flex items-center justify-center">
-                <Check className="w-3 h-3 text-[#003A30]" />
+            <li key={i} className="flex items-start gap-4 text-base text-slate-700">
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[#C7E738] flex items-center justify-center">
+                <Check className="w-3.5 h-3.5 text-[#003A30]" />
               </span>
               <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
             </li>
@@ -57,17 +56,17 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         </ul>
       )}
       {props.ctaText && (
-        <div className="flex flex-wrap gap-3 mt-2">
+        <div className="flex flex-wrap gap-4 mt-3">
           <button
             onClick={() => safeNavigate(props.ctaUrl)}
-            className="bg-[#C7E738] text-[#003A30] font-bold px-6 py-3 rounded-lg text-sm hover:brightness-105 transition-all"
+            className="bg-[#C7E738] text-[#003A30] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
           </button>
           {props.secondaryCtaText && (
             <button
               onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className="border-2 border-[#003A30] text-[#003A30] font-semibold px-6 py-3 rounded-lg text-sm hover:bg-[#003A30] hover:text-white transition-all"
+              className="border-2 border-[#003A30] text-[#003A30] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[#003A30] hover:text-white transition-all"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>
@@ -78,15 +77,16 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   );
 
   const imageCol = (
-    <div className="relative">
-      <img
-        src={props.imageUrl || PLACEHOLDER}
-        alt={props.headline}
-        className="w-full rounded-2xl object-cover shadow-xl"
-        style={{ maxHeight: 520 }}
-      />
+    <div className="relative h-full">
+      <div className="rounded-3xl overflow-hidden shadow-2xl aspect-[4/3] bg-slate-100">
+        <img
+          src={props.imageUrl || PLACEHOLDER}
+          alt={props.headline}
+          className="w-full h-full object-cover"
+        />
+      </div>
       {props.badgeText && (
-        <div className="absolute -bottom-4 -right-4 bg-[#C7E738] text-[#003A30] font-bold text-sm px-5 py-3 rounded-xl shadow-lg">
+        <div className="absolute -bottom-5 -right-5 bg-[#C7E738] text-[#003A30] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
           <InlineText value={props.badgeText} onUpdate={field("badgeText")} />
         </div>
       )}
@@ -94,9 +94,9 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
   );
 
   return (
-    <section className={cn("w-full", sectionPy)} style={{ backgroundColor: bg }}>
-      <div className="max-w-6xl mx-auto px-6">
-        <div className={cn("grid md:grid-cols-2 gap-12 md:gap-16 items-center", reversed && "")}>
+    <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
+      <div className="max-w-7xl mx-auto px-6 md:px-10">
+        <div className="grid md:grid-cols-2 gap-14 md:gap-20 items-center">
           {reversed ? (
             <>
               <div className="order-2 md:order-1">{imageCol}</div>

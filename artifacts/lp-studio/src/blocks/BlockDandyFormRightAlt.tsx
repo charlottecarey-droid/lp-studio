@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY } from "@/lib/brand-config";
 import type { DandyFormRightAltBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
-  const sectionPy = SECTION_PY[brand.sectionPadding];
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
 
@@ -37,30 +35,31 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? "#FDFCFA";
 
   return (
-    <section className={cn("w-full", sectionPy)} style={{ backgroundColor: bg }}>
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+    <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
+      <div className="max-w-7xl mx-auto px-6 md:px-10">
+        <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-14 md:gap-20 items-center">
+
           {/* Left: headline + copy + bullets */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-7">
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest text-[#006651]">
                 <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
               </p>
             )}
-            <h2 className="text-3xl md:text-4xl font-bold text-[#003A30] leading-tight">
+            <h2 className="text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight">
               <InlineText value={props.headline} onUpdate={field("headline")} />
             </h2>
             {props.subheadline && (
-              <p className="text-base text-slate-600 leading-relaxed">
+              <p className="text-lg text-slate-600 leading-relaxed">
                 <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
               </p>
             )}
             {(props.bullets ?? []).length > 0 && (
-              <ul className="space-y-3 mt-2">
+              <ul className="space-y-4">
                 {(props.bullets ?? []).map((b, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-[#C7E738] flex items-center justify-center">
-                      <Check className="w-3 h-3 text-[#003A30]" />
+                  <li key={i} className="flex items-start gap-4 text-base text-slate-700">
+                    <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[#C7E738] flex items-center justify-center">
+                      <Check className="w-3.5 h-3.5 text-[#003A30]" />
                     </span>
                     <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
                   </li>
@@ -68,82 +67,82 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
               </ul>
             )}
             {props.trustNote && (
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-sm text-slate-400 mt-1">
                 <InlineText value={props.trustNote} onUpdate={field("trustNote")} />
               </p>
             )}
           </div>
 
           {/* Right: form card */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+          <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
             {props.formHeadline && (
-              <h3 className="text-xl font-bold text-[#003A30] mb-1">
+              <h3 className="text-2xl font-bold text-[#003A30] mb-1">
                 <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} />
               </h3>
             )}
             {props.formSubheadline && (
-              <p className="text-sm text-slate-500 mb-6">
+              <p className="text-sm text-slate-500 mb-7">
                 <InlineText value={props.formSubheadline} onUpdate={field("formSubheadline")} />
               </p>
             )}
 
             {submitted ? (
-              <div className="py-10 text-center">
-                <div className="w-14 h-14 rounded-full bg-[#C7E738] flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-7 h-7 text-[#003A30]" />
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#C7E738] flex items-center justify-center mx-auto mb-5">
+                  <Check className="w-8 h-8 text-[#003A30]" />
                 </div>
-                <p className="text-lg font-bold text-[#003A30]">{props.successMessage ?? "Thanks! We'll be in touch shortly."}</p>
+                <p className="text-xl font-bold text-[#003A30]">{props.successMessage ?? "Thanks! We'll be in touch shortly."}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">First Name</label>
+                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">First Name</label>
                     <input
                       type="text"
                       value={formData.firstName}
                       onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                       placeholder="Jane"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Last Name</label>
+                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Last Name</label>
                     <input
                       type="text"
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                       placeholder="Smith"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                       required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Work Email</label>
+                  <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Work Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="jane@yourpractice.com"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Phone Number</label>
+                  <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Phone Number</label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="(555) 000-0000"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-[#C7E738] text-[#003A30] font-bold py-3.5 rounded-lg text-sm hover:brightness-105 transition-all mt-1"
+                  className="w-full bg-[#C7E738] text-[#003A30] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2"
                 >
                   <InlineText value={props.submitText ?? "Get a Free Demo"} onUpdate={field("submitText")} />
                 </button>
