@@ -247,6 +247,45 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promi
   }
 });
 
+// POST /api/admin/superadmin/tenants/:id/copy-brand
+router.post("/superadmin/tenants/:id/copy-brand", requireAdminKey, async (req, res): Promise<void> => {
+  const targetId = Number(req.params.id);
+  const { sourceTenantId } = req.body ?? {};
+  if (!targetId || isNaN(targetId) || !sourceTenantId) {
+    res.status(400).json({ error: "targetId and sourceTenantId are required" });
+    return;
+  }
+  try {
+    const brandRow = await pool.query(
+      `SELECT config FROM lp_brand_settings WHERE tenant_id = $1 ORDER BY id DESC LIMIT 1`,
+      [sourceTenantId]
+    );
+    if (!brandRow.rows.length) {
+      res.status(404).json({ error: "Source tenant has no brand settings" });
+      return;
+    }
+    const existing = await pool.query(
+      `SELECT id FROM lp_brand_settings WHERE tenant_id = $1 LIMIT 1`,
+      [targetId]
+    );
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE lp_brand_settings SET config = $1, updated_at = now() WHERE tenant_id = $2`,
+        [JSON.stringify(brandRow.rows[0].config), targetId]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO lp_brand_settings (tenant_id, config) VALUES ($1, $2)`,
+        [targetId, JSON.stringify(brandRow.rows[0].config)]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[superadmin] POST /copy-brand error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // DELETE /api/admin/superadmin/tenants/:id
 router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);

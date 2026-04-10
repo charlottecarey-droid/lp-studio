@@ -355,10 +355,12 @@ function TenantRow({
   tenant,
   adminKey,
   onUpdate,
+  tenants,
 }: {
   tenant: Tenant;
   adminKey: string;
   onUpdate: () => void;
+  tenants: Tenant[];
 }) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[] | null>(null);
@@ -373,6 +375,10 @@ function TenantRow({
   const [savingDomains, setSavingDomains] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
   const [domainsSaved, setDomainsSaved] = useState(false);
+  const [brandCopyFrom, setBrandCopyFrom] = useState("none");
+  const [copyingBrand, setCopyingBrand] = useState(false);
+  const [brandCopyError, setBrandCopyError] = useState<string | null>(null);
+  const [brandCopied, setBrandCopied] = useState(false);
 
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
@@ -418,6 +424,25 @@ function TenantRow({
     } catch (err: any) {
       setDeleteError(err.message ?? "Failed to delete");
       setDeleting(false);
+    }
+  };
+
+  const copyBrand = async () => {
+    if (brandCopyFrom === "none") return;
+    setCopyingBrand(true);
+    setBrandCopyError(null);
+    setBrandCopied(false);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/copy-brand`, adminKey, {
+        method: "POST",
+        body: JSON.stringify({ sourceTenantId: Number(brandCopyFrom) }),
+      });
+      setBrandCopied(true);
+      setTimeout(() => setBrandCopied(false), 2500);
+    } catch (err: any) {
+      setBrandCopyError(err.message ?? "Failed to copy brand");
+    } finally {
+      setCopyingBrand(false);
     }
   };
 
@@ -549,6 +574,38 @@ function TenantRow({
                   )}
                   {domainsError && <p className="text-[11px] text-destructive">{domainsError}</p>}
                 </div>
+              </div>
+
+              {/* Brand settings copy */}
+              <div className="space-y-2 border-t pt-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Brand settings</p>
+                <div className="flex items-center gap-2">
+                  <Select value={brandCopyFrom} onValueChange={setBrandCopyFrom}>
+                    <SelectTrigger className="h-7 text-xs w-52"><SelectValue placeholder="Copy from…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Choose source —</SelectItem>
+                      {tenants.filter(t => t.id !== tenant.id).map(t => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name} <span className="text-muted-foreground">#{t.id}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={brandCopyFrom === "none" || copyingBrand}
+                    onClick={copyBrand}
+                  >
+                    {copyingBrand
+                      ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Copying…</>
+                      : brandCopied
+                      ? <><Check className="w-3 h-3 mr-1 text-green-600" />Copied</>
+                      : "Copy brand"}
+                  </Button>
+                  {brandCopyError && <p className="text-[11px] text-destructive">{brandCopyError}</p>}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Overwrites this workspace's brand settings with a full copy from the selected workspace.</p>
               </div>
 
               {/* Delete workspace */}
@@ -784,7 +841,7 @@ export default function SuperAdminPage() {
                 </TableRow>
               )}
               {tenants?.map((t) => (
-                <TenantRow key={t.id} tenant={t} adminKey={adminKey} onUpdate={() => fetchTenants(adminKey)} />
+                <TenantRow key={t.id} tenant={t} adminKey={adminKey} tenants={tenants} onUpdate={() => fetchTenants(adminKey)} />
               ))}
             </TableBody>
           </Table>
