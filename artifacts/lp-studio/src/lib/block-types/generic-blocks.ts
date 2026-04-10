@@ -411,6 +411,7 @@ export interface DandyHeroV7S3BlockProps {
   ctaText?: string;
   formAction?: string;
   formDisclaimer?: string;
+  chilipiperUrl?: string;
   backgroundImageUrl?: string;
   bgColor?: string;
   bgImageOpacity?: number;
@@ -429,6 +430,7 @@ export interface DandyFormRightAltBlockProps {
   formAction?: string;
   formDisclaimer?: string;
   successMessage?: string;
+  chilipiperUrl?: string;
   bgColor?: string;
 }
 

@@ -1,20 +1,35 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
+import { Check, Loader2, X, Calendar } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyFormRightAltBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: DandyFormRightAltBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DandyFormRightAltBlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
+type FormState = "idle" | "loading" | "success";
+
+function buildCpUrl(base: string, email: string): string {
+  try {
+    const url = new URL(base);
+    if (email) url.searchParams.set("email", email);
+    return url.toString();
+  } catch {
+    return base;
+  }
+}
+
+export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, variantId }: Props) {
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", phone: "" });
-  const [submitted, setSubmitted] = useState(false);
+  const [formState, setFormState] = useState<FormState>("idle");
+  const [cpOpen, setCpOpen] = useState(false);
+  const [cpUrl, setCpUrl] = useState("");
 
   const field = (key: keyof DandyFormRightAltBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -26,10 +41,35 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, bullets });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    if (props.formAction) safeNavigate(props.formAction);
+    setFormState("loading");
+    try {
+      if (pageId) {
+        await fetch("/api/lp/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageId,
+            variantId,
+            fields: {
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              email: formData.email,
+              phone: formData.phone || undefined,
+              source: "dandy-form-right-alt",
+            },
+          }),
+        });
+      }
+    } catch {
+      // silently continue
+    }
+    setFormState("success");
+    if (props.chilipiperUrl) {
+      setCpUrl(buildCpUrl(props.chilipiperUrl, formData.email));
+      setCpOpen(true);
+    }
   };
 
   const bg = props.bgColor ?? "#FDFCFA";
@@ -86,12 +126,22 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
               </p>
             )}
 
-            {submitted ? (
+            {formState === "success" ? (
               <div className="py-12 text-center">
                 <div className="w-16 h-16 rounded-full bg-[#C7E738] flex items-center justify-center mx-auto mb-5">
                   <Check className="w-8 h-8 text-[#003A30]" />
                 </div>
-                <p className="text-xl font-bold text-[#003A30]">{props.successMessage ?? "Thanks! We'll be in touch shortly."}</p>
+                <p className="text-xl font-bold text-[#003A30] mb-3">
+                  {props.successMessage ?? "Thanks! We'll be in touch shortly."}
+                </p>
+                {props.chilipiperUrl && (
+                  <button
+                    onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, formData.email)); setCpOpen(true); }}
+                    className="mt-2 inline-flex items-center gap-2 bg-[#003A30] text-[#C7E738] font-bold px-5 py-2.5 rounded-full text-sm"
+                  >
+                    <Calendar className="w-3.5 h-3.5" /> Schedule a call
+                  </button>
+                )}
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -105,6 +155,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
                       placeholder="Jane"
                       className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                       required
+                      disabled={formState === "loading"}
                     />
                   </div>
                   <div>
@@ -116,6 +167,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
                       placeholder="Smith"
                       className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                       required
+                      disabled={formState === "loading"}
                     />
                   </div>
                 </div>
@@ -128,6 +180,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
                     placeholder="jane@yourpractice.com"
                     className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
                     required
+                    disabled={formState === "loading"}
                   />
                 </div>
                 <div>
@@ -138,13 +191,19 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="(555) 000-0000"
                     className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                    disabled={formState === "loading"}
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-[#C7E738] text-[#003A30] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2"
+                  disabled={formState === "loading"}
+                  className="w-full bg-[#C7E738] text-[#003A30] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
                 >
-                  <InlineText value={props.submitText ?? "Get a Free Demo"} onUpdate={field("submitText")} />
+                  {formState === "loading" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <InlineText value={props.submitText ?? "Get a Free Demo"} onUpdate={field("submitText")} />
+                  )}
                 </button>
                 {props.formDisclaimer && (
                   <p className="text-xs text-slate-400 text-center mt-1">
@@ -156,6 +215,27 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange }: Props) {
           </div>
         </div>
       </div>
+
+      {cpOpen && createPortal(
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-6"
+          onClick={e => { if (e.target === e.currentTarget) setCpOpen(false); }}
+        >
+          <div className="relative w-full max-w-3xl h-[min(90vh,720px)] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#003A30]" />
+                <span className="text-sm font-semibold text-[#003A30]">Schedule a Meeting</span>
+              </div>
+              <button onClick={() => setCpOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <iframe src={cpUrl} className="flex-1 w-full border-none" allow="camera; microphone; clipboard-write" title="Schedule" />
+          </div>
+        </div>,
+        document.body
+      )}
     </section>
   );
 }

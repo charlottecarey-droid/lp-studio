@@ -555,9 +555,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dandy-side-image-v6":
         return <BlockDandySideImageV6 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-hero-v7-s3":
-        return <BlockDandyHeroV7S3 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandyHeroV7S3 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} pageId={pageId} variantId={variantId} />;
       case "dandy-form-right-alt":
-        return <BlockDandyFormRightAlt props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDandyFormRightAlt props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} pageId={pageId} variantId={variantId} />;
       case "dandy-conversion-panel-1":
         return <BlockDandyConversionPanel1 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-cta-block":

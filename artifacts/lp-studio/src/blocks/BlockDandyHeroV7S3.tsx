@@ -1,26 +1,67 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { X, Loader2, CheckCircle2, Calendar } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
   props: DandyHeroV7S3BlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: DandyHeroV7S3BlockProps) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
-export function BlockDandyHeroV7S3({ props, onFieldChange }: Props) {
+type FormState = "idle" | "loading" | "success";
+
+function buildCpUrl(base: string, email: string): string {
+  try {
+    const url = new URL(base);
+    if (email) url.searchParams.set("email", email);
+    return url.toString();
+  } catch {
+    return base;
+  }
+}
+
+export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: Props) {
   const [email, setEmail] = useState("");
+  const [formState, setFormState] = useState<FormState>("idle");
+  const [cpOpen, setCpOpen] = useState(false);
+  const [cpUrl, setCpUrl] = useState("");
+
   const bg = props.bgColor ?? "#003A30";
   const bgImage = props.backgroundImageUrl;
 
   const field = (key: keyof DandyHeroV7S3BlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (props.formAction) safeNavigate(props.formAction + (email ? `?email=${encodeURIComponent(email)}` : ""));
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    setFormState("loading");
+    try {
+      if (pageId) {
+        await fetch("/api/lp/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageId,
+            variantId,
+            fields: { email: trimmed, source: "dandy-hero-v7-s3" },
+          }),
+        });
+      }
+    } catch {
+      // silently continue — don't block UX
+    }
+    setFormState("success");
+    if (props.chilipiperUrl) {
+      setCpUrl(buildCpUrl(props.chilipiperUrl, trimmed));
+      setCpOpen(true);
+    }
   };
 
   return (
@@ -50,31 +91,51 @@ export function BlockDandyHeroV7S3({ props, onFieldChange }: Props) {
           </p>
         )}
 
-        {/* Inline email form */}
-        <form onSubmit={handleSubmit} className="w-full max-w-2xl flex flex-col sm:flex-row gap-3 shadow-2xl">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={props.inputPlaceholder ?? "Enter your work email"}
-            className="flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 border-transparent focus:border-[#C7E738] transition-colors"
-            required
-          />
-          <button
-            type="submit"
-            className="bg-[#C7E738] text-[#003A30] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0"
-          >
-            <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} />
-          </button>
-        </form>
+        {formState === "success" ? (
+          <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
+            <CheckCircle2 className="w-8 h-8 text-[#C7E738]" />
+            <p className="text-white font-bold text-lg">You're on the list!</p>
+            <p className="text-green-100/70 text-sm">Check your inbox — we'll be in touch shortly.</p>
+            {props.chilipiperUrl && (
+              <button
+                onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
+                className="mt-1 flex items-center gap-2 bg-[#C7E738] text-[#003A30] font-bold px-5 py-2.5 rounded-full text-sm"
+              >
+                <Calendar className="w-3.5 h-3.5" /> Schedule a call
+              </button>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="w-full max-w-2xl flex flex-col sm:flex-row gap-3 shadow-2xl">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={props.inputPlaceholder ?? "Enter your work email"}
+              className="flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 border-transparent focus:border-[#C7E738] transition-colors"
+              required
+              disabled={formState === "loading"}
+            />
+            <button
+              type="submit"
+              disabled={formState === "loading"}
+              className="bg-[#C7E738] text-[#003A30] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
+            >
+              {formState === "loading" ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} />
+              )}
+            </button>
+          </form>
+        )}
 
-        {props.formDisclaimer && (
+        {props.formDisclaimer && formState !== "success" && (
           <p className="mt-4 text-sm text-green-200/60">
             <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} />
           </p>
         )}
 
-        {/* Trust stat bar */}
         {(props.trustItems ?? []).length > 0 && (
           <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t border-white/10 w-full">
             {(props.trustItems ?? []).map((item, i) => (
@@ -86,6 +147,27 @@ export function BlockDandyHeroV7S3({ props, onFieldChange }: Props) {
           </div>
         )}
       </div>
+
+      {cpOpen && createPortal(
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-6"
+          onClick={e => { if (e.target === e.currentTarget) setCpOpen(false); }}
+        >
+          <div className="relative w-full max-w-3xl h-[min(90vh,720px)] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#003A30]" />
+                <span className="text-sm font-semibold text-[#003A30]">Schedule a Meeting</span>
+              </div>
+              <button onClick={() => setCpOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <iframe src={cpUrl} className="flex-1 w-full border-none" allow="camera; microphone; clipboard-write" title="Schedule" />
+          </div>
+        </div>,
+        document.body
+      )}
     </section>
   );
 }

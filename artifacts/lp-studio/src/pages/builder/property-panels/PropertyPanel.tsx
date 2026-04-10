@@ -34,6 +34,19 @@ import { SpacerPanel } from "./SpacerPanel";
 import { RoiCalculatorPanel } from "./RoiCalculatorPanel";
 import { DsoMeetTeamPanel } from "./DsoMeetTeamPanel";
 import { DsoPracticeNavPanel } from "./DsoPracticeNavPanel";
+import { DandyVersusPanel } from "./DandyVersusPanel";
+import { DandyColumnsV2Panel } from "./DandyColumnsV2Panel";
+import { DandyColumnsV3Panel } from "./DandyColumnsV3Panel";
+import { DandyVerticalTabsPanel } from "./DandyVerticalTabsPanel";
+import { DandySwitchbackPanel } from "./DandySwitchbackPanel";
+import { DandySiteHeaderPanel } from "./DandySiteHeaderPanel";
+import { DandySiteFooterPanel } from "./DandySiteFooterPanel";
+import { DandyVideoTestimonialsPanel } from "./DandyVideoTestimonialsPanel";
+import { DandySideImageV6Panel } from "./DandySideImageV6Panel";
+import { DandyHeroV7S3Panel } from "./DandyHeroV7S3Panel";
+import { DandyFormRightAltPanel } from "./DandyFormRightAltPanel";
+import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
+import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
@@ -3554,6 +3567,32 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dandy-versus":
+        return <DandyVersusPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-columns-v2":
+        return <DandyColumnsV2Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-columns-v3":
+        return <DandyColumnsV3Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-vertical-tabs":
+        return <DandyVerticalTabsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-switchback":
+        return <DandySwitchbackPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-site-header":
+        return <DandySiteHeaderPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-site-footer":
+        return <DandySiteFooterPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-video-testimonials":
+        return <DandyVideoTestimonialsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-side-image-v6":
+        return <DandySideImageV6Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-hero-v7-s3":
+        return <DandyHeroV7S3Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-form-right-alt":
+        return <DandyFormRightAltPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-conversion-panel-1":
+        return <DandyConversionPanel1Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "dandy-cta-block":
+        return <DandyCtaBlockPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
