@@ -333,7 +333,7 @@ router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Prom
     await client.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [tenantId]);
     await client.query(`DELETE FROM sales_contacts WHERE tenant_id = $1`, [tenantId]);
     // 9. Sessions
-    await client.query(`DELETE FROM app_sessions WHERE (sess->>'tenantId')::int = $1`, [tenantId]);
+    await client.query(`DELETE FROM app_sessions WHERE (sess::jsonb->>'tenantId')::int = $1`, [tenantId]);
     // 10. Tenant itself (tenant_members and tenant_roles cascade)
     const result = await client.query(
       `DELETE FROM tenants WHERE id = $1 RETURNING id, name`,
