@@ -23,6 +23,14 @@ import type {
   FooterBlockProps,
   FullBleedHeroBlockProps,
   RoiCalculatorBlockProps,
+  DandyVersusBlockProps,
+  DandyColumnsV2BlockProps,
+  DandyColumnsV3BlockProps,
+  DandyVerticalTabsBlockProps,
+  DandySwitchbackBlockProps,
+  DandySiteHeaderBlockProps,
+  DandySiteFooterBlockProps,
+  DandyVideoTestimonialsBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -134,7 +142,15 @@ export type BlockVariant =
   | { type: "dso-split-feature"; props: DsoSplitFeatureBlockProps }
   | { type: "dso-software-showcase"; props: DsoSoftwareShowcaseBlockProps }
   | { type: "dso-insights-video"; props: DsoInsightsVideoBlockProps }
-  | { type: "dso-case-study"; props: DsoCaseStudyBlockProps };
+  | { type: "dso-case-study"; props: DsoCaseStudyBlockProps }
+  | { type: "dandy-versus"; props: DandyVersusBlockProps }
+  | { type: "dandy-columns-v2"; props: DandyColumnsV2BlockProps }
+  | { type: "dandy-columns-v3"; props: DandyColumnsV3BlockProps }
+  | { type: "dandy-vertical-tabs"; props: DandyVerticalTabsBlockProps }
+  | { type: "dandy-switchback"; props: DandySwitchbackBlockProps }
+  | { type: "dandy-site-header"; props: DandySiteHeaderBlockProps }
+  | { type: "dandy-site-footer"; props: DandySiteFooterBlockProps }
+  | { type: "dandy-video-testimonials"; props: DandyVideoTestimonialsBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 

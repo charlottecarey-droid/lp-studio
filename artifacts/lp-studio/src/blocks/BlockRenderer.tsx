@@ -64,6 +64,14 @@ import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
 import { BlockPopup } from "./BlockPopup";
 import { BlockStickyBar } from "./BlockStickyBar";
+import { BlockDandyVersus } from "./BlockDandyVersus";
+import { BlockDandyColumnsV2 } from "./BlockDandyColumnsV2";
+import { BlockDandyColumnsV3 } from "./BlockDandyColumnsV3";
+import { BlockDandyVerticalTabs } from "./BlockDandyVerticalTabs";
+import { BlockDandySwitchback } from "./BlockDandySwitchback";
+import { BlockDandySiteHeader } from "./BlockDandySiteHeader";
+import { BlockDandySiteFooter } from "./BlockDandySiteFooter";
+import { BlockDandyVideoTestimonials } from "./BlockDandyVideoTestimonials";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -523,6 +531,22 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
+      case "dandy-versus":
+        return <BlockDandyVersus props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-columns-v2":
+        return <BlockDandyColumnsV2 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-columns-v3":
+        return <BlockDandyColumnsV3 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-vertical-tabs":
+        return <BlockDandyVerticalTabs props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-switchback":
+        return <BlockDandySwitchback props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-site-header":
+        return <BlockDandySiteHeader props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-site-footer":
+        return <BlockDandySiteFooter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-video-testimonials":
+        return <BlockDandyVideoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

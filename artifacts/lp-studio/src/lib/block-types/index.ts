@@ -33,6 +33,21 @@ export type {
   FooterBlockProps,
   FullBleedHeroBlockProps,
   RoiCalculatorBlockProps,
+  DandyColumnsV2Item,
+  DandyColumnsV3Item,
+  DandyVerticalTabItem,
+  DandySwitchbackItem,
+  DandyVideoTestimonialItem,
+  DandySiteHeaderNavLink,
+  DandySiteFooterLinkGroup,
+  DandyVersusBlockProps,
+  DandyColumnsV2BlockProps,
+  DandyColumnsV3BlockProps,
+  DandyVerticalTabsBlockProps,
+  DandySwitchbackBlockProps,
+  DandySiteHeaderBlockProps,
+  DandySiteFooterBlockProps,
+  DandyVideoTestimonialsBlockProps,
 } from "./generic-blocks";
 
 // DSO block types

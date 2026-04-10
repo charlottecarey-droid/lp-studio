@@ -25,6 +25,14 @@ import type {
   FooterBlockProps,
   FullBleedHeroBlockProps,
   RoiCalculatorBlockProps,
+  DandyVersusBlockProps,
+  DandyColumnsV2BlockProps,
+  DandyColumnsV3BlockProps,
+  DandyVerticalTabsBlockProps,
+  DandySwitchbackBlockProps,
+  DandySiteHeaderBlockProps,
+  DandySiteFooterBlockProps,
+  DandyVideoTestimonialsBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -2274,6 +2282,258 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dandy-versus" as const,
+    label: "Dandy: 2 Column Comparison",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandyVersusBlockProps => ({
+      eyebrow: "WHY DANDY",
+      headline: "2 column content boxes",
+      leftLabel: "OLD WAY",
+      leftTitle: "Traditional Lab",
+      leftDesc: "Talk with Sales to determine the best plan for your practice based on your scanner preferences.",
+      leftBullets: ["Remake prone analog workflows", "Annoying calls saying your scan is bad", "Cross your fingers the case looks right", "2+ week for zirconia crowns"],
+      leftCtaText: "Go truly digital",
+      leftCtaUrl: "#form",
+      rightLabel: "NEW WAY",
+      rightTitle: "Dandy",
+      rightDesc: "Talk with Sales to determine the best plan for your practice based on your scanner preferences.",
+      rightBullets: ["Scan for everything w/ less remakes", "Get scans reviewed with patient in chair", "No surprises with 3D design approval", "5-day zirconia crowns"],
+      rightCtaText: "Go truly digital",
+      rightCtaUrl: "#form",
+      bgColor: "#003A30",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#003A30" rx="4"/>
+        <rect x="6" y="16" width="50" height="52" rx="4" fill="white"/>
+        <rect x="64" y="16" width="50" height="52" rx="4" fill="#006651"/>
+        <rect x="12" y="22" width="20" height="3" rx="1" fill="#C7E738"/>
+        <rect x="12" y="28" width="35" height="3" rx="1.5" fill="#003A30"/>
+        {[0,1,2,3].map(i => <rect key={i} x="12" y={36+i*7} width="30" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>)}
+        <rect x="70" y="22" width="20" height="3" rx="1" fill="#C7E738"/>
+        <rect x="70" y="28" width="35" height="3" rx="1.5" fill="white"/>
+        {[0,1,2,3].map(i => <rect key={i} x="70" y={36+i*7} width="30" height="2" rx="1" fill="rgba(255,255,255,0.3)"/>)}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-columns-v2" as const,
+    label: "Dandy: Columns Variant 2",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandyColumnsV2BlockProps => ({
+      eyebrow: "GET STARTED",
+      headline: "Columns Variant 2",
+      subheadline: "Get a free intraoral scanner, access to premium dental lab services—backed by flexible plans tailored to your practice.",
+      items: [
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-item-1.jpg", title: "Private Practices", description: "Simplify your workflows, grow your case volume, and elevate patient care—with greater control and predictability.", bullets: ["Free scanner, laptop, and cart for your practice"], ctaText: "GET STARTED", ctaUrl: "/get-started/" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-item-2.jpg", title: "Group Practices", description: "Standardize care across locations, improve operational efficiency, and support your team with scalable digital solutions.", bullets: ["Free scanner, laptop, and cart for each location"], ctaText: "GET STARTED", ctaUrl: "/get-started/" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-item-3.jpg", title: "DSOs", description: "Boost profitability, consolidate lab spend, and ensure consistent, high-quality care across every location.", bullets: ["Free scanner, laptop, and cart for each location"], ctaText: "GET STARTED", ctaUrl: "/get-started/" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="white" rx="4"/>
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={6+i*38} y="8" width="34" height="22" rx="3" fill="#E8F5F0"/>
+            <rect x={6+i*38} y="34" width="24" height="3" rx="1.5" fill="#003A30"/>
+            <rect x={6+i*38} y="40" width="30" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>
+            <rect x={6+i*38} y="44" width="28" height="2" rx="1" fill="rgba(0,58,48,0.15)"/>
+            <rect x={6+i*38} y="52" width="22" height="6" rx="3" fill="#003A30" opacity="0.1"/>
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-columns-v3" as const,
+    label: "Dandy: Columns Variant 3",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandyColumnsV3BlockProps => ({
+      eyebrow: "GETTING STARTED",
+      headline: "Columns Variant 3",
+      subheadline: "Get a free intraoral scanner, access to premium dental lab services—backed by flexible plans tailored to your practice.",
+      items: [
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-type-1.svg", title: "Choose your plan", description: "Talk with Sales to determine the best plan for your practice based on your scanner preferences and lab spend commitment." },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-type-2.svg", title: "Schedule free training", description: "Empower your staff with CE-credited intraoral scanner training to master digital workflows for any case." },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/col-type-3.svg", title: "Place your first lab order", description: "Get high-quality restorations with industry-leading turnaround times from our state-of-the-art full-service digital dental lab." },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={6+i*38} y="12" width="14" height="14" rx="3" fill="#E8F5F0"/>
+            <rect x={6+i*38} y="30" width="20" height="3" rx="1.5" fill="#C7E738" opacity="0.7"/>
+            <rect x={6+i*38} y="36" width="28" height="2" rx="1" fill="#003A30" opacity="0.7"/>
+            <rect x={6+i*38} y="40" width="30" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>
+            <rect x={6+i*38} y="44" width="24" height="2" rx="1" fill="rgba(0,58,48,0.15)"/>
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-vertical-tabs" as const,
+    label: "Dandy: Vertical Tabs",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandyVerticalTabsBlockProps => ({
+      headline: "Vertical Tabs",
+      subheadline: "Seat better fitting crowns with the only 2-step computer vision + lab tech quality control process.",
+      tabs: [
+        { title: "Collect faster with 5 day delivery.", description: "Traditional labs slow you down. Get fast, reliable crowns made in the USA.", ctaText: "Learn more", ctaUrl: "/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2022/09/demo-image-00005-scaled.jpg" },
+        { title: "Drop-in crowns — powered by AI.", description: "Deliver flawless seatings with AI prep analysis and computer vision QC that spots and fixes issues the human eye can't see.", ctaText: "Learn more", ctaUrl: "/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2022/09/demo-image-00005-scaled.jpg" },
+        { title: "Save on premium zirconia at $99 per unit.", description: "Feel confident in the quality you're delivering to patients – without breaking the bank.", ctaText: "Learn more", ctaUrl: "/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2022/09/demo-image-00005-scaled.jpg" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="white" rx="4"/>
+        <rect x="6" y="10" width="40" height="60" rx="2" fill="#F5F9F7"/>
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={i===0?8:10} y={16+i*18} width={i===0?3:1} height="12" rx="1" fill={i===0?"#C7E738":"rgba(0,58,48,0.15)"}/>
+            <rect x={14} y={16+i*18} width="26" height="3" rx="1.5" fill={i===0?"#003A30":"rgba(0,58,48,0.3)"}/>
+            {i===0 && <rect x={14} y={21} width="22" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>}
+          </g>
+        ))}
+        <rect x="52" y="10" width="62" height="60" rx="4" fill="#E8F5F0"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-switchback" as const,
+    label: "Dandy: Switchback",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandySwitchbackBlockProps => ({
+      eyebrow: "WHY DANDY",
+      headline: "Switchback",
+      subheadline: "The first and only full-service dental lab to unite scanning technology, on-demand clinical expertise, and advanced manufacturing into one integrated system.",
+      items: [
+        { title: "Innovative lab products", description: "Get quality and precision on every order with Dandy's advanced digital manufacturing. Unlock 2-Appointment Dentures, 5-Day Crowns, straight-to-finish partials, and more.", ctaText: "Learn more", ctaUrl: "/labs/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/05/dandy-innovative-lab-products-2.jpg" },
+        { title: "One-connected digital workflow", description: "No more fragmented systems. With Dandy, your entire digital workflow from scan to final delivery lives in one connected platform.", ctaText: "Learn more", ctaUrl: "/technology/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/05/dandy-digital-workflow-2.jpg" },
+        { title: "Live clinical support", description: "Increase confidence on every case—chat with technicians, join video calls, and get scans reviewed in two minutes or less while the patient is still in the chair.", ctaText: "Learn more", ctaUrl: "/clinical-support/", imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/05/dandy-live-clinical-support-2.png" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6" y="8" width="50" height="64" rx="2" fill="#F5F9F7"/>
+        {[0,1,2].map(i => (
+          <g key={i}>
+            <rect x={10} y={12+i*20} width="38" height="3" rx="1.5" fill={i===0?"#003A30":"rgba(0,58,48,0.3)"}/>
+            {i===0 && <>
+              <rect x={10} y={18} width="34" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>
+              <rect x={10} y={22} width="28" height="2" rx="1" fill="rgba(0,58,48,0.15)"/>
+            </>}
+            <rect x={10} y={i===0?28:14+i*20} width="120" height="0.5" fill="rgba(0,58,48,0.1)"/>
+          </g>
+        ))}
+        <rect x="62" y="20" width="52" height="40" rx="4" fill="#E8F5F0"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-site-header" as const,
+    label: "Dandy: Site Header",
+    category: "Layout" as BlockCategory,
+    defaultProps: (): DandySiteHeaderBlockProps => ({
+      logoUrl: "",
+      phoneNumber: "(315)-859-0703",
+      phoneLabel: "Sales: (315)-859-0703",
+      primaryCtaText: "GET PRICING",
+      primaryCtaUrl: "/get-pricing/",
+      secondaryCtaText: "GET STARTED",
+      secondaryCtaUrl: "/get-started/",
+      navLinks: [
+        { label: "Lab Services", url: "/labs/" },
+        { label: "Solutions", url: "/solutions/" },
+        { label: "Technology & Support", url: "/technology/" },
+        { label: "Pricing", url: "/pricing/" },
+        { label: "Learning", url: "/learning-center/" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#F5F9F7" rx="4"/>
+        <rect width="120" height="24" fill="#003A30" rx="4"/>
+        <rect y="16" width="120" height="8" fill="#003A30"/>
+        <rect x="8" y="8" width="20" height="8" rx="2" fill="#C7E738" opacity="0.3"/>
+        {[0,1,2,3].map(i => <rect key={i} x={36+i*16} y={10} width="12" height="4" rx="1" fill="rgba(255,255,255,0.4)"/>)}
+        <rect x="90" y="8" width="22" height="8" rx="4" fill="#C7E738"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-site-footer" as const,
+    label: "Dandy: Site Footer",
+    category: "Layout" as BlockCategory,
+    defaultProps: (): DandySiteFooterBlockProps => ({
+      logoUrl: "",
+      disclaimer: "Please note: product availability and turnaround times may vary by country.",
+      copyrightText: `© ${new Date().getFullYear()} Dandy`,
+      facebookUrl: "https://www.facebook.com/meetdandy",
+      instagramUrl: "https://www.instagram.com/meet.Dandy/",
+      linkedinUrl: "https://www.linkedin.com/company/dandyofficial/",
+      twitterUrl: "https://x.com/meet_dandy",
+      linkGroups: [
+        { heading: "Dandy", links: [{ label: "Home", url: "/" }, { label: "Pricing", url: "/pricing/" }, { label: "Dandy Reviews", url: "/reviews/" }, { label: "Careers", url: "/careers/" }, { label: "Privacy Policy", url: "/privacy-policy/" }, { label: "Terms of Use", url: "/terms-of-use/" }] },
+        { heading: "Products & Technology", links: [{ label: "Vision Scanner & Cart", url: "/technology/intraoral-scanner-2/" }, { label: "Chairside", url: "/technology/chairside/" }, { label: "Lab Services", url: "/labs/" }, { label: "Crown and Bridge", url: "/labs/crown-and-bridge/" }, { label: "Partial Dentures", url: "/labs/partial-dentures/" }, { label: "Digital Dentures", url: "/labs/dentures/" }] },
+        { heading: "Practices", links: [{ label: "Private Practice", url: "/private-practice/" }, { label: "Group Practice", url: "/group-practice/" }, { label: "DSO", url: "/dso/" }, { label: "Refer a practice", url: "/refer/" }] },
+        { heading: "Resources", links: [{ label: "Learning Center", url: "/learning-center/" }, { label: "Articles", url: "/learning-center/articles/" }, { label: "Webinars", url: "/learning-center/webinars/" }, { label: "Lab Product Catalog", url: "/product-guide/" }, { label: "Newsroom", url: "/newsroom/" }] },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6" y="8" width="22" height="8" rx="2" fill="#E8F5F0"/>
+        <rect x="6" y="20" width="26" height="1.5" rx="0.75" fill="rgba(0,58,48,0.15)"/>
+        <rect x="6" y="24" width="22" height="1.5" rx="0.75" fill="rgba(0,58,48,0.1)"/>
+        {[0,1,2,3].map(i => (
+          <g key={i}>
+            <rect x={36+i*21} y="8" width="16" height="2.5" rx="1" fill="#003A30" opacity="0.5"/>
+            {[0,1,2,3].map(j => <rect key={j} x={36+i*21} y={14+j*5} width="14" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>)}
+          </g>
+        ))}
+        <rect x="6" y="66" width="40" height="1" rx="0.5" fill="rgba(0,58,48,0.15)"/>
+        {[0,1,2].map(i => <rect key={i} x={96+i*8} y="63" width="7" height="7" rx="3.5" fill="#E8F5F0"/>)}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-video-testimonials" as const,
+    label: "Dandy: Video Testimonials",
+    category: "Social Proof" as BlockCategory,
+    defaultProps: (): DandyVideoTestimonialsBlockProps => ({
+      eyebrow: "OUR CUSTOMERS",
+      headline: "Don't just take our word for it.",
+      subheadline: "See why 6,000+ dentists choose Dandy.",
+      items: [
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-michael-cabral.png", name: "Dr. Michael Cabral, DMD", practiceName: "Northeast Dental Partners", videoId: "hz0p4h4b4d" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-raj-patel.png", name: "Dr. Raj Patel", practiceName: "Raj Patel DDS", videoId: "qmhzl4s9uu" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-brooke-sears.png", name: "Brooke Sears, RDA", practiceName: "Mars Hill Dental", videoId: "ubdyvhz8gr" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-alexandar-linares.png", name: "Dr. Alexander Linares", practiceName: "", videoId: "" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-daniel-bures.png", name: "Dr. Daniel Bures", practiceName: "", videoId: "" },
+        { imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/06/testimonial-doctor-jessica-krausz.png", name: "Dr. Jessica Krausz", practiceName: "", videoId: "" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6" y="8" width="30" height="3" rx="1.5" fill="#003A30"/>
+        <rect x="6" y="14" width="20" height="2" rx="1" fill="rgba(0,58,48,0.3)"/>
+        {[0,1,2,3,4].map(i => (
+          <g key={i}>
+            <rect x={6+i*22} y="22" width="18" height="50" rx="4" fill="#003A30" opacity={i===0?0.8:0.5}/>
+            <circle cx={15+i*22} cy="47" r="5" fill="none" stroke="white" strokeOpacity="0.6" strokeWidth="1"/>
+            <path d={`M${14+i*22} 44.5 L${18+i*22} 47 L${14+i*22} 49.5Z`} fill="white" opacity="0.8"/>
+          </g>
+        ))}
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2347,6 +2607,14 @@ export function createBlock(type: "dso-split-feature"): Extract<PageBlock, { typ
 export function createBlock(type: "dso-software-showcase"): Extract<PageBlock, { type: "dso-software-showcase" }>;
 export function createBlock(type: "dso-insights-video"): Extract<PageBlock, { type: "dso-insights-video" }>;
 export function createBlock(type: "dso-case-study"): Extract<PageBlock, { type: "dso-case-study" }>;
+export function createBlock(type: "dandy-versus"): Extract<PageBlock, { type: "dandy-versus" }>;
+export function createBlock(type: "dandy-columns-v2"): Extract<PageBlock, { type: "dandy-columns-v2" }>;
+export function createBlock(type: "dandy-columns-v3"): Extract<PageBlock, { type: "dandy-columns-v3" }>;
+export function createBlock(type: "dandy-vertical-tabs"): Extract<PageBlock, { type: "dandy-vertical-tabs" }>;
+export function createBlock(type: "dandy-switchback"): Extract<PageBlock, { type: "dandy-switchback" }>;
+export function createBlock(type: "dandy-site-header"): Extract<PageBlock, { type: "dandy-site-header" }>;
+export function createBlock(type: "dandy-site-footer"): Extract<PageBlock, { type: "dandy-site-footer" }>;
+export function createBlock(type: "dandy-video-testimonials"): Extract<PageBlock, { type: "dandy-video-testimonials" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2418,6 +2686,14 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-software-showcase": return { id, type: "dso-software-showcase", props: props as DsoSoftwareShowcaseBlockProps };
     case "dso-insights-video": return { id, type: "dso-insights-video", props: props as DsoInsightsVideoBlockProps };
     case "dso-case-study": return { id, type: "dso-case-study", props: props as DsoCaseStudyBlockProps };
+    case "dandy-versus": return { id, type: "dandy-versus", props: props as DandyVersusBlockProps };
+    case "dandy-columns-v2": return { id, type: "dandy-columns-v2", props: props as DandyColumnsV2BlockProps };
+    case "dandy-columns-v3": return { id, type: "dandy-columns-v3", props: props as DandyColumnsV3BlockProps };
+    case "dandy-vertical-tabs": return { id, type: "dandy-vertical-tabs", props: props as DandyVerticalTabsBlockProps };
+    case "dandy-switchback": return { id, type: "dandy-switchback", props: props as DandySwitchbackBlockProps };
+    case "dandy-site-header": return { id, type: "dandy-site-header", props: props as DandySiteHeaderBlockProps };
+    case "dandy-site-footer": return { id, type: "dandy-site-footer", props: props as DandySiteFooterBlockProps };
+    case "dandy-video-testimonials": return { id, type: "dandy-video-testimonials", props: props as DandyVideoTestimonialsBlockProps };
   }
 }
 

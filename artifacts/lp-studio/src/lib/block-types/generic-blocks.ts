@@ -260,3 +260,125 @@ export interface RoiCalculatorBlockProps {
   resultsPanelLabel?: string;
   disclaimer?: string;
 }
+
+export interface DandyVersusBlockProps {
+  eyebrow?: string;
+  headline: string;
+  leftLabel: string;
+  leftTitle: string;
+  leftDesc: string;
+  leftBullets: string[];
+  leftCtaText: string;
+  leftCtaUrl: string;
+  rightLabel: string;
+  rightTitle: string;
+  rightDesc: string;
+  rightBullets: string[];
+  rightCtaText: string;
+  rightCtaUrl: string;
+  bgColor?: string;
+}
+
+export interface DandyColumnsV2Item {
+  imageUrl: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  ctaText: string;
+  ctaUrl: string;
+}
+
+export interface DandyColumnsV2BlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  items: DandyColumnsV2Item[];
+}
+
+export interface DandyColumnsV3Item {
+  imageUrl: string;
+  title: string;
+  description: string;
+}
+
+export interface DandyColumnsV3BlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  items: DandyColumnsV3Item[];
+}
+
+export interface DandyVerticalTabItem {
+  title: string;
+  description: string;
+  ctaText: string;
+  ctaUrl: string;
+  imageUrl: string;
+}
+
+export interface DandyVerticalTabsBlockProps {
+  headline: string;
+  subheadline?: string;
+  tabs: DandyVerticalTabItem[];
+}
+
+export interface DandySwitchbackItem {
+  title: string;
+  description: string;
+  ctaText: string;
+  ctaUrl: string;
+  imageUrl: string;
+}
+
+export interface DandySwitchbackBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  items: DandySwitchbackItem[];
+}
+
+export interface DandySiteHeaderNavLink {
+  label: string;
+  url: string;
+}
+
+export interface DandySiteHeaderBlockProps {
+  logoUrl?: string;
+  phoneNumber: string;
+  phoneLabel: string;
+  primaryCtaText: string;
+  primaryCtaUrl: string;
+  secondaryCtaText: string;
+  secondaryCtaUrl: string;
+  navLinks: DandySiteHeaderNavLink[];
+}
+
+export interface DandySiteFooterLinkGroup {
+  heading: string;
+  links: Array<{ label: string; url: string }>;
+}
+
+export interface DandySiteFooterBlockProps {
+  logoUrl?: string;
+  disclaimer?: string;
+  linkGroups: DandySiteFooterLinkGroup[];
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  copyrightText?: string;
+}
+
+export interface DandyVideoTestimonialItem {
+  imageUrl: string;
+  name: string;
+  practiceName: string;
+  videoId?: string;
+}
+
+export interface DandyVideoTestimonialsBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  items: DandyVideoTestimonialItem[];
+}
