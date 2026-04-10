@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, and, gt, sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   lpPageCommentsTable,
   lpPageReviewsTable,
@@ -11,6 +11,102 @@ import { z } from "zod";
 import crypto from "crypto";
 
 const router = Router();
+
+// ─── Email Helpers ─────────────────────────────────────────────────────────────
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function getTenantUserEmails(tenantId: number): Promise<Array<{ email: string; name: string }>> {
+  const { rows } = await pool.query<{ email: string; name: string }>(
+    `SELECT email, name FROM app_users WHERE tenant_id = $1 AND email IS NOT NULL`,
+    [tenantId]
+  );
+  return rows;
+}
+
+async function sendCollaborationEmail(to: string[], subject: string, html: string): Promise<void> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey || to.length === 0) return;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env["RESEND_FROM_EMAIL"] ?? "LP Studio <notifications@ent.meetdandy.com>",
+        to,
+        subject,
+        html,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to send collaboration email", err);
+  }
+}
+
+async function notifyNewComment(pageId: number, authorName: string, message: string, pageUrl?: string) {
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, tenantId: lpPagesTable.tenantId })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.id, pageId));
+    if (!page?.tenantId) return;
+    const users = await getTenantUserEmails(page.tenantId);
+    const to = users.map(u => u.email).filter(Boolean);
+    if (to.length === 0) return;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
+<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
+  <div style="background:#003A30;padding:20px 28px">
+    <h1 style="margin:0;color:#C7E738;font-size:17px;font-weight:700">New Comment</h1>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.65);font-size:13px">${escapeHtml(page.title)}</p>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#003A30">${escapeHtml(authorName)}</p>
+    <p style="margin:0;font-size:15px;color:#1e293b;line-height:1.6">${escapeHtml(message)}</p>
+    ${pageUrl ? `<div style="margin-top:20px"><a href="${escapeHtml(pageUrl)}" style="background:#003A30;color:#C7E738;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">View Page →</a></div>` : ""}
+  </div>
+</div>
+</body></html>`;
+    await sendCollaborationEmail(to, `💬 New comment on "${page.title}"`, html);
+  } catch (err) {
+    console.error("notifyNewComment failed", err);
+  }
+}
+
+async function notifyReviewDecision(pageId: number, reviewerName: string, status: string, decisionComment?: string | null) {
+  try {
+    const [page] = await db
+      .select({ id: lpPagesTable.id, title: lpPagesTable.title, tenantId: lpPagesTable.tenantId })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.id, pageId));
+    if (!page?.tenantId) return;
+    const users = await getTenantUserEmails(page.tenantId);
+    const to = users.map(u => u.email).filter(Boolean);
+    if (to.length === 0) return;
+    const isApproved = status === "approved";
+    const statusLabel = isApproved ? "✅ Approved" : "🔄 Changes Requested";
+    const statusColor = isApproved ? "#16a34a" : "#d97706";
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="font-family:system-ui,sans-serif;background:#f8fafc;margin:0;padding:24px">
+<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1)">
+  <div style="background:#003A30;padding:20px 28px">
+    <h1 style="margin:0;color:#C7E738;font-size:17px;font-weight:700">Review Decision</h1>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.65);font-size:13px">${escapeHtml(page.title)}</p>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="margin:0 0 12px;font-size:15px;color:#1e293b"><strong>${escapeHtml(reviewerName)}</strong> reviewed your page.</p>
+    <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:${statusColor}">${statusLabel}</p>
+    ${decisionComment ? `<p style="margin:0;font-size:14px;color:#475569;line-height:1.6;background:#f8fafc;border-left:3px solid ${statusColor};padding:12px 16px;border-radius:4px">${escapeHtml(decisionComment)}</p>` : ""}
+  </div>
+</div>
+</body></html>`;
+    await sendCollaborationEmail(to, `${statusLabel}: "${page.title}"`, html);
+  } catch (err) {
+    console.error("notifyReviewDecision failed", err);
+  }
+}
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 
@@ -80,6 +176,11 @@ router.post("/lp/pages/:pageId/comments", async (req, res): Promise<void> => {
       parentId: parsed.data.parentId ?? null,
     })
     .returning();
+
+  // Fire-and-forget email notification for top-level comments only
+  if (!parsed.data.parentId) {
+    void notifyNewComment(pageId, parsed.data.authorName, parsed.data.message);
+  }
 
   res.status(201).json(comment);
 });
@@ -177,6 +278,10 @@ router.patch("/lp/review/:token", async (req, res): Promise<void> => {
     .returning();
 
   if (!review) { res.status(404).json({ error: "Review not found" }); return; }
+
+  // Fire-and-forget email notification for approved / changes_requested decisions
+  void notifyReviewDecision(review.pageId, parsed.data.reviewerName, parsed.data.status, parsed.data.decisionComment);
+
   res.json(review);
 });
 

@@ -15,20 +15,23 @@ interface CommentItemProps {
   thread: CommentThread;
   onReply: (message: string) => void;
   onResolve: () => void;
+  currentUserName?: string;
 }
 
-function CommentItem({ thread, onReply, onResolve }: CommentItemProps) {
+function CommentItem({ thread, onReply, onResolve, currentUserName }: CommentItemProps) {
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
-  const [replyAuthor, setReplyAuthor] = useState(() => getAuthorName());
+  const [replyAuthor, setReplyAuthor] = useState(() => currentUserName || getAuthorName());
 
   const handleReply = () => {
     if (!replyText.trim()) return;
-    setAuthorName(replyAuthor);
+    if (!currentUserName) setAuthorName(replyAuthor);
     onReply(replyText.trim());
     setReplyText("");
     setShowReply(false);
   };
+
+  const effectiveReplyAuthor = currentUserName || replyAuthor;
 
   return (
     <div className={`rounded-lg border p-3 space-y-2 ${thread.comment.resolved ? "opacity-60 bg-muted/30" : "bg-background"}`}>
@@ -74,7 +77,7 @@ function CommentItem({ thread, onReply, onResolve }: CommentItemProps) {
         <div>
           {showReply ? (
             <div className="space-y-2">
-              {!getAuthorName() && (
+              {!currentUserName && !getAuthorName() && (
                 <Input
                   placeholder="Your name"
                   value={replyAuthor}
@@ -90,7 +93,7 @@ function CommentItem({ thread, onReply, onResolve }: CommentItemProps) {
                 autoFocus
               />
               <div className="flex gap-2">
-                <Button size="sm" className="h-7 text-xs" onClick={handleReply} disabled={!replyText.trim() || !replyAuthor.trim()}>Reply</Button>
+                <Button size="sm" className="h-7 text-xs" onClick={handleReply} disabled={!replyText.trim() || !effectiveReplyAuthor.trim()}>Reply</Button>
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowReply(false); setReplyText(""); }}>Cancel</Button>
               </div>
             </div>
@@ -116,26 +119,29 @@ interface CommentsPanelProps {
   blockIndex: number;
   onAddComment: (params: { blockIndex: number; authorName: string; message: string; parentId?: number }) => Promise<void>;
   onResolve: (commentId: number) => Promise<void>;
+  currentUserName?: string;
 }
 
-export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResolve }: CommentsPanelProps) {
+export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResolve, currentUserName }: CommentsPanelProps) {
   const [message, setMessage] = useState("");
-  const [authorName, setAuthorNameState] = useState(() => getAuthorName());
+  const [authorName, setAuthorNameState] = useState(() => currentUserName || getAuthorName());
 
   const handleAuthorChange = (name: string) => {
     setAuthorNameState(name);
     setAuthorName(name);
   };
 
+  const effectiveAuthor = currentUserName || authorName;
+
   const handleAdd = async () => {
-    if (!message.trim() || !authorName.trim()) return;
-    await onAddComment({ blockIndex, authorName: authorName.trim(), message: message.trim() });
+    if (!message.trim() || !effectiveAuthor.trim()) return;
+    await onAddComment({ blockIndex, authorName: effectiveAuthor.trim(), message: message.trim() });
     setMessage("");
   };
 
   const handleReply = async (thread: CommentThread, replyMessage: string) => {
-    if (!replyMessage.trim() || !authorName.trim()) return;
-    await onAddComment({ blockIndex, authorName: authorName.trim(), message: replyMessage, parentId: thread.comment.id });
+    if (!replyMessage.trim() || !effectiveAuthor.trim()) return;
+    await onAddComment({ blockIndex, authorName: effectiveAuthor.trim(), message: replyMessage, parentId: thread.comment.id });
   };
 
   const threads = blockComments?.threads ?? [];
@@ -162,6 +168,7 @@ export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResol
             thread={thread}
             onReply={(msg) => handleReply(thread, msg)}
             onResolve={() => onResolve(thread.comment.id)}
+            currentUserName={currentUserName}
           />
         ))}
         {resolvedThreads.length > 0 && (
@@ -173,6 +180,7 @@ export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResol
                 thread={thread}
                 onReply={(msg) => handleReply(thread, msg)}
                 onResolve={() => onResolve(thread.comment.id)}
+                currentUserName={currentUserName}
               />
             ))}
           </div>
@@ -180,12 +188,21 @@ export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResol
       </div>
 
       <div className="space-y-2 shrink-0 border-t pt-3">
-        <Input
-          placeholder="Your name"
-          value={authorName}
-          onChange={e => handleAuthorChange(e.target.value)}
-          className="text-sm h-8"
-        />
+        {currentUserName ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-medium text-[10px] shrink-0">
+              {currentUserName.charAt(0).toUpperCase()}
+            </div>
+            <span>Commenting as <strong className="text-foreground">{currentUserName}</strong></span>
+          </div>
+        ) : (
+          <Input
+            placeholder="Your name"
+            value={authorName}
+            onChange={e => handleAuthorChange(e.target.value)}
+            className="text-sm h-8"
+          />
+        )}
         <Textarea
           placeholder="Add a comment... (Ctrl+Enter to submit)"
           value={message}
@@ -197,7 +214,7 @@ export function CommentsPanel({ blockComments, blockIndex, onAddComment, onResol
           size="sm"
           className="w-full h-8 text-xs"
           onClick={handleAdd}
-          disabled={!message.trim() || !authorName.trim()}
+          disabled={!message.trim() || !effectiveAuthor.trim()}
         >
           Add Comment
         </Button>

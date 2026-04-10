@@ -766,7 +766,9 @@ export default function BuilderEditor() {
 
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview } = useReviews(pageIdNum);
-  const displayName = getAuthorName() || "Builder User";
+  const { user } = useAuth();
+  const authDisplayName = user?.name || user?.email || "";
+  const displayName = authDisplayName || getAuthorName() || "Builder User";
   const { viewers } = usePresence(pageIdNum, displayName);
 
   const titleRef = useRef<HTMLInputElement | null>(null);
@@ -1623,6 +1625,7 @@ export default function BuilderEditor() {
                           blockComments={commentBlocks.find(cb => cb.blockIndex === index)}
                           onAddComment={addComment}
                           onResolveComment={resolveComment}
+                          currentUserName={authDisplayName || undefined}
                         />
                         <InsertionBar onClick={() => openInsertAt(index + 1)} />
                       </div>
@@ -2335,9 +2338,10 @@ interface SortableCanvasBlockProps {
   blockComments: BlockComments | undefined;
   onAddComment: (params: { blockIndex: number; authorName: string; message: string; parentId?: number }) => Promise<void>;
   onResolveComment: (commentId: number) => Promise<void>;
+  currentUserName?: string;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -2485,6 +2489,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
                 blockIndex={blockIndex}
                 onAddComment={onAddComment}
                 onResolve={onResolveComment}
+                currentUserName={currentUserName}
               />
             </PopoverContent>
           </Popover>
