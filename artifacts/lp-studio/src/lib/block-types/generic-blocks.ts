@@ -382,3 +382,83 @@ export interface DandyVideoTestimonialsBlockProps {
   subheadline?: string;
   items: DandyVideoTestimonialItem[];
 }
+
+export interface DandySideImageV6BlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  bullets?: string[];
+  ctaText?: string;
+  ctaUrl?: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  imageUrl?: string;
+  badgeText?: string;
+  imagePosition?: "left" | "right";
+  bgColor?: string;
+}
+
+export interface DandyHeroV7S3TrustItem {
+  value: string;
+  label: string;
+}
+
+export interface DandyHeroV7S3BlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  inputPlaceholder?: string;
+  ctaText?: string;
+  formAction?: string;
+  formDisclaimer?: string;
+  backgroundImageUrl?: string;
+  bgColor?: string;
+  bgImageOpacity?: number;
+  trustItems?: DandyHeroV7S3TrustItem[];
+}
+
+export interface DandyFormRightAltBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  bullets?: string[];
+  trustNote?: string;
+  formHeadline?: string;
+  formSubheadline?: string;
+  submitText?: string;
+  formAction?: string;
+  formDisclaimer?: string;
+  successMessage?: string;
+  bgColor?: string;
+}
+
+export interface DandyConversionPanel1Stat {
+  value: string;
+  label: string;
+}
+
+export interface DandyConversionPanel1BlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  primaryCtaText?: string;
+  primaryCtaUrl?: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  style?: "teal" | "lime" | "medium" | "white";
+  bgColor?: string;
+  stats?: DandyConversionPanel1Stat[];
+}
+
+export interface DandyCtaBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  primaryCtaText?: string;
+  primaryCtaUrl?: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  disclaimer?: string;
+  alignment?: "left" | "center" | "right";
+  bgColor?: string;
+}

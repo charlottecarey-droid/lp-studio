@@ -72,6 +72,11 @@ import { BlockDandySwitchback } from "./BlockDandySwitchback";
 import { BlockDandySiteHeader } from "./BlockDandySiteHeader";
 import { BlockDandySiteFooter } from "./BlockDandySiteFooter";
 import { BlockDandyVideoTestimonials } from "./BlockDandyVideoTestimonials";
+import { BlockDandySideImageV6 } from "./BlockDandySideImageV6";
+import { BlockDandyHeroV7S3 } from "./BlockDandyHeroV7S3";
+import { BlockDandyFormRightAlt } from "./BlockDandyFormRightAlt";
+import { BlockDandyConversionPanel1 } from "./BlockDandyConversionPanel1";
+import { BlockDandyCtaBlock } from "./BlockDandyCtaBlock";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -547,6 +552,16 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockDandySiteFooter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-video-testimonials":
         return <BlockDandyVideoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-side-image-v6":
+        return <BlockDandySideImageV6 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-hero-v7-s3":
+        return <BlockDandyHeroV7S3 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-form-right-alt":
+        return <BlockDandyFormRightAlt props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-conversion-panel-1":
+        return <BlockDandyConversionPanel1 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "dandy-cta-block":
+        return <BlockDandyCtaBlock props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

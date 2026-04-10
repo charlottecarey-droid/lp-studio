@@ -33,6 +33,11 @@ import type {
   DandySiteHeaderBlockProps,
   DandySiteFooterBlockProps,
   DandyVideoTestimonialsBlockProps,
+  DandySideImageV6BlockProps,
+  DandyHeroV7S3BlockProps,
+  DandyFormRightAltBlockProps,
+  DandyConversionPanel1BlockProps,
+  DandyCtaBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -2534,6 +2539,173 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "dandy-side-image-v6" as const,
+    label: "Dandy: Side Image Variation 6",
+    category: "Content" as BlockCategory,
+    defaultProps: (): DandySideImageV6BlockProps => ({
+      eyebrow: "WHY DANDY",
+      headline: "The complete digital dental platform.",
+      subheadline: "Dandy combines best-in-class lab work, an intraoral scanner, and AI-powered software into one seamless experience.",
+      bullets: [
+        "Free intraoral scanner, laptop, and cart for your practice",
+        "5-day zirconia crowns with AI-powered quality control",
+        "Live clinical support while the patient is still in the chair",
+        "One platform—scan, design, order, track—all in one place",
+      ],
+      ctaText: "Get a Free Demo",
+      ctaUrl: "/get-started/",
+      secondaryCtaText: "See How It Works",
+      secondaryCtaUrl: "/technology/",
+      imageUrl: "https://www.meetdandy.com/wp-content/uploads/2025/05/dandy-innovative-lab-products-2.jpg",
+      badgeText: "6,000+ practices",
+      imagePosition: "right",
+      bgColor: "#FDFCFA",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6" y="10" width="52" height="60" rx="2" fill="white"/>
+        <rect x="10" y="14" width="16" height="2" rx="1" fill="#C7E738"/>
+        <rect x="10" y="20" width="40" height="3" rx="1.5" fill="#003A30"/>
+        <rect x="10" y="26" width="36" height="2" rx="1" fill="rgba(0,58,48,0.25)"/>
+        {[0,1,2,3].map(i=><g key={i}><circle cx="13" cy={35+i*7} r="2.5" fill="#C7E738"/><rect x="18" y={33.5+i*7} width="28" height="2" rx="1" fill="rgba(0,58,48,0.2)"/></g>)}
+        <rect x="10" y="65" width="22" height="6" rx="3" fill="#C7E738"/>
+        <rect x="66" y="10" width="48" height="60" rx="4" fill="#E8F5F0"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-hero-v7-s3" as const,
+    label: "Dandy: Hero 7 — Inline Form",
+    category: "Hero" as BlockCategory,
+    defaultProps: (): DandyHeroV7S3BlockProps => ({
+      eyebrow: "FREE INTRAORAL SCANNER",
+      headline: "The future of dentistry is digital.",
+      subheadline: "Join 6,000+ practices that switched to Dandy. Get a free scanner, access to premium lab work, and live clinical support—all in one platform.",
+      inputPlaceholder: "Enter your work email",
+      ctaText: "Get a Free Demo",
+      formDisclaimer: "No commitment required. We'll reach out within one business day.",
+      bgColor: "#003A30",
+      bgImageOpacity: 0.15,
+      trustItems: [
+        { value: "6,000+", label: "Dental Practices" },
+        { value: "5-Day", label: "Zirconia Crowns" },
+        { value: "2 Min", label: "Scan Review" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#003A30" rx="4"/>
+        <rect x="20" y="10" width="20" height="2" rx="1" fill="#C7E738" opacity="0.7"/>
+        <rect x="10" y="16" width="100" height="5" rx="2.5" fill="white" opacity="0.9"/>
+        <rect x="20" y="25" width="80" height="3" rx="1.5" fill="white" opacity="0.4"/>
+        <rect x="30" y="31" width="60" height="2" rx="1" fill="white" opacity="0.3"/>
+        <rect x="8" y="40" width="76" height="10" rx="4" fill="white" opacity="0.15"/>
+        <rect x="86" y="40" width="26" height="10" rx="4" fill="#C7E738"/>
+        <rect x="8" y="55" width="104" height="1" rx="0.5" fill="white" opacity="0.1"/>
+        <rect x="20" y="59" width="18" height="2" rx="1" fill="white" opacity="0.3"/>
+        <rect x="47" y="59" width="18" height="2" rx="1" fill="white" opacity="0.3"/>
+        <rect x="74" y="59" width="18" height="2" rx="1" fill="white" opacity="0.3"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-form-right-alt" as const,
+    label: "Dandy: Form — Right Align Alt",
+    category: "Lead Capture" as BlockCategory,
+    defaultProps: (): DandyFormRightAltBlockProps => ({
+      eyebrow: "GET STARTED TODAY",
+      headline: "Schedule a free demo with our team.",
+      subheadline: "See how Dandy can transform your practice. We'll walk you through our full platform—no commitment required.",
+      bullets: [
+        "Get a free intraoral scanner for your practice",
+        "Same-day scan review with a live technician",
+        "Industry-leading 5-day zirconia crowns",
+        "Dedicated onboarding and clinical support",
+      ],
+      trustNote: "🔒 Your information is safe with us. We never share your data.",
+      formHeadline: "Request a Free Demo",
+      formSubheadline: "Fill out the form and we'll be in touch within one business day.",
+      submitText: "Get a Free Demo",
+      formDisclaimer: "No commitment required.",
+      successMessage: "Thanks! A Dandy rep will reach out within one business day.",
+      bgColor: "#FDFCFA",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6" y="12" width="14" height="2" rx="1" fill="#C7E738" opacity="0.8"/>
+        <rect x="6" y="18" width="48" height="4" rx="2" fill="#003A30"/>
+        <rect x="6" y="26" width="44" height="2" rx="1" fill="rgba(0,58,48,0.25)"/>
+        {[0,1,2,3].map(i=><g key={i}><circle cx="9" cy={35+i*7} r="2" fill="#C7E738"/><rect x="14" y={33.5+i*7} width="32" height="2" rx="1" fill="rgba(0,58,48,0.2)"/></g>)}
+        <rect x="66" y="6" width="48" height="68" rx="6" fill="white" style={{filter:"drop-shadow(0 2px 8px rgba(0,0,0,0.08))"}}/>
+        <rect x="72" y="14" width="36" height="3" rx="1.5" fill="#003A30"/>
+        {[0,1,2,3].map(i=><rect key={i} x="72" y={22+i*11} width="36" height="7" rx="3" fill="#F1F5F9"/>)}
+        <rect x="72" y="68" width="36" height="0" rx="0" fill="#C7E738"/>
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-conversion-panel-1" as const,
+    label: "Dandy: Conversion Panel 1",
+    category: "CTA" as BlockCategory,
+    defaultProps: (): DandyConversionPanel1BlockProps => ({
+      eyebrow: "READY TO GO DIGITAL?",
+      headline: "Join 6,000+ practices already on Dandy.",
+      subheadline: "Get a free intraoral scanner, access to premium lab services, and live clinical support—all in one platform.",
+      primaryCtaText: "Get a Free Demo",
+      primaryCtaUrl: "/get-started/",
+      secondaryCtaText: "Talk to Sales",
+      secondaryCtaUrl: "/contact/",
+      style: "teal",
+      stats: [
+        { value: "6,000+", label: "Dental Practices" },
+        { value: "5-Day", label: "Zirconia Crowns" },
+        { value: "$0", label: "Scanner Cost" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#003A30" rx="4"/>
+        <rect x="30" y="10" width="20" height="2" rx="1" fill="#C7E738" opacity="0.7"/>
+        <rect x="15" y="16" width="90" height="5" rx="2.5" fill="white" opacity="0.9"/>
+        <rect x="25" y="25" width="70" height="2" rx="1" fill="white" opacity="0.4"/>
+        <rect x="35" y="31" width="50" height="2" rx="1" fill="white" opacity="0.3"/>
+        <rect x="28" y="40" width="30" height="9" rx="4" fill="#C7E738"/>
+        <rect x="62" y="40" width="30" height="9" rx="4" fill="none" stroke="white" strokeWidth="1.2" strokeOpacity="0.6"/>
+        <rect x="6" y="58" width="108" height="0.8" rx="0.4" fill="white" opacity="0.12"/>
+        {[0,1,2].map(i=><g key={i}><rect x={15+i*34} y="63" width="20" height="3" rx="1.5" fill="white" opacity="0.7"/><rect x={18+i*34} y="69" width="14" height="2" rx="1" fill="white" opacity="0.3"/></g>)}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-cta-block" as const,
+    label: "Dandy: CTA Block",
+    category: "CTA" as BlockCategory,
+    defaultProps: (): DandyCtaBlockProps => ({
+      eyebrow: "GET STARTED",
+      headline: "Ready to transform your practice?",
+      subheadline: "Schedule a free demo and see how Dandy's digital platform can help you deliver better outcomes—faster.",
+      primaryCtaText: "Get a Free Demo",
+      primaryCtaUrl: "/get-started/",
+      secondaryCtaText: "Learn More",
+      secondaryCtaUrl: "/technology/",
+      alignment: "center",
+      bgColor: "#FDFCFA",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="43" y="12" width="34" height="2" rx="1" fill="#C7E738" opacity="0.8"/>
+        <rect x="15" y="18" width="90" height="5" rx="2.5" fill="#003A30" opacity="0.85"/>
+        <rect x="20" y="27" width="80" height="2" rx="1" fill="rgba(0,58,48,0.3)"/>
+        <rect x="30" y="31" width="60" height="2" rx="1" fill="rgba(0,58,48,0.2)"/>
+        <rect x="24" y="42" width="34" height="10" rx="5" fill="#C7E738"/>
+        <rect x="62" y="42" width="34" height="10" rx="5" fill="none" stroke="#003A30" strokeWidth="1.5" strokeOpacity="0.4"/>
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2615,6 +2787,11 @@ export function createBlock(type: "dandy-switchback"): Extract<PageBlock, { type
 export function createBlock(type: "dandy-site-header"): Extract<PageBlock, { type: "dandy-site-header" }>;
 export function createBlock(type: "dandy-site-footer"): Extract<PageBlock, { type: "dandy-site-footer" }>;
 export function createBlock(type: "dandy-video-testimonials"): Extract<PageBlock, { type: "dandy-video-testimonials" }>;
+export function createBlock(type: "dandy-side-image-v6"): Extract<PageBlock, { type: "dandy-side-image-v6" }>;
+export function createBlock(type: "dandy-hero-v7-s3"): Extract<PageBlock, { type: "dandy-hero-v7-s3" }>;
+export function createBlock(type: "dandy-form-right-alt"): Extract<PageBlock, { type: "dandy-form-right-alt" }>;
+export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock, { type: "dandy-conversion-panel-1" }>;
+export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2694,6 +2871,11 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-site-header": return { id, type: "dandy-site-header", props: props as DandySiteHeaderBlockProps };
     case "dandy-site-footer": return { id, type: "dandy-site-footer", props: props as DandySiteFooterBlockProps };
     case "dandy-video-testimonials": return { id, type: "dandy-video-testimonials", props: props as DandyVideoTestimonialsBlockProps };
+    case "dandy-side-image-v6": return { id, type: "dandy-side-image-v6", props: props as DandySideImageV6BlockProps };
+    case "dandy-hero-v7-s3": return { id, type: "dandy-hero-v7-s3", props: props as DandyHeroV7S3BlockProps };
+    case "dandy-form-right-alt": return { id, type: "dandy-form-right-alt", props: props as DandyFormRightAltBlockProps };
+    case "dandy-conversion-panel-1": return { id, type: "dandy-conversion-panel-1", props: props as DandyConversionPanel1BlockProps };
+    case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
   }
 }
 

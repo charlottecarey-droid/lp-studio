@@ -31,6 +31,11 @@ import type {
   DandySiteHeaderBlockProps,
   DandySiteFooterBlockProps,
   DandyVideoTestimonialsBlockProps,
+  DandySideImageV6BlockProps,
+  DandyHeroV7S3BlockProps,
+  DandyFormRightAltBlockProps,
+  DandyConversionPanel1BlockProps,
+  DandyCtaBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -150,7 +155,12 @@ export type BlockVariant =
   | { type: "dandy-switchback"; props: DandySwitchbackBlockProps }
   | { type: "dandy-site-header"; props: DandySiteHeaderBlockProps }
   | { type: "dandy-site-footer"; props: DandySiteFooterBlockProps }
-  | { type: "dandy-video-testimonials"; props: DandyVideoTestimonialsBlockProps };
+  | { type: "dandy-video-testimonials"; props: DandyVideoTestimonialsBlockProps }
+  | { type: "dandy-side-image-v6"; props: DandySideImageV6BlockProps }
+  | { type: "dandy-hero-v7-s3"; props: DandyHeroV7S3BlockProps }
+  | { type: "dandy-form-right-alt"; props: DandyFormRightAltBlockProps }
+  | { type: "dandy-conversion-panel-1"; props: DandyConversionPanel1BlockProps }
+  | { type: "dandy-cta-block"; props: DandyCtaBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 

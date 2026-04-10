@@ -48,6 +48,13 @@ export type {
   DandySiteHeaderBlockProps,
   DandySiteFooterBlockProps,
   DandyVideoTestimonialsBlockProps,
+  DandySideImageV6BlockProps,
+  DandyHeroV7S3BlockProps,
+  DandyHeroV7S3TrustItem,
+  DandyFormRightAltBlockProps,
+  DandyConversionPanel1BlockProps,
+  DandyConversionPanel1Stat,
+  DandyCtaBlockProps,
 } from "./generic-blocks";
 
 // DSO block types
