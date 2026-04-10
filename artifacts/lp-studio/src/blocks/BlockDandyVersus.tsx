@@ -87,7 +87,7 @@ export function BlockDandyVersus({ props, brand, onFieldChange }: Props) {
           </div>
 
           {/* Right card — dark green */}
-          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ backgroundColor: "#004D40" }}>
+          <div className="rounded-b-3xl md:rounded-r-3xl md:rounded-bl-none p-10 md:p-12 flex flex-col" style={{ background: "linear-gradient(135deg, #006651 0%, #003A30 100%)" }}>
             <span className="text-xs font-bold uppercase tracking-widest text-[#C7E738] mb-4">
               <InlineText value={props.rightLabel} onUpdate={field("rightLabel")} />
             </span>
