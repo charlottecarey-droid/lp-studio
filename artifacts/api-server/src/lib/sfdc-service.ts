@@ -79,13 +79,13 @@ export class SfdcService {
   /**
    * Build the OAuth authorization URL for redirecting the user to Salesforce.
    */
-  getAuthorizationUrl(redirectUri: string): string {
+  getAuthorizationUrl(redirectUri: string, state?: string): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: "api full",
-      state: randomBytes(16).toString("base64url"),
+      state: state ?? randomBytes(16).toString("base64url"),
     });
     return `${SFDC_AUTH_URL}/services/oauth2/authorize?${params.toString()}`;
   }
@@ -656,13 +656,13 @@ export class SfdcService {
   /**
    * Run all syncs for a connection.
    */
-  async syncAll(connectionId: number): Promise<any> {
+  async syncAll(connectionId: number, tenantId: number = 1): Promise<any> {
     logger.info({ connectionId }, "Starting full sync");
 
     try {
       const results = await Promise.all([
-        this.syncAccounts(connectionId),
-        this.syncContacts(connectionId),
+        this.syncAccounts(connectionId, tenantId),
+        this.syncContacts(connectionId, tenantId),
         this.syncLeads(connectionId),
         this.syncOpportunities(connectionId),
       ]);
@@ -916,12 +916,15 @@ export class SfdcService {
    * Get the active SFDC connection (first connected one).
    * Returns null if no connection exists or none are connected.
    */
-  async getActiveConnection(): Promise<{ id: number; instanceUrl: string } | null> {
+  async getActiveConnection(tenantId?: number): Promise<{ id: number; instanceUrl: string } | null> {
     try {
+      const statusCond = eq(sfdcConnectionsTable.status, "connected");
       const [connection] = await db
         .select({ id: sfdcConnectionsTable.id, instanceUrl: sfdcConnectionsTable.instanceUrl })
         .from(sfdcConnectionsTable)
-        .where(eq(sfdcConnectionsTable.status, "connected"))
+        .where(tenantId != null
+          ? and(statusCond, eq(sfdcConnectionsTable.tenantId, tenantId))
+          : statusCond)
         .limit(1);
       return connection || null;
     } catch (err) {

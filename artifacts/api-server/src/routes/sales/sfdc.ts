@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
+import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -10,10 +11,12 @@ const router = Router();
  * GET /sfdc/auth-url
  * Returns the OAuth authorization URL for Salesforce
  */
-router.get("/sfdc/auth-url", (_req, res): void => {
+router.get("/sfdc/auth-url", requireAuth, (req, res): void => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
-    const url = sfdcService.getAuthorizationUrl(redirectUri);
+    const state = Buffer.from(JSON.stringify({ tenantId })).toString("base64url");
+    const url = sfdcService.getAuthorizationUrl(redirectUri, state);
     res.json({ url });
   } catch (err) {
     logger.error(err, "Error generating auth URL");
@@ -39,6 +42,15 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     return;
   }
 
+  // Decode tenantId from state param
+  let tenantId: number | null = null;
+  if (state && typeof state === "string") {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
+      if (typeof decoded.tenantId === "number") tenantId = decoded.tenantId;
+    } catch { /* ignore malformed state */ }
+  }
+
   try {
     const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
     const tokenData = await sfdcService.exchangeCodeForTokens(code, redirectUri);
@@ -46,19 +58,41 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     // Extract org ID from id field (format: https://login.salesforce.com/id/00Dxx0000000000/005xx000000TqQAAV)
     const orgId = tokenData.id?.split("/").slice(-2, -1)[0] || "unknown";
 
-    // Create connection record
-    const [connection] = await db
-      .insert(sfdcConnectionsTable)
-      .values({
-        instanceUrl: tokenData.instance_url,
-        orgId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000),
-        status: "connected",
-        syncEnabled: true,
-      })
-      .returning();
+    // Upsert connection: if this tenant already has a connection for this org, update it
+    const existing = tenantId
+      ? await db.select().from(sfdcConnectionsTable)
+          .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.orgId, orgId)))
+          .limit(1)
+      : [];
+
+    let connection;
+    if (existing.length > 0) {
+      [connection] = await db
+        .update(sfdcConnectionsTable)
+        .set({
+          instanceUrl: tokenData.instance_url,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          tokenExpiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000),
+          status: "connected",
+        })
+        .where(eq(sfdcConnectionsTable.id, existing[0].id))
+        .returning();
+    } else {
+      [connection] = await db
+        .insert(sfdcConnectionsTable)
+        .values({
+          tenantId,
+          instanceUrl: tokenData.instance_url,
+          orgId,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          tokenExpiresAt: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000),
+          status: "connected",
+          syncEnabled: true,
+        })
+        .returning();
+    }
 
     logger.info({ connectionId: connection.id, orgId }, "Created SFDC connection");
 
@@ -79,11 +113,13 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
  * GET /sfdc/connection
  * Get the current SFDC connection status
  */
-router.get("/sfdc/connection", async (_req, res): Promise<void> => {
+router.get("/sfdc/connection", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -112,11 +148,13 @@ router.get("/sfdc/connection", async (_req, res): Promise<void> => {
  * POST /sfdc/disconnect
  * Disconnect the current SFDC connection
  */
-router.post("/sfdc/disconnect", async (_req, res): Promise<void> => {
+router.post("/sfdc/disconnect", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -147,12 +185,13 @@ router.post("/sfdc/disconnect", async (_req, res): Promise<void> => {
  * POST /sfdc/sync
  * Trigger a full sync (all objects)
  */
-router.post("/sfdc/sync", async (_req, res): Promise<void> => {
+router.post("/sfdc/sync", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
-      .where(eq(sfdcConnectionsTable.status, "connected"))
+      .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.status, "connected")))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -162,7 +201,7 @@ router.post("/sfdc/sync", async (_req, res): Promise<void> => {
     }
 
     // Run sync in background (don't await)
-    sfdcService.syncAll(connection.id).catch((err) => {
+    sfdcService.syncAll(connection.id, tenantId).catch((err) => {
       logger.error(err, "Background sync failed");
     });
 
@@ -181,7 +220,8 @@ router.post("/sfdc/sync", async (_req, res): Promise<void> => {
  * POST /sfdc/sync/:object
  * Sync a specific object (accounts|contacts|leads|opportunities)
  */
-router.post("/sfdc/sync/:object", async (req, res): Promise<void> => {
+router.post("/sfdc/sync/:object", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { object } = req.params;
   const validObjects = ["accounts", "contacts", "leads", "opportunities"];
 
@@ -194,7 +234,7 @@ router.post("/sfdc/sync/:object", async (req, res): Promise<void> => {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
-      .where(eq(sfdcConnectionsTable.status, "connected"))
+      .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.status, "connected")))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -206,10 +246,10 @@ router.post("/sfdc/sync/:object", async (req, res): Promise<void> => {
     let result;
     switch (object) {
       case "accounts":
-        result = await sfdcService.syncAccounts(connection.id);
+        result = await sfdcService.syncAccounts(connection.id, tenantId);
         break;
       case "contacts":
-        result = await sfdcService.syncContacts(connection.id);
+        result = await sfdcService.syncContacts(connection.id, tenantId);
         break;
       case "leads":
         result = await sfdcService.syncLeads(connection.id);
@@ -253,11 +293,13 @@ router.get("/sfdc/sync/log", async (_req, res): Promise<void> => {
  * GET /sfdc/field-mappings
  * Get field mappings for the current connection
  */
-router.get("/sfdc/field-mappings", async (_req, res): Promise<void> => {
+router.get("/sfdc/field-mappings", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -282,7 +324,8 @@ router.get("/sfdc/field-mappings", async (_req, res): Promise<void> => {
  * PUT /sfdc/field-mappings
  * Update field mappings
  */
-router.put("/sfdc/field-mappings", async (req, res): Promise<void> => {
+router.put("/sfdc/field-mappings", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { sfdcObject, sfdcField, localTable, localField, transformFn } = req.body;
 
   if (!sfdcObject || !sfdcField || !localTable || !localField) {
@@ -317,6 +360,7 @@ router.put("/sfdc/field-mappings", async (req, res): Promise<void> => {
     const [connection] = await db
       .select()
       .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
       .orderBy(desc(sfdcConnectionsTable.createdAt))
       .limit(1);
 
@@ -391,14 +435,15 @@ router.get("/sfdc/opportunities", async (_req, res): Promise<void> => {
  * Log an activity (Task) on a SFDC Contact.
  * Body: { contactSalesforceId, subject, description?, type? }
  */
-router.post("/sfdc/writeback/activity", async (req, res): Promise<void> => {
+router.post("/sfdc/writeback/activity", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { contactSalesforceId, subject, description, type } = req.body;
   if (!contactSalesforceId || !subject) {
     res.status(400).json({ error: "contactSalesforceId and subject are required" });
     return;
   }
   try {
-    const conn = await sfdcService.getActiveConnection();
+    const conn = await sfdcService.getActiveConnection(tenantId);
     if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
 
     const result = await sfdcService.createActivity(conn.id, {
@@ -419,14 +464,15 @@ router.post("/sfdc/writeback/activity", async (req, res): Promise<void> => {
  * Push engagement score to a SFDC Contact custom field.
  * Body: { contactSalesforceId, label, numericScore }
  */
-router.post("/sfdc/writeback/engagement-score", async (req, res): Promise<void> => {
+router.post("/sfdc/writeback/engagement-score", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { contactSalesforceId, label, numericScore } = req.body;
   if (!contactSalesforceId || !label) {
     res.status(400).json({ error: "contactSalesforceId and label are required" });
     return;
   }
   try {
-    const conn = await sfdcService.getActiveConnection();
+    const conn = await sfdcService.getActiveConnection(tenantId);
     if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
 
     const ok = await sfdcService.pushEngagementScore(conn.id, contactSalesforceId, {
@@ -445,14 +491,15 @@ router.post("/sfdc/writeback/engagement-score", async (req, res): Promise<void> 
  * Create a Lead in Salesforce from form submission data.
  * Body: { firstName?, lastName, email?, company?, title?, phone?, leadSource?, description? }
  */
-router.post("/sfdc/writeback/lead", async (req, res): Promise<void> => {
+router.post("/sfdc/writeback/lead", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { firstName, lastName, email, company, title, phone, leadSource, description } = req.body;
   if (!lastName) {
     res.status(400).json({ error: "lastName is required" });
     return;
   }
   try {
-    const conn = await sfdcService.getActiveConnection();
+    const conn = await sfdcService.getActiveConnection(tenantId);
     if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
 
     const result = await sfdcService.createLead(conn.id, {
@@ -470,14 +517,15 @@ router.post("/sfdc/writeback/lead", async (req, res): Promise<void> => {
  * Push engagement scores for all contacts with SFDC IDs in bulk.
  * Body: { scores: [{ contactSalesforceId, label, numericScore }] }
  */
-router.post("/sfdc/writeback/bulk-engagement", async (req, res): Promise<void> => {
+router.post("/sfdc/writeback/bulk-engagement", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { scores } = req.body;
   if (!Array.isArray(scores) || scores.length === 0) {
     res.status(400).json({ error: "scores array is required" });
     return;
   }
   try {
-    const conn = await sfdcService.getActiveConnection();
+    const conn = await sfdcService.getActiveConnection(tenantId);
     if (!conn) { res.status(404).json({ error: "No active SFDC connection" }); return; }
 
     let succeeded = 0;

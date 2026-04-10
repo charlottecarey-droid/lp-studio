@@ -2,15 +2,17 @@ import { pgTable, text, serial, timestamp, jsonb, integer, boolean } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
+import { tenantsTable } from "./tenants";
 
 /**
  * SFDC Connection — stores OAuth credentials and sync state for Salesforce.
- * One row per connected Salesforce org.
+ * One row per (tenant, org) pair — each tenant can connect their own Salesforce org.
  */
 export const sfdcConnectionsTable = pgTable("sfdc_connections", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, { onDelete: "cascade" }),
   instanceUrl: text("instance_url").notNull(),        // e.g. https://na1.salesforce.com
-  orgId: text("org_id").notNull().unique(),            // Salesforce org ID (018...)
+  orgId: text("org_id").notNull(),                    // Salesforce org ID (018...)
   accessToken: text("access_token").notNull(),         // encrypted at rest
   refreshToken: text("refresh_token").notNull(),       // encrypted at rest
   tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
