@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
-import { SECTION_PY, getHeadingWeightClass } from "@/lib/brand-config";
+import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyColumnsV2BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 
-const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=640&h=300&fit=crop";
+const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&h=500&fit=crop";
 
 interface Props {
   props: DandyColumnsV2BlockProps;
@@ -15,8 +15,6 @@ interface Props {
 }
 
 export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
-  const sectionPy = SECTION_PY[brand.sectionPadding];
-
   const updateItem = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const items = props.items.map((item, idx) => idx === i ? { ...item, [key]: value } : item);
@@ -35,32 +33,32 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className={cn("w-full bg-white", sectionPy)}>
-      <div className="max-w-6xl mx-auto px-6">
+    <section className="w-full py-20 md:py-28 bg-white">
+      <div className="max-w-7xl mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline || props.subheadline) && (
-          <div className="mb-12 max-w-2xl">
+          <div className="mb-14 max-w-2xl">
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3">
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-3xl md:text-4xl font-bold text-[#003A30] leading-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
             {props.subheadline && (
-              <p className="text-slate-600 text-base leading-relaxed">
+              <p className="text-slate-600 text-lg leading-relaxed">
                 <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
               </p>
             )}
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-10 md:gap-12">
           {(props.items ?? []).map((item, i) => (
             <div key={i} className="flex flex-col">
-              <div className="rounded-xl overflow-hidden mb-5 aspect-[16/7] bg-slate-100">
+              <div className="rounded-2xl overflow-hidden mb-7 aspect-[3/2] bg-slate-100">
                 <img
                   src={item.imageUrl || PLACEHOLDER}
                   alt={item.title}
@@ -68,17 +66,17 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                   loading="lazy"
                 />
               </div>
-              <h3 className="text-xl font-bold text-[#003A30] mb-2">
+              <h3 className="text-2xl font-bold text-[#003A30] mb-3">
                 <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
               </h3>
-              <p className="text-slate-600 text-sm leading-relaxed mb-3">
+              <p className="text-slate-600 text-base leading-relaxed mb-4">
                 <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} />
               </p>
               {(item.bullets ?? []).length > 0 && (
-                <ul className="space-y-1 mb-5 flex-1">
+                <ul className="space-y-2 mb-6 flex-1">
                   {(item.bullets ?? []).map((b, bi) => (
-                    <li key={bi} className="text-sm text-slate-500 flex items-start gap-1.5">
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#C7E738] shrink-0" />
+                    <li key={bi} className="text-base text-slate-500 flex items-start gap-2">
+                      <span className="mt-2 w-2 h-2 rounded-full bg-[#C7E738] shrink-0" />
                       <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, bi, v) : undefined} />
                     </li>
                   ))}
@@ -87,10 +85,10 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
               {item.ctaText && (
                 <button
                   onClick={() => safeNavigate(item.ctaUrl)}
-                  className="mt-auto inline-flex items-center gap-2 border border-[#003A30] rounded-lg px-4 py-2.5 text-sm font-semibold text-[#003A30] hover:bg-[#003A30] hover:text-white transition-colors w-fit"
+                  className="mt-auto inline-flex items-center gap-2.5 border-2 border-[#003A30] rounded-xl px-6 py-3.5 text-base font-semibold text-[#003A30] hover:bg-[#003A30] hover:text-white transition-colors w-fit"
                 >
-                  <span className="w-6 h-6 rounded border border-current flex items-center justify-center shrink-0">
-                    <ArrowRight className="w-3 h-3" />
+                  <span className="w-7 h-7 rounded border border-current flex items-center justify-center shrink-0">
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                   <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} />
                 </button>

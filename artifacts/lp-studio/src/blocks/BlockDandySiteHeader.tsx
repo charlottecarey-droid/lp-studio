@@ -1,5 +1,4 @@
 import { Phone } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -26,10 +25,10 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
     <header className="w-full bg-[#003A30] shadow-sm">
       {/* Utility bar */}
       <div className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 h-9 flex items-center justify-end">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 h-10 flex items-center justify-end">
           <a
             href="https://www.meetdandy.com/careers/"
-            className="text-xs text-white/60 hover:text-white transition-colors"
+            className="text-xs text-white/55 hover:text-white transition-colors tracking-wide"
           >
             *We&apos;re hiring* Careers
           </a>
@@ -37,24 +36,24 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
       </div>
 
       {/* Main header */}
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-6">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
         {/* Logo */}
         <div className="shrink-0">
           <img
             src={props.logoUrl || dandyLogoUrl}
             alt="Dandy"
-            className="h-8 w-auto brightness-0 invert"
+            className="h-9 w-auto brightness-0 invert"
           />
         </div>
 
         {/* Nav links */}
         {(props.navLinks ?? []).length > 0 && (
-          <nav className="hidden lg:flex items-center gap-6 flex-1">
+          <nav className="hidden lg:flex items-center gap-8 flex-1">
             {(props.navLinks ?? []).map((link, i) => (
               <a
                 key={i}
                 href={link.url || "#"}
-                className="text-sm font-medium text-white/80 hover:text-white transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-white/75 hover:text-white transition-colors whitespace-nowrap"
               >
                 <InlineText
                   value={link.label}
@@ -65,14 +64,14 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           </nav>
         )}
 
-        <div className="ml-auto flex items-center gap-3 shrink-0">
+        <div className="ml-auto flex items-center gap-4 shrink-0">
           {/* Phone */}
           {props.phoneNumber && (
             <a
               href={`tel:${props.phoneNumber}`}
-              className="hidden md:flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors"
+              className="hidden md:flex items-center gap-2 text-sm text-white/65 hover:text-white transition-colors"
             >
-              <Phone className="w-3.5 h-3.5" />
+              <Phone className="w-4 h-4" />
               <InlineText value={props.phoneLabel || props.phoneNumber} onUpdate={field("phoneLabel")} />
             </a>
           )}
@@ -81,7 +80,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           {props.secondaryCtaText && (
             <button
               onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className="hidden md:block text-sm font-semibold text-white border border-white/30 rounded-lg px-4 py-2 hover:bg-white/10 transition-colors"
+              className="hidden md:block text-sm font-semibold text-white border border-white/30 rounded-xl px-5 py-2.5 hover:bg-white/10 transition-colors"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>
@@ -91,7 +90,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           {props.primaryCtaText && (
             <button
               onClick={() => safeNavigate(props.primaryCtaUrl)}
-              className="bg-[#C7E738] text-[#003A30] font-bold text-sm rounded-lg px-4 py-2 hover:brightness-110 transition-all"
+              className="bg-[#C7E738] text-[#003A30] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all"
             >
               <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
             </button>
