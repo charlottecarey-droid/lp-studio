@@ -368,6 +368,11 @@ function TenantRow({
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [domainEdit, setDomainEdit] = useState(tenant.domain ?? "");
+  const [micrositeEdit, setMicrositeEdit] = useState(tenant.microsite_domain ?? "");
+  const [savingDomains, setSavingDomains] = useState(false);
+  const [domainsError, setDomainsError] = useState<string | null>(null);
+  const [domainsSaved, setDomainsSaved] = useState(false);
 
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
@@ -413,6 +418,28 @@ function TenantRow({
     } catch (err: any) {
       setDeleteError(err.message ?? "Failed to delete");
       setDeleting(false);
+    }
+  };
+
+  const saveDomains = async () => {
+    setSavingDomains(true);
+    setDomainsError(null);
+    setDomainsSaved(false);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+        method: "PATCH",
+        body: JSON.stringify({
+          domain: domainEdit.trim(),
+          micrositeDomain: micrositeEdit.trim(),
+        }),
+      });
+      setDomainsSaved(true);
+      setTimeout(() => setDomainsSaved(false), 2500);
+      onUpdate();
+    } catch (err: any) {
+      setDomainsError(err.message ?? "Failed to save");
+    } finally {
+      setSavingDomains(false);
     }
   };
 
@@ -479,6 +506,49 @@ function TenantRow({
                     {p}
                   </Button>
                 ))}
+              </div>
+
+              {/* Domain settings */}
+              <div className="space-y-2 border-t pt-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Domains</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-muted-foreground">App domain</label>
+                    <Input
+                      value={domainEdit}
+                      onChange={(e) => setDomainEdit(e.target.value)}
+                      placeholder="ent.theirdomain.com"
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Microsite domain</label>
+                    <Input
+                      value={micrositeEdit}
+                      onChange={(e) => setMicrositeEdit(e.target.value)}
+                      placeholder="partners.theirdomain.com"
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={savingDomains}
+                    onClick={saveDomains}
+                  >
+                    {savingDomains
+                      ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving…</>
+                      : domainsSaved
+                      ? <><Check className="w-3 h-3 mr-1 text-green-600" />Saved</>
+                      : "Save domains"}
+                  </Button>
+                  {!domainEdit && (
+                    <p className="text-[11px] text-amber-600">No domain set — users log in via the main URL</p>
+                  )}
+                  {domainsError && <p className="text-[11px] text-destructive">{domainsError}</p>}
+                </div>
               </div>
 
               {/* Delete workspace */}

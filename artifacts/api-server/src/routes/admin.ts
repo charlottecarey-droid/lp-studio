@@ -224,13 +224,15 @@ router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res):
 
 // PATCH /api/admin/superadmin/tenants/:id
 router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
-  const { status, plan } = req.body ?? {};
+  const { status, plan, domain, micrositeDomain } = req.body ?? {};
   try {
     const updates: string[] = [];
     const values: any[] = [];
     let idx = 1;
-    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
-    if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan);   }
+    if (status          !== undefined) { updates.push(`status = $${idx++}`);           values.push(status); }
+    if (plan            !== undefined) { updates.push(`plan = $${idx++}`);              values.push(plan); }
+    if (domain          !== undefined) { updates.push(`domain = $${idx++}`);            values.push(domain || null); }
+    if (micrositeDomain !== undefined) { updates.push(`microsite_domain = $${idx++}`);  values.push(micrositeDomain || null); }
     if (!updates.length) { res.status(400).json({ error: "No fields to update" }); return; }
     values.push(req.params.id);
     const result = await pool.query(
