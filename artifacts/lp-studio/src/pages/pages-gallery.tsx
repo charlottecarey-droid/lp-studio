@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star, CheckSquare } from "lucide-react";
+import { Plus, Edit2, ExternalLink, Trash2, FileText, Globe, Clock, Share2, FlaskConical, Loader2, Sparkles, Wand2, TrendingUp, Eye, Link2, BookOpen, Building2, Users, Copy, Check, MoreHorizontal, Search, X, BookMarked, Star, CheckSquare, MessageSquare } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LP_TEMPLATES } from "@/lib/templates";
@@ -103,6 +103,19 @@ function useRunningTests() {
       const all: Test[] = await res.json();
       return all.filter(t => t.status === "running");
     },
+  });
+}
+
+function useCommentSummary() {
+  return useQuery<{ pageId: number; unresolvedCount: number }[]>({
+    queryKey: ["lp-comment-summary"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/lp/comments/summary`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 30_000,
+    staleTime: 10_000,
   });
 }
 
@@ -523,6 +536,8 @@ export default function PagesGallery() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const { data: runningTests = [], isLoading: testsLoading } = useRunningTests();
+  const { data: commentSummary = [] } = useCommentSummary();
+  const commentCounts = Object.fromEntries(commentSummary.map(s => [s.pageId, s.unresolvedCount]));
 
   const [perfScores, setPerfScores] = useState<Record<number, { cvr: number; scroll: number; engagement: number; composite: number; visits: number }>>({});
 
@@ -962,6 +977,14 @@ export default function PagesGallery() {
                               <span className="text-[13px] font-medium text-foreground hover:underline cursor-pointer">{page.title}</span>
                             </Link>
                             {page.isTemplate && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
+                            {(commentCounts[page.id] ?? 0) > 0 && (
+                              <Link href={`/builder/${page.id}?comments=1`}>
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors" title={`${commentCounts[page.id]} open comment(s)`}>
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                  {commentCounts[page.id]}
+                                </span>
+                              </Link>
+                            )}
                             {statusBadge}
                           </div>
                           <code className="text-[11px] text-muted-foreground/70 font-mono mt-0.5 block truncate">
@@ -1022,7 +1045,7 @@ export default function PagesGallery() {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${isPublished || isRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/20"}`} />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Link href={`/builder/${page.id}`}>
                               <span className="text-[13px] font-medium text-foreground hover:underline truncate cursor-pointer">{page.title}</span>
                             </Link>
@@ -1030,6 +1053,14 @@ export default function PagesGallery() {
                               <span title={`Template: ${page.templateLabel ?? page.title}`}>
                                 <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
                               </span>
+                            )}
+                            {(commentCounts[page.id] ?? 0) > 0 && (
+                              <Link href={`/builder/${page.id}?comments=1`}>
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors shrink-0" title={`${commentCounts[page.id]} open comment(s)`}>
+                                  <MessageSquare className="w-2.5 h-2.5" />
+                                  {commentCounts[page.id]}
+                                </span>
+                              </Link>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">

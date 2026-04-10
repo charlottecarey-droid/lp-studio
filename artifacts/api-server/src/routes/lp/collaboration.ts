@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq, and, gt, sql } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
+import { getTenantId } from "../../middleware/requireAuth";
 import {
   lpPageCommentsTable,
   lpPageReviewsTable,
@@ -107,6 +108,24 @@ async function notifyReviewDecision(pageId: number, reviewerName: string, status
     console.error("notifyReviewDecision failed", err);
   }
 }
+
+// ─── Comment Summary (per-page counts for the pages gallery) ─────────────────
+
+router.get("/lp/comments/summary", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
+
+  const { rows } = await pool.query<{ page_id: string; unresolved_count: string }>(
+    `SELECT c.page_id, COUNT(*) AS unresolved_count
+     FROM lp_page_comments c
+     JOIN lp_pages p ON p.id = c.page_id
+     WHERE p.tenant_id = $1 AND c.resolved = false AND c.parent_id IS NULL
+     GROUP BY c.page_id`,
+    [tenantId]
+  );
+
+  res.json(rows.map(r => ({ pageId: Number(r.page_id), unresolvedCount: Number(r.unresolved_count) })));
+});
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 

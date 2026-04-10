@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -754,8 +754,10 @@ export default function BuilderEditor() {
     return () => { setBriefContext(null); };
   }, [appliedBrief, appliedSegment]);
 
-  // Collaboration state
-  const [commentMode, setCommentMode] = useState(false);
+  // Collaboration state — auto-enable comment mode from URL param (?comments=1)
+  const [commentMode, setCommentMode] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("comments") === "1"; } catch { return false; }
+  });
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const pageIdNum = parseInt(pageId, 10);
@@ -1295,6 +1297,7 @@ export default function BuilderEditor() {
         saveSuccess={saveSuccess}
         commentMode={commentMode}
         viewers={viewers}
+        unresolvedComments={commentBlocks.reduce((sum, b) => sum + b.threads.filter(t => !t.comment.resolved).length, 0)}
         onTitleChange={setTitle}
         onTitleBlur={handleTitleBlur}
         onSetMobile={setIsMobile}
@@ -2470,6 +2473,18 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Always-on comment dot — visible outside of comment mode when there are open threads */}
+      {!commentMode && (blockComments?.threads.filter(t => !t.comment.resolved).length ?? 0) > 0 && (
+        <button
+          className="absolute right-3 top-3 z-[80] flex items-center gap-1 bg-amber-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 shadow-md hover:bg-amber-600 transition-colors"
+          onClick={e => { e.stopPropagation(); }}
+          title={`${blockComments!.threads.filter(t => !t.comment.resolved).length} open comment(s) — click Comments to review`}
+        >
+          <MessageSquare className="w-3 h-3" />
+          {blockComments!.threads.filter(t => !t.comment.resolved).length}
+        </button>
+      )}
 
       {/* Comment badge (visible when comment mode is on) */}
       {commentMode && (

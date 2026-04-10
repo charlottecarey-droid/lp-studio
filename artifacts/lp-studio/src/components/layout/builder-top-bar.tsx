@@ -19,6 +19,7 @@ interface BuilderTopBarProps {
   saveSuccess: boolean;
   commentMode: boolean;
   viewers: PresenceViewer[];
+  unresolvedComments?: number;
   /** Live public URL (e.g. partners.meetdandy.com/slug or /lp/slug) */
   liveUrl: string;
   /** In-app preview URL — the page viewer, visible even for drafts */
@@ -43,6 +44,7 @@ export function BuilderTopBar({
   saveSuccess,
   commentMode,
   viewers,
+  unresolvedComments = 0,
   liveUrl,
   previewUrl,
   onTitleChange,
@@ -131,11 +133,16 @@ export function BuilderTopBar({
       <Button
         variant={commentMode ? "default" : "outline"}
         size="sm"
-        className={cn("gap-1.5 text-xs", commentMode && "bg-amber-500 hover:bg-amber-600 text-white")}
+        className={cn("gap-1.5 text-xs relative", commentMode && "bg-amber-500 hover:bg-amber-600 text-white")}
         onClick={onToggleCommentMode}
       >
         <MessageSquare className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Comments</span>
+        {unresolvedComments > 0 && !commentMode && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+            {unresolvedComments > 9 ? "9+" : unresolvedComments}
+          </span>
+        )}
       </Button>
 
       <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onShareForReview}>
