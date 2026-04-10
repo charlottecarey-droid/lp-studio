@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
-  Plus, CheckCircle2, Copy, Check, Loader2,
+  Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -364,6 +364,10 @@ function TenantRow({
   const [members, setMembers] = useState<Member[] | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
@@ -394,6 +398,21 @@ function TenantRow({
       /* ignore */
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirm !== tenant.name) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}`, adminKey, {
+        method: "DELETE",
+      });
+      onUpdate();
+    } catch (err: any) {
+      setDeleteError(err.message ?? "Failed to delete");
+      setDeleting(false);
     }
   };
 
@@ -461,6 +480,57 @@ function TenantRow({
                   </Button>
                 ))}
               </div>
+
+              {/* Delete workspace */}
+              {!deleteMode ? (
+                <div className="flex items-center gap-2 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-xs text-destructive border-destructive/40 hover:bg-destructive/10 gap-1"
+                    onClick={() => setDeleteMode(true)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete workspace
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 text-destructive text-xs font-semibold">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    This permanently deletes <strong>{tenant.name}</strong> and all its pages, members, and data.
+                  </div>
+                  <p className="text-xs text-muted-foreground">Type the workspace name to confirm:</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={deleteConfirm}
+                      onChange={(e) => setDeleteConfirm(e.target.value)}
+                      placeholder={tenant.name}
+                      className="h-7 text-xs font-mono max-w-[240px]"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs"
+                      disabled={deleteConfirm !== tenant.name || deleting}
+                      onClick={handleDelete}
+                    >
+                      {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Delete"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={deleting}
+                      onClick={() => { setDeleteMode(false); setDeleteConfirm(""); setDeleteError(null); }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+                </div>
+              )}
 
               {/* Members */}
               {loadingMembers && <p className="text-xs text-muted-foreground">Loading members…</p>}

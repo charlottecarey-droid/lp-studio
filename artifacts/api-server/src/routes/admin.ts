@@ -245,6 +245,42 @@ router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promi
   }
 });
 
+// DELETE /api/admin/superadmin/tenants/:id
+router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  if (!tenantId || isNaN(tenantId)) {
+    res.status(400).json({ error: "Invalid tenant ID" });
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Delete sessions for all members of this tenant first
+    await client.query(
+      `DELETE FROM app_sessions WHERE (sess->>'tenantId')::int = $1`,
+      [tenantId]
+    );
+    // Cascading deletes handle members, roles, pages, etc. via FK constraints
+    const result = await client.query(
+      `DELETE FROM tenants WHERE id = $1 RETURNING id, name`,
+      [tenantId]
+    );
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "Tenant not found" });
+      return;
+    }
+    await client.query("COMMIT");
+    res.json({ deleted: true, id: result.rows[0].id, name: result.rows[0].name });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[superadmin] DELETE /tenants/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
+  }
+});
+
 // All routes below require an authenticated session
 router.use(requireAuth);
 
