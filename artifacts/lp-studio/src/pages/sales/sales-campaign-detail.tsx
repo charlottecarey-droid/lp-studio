@@ -26,6 +26,8 @@ import {
   Pause,
   X,
   FlaskConical,
+  Search,
+  UserCheck,
 } from "lucide-react";
 import { SendTestEmailModal } from "@/components/SendTestEmailModal";
 
@@ -69,6 +71,20 @@ interface Template {
 interface Account {
   id: number;
   name: string;
+}
+
+interface Contact {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  title: string | null;
+  role: string | null;
+  status: string | null;
+  accountId: number | null;
+  accountName: string | null;
+  tier: string | null;
+  department: string | null;
 }
 
 interface CampaignDetail {
@@ -156,6 +172,16 @@ export default function SalesCampaignDetail() {
   // Test email
   const [showTestEmail, setShowTestEmail] = useState(false);
 
+  // Recipient selection
+  const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactAccountFilter, setContactAccountFilter] = useState<string>("");
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [savingRecipients, setSavingRecipients] = useState(false);
+  const [recipientsSaved, setRecipientsSaved] = useState(false);
+
   // Sender settings
   const [senderName, setSenderName] = useState("Dandy");
   const [senderEmail, setSenderEmail] = useState("partnerships");
@@ -200,6 +226,29 @@ export default function SalesCampaignDetail() {
       fetch(`${API_BASE}/sales/templates`).then(r => r.ok ? r.json() : []),
     ]).then(([a, t]) => { setAccounts(a); setTemplates(t); });
   }, [fetchCampaign]);
+
+  // Initialize contact selection from metadata when campaign loads
+  useEffect(() => {
+    if (!campaign) return;
+    const ids: number[] = (campaign.metadata?.contactIds as number[]) ?? [];
+    setSelectedContactIds(new Set(ids));
+    // Pre-load contacts if there are already some selected
+    if (ids.length > 0 && availableContacts.length === 0) {
+      loadAvailableContacts(campaign.accountId ?? undefined);
+    }
+  }, [campaign?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When contact picker opens, load contacts if not yet loaded
+  useEffect(() => {
+    if (!showContactPicker || availableContacts.length > 0) return;
+    loadAvailableContacts(campaign?.accountId ?? undefined);
+  }, [showContactPicker]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload contacts when account filter changes in the picker
+  useEffect(() => {
+    if (!showContactPicker) return;
+    loadAvailableContacts(contactAccountFilter ? Number(contactAccountFilter) : campaign?.accountId ?? undefined);
+  }, [contactAccountFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Actions ────────────────────────────────────────────────
 
@@ -329,6 +378,42 @@ export default function SalesCampaignDetail() {
     }
   }
 
+  async function loadAvailableContacts(accountId?: number | null) {
+    setContactsLoading(true);
+    try {
+      const url = accountId
+        ? `${API_BASE}/sales/contacts?accountId=${accountId}`
+        : `${API_BASE}/sales/contacts`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAvailableContacts(Array.isArray(data) ? data : (data.data ?? []));
+    } finally {
+      setContactsLoading(false);
+    }
+  }
+
+  async function handleSaveRecipients() {
+    if (!campaign) return;
+    setSavingRecipients(true);
+    try {
+      const updatedMeta = {
+        ...(campaign.metadata ?? {}),
+        contactIds: selectedContactIds.size > 0 ? Array.from(selectedContactIds) : [],
+      };
+      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: updatedMeta }),
+      });
+      setRecipientsSaved(true);
+      setTimeout(() => setRecipientsSaved(false), 2500);
+      fetchCampaign();
+    } finally {
+      setSavingRecipients(false);
+    }
+  }
+
   async function handleChangeTemplate(templateId: number) {
     if (!campaign) return;
     setSaving(true);
@@ -387,6 +472,21 @@ export default function SalesCampaignDetail() {
   const isDraft = campaign.status === "draft";
   const isScheduled = campaign.status === "scheduled";
   const isSent = campaign.status === "sent";
+
+  // Saved contactIds from metadata (the ones that are actually persisted)
+  const savedContactIds: number[] = (campaign.metadata?.contactIds as number[]) ?? [];
+
+  // Filter available contacts based on search and account filter
+  const searchLower = contactSearch.toLowerCase();
+  const filteredContacts = availableContacts.filter(c => {
+    if (c.status && c.status !== "active") return false;
+    if (contactAccountFilter && String(c.accountId) !== contactAccountFilter) return false;
+    if (!searchLower) return true;
+    const name = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
+    const email = (c.email ?? "").toLowerCase();
+    const account = (c.accountName ?? "").toLowerCase();
+    return name.includes(searchLower) || email.includes(searchLower) || account.includes(searchLower);
+  });
 
   return (
     <SalesLayout>
@@ -718,11 +818,178 @@ export default function SalesCampaignDetail() {
           </Card>
         )}
 
+        {/* Recipient picker — draft only */}
+        {isDraft && (
+          <Card className="rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-muted-foreground" />
+                  Recipients
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {savedContactIds.length > 0
+                    ? `${savedContactIds.length} specific contact${savedContactIds.length !== 1 ? "s" : ""} selected`
+                    : campaign.accountId
+                      ? `All active contacts in ${campaign.account?.name ?? "selected account"}`
+                      : "All active contacts across all accounts"}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={showContactPicker ? "default" : "outline"}
+                onClick={() => setShowContactPicker(!showContactPicker)}
+                className="gap-1.5"
+              >
+                {showContactPicker ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                {showContactPicker ? "Collapse" : "Filter contacts"}
+              </Button>
+            </div>
+
+            {showContactPicker && (
+              <div className="p-5">
+                {/* Filter bar */}
+                <div className="flex gap-2 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or account…"
+                      value={contactSearch}
+                      onChange={e => setContactSearch(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  {!campaign.accountId && (
+                    <select
+                      value={contactAccountFilter}
+                      onChange={e => setContactAccountFilter(e.target.value)}
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">All accounts</option>
+                      {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  )}
+                </div>
+
+                {/* Select All / Clear controls */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">
+                    {contactsLoading ? "Loading…" : `${filteredContacts.length} contact${filteredContacts.length !== 1 ? "s" : ""} shown`}
+                    {selectedContactIds.size > 0 && ` · ${selectedContactIds.size} selected`}
+                  </span>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const next = new Set(selectedContactIds);
+                        filteredContacts.forEach(c => { if (c.email) next.add(c.id); });
+                        setSelectedContactIds(next);
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select all shown
+                    </button>
+                    <button
+                      onClick={() => setSelectedContactIds(new Set())}
+                      className="text-xs text-muted-foreground hover:underline"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contact list */}
+                <div className="border border-border rounded-xl max-h-72 overflow-y-auto divide-y divide-border/40">
+                  {contactsLoading ? (
+                    <div className="py-12 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading contacts…
+                    </div>
+                  ) : filteredContacts.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      No active contacts found
+                    </div>
+                  ) : (
+                    filteredContacts.map(c => (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedContactIds.has(c.id)}
+                          disabled={!c.email}
+                          onChange={e => {
+                            if (!c.email) return;
+                            const next = new Set(selectedContactIds);
+                            if (e.target.checked) next.add(c.id);
+                            else next.delete(c.id);
+                            setSelectedContactIds(next);
+                          }}
+                          className="rounded accent-primary"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-foreground">
+                            {[c.firstName, c.lastName].filter(Boolean).join(" ") || "Unnamed"}
+                          </span>
+                          {c.title && (
+                            <span className="text-xs text-muted-foreground ml-1.5">· {c.title}</span>
+                          )}
+                          {c.email ? (
+                            <span className="text-xs text-muted-foreground ml-1.5">{c.email}</span>
+                          ) : (
+                            <span className="text-xs text-destructive ml-1.5">No email</span>
+                          )}
+                        </div>
+                        {c.accountName && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[160px] text-right">
+                            {c.accountName}
+                          </span>
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedContactIds.size === 0
+                      ? campaign.accountId
+                        ? `Will send to all active contacts in ${campaign.account?.name ?? "the account"}.`
+                        : "Will send to all active contacts across all accounts."
+                      : `${selectedContactIds.size} contact${selectedContactIds.size !== 1 ? "s" : ""} will receive this campaign.`}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {recipientsSaved && (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Saved
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={handleSaveRecipients}
+                      disabled={savingRecipients}
+                      className="gap-1.5"
+                    >
+                      {savingRecipients
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Save className="w-3.5 h-3.5" />}
+                      {savingRecipients ? "Saving…" : "Save Recipients"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Recipients / Send Results */}
         <Card className="rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
-              {totalSends > 0 ? `Recipients (${totalSends})` : "Recipients"}
+              {totalSends > 0 ? `Recipients (${totalSends})` : "Send History"}
             </h3>
           </div>
 
@@ -734,7 +1001,9 @@ export default function SalesCampaignDetail() {
               <p className="text-sm font-medium text-foreground mb-1">No sends yet</p>
               <p className="text-xs text-muted-foreground max-w-xs">
                 {isDraft
-                  ? "Click \"Send Now\" to deliver this campaign to all contacts in the selected account."
+                  ? savedContactIds.length > 0
+                    ? `Ready to send to ${savedContactIds.length} selected contact${savedContactIds.length !== 1 ? "s" : ""}. Click "Send Now" when ready.`
+                    : "Select specific contacts above, or click \"Send Now\" to send to all active contacts in the account."
                   : "This campaign has no send records."}
               </p>
             </div>
