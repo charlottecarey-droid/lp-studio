@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
@@ -17,7 +17,10 @@ export const salesSignalsTable = pgTable("sales_signals", {
   source: text("source"),                  // which page or email triggered this
   metadata: jsonb("metadata").default({}), // flexible event payload
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("sales_signals_tenant_created_idx").on(table.tenantId, table.createdAt),
+  index("sales_signals_account_id_idx").on(table.accountId),
+]);
 
 export const insertSalesSignalSchema = createInsertSchema(salesSignalsTable).omit({ id: true, createdAt: true });
 export type InsertSalesSignal = z.infer<typeof insertSalesSignalSchema>;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { salesAccountsTable } from "./salesAccounts";
@@ -27,7 +27,10 @@ export const salesContactsTable = pgTable("sales_contacts", {
   sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("sales_contacts_tenant_status_idx").on(table.tenantId, table.status),
+  index("sales_contacts_account_id_idx").on(table.accountId),
+]);
 
 export const insertSalesContactSchema = createInsertSchema(salesContactsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSalesContact = z.infer<typeof insertSalesContactSchema>;

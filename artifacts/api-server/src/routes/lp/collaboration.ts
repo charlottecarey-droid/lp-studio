@@ -334,14 +334,20 @@ router.post("/lp/pages/:pageId/presence", async (req, res): Promise<void> => {
   const parsed = UpsertPresenceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const now = new Date();
+  const cutoff = new Date(Date.now() - PRESENCE_TTL_SECONDS * 1000);
+
   try {
+    // Single UPSERT — insert or update last_seen + displayName in one round-trip
     await db
       .insert(lpPagePresenceTable)
-      .values({ pageId, viewerId: parsed.data.viewerId, displayName: parsed.data.displayName, lastSeen: new Date() })
-      .onConflictDoNothing();
+      .values({ pageId, viewerId: parsed.data.viewerId, displayName: parsed.data.displayName, lastSeen: now })
+      .onConflictDoUpdate({
+        target: [lpPagePresenceTable.pageId, lpPagePresenceTable.viewerId],
+        set: { displayName: parsed.data.displayName, lastSeen: now },
+      });
   } catch (err: any) {
     // Page was deleted while the builder tab was still open — FK violation.
-    // Return 404 so the client knows the page is gone.
     if (err?.message?.includes("foreign key constraint")) {
       res.status(404).json({ error: "Page not found" });
       return;
@@ -349,20 +355,16 @@ router.post("/lp/pages/:pageId/presence", async (req, res): Promise<void> => {
     throw err;
   }
 
-  await db
-    .update(lpPagePresenceTable)
-    .set({ displayName: parsed.data.displayName, lastSeen: new Date() })
-    .where(and(eq(lpPagePresenceTable.pageId, pageId), eq(lpPagePresenceTable.viewerId, parsed.data.viewerId)));
-
-  const cutoff = new Date(Date.now() - PRESENCE_TTL_SECONDS * 1000);
+  // Fetch active viewers (indexed on page_id)
   const viewers = await db
     .select()
     .from(lpPagePresenceTable)
     .where(and(eq(lpPagePresenceTable.pageId, pageId), gt(lpPagePresenceTable.lastSeen, cutoff)));
 
-  await db
-    .delete(lpPagePresenceTable)
-    .where(and(eq(lpPagePresenceTable.pageId, pageId), sql`last_seen < ${cutoff.toISOString()}`));
+  // Fire-and-forget stale row cleanup — don't block the response
+  db.delete(lpPagePresenceTable)
+    .where(and(eq(lpPagePresenceTable.pageId, pageId), sql`last_seen < ${cutoff.toISOString()}`))
+    .catch(() => {});
 
   res.json(viewers.slice(0, 5));
 });
