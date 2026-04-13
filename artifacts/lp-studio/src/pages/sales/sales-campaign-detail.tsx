@@ -301,6 +301,20 @@ export default function SalesCampaignDetail() {
     if (!campaign) return;
     setSendingCampaign(true);
     try {
+      // Always persist current sender settings before sending so the backend
+      // and the post-send view both reflect what the user actually configured.
+      const updatedMeta = {
+        ...(campaign.metadata ?? {}),
+        senderName: senderName.trim() || "Dandy",
+        senderEmail: senderEmail.trim() || "partnerships",
+        replyTo: replyTo.trim() || "sales@meetdandy.com",
+        previewText: previewText.trim(),
+      };
+      await fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: updatedMeta }),
+      });
       await fetch(`${API_BASE}/sales/campaigns/${campaign.id}/send`, { method: "POST" });
       fetchCampaign();
     } finally {
