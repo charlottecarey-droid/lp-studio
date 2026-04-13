@@ -1344,8 +1344,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             {/* Layout */}
             <div className="space-y-1.5">
               <Label className="text-xs">Layout</Label>
-              <div className="flex gap-2">
-                {([["full-bleed", "Full Bleed"], ["split", "Two Column"]] as const).map(([val, label]) => (
+              <div className="flex gap-2 flex-wrap">
+                {([["full-bleed", "Full Bleed"], ["split", "2-Col Image"], ["split-video", "2-Col Video"]] as const).map(([val, label]) => (
                   <button key={val} onClick={() => onChange({ ...block, props: { ...p, layout: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.layout ?? "full-bleed") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
                     {label}
                   </button>
@@ -1390,6 +1390,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     {(["left", "right"] as const).map(side => (
                       <button key={side} onClick={() => onChange({ ...block, props: { ...p, heroImageSide: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageSide ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
                         Image {side}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Two-column video */}
+            {p.layout === "split-video" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Hero video URL</Label>
+                  <Input value={p.heroVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, heroVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
+                  <p className="text-[11px] text-muted-foreground">Direct MP4/WebM link. Video plays muted & looping in a rounded container.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Video side</Label>
+                  <div className="flex gap-2">
+                    {(["right", "left"] as const).map(side => (
+                      <button key={side} onClick={() => onChange({ ...block, props: { ...p, heroImageSide: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageSide ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                        Video {side}
                       </button>
                     ))}
                   </div>

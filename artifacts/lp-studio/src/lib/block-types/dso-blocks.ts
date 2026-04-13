@@ -61,9 +61,10 @@ export interface DsoHeartlandHeroBlockProps {
   backgroundStyle?: BackgroundStyle;
   backgroundImageUrl?: string;
   backgroundVideoUrl?: string;
-  layout?: "full-bleed" | "split";
+  layout?: "full-bleed" | "split" | "split-video";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";
+  heroVideoUrl?: string;
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;
 }

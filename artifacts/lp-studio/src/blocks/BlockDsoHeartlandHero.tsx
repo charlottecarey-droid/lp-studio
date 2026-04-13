@@ -19,10 +19,18 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const heroRef = useRef<HTMLElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
   const [bgVideoMuted, setBgVideoMuted] = useState(true);
+  const [heroVideoMuted, setHeroVideoMuted] = useState(true);
 
   const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
     bgVideoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+  }, []);
+
+  const attachHeroVideo = useCallback((el: HTMLVideoElement | null) => {
+    heroVideoRef.current = el;
     if (!el) return;
     el.muted = true;
   }, []);
@@ -34,12 +42,21 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
     el.muted = !el.muted;
     setBgVideoMuted(el.muted);
   };
+
+  const toggleHeroVideoMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = heroVideoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setHeroVideoMuted(el.muted);
+  };
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
   const contentY    = useTransform(scrollYProgress, [0, 1], ["0px", "60px"]);
 
   const layout = p.layout ?? "full-bleed";
   const isSplit = layout === "split";
+  const isSplitVideo = layout === "split-video";
   const imageRight = (p.heroImageSide ?? "right") !== "left";
   const company = p.companyName?.trim() ?? "";
 
@@ -327,6 +344,153 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  /* ── SPLIT-VIDEO LAYOUT ───────────────────────────────────── */
+  if (isSplitVideo) {
+    const videoLeft = (p.heroImageSide ?? "right") === "left";
+    return (
+      <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
+        <section ref={heroRef} className="relative overflow-hidden">
+          {navBar}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: videoLeft ? "row-reverse" : "row",
+              flexWrap: "wrap",
+              minHeight: "80vh",
+              alignItems: "center",
+              padding: "5rem 0",
+            }}
+          >
+            {/* ── Content column ── */}
+            <motion.div
+              style={{ opacity: heroOpacity, y: contentY, flex: "0 0 52%", padding: "2rem 3rem 2rem", minWidth: 0 }}
+              className="relative z-10 flex flex-col justify-center"
+            >
+              {p.eyebrow && (
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.15em",
+                    color: PRIMARY,
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  {p.eyebrow}
+                </motion.p>
+              )}
+              <motion.h1
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: "clamp(2rem, 4.5vw, 3.5rem)",
+                  fontWeight: 600,
+                  lineHeight: 1.06,
+                  letterSpacing: "-0.02em",
+                  color: "#fff",
+                  textShadow: "0 2px 40px rgba(0,0,0,0.25)",
+                }}
+              >
+                {renderHeadline()}
+              </motion.h1>
+              {p.subheadline && (
+                <motion.p
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.25 }}
+                  style={{
+                    marginTop: "1.5rem",
+                    fontSize: "1.0625rem",
+                    color: MUTED_FG,
+                    lineHeight: 1.7,
+                    maxWidth: 480,
+                  }}
+                >
+                  {p.subheadline}
+                </motion.p>
+              )}
+              {ctaButtons}
+              {statsBar}
+            </motion.div>
+
+            {/* ── Video column ── */}
+            <motion.div
+              initial={{ opacity: 0, x: videoLeft ? -24 : 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
+              style={{
+                flex: "0 0 48%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0 2.5rem",
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  borderRadius: "1rem",
+                  overflow: "hidden",
+                  position: "relative",
+                  aspectRatio: "16 / 9",
+                  background: "rgba(255,255,255,0.05)",
+                  boxShadow: "0 24px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)",
+                }}
+              >
+                {p.heroVideoUrl ? (
+                  <>
+                    <video
+                      ref={attachHeroVideo}
+                      src={p.heroVideoUrl}
+                      autoPlay
+                      loop
+                      playsInline
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    <MuteToggleButton
+                      muted={heroVideoMuted}
+                      onClick={toggleHeroVideoMute}
+                      className="absolute bottom-3 right-3 z-10"
+                    />
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "column",
+                      gap: "0.5rem",
+                      color: "rgba(255,255,255,0.25)",
+                      fontSize: "0.8125rem",
+                      fontFamily: DISPLAY_FONT,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    Add hero video URL
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </div>
         </section>
       </div>
