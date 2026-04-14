@@ -1401,9 +1401,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             {p.layout === "split-video" && (
               <>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Hero video URL</Label>
-                  <Input value={p.heroVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, heroVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
-                  <p className="text-[11px] text-muted-foreground">Direct MP4/WebM link. Video plays muted & looping in a rounded container.</p>
+                  <VideoPicker label="Hero Video" value={p.heroVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroVideoUrl: v || undefined } })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Video side</Label>
