@@ -57,7 +57,7 @@ function parseStatValue(value: string): { prefix: string; num: number; suffix: s
 }
 
 export function BlockDsoStatRow({ props, brand }: Props) {
-  const { eyebrow, headline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark" } = props;
+  const { eyebrow, headline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark", animateNumbers = true } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -123,7 +123,7 @@ export function BlockDsoStatRow({ props, brand }: Props) {
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  {parsed ? (
+                  {parsed && animateNumbers ? (
                     <CountUp prefix={parsed.prefix} target={parsed.num} suffix={parsed.suffix} />
                   ) : item.value}
                 </div>

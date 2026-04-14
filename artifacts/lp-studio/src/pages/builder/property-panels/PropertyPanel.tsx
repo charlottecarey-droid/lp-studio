@@ -3211,6 +3211,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <AiTextField type="input" value={p.headline ?? ""} onChange={v => onChange({ ...block, props: { ...p, headline: v } })} fieldLabel="Headline" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "headline", p.headline ?? "", { eyebrow: p.eyebrow ?? "" })} />
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Animate numbers on scroll</Label>
+              <Switch checked={p.animateNumbers !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, animateNumbers: v } })} />
+            </div>
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2"><Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats</Label><Button variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1"><Plus className="w-3 h-3" /> Add</Button></div>
               <div className="space-y-3">

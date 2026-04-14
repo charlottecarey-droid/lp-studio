@@ -442,6 +442,7 @@ export interface DsoStatRowBlockProps {
   ctaMode?: CtaMode;
   ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
+  animateNumbers?: boolean;
 }
 
 export interface DsoFaqItem {
