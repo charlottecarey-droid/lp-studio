@@ -355,6 +355,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   /* ── SPLIT-VIDEO LAYOUT ───────────────────────────────────── */
   if (isSplitVideo) {
     const videoLeft = (p.heroImageSide ?? "right") === "left";
+    const splitTopPad = p.heroTopPadding ?? 80;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section ref={heroRef} className="relative overflow-hidden">
@@ -366,7 +367,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               flexWrap: "wrap",
               minHeight: "80vh",
               alignItems: "center",
-              padding: "5rem 0",
+              paddingTop: splitTopPad,
+              paddingBottom: "5rem",
             }}
           >
             {/* ── Content column ── */}
@@ -535,6 +537,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
 
   /* ── STACKED-VIDEO LAYOUT ─────────────────────────────────── */
   if (isStackedVideo) {
+    const stackedTopPad = p.heroTopPadding ?? 128;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section ref={heroRef} className="relative overflow-hidden">
@@ -549,7 +552,10 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               style={{
                 maxWidth: 720,
                 margin: "0 auto",
-                padding: "8rem 2rem 3rem",
+                paddingTop: stackedTopPad,
+                paddingLeft: "2rem",
+                paddingRight: "2rem",
+                paddingBottom: "3rem",
                 textAlign: "center",
               }}
             >

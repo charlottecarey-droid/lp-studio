@@ -1362,6 +1362,28 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
 
+            {/* Top padding — only for video layouts */}
+            {(p.layout === "split-video" || p.layout === "stacked-video") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Top padding</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 80)}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={40}
+                  max={320}
+                  step={8}
+                  value={p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 80)}
+                  onChange={e => onChange({ ...block, props: { ...p, heroTopPadding: Number(e.target.value) } })}
+                  className="w-full accent-primary"
+                />
+                <p className="text-[11px] text-muted-foreground">Space between the navbar and the headline content.</p>
+              </div>
+            )}
+
             {/* Full-bleed media */}
             {(p.layout ?? "full-bleed") === "full-bleed" && (
               <>
