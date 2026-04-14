@@ -1362,6 +1362,20 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
 
+            {/* Scroll fade toggle — all layouts */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs">Scroll fade</Label>
+                <p className="text-[11px] text-muted-foreground">Content fades out as you scroll down</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, disableScrollFade: !p.disableScrollFade } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${!p.disableScrollFade ? "bg-primary" : "bg-muted"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${!p.disableScrollFade ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
+
             {/* Hero sizing controls — only for video layouts */}
             {(p.layout === "split-video" || p.layout === "stacked-video") && (
               <div className="space-y-4 border border-border rounded-lg p-3">

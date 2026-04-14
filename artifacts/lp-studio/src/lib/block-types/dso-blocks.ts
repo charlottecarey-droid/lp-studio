@@ -68,6 +68,7 @@ export interface DsoHeartlandHeroBlockProps {
   heroTopPadding?: number;
   heroMinHeight?: number;
   heroSidePadding?: number;
+  disableScrollFade?: boolean;
   videoAutoplay?: boolean;
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;

@@ -54,6 +54,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
   const contentY    = useTransform(scrollYProgress, [0, 1], ["0px", "60px"]);
+  const scrollOpacity = p.disableScrollFade ? 1 : heroOpacity;
+  const scrollY       = p.disableScrollFade ? "0px" : contentY;
 
   const layout = p.layout ?? "full-bleed";
   const isSplit = layout === "split";
@@ -251,7 +253,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: heroOpacity, y: contentY, flex: "0 0 55%", padding: "7rem 3rem 4rem", minWidth: 0 }}
+              style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 55%", padding: "7rem 3rem 4rem", minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
@@ -374,7 +376,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: heroOpacity, y: contentY, flex: "0 0 52%", padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
+              style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 52%", padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
@@ -551,7 +553,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
 
           {/* ── Centered text content ── */}
           <motion.div
-            style={{ opacity: heroOpacity, y: contentY }}
+            style={{ opacity: scrollOpacity, y: scrollY }}
             className="relative z-10 w-full"
           >
             <div
@@ -859,7 +861,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
 
         {/* ── Hero content ─────────────────────────────── */}
         <motion.div
-          style={{ opacity: heroOpacity, y: contentY }}
+          style={{ opacity: scrollOpacity, y: scrollY }}
           className="relative z-10 flex flex-col justify-center flex-1 w-full pt-20"
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
