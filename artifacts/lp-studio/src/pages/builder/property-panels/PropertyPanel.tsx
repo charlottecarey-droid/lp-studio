@@ -1422,6 +1422,49 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </p>
                 </div>
 
+                {/* Heading font size */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Heading size</Label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {p.heroHeadingSize ?? 100}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={50}
+                    max={180}
+                    step={5}
+                    value={p.heroHeadingSize ?? 100}
+                    onChange={e => onChange({ ...block, props: { ...p, heroHeadingSize: Number(e.target.value) } })}
+                    className="w-full accent-primary"
+                  />
+                </div>
+
+                {/* Video size */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Video size</Label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {p.layout === "split-video"
+                        ? `${p.heroVideoWidth ?? 48}%`
+                        : `${p.heroVideoWidth ?? 1100}px`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={p.layout === "split-video" ? 30 : 400}
+                    max={p.layout === "split-video" ? 65 : 1400}
+                    step={p.layout === "split-video" ? 1 : 50}
+                    value={p.heroVideoWidth ?? (p.layout === "split-video" ? 48 : 1100)}
+                    onChange={e => onChange({ ...block, props: { ...p, heroVideoWidth: Number(e.target.value) } })}
+                    className="w-full accent-primary"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {p.layout === "split-video" ? "% of the row width used by the video column." : "Max width of the video showcase below the text."}
+                  </p>
+                </div>
+
                 {/* Side padding (split-video only — content column width) */}
                 {p.layout === "split-video" && (
                   <div className="space-y-1.5">

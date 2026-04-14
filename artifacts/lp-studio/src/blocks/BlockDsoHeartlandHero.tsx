@@ -360,6 +360,9 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
     const splitTopPad = p.heroTopPadding ?? 0;
     const splitMinH = p.heroMinHeight ?? 80;
     const splitSidePad = p.heroSidePadding ?? 48;
+    const splitHScale = (p.heroHeadingSize ?? 100) / 100;
+    const splitVideoW = p.heroVideoWidth ?? 48;
+    const splitContentW = 100 - splitVideoW;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section ref={heroRef} className="relative overflow-hidden" style={{ paddingTop: splitTopPad }}>
@@ -376,7 +379,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 52%", padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
+              style={{ opacity: scrollOpacity, y: scrollY, flex: `0 0 ${splitContentW}%`, padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
@@ -402,7 +405,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 style={{
                   fontFamily: DISPLAY_FONT,
-                  fontSize: "clamp(2rem, 4.5vw, 3.5rem)",
+                  fontSize: `clamp(${2 * splitHScale}rem, ${4.5 * splitHScale}vw, ${3.5 * splitHScale}rem)`,
                   fontWeight: 600,
                   lineHeight: 1.06,
                   letterSpacing: "-0.02em",
@@ -438,7 +441,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
               style={{
-                flex: "0 0 48%",
+                flex: `0 0 ${splitVideoW}%`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -542,6 +545,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   if (isStackedVideo) {
     const stackedTopPad = p.heroTopPadding ?? 128;
     const stackedMinH = p.heroMinHeight;
+    const stackedHScale = (p.heroHeadingSize ?? 100) / 100;
+    const stackedVideoMaxW = p.heroVideoWidth ?? 1100;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section
@@ -591,7 +596,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                 style={{
                   fontFamily: DISPLAY_FONT,
-                  fontSize: "clamp(2.5rem, 5.5vw, 4.25rem)",
+                  fontSize: `clamp(${2.5 * stackedHScale}rem, ${5.5 * stackedHScale}vw, ${4.25 * stackedHScale}rem)`,
                   fontWeight: 600,
                   lineHeight: 1.06,
                   letterSpacing: "-0.025em",
@@ -657,7 +662,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
               style={{
-                maxWidth: 1100,
+                maxWidth: stackedVideoMaxW,
                 margin: "0 auto",
                 padding: "0 1.5rem 4rem",
               }}
