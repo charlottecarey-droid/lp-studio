@@ -1403,6 +1403,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <div className="space-y-1.5">
                   <VideoPicker label="Hero Video" value={p.heroVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroVideoUrl: v || undefined } })} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Autoplay video</Label>
+                  <Switch checked={p.videoAutoplay !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, videoAutoplay: v } })} />
+                </div>
                 {p.layout === "split-video" && (
                   <div className="space-y-1.5">
                     <Label className="text-xs">Video side</Label>

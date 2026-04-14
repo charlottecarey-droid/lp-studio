@@ -22,6 +22,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
   const [bgVideoMuted, setBgVideoMuted] = useState(true);
   const [heroVideoMuted, setHeroVideoMuted] = useState(true);
+  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false);
 
   const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
     bgVideoRef.current = el;
@@ -456,16 +457,50 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
                     <video
                       ref={attachHeroVideo}
                       src={p.heroVideoUrl}
-                      autoPlay
-                      loop
+                      autoPlay={p.videoAutoplay ?? true}
+                      loop={p.videoAutoplay ?? true}
                       playsInline
+                      onPlay={() => setHeroVideoPlaying(true)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
-                    <MuteToggleButton
-                      muted={heroVideoMuted}
-                      onClick={toggleHeroVideoMute}
-                      className="absolute bottom-3 right-3 z-10"
-                    />
+                    {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
+                      <MuteToggleButton
+                        muted={heroVideoMuted}
+                        onClick={toggleHeroVideoMute}
+                        className="absolute bottom-3 right-3 z-10"
+                      />
+                    )}
+                    {!(p.videoAutoplay ?? true) && !heroVideoPlaying && (
+                      <button
+                        onClick={() => { heroVideoRef.current?.play(); setHeroVideoPlaying(true); }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(0,0,0,0.35)",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.15)",
+                          backdropFilter: "blur(8px)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1.5px solid rgba(255,255,255,0.3)",
+                        }}>
+                          <svg width="26" height="26" viewBox="0 0 24 24" fill="white" stroke="none">
+                            <polygon points="6 3 20 12 6 21 6 3" />
+                          </svg>
+                        </div>
+                      </button>
+                    )}
                   </>
                 ) : (
                   <div
@@ -628,16 +663,50 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
                     <video
                       ref={attachHeroVideo}
                       src={p.heroVideoUrl}
-                      autoPlay
-                      loop
+                      autoPlay={p.videoAutoplay ?? true}
+                      loop={p.videoAutoplay ?? true}
                       playsInline
+                      onPlay={() => setHeroVideoPlaying(true)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
-                    <MuteToggleButton
-                      muted={heroVideoMuted}
-                      onClick={toggleHeroVideoMute}
-                      className="absolute bottom-4 right-4 z-10"
-                    />
+                    {((p.videoAutoplay ?? true) || heroVideoPlaying) && (
+                      <MuteToggleButton
+                        muted={heroVideoMuted}
+                        onClick={toggleHeroVideoMute}
+                        className="absolute bottom-4 right-4 z-10"
+                      />
+                    )}
+                    {!(p.videoAutoplay ?? true) && !heroVideoPlaying && (
+                      <button
+                        onClick={() => { heroVideoRef.current?.play(); setHeroVideoPlaying(true); }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(0,0,0,0.35)",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{
+                          width: 72,
+                          height: 72,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.15)",
+                          backdropFilter: "blur(8px)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1.5px solid rgba(255,255,255,0.3)",
+                        }}>
+                          <svg width="30" height="30" viewBox="0 0 24 24" fill="white" stroke="none">
+                            <polygon points="6 3 20 12 6 21 6 3" />
+                          </svg>
+                        </div>
+                      </button>
+                    )}
                   </>
                 ) : (
                   <div
