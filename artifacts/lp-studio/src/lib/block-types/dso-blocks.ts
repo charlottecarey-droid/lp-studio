@@ -66,6 +66,8 @@ export interface DsoHeartlandHeroBlockProps {
   heroImageSide?: "left" | "right";
   heroVideoUrl?: string;
   heroTopPadding?: number;
+  heroMinHeight?: number;
+  heroSidePadding?: number;
   videoAutoplay?: boolean;
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;

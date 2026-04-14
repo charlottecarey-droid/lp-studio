@@ -355,25 +355,26 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   /* ── SPLIT-VIDEO LAYOUT ───────────────────────────────────── */
   if (isSplitVideo) {
     const videoLeft = (p.heroImageSide ?? "right") === "left";
-    const splitTopPad = p.heroTopPadding ?? 80;
+    const splitTopPad = p.heroTopPadding ?? 0;
+    const splitMinH = p.heroMinHeight ?? 80;
+    const splitSidePad = p.heroSidePadding ?? 48;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
-        <section ref={heroRef} className="relative overflow-hidden">
+        <section ref={heroRef} className="relative overflow-hidden" style={{ paddingTop: splitTopPad }}>
           {navBar}
           <div
             style={{
               display: "flex",
               flexDirection: videoLeft ? "row-reverse" : "row",
               flexWrap: "wrap",
-              minHeight: "80vh",
+              minHeight: `${splitMinH}vh`,
               alignItems: "center",
-              paddingTop: splitTopPad,
               paddingBottom: "5rem",
             }}
           >
             {/* ── Content column ── */}
             <motion.div
-              style={{ opacity: heroOpacity, y: contentY, flex: "0 0 52%", padding: "2rem 3rem 2rem", minWidth: 0 }}
+              style={{ opacity: heroOpacity, y: contentY, flex: "0 0 52%", padding: `2rem ${splitSidePad}px`, minWidth: 0 }}
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
@@ -538,9 +539,14 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   /* ── STACKED-VIDEO LAYOUT ─────────────────────────────────── */
   if (isStackedVideo) {
     const stackedTopPad = p.heroTopPadding ?? 128;
+    const stackedMinH = p.heroMinHeight;
     return (
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
-        <section ref={heroRef} className="relative overflow-hidden">
+        <section
+          ref={heroRef}
+          className="relative overflow-hidden"
+          style={stackedMinH ? { minHeight: `${stackedMinH}vh` } : undefined}
+        >
           {navBar}
 
           {/* ── Centered text content ── */}

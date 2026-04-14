@@ -13,6 +13,8 @@ interface Props {
   onCtaClick?: () => void;
 }
 
+const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
+
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
 const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -108,6 +110,9 @@ const BG_STYLES: Record<string, string> = {
 export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const accentColor = props.accentColor ?? brand.accentColor ?? "#C7E738";
+  const dark = isDarkBg(props.backgroundStyle ?? "white");
+  const headlineColor = dark ? "#fff" : "#0a1628";
+  const subColor = dark ? "rgba(255,255,255,0.72)" : "#6b7280";
 
   // ── Inputs ──
   const [practices, setPractices] = useState(1);
@@ -176,11 +181,25 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
       <div className="max-w-[1100px] mx-auto px-6 md:px-10">
         {/* Header */}
         <div className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+          <h2 style={{
+            fontFamily: DISPLAY,
+            fontSize: "clamp(1.875rem,3.5vw,2.75rem)",
+            fontWeight: 600,
+            lineHeight: 1.15,
+            letterSpacing: "-0.02em",
+            color: headlineColor,
+            marginBottom: "1rem",
+          }}>
             {props.headline}
           </h2>
           {props.subheadline && (
-            <p className="text-base text-muted-foreground max-w-lg mx-auto">
+            <p style={{
+              fontSize: "1.0625rem",
+              lineHeight: 1.7,
+              color: subColor,
+              maxWidth: 560,
+              margin: "0 auto",
+            }}>
               {props.subheadline}
             </p>
           )}

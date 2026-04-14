@@ -1362,25 +1362,73 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </Select>
             </div>
 
-            {/* Top padding — only for video layouts */}
+            {/* Hero sizing controls — only for video layouts */}
             {(p.layout === "split-video" || p.layout === "stacked-video") && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Top padding</Label>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 80)}px
-                  </span>
+              <div className="space-y-4 border border-border rounded-lg p-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Hero sizing</p>
+
+                {/* Min height */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Min height</Label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {p.heroMinHeight ?? (p.layout === "split-video" ? 80 : 70)}vh
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={40}
+                    max={100}
+                    step={5}
+                    value={p.heroMinHeight ?? (p.layout === "split-video" ? 80 : 70)}
+                    onChange={e => onChange({ ...block, props: { ...p, heroMinHeight: Number(e.target.value) } })}
+                    className="w-full accent-primary"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min={40}
-                  max={320}
-                  step={8}
-                  value={p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 80)}
-                  onChange={e => onChange({ ...block, props: { ...p, heroTopPadding: Number(e.target.value) } })}
-                  className="w-full accent-primary"
-                />
-                <p className="text-[11px] text-muted-foreground">Space between the navbar and the headline content.</p>
+
+                {/* Top padding (space above content / below nav) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">{p.layout === "split-video" ? "Top space" : "Content top padding"}</Label>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 0)}px
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={280}
+                    step={8}
+                    value={p.heroTopPadding ?? (p.layout === "stacked-video" ? 128 : 0)}
+                    onChange={e => onChange({ ...block, props: { ...p, heroTopPadding: Number(e.target.value) } })}
+                    className="w-full accent-primary"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {p.layout === "split-video" ? "Grows the hero from the top — content stays centered." : "Space between the navbar and the headline."}
+                  </p>
+                </div>
+
+                {/* Side padding (split-video only — content column width) */}
+                {p.layout === "split-video" && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Content side padding</Label>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {p.heroSidePadding ?? 48}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={8}
+                      max={120}
+                      step={8}
+                      value={p.heroSidePadding ?? 48}
+                      onChange={e => onChange({ ...block, props: { ...p, heroSidePadding: Number(e.target.value) } })}
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Horizontal padding inside the text column.</p>
+                  </div>
+                )}
               </div>
             )}
 
