@@ -57,6 +57,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   const layout = p.layout ?? "full-bleed";
   const isSplit = layout === "split";
   const isSplitVideo = layout === "split-video";
+  const isStackedVideo = layout === "stacked-video";
   const imageRight = (p.heroImageSide ?? "right") !== "left";
   const company = p.companyName?.trim() ?? "";
 
@@ -492,6 +493,225 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               </div>
             </motion.div>
           </div>
+        </section>
+      </div>
+    );
+  }
+
+  /* ── STACKED-VIDEO LAYOUT ─────────────────────────────────── */
+  if (isStackedVideo) {
+    return (
+      <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
+        <section ref={heroRef} className="relative overflow-hidden">
+          {navBar}
+
+          {/* ── Centered text content ── */}
+          <motion.div
+            style={{ opacity: heroOpacity, y: contentY }}
+            className="relative z-10 w-full"
+          >
+            <div
+              style={{
+                maxWidth: 720,
+                margin: "0 auto",
+                padding: "8rem 2rem 3rem",
+                textAlign: "center",
+              }}
+            >
+              {p.eyebrow && (
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.15em",
+                    color: PRIMARY,
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  {p.eyebrow}
+                </motion.p>
+              )}
+
+              <motion.h1
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: "clamp(2.5rem, 5.5vw, 4.25rem)",
+                  fontWeight: 600,
+                  lineHeight: 1.06,
+                  letterSpacing: "-0.025em",
+                  color: "#fff",
+                  textShadow: "0 2px 40px rgba(0,0,0,0.25)",
+                }}
+              >
+                {renderHeadline()}
+              </motion.h1>
+
+              {p.subheadline && (
+                <motion.p
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.25 }}
+                  style={{
+                    marginTop: "1.375rem",
+                    fontSize: "1.0625rem",
+                    color: MUTED_FG,
+                    lineHeight: 1.7,
+                    maxWidth: 520,
+                    margin: "1.375rem auto 0",
+                  }}
+                >
+                  {p.subheadline}
+                </motion.p>
+              )}
+
+              {/* CTAs */}
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className="flex flex-col sm:flex-row gap-3 justify-center"
+                style={{ marginTop: "2rem" }}
+              >
+                {p.primaryCtaText && (
+                  <a
+                    href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
+                    onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
+                    className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
+                    style={{ background: PRIMARY, color: "hsl(192, 30%, 6%)", cursor: "pointer" }}
+                  >
+                    {p.primaryCtaText}
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                )}
+                {p.secondaryCtaText && (
+                  <a
+                    href={p.secondaryCtaUrl || "#"}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border px-8 py-3.5 text-sm font-semibold transition-all hover:bg-white/10"
+                    style={{ borderColor: "rgba(255,255,255,0.20)", color: "rgba(255,255,255,0.90)" }}
+                  >
+                    {p.secondaryCtaText}
+                  </a>
+                )}
+              </motion.div>
+            </div>
+
+            {/* ── Large video showcase ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 32 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
+              style={{
+                maxWidth: 1100,
+                margin: "0 auto",
+                padding: "0 1.5rem 4rem",
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: "1.25rem",
+                  overflow: "hidden",
+                  position: "relative",
+                  aspectRatio: "16 / 9",
+                  background: "rgba(255,255,255,0.05)",
+                  boxShadow: "0 32px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
+                }}
+              >
+                {p.heroVideoUrl ? (
+                  <>
+                    <video
+                      ref={attachHeroVideo}
+                      src={p.heroVideoUrl}
+                      autoPlay
+                      loop
+                      playsInline
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    <MuteToggleButton
+                      muted={heroVideoMuted}
+                      onClick={toggleHeroVideoMute}
+                      className="absolute bottom-4 right-4 z-10"
+                    />
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                      color: "rgba(255,255,255,0.20)",
+                      fontSize: "0.875rem",
+                      fontFamily: DISPLAY_FONT,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    Add hero video URL
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* ── Stats below video ── */}
+            {p.stats && p.stats.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+                style={{
+                  maxWidth: 1100,
+                  margin: "0 auto",
+                  padding: "0 1.5rem 5rem",
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${Math.min(p.stats.length, 4)}, 1fr)`,
+                  gap: "0.5rem",
+                  borderTop: "1px solid rgba(255,255,255,0.10)",
+                  paddingTop: "1.5rem",
+                }}
+              >
+                {p.stats.map((s, i) => (
+                  <div key={i} style={{ textAlign: "center" }}>
+                    <div
+                      style={{
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: "clamp(1.375rem, 3vw, 2rem)",
+                        fontWeight: 600,
+                        color: PRIMARY,
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {s.value}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: MUTED_FG,
+                        marginTop: "0.25rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {s.label}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </motion.div>
         </section>
       </div>
     );

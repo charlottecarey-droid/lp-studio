@@ -1345,7 +1345,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="space-y-1.5">
               <Label className="text-xs">Layout</Label>
               <div className="flex gap-2 flex-wrap">
-                {([["full-bleed", "Full Bleed"], ["split", "2-Col Image"], ["split-video", "2-Col Video"]] as const).map(([val, label]) => (
+                {([["full-bleed", "Full Bleed"], ["split", "2-Col Image"], ["split-video", "2-Col Video"], ["stacked-video", "Stacked Video"]] as const).map(([val, label]) => (
                   <button key={val} onClick={() => onChange({ ...block, props: { ...p, layout: val } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.layout ?? "full-bleed") === val ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
                     {label}
                   </button>
@@ -1397,22 +1397,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </>
             )}
 
-            {/* Two-column video */}
-            {p.layout === "split-video" && (
+            {/* Video picker — shown for both split-video and stacked-video */}
+            {(p.layout === "split-video" || p.layout === "stacked-video") && (
               <>
                 <div className="space-y-1.5">
                   <VideoPicker label="Hero Video" value={p.heroVideoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, heroVideoUrl: v || undefined } })} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Video side</Label>
-                  <div className="flex gap-2">
-                    {(["right", "left"] as const).map(side => (
-                      <button key={side} onClick={() => onChange({ ...block, props: { ...p, heroImageSide: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageSide ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
-                        Video {side}
-                      </button>
-                    ))}
+                {p.layout === "split-video" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Video side</Label>
+                    <div className="flex gap-2">
+                      {(["right", "left"] as const).map(side => (
+                        <button key={side} onClick={() => onChange({ ...block, props: { ...p, heroImageSide: side } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageSide ?? "right") === side ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                          Video {side}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 
