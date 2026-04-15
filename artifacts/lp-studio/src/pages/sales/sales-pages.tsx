@@ -113,6 +113,7 @@ interface Contact {
   firstName: string;
   lastName: string;
   email?: string | null;
+  title?: string | null;
 }
 
 interface GeneratedLink {
@@ -1433,8 +1434,11 @@ export default function SalesPages() {
                             <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
                               {initials([c.firstName, c.lastName].filter(Boolean).join(" "))}
                             </div>
-                            <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-foreground truncate">{c.firstName} {c.lastName}</div>
+                              {c.title && <div className="text-[10px] text-muted-foreground truncate">{c.title}</div>}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[120px] shrink-0">{c.email}</span>
                           </button>
                         );
                       })}
