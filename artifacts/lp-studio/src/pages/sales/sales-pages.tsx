@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { AccountCombobox } from "@/components/AccountCombobox";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
@@ -1163,16 +1164,11 @@ export default function SalesPages() {
               <>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
-                  <select
+                  <AccountCombobox
+                    accounts={accounts}
                     value={cloneAccountId}
-                    onChange={e => setCloneAccountId(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">— Choose an account —</option>
-                    {accounts.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                    onChange={v => setCloneAccountId(v ? Number(v) : "")}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button className="flex-1" disabled={!cloneAccountId || cloning} onClick={doClone}>
@@ -1337,22 +1333,17 @@ export default function SalesPages() {
           <div className="flex flex-col gap-4 pt-2">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Select account</label>
-              <select
+              <AccountCombobox
+                accounts={accounts}
                 value={hlAccountId}
-                onChange={e => {
-                  const id = e.target.value ? Number(e.target.value) : "";
+                onChange={v => {
+                  const id = v ? Number(v) : "";
                   setHlAccountId(id);
                   setHlGenerated([]);
                   if (id) loadContacts(id);
                   else setHlContacts([]);
                 }}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">— Choose an account —</option>
-                {accounts.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Contact selection */}

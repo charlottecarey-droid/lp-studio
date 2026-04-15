@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { AccountCombobox } from "@/components/AccountCombobox";
 import { Link, useLocation, useRoute } from "wouter";
 import { format } from "date-fns";
 import {
@@ -718,21 +719,19 @@ export default function SalesCampaignDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Target Account</Label>
-                <select
+                <AccountCombobox
+                  accounts={accounts}
                   value={editAccountId}
-                  onChange={e => {
-                    setEditAccountId(e.target.value);
+                  onChange={v => {
+                    setEditAccountId(v);
                     fetch(`${API_BASE}/sales/campaigns/${campaign.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ accountId: e.target.value ? Number(e.target.value) : null }),
+                      body: JSON.stringify({ accountId: v ? Number(v) : null }),
                     }).then(() => fetchCampaign());
                   }}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">All accounts</option>
-                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                  allLabel="All accounts"
+                />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Email Template</Label>
@@ -875,14 +874,13 @@ export default function SalesCampaignDetail() {
                     />
                   </div>
                   {!campaign.accountId && (
-                    <select
+                    <AccountCombobox
+                      accounts={accounts}
                       value={contactAccountFilter}
-                      onChange={e => setContactAccountFilter(e.target.value)}
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="">All accounts</option>
-                      {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
+                      onChange={v => setContactAccountFilter(v)}
+                      allLabel="All accounts"
+                      className="w-48"
+                    />
                   )}
                 </div>
 

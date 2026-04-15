@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { AccountCombobox } from "@/components/AccountCombobox";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { CampaignPagesContent } from "@/pages/sales/sales-campaign-pages";
@@ -412,14 +413,11 @@ function SingleSendTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Account</label>
-            <select
+            <AccountCombobox
+              accounts={accounts}
               value={selectedAccountId}
-              onChange={e => { setSelectedAccountId(e.target.value); setSelectedContactId(""); }}
-              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Select an account…</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+              onChange={v => { setSelectedAccountId(v); setSelectedContactId(""); }}
+            />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Contact</label>
@@ -810,14 +808,12 @@ function CampaignsTab() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Account (all contacts)</label>
-                <select
+                <AccountCombobox
+                  accounts={accounts}
                   value={accountId}
-                  onChange={e => setAccountId(e.target.value)}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">All accounts</option>
-                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+                  onChange={v => setAccountId(v)}
+                  allLabel="All accounts"
+                />
               </div>
             </div>
             <div className="flex items-center gap-3">
