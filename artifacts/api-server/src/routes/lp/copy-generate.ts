@@ -86,15 +86,12 @@ async function fetchBrand(tenantId: number): Promise<BrandConfig> {
   }
 }
 
-const KNOWN_FIELDS = new Set([
-  // Standard LP fields
-  "headline", "subheadline", "ctaText", "body", "secondaryCtaText",
-  "title", "description", "bodyText", "tagline",
-  // DSO-specific fields
-  "eyebrow", "quote", "attribution", "stat", "statLabel",
-  "footerNote", "primaryCtaText", "inputLabel", "ctaLabel",
-  "trust1", "trust2", "trust3", "trustLine",
-]);
+// Accept any camelCase/alphanumeric field name — no hardcoded allowlist.
+// This lets every block type expose its own field names for AI copy without
+// requiring a code change here every time a new field is introduced.
+function isSafeFieldName(f: unknown): f is string {
+  return typeof f === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(f);
+}
 
 interface SegmentContext {
   id?: string;
@@ -255,7 +252,7 @@ router.post("/lp/copy-generate", async (req, res): Promise<void> => {
       res.status(400).json({ error: "fields array is required for refresh action" });
       return;
     }
-    const validFields = fields.filter((f) => typeof f === "string" && KNOWN_FIELDS.has(f));
+    const validFields = fields.filter(isSafeFieldName);
     if (validFields.length === 0) {
       res.status(400).json({ error: "No valid fields provided" });
       return;
@@ -389,8 +386,8 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
   }
   const currentValue: string = typeof body.currentValue === "string" ? body.currentValue : "";
 
-  if (!field || typeof field !== "string" || !KNOWN_FIELDS.has(field)) {
-    res.status(400).json({ error: `field must be one of: ${[...KNOWN_FIELDS].join(", ")}` });
+  if (!isSafeFieldName(field)) {
+    res.status(400).json({ error: "field must be a valid camelCase identifier" });
     return;
   }
 
