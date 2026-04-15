@@ -122,6 +122,7 @@ interface Account {
   id: number;
   name: string;
   displayName: string | null;
+  salesforceId: string | null;
   domain: string | null;
   industry: string | null;
   segment: string | null;
@@ -147,6 +148,7 @@ interface Account {
 interface Contact {
   id: number;
   accountId: number;
+  salesforceId: string | null;
   firstName: string;
   lastName: string;
   email: string | null;
@@ -518,6 +520,37 @@ function AccountListView() {
   const [newAbmTier, setNewAbmTier] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // ── Account delete (CSV-only) ─────────────────────────────────────────────
+  const [selectedAccIds, setSelectedAccIds] = useState<Set<number>>(new Set());
+  const [acctDeleting, setAcctDeleting] = useState(false);
+
+  function toggleAcctSelect(id: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedAccIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelectedAccounts() {
+    if (selectedAccIds.size === 0) return;
+    setAcctDeleting(true);
+    try {
+      await fetch(`${API_BASE}/sales/accounts/bulk`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedAccIds) }),
+      });
+      setSelectedAccIds(new Set());
+      fetchAccounts();
+    } catch (err) {
+      console.error("Failed to delete accounts:", err);
+    } finally {
+      setAcctDeleting(false);
+    }
+  }
 
   const fetchAccounts = useCallback(() => {
     setIsSyncing(true);
@@ -1135,12 +1168,47 @@ function AccountListView() {
           </Card>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {accPag.pageItems.map((account) => (
+            {/* Bulk delete toolbar */}
+            {selectedAccIds.size > 0 && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-destructive/8 border border-destructive/20 text-sm">
+                <span className="text-foreground font-medium">
+                  {selectedAccIds.size} account{selectedAccIds.size !== 1 ? "s" : ""} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSelectedAccIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
+                  <button
+                    onClick={deleteSelectedAccounts}
+                    disabled={acctDeleting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {acctDeleting ? "Deleting…" : `Delete ${selectedAccIds.size}`}
+                  </button>
+                </div>
+              </div>
+            )}
+            {accPag.pageItems.map((account) => {
+              const isSelected = selectedAccIds.has(account.id);
+              const isCsvOnly = !account.salesforceId;
+              return (
               <div
                 key={account.id}
                 onClick={() => navigate(`/sales/accounts/${account.id}`)}
-                className="group flex items-center gap-4 px-5 py-4 bg-card border border-border/60 rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150 cursor-pointer"
+                className={`group flex items-center gap-4 px-5 py-4 bg-card border rounded-2xl hover:border-primary/25 hover:shadow-md transition-all duration-150 cursor-pointer ${isSelected ? "border-destructive/40 bg-destructive/3" : "border-border/60"}`}
               >
+                {/* Checkbox for CSV-only accounts */}
+                {isCsvOnly ? (
+                  <button
+                    onClick={(e) => toggleAcctSelect(account.id, e)}
+                    className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors -ml-1"
+                    style={{ borderColor: isSelected ? "rgb(var(--destructive))" : undefined }}
+                    title={isSelected ? "Deselect" : "Select for deletion"}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-destructive" />}
+                  </button>
+                ) : (
+                  <div className="w-5 -ml-1 flex-shrink-0" />
+                )}
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-primary" />
                 </div>
@@ -1187,7 +1255,8 @@ function AccountListView() {
 
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
               </div>
-            ))}
+              );
+            })}
             <PaginationBar
               page={accPag.page} totalPages={accPag.totalPages}
               from={accPag.from} to={accPag.to} total={accPag.total}
@@ -2313,6 +2382,39 @@ function AccountDetailView({ id }: { id: string }) {
   const [hotlinks, setHotlinks] = useState<Hotlink[]>([]);
   const [copiedContactId, setCopiedContactId] = useState<number | null>(null);
 
+  // Contact delete (CSV-only)
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [contactDeleting, setContactDeleting] = useState(false);
+
+  function toggleContactSelect(contactId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedContactIds(prev => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
+      return next;
+    });
+  }
+
+  async function deleteSelectedContacts() {
+    if (selectedContactIds.size === 0) return;
+    setContactDeleting(true);
+    try {
+      await fetch(`${API_BASE}/sales/contacts/bulk`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedContactIds) }),
+      });
+      setSelectedContactIds(new Set());
+      // Refresh contacts
+      const res = await fetch(`${API_BASE}/sales/accounts/${id}/contacts`);
+      if (res.ok) setContacts(await res.json());
+    } catch (err) {
+      console.error("Failed to delete contacts:", err);
+    } finally {
+      setContactDeleting(false);
+    }
+  }
+
   // AI email draft
   const [draftEmailContact, setDraftEmailContact] = useState<Contact | null>(null);
 
@@ -2689,6 +2791,26 @@ function AccountDetailView({ id }: { id: string }) {
               </div>
             </div>
 
+            {/* Bulk delete toolbar for contacts */}
+            {selectedContactIds.size > 0 && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-destructive/8 border border-destructive/20 text-sm">
+                <span className="text-foreground font-medium">
+                  {selectedContactIds.size} contact{selectedContactIds.size !== 1 ? "s" : ""} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSelectedContactIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
+                  <button
+                    onClick={deleteSelectedContacts}
+                    disabled={contactDeleting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {contactDeleting ? "Deleting…" : `Delete ${selectedContactIds.size}`}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* New Contact Form */}
             {showContactForm && (
               <Card className="p-5 rounded-2xl border border-primary/30 bg-primary/5">
@@ -2783,12 +2905,27 @@ function AccountDetailView({ id }: { id: string }) {
                       </div>
                       {groupContacts.map((contact) => {
                         const token = latestByContact.get(contact.id);
+                        const isContactSelected = selectedContactIds.has(contact.id);
+                        const isContactCsvOnly = !contact.salesforceId;
                         return (
                           <div
                           key={contact.id}
                           onClick={() => navigate(`/sales/contacts/${contact.id}`)}
-                          className="flex items-center gap-3 px-5 py-3 bg-card border border-border/60 rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer"
+                          className={`flex items-center gap-3 px-5 py-3 bg-card border rounded-xl hover:border-primary/25 hover:bg-muted/20 transition-all cursor-pointer ${isContactSelected ? "border-destructive/40 bg-destructive/3" : "border-border/60"}`}
                         >
+                            {/* Checkbox for CSV-only contacts */}
+                            {isContactCsvOnly ? (
+                              <button
+                                onClick={(e) => toggleContactSelect(contact.id, e)}
+                                className="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors"
+                                style={{ borderColor: isContactSelected ? "rgb(var(--destructive))" : undefined }}
+                                title={isContactSelected ? "Deselect" : "Select for deletion"}
+                              >
+                                {isContactSelected && <Check className="w-2.5 h-2.5 text-destructive" />}
+                              </button>
+                            ) : (
+                              <div className="w-4 flex-shrink-0" />
+                            )}
                             <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
                               {contact.firstName[0]}{contact.lastName[0]}
                             </div>

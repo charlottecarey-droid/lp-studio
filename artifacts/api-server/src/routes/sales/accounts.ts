@@ -1,7 +1,7 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, isNull, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesAccountsTable,
@@ -149,16 +149,44 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
       .delete(salesAccountsTable)
-      .where(and(eq(salesAccountsTable.tenantId, tenantId), eq(salesAccountsTable.id, Number(req.params.id))))
+      .where(and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        eq(salesAccountsTable.id, Number(req.params.id)),
+        isNull(salesAccountsTable.salesforceId),
+      ))
       .returning();
     if (!deleted) {
-      res.status(404).json({ error: "Account not found" });
+      res.status(404).json({ error: "Account not found or is Salesforce-managed" });
       return;
     }
     res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /sales/accounts/:id error:", err);
     res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
+// Bulk-delete accounts by IDs — CSV-only (no salesforceId)
+router.delete("/accounts/bulk", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { ids } = req.body as { ids?: number[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array" });
+      return;
+    }
+    const deleted = await db
+      .delete(salesAccountsTable)
+      .where(and(
+        eq(salesAccountsTable.tenantId, tenantId),
+        inArray(salesAccountsTable.id, ids),
+        isNull(salesAccountsTable.salesforceId),
+      ))
+      .returning({ id: salesAccountsTable.id });
+    res.json({ ok: true, deleted: deleted.length });
+  } catch (err) {
+    console.error("DELETE /sales/accounts/bulk error:", err);
+    res.status(500).json({ error: "Failed to delete accounts" });
   }
 });
 

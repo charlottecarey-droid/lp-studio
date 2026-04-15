@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, ilike, count, sql } from "drizzle-orm";
+import { eq, desc, and, ilike, count, sql, isNull, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 
@@ -165,16 +165,44 @@ router.delete("/contacts/:id", async (req, res): Promise<void> => {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
       .delete(salesContactsTable)
-      .where(and(eq(salesContactsTable.tenantId, tenantId), eq(salesContactsTable.id, Number(req.params.id))))
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        eq(salesContactsTable.id, Number(req.params.id)),
+        isNull(salesContactsTable.salesforceId),
+      ))
       .returning();
     if (!deleted) {
-      res.status(404).json({ error: "Contact not found" });
+      res.status(404).json({ error: "Contact not found or is Salesforce-managed" });
       return;
     }
     res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /sales/contacts/:id error:", err);
     res.status(500).json({ error: "Failed to delete contact" });
+  }
+});
+
+// Bulk-delete contacts by IDs — CSV-only (no salesforceId)
+router.delete("/contacts/bulk", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const { ids } = req.body as { ids?: number[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: "ids must be a non-empty array" });
+      return;
+    }
+    const deleted = await db
+      .delete(salesContactsTable)
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        inArray(salesContactsTable.id, ids),
+        isNull(salesContactsTable.salesforceId),
+      ))
+      .returning({ id: salesContactsTable.id });
+    res.json({ ok: true, deleted: deleted.length });
+  } catch (err) {
+    console.error("DELETE /sales/contacts/bulk error:", err);
+    res.status(500).json({ error: "Failed to delete contacts" });
   }
 });
 
