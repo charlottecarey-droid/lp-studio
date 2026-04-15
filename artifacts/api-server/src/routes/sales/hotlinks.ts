@@ -335,6 +335,42 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
   }
 });
 
+// Bulk-delete hotlinks by ID (tenant-scoped via page ownership)
+router.delete("/hotlinks", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const { ids } = req.body as { ids?: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids must be a non-empty array" });
+    return;
+  }
+  try {
+    // Enforce tenant isolation: only delete hotlinks whose page belongs to this tenant
+    const ownedPageIds = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId));
+    const ownedSet = new Set(ownedPageIds.map(p => p.id));
+
+    const safeIds = ids.filter(id => typeof id === "number");
+    if (safeIds.length === 0) { res.json({ deleted: 0 }); return; }
+
+    // Only delete hotlinks that belong to this tenant's pages
+    const toDelete = await db
+      .select({ id: salesHotlinksTable.id, pageId: salesHotlinksTable.pageId })
+      .from(salesHotlinksTable)
+      .where(inArray(salesHotlinksTable.id, safeIds));
+
+    const authorisedIds = toDelete.filter(h => h.pageId && ownedSet.has(h.pageId)).map(h => h.id);
+    if (authorisedIds.length === 0) { res.json({ deleted: 0 }); return; }
+
+    await db.delete(salesHotlinksTable).where(inArray(salesHotlinksTable.id, authorisedIds));
+    res.json({ deleted: authorisedIds.length });
+  } catch (err) {
+    logger.error({ err }, "DELETE /sales/hotlinks error");
+    res.status(500).json({ error: "Failed to delete hotlinks" });
+  }
+});
+
 // Bulk-create hotlinks for all contacts of an account for a specific page
 router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
   const { accountId, pageId, contactIds } = req.body;

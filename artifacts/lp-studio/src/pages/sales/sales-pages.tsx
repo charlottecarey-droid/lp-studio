@@ -259,6 +259,39 @@ export default function SalesPages() {
   const [hlSelectedIds, setHlSelectedIds] = useState<Set<number>>(new Set());
   const [hlContactSearch, setHlContactSearch] = useState("");
 
+  // ── Manage-hotlinks (delete) modal ─────────────────────────────────────────
+  const [manageLinksModal, setManageLinksModal] = useState<{ pageId: number; pageTitle: string; hotlinks: HotlinkEntry[] } | null>(null);
+  const [manageSelectedIds, setManageSelectedIds] = useState<Set<number>>(new Set());
+  const [manageDeleting, setManageDeleting] = useState(false);
+
+  function openManageLinks(pageId: number, pageTitle: string, hotlinks: HotlinkEntry[]) {
+    setManageLinksModal({ pageId, pageTitle, hotlinks });
+    setManageSelectedIds(new Set());
+  }
+
+  async function doDeleteHotlinks() {
+    if (!manageLinksModal || manageSelectedIds.size === 0) return;
+    setManageDeleting(true);
+    try {
+      await fetch(`${API_BASE}/sales/hotlinks`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(manageSelectedIds) }),
+      });
+      load();
+      // Remove deleted from the modal list optimistically
+      setManageLinksModal(prev => prev ? {
+        ...prev,
+        hotlinks: prev.hotlinks.filter(hl => !manageSelectedIds.has(hl.hotlinkId)),
+      } : null);
+      setManageSelectedIds(new Set());
+    } catch (err) {
+      console.error("Failed to delete hotlinks:", err);
+    } finally {
+      setManageDeleting(false);
+    }
+  }
+
   function openHotlinksModal(pageId: number, pageTitle: string) {
     setHotlinksModal({ pageId, pageTitle });
     setHlAccountId("");
@@ -1016,7 +1049,7 @@ export default function SalesPages() {
 
                             {/* Contact chips */}
                             {page.hotlinks.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                                 {page.hotlinks.map(hl => (
                                   <button
                                     key={hl.hotlinkId}
@@ -1036,6 +1069,14 @@ export default function SalesPages() {
                                     }
                                   </button>
                                 ))}
+                                <button
+                                  onClick={() => openManageLinks(page.pageId, page.pageTitle, page.hotlinks)}
+                                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors px-1.5 py-1 rounded-md hover:bg-muted/40"
+                                  title="Manage / remove links"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  Manage
+                                </button>
                               </div>
                             )}
 
@@ -1532,6 +1573,98 @@ export default function SalesPages() {
                   <Button variant="outline" onClick={() => setHotlinksModal(null)}>Cancel</Button>
                 </>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Manage Links (bulk delete) Dialog ─────────────────────────────── */}
+      <Dialog open={!!manageLinksModal} onOpenChange={open => { if (!open) setManageLinksModal(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage links</DialogTitle>
+            <DialogDescription>
+              Select links to remove for <span className="font-medium text-foreground">"{manageLinksModal?.pageTitle}"</span>. Deleting a link makes it permanently inactive.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 pt-1">
+            {manageLinksModal && manageLinksModal.hotlinks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">All links have been removed.</p>
+            ) : (
+              <>
+                {/* Select-all row */}
+                <div className="flex items-center justify-between px-1">
+                  <button
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => {
+                      if (!manageLinksModal) return;
+                      if (manageSelectedIds.size === manageLinksModal.hotlinks.length) {
+                        setManageSelectedIds(new Set());
+                      } else {
+                        setManageSelectedIds(new Set(manageLinksModal.hotlinks.map(h => h.hotlinkId)));
+                      }
+                    }}
+                  >
+                    {manageLinksModal && manageSelectedIds.size === manageLinksModal.hotlinks.length
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                  {manageSelectedIds.size > 0 && (
+                    <span className="text-xs text-muted-foreground">{manageSelectedIds.size} selected</span>
+                  )}
+                </div>
+
+                {/* Link list */}
+                <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/60 max-h-64 overflow-y-auto">
+                  {manageLinksModal?.hotlinks.map(hl => {
+                    const selected = manageSelectedIds.has(hl.hotlinkId);
+                    return (
+                      <button
+                        key={hl.hotlinkId}
+                        onClick={() => setManageSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(hl.hotlinkId)) next.delete(hl.hotlinkId); else next.add(hl.hotlinkId);
+                          return next;
+                        })}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${selected ? "bg-destructive/5" : "hover:bg-muted/50"}`}
+                      >
+                        {selected
+                          ? <CheckSquare className="w-3.5 h-3.5 text-destructive shrink-0" />
+                          : <Square className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                          {initials(hl.contactName)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-foreground truncate font-medium">{hl.contactName || <span className="text-muted-foreground italic font-normal">Unknown contact</span>}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono truncate">…{hl.token.slice(-8)}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              {manageLinksModal && manageLinksModal.hotlinks.length > 0 && (
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={manageSelectedIds.size === 0 || manageDeleting}
+                  onClick={doDeleteHotlinks}
+                >
+                  {manageDeleting
+                    ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Deleting…</>
+                    : manageSelectedIds.size > 0
+                      ? `Delete ${manageSelectedIds.size} link${manageSelectedIds.size !== 1 ? "s" : ""}`
+                      : "Select links to delete"}
+                </Button>
+              )}
+              <Button variant="outline" className={manageLinksModal?.hotlinks.length === 0 ? "flex-1" : ""} onClick={() => setManageLinksModal(null)}>
+                {manageLinksModal?.hotlinks.length === 0 ? "Close" : "Cancel"}
+              </Button>
             </div>
           </div>
         </DialogContent>
