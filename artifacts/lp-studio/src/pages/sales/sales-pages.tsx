@@ -254,6 +254,8 @@ export default function SalesPages() {
   const [hlGenerating, setHlGenerating] = useState(false);
   const [hlGenerated, setHlGenerated] = useState<GeneratedLink[]>([]);
   const [hlCopied, setHlCopied] = useState<string | null>(null);
+  const [hlSelectedIds, setHlSelectedIds] = useState<Set<number>>(new Set());
+  const [hlContactSearch, setHlContactSearch] = useState("");
 
   function openHotlinksModal(pageId: number, pageTitle: string) {
     setHotlinksModal({ pageId, pageTitle });
@@ -262,6 +264,8 @@ export default function SalesPages() {
     setHlGenerating(false);
     setHlGenerated([]);
     setHlCopied(null);
+    setHlSelectedIds(new Set());
+    setHlContactSearch("");
     setAlertInput("");
     if (!alertEmails.has(pageId)) loadAlertEmails(pageId);
   }
@@ -269,6 +273,8 @@ export default function SalesPages() {
   async function loadContacts(accountId: number) {
     setHlContactsLoading(true);
     setHlContacts([]);
+    setHlSelectedIds(new Set());
+    setHlContactSearch("");
     try {
       const res = await fetch(`${API_BASE}/sales/accounts/${accountId}/contacts`);
       if (res.ok) {
@@ -286,14 +292,18 @@ export default function SalesPages() {
     if (!hotlinksModal || !hlAccountId) return;
     setHlGenerating(true);
     try {
+      const selectedArr = hlSelectedIds.size > 0 ? Array.from(hlSelectedIds) : undefined;
       const res = await fetch(`${API_BASE}/sales/hotlinks/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: hlAccountId, pageId: hotlinksModal.pageId }),
+        body: JSON.stringify({
+          accountId: hlAccountId,
+          pageId: hotlinksModal.pageId,
+          ...(selectedArr ? { contactIds: selectedArr } : {}),
+        }),
       });
       if (!res.ok) throw new Error("Bulk hotlinks failed");
       const created = await res.json() as Array<{ token: string; contactId: number }>;
-      // Map contact IDs → names
       const contactMap = new Map(hlContacts.map(c => [c.id, `${c.firstName} ${c.lastName}`.trim()]));
       setHlGenerated(created.map(h => ({ contactName: contactMap.get(h.contactId) ?? "Contact", token: h.token })));
       load();
@@ -1345,36 +1355,103 @@ export default function SalesPages() {
               </select>
             </div>
 
-            {/* Contact preview */}
-            {hlAccountId !== "" && (
-              <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
-                <div className="px-3 py-2 border-b border-border/50 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {hlContactsLoading ? "Loading contacts…" : `${hlContacts.filter(c => c.email).length} contacts with email`}
-                  </span>
-                </div>
-                {hlContactsLoading ? (
-                  <div className="p-3 flex flex-col gap-2">
-                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
+            {/* Contact selection */}
+            {hlAccountId !== "" && (() => {
+              const emailContacts = hlContacts.filter(c => c.email);
+              const filtered = emailContacts.filter(c => {
+                if (!hlContactSearch.trim()) return true;
+                const q = hlContactSearch.toLowerCase();
+                return `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q);
+              });
+              const allSelected = emailContacts.length > 0 && emailContacts.every(c => hlSelectedIds.has(c.id));
+              const someSelected = hlSelectedIds.size > 0;
+              return (
+                <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
+                  {/* Header with select-all and count */}
+                  <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
+                    {!hlContactsLoading && emailContacts.length > 0 && (
+                      <button
+                        onClick={() => {
+                          if (allSelected) setHlSelectedIds(new Set());
+                          else setHlSelectedIds(new Set(emailContacts.map(c => c.id)));
+                        }}
+                        className="shrink-0 text-primary hover:text-primary/80 transition-colors"
+                        title={allSelected ? "Deselect all" : "Select all"}
+                      >
+                        {allSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-medium text-muted-foreground flex-1">
+                      {hlContactsLoading
+                        ? "Loading contacts…"
+                        : someSelected
+                          ? `${hlSelectedIds.size} of ${emailContacts.length} selected`
+                          : `${emailContacts.length} contacts — select to generate links for specific people, or leave blank for all`}
+                    </span>
                   </div>
-                ) : hlContacts.filter(c => c.email).length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-3 py-3">No contacts with an email address found for this account. Add contacts first.</p>
-                ) : (
-                  <div className="max-h-36 overflow-y-auto divide-y divide-border/40">
-                    {hlContacts.filter(c => c.email).map(c => (
-                      <div key={c.id} className="flex items-center gap-2 px-3 py-2">
-                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
-                          {initials([c.firstName, c.lastName].filter(Boolean).join(" "))}
-                        </div>
-                        <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
+
+                  {/* Search */}
+                  {!hlContactsLoading && emailContacts.length > 5 && (
+                    <div className="px-3 py-2 border-b border-border/50">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={hlContactSearch}
+                          onChange={e => setHlContactSearch(e.target.value)}
+                          placeholder="Search contacts…"
+                          className="w-full pl-6 pr-2 py-1 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        {hlContactSearch && (
+                          <button onClick={() => setHlContactSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+
+                  {hlContactsLoading ? (
+                    <div className="p-3 flex flex-col gap-2">
+                      {[1, 2, 3].map(i => <Skeleton key={i} className="h-5 w-full rounded" />)}
+                    </div>
+                  ) : emailContacts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts with an email address found. Add contacts first.</p>
+                  ) : filtered.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-3 py-3">No contacts match your search.</p>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto divide-y divide-border/40">
+                      {filtered.map(c => {
+                        const selected = hlSelectedIds.has(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setHlSelectedIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                return next;
+                              });
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${selected ? "bg-primary/5" : "hover:bg-muted/60"}`}
+                          >
+                            {selected
+                              ? <CheckSquare className="w-3.5 h-3.5 text-primary shrink-0" />
+                              : <Square className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />}
+                            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                              {initials([c.firstName, c.lastName].filter(Boolean).join(" "))}
+                            </div>
+                            <span className="text-xs text-foreground flex-1 truncate">{c.firstName} {c.lastName}</span>
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{c.email}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Generated links */}
             {hlGenerated.length > 0 && (
@@ -1451,7 +1528,11 @@ export default function SalesPages() {
                     disabled={!hlAccountId || hlContactsLoading || hlContacts.filter(c => c.email).length === 0 || hlGenerating}
                     onClick={doGenerateHotlinks}
                   >
-                    {hlGenerating ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Generating…</> : "Generate links"}
+                    {hlGenerating
+                      ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Generating…</>
+                      : hlSelectedIds.size > 0
+                        ? `Generate ${hlSelectedIds.size} link${hlSelectedIds.size !== 1 ? "s" : ""}`
+                        : "Generate links for all contacts"}
                   </Button>
                   <Button variant="outline" onClick={() => setHotlinksModal(null)}>Cancel</Button>
                 </>

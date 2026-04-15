@@ -359,10 +359,10 @@ router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
     }
 
     // Batch-load all existing hotlinks for this page + these contacts (eliminates N+1)
-    const contactIds = contacts.map(c => c.id);
+    const filteredContactIds = contacts.map(c => c.id);
     const existingHotlinks = await db.select().from(salesHotlinksTable)
       .where(and(
-        inArray(salesHotlinksTable.contactId, contactIds),
+        inArray(salesHotlinksTable.contactId, filteredContactIds),
         eq(salesHotlinksTable.pageId, Number(pageId)),
       ));
     const existingByContactId = new Map(existingHotlinks.map(h => [h.contactId, h]));
