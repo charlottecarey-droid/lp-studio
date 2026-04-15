@@ -371,6 +371,35 @@ router.delete("/hotlinks", async (req, res): Promise<void> => {
   }
 });
 
+// Delete ALL hotlinks for a specific page in one query (tenant-scoped)
+router.delete("/hotlinks/page/:pageId", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req);
+  const pageId = Number(req.params["pageId"]);
+  if (!pageId || isNaN(pageId)) {
+    res.status(400).json({ error: "pageId is required" });
+    return;
+  }
+  try {
+    // Verify this page belongs to this tenant
+    const pages = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId))
+      .where(eq(lpPagesTable.id, pageId));
+    if (pages.length === 0) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    const result = await db
+      .delete(salesHotlinksTable)
+      .where(eq(salesHotlinksTable.pageId, pageId));
+    res.json({ deleted: result.rowCount ?? 0 });
+  } catch (err) {
+    logger.error({ err }, "DELETE /sales/hotlinks/page/:pageId error");
+    res.status(500).json({ error: "Failed to delete hotlinks" });
+  }
+});
+
 // Bulk-create hotlinks for all contacts of an account for a specific page
 router.post("/hotlinks/bulk", async (req, res): Promise<void> => {
   const { accountId, pageId, contactIds } = req.body;
