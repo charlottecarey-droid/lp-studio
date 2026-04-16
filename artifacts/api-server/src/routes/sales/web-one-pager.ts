@@ -54,7 +54,7 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-router.post("/sales/web-one-pager", async (req, res): Promise<void> => {
+router.post("/web-one-pager", async (req, res): Promise<void> => {
   try {
     const {
       dsoName,
@@ -200,7 +200,7 @@ router.post("/sales/web-one-pager", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/sales/web-one-pager/views/:pageId", async (req, res): Promise<void> => {
+router.get("/web-one-pager/views/:pageId", async (req, res): Promise<void> => {
   try {
     const pageId = parseInt(req.params.pageId, 10);
     if (isNaN(pageId)) {
