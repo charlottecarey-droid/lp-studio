@@ -806,6 +806,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
   }
 
   /* ── FULL-BLEED LAYOUT (default) ──────────────────────────── */
+  const overlayOpacity = ((p.overlayOpacity ?? 55) / 100).toFixed(2);
   return (
     <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
       <section
@@ -826,10 +827,10 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
             />
             <MuteToggleButton muted={bgVideoMuted} onClick={toggleBgMute} className="absolute bottom-4 right-4 z-20" />
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                background:
-                  "linear-gradient(180deg, hsl(192 30% 5% / 0.55) 0%, hsl(192 30% 5% / 0.65) 40%, hsl(192 25% 8% / 0.92) 100%)",
+                backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
+                opacity: overlayOpacity,
               }}
             />
           </div>
@@ -842,10 +843,10 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
               aria-hidden="true"
             />
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                background:
-                  "linear-gradient(180deg, hsl(192 30% 5% / 0.55) 0%, hsl(192 30% 5% / 0.65) 40%, hsl(192 25% 8% / 0.90) 100%)",
+                backgroundColor: p.overlayColor ?? "hsl(192, 30%, 5%)",
+                opacity: overlayOpacity,
               }}
             />
           </div>

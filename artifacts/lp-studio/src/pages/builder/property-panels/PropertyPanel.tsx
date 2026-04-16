@@ -1502,6 +1502,45 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
                   <p className="text-[11px] text-muted-foreground">Overrides background image when set. Use a direct MP4/WebM link.</p>
                 </div>
+                {(p.backgroundImageUrl || p.backgroundVideoUrl) && (
+                  <div className="space-y-3 border border-border rounded-lg p-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Overlay</p>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded border border-border cursor-pointer shrink-0 overflow-hidden"
+                        style={{ backgroundColor: p.overlayColor ?? "#0d1f1e" }}
+                      >
+                        <input
+                          type="color"
+                          value={p.overlayColor ?? "#0d1f1e"}
+                          onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })}
+                          className="opacity-0 w-full h-full cursor-pointer"
+                        />
+                      </div>
+                      <Input
+                        value={p.overlayColor ?? "#0d1f1e"}
+                        onChange={e => onChange({ ...block, props: { ...p, overlayColor: e.target.value } })}
+                        className="h-7 text-xs font-mono flex-1"
+                        placeholder="#0d1f1e"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Opacity</Label>
+                        <span className="text-xs text-muted-foreground tabular-nums">{p.overlayOpacity ?? 55}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={p.overlayOpacity ?? 55}
+                        onChange={e => onChange({ ...block, props: { ...p, overlayOpacity: Number(e.target.value) } })}
+                        className="w-full accent-primary"
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
