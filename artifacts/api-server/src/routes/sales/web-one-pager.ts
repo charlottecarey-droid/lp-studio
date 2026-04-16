@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpPagesTable } from "@workspace/db";
+import { lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 
 const router = Router();
 
@@ -197,6 +197,24 @@ router.post("/sales/web-one-pager", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("[web-one-pager] error", err);
     res.status(500).json({ error: "Failed to generate one pager" });
+  }
+});
+
+router.get("/sales/web-one-pager/views/:pageId", async (req, res): Promise<void> => {
+  try {
+    const pageId = parseInt(req.params.pageId, 10);
+    if (isNaN(pageId)) {
+      res.status(400).json({ error: "Invalid pageId" });
+      return;
+    }
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(lpPageVisitsTable)
+      .where(eq(lpPageVisitsTable.pageId, pageId));
+    res.json({ viewCount: row?.count ?? 0 });
+  } catch (err) {
+    console.error("[web-one-pager/views] error", err);
+    res.status(500).json({ error: "Failed to fetch view count" });
   }
 });
 

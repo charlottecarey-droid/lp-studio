@@ -47,6 +47,7 @@ import { DandyHeroV7S3Panel } from "./DandyHeroV7S3Panel";
 import { DandyFormRightAltPanel } from "./DandyFormRightAltPanel";
 import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
+import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
@@ -3749,6 +3750,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <DandyConversionPanel1Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-cta-block":
         return <DandyCtaBlockPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "one-pager-hero":
+        return (
+          <OnePagerHeroPanel
+            blockType={block.type}
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

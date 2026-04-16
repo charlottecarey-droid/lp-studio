@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Copy, Check, ExternalLink, Globe, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Loader2, Copy, Check, ExternalLink, Globe, ChevronDown, ChevronUp, Plus, Trash2, Eye, RefreshCw } from "lucide-react";
 
 const API_BASE = "/api";
 
@@ -42,6 +42,35 @@ export default function SalesWebOnePager() {
   const [result, setResult] = useState<{ pageId: number; slug: string; url: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [viewCount, setViewCount] = useState<number | null>(null);
+  const [viewsLoading, setViewsLoading] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchViewCount = async (pageId: number) => {
+    setViewsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/sales/web-one-pager/views/${pageId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setViewCount(data.viewCount ?? 0);
+      }
+    } catch {
+      // silent
+    } finally {
+      setViewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (result) {
+      fetchViewCount(result.pageId);
+      pollRef.current = setInterval(() => fetchViewCount(result.pageId), 30_000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [result?.pageId]);
+
   const addTeamMember = () => {
     setTeamMembers((prev) => [...prev, { name: "", role: "", email: "", photo: "" }]);
     setShowTeam(true);
@@ -62,6 +91,7 @@ export default function SalesWebOnePager() {
     }
     setGenerating(true);
     setResult(null);
+    setViewCount(null);
     try {
       const res = await fetch(`${API_BASE}/sales/web-one-pager`, {
         method: "POST",
@@ -245,12 +275,33 @@ export default function SalesWebOnePager() {
 
           {result && publicUrl && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-green-800">
-                <Check className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-semibold">One pager is live</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-green-800">
+                  <Check className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-semibold">One pager is live</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-green-700">
+                  <Eye className="w-3.5 h-3.5" />
+                  {viewsLoading && viewCount === null ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <span>
+                      {viewCount ?? 0} {viewCount === 1 ? "view" : "views"}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => result && fetchViewCount(result.pageId)}
+                    disabled={viewsLoading}
+                    className="ml-0.5 text-green-600 hover:text-green-800 disabled:opacity-40 transition-colors"
+                    title="Refresh view count"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${viewsLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
               </div>
+              <p className="text-[11px] text-green-600">Updates every 30 seconds automatically.</p>
               <p className="text-xs text-green-700 break-all font-mono bg-green-100 rounded px-2 py-1.5">{publicUrl}</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={copyLink}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-white border border-green-200 text-green-800 font-medium hover:bg-green-50 transition-colors"
