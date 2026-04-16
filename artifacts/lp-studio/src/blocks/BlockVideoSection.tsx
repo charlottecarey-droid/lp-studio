@@ -70,6 +70,7 @@ const BG_CLASSES: Record<string, string> = {
 export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
   const [cpOpen, setCpOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const attachVideo = useCallback((el: HTMLVideoElement | null) => {
@@ -84,6 +85,12 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     if (!el) return;
     el.muted = !el.muted;
     setVideoMuted(el.muted);
+  };
+
+  const handlePlayClick = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.play().catch(() => {});
   };
 
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
@@ -212,7 +219,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const autoplay = props.videoAutoplay ?? false;
 
   const videoElement = (
-    <div className={cn("relative w-full rounded-xl overflow-hidden", aspectClass)}>
+    <div className={cn("relative w-full rounded-xl overflow-hidden shadow-lg", aspectClass)}>
       {hasVideo ? (
         isNativeVideo ? (
           <>
@@ -224,10 +231,47 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               muted
               loop={autoplay}
               playsInline
-              controls={!autoplay}
+              controls={isPlaying && !autoplay}
               preload="metadata"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
             />
-            {autoplay && <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />}
+            {/* Play button — shown when not autoplaying and video hasn't started yet */}
+            {!autoplay && !isPlaying && (
+              <button
+                onClick={handlePlayClick}
+                aria-label="Play video"
+                className="absolute inset-0 flex items-center justify-center group bg-black/10"
+              >
+                <motion.div
+                  className="w-20 h-20 rounded-full flex items-center justify-center"
+                  style={{
+                    background: "rgba(0,0,0,0.45)",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
+                    border: "2px solid rgba(255,255,255,0.35)",
+                    boxShadow: "0 4px 32px rgba(0,0,0,0.3)",
+                  }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={SPRING}
+                >
+                  {/* Offset the triangle slightly right to look optically centred */}
+                  <svg
+                    className="w-8 h-8 text-white drop-shadow"
+                    style={{ marginLeft: 4 }}
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <polygon points="5,3 19,12 5,21" />
+                  </svg>
+                </motion.div>
+              </button>
+            )}
+            {autoplay && (
+              <MuteToggleButton muted={videoMuted} onClick={toggleVideoMute} className="absolute bottom-3 right-3 z-10" />
+            )}
           </>
         ) : (
           <iframe
