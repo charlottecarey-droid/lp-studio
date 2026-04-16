@@ -466,7 +466,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -1023,92 +1023,8 @@ export default function BuilderEditor() {
 
   const applyTemplate = (templateId: string) => {
     if (templateId === "inside-dandy-event") {
-      const hero = createBlock("full-bleed-hero");
-      hero.props = {
-        ...hero.props,
-        headline: "Inside Dandy",
-        subheadline: "Executive Lab Experience",
-        ctaText: "Reserve Your Seat",
-        ctaUrl: "#rsvp",
-        secondaryCtaText: "",
-        backgroundType: "image",
-        backgroundImageUrl: "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?q=80&w=1920&h=1080&fit=crop",
-        overlayOpacity: 60,
-        minHeight: "full",
-        contentAlignment: "center",
-        showSocialProof: true,
-        socialProofText: "SALT LAKE CITY, UT  ·  SPOTS ARE LIMITED",
-        headerScrolledBg: "#0a0a0a",
-      };
-
-      const agenda = createBlock("how-it-works");
-      agenda.props = {
-        ...agenda.props,
-        headline: "Three Days, Full Access",
-        steps: [
-          { number: "01", title: "Day One — Arrival", description: "Arrive in Salt Lake City and settle into five-star luxury at The Grand America Hotel, then enjoy an intimate fine dining experience with fellow DSO leaders. Wrap the evening with a private suite at the Delta Center." },
-          { number: "02", title: "Day Two — Lab Tour & Strategy", description: "Gain unprecedented access to our Lehi and Provo Labs. See the automation infrastructure driving same-store growth, get exclusive 2026 roadmap access, and close the evening at Van Ryder Rooftop Bar." },
-          { number: "03", title: "Day Three — Indulge Your Way", description: "Choose your finale: a signature spa experience at The Grand America, an après-ski escape in the Wasatch Mountains, or a round on one of Utah's premier golf courses." },
-        ],
-      };
-
-      const photos = createBlock("photo-strip");
-      photos.props = {
-        ...photos.props,
-        images: [
-          { src: "https://images.unsplash.com/photo-1590856029826-c7a73142bbf1?q=80&w=800&fit=crop", alt: "Dandy Lab" },
-          { src: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800&fit=crop", alt: "Grand America Hotel" },
-          { src: "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?q=80&w=800&fit=crop", alt: "Ski Day" },
-          { src: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=800&fit=crop", alt: "Executive Dinner" },
-          { src: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?q=80&w=800&fit=crop", alt: "Rooftop Bar" },
-          { src: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&fit=crop", alt: "Spa Day" },
-        ],
-      };
-
-      const details = createBlock("trust-bar");
-      details.props = {
-        ...details.props,
-        items: [
-          { value: "Salt Lake City, UT", label: "Location" },
-          { value: "Tue – Thu", label: "Schedule" },
-          { value: "All-Inclusive", label: "Experience" },
-          { value: "By Invitation Only", label: "Access" },
-        ],
-      };
-
-      const rsvp = createBlock("form");
-      rsvp.props = {
-        ...rsvp.props,
-        headline: "Reserve Your Seat",
-        subheadline: "Spots are limited. Complete the form below and our team will be in touch to confirm your reservation.",
-        multiStep: true,
-        steps: [
-          {
-            title: "Your Information",
-            fields: [
-              { id: "field-firstName", type: "text", label: "First Name", placeholder: "First name", required: true },
-              { id: "field-lastName", type: "text", label: "Last Name", placeholder: "Last name", required: true },
-              { id: "field-email", type: "email", label: "Email Address", placeholder: "you@company.com", required: true },
-              { id: "field-phone", type: "phone", label: "Phone Number", placeholder: "(555) 000-0000", required: true },
-              { id: "field-company", type: "text", label: "Company / DSO Name", placeholder: "Your organization", required: true },
-            ],
-          },
-          {
-            title: "Your Preferences",
-            fields: [
-              { id: "field-dietary", type: "text", label: "Dietary Restrictions", placeholder: "None, vegetarian, gluten-free…", required: false },
-              { id: "field-labcoat", type: "select", label: "Lab Coat Size", placeholder: "Select size", required: true, options: ["XS", "S", "M", "L", "XL", "XXL"] },
-              { id: "field-activity", type: "select", label: "Day Three Activity", placeholder: "Choose your adventure", required: true, options: ["Ski Day", "Spa Day", "Golf Day", "None of the above"] },
-              { id: "field-goal", type: "textarea", label: "What would make this trip a success for you?", placeholder: "Share your top goal…", required: false },
-            ],
-          },
-        ],
-        submitButtonText: "Reserve My Seat",
-        successMessage: "You're on the list! Our team will be in touch shortly to confirm your reservation.",
-        backgroundStyle: "white",
-      };
-
-      setBlocks([hero, agenda, photos, details, rsvp]);
+      const block = createBlock("event-page");
+      setBlocks([block]);
       setSelectedBlockId(null);
       return;
     }

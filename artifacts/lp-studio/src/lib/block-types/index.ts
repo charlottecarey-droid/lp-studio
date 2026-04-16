@@ -113,6 +113,12 @@ export type {
   DsoCaseStudyBlockProps,
   DsoCaseStudyBodySection,
   DsoCaseStudyResultItem,
+  EventPageBlockProps,
+  EventPageAgendaDay,
+  EventPagePhoto,
+  EventPageDetail,
+  EventPageNavLink,
+  OnePagerHeroBlockProps,
 } from "./dso-blocks";
 
 // Utility block types

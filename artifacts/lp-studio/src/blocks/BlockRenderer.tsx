@@ -39,6 +39,7 @@ import { BlockDsoSoftwareShowcase } from "./BlockDsoSoftwareShowcase";
 import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
 import { BlockOnePagerHero } from "./BlockOnePagerHero";
+import { BlockEventPage } from "./BlockEventPage";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -565,6 +566,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockDandyCtaBlock props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "one-pager-hero":
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "event-page":
+        return <BlockEventPage props={block.props} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

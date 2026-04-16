@@ -632,3 +632,57 @@ export interface OnePagerHeroBlockProps {
   accentColor?: string;
   panelVariant?: "solid" | "diagonal" | "mesh";
 }
+
+export interface EventPageAgendaDay {
+  day: string;
+  title: string;
+  description: string;
+  highlight: string;
+}
+
+export interface EventPagePhoto {
+  src: string;
+  alt: string;
+  caption: string;
+}
+
+export interface EventPageDetail {
+  label: string;
+  value: string;
+  sub: string;
+}
+
+export interface EventPageNavLink {
+  label: string;
+  href: string;
+}
+
+export interface EventPageBlockProps {
+  eventName: string;
+  eventSubtitle: string;
+  logoUrl?: string;
+  navLinks: EventPageNavLink[];
+  navCtaText: string;
+  navCtaUrl: string;
+  heroEyebrow: string;
+  heroImageUrl: string;
+  heroTagline: string;
+  heroLocation: string;
+  heroCtaText: string;
+  agendaEyebrow: string;
+  agendaHeadline: string;
+  agendaSubtitle: string;
+  agendaValueProps: string[];
+  agendaDays: EventPageAgendaDay[];
+  photos: EventPagePhoto[];
+  detailsEyebrow: string;
+  detailsHeadline: string;
+  detailsSubtitle: string;
+  details: EventPageDetail[];
+  rsvpEyebrow: string;
+  rsvpHeadline: string;
+  rsvpSubtitle: string;
+  formSteps: import("./common").FormStep[];
+  formSubmitUrl?: string;
+  footerText: string;
+}

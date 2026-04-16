@@ -78,6 +78,7 @@ import type {
   DsoInsightsVideoBlockProps,
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
+  EventPageBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -2732,6 +2733,119 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "event-page" as const,
+    label: "Event Page",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventPageBlockProps => ({
+      eventName: "Inside Dandy",
+      eventSubtitle: "Executive Lab Experience",
+      logoUrl: "",
+      navLinks: [
+        { label: "Agenda", href: "#agenda" },
+        { label: "Details", href: "#details" },
+        { label: "Photos", href: "#photos" },
+      ],
+      navCtaText: "Reserve Your Seat",
+      navCtaUrl: "#rsvp",
+      heroEyebrow: "You're Invited",
+      heroImageUrl: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/hero-provo.jpg",
+      heroTagline: "Three days of five-star hospitality, private lab access, and the strategic conversations shaping the future of dentistry.",
+      heroLocation: "SALT LAKE CITY, UT · SPOTS ARE LIMITED",
+      heroCtaText: "REQUEST ACCESS",
+      agendaEyebrow: "The Agenda",
+      agendaHeadline: "Three Days, Full Access",
+      agendaSubtitle: "A curated experience designed for executives scaling DSOs — combining strategic insight, operational depth, and world-class hospitality.",
+      agendaValueProps: [
+        "EXCLUSIVE 2026 PRODUCT ROADMAP ACCESS",
+        "Private 1:1 DSO strategy sessions",
+        "Automation infrastructure deep-dive",
+        "Peer networking with PE-backed DSO leaders",
+      ],
+      agendaDays: [
+        {
+          day: "Day One",
+          title: "Arrival",
+          description: "Arrive in Salt Lake City and settle into five-star luxury at The Grand America Hotel, then enjoy an intimate, fine dining experience with fellow DSO leaders.",
+          highlight: "After dinner, head to Delta Center for a thrilling professional hockey or basketball game from a private suite — complete with premium hospitality and elevated service. Build relationships with peers navigating the same growth, integration, and platform-scaling challenges you are.",
+        },
+        {
+          day: "Day Two",
+          title: "Lab Tour & Strategy",
+          description: "Gain unprecedented access to our Lehi and Provo Labs, including our brand-new Provo facility. See firsthand the automation infrastructure that's driving measurable same-store growth, EBITDA improvement, and remake elimination across the platform.",
+          highlight: "Receive exclusive insights into our 2026 product roadmap — shared with only our most strategic partners. Experience hands-on product demonstrations and get private 1:1 strategy sessions tailored to your DSO's growth targets and operational goals. Conclude the evening with unforgettable views at Van Ryder Rooftop Bar.",
+        },
+        {
+          day: "Day Three",
+          title: "Indulge Your Way",
+          description: "Choose how you want to wrap up the trip — you've earned it.",
+          highlight: "Unwind with a signature spa experience at the Grand America, enjoy an elevated après-ski escape in the Wasatch Mountains, or perfect your swing on one of Utah's premier golf courses.",
+        },
+      ],
+      photos: [
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-hotel.jpg", alt: "Five-star luxury at The Grand America Hotel", caption: "The Grand America Hotel" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-dining.jpg", alt: "Intimate fine dining experience", caption: "Private Fine Dining" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-hockey.jpg", alt: "Utah Mammoth hockey from a private suite", caption: "Private Suite at Delta Center" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-lab-floor.jpg", alt: "Dandy lab floor with Versamill milling machines", caption: "Dandy Lab Floor" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-lab-machine.png", alt: "Precision dental manufacturing at Dandy", caption: "Precision Manufacturing" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-ai-scan.jpg", alt: "AI-powered dental scanning technology", caption: "AI Scanning Technology" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-rooftop.jpg", alt: "Sweeping mountain views from Van Ryder Rooftop", caption: "Van Ryder Rooftop Bar" },
+        { src: "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/carousel-spa.jpg", alt: "Signature spa experience", caption: "Spa & Wellness" },
+      ],
+      detailsEyebrow: "The Details",
+      detailsHeadline: "What to Expect",
+      detailsSubtitle: "Everything is taken care of. Focus on the conversations, insights, and relationships that will accelerate your platform's next phase of growth.",
+      details: [
+        { label: "When", value: "Rolling dates, 2026", sub: "Tuesday through Thursday" },
+        { label: "Where", value: "Salt Lake City, UT", sub: "The Grand America Hotel" },
+        { label: "Experience", value: "All-Inclusive", sub: "By invitation only" },
+      ],
+      rsvpEyebrow: "Limited Availability",
+      rsvpHeadline: "Request a Tour",
+      rsvpSubtitle: "This is an intimate, invitation-only experience reserved for executives at leading DSOs. Complete the form below to request access.",
+      formSteps: [
+        {
+          title: "Your Information",
+          fields: [
+            { id: "firstName", type: "text" as const, label: "First Name", placeholder: "First name", required: true },
+            { id: "lastName", type: "text" as const, label: "Last Name", placeholder: "Last name", required: true },
+            { id: "email", type: "email" as const, label: "Email Address", placeholder: "you@company.com", required: true },
+            { id: "phone", type: "phone" as const, label: "Phone Number", placeholder: "(555) 000-0000", required: true },
+          ],
+        },
+        {
+          title: "Your Preferences",
+          fields: [
+            { id: "company", type: "text" as const, label: "Company / DSO Name", placeholder: "Your organization", required: true },
+            { id: "dietaryRestrictions", type: "text" as const, label: "Dietary Restrictions", placeholder: "None, vegetarian, gluten-free…", required: false },
+            { id: "labCoatSize", type: "select" as const, label: "Lab Coat Size", placeholder: "Select your lab coat size", required: true, options: ["XS", "S", "M", "L", "XL", "XXL"] },
+            { id: "successGoal", type: "textarea" as const, label: "What would make this lab tour successful for you?", placeholder: "Share your top goal…", required: false },
+            { id: "activityChoice", type: "select" as const, label: "Day Three Activity", placeholder: "Select your activity of choice on Day Three", required: true, options: ["Ski Day", "Spa Day", "Golf Day", "None of the above"] },
+          ],
+        },
+      ],
+      footerText: "© 2026 Dandy · Inside Dandy: Executive Lab Experience",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#0c0f12" rx="4"/>
+        <rect x="0" y="0" width="120" height="32" fill="#141619" rx="4"/>
+        <rect x="4" y="4" width="20" height="3" rx="1.5" fill="rgba(181,154,110,0.5)"/>
+        <rect x="90" y="4" width="26" height="3" rx="1.5" fill="rgba(238,234,227,0.3)"/>
+        <rect x="35" y="10" width="50" height="8" rx="2" fill="rgba(238,234,227,0.85)"/>
+        <rect x="44" y="21" width="32" height="2" rx="1" fill="rgba(181,154,110,0.7)"/>
+        <rect x="14" y="36" width="12" height="2" rx="1" fill="#b59a6e"/>
+        <rect x="14" y="40" width="30" height="1.5" rx="0.75" fill="rgba(238,234,227,0.4)"/>
+        <rect x="14" y="43" width="24" height="1.5" rx="0.75" fill="rgba(122,128,136,0.4)"/>
+        <rect x="70" y="36" width="12" height="2" rx="1" fill="#b59a6e"/>
+        <rect x="70" y="40" width="30" height="1.5" rx="0.75" fill="rgba(238,234,227,0.4)"/>
+        <rect x="70" y="43" width="24" height="1.5" rx="0.75" fill="rgba(122,128,136,0.4)"/>
+        <rect x="14" y="50" width="40" height="10" rx="2" fill="#141619"/>
+        <rect x="58" y="50" width="48" height="10" rx="2" fill="#141619"/>
+        <rect x="40" y="66" width="40" height="8" rx="1" fill="#b59a6e"/>
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2819,6 +2933,7 @@ export function createBlock(type: "dandy-form-right-alt"): Extract<PageBlock, { 
 export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock, { type: "dandy-conversion-panel-1" }>;
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
+export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2904,6 +3019,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-conversion-panel-1": return { id, type: "dandy-conversion-panel-1", props: props as DandyConversionPanel1BlockProps };
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
+    case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
   }
 }
 
@@ -2914,7 +3030,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "social-proof-leader": ["hero", "testimonial", "photo-strip", "stat-callout", "trust-bar", "benefits-grid", "bottom-cta"],
     "how-it-works": ["hero", "how-it-works", "trust-bar", "product-grid", "benefits-grid", "testimonial", "bottom-cta"],
     "minimal-cta": ["hero", "trust-bar"],
-    "inside-dandy-event": ["hero", "trust-bar", "how-it-works", "photo-strip", "form", "bottom-cta"],
+    "inside-dandy-event": ["event-page"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

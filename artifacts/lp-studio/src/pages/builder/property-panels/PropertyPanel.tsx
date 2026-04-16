@@ -48,6 +48,7 @@ import { DandyFormRightAltPanel } from "./DandyFormRightAltPanel";
 import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
+import { EventPagePanel } from "./EventPagePanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
@@ -3793,6 +3794,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <OnePagerHeroPanel
             blockType={block.type}
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "event-page":
+        return (
+          <EventPagePanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
