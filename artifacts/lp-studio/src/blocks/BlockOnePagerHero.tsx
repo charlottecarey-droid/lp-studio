@@ -7,6 +7,47 @@ const DARK_GREEN = "#003A30";
 const LIME = "#C7E738";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+const MOBILE_STYLES = `
+  .one-pager-hero {
+    flex-direction: row;
+  }
+  .one-pager-hero__left {
+    flex: 0 0 55%;
+    padding: 3rem 3.5rem 2.5rem;
+  }
+  .one-pager-hero__right {
+    flex: 0 0 45%;
+    min-height: unset;
+  }
+  .one-pager-hero__right-img-placeholder {
+    min-height: 340px;
+  }
+  .one-pager-hero h1 {
+    font-size: clamp(2rem, 4vw, 3.25rem);
+  }
+  @media (max-width: 768px) {
+    .one-pager-hero {
+      flex-direction: column;
+    }
+    .one-pager-hero__left {
+      flex: none;
+      width: 100%;
+      padding: 2.25rem 1.75rem 2rem;
+    }
+    .one-pager-hero__right {
+      flex: none;
+      width: 100%;
+      min-height: 52vw;
+    }
+    .one-pager-hero__right-img-placeholder {
+      min-height: 52vw;
+    }
+    .one-pager-hero h1 {
+      font-size: clamp(1.75rem, 7vw, 2.75rem);
+    }
+  }
+`;
+
 interface Props {
   props: OnePagerHeroBlockProps;
   brand: BrandConfig;
@@ -53,184 +94,188 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
   const displayHeadline = headline ?? partnerName;
 
   return (
-    <section
-      style={{
-        width: "100%",
-        minHeight: 340,
-        display: "flex",
-        flexDirection: "row",
-        overflow: "hidden",
-      }}
-    >
-      {/* ── Left panel ── */}
-      <div
+    <>
+      <style>{MOBILE_STYLES}</style>
+      <section
+        className="one-pager-hero"
         style={{
-          flex: "0 0 55%",
-          background: getPanelBackground(panelVariant, accent),
+          width: "100%",
+          minHeight: 340,
           display: "flex",
-          flexDirection: "column",
-          padding: "3rem 3.5rem 2.5rem",
-          position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Decorative orb — top right corner */}
+        {/* ── Left panel ── */}
         <div
-          aria-hidden="true"
+          className="one-pager-hero__left"
           style={{
-            position: "absolute",
-            top: "-60px",
-            right: "-60px",
-            width: 220,
-            height: 220,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, rgba(0,120,90,0.35) 0%, transparent 70%)`,
-            filter: "blur(32px)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Decorative orb — bottom left */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            bottom: "-40px",
-            left: "-40px",
-            width: 160,
-            height: 160,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, rgba(0,60,40,0.4) 0%, transparent 70%)`,
-            filter: "blur(24px)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Logo */}
-        <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
-          <img src={dandyLogoWhiteUrl} alt="Dandy" style={{ height: 28, width: "auto" }} />
-        </div>
-
-        {/* Content */}
-        <div
-          style={{
-            flexGrow: 1,
+            background: getPanelBackground(panelVariant, accent),
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
             position: "relative",
-            zIndex: 1,
+            overflow: "hidden",
           }}
         >
-          {tagline && (
-            <InlineText
-              as="p"
-              value={tagline}
-              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, tagline: v }) : undefined}
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase" as const,
-                color: accent,
-                marginBottom: "1.25rem",
-                fontFamily: "sans-serif",
-              }}
-            />
-          )}
-
-          <h1
+          {/* Decorative orb — top right corner */}
+          <div
+            aria-hidden="true"
             style={{
-              fontFamily: DISPLAY,
-              fontSize: "clamp(2rem,4vw,3.25rem)",
-              fontWeight: 700,
-              color: "#fff",
-              lineHeight: 1.1,
-              letterSpacing: "-0.02em",
-              margin: 0,
+              position: "absolute",
+              top: "-60px",
+              right: "-60px",
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, rgba(0,120,90,0.35) 0%, transparent 70%)`,
+              filter: "blur(32px)",
+              pointerEvents: "none",
             }}
-          >
-            <InlineText
-              as="span"
-              value={displayHeadline}
-              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-              style={{ color: "#fff" }}
-            />
-          </h1>
-
-          {subtitle !== undefined && (
-            <InlineText
-              as="p"
-              value={subtitle ?? ""}
-              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subtitle: v }) : undefined}
-              style={{
-                marginTop: "1.5rem",
-                fontSize: "1rem",
-                color: "rgba(255,255,255,0.68)",
-                lineHeight: 1.7,
-                maxWidth: 400,
-                fontFamily: "sans-serif",
-              }}
-              multiline
-            />
-          )}
-        </div>
-
-        {/* Phone */}
-        {phone && (
-          <InlineText
-            as="p"
-            value={phone}
-            onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, phone: v }) : undefined}
+          />
+          {/* Decorative orb — bottom left */}
+          <div
+            aria-hidden="true"
             style={{
-              marginTop: "2.5rem",
-              fontSize: "0.875rem",
-              color: "rgba(255,255,255,0.45)",
-              fontFamily: "sans-serif",
+              position: "absolute",
+              bottom: "-40px",
+              left: "-40px",
+              width: 160,
+              height: 160,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, rgba(0,60,40,0.4) 0%, transparent 70%)`,
+              filter: "blur(24px)",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* Logo */}
+          <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
+            <img src={dandyLogoWhiteUrl} alt="Dandy" style={{ height: 28, width: "auto" }} />
+          </div>
+
+          {/* Content */}
+          <div
+            style={{
+              flexGrow: 1,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
               position: "relative",
               zIndex: 1,
             }}
-          />
-        )}
-      </div>
-
-      {/* ── Right panel ── */}
-      <div style={{ flex: "0 0 45%", overflow: "hidden", position: "relative" }}>
-        {sideImageUrl ? (
-          <img
-            src={sideImageUrl}
-            alt={partnerName}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              display: "block",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              minHeight: 340,
-              background: `linear-gradient(150deg, #005540 0%, #003A30 60%, #001E18 100%)`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
           >
-            <p
+            {tagline && (
+              <InlineText
+                as="p"
+                value={tagline}
+                onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, tagline: v }) : undefined}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase" as const,
+                  color: accent,
+                  marginBottom: "1.25rem",
+                  fontFamily: "sans-serif",
+                }}
+              />
+            )}
+
+            <h1
               style={{
-                color: "rgba(255,255,255,0.22)",
-                fontSize: "0.875rem",
-                fontStyle: "italic",
+                fontFamily: DISPLAY,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em",
+                margin: 0,
               }}
             >
-              Add a side image
-            </p>
+              <InlineText
+                as="span"
+                value={displayHeadline}
+                onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
+                style={{ color: "#fff" }}
+              />
+            </h1>
+
+            {subtitle !== undefined && (
+              <InlineText
+                as="p"
+                value={subtitle ?? ""}
+                onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subtitle: v }) : undefined}
+                style={{
+                  marginTop: "1.5rem",
+                  fontSize: "1rem",
+                  color: "rgba(255,255,255,0.68)",
+                  lineHeight: 1.7,
+                  maxWidth: 400,
+                  fontFamily: "sans-serif",
+                }}
+                multiline
+              />
+            )}
           </div>
-        )}
-      </div>
-    </section>
+
+          {/* Phone */}
+          {phone && (
+            <InlineText
+              as="p"
+              value={phone}
+              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, phone: v }) : undefined}
+              style={{
+                marginTop: "2.5rem",
+                fontSize: "0.875rem",
+                color: "rgba(255,255,255,0.45)",
+                fontFamily: "sans-serif",
+                position: "relative",
+                zIndex: 1,
+              }}
+            />
+          )}
+        </div>
+
+        {/* ── Right panel ── */}
+        <div
+          className="one-pager-hero__right"
+          style={{ overflow: "hidden", position: "relative" }}
+        >
+          {sideImageUrl ? (
+            <img
+              src={sideImageUrl}
+              alt={partnerName}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                display: "block",
+              }}
+            />
+          ) : (
+            <div
+              className="one-pager-hero__right-img-placeholder"
+              style={{
+                width: "100%",
+                height: "100%",
+                background: `linear-gradient(150deg, #005540 0%, #003A30 60%, #001E18 100%)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <p
+                style={{
+                  color: "rgba(255,255,255,0.22)",
+                  fontSize: "0.875rem",
+                  fontStyle: "italic",
+                }}
+              >
+                Add a side image
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
