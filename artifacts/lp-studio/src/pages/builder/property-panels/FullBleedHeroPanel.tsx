@@ -256,31 +256,61 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
           </div>
         )}
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Overlay Opacity — {props.overlayOpacity ?? 50}%
+        <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/20">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Overlay</p>
+
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+              Overlay Color
             </Label>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Color</span>
+            <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={props.overlayColor ?? "#003A30"}
                 onChange={e => set("overlayColor", e.target.value)}
-                className="h-7 w-10 rounded cursor-pointer border border-slate-200 p-0.5"
-                title="Overlay color"
+                className="w-9 h-9 rounded border cursor-pointer shrink-0"
+              />
+              <Input
+                value={props.overlayColor ?? "#003A30"}
+                onChange={e => set("overlayColor", e.target.value)}
+                className="text-sm font-mono"
+                placeholder="#003A30"
               />
             </div>
           </div>
-          <Slider
-            min={0}
-            max={80}
-            step={5}
-            value={[props.overlayOpacity ?? 50]}
-            onValueChange={([v]) => set("overlayOpacity", v)}
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground mt-1">Controls how dark the overlay is over your image</p>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Opacity
+              </Label>
+              <span className="text-xs tabular-nums text-muted-foreground font-medium">
+                {props.overlayOpacity ?? 50}%
+              </span>
+            </div>
+            <Slider
+              min={0}
+              max={100}
+              step={1}
+              value={[props.overlayOpacity ?? 50]}
+              onValueChange={([v]) => set("overlayOpacity", v)}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>0% (transparent)</span>
+              <span>100% (solid)</span>
+            </div>
+          </div>
+
+          {/* Live preview chip */}
+          <div className="flex items-center gap-2 pt-1">
+            <div
+              className="w-full h-6 rounded"
+              style={{
+                background: `linear-gradient(to right, transparent, ${props.overlayColor ?? "#003A30"}${Math.round((props.overlayOpacity ?? 50) / 100 * 255).toString(16).padStart(2, "0")})`,
+              }}
+            />
+          </div>
         </div>
 
         <div>
