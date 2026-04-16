@@ -38,6 +38,7 @@ import { BlockDsoSplitFeature } from "./BlockDsoSplitFeature";
 import { BlockDsoSoftwareShowcase } from "./BlockDsoSoftwareShowcase";
 import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
+import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -562,6 +563,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockDandyConversionPanel1 props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dandy-cta-block":
         return <BlockDandyCtaBlock props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "one-pager-hero":
+        return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

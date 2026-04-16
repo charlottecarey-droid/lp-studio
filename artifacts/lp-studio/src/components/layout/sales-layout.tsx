@@ -212,6 +212,13 @@ export function SalesTopNav() {
       matchFn: (loc) => loc === "/sales/one-pager",
     },
     {
+      label: "Interactive One Pager",
+      href: "/sales/web-one-pager",
+      icon: <Globe className="w-4 h-4" />,
+      permission: "sales_accounts",
+      matchFn: (loc) => loc === "/sales/web-one-pager",
+    },
+    {
       label: "One-Pager Templates",
       href: "/sales/one-pager-templates",
       icon: <Wrench className="w-4 h-4" />,

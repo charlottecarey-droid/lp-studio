@@ -619,3 +619,11 @@ export interface DsoInsightsVideoBlockProps {
   hideBrowserFrame?: boolean;
   chilipiperUrl?: string;
 }
+
+export interface OnePagerHeroBlockProps {
+  partnerName: string;
+  subtitle?: string;
+  tagline?: string;
+  sideImageUrl?: string;
+  phone?: string;
+}

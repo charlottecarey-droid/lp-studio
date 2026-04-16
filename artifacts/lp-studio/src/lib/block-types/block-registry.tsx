@@ -77,6 +77,7 @@ import type {
   DsoSoftwareShowcaseBlockProps,
   DsoInsightsVideoBlockProps,
   DsoCaseStudyBlockProps,
+  OnePagerHeroBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -2706,6 +2707,31 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "one-pager-hero" as const,
+    label: "One-Pager Hero",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): OnePagerHeroBlockProps => ({
+      partnerName: "Partner Name",
+      tagline: "Your custom partnership overview",
+      subtitle: "Achieve quality, consistency, and control at scale.",
+      sideImageUrl: "",
+      phone: "",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect width="66" height="70" fill="#003A30" rx="4" />
+        <rect x="2" rx="1" y="2" width="30" height="3" fill="rgba(255,255,255,0.6)" />
+        <rect x="2" y="12" width="14" height="2" rx="1" fill="#C7E738" opacity="0.8" />
+        <rect x="2" y="17" width="50" height="6" rx="2" fill="rgba(255,255,255,0.85)" />
+        <rect x="2" y="26" width="42" height="2.5" rx="1" fill="rgba(255,255,255,0.35)" />
+        <rect x="2" y="30" width="36" height="2.5" rx="1" fill="rgba(255,255,255,0.25)" />
+        <rect x="68" width="52" height="70" fill="#006651" />
+        <rect x="74" y="20" width="34" height="30" rx="3" fill="rgba(255,255,255,0.12)" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -2792,6 +2818,7 @@ export function createBlock(type: "dandy-hero-v7-s3"): Extract<PageBlock, { type
 export function createBlock(type: "dandy-form-right-alt"): Extract<PageBlock, { type: "dandy-form-right-alt" }>;
 export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock, { type: "dandy-conversion-panel-1" }>;
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
+export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -2876,6 +2903,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-form-right-alt": return { id, type: "dandy-form-right-alt", props: props as DandyFormRightAltBlockProps };
     case "dandy-conversion-panel-1": return { id, type: "dandy-conversion-panel-1", props: props as DandyConversionPanel1BlockProps };
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
+    case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
   }
 }
 

@@ -65,4 +65,5 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "dso-promises":           ["eyebrow", "headline", "subheadline"],
   "dso-testimonials":       ["eyebrow", "headline", "subheadline"],
   "dso-lab-tour":           ["title", "subtitle", "description", "quote", "quoteAttribution", "ctaLabel"],
+  "one-pager-hero":         ["partnerName", "tagline", "subtitle", "phone"],
 };

@@ -1,4 +1,4 @@
-import { Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign } from "lucide-react";
+import { Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign, Users, MessageCircle, Bot, Activity, Clipboard, Bell, Package, Monitor, BookOpen, Star, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BenefitsGridBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign,
+  Users, MessageCircle, Bot, Activity, Clipboard, Bell, Package, Monitor, BookOpen, Star, CheckCircle,
 };
 
 const CARD_SPRING = { type: "spring" as const, stiffness: 320, damping: 22 };

@@ -75,6 +75,7 @@ import type {
   DsoSoftwareShowcaseBlockProps,
   DsoInsightsVideoBlockProps,
   DsoCaseStudyBlockProps,
+  OnePagerHeroBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -160,7 +161,8 @@ export type BlockVariant =
   | { type: "dandy-hero-v7-s3"; props: DandyHeroV7S3BlockProps }
   | { type: "dandy-form-right-alt"; props: DandyFormRightAltBlockProps }
   | { type: "dandy-conversion-panel-1"; props: DandyConversionPanel1BlockProps }
-  | { type: "dandy-cta-block"; props: DandyCtaBlockProps };
+  | { type: "dandy-cta-block"; props: DandyCtaBlockProps }
+  | { type: "one-pager-hero"; props: OnePagerHeroBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
