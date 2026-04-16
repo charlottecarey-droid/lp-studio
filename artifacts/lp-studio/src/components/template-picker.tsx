@@ -36,6 +36,33 @@ export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilder
         {LP_TEMPLATES.map((template) => (
           <Card key={template.id} className="flex flex-col overflow-hidden border-2 hover:border-[#003A30] transition-colors duration-200 shadow-sm hover:shadow-md cursor-default">
             {/* Wireframe Preview */}
+            {template.id === "inside-dandy-event" ? (
+              <div className="h-48 bg-[#0d1117] p-4 flex flex-col gap-2 overflow-hidden border-b border-slate-800">
+                {/* Nav */}
+                <div className="h-5 w-full flex justify-between items-center px-1">
+                  <div className="h-2 w-10 bg-white/60 rounded-sm" />
+                  <div className="h-2 w-14 bg-white/20 rounded-sm" />
+                </div>
+                {/* Hero */}
+                <div className="flex flex-col items-center text-center flex-1 justify-center gap-2 mt-1">
+                  <div className="h-1 w-8 bg-[#C7E738]/60 rounded-sm" />
+                  <div className="h-5 w-36 bg-white/90 rounded-sm" />
+                  <div className="h-2 w-28 bg-white/30 rounded-sm" />
+                  <div className="h-0.5 w-8 bg-white/20 rounded-sm" />
+                  <div className="h-6 w-20 bg-[#003A30] rounded-sm mt-1" />
+                </div>
+                {/* Agenda strip */}
+                <div className="flex gap-2 mt-1">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="flex-1 border border-white/10 rounded p-1.5 space-y-1">
+                      <div className="h-1.5 w-4 bg-[#C7E738]/50 rounded-sm" />
+                      <div className="h-2 w-full bg-white/40 rounded-sm" />
+                      <div className="h-1.5 w-3/4 bg-white/20 rounded-sm" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
             <div className="h-48 bg-slate-50 p-4 flex flex-col gap-2 overflow-hidden border-b border-slate-100">
               {/* Nav */}
               <div className="h-6 bg-white border border-slate-100 rounded-md w-full flex justify-between items-center px-3 shadow-sm">
@@ -67,6 +94,7 @@ export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilder
                 </div>
               )}
             </div>
+            )}
 
             <div className="p-6 flex flex-col flex-1 bg-white">
               <div className="flex items-start justify-between mb-2">

@@ -356,6 +356,47 @@ export const templateMinimalCta: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 6 — Executive Event RSVP (Inside Dandy)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateInsideDandyEvent: LPTemplate = {
+  id: "inside-dandy-event",
+  name: "Executive Event RSVP",
+  description: "Premium invite-only event landing page with a 3-day agenda, photo gallery, and multi-step RSVP form. Ideal for executive lab experiences and high-touch VIP events.",
+  framework: "Event → Agenda → Gallery → RSVP",
+  badge: "Event",
+  config: {
+    templateId: "inside-dandy-event",
+    heroType: "static-image",
+    layout: "centered",
+    backgroundStyle: "dark",
+    headline: "Inside Dandy",
+    subheadline: "Executive Lab Experience · Salt Lake City, UT",
+    ctaText: "Reserve Your Seat",
+    ctaColor: LIME,
+    ctaUrl: "#rsvp",
+    showSocialProof: false,
+    howItWorks: {
+      enabled: true,
+      headline: "Three Days, Full Access",
+      steps: [
+        { number: "01", title: "Day One — Arrival", description: "Arrive in Salt Lake City and settle into five-star luxury at The Grand America Hotel, then enjoy an intimate fine dining experience with fellow DSO leaders." },
+        { number: "02", title: "Day Two — Lab Tour & Strategy", description: "Gain unprecedented access to our Lehi and Provo Labs. See the automation infrastructure driving measurable same-store growth and get private 1:1 strategy sessions." },
+        { number: "03", title: "Day Three — Indulge Your Way", description: "Unwind with a signature spa experience, an après-ski escape in the Wasatch Mountains, or a round on one of Utah's premier golf courses." },
+      ],
+    },
+    trustBar: {
+      enabled: true,
+      items: [
+        { value: "Salt Lake City, UT", label: "Location" },
+        { value: "Tue – Thu", label: "Schedule" },
+        { value: "All-Inclusive", label: "Experience" },
+        { value: "By Invitation", label: "Access" },
+      ],
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 export const LP_TEMPLATES: LPTemplate[] = [
@@ -364,6 +405,7 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateSocialProofLeader,
   templateHowItWorks,
   templateMinimalCta,
+  templateInsideDandyEvent,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {
