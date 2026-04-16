@@ -2914,6 +2914,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "social-proof-leader": ["hero", "testimonial", "photo-strip", "stat-callout", "trust-bar", "benefits-grid", "bottom-cta"],
     "how-it-works": ["hero", "how-it-works", "trust-bar", "product-grid", "benefits-grid", "testimonial", "bottom-cta"],
     "minimal-cta": ["hero", "trust-bar"],
+    "inside-dandy-event": ["hero", "trust-bar", "how-it-works", "photo-strip", "form", "bottom-cta"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));
