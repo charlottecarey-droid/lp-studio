@@ -13,8 +13,44 @@ interface Props {
   onFieldChange?: (updated: OnePagerHeroBlockProps) => void;
 }
 
+function getPanelBackground(variant: string, accent: string): string {
+  const accentRgb = hexToRgb(accent) ?? { r: 199, g: 231, b: 56 };
+  switch (variant) {
+    case "mesh":
+      return [
+        `radial-gradient(ellipse 90% 70% at 10% 10%, rgba(0,102,81,0.85) 0%, transparent 60%)`,
+        `radial-gradient(ellipse 60% 60% at 90% 90%, rgba(0,22,15,0.9) 0%, transparent 55%)`,
+        `radial-gradient(ellipse 55% 40% at 50% 115%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.10) 0%, transparent 55%)`,
+        DARK_GREEN,
+      ].join(", ");
+    case "diagonal":
+      return `linear-gradient(135deg, #005B44 0%, #003A30 45%, #001E18 100%)`;
+    case "solid":
+    default:
+      return [
+        `radial-gradient(ellipse 75% 60% at 15% 15%, rgba(0,102,81,0.65) 0%, transparent 60%)`,
+        `radial-gradient(ellipse 50% 45% at 88% 88%, rgba(0,18,12,0.80) 0%, transparent 55%)`,
+        `radial-gradient(ellipse 80% 55% at 50% 120%, rgba(${accentRgb.r},${accentRgb.g},${accentRgb.b},0.07) 0%, transparent 50%)`,
+        DARK_GREEN,
+      ].join(", ");
+  }
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+}
+
 export function BlockOnePagerHero({ props, onFieldChange }: Props) {
-  const { partnerName, subtitle, tagline, sideImageUrl, phone } = props;
+  const { partnerName, headline, subtitle, tagline, sideImageUrl, phone } = props;
+  const accent = props.accentColor ?? LIME;
+  const panelVariant = props.panelVariant ?? "solid";
+  const displayHeadline = headline ?? partnerName;
 
   return (
     <section
@@ -26,20 +62,65 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
         overflow: "hidden",
       }}
     >
+      {/* ── Left panel ── */}
       <div
         style={{
           flex: "0 0 55%",
-          background: DARK_GREEN,
+          background: getPanelBackground(panelVariant, accent),
           display: "flex",
           flexDirection: "column",
           padding: "3rem 3.5rem 2.5rem",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        <div style={{ marginBottom: "2.5rem" }}>
+        {/* Decorative orb — top right corner */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "-60px",
+            right: "-60px",
+            width: 220,
+            height: 220,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, rgba(0,120,90,0.35) 0%, transparent 70%)`,
+            filter: "blur(32px)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Decorative orb — bottom left */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: "-40px",
+            left: "-40px",
+            width: 160,
+            height: 160,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, rgba(0,60,40,0.4) 0%, transparent 70%)`,
+            filter: "blur(24px)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Logo */}
+        <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
           <img src={dandyLogoWhiteUrl} alt="Dandy" style={{ height: 28, width: "auto" }} />
         </div>
 
-        <div style={{ flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        {/* Content */}
+        <div
+          style={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
           {tagline && (
             <InlineText
               as="p"
@@ -50,7 +131,7 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase" as const,
-                color: LIME,
+                color: accent,
                 marginBottom: "1.25rem",
                 fontFamily: "sans-serif",
               }}
@@ -68,11 +149,10 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
               margin: 0,
             }}
           >
-            <span style={{ color: LIME }}>& </span>
             <InlineText
               as="span"
-              value={partnerName}
-              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, partnerName: v }) : undefined}
+              value={displayHeadline}
+              onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
               style={{ color: "#fff" }}
             />
           </h1>
@@ -95,6 +175,7 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
           )}
         </div>
 
+        {/* Phone */}
         {phone && (
           <InlineText
             as="p"
@@ -105,17 +186,26 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
               fontSize: "0.875rem",
               color: "rgba(255,255,255,0.45)",
               fontFamily: "sans-serif",
+              position: "relative",
+              zIndex: 1,
             }}
           />
         )}
       </div>
 
+      {/* ── Right panel ── */}
       <div style={{ flex: "0 0 45%", overflow: "hidden", position: "relative" }}>
         {sideImageUrl ? (
           <img
             src={sideImageUrl}
             alt={partnerName}
-            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              display: "block",
+            }}
           />
         ) : (
           <div
@@ -123,13 +213,19 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
               width: "100%",
               height: "100%",
               minHeight: 340,
-              background: "linear-gradient(150deg,#005540 0%,#003A30 100%)",
+              background: `linear-gradient(150deg, #005540 0%, #003A30 60%, #001E18 100%)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <p style={{ color: "rgba(255,255,255,0.22)", fontSize: "0.875rem", fontStyle: "italic" }}>
+            <p
+              style={{
+                color: "rgba(255,255,255,0.22)",
+                fontSize: "0.875rem",
+                fontStyle: "italic",
+              }}
+            >
               Add a side image
             </p>
           </div>

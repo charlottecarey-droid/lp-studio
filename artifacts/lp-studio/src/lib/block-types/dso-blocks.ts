@@ -624,8 +624,11 @@ export interface DsoInsightsVideoBlockProps {
 
 export interface OnePagerHeroBlockProps {
   partnerName: string;
+  headline?: string;
   subtitle?: string;
   tagline?: string;
   sideImageUrl?: string;
   phone?: string;
+  accentColor?: string;
+  panelVariant?: "solid" | "diagonal" | "mesh";
 }
