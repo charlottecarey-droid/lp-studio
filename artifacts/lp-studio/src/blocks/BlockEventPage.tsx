@@ -1,37 +1,106 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import type { EventPageBlockProps } from "@/lib/block-types";
+import type { EventPageBlockProps, EventPageTheme } from "@/lib/block-types";
 import type { FormField } from "@/lib/block-types";
 
-// Design tokens for the dark luxury palette
-const C = {
+// Default dark luxury palette — used when theme overrides are absent
+const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingColor: string } = {
   bg: "#0c0f12",
-  card: "#141619",
+  cardBg: "#141619",
   fg: "#eeeae3",
+  headingColor: "#eeeae3",
   primary: "#b59a6e",
-  primaryDim: "rgba(181,154,110,0.8)",
   muted: "#7a8088",
-  mutedDim: "rgba(122,128,136,0.5)",
   border: "#262a2f",
-  borderDim: "rgba(38,42,47,0.5)",
-  overlay: "linear-gradient(180deg, rgba(12,15,18,0.5) 0%, rgba(12,15,18,0.85) 100%)",
-} as const;
+  navBg: "#0c0f12",
+  navBgOpacity: 0.6,
+  navText: "#eeeae3",
+  displayFontFamily: "EB Garamond",
+  bodyFontFamily: "Inter",
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = hex.replace("#", "").trim();
+  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+  const num = parseInt(full.slice(0, 6), 16);
+  if (Number.isNaN(num)) return [0, 0, 0];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+function rgba(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+interface ResolvedTheme {
+  bg: string;
+  card: string;
+  fg: string;
+  heading: string;
+  primary: string;
+  primaryDim: string;          // 0.8 alpha
+  primaryFaint: string;        // 0.4 alpha
+  primaryGhost: string;        // 0.05 alpha
+  muted: string;
+  mutedDim: string;            // 0.5 alpha
+  border: string;
+  borderDim: string;           // 0.5 alpha
+  navBg: string;               // already rgba()
+  navText: string;
+  navTextDim: string;          // 0.5 alpha
+  navTextSoft: string;         // 0.7 alpha
+  overlay: string;             // gradient using bg
+  bodyFont: string;
+  displayFont: string;
+}
+
+function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
+  const m = { ...DEFAULT_THEME, ...(t ?? {}) };
+  const headingColor = m.headingColor || m.fg;
+  const bodyFont = m.bodyFontFamily ? `'${m.bodyFontFamily}', sans-serif` : "'Inter', sans-serif";
+  const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
+  return {
+    bg: m.bg,
+    card: m.cardBg,
+    fg: m.fg,
+    heading: headingColor,
+    primary: m.primary,
+    primaryDim: rgba(m.primary, 0.8),
+    primaryFaint: rgba(m.primary, 0.4),
+    primaryGhost: rgba(m.primary, 0.05),
+    muted: m.muted,
+    mutedDim: rgba(m.muted, 0.5),
+    border: m.border,
+    borderDim: rgba(m.border, 0.5),
+    navBg: rgba(m.navBg, m.navBgOpacity ?? 0.6),
+    navText: m.navText,
+    navTextDim: rgba(m.navText, 0.5),
+    navTextSoft: rgba(m.navText, 0.7),
+    overlay: `linear-gradient(180deg, ${rgba(m.bg, 0.5)} 0%, ${rgba(m.bg, 0.85)} 100%)`,
+    bodyFont,
+    displayFont,
+  };
+}
 
 const EASE_SPRING = { type: "spring", stiffness: 400, damping: 17 } as const;
 
-// Inject EB Garamond font once per page
-function useEBGaramond() {
+// Inject the requested Google Fonts (display + body). Re-runs when families change.
+function useGoogleFonts(displayFamily: string, bodyFamily: string) {
   useEffect(() => {
-    const id = "eb-garamond-font";
+    const families = Array.from(new Set([displayFamily, bodyFamily].filter(Boolean)));
+    if (families.length === 0) return;
+    const id = `event-page-fonts-${families.join("|").replace(/\s+/g, "_")}`;
     if (document.getElementById(id)) return;
+    const params = families
+      .map(f => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:ital,wght@0,300;0,400;0,500;1,400`)
+      .join("&");
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap";
+    link.href = `https://fonts.googleapis.com/css2?${params}&display=swap`;
     document.head.appendChild(link);
-  }, []);
+  }, [displayFamily, bodyFamily]);
 }
 
 // Shared Framer Motion variants
@@ -43,11 +112,11 @@ const fadeUp = {
 
 // Bottom-border-only select dropdown
 function CustomSelect({
-  value, onChange, options, placeholder, focusedField, setFocusedField, name, required,
+  value, onChange, options, placeholder, focusedField, setFocusedField, name, required, C, bodyFont,
 }: {
   value: string; onChange: (v: string) => void; options: string[]; placeholder: string;
   focusedField: string | null; setFocusedField: (f: string | null) => void;
-  name: string; required?: boolean;
+  name: string; required?: boolean; C: ResolvedTheme; bodyFont: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -71,7 +140,7 @@ function CustomSelect({
         style={{ color: value ? C.fg : C.mutedDim, borderBottom: `1px solid ${C.border}` }}
         className="w-full bg-transparent py-3 text-left text-sm flex items-center justify-between focus:outline-none transition-all duration-300"
       >
-        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 300 }}>
+        <span style={{ fontFamily: bodyFont, fontWeight: 300 }}>
           {value || placeholder}
         </span>
         <ChevronDown
@@ -100,13 +169,13 @@ function CustomSelect({
               onClick={() => { onChange(opt); setOpen(false); setFocusedField(null); }}
               className="w-full text-left px-4 py-3 text-sm transition-colors duration-200"
               style={{
-                fontFamily: "'Inter', sans-serif",
+                fontFamily: bodyFont,
                 fontWeight: 300,
                 color: value === opt ? C.primary : C.fg,
-                backgroundColor: value === opt ? "rgba(181,154,110,0.05)" : "transparent",
+                backgroundColor: value === opt ? C.primaryGhost : "transparent",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = value === opt ? "rgba(181,154,110,0.05)" : "transparent"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = value === opt ? C.primaryGhost : "transparent"; }}
             >
               {opt}
             </button>
@@ -126,10 +195,14 @@ interface Props {
 }
 
 export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props) {
-  useEBGaramond();
+  const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
+  useGoogleFonts(
+    p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
+    p.theme?.bodyFontFamily ?? DEFAULT_THEME.bodyFontFamily,
+  );
 
-  const displayFont = "'EB Garamond', serif";
-  const bodyFont = "'Inter', sans-serif";
+  const displayFont = C.displayFont;
+  const bodyFont = C.bodyFont;
 
   // Hero parallax scroll state
   const heroRef = useRef<HTMLElement>(null);
@@ -290,6 +363,8 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
           required={field.required}
           focusedField={focusedField}
           setFocusedField={setFocusedField}
+          C={C}
+          bodyFont={bodyFont}
         />
       );
     }
@@ -351,7 +426,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: "rgba(12,15,18,0.6)",
+          backgroundColor: C.navBg,
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
         }}
@@ -359,7 +434,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
         {p.logoUrl ? (
           <img src={p.logoUrl} alt="Logo" style={{ height: "1.25rem", width: "auto" }} />
         ) : (
-          <span style={{ fontFamily: displayFont, fontSize: "1.1rem", color: C.fg, letterSpacing: "0.05em" }}>
+          <span style={{ fontFamily: displayFont, fontSize: "1.1rem", color: C.navText, letterSpacing: "0.05em" }}>
             {p.eventName}
           </span>
         )}
@@ -369,8 +444,8 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
               <motion.a
                 key={link.href}
                 href={link.href}
-                style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(238,234,227,0.5)", textDecoration: "none" }}
-                whileHover={{ color: C.fg }}
+                style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.12em", textTransform: "uppercase", color: C.navTextDim, textDecoration: "none" }}
+                whileHover={{ color: C.navText }}
                 transition={EASE_SPRING}
               >
                 {link.label}
@@ -445,7 +520,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1.2, delay: 0.6 }}
-            style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(3rem, 8vw, 5.5rem)", lineHeight: 1.1, marginBottom: "1rem", color: C.fg }}
+            style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(3rem, 8vw, 5.5rem)", lineHeight: 1.1, marginBottom: "1rem", color: C.heading }}
           >
             {p.eventName}
           </motion.h1>
@@ -541,7 +616,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
               {p.agendaEyebrow}
             </motion.p>
-            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.fg, marginBottom: "1.5rem" }}>
+            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.5rem" }}>
               {p.agendaHeadline}
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "32rem", margin: "0 auto", lineHeight: 1.7 }}>
@@ -597,7 +672,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
                 </div>
                 <div>
                   <h3
-                    style={{ fontFamily: displayFont, fontWeight: 400, fontStyle: "italic", fontSize: "1.5rem", color: C.fg, marginBottom: "1rem", transition: "color 0.5s" }}
+                    style={{ fontFamily: displayFont, fontWeight: 400, fontStyle: "italic", fontSize: "1.5rem", color: C.heading, marginBottom: "1rem", transition: "color 0.5s" }}
                     className="group-hover:text-[#b59a6e]"
                   >
                     {day.title}
@@ -734,7 +809,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
               {p.detailsEyebrow}
             </motion.p>
-            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.fg, marginBottom: "1.25rem" }}>
+            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.25rem" }}>
               {p.detailsHeadline}
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "32rem", margin: "0 auto", lineHeight: 1.7 }}>
@@ -760,7 +835,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
                 >
                   {detail.label}
                 </p>
-                <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.25rem", color: C.fg, marginBottom: "0.5rem" }}>
+                <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.25rem", color: C.heading, marginBottom: "0.5rem" }}>
                   {detail.value}
                 </p>
                 <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.75rem", color: C.muted }}>
@@ -794,7 +869,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "1.25rem" }}>
               {p.rsvpEyebrow}
             </motion.p>
-            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.fg, marginBottom: "1.25rem" }}>
+            <motion.h2 variants={fadeUp} style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(1.875rem, 5vw, 3rem)", color: C.heading, marginBottom: "1.25rem" }}>
               {p.rsvpHeadline}
             </motion.h2>
             <motion.p variants={fadeUp} style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "28rem", margin: "0 auto", lineHeight: 1.7 }}>
@@ -811,7 +886,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
             >
               <motion.div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(181,154,110,0.05)" }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} />
               <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1, delay: 0.5 }} style={{ width: "3rem", height: "1px", backgroundColor: "rgba(181,154,110,0.5)", margin: "0 auto 1.5rem", transformOrigin: "center" }} />
-              <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.5rem", color: C.fg, marginBottom: "0.75rem", position: "relative", zIndex: 10 }}>
+              <p style={{ fontFamily: displayFont, fontStyle: "italic", fontSize: "1.5rem", color: C.heading, marginBottom: "0.75rem", position: "relative", zIndex: 10 }}>
                 Thank you for your interest
               </p>
               <p style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, position: "relative", zIndex: 10, maxWidth: "22rem", margin: "0 auto", lineHeight: 1.7 }}>
@@ -869,10 +944,10 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
                   >
                     Back
                   </motion.button>
-                  <SubmitBtn label={step < p.formSteps.length ? "Continue" : "Reserve My Seat"} loading={loading} flex1 />
+                  <SubmitBtn label={step < p.formSteps.length ? "Continue" : "Reserve My Seat"} loading={loading} flex1 primary={C.primary} bg={C.bg} bodyFont={bodyFont} />
                 </div>
               ) : (
-                <SubmitBtn label={p.formSteps.length > 1 ? "Continue" : "Reserve My Seat"} loading={loading} />
+                <SubmitBtn label={p.formSteps.length > 1 ? "Continue" : "Reserve My Seat"} loading={loading} primary={C.primary} bg={C.bg} bodyFont={bodyFont} />
               )}
             </motion.form>
           )}
@@ -894,7 +969,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
 }
 
 // Animated submit button helper
-function SubmitBtn({ label, loading, flex1 }: { label: string; loading: boolean; flex1?: boolean }) {
+function SubmitBtn({ label, loading, flex1, primary, bg, bodyFont }: { label: string; loading: boolean; flex1?: boolean; primary: string; bg: string; bodyFont: string }) {
   return (
     <motion.button
       type="submit"
@@ -903,9 +978,9 @@ function SubmitBtn({ label, loading, flex1 }: { label: string; loading: boolean;
         flex: flex1 ? 1 : undefined,
         width: flex1 ? undefined : "100%",
         padding: "1rem",
-        backgroundColor: "rgba(181,154,110,0.9)",
-        color: "#0c0f12",
-        fontFamily: "'Inter', sans-serif",
+        backgroundColor: rgba(primary, 0.9),
+        color: bg,
+        fontFamily: bodyFont,
         fontWeight: 400,
         fontSize: "0.7rem",
         letterSpacing: "0.15em",
@@ -921,7 +996,7 @@ function SubmitBtn({ label, loading, flex1 }: { label: string; loading: boolean;
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
     >
       <motion.span
-        style={{ position: "absolute", inset: 0, backgroundColor: "#b59a6e" }}
+        style={{ position: "absolute", inset: 0, backgroundColor: primary }}
         initial={{ x: "-100%" }}
         whileHover={{ x: "0%" }}
         transition={{ duration: 0.4 }}

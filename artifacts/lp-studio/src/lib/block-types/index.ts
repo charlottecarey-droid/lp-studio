@@ -118,6 +118,7 @@ export type {
   EventPagePhoto,
   EventPageDetail,
   EventPageNavLink,
+  EventPageTheme,
   OnePagerHeroBlockProps,
 } from "./dso-blocks";
 

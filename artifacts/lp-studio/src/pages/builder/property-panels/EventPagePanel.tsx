@@ -7,8 +7,69 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
-import type { EventPageBlockProps, EventPageAgendaDay, EventPagePhoto, EventPageDetail, EventPageNavLink } from "@/lib/block-types";
+import type { EventPageBlockProps, EventPageAgendaDay, EventPagePhoto, EventPageDetail, EventPageNavLink, EventPageTheme } from "@/lib/block-types";
 import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
+
+const THEME_DEFAULTS: Required<EventPageTheme> = {
+  bg: "#0c0f12",
+  cardBg: "#141619",
+  fg: "#eeeae3",
+  headingColor: "#eeeae3",
+  primary: "#b59a6e",
+  muted: "#7a8088",
+  border: "#262a2f",
+  navBg: "#0c0f12",
+  navBgOpacity: 0.6,
+  navText: "#eeeae3",
+  displayFontFamily: "EB Garamond",
+  bodyFontFamily: "Inter",
+};
+
+const DISPLAY_FONT_OPTIONS = [
+  "EB Garamond",
+  "Playfair Display",
+  "Cormorant Garamond",
+  "DM Serif Display",
+  "Lora",
+  "Cormorant",
+  "Cinzel",
+  "Inter",
+  "Montserrat",
+  "Poppins",
+];
+
+const BODY_FONT_OPTIONS = [
+  "Inter",
+  "Manrope",
+  "DM Sans",
+  "Work Sans",
+  "Source Sans 3",
+  "Plus Jakarta Sans",
+  "Nunito",
+  "Roboto",
+  "Lato",
+];
+
+function ColorRow({ label, value, fallback, onChange }: { label: string; value: string | undefined; fallback: string; onChange: (v: string) => void }) {
+  const v = (value && value.trim()) || fallback;
+  return (
+    <div className="flex items-center gap-2">
+      <Label className="text-xs flex-1">{label}</Label>
+      <Input
+        type="color"
+        value={v}
+        onChange={e => onChange(e.target.value)}
+        className="h-7 w-10 p-0.5 cursor-pointer"
+      />
+      <Input
+        value={value ?? ""}
+        onChange={e => onChange(e.target.value)}
+        placeholder={fallback}
+        className="text-xs h-7 w-24 font-mono"
+      />
+    </div>
+  );
+}
 
 interface Props {
   props: EventPageBlockProps;
@@ -41,6 +102,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>({
+    theme: false,
     hero: true,
     agenda: false,
     photos: false,
@@ -51,6 +113,10 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
 
   const toggle = (key: string) => setOpen(s => ({ ...s, [key]: !s[key] }));
   const set = (patch: Partial<EventPageBlockProps>) => onChange({ ...p, ...patch });
+
+  const theme: EventPageTheme = p.theme ?? {};
+  const setTheme = (patch: Partial<EventPageTheme>) => set({ theme: { ...theme, ...patch } });
+  const resetTheme = () => set({ theme: { ...THEME_DEFAULTS } });
 
   const updateDay = (i: number, patch: Partial<EventPageAgendaDay>) => {
     const next = p.agendaDays.map((d, idx) => idx === i ? { ...d, ...patch } : d);
@@ -110,6 +176,78 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
 
   return (
     <div className="space-y-0 p-4">
+
+      {/* ── Theme & Style ───────────────────────────────────────────────────── */}
+      <SectionHeader label="Theme & Style" open={open.theme} onToggle={() => toggle("theme")} />
+      {open.theme && (
+        <div className="space-y-3 pt-3 pb-4">
+          <div className="space-y-2">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Fonts</Label>
+            <Field label="Heading Font" hint="Used for headlines, event name, italic display text">
+              <select
+                value={theme.displayFontFamily ?? THEME_DEFAULTS.displayFontFamily}
+                onChange={e => setTheme({ displayFontFamily: e.target.value })}
+                className="w-full h-8 text-xs border border-border rounded px-2 bg-background"
+              >
+                {DISPLAY_FONT_OPTIONS.map(f => (
+                  <option key={f} value={f} style={{ fontFamily: `'${f}', serif` }}>{f}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Body Font" hint="Used for paragraphs, nav links, buttons, form fields">
+              <select
+                value={theme.bodyFontFamily ?? THEME_DEFAULTS.bodyFontFamily}
+                onChange={e => setTheme({ bodyFontFamily: e.target.value })}
+                className="w-full h-8 text-xs border border-border rounded px-2 bg-background"
+              >
+                {BODY_FONT_OPTIONS.map(f => (
+                  <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Page Colors</Label>
+            <ColorRow label="Background" value={theme.bg} fallback={THEME_DEFAULTS.bg}
+              onChange={v => setTheme({ bg: v })} />
+            <ColorRow label="Card / Panel BG" value={theme.cardBg} fallback={THEME_DEFAULTS.cardBg}
+              onChange={v => setTheme({ cardBg: v })} />
+            <ColorRow label="Body Text" value={theme.fg} fallback={THEME_DEFAULTS.fg}
+              onChange={v => setTheme({ fg: v })} />
+            <ColorRow label="Heading Text" value={theme.headingColor} fallback={THEME_DEFAULTS.headingColor}
+              onChange={v => setTheme({ headingColor: v })} />
+            <ColorRow label="Accent / Primary" value={theme.primary} fallback={THEME_DEFAULTS.primary}
+              onChange={v => setTheme({ primary: v })} />
+            <ColorRow label="Muted Text" value={theme.muted} fallback={THEME_DEFAULTS.muted}
+              onChange={v => setTheme({ muted: v })} />
+            <ColorRow label="Border" value={theme.border} fallback={THEME_DEFAULTS.border}
+              onChange={v => setTheme({ border: v })} />
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Nav Bar</Label>
+            <ColorRow label="Nav Background" value={theme.navBg} fallback={THEME_DEFAULTS.navBg}
+              onChange={v => setTheme({ navBg: v })} />
+            <Field label={`Nav BG Opacity (${Math.round(((theme.navBgOpacity ?? THEME_DEFAULTS.navBgOpacity) as number) * 100)}%)`} hint="Lower = more see-through nav (defaults to 60%)">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(((theme.navBgOpacity ?? THEME_DEFAULTS.navBgOpacity) as number) * 100)}
+                onChange={e => setTheme({ navBgOpacity: Number(e.target.value) / 100 })}
+                className="w-full"
+              />
+            </Field>
+            <ColorRow label="Nav Text" value={theme.navText} fallback={THEME_DEFAULTS.navText}
+              onChange={v => setTheme({ navText: v })} />
+          </div>
+
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full mt-2" onClick={resetTheme}>
+            Reset to defaults
+          </Button>
+        </div>
+      )}
 
       {/* ── Hero / Nav ──────────────────────────────────────────────────────── */}
       <SectionHeader label="Hero & Nav" open={open.hero} onToggle={() => toggle("hero")} />

@@ -2825,6 +2825,20 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         },
       ],
       footerText: "© 2026 Dandy · Inside Dandy: Executive Lab Experience",
+      theme: {
+        bg: "#0c0f12",
+        cardBg: "#141619",
+        fg: "#eeeae3",
+        headingColor: "#eeeae3",
+        primary: "#b59a6e",
+        muted: "#7a8088",
+        border: "#262a2f",
+        navBg: "#0c0f12",
+        navBgOpacity: 0.6,
+        navText: "#eeeae3",
+        displayFontFamily: "EB Garamond",
+        bodyFontFamily: "Inter",
+      },
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

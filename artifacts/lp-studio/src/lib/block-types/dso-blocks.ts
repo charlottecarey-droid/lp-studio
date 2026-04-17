@@ -657,6 +657,33 @@ export interface EventPageNavLink {
   href: string;
 }
 
+export interface EventPageTheme {
+  /** Page background */
+  bg?: string;
+  /** Secondary panel / card background (used in Details section) */
+  cardBg?: string;
+  /** Primary body / foreground text color */
+  fg?: string;
+  /** Heading text color (h1/h2/h3). Falls back to fg when blank. */
+  headingColor?: string;
+  /** Accent color used for eyebrows, buttons, hover states, dividers */
+  primary?: string;
+  /** Muted secondary text color (subtitles, captions, helper text) */
+  muted?: string;
+  /** Border color used for inputs, dividers, photo button outlines */
+  border?: string;
+  /** Sticky nav background color (hex). Combined with navBgOpacity. */
+  navBg?: string;
+  /** Sticky nav background opacity 0–1 */
+  navBgOpacity?: number;
+  /** Nav link / nav CTA text color */
+  navText?: string;
+  /** Google Font family used for headings (display) */
+  displayFontFamily?: string;
+  /** Google Font family used for body / UI text */
+  bodyFontFamily?: string;
+}
+
 export interface EventPageBlockProps {
   eventName: string;
   eventSubtitle: string;
@@ -685,4 +712,6 @@ export interface EventPageBlockProps {
   formSteps: import("./common").FormStep[];
   formSubmitUrl?: string;
   footerText: string;
+  /** Optional visual theme overrides. Falls back to dark luxury defaults when unset. */
+  theme?: EventPageTheme;
 }
