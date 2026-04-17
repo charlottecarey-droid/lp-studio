@@ -405,7 +405,7 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
         {/* Parallax background */}
         <motion.div style={{ position: "absolute", inset: 0, y: heroImgY }}>
           <motion.img
-            src={p.heroImageUrl || "https://raw.githubusercontent.com/charlottecarey-droid/ID2/main/src/assets/hero-provo.jpg"}
+            src={p.heroImageUrl || "/event-assets/hero-provo.jpg"}
             alt="Hero background"
             style={{ width: "100%", height: "100%", objectFit: "cover", scale: heroImgScale }}
           />
