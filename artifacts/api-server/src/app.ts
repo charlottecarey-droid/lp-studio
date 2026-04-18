@@ -6,6 +6,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
 
 const app: Express = express();
 
@@ -55,25 +56,55 @@ const ALLOWED_ORIGINS_PROD = [
   "https://partners.meetdandy.com",
 ];
 
-function buildAllowedOrigins(): (string | RegExp)[] {
+// Static fallbacks (also used in dev). Tenant-configured custom domains are
+// resolved dynamically from the database via getKnownTenantOrigins() with a
+// 60s cache, and wildcard subdomains of WILDCARD_BASE_HOSTS are also accepted.
+function buildStaticOrigins(): (string | RegExp)[] {
   const origins: (string | RegExp)[] = [...ALLOWED_ORIGINS_PROD];
   if (process.env.NODE_ENV !== "production") {
-    // localhost on any port
     origins.push(/^http:\/\/localhost(:\d+)?$/);
     origins.push(/^http:\/\/127\.0\.0\.1(:\d+)?$/);
-    // Replit dev domain — only allow the specific app domain, not any replit subdomain.
-    // Using broad patterns like /.replit.dev$/ or /.repl.co$/ allows malicious actors to
-    // register arbitrary subdomains and bypass CORS checks. Instead, we whitelist only
-    // the specific development domain provided by the deployment environment.
     const replitDev = process.env.REPLIT_DEV_DOMAIN;
     if (replitDev) origins.push(`https://${replitDev}`);
   }
   return origins;
 }
 
+const STATIC_ORIGINS = buildStaticOrigins();
+
+function originMatchesStatic(origin: string): boolean {
+  for (const o of STATIC_ORIGINS) {
+    if (typeof o === "string") { if (o === origin) return true; }
+    else if (o.test(origin)) return true;
+  }
+  return false;
+}
+
 app.use(
   cors({
-    origin: buildAllowedOrigins(),
+    origin: (origin, cb) => {
+      // Same-origin / curl / server-to-server requests have no Origin header.
+      if (!origin) { cb(null, true); return; }
+      if (originMatchesStatic(origin)) { cb(null, true); return; }
+      // Resolve the origin's host against the tenant resolver. This handles
+      // both custom domains AND wildcard subdomains (<slug>.lpstudio.ai), and
+      // — critically — only allows wildcards for slugs that actually map to
+      // an active tenant (closes the open-wildcard CORS hole).
+      let host: string;
+      try { host = new URL(origin).hostname.toLowerCase(); }
+      catch { cb(null, false); return; }
+      // Bare base host (https://lpstudio.ai) — allow as a static known origin
+      // by treating it as part of the wildcard set without slug check.
+      for (const base of WILDCARD_BASE_HOSTS) {
+        if (host === base) { cb(null, true); return; }
+      }
+      findTenantByHost(host)
+        .then(match => cb(null, !!match))
+        .catch(err => {
+          logger.warn({ err }, "CORS tenant lookup failed; rejecting origin");
+          cb(null, false);
+        });
+    },
     credentials: true,
   }),
 );

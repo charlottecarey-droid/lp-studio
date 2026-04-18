@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
-  Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle,
+  Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -59,6 +59,20 @@ interface Tenant {
   member_count: number;
   pending_count: number;
   page_count: number;
+}
+
+interface VerifyResult {
+  ok: boolean;
+  reason: string;
+  host: string | null;
+  dns?: { cname?: string[]; a?: string[]; aaaa?: string[]; error?: string } | null;
+  probe?: { status?: number; tenantId?: number | null; mode?: string | null; error?: string } | null;
+  checkedAt: number;
+}
+
+interface DomainHelp {
+  targetCname: string | null;
+  wildcardBaseHosts: string[];
 }
 
 interface Member {
@@ -340,6 +354,29 @@ function NewWorkspaceModal({
   );
 }
 
+function VerifyBadge({ result }: { result: VerifyResult }) {
+  const Icon = result.ok ? ShieldCheck : ShieldAlert;
+  const color = result.ok ? "text-green-700" : "text-amber-700";
+  const dnsTargets = [
+    ...(result.dns?.cname ?? []),
+    ...(result.dns?.a ?? []),
+    ...(result.dns?.aaaa ?? []),
+  ];
+  return (
+    <div className={`flex items-start gap-1 text-[11px] ${color}`} title={result.reason}>
+      <Icon className="w-3 h-3 mt-[1px] shrink-0" />
+      <div className="min-w-0">
+        <div className="truncate">{result.reason}</div>
+        {dnsTargets.length > 0 && (
+          <div className="text-muted-foreground font-mono truncate">
+            → {dnsTargets.slice(0, 2).join(", ")}{dnsTargets.length > 2 ? "…" : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -356,11 +393,13 @@ function TenantRow({
   adminKey,
   onUpdate,
   tenants,
+  domainHelp,
 }: {
   tenant: Tenant;
   adminKey: string;
   onUpdate: () => void;
   tenants: Tenant[];
+  domainHelp: DomainHelp | null;
 }) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[] | null>(null);
@@ -378,6 +417,10 @@ function TenantRow({
   const [savingDomains, setSavingDomains] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
   const [domainsSaved, setDomainsSaved] = useState(false);
+  const [verifyApp, setVerifyApp] = useState<VerifyResult | null>(null);
+  const [verifyMicrosite, setVerifyMicrosite] = useState<VerifyResult | null>(null);
+  const [verifyingApp, setVerifyingApp] = useState(false);
+  const [verifyingMicrosite, setVerifyingMicrosite] = useState(false);
   const [brandCopyFrom, setBrandCopyFrom] = useState("none");
   const [copyingBrand, setCopyingBrand] = useState(false);
   const [brandCopyError, setBrandCopyError] = useState<string | null>(null);
@@ -462,12 +505,44 @@ function TenantRow({
         }),
       });
       setDomainsSaved(true);
+      setVerifyApp(null);
+      setVerifyMicrosite(null);
       setTimeout(() => setDomainsSaved(false), 2500);
       onUpdate();
     } catch (err: any) {
-      setDomainsError(err.message ?? "Failed to save");
+      // Surface server's helpful error (validation, conflict, etc.)
+      const raw = err?.message ?? "Failed to save";
+      try {
+        const parsed = JSON.parse(raw);
+        setDomainsError(parsed.error ?? raw);
+      } catch {
+        setDomainsError(raw);
+      }
     } finally {
       setSavingDomains(false);
+    }
+  };
+
+  const verifyDomain = async (kind: "app" | "microsite") => {
+    if (kind === "app") setVerifyingApp(true); else setVerifyingMicrosite(true);
+    try {
+      const result = await apiFetch(
+        `/api/admin/superadmin/tenants/${tenant.id}/verify-domain`,
+        adminKey,
+        { method: "POST", body: JSON.stringify({ kind }) },
+      );
+      const verify: VerifyResult = { ...result, checkedAt: Date.now() };
+      if (kind === "app") setVerifyApp(verify); else setVerifyMicrosite(verify);
+    } catch (err: any) {
+      const verify: VerifyResult = {
+        ok: false,
+        reason: err?.message ?? "Verification failed",
+        host: null,
+        checkedAt: Date.now(),
+      };
+      if (kind === "app") setVerifyApp(verify); else setVerifyMicrosite(verify);
+    } finally {
+      if (kind === "app") setVerifyingApp(false); else setVerifyingMicrosite(false);
     }
   };
 
@@ -539,27 +614,75 @@ function TenantRow({
               {/* Domain settings */}
               <div className="space-y-2 border-t pt-3" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Domains</p>
+
+                {/* Built-in subdomain URLs (free for every tenant) */}
+                {domainHelp && domainHelp.wildcardBaseHosts.length > 0 && (
+                  <div className="rounded border border-dashed bg-muted/30 px-2 py-1.5">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Built-in URLs (always work)</p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {domainHelp.wildcardBaseHosts.map((base) => (
+                        <code key={base} className="text-[11px] font-mono">
+                          {tenant.slug}.{base}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="text-[11px] text-muted-foreground">App domain</label>
-                    <Input
-                      value={domainEdit}
-                      onChange={(e) => setDomainEdit(e.target.value)}
-                      placeholder="ent.theirdomain.com"
-                      className="h-7 text-xs font-mono"
-                    />
+                    <div className="flex gap-1">
+                      <Input
+                        value={domainEdit}
+                        onChange={(e) => setDomainEdit(e.target.value)}
+                        placeholder="ent.theirdomain.com"
+                        className="h-7 text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] px-2 shrink-0"
+                        disabled={!tenant.domain || verifyingApp}
+                        title={tenant.domain ? "Resolve DNS and probe HTTPS" : "Save a domain first"}
+                        onClick={() => verifyDomain("app")}
+                      >
+                        {verifyingApp
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : "Verify"}
+                      </Button>
+                    </div>
+                    {verifyApp && <VerifyBadge result={verifyApp} />}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[11px] text-muted-foreground">Microsite domain</label>
-                    <Input
-                      value={micrositeEdit}
-                      onChange={(e) => setMicrositeEdit(e.target.value)}
-                      placeholder="partners.theirdomain.com"
-                      className="h-7 text-xs font-mono"
-                    />
+                    <div className="flex gap-1">
+                      <Input
+                        value={micrositeEdit}
+                        onChange={(e) => setMicrositeEdit(e.target.value)}
+                        placeholder="partners.theirdomain.com"
+                        className="h-7 text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] px-2 shrink-0"
+                        disabled={!tenant.microsite_domain || verifyingMicrosite}
+                        title={tenant.microsite_domain ? "Resolve DNS and probe HTTPS" : "Save a microsite domain first"}
+                        onClick={() => verifyDomain("microsite")}
+                      >
+                        {verifyingMicrosite
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : "Verify"}
+                      </Button>
+                    </div>
+                    {verifyMicrosite && <VerifyBadge result={verifyMicrosite} />}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     size="sm"
                     className="h-7 text-xs"
@@ -572,11 +695,19 @@ function TenantRow({
                       ? <><Check className="w-3 h-3 mr-1 text-green-600" />Saved</>
                       : "Save domains"}
                   </Button>
-                  {!domainEdit && (
-                    <p className="text-[11px] text-amber-600">No domain set — users log in via the main URL</p>
+                  {!domainEdit && !tenant.domain && (
+                    <p className="text-[11px] text-muted-foreground">No custom domain — users log in via the built-in URL above.</p>
                   )}
                   {domainsError && <p className="text-[11px] text-destructive">{domainsError}</p>}
                 </div>
+
+                {/* DNS instructions for any saved custom domain */}
+                {(tenant.domain || tenant.microsite_domain) && domainHelp?.targetCname && (
+                  <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                    <span className="font-medium">DNS:</span> point a CNAME from your custom domain →{" "}
+                    <code className="font-mono">{domainHelp.targetCname}</code>
+                  </div>
+                )}
               </div>
 
               {/* Brand settings copy */}
@@ -723,6 +854,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
 
   const fetchTenants = useCallback(async (key: string) => {
     setLoading(true);
@@ -749,6 +881,13 @@ export default function SuperAdminPage() {
   useEffect(() => {
     if (storedKey) fetchTenants(storedKey);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!authed || !adminKey) return;
+    apiFetch("/api/admin/superadmin/domain-help", adminKey)
+      .then(setDomainHelp)
+      .catch(() => { /* non-fatal */ });
+  }, [authed, adminKey]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -844,7 +983,7 @@ export default function SuperAdminPage() {
                 </TableRow>
               )}
               {tenants?.map((t) => (
-                <TenantRow key={t.id} tenant={t} adminKey={adminKey} tenants={tenants} onUpdate={() => fetchTenants(adminKey)} />
+                <TenantRow key={t.id} tenant={t} adminKey={adminKey} tenants={tenants} domainHelp={domainHelp} onUpdate={() => fetchTenants(adminKey)} />
               ))}
             </TableBody>
           </Table>

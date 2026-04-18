@@ -3,6 +3,48 @@ import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
 import { sendInviteEmail } from "../lib/notifications";
+import {
+  validateDomain,
+  findDomainConflict,
+  invalidateTenantHostCache,
+  WILDCARD_BASE_HOSTS,
+  extractWildcardSlug,
+} from "../lib/tenantHosts";
+import dns from "dns/promises";
+import https from "https";
+import net from "net";
+
+// SSRF guard: returns true if the IP literal is private, loopback, link-local,
+// multicast, broadcast, or otherwise not safe to probe over the public internet.
+function isPrivateOrReservedIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map(Number);
+    if (parts.length !== 4 || parts.some(p => isNaN(p))) return true;
+    const [a, b] = parts;
+    if (a === 10) return true;                               // 10/8
+    if (a === 127) return true;                              // loopback
+    if (a === 0) return true;                                // 0/8
+    if (a === 169 && b === 254) return true;                 // link-local + AWS metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;        // 172.16/12
+    if (a === 192 && b === 168) return true;                 // 192.168/16
+    if (a === 100 && b >= 64 && b <= 127) return true;       // 100.64/10 (CGNAT)
+    if (a >= 224) return true;                               // multicast + reserved + broadcast
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    if (lower === "::" || lower === "::1") return true;
+    if (lower.startsWith("fe80:") || lower.startsWith("fe80::")) return true; // link-local
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true;        // unique local
+    if (lower.startsWith("ff")) return true;                                  // multicast
+    if (lower.startsWith("::ffff:")) {                                        // v4-mapped
+      const v4 = lower.slice(7);
+      if (net.isIPv4(v4)) return isPrivateOrReservedIp(v4);
+    }
+    return false;
+  }
+  return true;
+}
 
 const router = Router();
 
@@ -79,6 +121,18 @@ router.post("/tenants", async (req, res): Promise<void> => {
 
   if (!slugClean) {
     res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+    return;
+  }
+
+  // Validate domain inputs
+  const domainCheck = validateDomain(domain ?? "");
+  if (!domainCheck.ok) { res.status(400).json({ error: `App domain: ${domainCheck.error}` }); return; }
+  const micrositeCheck = validateDomain(micrositeDomain ?? "");
+  if (!micrositeCheck.ok) { res.status(400).json({ error: `Microsite domain: ${micrositeCheck.error}` }); return; }
+  const cleanDomain = domainCheck.normalized || null;
+  const cleanMicrosite = micrositeCheck.normalized || null;
+  if (cleanDomain && cleanDomain === cleanMicrosite) {
+    res.status(400).json({ error: "App domain and microsite domain must differ" });
     return;
   }
 
@@ -224,27 +278,209 @@ router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res):
 
 // PATCH /api/admin/superadmin/tenants/:id
 router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
   const { status, plan, domain, micrositeDomain } = req.body ?? {};
   try {
     const updates: string[] = [];
     const values: any[] = [];
     let idx = 1;
-    if (status          !== undefined) { updates.push(`status = $${idx++}`);           values.push(status); }
-    if (plan            !== undefined) { updates.push(`plan = $${idx++}`);              values.push(plan); }
-    if (domain          !== undefined) { updates.push(`domain = $${idx++}`);            values.push(domain || null); }
-    if (micrositeDomain !== undefined) { updates.push(`microsite_domain = $${idx++}`);  values.push(micrositeDomain || null); }
+    let normalizedDomain: string | null | undefined;
+    let normalizedMicrosite: string | null | undefined;
+
+    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+    if (plan   !== undefined) { updates.push(`plan = $${idx++}`);   values.push(plan); }
+
+    if (domain !== undefined) {
+      const c = validateDomain(domain ?? "");
+      if (!c.ok) { res.status(400).json({ error: `App domain: ${c.error}` }); return; }
+      normalizedDomain = c.normalized || null;
+      if (normalizedDomain) {
+        const conflict = await findDomainConflict(normalizedDomain, tenantId);
+        if (conflict) {
+          res.status(409).json({
+            error: `Domain ${normalizedDomain} is already used by "${conflict.tenantName}" (${conflict.field === "domain" ? "app domain" : "microsite domain"})`,
+          });
+          return;
+        }
+      }
+      updates.push(`domain = $${idx++}`); values.push(normalizedDomain);
+    }
+
+    if (micrositeDomain !== undefined) {
+      const c = validateDomain(micrositeDomain ?? "");
+      if (!c.ok) { res.status(400).json({ error: `Microsite domain: ${c.error}` }); return; }
+      normalizedMicrosite = c.normalized || null;
+      if (normalizedMicrosite) {
+        const conflict = await findDomainConflict(normalizedMicrosite, tenantId);
+        if (conflict) {
+          res.status(409).json({
+            error: `Domain ${normalizedMicrosite} is already used by "${conflict.tenantName}" (${conflict.field === "domain" ? "app domain" : "microsite domain"})`,
+          });
+          return;
+        }
+      }
+      updates.push(`microsite_domain = $${idx++}`); values.push(normalizedMicrosite);
+    }
+
+    if (normalizedDomain && normalizedDomain === normalizedMicrosite) {
+      res.status(400).json({ error: "App domain and microsite domain must differ" });
+      return;
+    }
+
     if (!updates.length) { res.status(400).json({ error: "No fields to update" }); return; }
-    values.push(req.params.id);
+    values.push(tenantId);
     const result = await pool.query(
       `UPDATE tenants SET ${updates.join(", ")}, updated_at = now() WHERE id = $${idx} RETURNING *`,
       values
     );
     if (!result.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    if (domain !== undefined || micrositeDomain !== undefined || status !== undefined) {
+      invalidateTenantHostCache();
+    }
     res.json(result.rows[0]);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "Domain already in use by another tenant" });
+      return;
+    }
     console.error("[superadmin] PATCH /tenants/:id error:", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+// POST /api/admin/superadmin/tenants/:id/verify-domain — perform a real-world
+// DNS + HTTPS probe to confirm the configured domain points at this deployment
+// and resolves to the expected tenant. Body: { kind: "app" | "microsite" }.
+router.post("/superadmin/tenants/:id/verify-domain", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  const { kind } = req.body ?? {};
+  if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
+  if (kind !== "app" && kind !== "microsite") {
+    res.status(400).json({ error: "kind must be 'app' or 'microsite'" });
+    return;
+  }
+  try {
+    const trow = await pool.query(
+      `SELECT id, name, slug, domain, microsite_domain FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    if (!trow.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    const t = trow.rows[0];
+    const host: string | null = (kind === "app" ? t.domain : t.microsite_domain) ?? null;
+    if (!host) {
+      res.json({ ok: false, reason: "No domain configured", host: null, dns: null, probe: null });
+      return;
+    }
+
+    // ── DNS lookup ──────────────────────────────────────────────────────────
+    const dnsResult: { cname?: string[]; a?: string[]; aaaa?: string[]; error?: string } = {};
+    try {
+      try { dnsResult.cname = await dns.resolveCname(host); } catch { /* ignore */ }
+      try { dnsResult.a     = await dns.resolve4(host); }     catch { /* ignore */ }
+      try { dnsResult.aaaa  = await dns.resolve6(host); }     catch { /* ignore */ }
+      if (!dnsResult.cname?.length && !dnsResult.a?.length && !dnsResult.aaaa?.length) {
+        dnsResult.error = "No DNS records found";
+      }
+    } catch (err: any) {
+      dnsResult.error = err?.code ?? err?.message ?? "DNS lookup failed";
+    }
+
+    if (dnsResult.error) {
+      res.json({ ok: false, reason: `DNS: ${dnsResult.error}`, host, dns: dnsResult, probe: null });
+      return;
+    }
+
+    // ── SSRF guard: reject if DNS resolves to a private/reserved IP ─────────
+    // Stops superadmin from probing internal services, cloud metadata endpoints,
+    // localhost, etc. Only public, routable IPs are allowed past this point.
+    const ipsToCheck = [...(dnsResult.a ?? []), ...(dnsResult.aaaa ?? [])];
+    const blockedIp = ipsToCheck.find(isPrivateOrReservedIp);
+    if (blockedIp) {
+      res.json({
+        ok: false,
+        reason: `Domain resolves to a non-public IP (${blockedIp}); refusing to probe`,
+        host, dns: dnsResult, probe: null,
+      });
+      return;
+    }
+
+    // ── HTTPS probe to /api/auth/domain-context ─────────────────────────────
+    const probe = await new Promise<{
+      ok: boolean;
+      status?: number;
+      tenantId?: number | null;
+      mode?: string | null;
+      error?: string;
+    }>((resolve) => {
+      const req2 = https.request(
+        {
+          host,
+          port: 443,
+          path: "/api/auth/domain-context",
+          method: "GET",
+          timeout: 6000,
+          headers: { "User-Agent": "lp-studio-domain-verify/1.0", Accept: "application/json" },
+        },
+        (resp) => {
+          let body = "";
+          resp.on("data", (chunk) => { body += chunk; if (body.length > 8192) req2.destroy(); });
+          resp.on("end", () => {
+            try {
+              const data = JSON.parse(body);
+              resolve({
+                ok: true,
+                status: resp.statusCode ?? 0,
+                tenantId: data?.tenantId ?? null,
+                mode: data?.mode ?? null,
+              });
+            } catch {
+              resolve({ ok: false, status: resp.statusCode ?? 0, error: "Non-JSON response" });
+            }
+          });
+        },
+      );
+      req2.on("timeout", () => { req2.destroy(); resolve({ ok: false, error: "timeout" }); });
+      req2.on("error", (err: any) => resolve({ ok: false, error: err?.code ?? err?.message ?? "request failed" }));
+      req2.end();
+    });
+
+    if (!probe.ok) {
+      res.json({ ok: false, reason: `HTTPS probe failed: ${probe.error}`, host, dns: dnsResult, probe });
+      return;
+    }
+    if (probe.status !== 200) {
+      res.json({ ok: false, reason: `Probe returned HTTP ${probe.status}`, host, dns: dnsResult, probe });
+      return;
+    }
+    if (probe.tenantId !== tenantId) {
+      res.json({
+        ok: false,
+        reason: probe.tenantId == null
+          ? "Domain points at the deployment but is not recognized as a tenant — save the domain again?"
+          : `Domain resolves to tenant #${probe.tenantId}, not this tenant (#${tenantId})`,
+        host, dns: dnsResult, probe,
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      reason: "Domain is live and resolves to this tenant",
+      host, dns: dnsResult, probe,
+    });
+  } catch (err: any) {
+    console.error("[superadmin] POST /verify-domain error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/admin/superadmin/domain-help — returns the deployment-level info
+// editors need to give customers (target CNAME, wildcard hosts, built-in URLs).
+router.get("/superadmin/domain-help", requireAdminKey, async (_req, res): Promise<void> => {
+  res.json({
+    targetCname: process.env.DEPLOYMENT_TARGET_CNAME ?? null,
+    wildcardBaseHosts: WILDCARD_BASE_HOSTS,
+  });
 });
 
 // POST /api/admin/superadmin/tenants/:id/copy-brand
@@ -345,6 +581,7 @@ router.delete("/superadmin/tenants/:id", requireAdminKey, async (req, res): Prom
       return;
     }
     await client.query("COMMIT");
+    invalidateTenantHostCache();
     res.json({ deleted: true, id: result.rows[0].id, name: result.rows[0].name });
   } catch (err) {
     await client.query("ROLLBACK");

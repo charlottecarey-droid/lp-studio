@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
+import { findTenantByHost } from "../lib/tenantHosts";
 
 const router = Router();
 
@@ -115,18 +116,15 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  // Resolve domain context for the origin host
+  // Resolve domain context for the origin host (uses shared resolver so it
+  // honours custom domains, microsite domains, AND wildcard subdomains).
   let domainMode: "open" | "tenant-locked" = "open";
   let domainTenantId: number | null = null;
   if (originHost) {
-    const domainHost = originHost.split(":")[0].toLowerCase();
-    const domainResult = await pool.query(
-      `SELECT id FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
-      [domainHost]
-    );
-    if (domainResult.rows.length > 0) {
+    const match = await findTenantByHost(originHost);
+    if (match && match.mode === "tenant-locked") {
       domainMode = "tenant-locked";
-      domainTenantId = domainResult.rows[0].id;
+      domainTenantId = match.tenantId;
     }
   }
 
@@ -626,52 +624,22 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
       return;
     }
 
-    // Check admin/login domain first
-    const adminResult = await pool.query(
-      `SELECT id, name, slug, microsite_domain FROM tenants WHERE domain = $1 AND status = 'active' LIMIT 1`,
-      [domain]
-    );
+    // Resolve via shared host resolver (handles exact domain, microsite_domain,
+    // and wildcard subdomains <slug>.lpstudio.ai / <slug>.app.lpstudio.ai).
+    const match = await findTenantByHost(domain);
+    const data = match
+      ? {
+          mode: match.mode,
+          tenantId: match.tenantId,
+          tenantName: match.tenantName,
+          tenantSlug: match.tenantSlug,
+          micrositeDomain: match.micrositeDomain,
+        }
+      : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
 
-    if (adminResult.rows.length > 0) {
-      const t = adminResult.rows[0];
-      const data = {
-        mode: "tenant-locked",
-        tenantId: t.id,
-        tenantName: t.name,
-        tenantSlug: t.slug,
-        micrositeDomain: t.microsite_domain ?? null,
-      };
-      domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
-      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
-      res.json(data);
-      return;
-    }
-
-    // Check microsite/partner domain — public pages only, no admin access
-    const micrositeResult = await pool.query(
-      `SELECT id, name, slug, microsite_domain FROM tenants WHERE microsite_domain = $1 AND status = 'active' LIMIT 1`,
-      [domain]
-    );
-
-    if (micrositeResult.rows.length > 0) {
-      const t = micrositeResult.rows[0];
-      const data = {
-        mode: "microsite-only",
-        tenantId: t.id,
-        tenantName: t.name,
-        tenantSlug: t.slug,
-        micrositeDomain: t.microsite_domain ?? null,
-      };
-      domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
-      res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
-      res.json(data);
-      return;
-    }
-
-    const openData = { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
-    domainCtxSet(domain, { data: openData, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
+    domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
-    res.json(openData);
+    res.json(data);
   } catch (err) {
     console.error("[auth] /domain-context error:", err);
     res.status(500).json({ error: "Server error" });

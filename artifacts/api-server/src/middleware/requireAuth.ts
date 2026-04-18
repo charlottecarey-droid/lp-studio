@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { pool } from "@workspace/db";
+import { findTenantByHost } from "../lib/tenantHosts";
 
 export const SESSION_COOKIE = "lp_sid";
 
@@ -38,7 +39,31 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: "Session expired" });
       return;
     }
-    req.authUser = JSON.parse(result.rows[0].sess) as AuthUser;
+    const user = JSON.parse(result.rows[0].sess) as AuthUser;
+    req.authUser = user;
+
+    // Host enforcement: if the request arrives via a host that maps to a
+    // tenant (custom domain, microsite, or wildcard subdomain), the session's
+    // tenant MUST match. Hosts that don't map to any tenant (the canonical
+    // app URL, Replit dev domain, localhost) are exempt.
+    const hostHeader = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
+    const host = hostHeader.split(":")[0].toLowerCase();
+    if (host) {
+      try {
+        const match = await findTenantByHost(host);
+        if (match && user.tenantId != null && match.tenantId !== user.tenantId) {
+          res.status(403).json({ error: "Session does not belong to this domain's tenant" });
+          return;
+        }
+      } catch (err) {
+        // Fail-CLOSED on resolver errors. Failing open here would let a session
+        // from one tenant access another tenant's domain during a DB blip.
+        console.error("[requireAuth] host resolver error:", err);
+        res.status(503).json({ error: "Domain check temporarily unavailable" });
+        return;
+      }
+    }
+
     next();
   } catch (err) {
     console.error("[requireAuth] Error:", err);
