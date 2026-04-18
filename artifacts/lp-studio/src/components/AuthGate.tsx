@@ -216,12 +216,12 @@ function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: (
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="ws-slug">URL slug</Label>
+          <Label htmlFor="ws-slug">Workspace URL</Label>
           <div className="flex items-center gap-1.5">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">lpstudio.ai/</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">https://</span>
             <Input
               id="ws-slug"
-              placeholder="acme-corp"
+              placeholder="acme"
               value={slug}
               onChange={(e) => {
                 setSlugEdited(true);
@@ -230,8 +230,15 @@ function CreateWorkspaceForm({ email, onSuccess }: { email: string; onSuccess: (
               required
               className="font-mono text-sm"
             />
+            <span className="text-sm text-muted-foreground whitespace-nowrap">.lpstudio.ai</span>
           </div>
-          <p className="text-xs text-muted-foreground">Letters, numbers, and hyphens only</p>
+          <p className="text-xs text-muted-foreground">
+            Your workspace will live at{" "}
+            <span className="font-mono text-foreground">
+              {slug || "your-name"}.lpstudio.ai
+            </span>
+            . You can connect a custom domain later. Letters, numbers, and hyphens only.
+          </p>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
