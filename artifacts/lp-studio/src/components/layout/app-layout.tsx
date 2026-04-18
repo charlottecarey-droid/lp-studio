@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -48,8 +48,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
-import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
+import { fetchBrandConfig } from "@/lib/brand-config";
 
 function UserFooter() {
   const { user, logout } = useAuth();
@@ -161,6 +161,20 @@ function OptimizeBetaMenu({ location }: { location: string }) {
 export function AppSidebar() {
   const [location] = useLocation();
   const { hasPerm, user } = useAuth();
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string>("");
+  const [brandName, setBrandName] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchBrandConfig()
+      .then((b) => {
+        if (cancelled) return;
+        setBrandLogoUrl(b.logoUrl ?? "");
+        setBrandName(b.brandName ?? "");
+      })
+      .catch(() => { /* keep empty fallbacks */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const showMarketing =
     hasPerm("pages") || hasPerm("tests") || hasPerm("analytics") || hasPerm("forms_leads");
@@ -174,9 +188,18 @@ export function AppSidebar() {
           <div className="flex items-center justify-between px-1">
             <Link href="/">
               <div className="flex items-center gap-2 cursor-pointer group">
-                <img src={dandyLogo} alt="Dandy" className="h-4 w-auto sidebar-logo opacity-80 group-hover:opacity-100 transition-opacity" />
-                <span className="text-[10px] font-medium tracking-[0.08em] uppercase text-sidebar-foreground/35 group-hover:text-sidebar-foreground/55 transition-colors" style={{ fontFamily: "var(--app-font-mono)" }}>
-                  LP Studio
+                {brandLogoUrl && (
+                  <img
+                    src={brandLogoUrl}
+                    alt={brandName || "Logo"}
+                    className="h-4 w-auto sidebar-logo opacity-80 group-hover:opacity-100 transition-opacity"
+                  />
+                )}
+                <span
+                  className="text-[10px] font-medium tracking-[0.08em] uppercase text-sidebar-foreground/35 group-hover:text-sidebar-foreground/55 transition-colors"
+                  style={{ fontFamily: "var(--app-font-mono)" }}
+                >
+                  {brandName || "LP Studio"}
                 </span>
               </div>
             </Link>
