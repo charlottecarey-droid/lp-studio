@@ -140,9 +140,13 @@ router.post("/tenants", async (req, res): Promise<void> => {
   try {
     await client.query("BEGIN");
 
+    // Default new tenants to industry='generic' so they immediately resolve to
+    // the generic block catalog without requiring a manual settings patch.
+    // Dental tenants are explicit (set later via /admin or DB) and are also
+    // backfilled for the historical Dandy tenants on server boot.
     const tenantResult = await client.query(
-      `INSERT INTO tenants (name, slug, domain, microsite_domain, plan, status)
-       VALUES ($1, $2, $3, $4, $5, 'active') RETURNING *`,
+      `INSERT INTO tenants (name, slug, domain, microsite_domain, plan, status, settings)
+       VALUES ($1, $2, $3, $4, $5, 'active', '{"industry":"generic"}'::jsonb) RETURNING *`,
       [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "trial"]
     );
     const tenant = tenantResult.rows[0];

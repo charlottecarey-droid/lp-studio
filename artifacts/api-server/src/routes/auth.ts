@@ -397,7 +397,12 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
     // Include onboardingCompleted flag + tenant industry from tenants table
     let onboardingCompleted = true; // default true so existing sessions are never blocked
-    let tenantIndustry: string = "dental";
+    // Default to "generic" when settings.industry is missing — only an
+    // explicit "dental" value should resolve to the dental experience.
+    // Tenants #1 and #5 are the historical Dandy dental tenants and are
+    // backfilled to "dental" on first server boot; everyone else stays
+    // generic.
+    let tenantIndustry: string = "generic";
     if (sess.tenantId) {
       const tenantResult = await pool.query(
         `SELECT onboarding_completed_at, settings FROM tenants WHERE id = $1`,
@@ -710,8 +715,12 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     try {
       await client.query("BEGIN");
 
+      // Default new tenants to industry='generic' so they immediately resolve
+      // to the generic block catalog with no manual settings patch required.
       const tenantResult = await client.query(
-        `INSERT INTO tenants (name, slug, plan, status) VALUES ($1, $2, 'trial', 'active') RETURNING id, name, slug`,
+        `INSERT INTO tenants (name, slug, plan, status, settings)
+         VALUES ($1, $2, 'trial', 'active', '{"industry":"generic"}'::jsonb)
+         RETURNING id, name, slug`,
         [name.trim(), slugClean]
       );
       const tenant = tenantResult.rows[0];
