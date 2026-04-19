@@ -110,7 +110,7 @@ router.delete("/admin/block-catalog/:blockType/:industry", requireAdminKey, asyn
       `DELETE FROM block_catalog WHERE block_type = $1 AND industry = $2 RETURNING block_type`,
       [blockType, industry]
     );
-    res.json({ deleted: (result as any).rowCount ?? 0 });
+    res.json({ deleted: result.rowCount ?? 0 });
   } catch (err) {
     console.error("[block-catalog admin] DELETE error:", err);
     res.status(500).json({ error: "Server error" });

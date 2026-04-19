@@ -45,7 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
-import { useBlockCatalog } from "@/hooks/use-block-catalog";
+import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import {
@@ -153,10 +153,9 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
   );
 }
 
-function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
+function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[] }) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
-  const { blocks: visibleBlocks } = useBlockCatalog();
 
   return (
     <div className="p-4 space-y-6">
@@ -223,8 +222,7 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
 
 const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 
-function SegmentLibrary({ onAdd, customBlocks, segments }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[] }) {
-  const { blocks: visibleBlocks } = useBlockCatalog();
+function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[] }) {
   // Group catalog-resolved blocks by their (catalog-overriding) category, keeping
   // only non-core categories. Catalog rows can re-shelve a block by setting a
   // different category — that change is honored here.
@@ -477,11 +475,11 @@ interface InsertBlockDialogProps {
   onClose: () => void;
   onInsert: (type: string) => void;
   customBlocks: CustomBlock[];
+  visibleBlocks: ResolvedBlockDef[];
 }
 
-function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
+function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks }: InsertBlockDialogProps) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
-  const { blocks: visibleBlocks } = useBlockCatalog();
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -686,7 +684,12 @@ export default function BuilderEditor() {
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
-  const { getDef: catalogGetDef } = useBlockCatalog();
+  // Hoist a single useBlockCatalog call here and pass the resolved blocks to
+  // every consumer (BlockLibrary, SegmentLibrary, InsertBlockDialog, addBlock).
+  // Avoids divergent fetch states across subcomponents that previously caused
+  // brief windows where the palette showed catalog labels while insertion still
+  // used registry/dental defaults.
+  const { blocks: catalogBlocks, getDef: catalogGetDef } = useBlockCatalog();
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -1490,6 +1493,7 @@ export default function BuilderEditor() {
         onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); }}
         onInsert={handleInsertBlock}
         customBlocks={customBlocks}
+        visibleBlocks={catalogBlocks}
       />
 
       {/* Share for Review Modal */}
@@ -1598,10 +1602,10 @@ export default function BuilderEditor() {
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
-              <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} />
+              <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} visibleBlocks={catalogBlocks} />
             </TabsContent>
             <TabsContent value="segment" className="mt-0">
-              <SegmentLibrary onAdd={addBlock} customBlocks={customBlocks} segments={brand.segments ?? []} />
+              <SegmentLibrary onAdd={addBlock} customBlocks={customBlocks} segments={brand.segments ?? []} visibleBlocks={catalogBlocks} />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel
