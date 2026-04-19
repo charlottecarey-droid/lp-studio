@@ -494,6 +494,7 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
 
   // Quick toggle for is_enabled — saving inline without opening the editor
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -554,6 +555,7 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
   const toggleEnabled = async (row: CatalogRow) => {
     const key = `${row.block_type}::${row.industry}`;
     setTogglingKey(key);
+    setActionError(null);
     try {
       await apiFetch("/api/admin/block-catalog", adminKey, {
         method: "PUT",
@@ -575,7 +577,10 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
             : r,
         ),
       );
-    } catch {
+    } catch (err: any) {
+      let msg = err?.message ?? "Toggle failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      setActionError(`Could not update ${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
       // Refresh on failure to fix any drift
       refresh();
     } finally {
@@ -639,6 +644,12 @@ export default function SuperAdminBlockCatalog({ adminKey }: { adminKey: string 
       {loadError && (
         <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {loadError}
+        </div>
+      )}
+      {actionError && (
+        <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive flex items-start justify-between gap-2">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-xs underline shrink-0">Dismiss</button>
         </div>
       )}
 

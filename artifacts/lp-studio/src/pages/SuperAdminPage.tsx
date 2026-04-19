@@ -27,7 +27,9 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
+  Library,
 } from "lucide-react";
+import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -855,6 +857,19 @@ export default function SuperAdminPage() {
   const [authed, setAuthed] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
+  const [tab, setTab] = useState<"tenants" | "catalog">(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#catalog") return "catalog";
+    return "tenants";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (tab === "catalog" && window.location.hash !== "#catalog") {
+      window.history.replaceState(null, "", `${window.location.pathname}#catalog`);
+    } else if (tab === "tenants" && window.location.hash === "#catalog") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [tab]);
 
   const fetchTenants = useCallback(async (key: string) => {
     setLoading(true);
@@ -935,18 +950,24 @@ export default function SuperAdminPage() {
           <div>
             <h1 className="text-2xl font-semibold">Superadmin</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {tenants === null ? "Loading…" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`}
+              {tab === "tenants"
+                ? (tenants === null ? "Loading…" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`)
+                : "Manage block defaults that tenants see in the builder"}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
-              <Plus className="w-3.5 h-3.5" />
-              New Workspace
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => fetchTenants(adminKey)} disabled={loading}>
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+            {tab === "tenants" && (
+              <>
+                <Button size="sm" className="gap-1.5" onClick={() => setShowNewModal(true)}>
+                  <Plus className="w-3.5 h-3.5" />
+                  New Workspace
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => fetchTenants(adminKey)} disabled={loading}>
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </>
+            )}
             <Button size="sm" variant="ghost" onClick={handleLogout}>
               <LogOut className="w-3.5 h-3.5 mr-1.5" />
               Sign out
@@ -954,6 +975,29 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
+        {/* Tab nav */}
+        <div className="border-b flex items-center gap-1">
+          <button
+            onClick={() => setTab("tenants")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "tenants" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" /> Tenants
+          </button>
+          <button
+            onClick={() => setTab("catalog")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "catalog" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Library className="w-3.5 h-3.5" /> Block Catalog
+          </button>
+        </div>
+
+        {tab === "catalog" ? (
+          <SuperAdminBlockCatalog adminKey={adminKey} />
+        ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -988,6 +1032,7 @@ export default function SuperAdminPage() {
             </TableBody>
           </Table>
         </div>
+        )}
       </div>
 
       <NewWorkspaceModal
