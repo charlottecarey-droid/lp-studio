@@ -24,6 +24,9 @@ interface Props {
   pageId?: number;
   variantId?: number;
   prefillCompany?: string;
+  /** When true (LP Studio builder canvas), suppress the fixed/portal Chili
+   *  Piper overlay so it can never cover the builder's top bar / control rails. */
+  isBuilder?: boolean;
 }
 
 type FormState = "idle" | "loading" | "success";
@@ -44,7 +47,7 @@ function buildChiliPiperUrl(base: string, email: string, company: string): strin
   }
 }
 
-export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }: Props) {
+export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, isBuilder }: Props) {
   const {
     eyebrow       = "Get Started Today",
     headline      = "See what Dandy can\ndo for your group.",
@@ -122,7 +125,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany }:
 
     setFormState("success");
 
-    if (chilipiperUrl) {
+    if (chilipiperUrl && !isBuilder) {
       const url = buildChiliPiperUrl(chilipiperUrl, trimmed, co);
       setCpUrl(url);
       setCpOpen(true);

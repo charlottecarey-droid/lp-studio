@@ -230,7 +230,7 @@ export function StickyHeroNav({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-x-0 z-40 md:hidden"
+            className={`${position === "absolute" ? "absolute" : "fixed"} inset-x-0 z-40 md:hidden`}
             style={{
               top: scrolled ? 60 : 72,
               background: isDark ? "rgba(8,22,20,0.96)" : "rgba(255,255,255,0.98)",

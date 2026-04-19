@@ -11,6 +11,10 @@ interface Props {
   brand: BrandConfig;
   blockId: string;
   isEditing?: boolean;
+  /** When true (LP Studio builder canvas), suppress any fixed/portal overlays
+   *  so the popup never covers the builder's top bar / control rails. The
+   *  editor card is still rendered for inline editing. */
+  isBuilder?: boolean;
   pageId?: number;
   variantId?: string;
   sessionId?: string;
@@ -264,7 +268,10 @@ function PopupOverlay({
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
-export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, variantId, sessionId, onCtaClick }: Props) {
+export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pageId, variantId, sessionId, onCtaClick }: Props) {
+  // In builder mode treat popup like editing — never auto-display, never open
+  // fixed-position overlays (preview / Chili Piper modal) over builder chrome.
+  const editorMode = isEditing || isBuilder;
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -294,7 +301,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, varian
 
   // Live trigger logic
   useEffect(() => {
-    if (isEditing) return;
+    if (editorMode) return;
     if (dismissed) return;
     if (p.showOnce) {
       try { if (sessionStorage.getItem(storageKey)) return; } catch { /* ok */ }
@@ -321,10 +328,10 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, varian
       return () => clearTimeout(timer);
     }
     return;
-  }, [p.trigger, p.triggerValue, p.showOnce, dismissed, storageKey, isEditing]);
+  }, [p.trigger, p.triggerValue, p.showOnce, dismissed, storageKey, editorMode]);
 
   // ── EDITOR MODE ───────────────────────────────────────────────────────────
-  if (isEditing) {
+  if (editorMode) {
     const triggerLabel =
       p.trigger === "exit-intent" ? "Exit intent"
       : p.trigger === "scroll-percent" ? `Scroll ${p.triggerValue ?? 50}%`
@@ -350,17 +357,20 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, pageId, varian
             <p className="text-sm font-semibold text-slate-800 truncate">{p.headline || "(no headline)"}</p>
             {p.body && <p className="text-xs text-slate-500 truncate mt-0.5">{p.body}</p>}
           </div>
-          <button
-            onClick={() => setPreviewOpen(true)}
-            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#003A30] text-white hover:bg-[#003A30]/80 transition-colors"
-          >
-            <MousePointerClick className="w-3.5 h-3.5" />
-            Preview
-          </button>
+          {!isBuilder && (
+            <button
+              onClick={() => setPreviewOpen(true)}
+              className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#003A30] text-white hover:bg-[#003A30]/80 transition-colors"
+            >
+              <MousePointerClick className="w-3.5 h-3.5" />
+              Preview
+            </button>
+          )}
         </div>
 
-        {/* Preview: non-CP popup overlay */}
-        {previewOpen && !isChiliPiper && (
+        {/* Preview: non-CP popup overlay (suppressed in builder so it can't
+            cover the builder's top bar / control rails). */}
+        {previewOpen && !isChiliPiper && !isBuilder && (
           <div className={cn("fixed inset-0 z-[9999] flex",
             p.position === "bottom-left" ? "items-end justify-start p-6"
             : p.position === "bottom-right" ? "items-end justify-end p-6"

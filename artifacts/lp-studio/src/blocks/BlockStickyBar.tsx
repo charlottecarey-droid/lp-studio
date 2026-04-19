@@ -14,15 +14,19 @@ interface Props {
   pageId?: number;
   variantId?: number;
   sessionId?: string;
+  /** When true (builder canvas), render the bar in-flow instead of fixed so
+   *  it doesn't overlay the builder's top bar / control rails. */
+  isBuilder?: boolean;
 }
 
-export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId, sessionId }: Props) {
+export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId, sessionId, isBuilder }: Props) {
   const [cpOpen, setCpOpen] = useState(false);
   const isChiliPiper = p.ctaAction === "chilipiper" && !!p.chilipiperUrl;
-  const [visible, setVisible] = useState(p.showAfterScroll <= 0);
+  const [visible, setVisible] = useState(isBuilder ? true : p.showAfterScroll <= 0);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    if (isBuilder) return;
     if (p.showAfterScroll <= 0) return;
     const handler = () => {
       const scrollPct = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
@@ -30,7 +34,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
     };
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
-  }, [p.showAfterScroll]);
+  }, [p.showAfterScroll, isBuilder]);
 
   if (dismissed || !visible) return null;
 
@@ -48,8 +52,9 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
     <>
     <div
       className={cn(
-        "fixed left-0 right-0 z-[9998] flex items-center justify-center gap-4 px-4 py-3 shadow-lg transition-transform duration-300",
-        p.position === "top" ? "top-0" : "bottom-0"
+        "left-0 right-0 z-[9998] flex items-center justify-center gap-4 px-4 py-3 shadow-lg transition-transform duration-300",
+        isBuilder ? "relative" : "fixed",
+        !isBuilder && (p.position === "top" ? "top-0" : "bottom-0")
       )}
       style={{ ...barBgStyle, color: textColor }}
     >
@@ -58,6 +63,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
         <button
           onClick={() => {
             onCtaClick?.();
+            if (isBuilder) return; // suppress fixed overlays / navigation in builder
             if (isChiliPiper) {
               setCpOpen(true);
             } else if (p.ctaUrl) {

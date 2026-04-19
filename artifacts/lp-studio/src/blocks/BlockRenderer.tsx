@@ -391,6 +391,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             brand={brand}
             blockId={block.id}
             isEditing={!!onBlockChange}
+            isBuilder={isBuilder}
             pageId={pageId}
             variantId={variantId ? String(variantId) : undefined}
             sessionId={sessionId}
@@ -403,6 +404,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            isBuilder={isBuilder}
           />
         );
       case "sticky-header":
@@ -410,6 +412,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockStickyHeader
             props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl ?? "#") : undefined}
+            isBuilder={isBuilder}
           />
         );
       case "roi-calculator":
@@ -513,7 +516,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} brand={brand} />;
       case "dso-cta-capture":
-        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} />;
+        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} isBuilder={isBuilder} />;
       case "dso-meet-team":
         return <BlockDsoMeetTeam props={block.props} brand={brand} />;
       case "dso-paradigm-shift":
