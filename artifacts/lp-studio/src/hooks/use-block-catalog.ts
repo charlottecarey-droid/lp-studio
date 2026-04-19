@@ -93,6 +93,21 @@ export function useBlockCatalog() {
     const catalogByType = new Map<string, CatalogEntry>();
     (rows ?? []).filter(r => r.isEnabled !== false).forEach(r => catalogByType.set(r.blockType, r));
 
+    // Fallback while loading or on fetch error: never leave the builder empty.
+    // Always show the in-code BLOCK_REGISTRY so the editor is usable even if
+    // the catalog API is down. Catalog filtering kicks in only once rows have
+    // been received (rows !== null).
+    if (rows === null) {
+      return BLOCK_REGISTRY.map(def => ({
+        type: def.type,
+        label: def.label,
+        category: def.category,
+        defaultProps: def.defaultProps,
+        sortOrder: 0,
+        source: "registry" as const,
+      }));
+    }
+
     if (industry === "dental") {
       // All registry blocks visible; catalog rows override
       return BLOCK_REGISTRY.map(def => {
@@ -116,6 +131,20 @@ export function useBlockCatalog() {
           source: "catalog" as const,
         };
       });
+    }
+
+    // generic with no rows yet (initial render or empty result): fall back to
+    // BLOCK_REGISTRY so the builder is never blank. Once admin populates the
+    // generic catalog, only catalog rows are shown.
+    if (catalogByType.size === 0) {
+      return BLOCK_REGISTRY.map(def => ({
+        type: def.type,
+        label: def.label,
+        category: def.category,
+        defaultProps: def.defaultProps,
+        sortOrder: 0,
+        source: "registry" as const,
+      }));
     }
 
     // generic: only catalog rows are visible

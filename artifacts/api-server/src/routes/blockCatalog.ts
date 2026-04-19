@@ -22,12 +22,11 @@ async function tenantIndustry(tenantId: number | null | undefined): Promise<"den
 //   Frontend merges DB partials on top of in-code BLOCK_REGISTRY defaults.
 router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
   const user = req.authUser!;
-  let industry: "dental" | "generic";
-  if (user.isAdmin && typeof req.query.industry === "string" && VALID_INDUSTRIES.has(req.query.industry)) {
-    industry = req.query.industry as "dental" | "generic";
-  } else {
-    industry = await tenantIndustry(user.tenantId);
-  }
+  // Industry is always derived from the caller's tenant. Cross-industry
+  // browsing for superadmins is exposed only via the separate /admin
+  // endpoints (gated by ADMIN_PASSWORD). Tenant admins (user.isAdmin == true
+  // for their own tenant) MUST NOT be able to read another industry's catalog.
+  const industry = await tenantIndustry(user.tenantId);
   try {
     const result = await pool.query(
       `SELECT block_type, industry, label, category, default_props, is_enabled, sort_order, updated_at

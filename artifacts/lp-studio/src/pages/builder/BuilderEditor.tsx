@@ -157,12 +157,16 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
   const { blocks: visibleBlocks } = useBlockCatalog();
-  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
 
   return (
     <div className="p-4 space-y-6">
       {categories.map(cat => {
-        const blocks = BLOCK_REGISTRY.filter(b => b.category === cat && visibleTypes.has(b.type));
+        // Render from the resolved catalog list so admin label/category/sortOrder
+        // overrides actually surface in the palette UI, falling back to registry
+        // metadata when no override exists.
+        const blocks = visibleBlocks
+          .filter(b => b.category === cat)
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
         if (blocks.length === 0) return null;
         return (
           <div key={cat}>
@@ -221,15 +225,19 @@ const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Le
 
 function SegmentLibrary({ onAdd, customBlocks, segments }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[] }) {
   const { blocks: visibleBlocks } = useBlockCatalog();
-  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
-  // Group all non-core registry blocks by their category name (only those visible for this industry)
-  const segmentGroupMap = BLOCK_REGISTRY.reduce((acc, block) => {
+  // Group catalog-resolved blocks by their (catalog-overriding) category, keeping
+  // only non-core categories. Catalog rows can re-shelve a block by setting a
+  // different category — that change is honored here.
+  const segmentGroupMap = visibleBlocks.reduce((acc, block) => {
     if (CORE_CATEGORIES.has(block.category)) return acc;
-    if (!visibleTypes.has(block.type)) return acc;
     if (!acc[block.category]) acc[block.category] = [];
     acc[block.category].push(block);
     return acc;
-  }, {} as Record<string, typeof BLOCK_REGISTRY>);
+  }, {} as Record<string, typeof visibleBlocks>);
+  // Sort each group by sortOrder then label for deterministic ordering
+  for (const k of Object.keys(segmentGroupMap)) {
+    segmentGroupMap[k].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
+  }
   const segmentGroupEntries = Object.entries(segmentGroupMap);
 
   const renderBlockButton = (key: string, label: string, thumbnail: ReactNode, onClick: () => void) => (
