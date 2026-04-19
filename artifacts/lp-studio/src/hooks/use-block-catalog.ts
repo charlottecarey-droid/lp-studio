@@ -65,7 +65,11 @@ export interface ResolvedBlockDef {
  */
 export function useBlockCatalog() {
   const { user } = useAuth();
-  const industry: "dental" | "generic" = user?.tenantIndustry ?? "dental";
+  // Default to "generic" while the user/tenant is still loading or when the
+  // server has not (yet) attached an industry. Only an explicit "dental"
+  // value should resolve to dental — this keeps non-Dandy tenants safe from
+  // ever briefly seeing dental-only blocks.
+  const industry: "dental" | "generic" = user?.tenantIndustry === "dental" ? "dental" : "generic";
   const [rows, setRows] = useState<CatalogEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

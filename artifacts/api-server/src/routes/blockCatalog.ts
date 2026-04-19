@@ -7,12 +7,17 @@ const router = Router();
 
 const VALID_INDUSTRIES = new Set(["dental", "generic"]);
 
-/** Read the canonical industry for a tenant from tenants.settings.industry. Defaults to 'dental'. */
+/**
+ * Read the canonical industry for a tenant from tenants.settings.industry.
+ * Defaults to 'generic' — only an explicit 'dental' value resolves to the
+ * dental experience. This is the safety contract: a missing / unknown value
+ * must never expose dental-only blocks to a non-Dandy tenant.
+ */
 async function tenantIndustry(tenantId: number | null | undefined): Promise<"dental" | "generic"> {
-  if (tenantId == null) return "dental";
+  if (tenantId == null) return "generic";
   const r = await pool.query(`SELECT settings FROM tenants WHERE id = $1`, [tenantId]);
   const ind = r.rows[0]?.settings?.industry;
-  return ind === "generic" ? "generic" : "dental";
+  return ind === "dental" ? "dental" : "generic";
 }
 
 // ─── Authenticated: tenant-aware catalog read ───────────────────────────────
