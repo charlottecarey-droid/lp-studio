@@ -133,21 +133,11 @@ export function useBlockCatalog() {
       });
     }
 
-    // generic with no rows yet (initial render or empty result): fall back to
-    // BLOCK_REGISTRY so the builder is never blank. Once admin populates the
-    // generic catalog, only catalog rows are shown.
-    if (catalogByType.size === 0) {
-      return BLOCK_REGISTRY.map(def => ({
-        type: def.type,
-        label: def.label,
-        category: def.category,
-        defaultProps: def.defaultProps,
-        sortOrder: 0,
-        source: "registry" as const,
-      }));
-    }
-
-    // generic: only catalog rows are visible
+    // generic: ONLY catalog rows are visible. If the API returned a clean empty
+    // list, that is the correct answer (an admin has not enabled any blocks yet)
+    // and we must NOT fall back to BLOCK_REGISTRY — that would expose dental-
+    // only blocks to a non-Dandy tenant. The loading / error paths above already
+    // use BLOCK_REGISTRY to avoid a blank builder while rows === null.
     const out: ResolvedBlockDef[] = [];
     for (const cat of catalogByType.values()) {
       const reg = BLOCK_REGISTRY.find(b => b.type === cat.blockType);

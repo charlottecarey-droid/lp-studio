@@ -707,6 +707,31 @@ async function runMigrations(): Promise<void> {
     `);
     logger.info("Migrations applied successfully");
 
+    // One-shot backfill of tenants.settings.industry so existing rows get the
+    // correct industry without manual DB intervention. Tenants #1 and #5 are
+    // Dandy dental tenants; everyone else defaults to "generic". Guarded by a
+    // marker so we never overwrite later admin edits.
+    try {
+      const backfillMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'tenant_industry_backfill_v1'`
+      );
+      if (backfillMarker.rows.length === 0) {
+        await db.execute(sql`
+          UPDATE tenants
+             SET settings = COALESCE(settings, '{}'::jsonb)
+                          || jsonb_build_object('industry', CASE WHEN id IN (1, 5) THEN 'dental' ELSE 'generic' END)
+           WHERE settings IS NULL
+              OR NOT (settings ? 'industry')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('tenant_industry_backfill_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("tenants.settings.industry backfill applied");
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "tenant industry backfill failed (non-fatal)");
+    }
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.
@@ -735,21 +760,19 @@ async function runMigrations(): Promise<void> {
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v1'`
       );
-      const markerRows = (marker as unknown as { rows?: unknown[] }).rows ?? (marker as unknown as unknown[]);
-      const alreadySeeded = Array.isArray(markerRows) && markerRows.length > 0;
+      const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
         const { GENERIC_BLOCK_CATALOG_SEED } = await import("./seeds/blockCatalog");
         let inserted = 0;
         for (const row of GENERIC_BLOCK_CATALOG_SEED) {
           const propsJson = JSON.stringify(row.default_props ?? {});
-          const result = await db.execute(sql`
+          const result = await db.execute<{ "?column?": number }>(sql`
             INSERT INTO block_catalog (block_type, industry, label, category, default_props, sort_order)
             VALUES (${row.block_type}, 'generic', ${row.label}, ${row.category}, ${propsJson}::jsonb, ${row.sort_order ?? 0})
             ON CONFLICT (block_type, industry) DO NOTHING
             RETURNING 1
           `);
-          const rows = (result as unknown as { rows?: unknown[] }).rows ?? (result as unknown as unknown[]);
-          if (Array.isArray(rows) && rows.length > 0) inserted++;
+          if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
           INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v1') ON CONFLICT DO NOTHING
