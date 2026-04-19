@@ -83,7 +83,7 @@ export function useBlockCatalog() {
       .catch(e => {
         if (cancelled) return;
         setError(String(e?.message ?? e));
-        setRows([]);
+        setRows(null); // keep null so the hook treats this as "not loaded" → registry fallback
       })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };

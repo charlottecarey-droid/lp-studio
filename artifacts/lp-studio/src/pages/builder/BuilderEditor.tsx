@@ -482,7 +482,6 @@ interface InsertBlockDialogProps {
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
   const { blocks: visibleBlocks } = useBlockCatalog();
-  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -494,24 +493,32 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBloc
         </DialogHeader>
         <div className="overflow-y-auto flex-1 space-y-5 pr-1">
           {categories.map(cat => {
-            const catBlocks = BLOCK_REGISTRY.filter(b => b.category === cat && visibleTypes.has(b.type));
+            // Render from catalog-resolved entries so admin label/category/sortOrder
+            // overrides are reflected in the dialog (registry is the data source for
+            // the thumbnail only).
+            const catBlocks = visibleBlocks
+              .filter(b => b.category === cat)
+              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
             if (catBlocks.length === 0) return null;
             return (
               <div key={cat}>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{cat}</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {catBlocks.map(block => (
-                    <button
-                      key={block.type}
-                      onClick={() => onInsert(block.type)}
-                      className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all text-center"
-                    >
-                      <div className="w-full h-10 rounded-md overflow-hidden">
-                        {block.thumbnail()}
-                      </div>
-                      <span className="text-[10px] font-medium leading-tight text-muted-foreground">{block.label}</span>
-                    </button>
-                  ))}
+                  {catBlocks.map(block => {
+                    const reg = BLOCK_REGISTRY.find(r => r.type === block.type);
+                    return (
+                      <button
+                        key={block.type}
+                        onClick={() => onInsert(block.type)}
+                        className="flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all text-center"
+                      >
+                        <div className="w-full h-10 rounded-md overflow-hidden">
+                          {reg ? reg.thumbnail() : <div className="w-full h-full bg-slate-100" />}
+                        </div>
+                        <span className="text-[10px] font-medium leading-tight text-muted-foreground">{block.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );

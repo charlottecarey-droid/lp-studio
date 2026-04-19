@@ -307,7 +307,9 @@ const GENERIC_SEED = [
   { block_type: "dso-case-study",  label: "Case Study",              category: "Social Proof", sort_order: 49, default_props: {} },
 ];
 
-(async () => {
+module.exports = { GENERIC_SEED };
+
+if (require.main === module) (async () => {
   const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL });
   let inserted = 0, skipped = 0;
   try {

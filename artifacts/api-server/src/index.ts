@@ -706,6 +706,60 @@ async function runMigrations(): Promise<void> {
       $$;
     `);
     logger.info("Migrations applied successfully");
+
+    // Idempotent first-boot seed for the block_catalog table. Safe to run on
+    // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
+    // clobbered. Adds rows only when missing.
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS block_catalog (
+          block_type    text NOT NULL,
+          industry      text NOT NULL,
+          label         text NOT NULL,
+          category      text NOT NULL,
+          default_props jsonb NOT NULL DEFAULT '{}'::jsonb,
+          is_enabled    boolean NOT NULL DEFAULT true,
+          sort_order    integer NOT NULL DEFAULT 0,
+          updated_by    integer,
+          created_at    timestamptz NOT NULL DEFAULT now(),
+          updated_at    timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (block_type, industry)
+        );
+      `);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS block_catalog_industry_idx ON block_catalog(industry);`);
+      // Marker table so we only attempt the heavyweight seed once, even though
+      // the inserts themselves are idempotent — keeps boot time low.
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS _schema_migration_markers (key text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+      `);
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v1'`
+      );
+      const markerRows = (marker as unknown as { rows?: unknown[] }).rows ?? (marker as unknown as unknown[]);
+      const alreadySeeded = Array.isArray(markerRows) && markerRows.length > 0;
+      if (!alreadySeeded) {
+        const { GENERIC_BLOCK_CATALOG_SEED } = await import("./seeds/blockCatalog");
+        let inserted = 0;
+        for (const row of GENERIC_BLOCK_CATALOG_SEED) {
+          const propsJson = JSON.stringify(row.default_props ?? {});
+          const result = await db.execute(sql`
+            INSERT INTO block_catalog (block_type, industry, label, category, default_props, sort_order)
+            VALUES (${row.block_type}, 'generic', ${row.label}, ${row.category}, ${propsJson}::jsonb, ${row.sort_order ?? 0})
+            ON CONFLICT (block_type, industry) DO NOTHING
+            RETURNING 1
+          `);
+          const rows = (result as unknown as { rows?: unknown[] }).rows ?? (result as unknown as unknown[]);
+          if (Array.isArray(rows) && rows.length > 0) inserted++;
+        }
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v1') ON CONFLICT DO NOTHING
+        `);
+        logger.info({ inserted, total: GENERIC_BLOCK_CATALOG_SEED.length }, "block_catalog generic seed applied");
+      }
+    } catch (seedErr) {
+      // Don't block boot on seed errors — admins can re-run scripts/seed-block-catalog.cjs
+      logger.error({ err: seedErr }, "block_catalog seed failed (non-fatal)");
+    }
   } catch (err) {
     logger.error({ err }, "Migration failed — halting server startup");
     throw err;
