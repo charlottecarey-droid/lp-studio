@@ -1,0 +1,32 @@
+import { pgTable, text, integer, timestamp, jsonb, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+/**
+ * block_catalog — per-industry block library configuration.
+ *
+ * One row per (block_type, industry) pair. Drives what blocks appear in the
+ * builder library for a tenant of a given industry, what label/category they
+ * show under, and what default props new instances get.
+ *
+ * The in-code BLOCK_REGISTRY remains the seed + fallback. The catalog is the
+ * runtime source of truth that superadmins can edit from /admin/block-catalog.
+ */
+export const blockCatalogTable = pgTable("block_catalog", {
+  blockType: text("block_type").notNull(),
+  industry: text("industry").notNull(),
+  label: text("label").notNull(),
+  category: text("category").notNull(),
+  defaultProps: jsonb("default_props").notNull().default({}),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  updatedBy: integer("updated_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.blockType, t.industry] }),
+}));
+
+export const insertBlockCatalogSchema = createInsertSchema(blockCatalogTable).omit({ createdAt: true, updatedAt: true });
+export type InsertBlockCatalog = z.infer<typeof insertBlockCatalogSchema>;
+export type BlockCatalogRow = typeof blockCatalogTable.$inferSelect;

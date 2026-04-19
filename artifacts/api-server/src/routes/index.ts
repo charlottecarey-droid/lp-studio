@@ -7,6 +7,7 @@ import salesRouter from "./sales";
 import videoRouter from "./video";
 import authRouter from "./auth";
 import adminRouter from "./admin";
+import blockCatalogRouter from "./blockCatalog";
 import webhooksRouter from "./webhooks";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -45,6 +46,7 @@ router.use("/dso", dsoRouter);
 router.use("/sales", salesRouter);
 router.use(videoRouter);
 router.use("/admin", adminRouter);
+router.use(blockCatalogRouter);
 router.use("/webhooks", webhooksRouter);
 
 export default router;

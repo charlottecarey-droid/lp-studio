@@ -395,19 +395,22 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     }
     const sess = JSON.parse(result.rows[0].sess);
 
-    // Include onboardingCompleted flag from tenants table
+    // Include onboardingCompleted flag + tenant industry from tenants table
     let onboardingCompleted = true; // default true so existing sessions are never blocked
+    let tenantIndustry: string = "dental";
     if (sess.tenantId) {
       const tenantResult = await pool.query(
-        `SELECT onboarding_completed_at FROM tenants WHERE id = $1`,
+        `SELECT onboarding_completed_at, settings FROM tenants WHERE id = $1`,
         [sess.tenantId]
       );
       if (tenantResult.rows.length > 0) {
         onboardingCompleted = tenantResult.rows[0].onboarding_completed_at !== null;
+        const ind = tenantResult.rows[0].settings?.industry;
+        if (ind === "dental" || ind === "generic") tenantIndustry = ind;
       }
     }
 
-    res.json({ ...sess, onboardingCompleted });
+    res.json({ ...sess, onboardingCompleted, tenantIndustry });
   } catch (err) {
     console.error("[auth] /me error:", err);
     res.status(500).json({ error: "Server error" });

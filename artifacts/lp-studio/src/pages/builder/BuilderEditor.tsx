@@ -45,6 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
+import { useBlockCatalog } from "@/hooks/use-block-catalog";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import {
@@ -155,11 +156,13 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[] }) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
+  const { blocks: visibleBlocks } = useBlockCatalog();
+  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
 
   return (
     <div className="p-4 space-y-6">
       {categories.map(cat => {
-        const blocks = BLOCK_REGISTRY.filter(b => b.category === cat);
+        const blocks = BLOCK_REGISTRY.filter(b => b.category === cat && visibleTypes.has(b.type));
         if (blocks.length === 0) return null;
         return (
           <div key={cat}>
@@ -217,9 +220,12 @@ function BlockLibrary({ onAdd, customBlocks }: { onAdd: (type: string) => void; 
 const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 
 function SegmentLibrary({ onAdd, customBlocks, segments }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[] }) {
-  // Group all non-core registry blocks by their category name
+  const { blocks: visibleBlocks } = useBlockCatalog();
+  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
+  // Group all non-core registry blocks by their category name (only those visible for this industry)
   const segmentGroupMap = BLOCK_REGISTRY.reduce((acc, block) => {
     if (CORE_CATEGORIES.has(block.category)) return acc;
+    if (!visibleTypes.has(block.type)) return acc;
     if (!acc[block.category]) acc[block.category] = [];
     acc[block.category].push(block);
     return acc;
@@ -467,6 +473,8 @@ interface InsertBlockDialogProps {
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBlockDialogProps) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
+  const { blocks: visibleBlocks } = useBlockCatalog();
+  const visibleTypes = new Set(visibleBlocks.map(b => b.type));
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -478,7 +486,7 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks }: InsertBloc
         </DialogHeader>
         <div className="overflow-y-auto flex-1 space-y-5 pr-1">
           {categories.map(cat => {
-            const catBlocks = BLOCK_REGISTRY.filter(b => b.category === cat);
+            const catBlocks = BLOCK_REGISTRY.filter(b => b.category === cat && visibleTypes.has(b.type));
             if (catBlocks.length === 0) return null;
             return (
               <div key={cat}>
@@ -663,6 +671,7 @@ export default function BuilderEditor() {
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
+  const { getDef: catalogGetDef } = useBlockCatalog();
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -996,17 +1005,31 @@ export default function BuilderEditor() {
       return;
     }
     if (!isBlockType(type)) return;
+    // Precedence: tenant-saved block default → catalog default → in-code registry default
     const savedDefault = blockDefaults[type] as { props?: unknown; blockSettings?: unknown } | undefined;
-    const newBlock: PageBlock = savedDefault?.props
-      ? ({
+    let newBlock: PageBlock;
+    if (savedDefault?.props) {
+      newBlock = {
+        id: genBlockId(type),
+        type,
+        props: savedDefault.props,
+        ...(savedDefault.blockSettings && Object.keys(savedDefault.blockSettings as object).length > 0
+          ? { blockSettings: savedDefault.blockSettings }
+          : {}),
+      } as PageBlock;
+    } else {
+      const catalogDef = catalogGetDef(type);
+      // Use catalog defaults only when they actually override (catalog rows for this block_type)
+      if (catalogDef && catalogDef.source === "catalog") {
+        newBlock = {
           id: genBlockId(type),
           type,
-          props: savedDefault.props,
-          ...(savedDefault.blockSettings && Object.keys(savedDefault.blockSettings as object).length > 0
-            ? { blockSettings: savedDefault.blockSettings }
-            : {}),
-        } as PageBlock)
-      : createBlock(type);
+          props: catalogDef.defaultProps(),
+        } as PageBlock;
+      } else {
+        newBlock = createBlock(type);
+      }
+    }
     insertBlock(newBlock, atIndex);
   };
 

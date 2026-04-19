@@ -32,3 +32,6 @@ export * from "./appUsers";
 export * from "./appSessions";
 export * from "./tenantRoles";
 export * from "./tenantMembers";
+
+// Block catalog (per-industry library configuration)
+export * from "./blockCatalog";

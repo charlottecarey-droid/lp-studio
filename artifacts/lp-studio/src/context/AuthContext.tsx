@@ -11,6 +11,7 @@ export interface AuthUser {
   isAdmin: boolean;
   micrositeDomain?: string | null;
   onboardingCompleted?: boolean;
+  tenantIndustry?: "dental" | "generic";
 }
 
 export interface DomainContext {
