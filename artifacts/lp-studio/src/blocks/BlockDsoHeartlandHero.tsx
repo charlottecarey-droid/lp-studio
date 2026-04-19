@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { StickyHeroNav } from "@/components/StickyHeroNav";
 import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 
 interface Props {
@@ -184,7 +185,23 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
     </motion.div>
   );
 
-  const navBar = (
+  const stickyNavBar = p.stickyHeader ? (
+    <StickyHeroNav
+      logoUrl={dandyLogoUrl}
+      logoAlt="Dandy"
+      companyName={company || undefined}
+      navLinks={p.navLinks ?? []}
+      primaryCtaText={p.primaryCtaText}
+      primaryCtaUrl={p.primaryCtaUrl}
+      onPrimaryCtaClick={onCtaClick}
+      theme="dark"
+      accentColor={PRIMARY}
+      position="fixed"
+      invertLogo
+    />
+  ) : null;
+
+  const navBar = p.stickyHeader ? stickyNavBar : (
     <motion.nav
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}

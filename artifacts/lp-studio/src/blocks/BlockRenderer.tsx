@@ -66,6 +66,7 @@ import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
 import { BlockPopup } from "./BlockPopup";
 import { BlockStickyBar } from "./BlockStickyBar";
+import { BlockStickyHeader } from "./BlockStickyHeader";
 import { BlockDandyVersus } from "./BlockDandyVersus";
 import { BlockDandyColumnsV2 } from "./BlockDandyColumnsV2";
 import { BlockDandyColumnsV3 } from "./BlockDandyColumnsV3";
@@ -398,6 +399,13 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
+      case "sticky-header":
+        return (
+          <BlockStickyHeader
+            props={block.props}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl ?? "#") : undefined}
           />
         );
       case "roi-calculator":

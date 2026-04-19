@@ -128,6 +128,8 @@ export type {
   CtaButtonBlockProps,
   PopupBlockProps,
   StickyBarBlockProps,
+  StickyHeaderBlockProps,
+  StickyHeaderNavLink,
 } from "./utility-blocks";
 
 // Block variant and page block types

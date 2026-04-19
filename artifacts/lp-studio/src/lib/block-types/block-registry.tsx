@@ -85,6 +85,7 @@ import type {
   CtaButtonBlockProps,
   PopupBlockProps,
   StickyBarBlockProps,
+  StickyHeaderBlockProps,
 } from "./utility-blocks";
 import type { BlockType, PageBlock } from "./block-variant";
 
@@ -862,6 +863,48 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="10" y="32" width="100" height="25" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
         <rect x="20" y="40" width="60" height="3" rx="1" fill="#94a3b8" opacity="0.5" />
         <rect x="20" y="47" width="50" height="3" rx="1" fill="#94a3b8" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "sticky-header",
+    label: "Sticky Hero Header",
+    category: "Layout",
+    defaultProps: (): StickyHeaderBlockProps => ({
+      logoUrl: "",
+      logoAlt: "Dandy",
+      companyName: "",
+      navLinks: [
+        { label: "Platform", href: "#platform" },
+        { label: "Solutions", href: "#solutions" },
+        { label: "Results", href: "#results" },
+        { label: "Pricing", href: "#pricing" },
+      ],
+      primaryCtaText: "Get Started",
+      primaryCtaUrl: "#",
+      theme: "dark",
+      position: "fixed",
+      scrollThreshold: 40,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="sh-hero" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(192,30%,8%)" />
+            <stop offset="100%" stopColor="hsl(152,30%,14%)" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#sh-hero)" rx="4" />
+        <rect width="120" height="14" fill="rgba(8,22,20,0.7)" />
+        <rect x="8" y="5" width="14" height="4" rx="1" fill="white" opacity="0.9" />
+        {[0,1,2,3].map(i => (
+          <rect key={i} x={36 + i*12} y="6" width="8" height="2" rx="1" fill="white" opacity="0.5" />
+        ))}
+        <rect x="92" y="4" width="22" height="6" rx="3" fill="hsl(72,55%,48%)" />
+        <rect x="20" y="26" width="80" height="5" rx="1" fill="white" opacity="0.85" />
+        <rect x="30" y="36" width="60" height="3" rx="1" fill="white" opacity="0.45" />
+        <rect x="42" y="48" width="16" height="5" rx="2.5" fill="hsl(72,55%,48%)" />
+        <rect x="62" y="48" width="16" height="5" rx="2.5" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.6" />
       </svg>
     ),
   },
@@ -2895,6 +2938,7 @@ export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer"
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
 export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
+export function createBlock(type: "sticky-header"): Extract<PageBlock, { type: "sticky-header" }>;
 export function createBlock(type: "roi-calculator"): Extract<PageBlock, { type: "roi-calculator" }>;
 export function createBlock(type: "spacer"): Extract<PageBlock, { type: "spacer" }>;
 export function createBlock(type: "dso-insights-dashboard"): Extract<PageBlock, { type: "dso-insights-dashboard" }>;
@@ -2980,6 +3024,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "form": return { id, type: "form", props: props as FormBlockProps };
     case "popup": return { id, type: "popup", props: props as PopupBlockProps };
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
+    case "sticky-header": return { id, type: "sticky-header", props: props as StickyHeaderBlockProps };
     case "roi-calculator": return { id, type: "roi-calculator", props: props as RoiCalculatorBlockProps };
     case "spacer": return { id, type: "spacer", props: props as SpacerBlockProps };
     case "dso-insights-dashboard": return { id, type: "dso-insights-dashboard", props: props as DsoInsightsDashboardBlockProps };

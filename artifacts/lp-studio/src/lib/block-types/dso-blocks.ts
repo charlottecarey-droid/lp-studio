@@ -76,6 +76,10 @@ export interface DsoHeartlandHeroBlockProps {
   videoAutoplay?: boolean;
   stats: { value: string; label: string }[];
   showScrollIndicator?: boolean;
+  /** When true, replaces the absolute nav with a premium sticky/blurring header. */
+  stickyHeader?: boolean;
+  /** Optional nav links (label + href) shown in the header. */
+  navLinks?: { label: string; href: string }[];
 }
 
 export interface DsoSuccessStoriesBlockProps {

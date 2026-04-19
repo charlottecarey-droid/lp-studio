@@ -83,6 +83,7 @@ import type {
   CtaButtonBlockProps,
   PopupBlockProps,
   StickyBarBlockProps,
+  StickyHeaderBlockProps,
 } from "./utility-blocks";
 
 export type BlockVariant =
@@ -111,6 +112,7 @@ export type BlockVariant =
   | { type: "form"; props: FormBlockProps }
   | { type: "popup"; props: PopupBlockProps }
   | { type: "sticky-bar"; props: StickyBarBlockProps }
+  | { type: "sticky-header"; props: StickyHeaderBlockProps }
   | { type: "roi-calculator"; props: RoiCalculatorBlockProps }
   | { type: "spacer"; props: SpacerBlockProps }
   | { type: "dso-insights-dashboard"; props: DsoInsightsDashboardBlockProps }

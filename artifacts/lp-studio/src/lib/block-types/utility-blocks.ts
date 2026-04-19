@@ -39,6 +39,32 @@ export interface PopupBlockProps {
   chilipiperCaptureName: boolean;
 }
 
+export interface StickyHeaderNavLink {
+  label: string;
+  href: string;
+}
+
+export interface StickyHeaderBlockProps {
+  logoUrl?: string;
+  logoAlt?: string;
+  /** Optional partner / company shown after logo as "× Company" */
+  companyName?: string;
+  /** Navigation links — if href starts with #, smooth-scrolls to that anchor */
+  navLinks?: StickyHeaderNavLink[];
+  primaryCtaText?: string;
+  primaryCtaUrl?: string;
+  /** Visual theme. "dark" uses blurred dark glass; "light" uses white glass. */
+  theme?: "dark" | "light";
+  /** CTA pill background color (defaults to Dandy primary). */
+  accentColor?: string;
+  /** "fixed" overlays the hero (premium feel). "sticky" stays in flow. */
+  position?: "fixed" | "sticky";
+  /** Force invert the logo to white (auto-true for dark theme). */
+  invertLogo?: boolean;
+  /** Pixels of scroll before fade-to-solid. */
+  scrollThreshold?: number;
+}
+
 export interface StickyBarBlockProps {
   text: string;
   ctaText: string;

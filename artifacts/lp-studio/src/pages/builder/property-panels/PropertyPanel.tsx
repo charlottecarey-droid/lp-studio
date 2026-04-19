@@ -319,6 +319,75 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onApplyCtaToAll={onApplyCtaToAll}
           />
         );
+      case "sticky-header": {
+        const p = block.props;
+        const links = p.navLinks ?? [];
+        const updateLink = (i: number, key: "label" | "href", val: string) => {
+          const next = links.map((l, idx) => idx === i ? { ...l, [key]: val } : l);
+          onChange({ ...block, props: { ...p, navLinks: next } });
+        };
+        const addLink = () => onChange({ ...block, props: { ...p, navLinks: [...links, { label: "New", href: "#" }] } });
+        const removeLink = (i: number) => onChange({ ...block, props: { ...p, navLinks: links.filter((_, idx) => idx !== i) } });
+        return (
+          <div className="space-y-4 p-4">
+            <ImagePicker
+              label="Logo (optional)"
+              value={p.logoUrl ?? ""}
+              onChange={v => onChange({ ...block, props: { ...p, logoUrl: v } })}
+              placeholder="Defaults to Dandy logo"
+            />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Logo alt text</Label>
+              <Input value={p.logoAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, logoAlt: e.target.value } })} placeholder="Dandy" className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Partner / company name (optional)</Label>
+              <Input value={p.companyName ?? ""} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="Shown as: Logo × Company" className="h-8 text-xs" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Theme</Label>
+              <div className="flex gap-2">
+                {([["dark","Dark glass"],["light","Light glass"]] as const).map(([v,lbl]) => (
+                  <button key={v} onClick={() => onChange({ ...block, props: { ...p, theme: v } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.theme ?? "dark") === v ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Position</Label>
+              <div className="flex gap-2">
+                {([["fixed","Overlay hero (fixed)"],["sticky","In flow (sticky)"]] as const).map(([v,lbl]) => (
+                  <button key={v} onClick={() => onChange({ ...block, props: { ...p, position: v } })} className={`flex-1 py-1.5 text-xs rounded border ${(p.position ?? "fixed") === v ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{lbl}</button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Use "Overlay hero" when placed above a tall hero so it blends in until you scroll.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Nav links</Label>
+                <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 px-2" onClick={addLink}><Plus className="w-3 h-3" /> Add</Button>
+              </div>
+              {links.map((l, i) => (
+                <div key={i} className="flex gap-2 items-start bg-muted/40 rounded-lg p-2">
+                  <div className="flex-1 grid grid-cols-2 gap-1">
+                    <Input className="h-7 text-xs" placeholder="Label" value={l.label} onChange={e => updateLink(i, "label", e.target.value)} />
+                    <Input className="h-7 text-xs" placeholder="#anchor or URL" value={l.href} onChange={e => updateLink(i, "href", e.target.value)} />
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeLink(i)}>×</Button>
+                </div>
+              ))}
+              {links.length === 0 && <p className="text-[11px] text-muted-foreground">No nav links yet. Use #anchor-id to scroll to other blocks on this page.</p>}
+            </div>
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary CTA (optional)</Label>
+              <Input className="h-8 text-xs" placeholder="Button label" value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} />
+              <Input className="h-8 text-xs" placeholder="URL" value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} />
+            </div>
+            <div className="space-y-1.5">
+              <ColorField label="CTA color" value={p.accentColor ?? "#C7E738"} onChange={v => onChange({ ...block, props: { ...p, accentColor: v } })} />
+            </div>
+          </div>
+        );
+      }
       case "spacer":
         return (
           <SpacerPanel
@@ -1377,6 +1446,49 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${!p.disableScrollFade ? "translate-x-4" : "translate-x-0"}`} />
               </button>
             </div>
+
+            {/* Sticky premium header toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs">Sticky premium header</Label>
+                <p className="text-[11px] text-muted-foreground">Header blends into the hero, then frosts on scroll.</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, stickyHeader: !p.stickyHeader } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${p.stickyHeader ? "bg-primary" : "bg-muted"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${p.stickyHeader ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
+
+            {/* Nav links (used by sticky header) */}
+            {p.stickyHeader && (() => {
+              const nav = p.navLinks ?? [];
+              const updateNav = (i: number, key: "label" | "href", val: string) => {
+                const next = nav.map((l, idx) => idx === i ? { ...l, [key]: val } : l);
+                onChange({ ...block, props: { ...p, navLinks: next } });
+              };
+              const addNav = () => onChange({ ...block, props: { ...p, navLinks: [...nav, { label: "New", href: "#" }] } });
+              const removeNav = (i: number) => onChange({ ...block, props: { ...p, navLinks: nav.filter((_, idx) => idx !== i) } });
+              return (
+                <div className="space-y-2 border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nav links</Label>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 px-2" onClick={addNav}><Plus className="w-3 h-3" /> Add</Button>
+                  </div>
+                  {nav.map((l, i) => (
+                    <div key={i} className="flex gap-2 items-start bg-muted/40 rounded-lg p-2">
+                      <div className="flex-1 grid grid-cols-2 gap-1">
+                        <Input className="h-7 text-xs" placeholder="Label" value={l.label} onChange={e => updateNav(i, "label", e.target.value)} />
+                        <Input className="h-7 text-xs" placeholder="#anchor or URL" value={l.href} onChange={e => updateNav(i, "href", e.target.value)} />
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeNav(i)}>×</Button>
+                    </div>
+                  ))}
+                  {nav.length === 0 && <p className="text-[11px] text-muted-foreground">Use #section-id to smooth-scroll to other blocks on this page.</p>}
+                </div>
+              );
+            })()}
 
             {/* Hero sizing controls — only for video layouts */}
             {(p.layout === "split-video" || p.layout === "stacked-video") && (
