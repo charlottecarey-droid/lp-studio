@@ -94,6 +94,10 @@ interface Props {
   variantId?: number;
   sessionId?: string;
   pageVars?: Record<string, string>;
+  /** True when rendering inside the LP Studio builder canvas. Blocks that mount
+   *  fixed-position chrome (e.g. sticky hero nav) should opt into a contained
+   *  variant in builder mode so they don't overlap the builder's top bar. */
+  isBuilder?: boolean;
 }
 
 const SPACING_PX: Record<string, string> = {
@@ -206,7 +210,7 @@ function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefine
   return url;
 }
 
-export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars }: Props) {
+export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars, isBuilder }: Props) {
   // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
   // Ensure `block.props` always exists so child components don't crash on prop access.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -473,6 +477,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockDsoHeartlandHero
             props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
+            isBuilder={isBuilder}
           />
         );
       case "dso-problem":

@@ -10,6 +10,10 @@ import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
 interface Props {
   props: DsoHeartlandHeroBlockProps;
   onCtaClick?: () => void;
+  /** When true, the block is being rendered inside the LP Studio builder canvas.
+   *  In that case the sticky hero nav is rendered absolute-within-the-hero
+   *  instead of fixed-to-viewport so it cannot overlap the builder's top bar. */
+  isBuilder?: boolean;
 }
 
 const PRIMARY  = "hsl(72, 55%, 48%)";
@@ -17,7 +21,7 @@ const MUTED_FG = "hsl(192, 10%, 55%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 
-export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
+export function BlockDsoHeartlandHero({ props: p, onCtaClick, isBuilder }: Props) {
   const heroRef = useRef<HTMLElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -196,7 +200,7 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick }: Props) {
       onPrimaryCtaClick={onCtaClick}
       theme="dark"
       accentColor={PRIMARY}
-      position="fixed"
+      position={isBuilder ? "absolute" : "fixed"}
       invertLogo
     />
   ) : null;

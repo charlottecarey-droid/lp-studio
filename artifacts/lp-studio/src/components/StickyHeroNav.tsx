@@ -24,8 +24,10 @@ export interface StickyHeroNavProps {
   theme?: "dark" | "light";
   /** Accent color for the CTA button. Defaults to Dandy primary. */
   accentColor?: string;
-  /** Position. "fixed" overlays content (premium hero feel). "sticky" stays in flow. */
-  position?: "fixed" | "sticky";
+  /** Position. "fixed" overlays content (premium hero feel). "sticky" stays in flow.
+   *  "absolute" pins to nearest positioned ancestor (used in the page builder so
+   *  the nav cannot escape the hero block's bounds). */
+  position?: "fixed" | "sticky" | "absolute";
   /** When true, invert the logo to white. Useful for dark hero backgrounds. */
   invertLogo?: boolean;
 }
@@ -98,7 +100,7 @@ export function StickyHeroNav({
         initial={{ y: -16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className={`${position === "fixed" ? "fixed" : "sticky"} top-0 left-0 right-0 z-50`}
+        className={`${position === "fixed" ? "fixed" : position === "absolute" ? "absolute" : "sticky"} top-0 left-0 right-0 ${position === "absolute" ? "z-20" : "z-50"}`}
         style={{
           background: scrolled ? scrolledBg : transparentBg,
           backdropFilter: scrolled ? "blur(18px) saturate(160%)" : "none",
