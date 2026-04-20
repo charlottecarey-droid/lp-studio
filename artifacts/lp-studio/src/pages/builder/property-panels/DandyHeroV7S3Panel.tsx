@@ -26,8 +26,8 @@ export function DandyHeroV7S3Panel({ props: p, onChange }: Props) {
       <div className="space-y-1.5">
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">
-          <input type="color" value={p.bgColor ?? "#003A30"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
-          <Input value={p.bgColor ?? "#003A30"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
+          <input type="color" value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <Input value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
         </div>
       </div>
       <ImagePicker label="Background Image" value={p.backgroundImageUrl ?? ""} onChange={v => set("backgroundImageUrl", v || undefined)} />

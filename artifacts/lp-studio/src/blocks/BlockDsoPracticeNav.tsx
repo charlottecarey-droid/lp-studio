@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DsoPracticeNavBlockProps } from "@/lib/block-types";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 
-const BG = "#003A30";
+const BG = "var(--brand-primary)";
 const BG_ALT = "#002B24";
-const LIME = "#C7E738";
+const LIME = "#C7E738"; /* alpha-concat literal */
 const BORDER = "rgba(199,231,56,0.15)";
 
 interface Props {
@@ -74,7 +74,7 @@ export function BlockDsoPracticeNav({ props, brand }: Props) {
               <span className="text-white/30 text-sm font-light">×</span>
             </>
           )}
-          <img src={dandyLogoUrl} alt="Dandy" className="h-6 w-auto brightness-0 invert" />
+          <BrandLogo brand={brand} tone="onPrimary" alt={brand.brandName || "Logo"} className="h-6 w-auto" />
         </div>
 
         {/* Desktop nav links */}

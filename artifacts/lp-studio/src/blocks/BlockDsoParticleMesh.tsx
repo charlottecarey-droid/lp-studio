@@ -9,6 +9,14 @@ const AW    = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.42)";
 const BG    = "#001a13";
 
+/** Resolve a CSS var on `el` (or document.body) to a concrete color string for canvas use. */
+function resolveCssVar(varName: string, fallback: string, el?: Element | null): string {
+  if (typeof window === "undefined") return fallback;
+  const target = el || document.body;
+  const v = getComputedStyle(target).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
 /* ── Particle engine ── */
 interface Particle { x: number; y: number; vx: number; vy: number; r: number; opacity: number }
 
@@ -52,6 +60,8 @@ export function BlockDsoParticleMesh({ props }: Props) {
     const N    = isMobile ? 45 : 85;
     const DIST = isMobile ? 95 : 130;
 
+    const accent = resolveCssVar("--brand-accent", AW, sectionRef.current);
+
     function resize() {
       if (!canvas) return;
       const parent = canvas.parentElement;
@@ -86,7 +96,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
           const d2 = dx * dx + dy * dy;
           if (d2 < D2) {
             ctx.globalAlpha = (1 - Math.sqrt(d2) / DIST) * 0.22;
-            ctx.strokeStyle = "#C7E738";
+            ctx.strokeStyle = accent;
             ctx.lineWidth   = 0.7;
             ctx.beginPath();
             ctx.moveTo(ps[i].x, ps[i].y);
@@ -96,11 +106,11 @@ export function BlockDsoParticleMesh({ props }: Props) {
         }
       }
 
-      ctx.shadowColor = "#C7E738";
+      ctx.shadowColor = accent;
       ctx.shadowBlur  = 8;
       for (const p of ps) {
         ctx.globalAlpha = p.opacity;
-        ctx.fillStyle   = "#C7E738";
+        ctx.fillStyle   = accent;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();

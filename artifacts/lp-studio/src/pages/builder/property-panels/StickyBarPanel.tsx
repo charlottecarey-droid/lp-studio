@@ -73,12 +73,12 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
         <div className="flex gap-2 items-center mt-2">
           <input
             type="color"
-            value={p.ctaColor || "#C7E738"}
+            value={p.ctaColor || "var(--brand-accent)"}
             onChange={e => set("ctaColor", e.target.value)}
             className="w-8 h-8 rounded cursor-pointer"
           />
           <Input
-            value={p.ctaColor || "#C7E738"}
+            value={p.ctaColor || "var(--brand-accent)"}
             onChange={e => set("ctaColor", e.target.value)}
             className="flex-1 font-mono text-xs h-8"
           />

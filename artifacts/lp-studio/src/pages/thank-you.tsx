@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
+import { getBrandStyleVars } from "@/lib/brand-config";
 
 /**
  * Public-facing thank-you page at /thank-you.
@@ -25,11 +26,10 @@ export default function ThankYouPage() {
   const name = params.get("name");
   const nextUrl = params.get("next") || brand.defaultCtaUrl || "https://www.meetdandy.com";
 
-  const primaryColor = brand.primaryColor || "#003A30";
-  const accentColor = brand.accentColor || "#C7E738";
+  const primaryColor = brand.primaryColor || "var(--brand-primary)";
+  const accentColor = brand.accentColor || "var(--brand-accent)";
   const ctaBg = brand.ctaBackground || accentColor;
   const ctaText = brand.ctaText || primaryColor;
-  const logoUrl = brand.logoUrl || dandyLogoUrl;
 
   if (!loaded) {
     return (
@@ -40,16 +40,17 @@ export default function ThankYouPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: brand.pageBackground || "#ffffff" }}>
+    <div className="min-h-screen flex flex-col" style={{ background: brand.pageBackground || "#ffffff", ...getBrandStyleVars(brand) }} data-lp-page>
       {/* Nav bar */}
       <nav
         className="w-full px-6 py-4 flex items-center justify-between"
         style={{ background: brand.navBgColor || primaryColor }}
       >
-        <img
-          src={logoUrl}
-          alt={brand.copyrightName || "Logo"}
-          className="h-7 object-contain"
+        <BrandLogo
+          brand={brand}
+          tone="onDark"
+          alt={brand.copyrightName || brand.brandName || "Logo"}
+          className="h-7 w-auto"
         />
       </nav>
 

@@ -98,10 +98,10 @@ const scenarioApptsSaved: Record<Scenario, number> = { low: 1, medium: 1.5, high
 
 const BG_STYLES: Record<string, string> = {
   white: "bg-white",
-  dark: "bg-[#003A30] text-white",
+  dark: "bg-[var(--brand-primary)] text-white",
   "light-gray": "bg-slate-50",
   muted: "bg-[hsl(42,18%,96%)]",
-  "dandy-green": "bg-[#003A30] text-white",
+  "dandy-green": "bg-[var(--brand-primary)] text-white",
   black: "bg-black text-white",
 };
 
@@ -109,7 +109,7 @@ const BG_STYLES: Record<string, string> = {
 
 export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
-  const accentColor = props.accentColor ?? brand.accentColor ?? "#C7E738";
+  const accentColor = props.accentColor ?? brand.accentColor ?? "var(--brand-accent)";
   const dark = isDarkBg(props.backgroundStyle ?? "white");
   const headlineColor = dark ? "#fff" : "#0a1628";
   const subColor = dark ? "rgba(255,255,255,0.72)" : "#6b7280";
@@ -314,7 +314,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
                       onClick={() => setScenario(s)}
                       className={`py-2.5 text-sm font-semibold capitalize transition-all ${
                         scenario === s
-                          ? "text-[#003A30]"
+                          ? "text-[var(--brand-primary)]"
                           : "bg-background text-muted-foreground hover:text-foreground"
                       }`}
                       style={scenario === s ? { backgroundColor: accentColor } : undefined}
@@ -401,7 +401,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
                   if (ctaUrl && ctaUrl !== "#") safeNavigate(ctaUrl);
                 }}
                 className="w-full rounded-full py-3.5 text-sm font-bold uppercase tracking-widest transition-all hover:brightness-105 active:scale-[0.98]"
-                style={{ backgroundColor: accentColor, color: "#003A30" }}
+                style={{ backgroundColor: accentColor, color: "var(--brand-primary)" }}
               >
                 {props.ctaText}
               </button>
@@ -410,7 +410,7 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
 
           {/* ── RIGHT: Results panel ── */}
           <div className="lg:col-span-2">
-            <div className="rounded-2xl p-6 md:p-8 space-y-1 sticky top-24" style={{ backgroundColor: "#003A30" }}>
+            <div className="rounded-2xl p-6 md:p-8 space-y-1 sticky top-24" style={{ backgroundColor: "var(--brand-primary)" }}>
               <h3 className="text-2xl font-medium text-white tracking-tight mb-6">
                 {props.resultsPanelLabel ?? "Your results"}
               </h3>

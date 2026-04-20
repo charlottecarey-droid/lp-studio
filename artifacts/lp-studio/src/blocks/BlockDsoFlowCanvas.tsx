@@ -14,7 +14,7 @@ const BG_COLOR_MAP: Record<string, string> = {
   "light-gray": "#f3f4f6",
   "muted":      "hsl(48,100%,96%)",
   "dark":       "#1a1a1a",
-  "dandy-green":"#003A30",
+  "dandy-green":"var(--brand-primary)",
   "black":      "#000000",
   "gradient":   "#001a14",
 };

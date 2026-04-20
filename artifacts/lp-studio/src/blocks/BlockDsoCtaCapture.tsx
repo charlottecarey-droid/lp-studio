@@ -11,7 +11,7 @@ const API_BASE = "/api";
 
 const BG_HEX: Record<string, string> = {
   "dark":        "#1a1a1a",
-  "dandy-green": "#003A30",
+  "dandy-green": "var(--brand-primary)",
   "black":       "#000000",
   "gradient":    "#000000",
   "white":       "#ffffff",
@@ -67,9 +67,9 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
   } = props;
 
   const dark          = isDarkBg(backgroundStyle);
-  const pfg           = dark ? "hsl(48,100%,96%)"       : "#003A30";
+  const pfg           = dark ? "hsl(48,100%,96%)"       : "var(--brand-primary)";
   const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgba(0,58,48,0.55)";
-  const bgHex         = BG_HEX[backgroundStyle] ?? "#003A30";
+  const bgHex         = BG_HEX[backgroundStyle] ?? "var(--brand-primary)";
   const borderDefault = dark ? "rgba(199,231,56,0.18)"  : "rgba(0,58,48,0.20)";
   const borderFocused = dark ? "rgba(199,231,56,0.50)"  : "rgba(0,58,48,0.40)";
   const inputBgColor  = dark ? "rgba(255,255,255,0.05)" : "rgba(0,58,48,0.04)";
@@ -273,7 +273,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                   onClick={() => { setCpUrl(buildChiliPiperUrl(chilipiperUrl, email.trim(), company.trim())); setCpOpen(true); }}
                   style={{
                     alignSelf: "flex-start", marginTop: "0.25rem",
-                    background: AW, color: "#003A30", border: "none", borderRadius: 999,
+                    background: AW, color: "var(--brand-primary)", border: "none", borderRadius: 999,
                     padding: "9px 20px", fontWeight: 700, fontSize: "0.8125rem",
                     cursor: "pointer", fontFamily: DISPLAY_FONT,
                     display: "flex", alignItems: "center", gap: "0.4rem",
@@ -335,7 +335,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                     type="submit"
                     disabled={isLoading}
                     style={{
-                      background: AW, color: "#003A30", border: "none", borderRadius: 999,
+                      background: AW, color: "var(--brand-primary)", border: "none", borderRadius: 999,
                       padding: "13px 22px", fontWeight: 800, fontSize: "0.875rem",
                       cursor: isLoading ? "not-allowed" : "pointer", whiteSpace: "nowrap",
                       fontFamily: DISPLAY_FONT, letterSpacing: "-0.01em",
@@ -420,8 +420,8 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Calendar style={{ width: 16, height: 16, color: "#003A30" }} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#003A30", fontFamily: "'Inter',system-ui,sans-serif" }}>
+                <Calendar style={{ width: 16, height: 16, color: "var(--brand-primary)" }} />
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--brand-primary)", fontFamily: "'Inter',system-ui,sans-serif" }}>
                   Schedule a Meeting
                 </span>
               </div>

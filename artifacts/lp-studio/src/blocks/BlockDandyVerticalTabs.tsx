@@ -34,7 +34,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
         {(props.headline || props.subheadline) && (
           <div className="mb-14 max-w-2xl">
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
@@ -61,10 +61,10 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                 <div className="flex items-start gap-4">
                   <span className={cn(
                     "mt-1.5 w-1.5 rounded-full shrink-0 transition-all",
-                    i === active ? "bg-[#C7E738] self-stretch min-h-5" : "bg-transparent h-5"
+                    i === active ? "bg-[var(--brand-accent)] self-stretch min-h-5" : "bg-transparent h-5"
                   )} />
                   <div>
-                    <h3 className="text-xl font-bold text-[#003A30] mb-0 leading-snug">
+                    <h3 className="text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug">
                       <InlineText value={tab.title} onUpdate={onFieldChange ? (v) => updateTab(i, "title", v) : undefined} />
                     </h3>
                     {i === active && (
@@ -80,7 +80,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                         {tab.ctaText && (
                           <button
                             onClick={(e) => { e.stopPropagation(); safeNavigate(tab.ctaUrl); }}
-                            className="inline-flex items-center gap-2 text-base font-semibold text-[#003A30] hover:text-[#006651] transition-colors"
+                            className="inline-flex items-center gap-2 text-base font-semibold text-[var(--brand-primary)] hover:text-[#006651] transition-colors"
                           >
                             <InlineText value={tab.ctaText} onUpdate={onFieldChange ? (v) => updateTab(i, "ctaText", v) : undefined} />
                             <ArrowRight className="w-4 h-4" />

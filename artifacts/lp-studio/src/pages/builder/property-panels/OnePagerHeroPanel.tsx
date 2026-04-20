@@ -5,7 +5,7 @@ import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
 import { ImagePicker } from "@/components/ImagePicker";
 
-const LIME = "#C7E738";
+const LIME = "var(--brand-accent)";
 
 interface Props {
   blockType: string;
@@ -175,7 +175,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
               value={accent}
               onChange={e => onChange({ ...props, accentColor: e.target.value })}
               className="h-7 text-xs font-mono flex-1"
-              placeholder="#C7E738"
+              placeholder="var(--brand-accent)"
             />
           </div>
           <p className="text-[11px] text-muted-foreground">Used for the tagline and glow accent.</p>

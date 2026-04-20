@@ -64,14 +64,14 @@ function VideoThumbnail({ item, selected, onClick }: VideoThumbnailProps) {
       onClick={onClick}
       className={cn(
         "relative rounded-lg overflow-hidden border-2 text-left w-full transition-all focus:outline-none",
-        selected ? "border-[#C7E738] ring-2 ring-[#C7E738]/30" : "border-border hover:border-[#003A30]/40"
+        selected ? "border-[var(--brand-accent)] ring-2 ring-[rgb(var(--brand-accent-rgb)/0.3)]" : "border-border hover:border-[rgb(var(--brand-primary-rgb)/0.4)]"
       )}
     >
       <div className="aspect-video bg-slate-100 relative">
         {isEmbed ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-[#003A30]/10">
-            <Globe className="w-6 h-6 text-[#003A30]/50 mb-1" />
-            <span className="text-[10px] text-[#003A30]/50 font-medium">Embed</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-[rgb(var(--brand-primary-rgb)/0.1)]">
+            <Globe className="w-6 h-6 text-[rgb(var(--brand-primary-rgb)/0.5)] mb-1" />
+            <span className="text-[10px] text-[rgb(var(--brand-primary-rgb)/0.5)] font-medium">Embed</span>
           </div>
         ) : (
           <video
@@ -85,8 +85,8 @@ function VideoThumbnail({ item, selected, onClick }: VideoThumbnailProps) {
           <Play className="w-6 h-6 text-white drop-shadow" />
         </div>
         {selected && (
-          <div className="absolute top-1.5 right-1.5 bg-[#C7E738] rounded-full p-0.5">
-            <Check className="w-3 h-3 text-[#003A30]" />
+          <div className="absolute top-1.5 right-1.5 bg-[var(--brand-accent)] rounded-full p-0.5">
+            <Check className="w-3 h-3 text-[var(--brand-primary)]" />
           </div>
         )}
       </div>
@@ -185,8 +185,8 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
               muted
             />
           ) : (
-            <div className="w-full h-28 flex flex-col items-center justify-center bg-[#003A30]/10">
-              <Film className="w-8 h-8 text-[#003A30]/40 mb-1" />
+            <div className="w-full h-28 flex flex-col items-center justify-center bg-[rgb(var(--brand-primary-rgb)/0.1)]">
+              <Film className="w-8 h-8 text-[rgb(var(--brand-primary-rgb)/0.4)] mb-1" />
               <p className="text-xs text-slate-500 text-center px-2 truncate max-w-full">
                 {currentTitle ?? "Embedded video"}
               </p>
@@ -223,7 +223,7 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
               className={cn(
                 "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 tab === "library"
-                  ? "border-[#003A30] text-[#003A30]"
+                  ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
               onClick={() => setTab("library")}
@@ -234,7 +234,7 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
               className={cn(
                 "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 tab === "url"
-                  ? "border-[#003A30] text-[#003A30]"
+                  ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
               onClick={() => setTab("url")}
@@ -326,7 +326,7 @@ export function VideoPicker({ value, onChange, label }: VideoPickerProps) {
               <Button
                 type="button"
                 className="w-full"
-                style={{ backgroundColor: "#003A30", color: "white" }}
+                style={{ backgroundColor: "var(--brand-primary)", color: "white" }}
                 onClick={handleApplyUrl}
                 disabled={!customUrl.trim()}
               >

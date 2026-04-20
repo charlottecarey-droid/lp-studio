@@ -86,7 +86,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                 <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
               </p>
             )}
-            <h2 className="text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight">
+            <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
               <InlineText value={props.headline} onUpdate={field("headline")} />
             </h2>
             {props.subheadline && (
@@ -98,8 +98,8 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
               <ul className="space-y-4">
                 {(props.bullets ?? []).map((b, i) => (
                   <li key={i} className="flex items-start gap-4 text-base text-slate-700">
-                    <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[#C7E738] flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-[#003A30]" />
+                    <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center">
+                      <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                     </span>
                     <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
                   </li>
@@ -116,7 +116,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
           {/* Right: form card */}
           <div className="bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
             {props.formHeadline && (
-              <h3 className="text-2xl font-bold text-[#003A30] mb-1">
+              <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-1">
                 <InlineText value={props.formHeadline} onUpdate={field("formHeadline")} />
               </h3>
             )}
@@ -128,16 +128,16 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
 
             {formState === "success" ? (
               <div className="py-12 text-center">
-                <div className="w-16 h-16 rounded-full bg-[#C7E738] flex items-center justify-center mx-auto mb-5">
-                  <Check className="w-8 h-8 text-[#003A30]" />
+                <div className="w-16 h-16 rounded-full bg-[var(--brand-accent)] flex items-center justify-center mx-auto mb-5">
+                  <Check className="w-8 h-8 text-[var(--brand-primary)]" />
                 </div>
-                <p className="text-xl font-bold text-[#003A30] mb-3">
+                <p className="text-xl font-bold text-[var(--brand-primary)] mb-3">
                   {props.successMessage ?? "Thanks! We'll be in touch shortly."}
                 </p>
                 {props.chilipiperUrl && (
                   <button
                     onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, formData.email)); setCpOpen(true); }}
-                    className="mt-2 inline-flex items-center gap-2 bg-[#003A30] text-[#C7E738] font-bold px-5 py-2.5 rounded-full text-sm"
+                    className="mt-2 inline-flex items-center gap-2 bg-[var(--brand-primary)] text-[var(--brand-accent)] font-bold px-5 py-2.5 rounded-full text-sm"
                   >
                     <Calendar className="w-3.5 h-3.5" /> Schedule a call
                   </button>
@@ -153,7 +153,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                       value={formData.firstName}
                       onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                       placeholder="Jane"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[var(--brand-primary)] transition-colors"
                       required
                       disabled={formState === "loading"}
                     />
@@ -165,7 +165,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                       placeholder="Smith"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[var(--brand-primary)] transition-colors"
                       required
                       disabled={formState === "loading"}
                     />
@@ -178,7 +178,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="jane@yourpractice.com"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[var(--brand-primary)] transition-colors"
                     required
                     disabled={formState === "loading"}
                   />
@@ -190,14 +190,14 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="(555) 000-0000"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[#003A30] transition-colors"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 outline-none focus:border-[var(--brand-primary)] transition-colors"
                     disabled={formState === "loading"}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={formState === "loading"}
-                  className="w-full bg-[#C7E738] text-[#003A30] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="w-full bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold py-4 rounded-xl text-base hover:brightness-105 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {formState === "loading" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -224,8 +224,8 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
           <div className="relative w-full max-w-3xl h-[min(90vh,720px)] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#003A30]" />
-                <span className="text-sm font-semibold text-[#003A30]">Schedule a Meeting</span>
+                <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+                <span className="text-sm font-semibold text-[var(--brand-primary)]">Schedule a Meeting</span>
               </div>
               <button onClick={() => setCpOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded">
                 <X className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { FooterBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface Props {
   props: FooterBlockProps;
@@ -9,19 +9,20 @@ interface Props {
 }
 
 export function BlockFooter({ props, brand }: Props) {
-  const bg = props.backgroundColor || "#003A30";
-  const accent = props.accentColor || brand.accentColor || "#C7E738";
+  const bg = props.backgroundColor || "var(--brand-primary)";
+  const accent = props.accentColor || brand.accentColor || "var(--brand-accent)";
 
   return (
     <footer style={{ backgroundColor: bg }} className="w-full text-white">
       <div className="max-w-6xl mx-auto px-8 pt-16 pb-10">
         <div className="flex flex-col md:flex-row gap-12 md:gap-16">
           <div className="flex-shrink-0">
-            <img
-              src={dandyLogoUrl}
-              alt="Dandy"
+            <BrandLogo
+              brand={brand}
+              tone="onPrimary"
+              alt={brand.brandName || "Logo"}
               className="w-40 h-auto"
-              style={{ filter: "brightness(0) invert(1)", opacity: 0.9 }}
+              style={{ opacity: 0.9 }}
             />
           </div>
 

@@ -60,7 +60,7 @@ export function LibraryPicker({ open, onClose, type, onSelect, title, renderPrev
       <SheetContent side="right" className="w-[380px] sm:w-[420px] p-0 flex flex-col">
         <SheetHeader className="px-5 pt-5 pb-3 border-b">
           <SheetTitle className="flex items-center gap-2 text-sm">
-            <BookOpen className="w-4 h-4 text-[#C7E738]" />
+            <BookOpen className="w-4 h-4 text-[var(--brand-accent)]" />
             {title}
           </SheetTitle>
         </SheetHeader>
@@ -84,7 +84,7 @@ export function LibraryPicker({ open, onClose, type, onSelect, title, renderPrev
               key={item.id}
               className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                 selected.has(item.id)
-                  ? "border-[#C7E738] bg-[#C7E738]/5"
+                  ? "border-[var(--brand-accent)] bg-[rgb(var(--brand-accent-rgb)/0.05)]"
                   : "border-border hover:border-border/80 hover:bg-muted/30"
               }`}
             >
@@ -172,7 +172,7 @@ export function SaveItemToLibraryButton({ type, content, defaultName = "" }: Sav
           className={`transition-colors ${
             saved
               ? "text-emerald-600"
-              : "text-slate-400 hover:text-[#003A30]"
+              : "text-slate-400 hover:text-[var(--brand-primary)]"
           }`}
         >
           {saved ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
@@ -233,13 +233,13 @@ export function LibraryButtons({ type, title, renderPreview, onLoadDefaults, onA
 
   return (
     <>
-      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-[#C7E738]/10 border border-[#C7E738]/30">
-        <BookOpen className="w-3.5 h-3.5 text-[#003A30] shrink-0" />
-        <span className="text-[11px] font-semibold text-[#003A30] flex-1">Content Library</span>
+      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-[rgb(var(--brand-accent-rgb)/0.1)] border border-[rgb(var(--brand-accent-rgb)/0.3)]">
+        <BookOpen className="w-3.5 h-3.5 text-[var(--brand-primary)] shrink-0" />
+        <span className="text-[11px] font-semibold text-[var(--brand-primary)] flex-1">Content Library</span>
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 text-[10px] px-2 text-[#003A30] hover:bg-[#C7E738]/20"
+          className="h-6 text-[10px] px-2 text-[var(--brand-primary)] hover:bg-[rgb(var(--brand-accent-rgb)/0.2)]"
           onClick={handleLoadDefaults}
           disabled={loading}
         >
@@ -248,7 +248,7 @@ export function LibraryButtons({ type, title, renderPreview, onLoadDefaults, onA
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 text-[10px] px-2 text-[#003A30] hover:bg-[#C7E738]/20"
+          className="h-6 text-[10px] px-2 text-[var(--brand-primary)] hover:bg-[rgb(var(--brand-accent-rgb)/0.2)]"
           onClick={() => setPickerOpen(true)}
         >
           Browse

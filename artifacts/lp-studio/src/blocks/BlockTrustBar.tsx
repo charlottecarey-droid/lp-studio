@@ -33,7 +33,7 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
 export function BlockTrustBar({ props, brand, animationsEnabled = true }: Props) {
   const items = props.items ?? [];
   const bg = props.bgColor ?? "#F8FAF9";
-  const statColor = props.statColor ?? "#003A30";
+  const statColor = props.statColor ?? "var(--brand-primary)";
   const labelColor = props.labelColor ?? "#4A6358";
   const borderColor = props.borderColor ?? "#e2e8f0";
 

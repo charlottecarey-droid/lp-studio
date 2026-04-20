@@ -164,7 +164,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             transform: "translateX(-50%)",
             width: "70%",
             height: "60%",
-            background: "radial-gradient(ellipse at center, #C7E738 0%, transparent 70%)",
+            background: "radial-gradient(ellipse at center, var(--brand-accent) 0%, transparent 70%)",
             filter: "blur(1px)",
           }}
           initial={{ opacity: 0 }}
@@ -179,7 +179,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             right: "10%",
             width: "35%",
             height: "40%",
-            background: "radial-gradient(ellipse at center, #C7E738 0%, transparent 70%)",
+            background: "radial-gradient(ellipse at center, var(--brand-accent) 0%, transparent 70%)",
           }}
           initial={{ opacity: 0 }}
           animate={{ opacity: inView ? 0.03 : 0 }}
@@ -202,11 +202,11 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
             transition={{ duration: 0.7 }}
           >
-            <div className="h-px w-8 bg-[#C7E738]/40" />
-            <span className="text-[#C7E738] text-[10px] font-semibold tracking-[0.22em] uppercase">
+            <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
+            <span className="text-[var(--brand-accent)] text-[10px] font-semibold tracking-[0.22em] uppercase">
               Dandy Insights
             </span>
-            <div className="h-px w-8 bg-[#C7E738]/40" />
+            <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
           </motion.div>
 
           {/* Headline */}
@@ -230,7 +230,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           {/* Accent subtitle */}
           <div className="overflow-hidden mt-5 mb-5">
             <motion.p
-              className="text-lg md:text-xl text-[#C7E738] font-medium tracking-tight"
+              className="text-lg md:text-xl text-[var(--brand-accent)] font-medium tracking-tight"
               initial={{ y: 30, opacity: 0 }}
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
@@ -274,7 +274,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   <div className="w-3 h-3 rounded-full bg-green-500/80" />
                 </div>
                 <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
-                  <div className="w-2 h-2 rounded-full bg-[#C7E738]/60 shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.6)] shrink-0" />
                   <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
                     insights.meetdandy.com / dashboard
                   </span>
@@ -365,7 +365,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
               transition={{ duration: 0.8, delay, type: "spring", stiffness: 65, damping: 16 }}
             >
-              <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#C7E738]/50 to-transparent" />
+              <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.5)] to-transparent" />
 
               <div className="px-6 py-5 flex items-start gap-4">
                 <div
@@ -378,7 +378,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                     boxShadow: "0 0 12px rgba(199,231,56,0.08)",
                   }}
                 >
-                  <callout.icon className="w-4 h-4 text-[#C7E738]" />
+                  <callout.icon className="w-4 h-4 text-[var(--brand-accent)]" />
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
@@ -409,7 +409,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 36 }}
           transition={{ duration: 0.8, delay: 2.75, type: "spring", stiffness: 65, damping: 16 }}
         >
-          <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#C7E738]/50 to-transparent" />
+          <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.5)] to-transparent" />
           <div className="px-6 py-5 flex items-start gap-4">
             <div
               className="rounded-xl flex items-center justify-center shrink-0 mt-0.5"
@@ -421,7 +421,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 boxShadow: "0 0 12px rgba(199,231,56,0.08)",
               }}
             >
-              <ScanLine className="w-4 h-4 text-[#C7E738]" />
+              <ScanLine className="w-4 h-4 text-[var(--brand-accent)]" />
             </div>
             <div>
               <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">See every scan</h4>
@@ -448,10 +448,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
             transition={{ duration: 0.9, delay: 2.7 }}
           >
-            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[#C7E738]/40 to-transparent mb-10" />
+            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.4)] to-transparent mb-10" />
 
             <span
-              className="block text-[#C7E738] font-display font-bold leading-none mb-4 select-none"
+              className="block text-[var(--brand-accent)] font-display font-bold leading-none mb-4 select-none"
               style={{ fontSize: "4rem", lineHeight: 0.85, opacity: 0.9 }}
               aria-hidden
             >
@@ -475,7 +475,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               </div>
             )}
 
-            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[#C7E738]/40 to-transparent mt-10" />
+            <div className="w-24 h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.4)] to-transparent mt-10" />
           </motion.div>
         )}
 
@@ -490,7 +490,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             {props.ctaMode === "chilipiper" ? (
               <ChiliPiperButton
                 url={props.chilipiperUrl || props.ctaUrl || ""}
-                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[#C7E738] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgba(199,231,56,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
@@ -499,7 +499,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             ) : (
               <button
                 onClick={onCtaClick}
-                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[#C7E738] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgba(199,231,56,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}

@@ -4,7 +4,7 @@ import { getButtonClasses } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 import { motion } from "framer-motion";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
@@ -26,9 +26,11 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
     <header className="w-full bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
         <div className="shrink-0">
-          <img
-            src={props.logoUrl || dandyLogoUrl}
-            alt={props.logoText || "Dandy"}
+          <BrandLogo
+            brand={brand}
+            url={props.logoUrl}
+            tone="onLight"
+            alt={props.logoText || brand.brandName || "Logo"}
             className="h-8 w-auto"
           />
         </div>

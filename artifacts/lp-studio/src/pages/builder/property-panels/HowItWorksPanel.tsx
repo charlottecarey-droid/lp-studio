@@ -59,15 +59,15 @@ export function HowItWorksPanel({ blockType, props, onChange, brandVoiceSet }: P
           <div>
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle BG</Label>
             <div className="flex items-center gap-2">
-              <input type="color" value={props.circleBg ?? "#003A30"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
-              <Input value={props.circleBg ?? "#003A30"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="text-xs font-mono" />
+              <input type="color" value={props.circleBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.circleBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>
           <div>
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle Text</Label>
             <div className="flex items-center gap-2">
-              <input type="color" value={props.circleText ?? "#C7E738"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
-              <Input value={props.circleText ?? "#C7E738"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="text-xs font-mono" />
+              <input type="color" value={props.circleText ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.circleText ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>
         </div>

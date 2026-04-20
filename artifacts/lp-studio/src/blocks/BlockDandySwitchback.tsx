@@ -63,7 +63,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                 </p>
               )}
               {props.headline && (
-                <h2 className={cn("text-3xl md:text-4xl font-bold text-[#003A30] leading-tight mb-2", getHeadingWeightClass(brand))}>
+                <h2 className={cn("text-3xl md:text-4xl font-bold text-[var(--brand-primary)] leading-tight mb-2", getHeadingWeightClass(brand))}>
                   <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
                 </h2>
               )}
@@ -93,7 +93,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                     {isActive && (
                       <div className="h-0.5 w-full bg-slate-100 mb-5 rounded-full overflow-hidden">
                         <motion.div
-                          className="h-full bg-[#C7E738] rounded-full"
+                          className="h-full bg-[var(--brand-accent)] rounded-full"
                           initial={{ width: "0%" }}
                           animate={{ width: "100%" }}
                           transition={{ duration: items.length * 2, ease: "linear" }}
@@ -101,7 +101,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                         />
                       </div>
                     )}
-                    <h3 className={cn("text-xl font-bold text-[#003A30] mb-0 leading-snug", isActive && "mb-3")}>
+                    <h3 className={cn("text-xl font-bold text-[var(--brand-primary)] mb-0 leading-snug", isActive && "mb-3")}>
                       <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
                     </h3>
                     {isActive && (
@@ -116,7 +116,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                         {item.ctaText && (
                           <button
                             onClick={(e) => { e.stopPropagation(); safeNavigate(item.ctaUrl); }}
-                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#003A30] hover:text-[#006651] transition-colors"
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-primary)] hover:text-[#006651] transition-colors"
                           >
                             <InlineText value={item.ctaText} onUpdate={onFieldChange ? (v) => updateItem(i, "ctaText", v) : undefined} />
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -152,7 +152,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
                     onClick={() => setActiveIdx(i)}
                     className={cn(
                       "rounded-full transition-all",
-                      i === activeIdx ? "w-6 h-2 bg-[#003A30]" : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                      i === activeIdx ? "w-6 h-2 bg-[var(--brand-primary)]" : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
                     )}
                   />
                 ))}

@@ -88,8 +88,8 @@ export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
           <div>
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">New Card BG</Label>
             <div className="flex items-center gap-2">
-              <input type="color" value={props.newCardBg ?? "#003A30"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
-              <Input value={props.newCardBg ?? "#003A30"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="text-xs font-mono" />
+              <input type="color" value={props.newCardBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <Input value={props.newCardBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>
         </div>

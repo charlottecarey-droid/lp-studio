@@ -31,7 +31,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
   const [cpOpen, setCpOpen] = useState(false);
   const [cpUrl, setCpUrl] = useState("");
 
-  const bg = props.bgColor ?? "#003A30";
+  const bg = props.bgColor ?? "var(--brand-primary)";
   const bgImage = props.backgroundImageUrl;
 
   const field = (key: keyof DandyHeroV7S3BlockProps) =>
@@ -78,7 +78,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
 
       <div className="relative z-10 flex flex-col items-center text-center py-24 md:py-32 px-6 w-full max-w-4xl mx-auto">
         {props.eyebrow && (
-          <p className="text-xs font-bold uppercase tracking-widest text-[#C7E738] mb-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-5">
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
@@ -93,13 +93,13 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
 
         {formState === "success" ? (
           <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
-            <CheckCircle2 className="w-8 h-8 text-[#C7E738]" />
+            <CheckCircle2 className="w-8 h-8 text-[var(--brand-accent)]" />
             <p className="text-white font-bold text-lg">You're on the list!</p>
             <p className="text-green-100/70 text-sm">Check your inbox — we'll be in touch shortly.</p>
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
-                className="mt-1 flex items-center gap-2 bg-[#C7E738] text-[#003A30] font-bold px-5 py-2.5 rounded-full text-sm"
+                className="mt-1 flex items-center gap-2 bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-5 py-2.5 rounded-full text-sm"
               >
                 <Calendar className="w-3.5 h-3.5" /> Schedule a call
               </button>
@@ -112,14 +112,14 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={props.inputPlaceholder ?? "Enter your work email"}
-              className="flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 border-transparent focus:border-[#C7E738] transition-colors"
+              className="flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 border-transparent focus:border-[var(--brand-accent)] transition-colors"
               required
               disabled={formState === "loading"}
             />
             <button
               type="submit"
               disabled={formState === "loading"}
-              className="bg-[#C7E738] text-[#003A30] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
+              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base whitespace-nowrap hover:brightness-105 transition-all shrink-0 flex items-center gap-2 disabled:opacity-70"
             >
               {formState === "loading" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -140,7 +140,7 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t border-white/10 w-full">
             {(props.trustItems ?? []).map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
-                <span className="text-3xl font-bold text-[#C7E738]">{item.value}</span>
+                <span className="text-3xl font-bold text-[var(--brand-accent)]">{item.value}</span>
                 <span className="text-sm text-green-200/70">{item.label}</span>
               </div>
             ))}
@@ -156,8 +156,8 @@ export function BlockDandyHeroV7S3({ props, onFieldChange, pageId, variantId }: 
           <div className="relative w-full max-w-3xl h-[min(90vh,720px)] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#003A30]" />
-                <span className="text-sm font-semibold text-[#003A30]">Schedule a Meeting</span>
+                <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+                <span className="text-sm font-semibold text-[var(--brand-primary)]">Schedule a Meeting</span>
               </div>
               <button onClick={() => setCpOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded">
                 <X className="w-4 h-4" />

@@ -2,7 +2,7 @@ import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
@@ -76,7 +76,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           as="h1"
           value={props.headline}
           onUpdate={field("headline")}
-          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[#003A30]")}
+          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-white" : "text-[var(--brand-primary)]")}
         />
       </motion.div>
       {props.subheadline && (
@@ -85,7 +85,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             as="p"
             value={props.subheadline}
             onUpdate={field("subheadline")}
-            className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[#003A30]/70", !isSplit && "max-w-2xl")}
+            className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[rgb(var(--brand-primary-rgb)/0.7)]", !isSplit && "max-w-2xl")}
             multiline
           />
         </motion.div>
@@ -126,16 +126,16 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   );
 
   return (
-    <div className={cn("w-full font-sans selection:bg-[#C7E738] selection:text-[#003A30]", isDark ? "bg-[#003A30] text-white" : "bg-white text-slate-900")} style={bgExtended}>
+    <div className={cn("w-full font-sans selection:bg-[var(--brand-accent)] selection:text-[var(--brand-primary)]", isDark ? "bg-[var(--brand-primary)] text-white" : "bg-white text-slate-900")} style={bgExtended}>
       <div className="min-h-[70vh] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
-          <img src={dandyLogoUrl} alt="Dandy" className="h-8 w-auto" style={{ filter: "brightness(0) invert(1)" }} />
+          <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} className="h-8 w-auto" />
           <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand)} style={{ backgroundColor: LIME, color: FOREST }}>
             {brand.navCtaText}
           </a>
         </nav>
         <section
-          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[#003A30]" : "bg-white")}
+          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[var(--brand-primary)]" : "bg-white")}
           style={{ ...(contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }), ...(bgExtended ?? {}) }}
         >
           {isSplit ? (
@@ -156,8 +156,8 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">{textContent}</div>
           )}
           <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none">
-            <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[#003A30]/15")} />
-            <div className="animate-bounce"><ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[#003A30]/30")} /></div>
+            <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[rgb(var(--brand-primary-rgb)/0.15)]")} />
+            <div className="animate-bounce"><ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[rgb(var(--brand-primary-rgb)/0.3)]")} /></div>
           </div>
         </section>
       </div>

@@ -37,7 +37,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange }: Props) {
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
           </p>
         )}
-        <h2 className="text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
           <InlineText value={props.headline} onUpdate={field("headline")} />
         </h2>
         {props.subheadline && (
@@ -49,7 +49,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange }: Props) {
           {props.primaryCtaText && (
             <button
               onClick={() => safeNavigate(props.primaryCtaUrl)}
-              className="bg-[#C7E738] text-[#003A30] font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-10 py-4 rounded-xl text-base hover:brightness-105 transition-all"
             >
               <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
             </button>
@@ -57,7 +57,7 @@ export function BlockDandyCtaBlock({ props, brand, onFieldChange }: Props) {
           {props.secondaryCtaText && (
             <button
               onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className="border-2 border-[#003A30] text-[#003A30] font-semibold px-10 py-4 rounded-xl text-base hover:bg-[#003A30] hover:text-white transition-all"
+              className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-10 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>

@@ -88,11 +88,11 @@ export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
                 onClick={() => set("ctaType", opt.value)}
                 className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all ${
                   (p.ctaType ?? "url") === opt.value
-                    ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
+                    ? "border-[var(--brand-primary)] bg-[rgb(var(--brand-primary-rgb)/0.05)] text-[var(--brand-primary)]"
                     : "border-border text-slate-500 hover:border-slate-300 hover:bg-muted/50"
                 }`}
               >
-                <span className={(p.ctaType ?? "url") === opt.value ? "text-[#003A30]" : "text-slate-400"}>{opt.icon}</span>
+                <span className={(p.ctaType ?? "url") === opt.value ? "text-[var(--brand-primary)]" : "text-slate-400"}>{opt.icon}</span>
                 <span className="text-[11px] font-semibold">{opt.label}</span>
                 <span className="text-[10px] text-slate-400">{opt.hint}</span>
               </button>
@@ -172,12 +172,12 @@ export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
           <div className="flex gap-2 items-center mt-1.5">
             <input
               type="color"
-              value={p.ctaColor || "#C7E738"}
+              value={p.ctaColor || "var(--brand-accent)"}
               onChange={e => set("ctaColor", e.target.value)}
               className="w-8 h-8 rounded cursor-pointer border border-border"
             />
             <Input
-              value={p.ctaColor || "#C7E738"}
+              value={p.ctaColor || "var(--brand-accent)"}
               onChange={e => set("ctaColor", e.target.value)}
               className="flex-1 font-mono text-xs h-8"
             />
@@ -196,11 +196,11 @@ export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
               onClick={() => set("trigger", t.value as PopupBlockProps["trigger"])}
               className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all ${
                 p.trigger === t.value
-                  ? "border-[#003A30] bg-[#003A30]/5 text-[#003A30]"
+                  ? "border-[var(--brand-primary)] bg-[rgb(var(--brand-primary-rgb)/0.05)] text-[var(--brand-primary)]"
                   : "border-border text-slate-500 hover:border-slate-300 hover:bg-muted/50"
               }`}
             >
-              <span className={`${p.trigger === t.value ? "text-[#003A30]" : "text-slate-400"}`}>{t.icon}</span>
+              <span className={`${p.trigger === t.value ? "text-[var(--brand-primary)]" : "text-slate-400"}`}>{t.icon}</span>
               <span className="text-[11px] font-semibold leading-tight">{t.label}</span>
               <span className="text-[10px] text-slate-400 leading-tight">{t.hint}</span>
             </button>

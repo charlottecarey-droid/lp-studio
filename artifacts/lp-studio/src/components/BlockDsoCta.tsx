@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
-const BRAND     = "#003A30";
+const BRAND     = "var(--brand-primary)";
 const LIME      = "hsl(68,60%,52%)";
 const OFF_WHITE = "hsl(42,18%,96%)";
 const SPRING    = { type: "spring" as const, stiffness: 400, damping: 18 };

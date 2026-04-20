@@ -266,15 +266,15 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={props.overlayColor ?? "#003A30"}
+                value={props.overlayColor ?? "var(--brand-primary)"}
                 onChange={e => set("overlayColor", e.target.value)}
                 className="w-9 h-9 rounded border cursor-pointer shrink-0"
               />
               <Input
-                value={props.overlayColor ?? "#003A30"}
+                value={props.overlayColor ?? "var(--brand-primary)"}
                 onChange={e => set("overlayColor", e.target.value)}
                 className="text-sm font-mono"
-                placeholder="#003A30"
+                placeholder="var(--brand-primary)"
               />
             </div>
           </div>
@@ -307,7 +307,7 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
             <div
               className="w-full h-6 rounded"
               style={{
-                background: `linear-gradient(to right, transparent, ${props.overlayColor ?? "#003A30"}${Math.round((props.overlayOpacity ?? 50) / 100 * 255).toString(16).padStart(2, "0")})`,
+                background: `linear-gradient(to right, transparent, ${props.overlayColor ?? "var(--brand-primary)"}${Math.round((props.overlayOpacity ?? 50) / 100 * 255).toString(16).padStart(2, "0")})`,
               }}
             />
           </div>
@@ -365,12 +365,12 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={props.headerScrolledBg || "#003A30"}
+              value={props.headerScrolledBg || "var(--brand-primary)"}
               onChange={e => set("headerScrolledBg", e.target.value)}
               className="w-9 h-9 rounded border cursor-pointer"
             />
             <Input
-              value={props.headerScrolledBg || "#003A30"}
+              value={props.headerScrolledBg || "var(--brand-primary)"}
               onChange={e => set("headerScrolledBg", e.target.value)}
               className="text-sm font-mono"
             />

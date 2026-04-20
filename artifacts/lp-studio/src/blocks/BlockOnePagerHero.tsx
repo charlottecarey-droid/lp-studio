@@ -1,10 +1,10 @@
-import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 import type { OnePagerHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo } from "@/components/BrandLogo";
 
-const DARK_GREEN = "#003A30";
-const LIME = "#C7E738";
+const DARK_GREEN = "var(--brand-primary)";
+const LIME = "var(--brand-accent)";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const MOBILE_STYLES = `
@@ -65,7 +65,7 @@ function getPanelBackground(variant: string, accent: string): string {
         DARK_GREEN,
       ].join(", ");
     case "diagonal":
-      return `linear-gradient(135deg, #005B44 0%, #003A30 45%, #001E18 100%)`;
+      return `linear-gradient(135deg, #005B44 0%, var(--brand-primary) 45%, #001E18 100%)`;
     case "solid":
     default:
       return [
@@ -87,7 +87,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
-export function BlockOnePagerHero({ props, onFieldChange }: Props) {
+export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
   const { partnerName, headline, subtitle, tagline, sideImageUrl, phone } = props;
   const accent = props.accentColor ?? LIME;
   const panelVariant = props.panelVariant ?? "solid";
@@ -149,7 +149,7 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
 
           {/* Logo */}
           <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
-            <img src={dandyLogoWhiteUrl} alt="Dandy" style={{ height: 28, width: "auto" }} />
+            <BrandLogo brand={brand} tone="onPrimary" alt={brand?.brandName || "Logo"} className="h-7 w-auto" />
           </div>
 
           {/* Content */}
@@ -257,7 +257,7 @@ export function BlockOnePagerHero({ props, onFieldChange }: Props) {
               style={{
                 width: "100%",
                 height: "100%",
-                background: `linear-gradient(150deg, #005540 0%, #003A30 60%, #001E18 100%)`,
+                background: `linear-gradient(150deg, #005540 0%, var(--brand-primary) 60%, #001E18 100%)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

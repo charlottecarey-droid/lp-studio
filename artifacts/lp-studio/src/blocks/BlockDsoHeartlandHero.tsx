@@ -5,10 +5,12 @@ import { MuteToggleButton } from "@/components/MuteToggleButton";
 import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { StickyHeroNav } from "@/components/StickyHeroNav";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
+import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 
 interface Props {
   props: DsoHeartlandHeroBlockProps;
+  brand?: BrandConfig;
   onCtaClick?: () => void;
   /** When true, the block is being rendered inside the LP Studio builder canvas.
    *  In that case the sticky hero nav is rendered absolute-within-the-hero
@@ -21,7 +23,7 @@ const MUTED_FG = "hsl(192, 10%, 55%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 
-export function BlockDsoHeartlandHero({ props: p, onCtaClick, isBuilder }: Props) {
+export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder }: Props) {
   const heroRef = useRef<HTMLElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -191,8 +193,8 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick, isBuilder }: Props
 
   const stickyNavBar = p.stickyHeader ? (
     <StickyHeroNav
-      logoUrl={dandyLogoUrl}
-      logoAlt="Dandy"
+      brand={brand}
+      logoAlt={brand.brandName || "Logo"}
       companyName={company || undefined}
       navLinks={p.navLinks ?? []}
       primaryCtaText={p.primaryCtaText}
@@ -220,15 +222,11 @@ export function BlockDsoHeartlandHero({ props: p, onCtaClick, isBuilder }: Props
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <img
-          src={dandyLogoUrl}
-          alt="Dandy"
-          style={{
-            height: 26,
-            width: "auto",
-            filter: "brightness(0) invert(1)",
-            display: "block",
-          }}
+        <BrandLogo
+          brand={brand}
+          tone="onDark"
+          alt={brand.brandName || "Logo"}
+          style={{ height: 26, display: "block" }}
         />
         {company && (
           <>

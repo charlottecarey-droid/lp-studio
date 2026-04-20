@@ -309,8 +309,8 @@ export function RoiCalculatorPanel({ props, onChange }: Props) {
 
       <FieldRow label="Accent Color">
         <div className="flex items-center gap-2">
-          <input type="color" value={props.accentColor ?? "#C7E738"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="w-8 h-8 rounded cursor-pointer border border-border" />
-          <Input value={props.accentColor ?? "#C7E738"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="h-8 text-xs font-mono flex-1" />
+          <input type="color" value={props.accentColor ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="w-8 h-8 rounded cursor-pointer border border-border" />
+          <Input value={props.accentColor ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="h-8 text-xs font-mono flex-1" />
         </div>
       </FieldRow>
 

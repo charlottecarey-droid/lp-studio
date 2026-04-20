@@ -48,7 +48,7 @@ function UserAvatarDropdown() {
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt={user.name} className="h-7 w-7 rounded-full object-cover shrink-0 ring-2 ring-white/10" />
           ) : (
-            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#C7E738]/30 to-[#C7E738]/10 text-[#C7E738] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-2 ring-[#C7E738]/20">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[rgb(var(--brand-accent-rgb)/0.3)] to-[rgb(var(--brand-accent-rgb)/0.1)] text-[var(--brand-accent)] text-[11px] font-semibold flex items-center justify-center shrink-0 ring-2 ring-[rgb(var(--brand-accent-rgb)/0.2)]">
               {initials}
             </div>
           )}
@@ -337,7 +337,7 @@ export function SalesTopNav() {
       </div>
 
       {/* Bottom accent line */}
-      <div className="h-px bg-gradient-to-r from-transparent via-[#C7E738]/20 to-transparent" />
+      <div className="h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.2)] to-transparent" />
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (

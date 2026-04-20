@@ -2,7 +2,7 @@ import { Phone } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 import { safeNavigate } from "@/lib/safe-url";
 
 interface Props {
@@ -22,7 +22,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <header className="w-full bg-[#003A30] shadow-sm">
+    <header className="w-full bg-[var(--brand-primary)] shadow-sm">
       {/* Utility bar */}
       <div className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 md:px-10 h-10 flex items-center justify-end">
@@ -39,10 +39,12 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
         {/* Logo */}
         <div className="shrink-0">
-          <img
-            src={props.logoUrl || dandyLogoUrl}
-            alt="Dandy"
-            className="h-9 w-auto brightness-0 invert"
+          <BrandLogo
+            brand={brand}
+            url={props.logoUrl}
+            tone="onPrimary"
+            alt={brand.brandName || "Logo"}
+            className="h-9 w-auto"
           />
         </div>
 
@@ -90,7 +92,7 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           {props.primaryCtaText && (
             <button
               onClick={() => safeNavigate(props.primaryCtaUrl)}
-              className="bg-[#C7E738] text-[#003A30] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all"
+              className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-sm rounded-xl px-5 py-2.5 hover:brightness-110 transition-all"
             >
               <InlineText value={props.primaryCtaText} onUpdate={field("primaryCtaText")} />
             </button>

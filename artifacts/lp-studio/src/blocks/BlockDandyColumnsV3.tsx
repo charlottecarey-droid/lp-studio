@@ -30,7 +30,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
@@ -54,8 +54,8 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
                 />
               </div>
               <div className="flex items-center gap-4">
-                <span className="text-[#C7E738] font-bold text-2xl leading-none">{String(i + 1).padStart(2, "0")}.</span>
-                <h3 className="text-xl font-bold text-[#003A30] leading-tight">
+                <span className="text-[var(--brand-accent)] font-bold text-2xl leading-none">{String(i + 1).padStart(2, "0")}.</span>
+                <h3 className="text-xl font-bold text-[var(--brand-primary)] leading-tight">
                   <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
                 </h3>
               </div>

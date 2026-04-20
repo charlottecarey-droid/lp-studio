@@ -146,8 +146,8 @@ export function ChiliPiperButton({ url, children, className, style }: ChiliPiper
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Calendar style={{ width: 16, height: 16, color: "#003A30" }} />
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#003A30", fontFamily: "'Inter',system-ui,sans-serif" }}>
+                <Calendar style={{ width: 16, height: 16, color: "var(--brand-primary)" }} />
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--brand-primary)", fontFamily: "'Inter',system-ui,sans-serif" }}>
                   Schedule a Meeting
                 </span>
               </div>

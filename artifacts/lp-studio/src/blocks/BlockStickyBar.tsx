@@ -42,7 +42,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
   const isDark = !isBrand && isDarkBg(p.backgroundStyle);
 
   const barBgStyle = isBrand
-    ? { backgroundColor: brand.primaryColor || "#003A30" }
+    ? { backgroundColor: brand.primaryColor || "var(--brand-primary)" }
     : isDark || p.backgroundStyle === "gradient"
       ? getBgStyle(p.backgroundStyle)
       : { backgroundColor: p.backgroundStyle === "muted" ? "hsl(42,18%,96%)" : p.backgroundStyle === "light-gray" ? "#f8fafc" : "#ffffff" };
@@ -72,8 +72,8 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
           }}
           className="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-transform hover:scale-105 active:scale-95"
           style={{
-            backgroundColor: p.ctaColor || brand.ctaBackground || "#C7E738",
-            color: brand.ctaText || "#003A30",
+            backgroundColor: p.ctaColor || brand.ctaBackground || "var(--brand-accent)",
+            color: brand.ctaText || "var(--brand-primary)",
           }}
         >
           {p.ctaText}

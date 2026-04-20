@@ -411,6 +411,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return (
           <BlockStickyHeader
             props={block.props}
+            brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.primaryCtaUrl ?? "#") : undefined}
             isBuilder={isBuilder}
           />
@@ -479,6 +480,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return (
           <BlockDsoHeartlandHero
             props={block.props}
+            brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
             isBuilder={isBuilder}
           />

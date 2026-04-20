@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 export type ButtonRadius = "pill" | "rounded" | "slight" | "square";
 export type ButtonShadow = "none" | "sm" | "md" | "lg";
 export type ButtonPaddingX = "compact" | "regular" | "spacious";
@@ -119,6 +121,7 @@ export interface BrandConfig {
   segments: AudienceSegment[];
   chilipiperUrl?: string;
   logoUrl?: string;
+  logoAutoRecolor?: boolean;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
@@ -177,8 +180,71 @@ export const DEFAULT_BRAND: BrandConfig = {
   copyInstructions: "",
   productLines: [],
   segments: [],
-  logoUrl: "",
+  // Default to the Dandy logo served from `public/`. Tenants override this via
+  // Brand Settings → Logo. Resolves correctly under any artifact base path.
+  logoUrl: `${import.meta.env?.BASE_URL ?? "/"}dandy-logo.svg`,
+  logoAutoRecolor: true,
 };
+
+/* ----------------------------------------------------------------------------
+ * Brand-driven CSS variables
+ *
+ * Emit a set of CSS custom properties on a wrapper element so that any block
+ * descendant can reference brand colors via Tailwind arbitrary value classes
+ * (e.g. `bg-[var(--brand-primary)]`, `text-[var(--brand-accent)]`,
+ * `bg-[rgb(var(--brand-primary-rgb)/0.1)]` for opacity variants).
+ * -------------------------------------------------------------------------- */
+
+function hexToRgbTriplet(hex: string): string {
+  if (!isValidHex(hex)) return "0 0 0";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r} ${g} ${b}`;
+}
+
+/**
+ * Returns a contrast text color (black or white) for a given background hex,
+ * using simple WCAG-style luminance.
+ */
+export function contrastTextColor(hex: string): "#000000" | "#ffffff" {
+  if (!isValidHex(hex)) return "#ffffff";
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return L > 0.55 ? "#000000" : "#ffffff";
+}
+
+/**
+ * Build the inline style object that emits all brand CSS variables on a wrapper
+ * element. Apply at the top of the page-viewer and the builder canvas.
+ */
+export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
+  const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const accent = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
+  const text = isValidHex(brand.textColor) ? brand.textColor : DEFAULT_BRAND.textColor;
+  const onPrimary = contrastTextColor(primary);
+  const onAccent = contrastTextColor(accent);
+  const vars: Record<string, string> = {
+    "--brand-primary": primary,
+    "--brand-primary-rgb": hexToRgbTriplet(primary),
+    "--brand-accent": accent,
+    "--brand-accent-rgb": hexToRgbTriplet(accent),
+    "--brand-on-primary": onPrimary,
+    "--brand-on-accent": onAccent,
+    "--brand-text": text,
+    "--brand-text-rgb": hexToRgbTriplet(text),
+    "--brand-page-bg": brand.pageBackground || "#ffffff",
+    "--brand-card-bg": brand.cardBackground || "#ffffff",
+    "--brand-nav-bg": brand.navBgColor || "#000000",
+    "--brand-nav-text": brand.navText || "#ffffff",
+    "--brand-border": brand.borderColor || "#e2e8f0",
+    "--brand-cta-bg": brand.ctaBackground || accent,
+    "--brand-cta-text": brand.ctaText || onAccent,
+  };
+  return vars as CSSProperties;
+}
 
 const BUTTON_RADIUS: Record<ButtonRadius, string> = {
   pill: "rounded-full",

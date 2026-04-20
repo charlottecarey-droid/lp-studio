@@ -266,7 +266,7 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
           step={50}
           value={s.animationDelay ?? 0}
           onChange={e => set("animationDelay", Number(e.target.value))}
-          className="w-full accent-[#003A30]"
+          className="w-full accent-[var(--brand-primary)]"
         />
         <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
           <span>0ms</span>
@@ -300,7 +300,7 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
               step={5}
               value={s.bgImageOpacity ?? 100}
               onChange={e => set("bgImageOpacity", Number(e.target.value))}
-              className="w-full accent-[#003A30]"
+              className="w-full accent-[var(--brand-primary)]"
             />
           </div>
 
@@ -314,7 +314,7 @@ export function BlockSettingsPanel({ settings, onChange }: Props) {
               role="switch"
               aria-checked={s.bgImageParallax ?? false}
               onClick={() => set("bgImageParallax", !(s.bgImageParallax ?? false))}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${s.bgImageParallax ? "bg-[#003A30]" : "bg-slate-200"}`}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${s.bgImageParallax ? "bg-[var(--brand-primary)]" : "bg-slate-200"}`}
             >
               <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${s.bgImageParallax ? "translate-x-4" : "translate-x-0"}`} />
             </button>

@@ -147,9 +147,9 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   const bgStyles: Record<string, string> = {
     "white": "bg-white",
     "light-gray": "bg-gray-50",
-    "dark": "bg-[#003A30] text-white",
+    "dark": "bg-[var(--brand-primary)] text-white",
     "muted": "bg-[hsl(42,18%,96%)]",
-    "dandy-green": "bg-[#003A30] text-white",
+    "dandy-green": "bg-[var(--brand-primary)] text-white",
     "black": "bg-black text-white",
   };
 
@@ -326,7 +326,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     }
   };
 
-  const accentColor = props.submitButtonColor || brand.primaryColor || "#C7E738";
+  const accentColor = props.submitButtonColor || brand.primaryColor || "var(--brand-accent)";
 
   const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
 
@@ -433,7 +433,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               onClick={isLastStep ? handleSubmit : handleNext}
               disabled={submitting}
               className="flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-60"
-              style={{ background: accentColor, color: props.submitButtonTextColor ?? (isDark ? "#003A30" : "#1a1a1a") }}
+              style={{ background: accentColor, color: props.submitButtonTextColor ?? (isDark ? "var(--brand-primary)" : "#1a1a1a") }}
             >
               {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>

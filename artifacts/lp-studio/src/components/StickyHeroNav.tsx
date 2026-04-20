@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
+import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 
 export interface StickyHeroNavLink {
   label: string;
@@ -9,6 +10,8 @@ export interface StickyHeroNavLink {
 }
 
 export interface StickyHeroNavProps {
+  /** Brand for the logo (auto-recolor + fallback). When omitted, defaults are used. */
+  brand?: BrandConfig;
   logoUrl?: string;
   logoAlt?: string;
   /** Optional partner / company shown as "logo × Company" */
@@ -35,6 +38,7 @@ export interface StickyHeroNavProps {
 const DEFAULT_ACCENT = "hsl(72, 55%, 48%)";
 
 export function StickyHeroNav({
+  brand,
   logoUrl,
   logoAlt = "Logo",
   companyName,
@@ -125,15 +129,12 @@ export function StickyHeroNav({
         >
           {/* Logo + optional company */}
           <div className="flex items-center gap-3 min-w-0">
-            <img
-              src={logoUrl || dandyLogoUrl}
+            <BrandLogo
+              brand={brand ?? DEFAULT_BRAND}
+              url={logoUrl}
+              tone={shouldInvertLogo ? "onDark" : "onLight"}
               alt={logoAlt}
-              style={{
-                height: 24,
-                width: "auto",
-                display: "block",
-                filter: shouldInvertLogo ? "brightness(0) invert(1)" : undefined,
-              }}
+              style={{ height: 24, display: "block" }}
             />
             {companyName && (
               <>

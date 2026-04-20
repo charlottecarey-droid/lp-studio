@@ -60,10 +60,10 @@ const ASPECT_CLASSES: Record<string, string> = {
 
 const BG_CLASSES: Record<string, string> = {
   white: "bg-white text-slate-900",
-  dark: "bg-[#003A30] text-white",
+  dark: "bg-[var(--brand-primary)] text-white",
   "light-gray": "bg-slate-50 text-slate-900",
   muted: "bg-[hsl(42,18%,96%)] text-slate-900",
-  "dandy-green": "bg-[#003A30] text-white",
+  "dandy-green": "bg-[var(--brand-primary)] text-white",
   black: "bg-black text-white",
 };
 
@@ -305,7 +305,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
           "font-display mb-4 leading-tight",
           getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
-          isDark ? "text-white" : "text-[#003A30]"
+          isDark ? "text-white" : "text-[var(--brand-primary)]"
         )}>
           {props.headline}
         </h2>
@@ -313,7 +313,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
       {props.subheadline && (
         <p className={cn(
           getBodySizeClass(brand), "leading-relaxed mb-6",
-          isDark ? "text-white/70" : "text-[#003A30]/70"
+          isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
         )}>
           {props.subheadline}
         </p>
@@ -380,7 +380,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                   getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
                   "font-display mb-4",
                   getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand),
-                  isDark ? "text-white" : "text-[#003A30]"
+                  isDark ? "text-white" : "text-[var(--brand-primary)]"
                 )}>
                   {props.headline}
                 </h2>
@@ -388,7 +388,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               {props.subheadline && (
                 <p className={cn(
                   getBodySizeClass(brand), "leading-relaxed",
-                  isDark ? "text-white/70" : "text-[#003A30]/70"
+                  isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
                 )}>
                   {props.subheadline}
                 </p>

@@ -383,7 +383,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Input className="h-8 text-xs" placeholder="URL" value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} />
             </div>
             <div className="space-y-1.5">
-              <ColorField label="CTA color" value={p.accentColor ?? "#C7E738"} onChange={v => onChange({ ...block, props: { ...p, accentColor: v } })} />
+              <ColorField label="CTA color" value={p.accentColor ?? "var(--brand-accent)"} onChange={v => onChange({ ...block, props: { ...p, accentColor: v } })} />
             </div>
           </div>
         );
@@ -3939,14 +3939,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <TabsList className="w-full h-8 mb-0 rounded-none rounded-t bg-transparent border-0 p-0 gap-0">
               <TabsTrigger
                 value="content"
-                className="flex-1 h-8 text-xs gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-[#003A30] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                className="flex-1 h-8 text-xs gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--brand-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 <AlignLeft className="w-3 h-3" />
                 Content
               </TabsTrigger>
               <TabsTrigger
                 value="style"
-                className="flex-1 h-8 text-xs gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-[#003A30] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                className="flex-1 h-8 text-xs gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--brand-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 <SlidersHorizontal className="w-3 h-3" />
                 Style

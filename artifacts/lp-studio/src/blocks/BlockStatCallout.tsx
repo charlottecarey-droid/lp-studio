@@ -38,7 +38,7 @@ export function BlockStatCallout({ props, brand, onFieldChange, animationsEnable
   const countUpActive = (props.countUpEnabled ?? true) && animationsEnabled && !onFieldChange;
 
   return (
-    <section className={cn("w-full bg-[#003A30] px-6 text-center", sectionPy)}>
+    <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)}>
       <div className="max-w-4xl mx-auto flex flex-col items-center">
         <div className={cn("text-8xl md:text-[10rem] font-display leading-none mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ color: LIME }}>
           {onFieldChange ? (

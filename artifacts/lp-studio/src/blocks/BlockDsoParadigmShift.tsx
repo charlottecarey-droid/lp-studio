@@ -11,7 +11,7 @@ interface Props {
 }
 
 const BRAND   = "#003A30";
-const LIME    = "#C7E738";
+const LIME    = "#C7E738"; /* alpha-concat literal */
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoParadigmShift({ props, brand }: Props) {

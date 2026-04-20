@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils";
 import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-types";
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
-import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { BrandLogo } from "@/components/BrandLogo";
+import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
@@ -504,7 +504,7 @@ export default function LandingPageViewer() {
     const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
 
     return (
-      <div className="min-h-screen w-full font-sans" data-lp-page>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -593,7 +593,7 @@ export default function LandingPageViewer() {
     };
 
     return (
-      <div className="min-h-screen w-full font-sans" data-lp-page>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -696,7 +696,7 @@ export default function LandingPageViewer() {
     <div className={cn(
       "min-h-screen w-full font-sans",
       isDark ? "bg-background text-foreground" : "bg-background text-foreground"
-    )}>
+    )} style={getBrandStyleVars(brand)} data-lp-page>
       
       <style>{`
         @keyframes marquee {
@@ -739,12 +739,7 @@ export default function LandingPageViewer() {
 
       {/* 2. Nav */}
       <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative bg-background">
-        <img
-          src={dandyLogoUrl}
-          alt="Dandy"
-          className="h-8 w-auto"
-          style={{ filter: "brightness(0) invert(1)" }}
-        />
+        <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || brand.copyrightName || "Logo"} className="h-8 w-auto" />
         <button
           className="px-4 py-2 rounded-lg bg-foreground text-background font-semibold"
         >
@@ -1158,12 +1153,7 @@ export default function LandingPageViewer() {
           <div className="flex flex-col md:flex-row gap-12 md:gap-16">
             {/* Logo */}
             <div className="flex-shrink-0">
-              <img
-                src={dandyLogoUrl}
-                alt="Dandy"
-                className="w-40 h-auto"
-                style={{ filter: "brightness(0) invert(1)", opacity: 0.9 }}
-              />
+              <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || brand.copyrightName || "Logo"} className="w-40 h-auto" style={{ opacity: 0.9 }} />
             </div>
 
             {/* Nav columns */}

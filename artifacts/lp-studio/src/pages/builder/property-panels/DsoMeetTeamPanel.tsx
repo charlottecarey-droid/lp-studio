@@ -122,7 +122,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
                     onClick={() => void handleSaveToLibrary(i)}
                     disabled={savingIdx === i}
                     title="Save to Sales Reps library"
-                    className={`transition-colors ${savedIdx === i ? "text-emerald-600" : "text-slate-400 hover:text-[#003A30]"}`}
+                    className={`transition-colors ${savedIdx === i ? "text-emerald-600" : "text-slate-400 hover:text-[var(--brand-primary)]"}`}
                   >
                     {savingIdx === i
                       ? <Loader2 className="w-3.5 h-3.5 animate-spin" />

@@ -375,7 +375,7 @@ export default function SalesDashboard() {
             <p className="text-muted-foreground mt-1 text-sm">Here's what needs your attention today.</p>
           </div>
           <Link href="/sales/accounts" className="hidden sm:block">
-            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
+            <Button size="sm" className="rounded-lg font-medium text-[13px] shadow-sm" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />New account
             </Button>
           </Link>
@@ -715,7 +715,7 @@ export default function SalesDashboard() {
             ].map(tool => (
               <Link href={tool.href} key={tool.id}>
                 <div className="group flex items-center gap-3 px-4 py-3.5 bg-card border border-border/50 rounded-xl hover:border-border hover:shadow-sm transition-all duration-200 cursor-pointer">
-                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:bg-[#1B4332]/10 group-hover:text-[#1B4332] dark:group-hover:bg-[#C7E738]/10 dark:group-hover:text-[#C7E738] transition-colors shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:bg-[#1B4332]/10 group-hover:text-[#1B4332] dark:group-hover:bg-[rgb(var(--brand-accent-rgb)/0.1)] dark:group-hover:text-[var(--brand-accent)] transition-colors shrink-0">
                     {tool.icon}
                   </div>
                   <span className="text-[13px] font-medium text-foreground">{tool.title}</span>
@@ -739,14 +739,14 @@ export default function SalesDashboard() {
                 <Link href={item.href} key={item.step}>
                   <Card className={`group h-full flex flex-col gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-sm ${item.primary ? "border-[#1B4332]/20 bg-[#1B4332]/[0.03] hover:border-[#1B4332]/30" : "border-border/50 bg-card hover:border-border"}`}>
                     <div className="flex items-start justify-between">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.primary ? "bg-[#1B4332] text-[#C7E738]" : "bg-muted/60 text-muted-foreground group-hover:bg-muted transition-colors"}`}>{item.icon}</div>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.primary ? "bg-[#1B4332] text-[var(--brand-accent)]" : "bg-muted/60 text-muted-foreground group-hover:bg-muted transition-colors"}`}>{item.icon}</div>
                       <span className="text-[11px] font-semibold text-muted-foreground/40 tabular-nums">Step {item.step}</span>
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-foreground mb-1">{item.title}</h3>
                       <p className="text-[13px] text-muted-foreground leading-relaxed">{item.desc}</p>
                     </div>
-                    <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-[#1B4332] dark:text-[#C7E738]">{item.cta} <ChevronRight className="w-3.5 h-3.5" /></div>
+                    <div className="mt-auto flex items-center gap-1 text-[13px] font-medium text-[#1B4332] dark:text-[var(--brand-accent)]">{item.cta} <ChevronRight className="w-3.5 h-3.5" /></div>
                   </Card>
                 </Link>
               ))}
@@ -838,7 +838,7 @@ export default function SalesDashboard() {
                           {/* Quick actions — hidden on mobile, hover-reveal on desktop */}
                           <div className="hidden sm:flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <Link href={`/sales/draft-email?accountId=${acct.id}`} onClick={e => e.stopPropagation()}>
-                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
+                              <Button size="sm" className="h-7 px-2.5 text-xs gap-1 rounded-lg" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
                                 <PenTool className="w-3 h-3" />Email
                               </Button>
                             </Link>
@@ -964,7 +964,7 @@ export default function SalesDashboard() {
                           <div className="flex items-center gap-1.5 mt-auto pt-1">
                             {noMicrosite ? (
                               <Link href={`/sales/accounts?highlight=${acct.id}`}>
-                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg" style={{ backgroundColor: "#1B4332", color: "#C7E738" }}>
+                                <Button size="sm" className="h-7 px-2.5 text-xs gap-1 w-full rounded-lg" style={{ backgroundColor: "#1B4332", color: "var(--brand-accent)" }}>
                                   <Sparkles className="w-3 h-3" />Generate microsite
                                 </Button>
                               </Link>

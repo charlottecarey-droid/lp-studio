@@ -22,7 +22,7 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className={cn("w-full bg-[#003A30] text-white px-6", sectionPy)}>
+    <section className={cn("w-full bg-[var(--brand-primary)] text-white px-6", sectionPy)}>
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
         <div className="md:w-1/2 space-y-6">
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
@@ -32,7 +32,7 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
           <ul className="space-y-4">
             {props.bullets?.map((bullet, i) => (
               <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                <AlertTriangle className="w-6 h-6 text-[#C7E738] shrink-0 mt-0.5" />
+                <AlertTriangle className="w-6 h-6 text-[var(--brand-accent)] shrink-0 mt-0.5" />
                 <InlineText as="span" value={bullet} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} className="text-white/90 font-medium leading-relaxed" multiline />
               </li>
             ))}

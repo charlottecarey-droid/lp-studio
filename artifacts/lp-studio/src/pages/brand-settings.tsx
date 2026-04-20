@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ContentLibraryContent } from "@/pages/content-library";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
-  SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2,
+  SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2,
 } from "lucide-react";
@@ -33,6 +33,7 @@ import type {
 } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -973,6 +974,85 @@ export default function BrandSettings() {
         </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* SECTION 0 — LOGO & IDENTITY */}
+              <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <ImageIcon className="w-4 h-4 text-primary" />
+                  <h2 className="font-display font-semibold text-lg">Logo</h2>
+                </div>
+                <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-8">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Logo URL</Label>
+                      <p className="text-xs text-muted-foreground mb-2">SVG recommended for crispness and auto-recoloring on dark/light surfaces.</p>
+                      <Input
+                        value={config.logoUrl ?? ""}
+                        onChange={(e) => update("logoUrl", e.target.value)}
+                        placeholder="https://… or /assets/logo.svg"
+                      />
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="logoAutoRecolor"
+                        checked={config.logoAutoRecolor ?? true}
+                        onCheckedChange={(v) => update("logoAutoRecolor", v === true)}
+                      />
+                      <div className="flex flex-col">
+                        <Label htmlFor="logoAutoRecolor" className="text-sm font-medium cursor-pointer">
+                          Auto-recolor monochrome SVG
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Repaint the logo to match each surface (white on dark headers, brand color on light backgrounds, etc.). Turn off if your logo is multi-color.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Preview tiles */}
+                  <div className="flex flex-col gap-3">
+                    <Label className="text-sm font-medium">Preview</Label>
+                    {(() => {
+                      const previewBrand = { ...config, logoAutoRecolor: config.logoAutoRecolor ?? true } as BrandConfig;
+                      // Pick black/white for on-* by relative luminance so light primaries
+                      // don't render as white-on-white in the preview.
+                      const readableOn = (hex: string): string => {
+                        const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+                        if (!m) return "#ffffff";
+                        const n = parseInt(m[1], 16);
+                        const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+                        const lin = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
+                        const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+                        return L > 0.5 ? "#000000" : "#ffffff";
+                      };
+                      const primaryHex = config.primaryColor || "#003A30";
+                      const accentHex = config.accentColor || "#C7E738";
+                      const styleVars = {
+                        "--brand-primary": primaryHex,
+                        "--brand-accent": accentHex,
+                        "--brand-on-primary": readableOn(primaryHex),
+                        "--brand-on-accent": readableOn(accentHex),
+                      } as React.CSSProperties;
+                      return (
+                        <div className="grid grid-cols-3 gap-2" style={styleVars}>
+                          <div className="rounded-lg border border-border bg-white p-3 flex items-center justify-center h-20">
+                            <BrandLogo brand={previewBrand} tone="onLight" alt="Light" className="h-8 w-auto" />
+                          </div>
+                          <div className="rounded-lg border border-border p-3 flex items-center justify-center h-20" style={{ backgroundColor: config.primaryColor || "#003A30" }}>
+                            <BrandLogo brand={previewBrand} tone="onPrimary" alt="Primary" className="h-8 w-auto" />
+                          </div>
+                          <div className="rounded-lg border border-border p-3 flex items-center justify-center h-20 bg-slate-900">
+                            <BrandLogo brand={previewBrand} tone="onDark" alt="Dark" className="h-8 w-auto" />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Light surface · Primary color · Dark surface
+                    </p>
+                  </div>
+                </div>
+              </Card>
 
               {/* SECTION 1 — COLORS */}
               <Card className="p-6 flex flex-col gap-5 lg:col-span-2">

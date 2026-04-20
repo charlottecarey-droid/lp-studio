@@ -56,7 +56,7 @@ export function PhotoStripPanel({ props, onChange }: Props) {
           step={4}
           value={props.gap ?? 0}
           onChange={e => set("gap", Number(e.target.value))}
-          className="w-full accent-[#003A30]"
+          className="w-full accent-[var(--brand-primary)]"
         />
         <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
           <span>None (tight)</span>

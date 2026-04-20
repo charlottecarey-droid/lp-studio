@@ -709,10 +709,10 @@ const BG_STYLE: Record<string, React.CSSProperties> = {
   light:    { background: "#fff" },
   "light-gray": { background: "#f8fafc" },
   muted:    { background: "hsl(42,18%,96%)" },
-  dark:     { background: "#003A30", color: "#fff" },
-  "dandy-green": { background: "#003A30", color: "#fff" },
+  dark:     { background: "var(--brand-primary)", color: "#fff" },
+  "dandy-green": { background: "var(--brand-primary)", color: "#fff" },
   black:    { background: "#000000", color: "#fff" },
-  gradient: { background: "radial-gradient(ellipse 120% 100% at 50% 50%, #003A30 0%, #001a14 55%, #000000 100%)", color: "#fff" },
+  gradient: { background: "radial-gradient(ellipse 120% 100% at 50% 50%, var(--brand-primary) 0%, #001a14 55%, #000000 100%)", color: "#fff" },
 };
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 

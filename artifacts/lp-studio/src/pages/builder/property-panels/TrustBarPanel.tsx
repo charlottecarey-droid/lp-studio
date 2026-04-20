@@ -55,7 +55,7 @@ export function TrustBarPanel({ props, onChange }: Props) {
         <ColorRow
           label="Stat / Number"
           value={props.statColor}
-          defaultValue="#003A30"
+          defaultValue="var(--brand-primary)"
           onChange={v => onChange({ ...props, statColor: v })}
         />
         <ColorRow

@@ -100,7 +100,7 @@ function ChilipiperModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#003A30]" />
+            <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
             <span className="text-sm font-semibold text-slate-800">
               {step === "form" ? "Book a call" : "Pick a time"}
             </span>
@@ -128,7 +128,7 @@ function ChilipiperModal({
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Jane Smith"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#003A30] focus:ring-2 focus:ring-[#003A30]/10 transition-all"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.1)] transition-all"
                 />
               </div>
             )}
@@ -148,7 +148,7 @@ function ChilipiperModal({
                   "w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all",
                   emailError
                     ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-                    : "border-slate-200 focus:border-[#003A30] focus:ring-2 focus:ring-[#003A30]/10"
+                    : "border-slate-200 focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.1)]"
                 )}
               />
               {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
@@ -159,8 +159,8 @@ function ChilipiperModal({
               disabled={submitting}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-5 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-60"
               style={{
-                backgroundColor: p.ctaColor || brand.ctaBackground || "#C7E738",
-                color: brand.ctaText || "#003A30",
+                backgroundColor: p.ctaColor || brand.ctaBackground || "var(--brand-accent)",
+                color: brand.ctaText || "var(--brand-primary)",
               }}
             >
               {submitting
@@ -249,8 +249,8 @@ function PopupOverlay({
               onClick={onDismiss}
               className="w-full py-3 px-6 rounded-lg font-semibold text-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
               style={{
-                backgroundColor: p.ctaColor || brand.ctaBackground || "#C7E738",
-                color: brand.ctaText || "#003A30",
+                backgroundColor: p.ctaColor || brand.ctaBackground || "var(--brand-accent)",
+                color: brand.ctaText || "var(--brand-primary)",
               }}
             >
               {p.ctaText}
@@ -340,14 +340,14 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
 
     return (
       <>
-        <div className="relative mx-auto my-2 max-w-md rounded-xl border-2 border-dashed border-[#C7E738]/60 bg-[#C7E738]/5 p-4 flex items-center gap-4">
+        <div className="relative mx-auto my-2 max-w-md rounded-xl border-2 border-dashed border-[rgb(var(--brand-accent-rgb)/0.6)] bg-[rgb(var(--brand-accent-rgb)/0.05)] p-4 flex items-center gap-4">
           {p.imageUrl && (
             <img src={p.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#003A30]/50">Popup</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#C7E738]/30 text-[#003A30] font-medium">{triggerLabel}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--brand-primary-rgb)/0.5)]">Popup</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.3)] text-[var(--brand-primary)] font-medium">{triggerLabel}</span>
               {isChiliPiper && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1">
                   <Calendar className="w-2.5 h-2.5" />Chili Piper
@@ -360,7 +360,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
           {!isBuilder && (
             <button
               onClick={() => setPreviewOpen(true)}
-              className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#003A30] text-white hover:bg-[#003A30]/80 transition-colors"
+              className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--brand-primary)] text-white hover:bg-[rgb(var(--brand-primary-rgb)/0.8)] transition-colors"
             >
               <MousePointerClick className="w-3.5 h-3.5" />
               Preview
@@ -391,7 +391,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
                 {p.ctaText && (
                   <button
                     className="w-full py-3 px-6 rounded-lg font-semibold text-sm"
-                    style={{ backgroundColor: p.ctaColor || "#C7E738", color: brand.ctaText || "#003A30" }}
+                    style={{ backgroundColor: p.ctaColor || "var(--brand-accent)", color: brand.ctaText || "var(--brand-primary)" }}
                     onClick={() => setPreviewOpen(false)}
                   >
                     {p.ctaText}
@@ -422,8 +422,8 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
             onClick={() => { if (isChiliPiper) setCpOpen(true); else setVisible(true); }}
             className="py-3 px-8 rounded-lg font-semibold text-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
             style={{
-              backgroundColor: p.ctaColor || brand.ctaBackground || "#C7E738",
-              color: brand.ctaText || "#003A30",
+              backgroundColor: p.ctaColor || brand.ctaBackground || "var(--brand-accent)",
+              color: brand.ctaText || "var(--brand-primary)",
             }}
           >
             {isChiliPiper
@@ -489,7 +489,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
             <button
               onClick={handleCtaClick}
               className="w-full py-3 px-6 rounded-lg font-semibold text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-              style={{ backgroundColor: p.ctaColor || brand.ctaBackground || "#C7E738", color: brand.ctaText || "#003A30" }}
+              style={{ backgroundColor: p.ctaColor || brand.ctaBackground || "var(--brand-accent)", color: brand.ctaText || "var(--brand-primary)" }}
             >
               {isChiliPiper && <Calendar className="w-4 h-4" />}
               {p.ctaText}

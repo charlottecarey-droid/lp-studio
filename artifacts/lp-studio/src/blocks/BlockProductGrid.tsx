@@ -28,7 +28,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true }: Pro
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           {props.headline && (
-            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[#003A30] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}>{props.headline}</h2>
+            <h2 className={cn(getHeadlineSizeClass(undefined, brand.h2Size ?? "lg"), "font-display text-[var(--brand-primary)] mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}>{props.headline}</h2>
           )}
           {props.subheadline && (
             <p className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")}>{props.subheadline}</p>
@@ -54,7 +54,7 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true }: Pro
                 />
               </div>
               <div className="p-6 flex-1 flex flex-col">
-                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[#003A30] mb-2", getHeadingWeightClass(brand))}>{item.title}</h3>
+                <h3 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-2", getHeadingWeightClass(brand))}>{item.title}</h3>
                 <p className="text-[#4A6358] text-sm leading-relaxed flex-1">{item.description}</p>
               </div>
             </motion.div>

@@ -33,7 +33,7 @@ const InputField = ({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full rounded-lg border border-border bg-background py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-[#003A30]/20 ${
+        className={`w-full rounded-lg border border-border bg-background py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.2)] ${
           prefix ? "pl-7 pr-3" : suffix ? "pl-3 pr-7" : "px-3"
         }`}
         {...props}
@@ -46,7 +46,7 @@ const InputField = ({
 const ResultRow = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
   <div className="py-1">
     <p className="text-[10px] font-medium text-white/50 uppercase tracking-wider mb-0">{label}</p>
-    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-[#C7E738]" : "text-white"}`}>{value}</p>
+    <p className={`text-xl font-bold tracking-tight ${highlight ? "text-[var(--brand-accent)]" : "text-white"}`}>{value}</p>
   </div>
 );
 
@@ -340,7 +340,7 @@ const SalesRoiCalculator = () => {
             <motion.p
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[10px] font-semibold tracking-[0.15em] text-[#003A30] mb-3 uppercase"
+              className="text-[10px] font-semibold tracking-[0.15em] text-[var(--brand-primary)] mb-3 uppercase"
             >
               {accountName ? `For ${accountName}` : "Prove the Impact"}
             </motion.p>
@@ -375,7 +375,7 @@ const SalesRoiCalculator = () => {
               max={2000}
               value={practices}
               onChange={(e) => setPractices(Math.max(1, Math.min(2000, parseInt(e.target.value) || 1)))}
-              className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] text-foreground text-center focus:outline-none focus:ring-2 focus:ring-[#003A30]/20"
+              className="w-16 rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] text-foreground text-center focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.2)]"
             />
           </motion.div>
 
@@ -434,7 +434,7 @@ const SalesRoiCalculator = () => {
                         onClick={() => setScenario(s)}
                         className={`py-2 text-[13px] font-semibold capitalize transition-all ${
                           scenario === s
-                            ? "bg-[#C7E738] text-[#003A30] font-bold"
+                            ? "bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold"
                             : "bg-background text-muted-foreground hover:text-foreground"
                         }`}
                       >
@@ -477,7 +477,7 @@ const SalesRoiCalculator = () => {
               {/* CTA — lime green pill */}
               <button
                 onClick={exportPDF}
-                className="w-full rounded-full bg-[#C7E738] py-3 text-[13px] font-bold uppercase tracking-widest text-[#003A30] hover:brightness-105 transition-all flex items-center justify-center gap-2"
+                className="w-full rounded-full bg-[var(--brand-accent)] py-3 text-[13px] font-bold uppercase tracking-widest text-[var(--brand-primary)] hover:brightness-105 transition-all flex items-center justify-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Print Results
@@ -486,7 +486,7 @@ const SalesRoiCalculator = () => {
 
             {/* ── RIGHT: Results panel — dark forest green, matches DSO ── */}
             <div className="lg:col-span-2">
-              <div className="rounded-2xl bg-[#003A30] p-5 md:p-6 space-y-0.5 sticky top-24">
+              <div className="rounded-2xl bg-[var(--brand-primary)] p-5 md:p-6 space-y-0.5 sticky top-24">
                 <h3 className="text-2xl font-bold text-white tracking-tight mb-4" style={{ fontFamily: "'Inter', sans-serif" }}>
                   Your results
                 </h3>
@@ -508,7 +508,7 @@ const SalesRoiCalculator = () => {
                 <div className="border-t border-white/10 my-3" />
 
                 <div className="pt-2">
-                  <p className="text-[11px] font-bold text-[#C7E738] uppercase tracking-wider mb-0.5">
+                  <p className="text-[11px] font-bold text-[var(--brand-accent)] uppercase tracking-wider mb-0.5">
                     Total Financial Upside / Year ($){practices > 1 ? ` (${practices} practices)` : ""}
                   </p>
                   <p className="text-3xl md:text-4xl font-bold text-white tracking-tight">

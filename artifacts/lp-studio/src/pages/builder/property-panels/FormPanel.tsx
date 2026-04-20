@@ -574,7 +574,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={props.submitButtonColor || "#C7E738"}
+              value={props.submitButtonColor || "var(--brand-accent)"}
               onChange={e => set("submitButtonColor", e.target.value)}
               className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
             />
@@ -598,7 +598,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={props.submitButtonTextColor || "#003A30"}
+              value={props.submitButtonTextColor || "var(--brand-primary)"}
               onChange={e => set("submitButtonTextColor", e.target.value)}
               className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
             />

@@ -35,7 +35,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} />
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight">
+      <h2 className="text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight">
         <InlineText value={props.headline} onUpdate={field("headline")} />
       </h2>
       {props.subheadline && (
@@ -47,8 +47,8 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         <ul className="space-y-4 mt-1">
           {(props.bullets ?? []).map((b, i) => (
             <li key={i} className="flex items-start gap-4 text-base text-slate-700">
-              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[#C7E738] flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 text-[#003A30]" />
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center">
+                <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
               </span>
               <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
             </li>
@@ -59,14 +59,14 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         <div className="flex flex-wrap gap-4 mt-3">
           <button
             onClick={() => safeNavigate(props.ctaUrl)}
-            className="bg-[#C7E738] text-[#003A30] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
+            className="bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold px-8 py-4 rounded-xl text-base hover:brightness-105 transition-all"
           >
             <InlineText value={props.ctaText} onUpdate={field("ctaText")} />
           </button>
           {props.secondaryCtaText && (
             <button
               onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className="border-2 border-[#003A30] text-[#003A30] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[#003A30] hover:text-white transition-all"
+              className="border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] font-semibold px-8 py-4 rounded-xl text-base hover:bg-[var(--brand-primary)] hover:text-white transition-all"
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>
@@ -86,7 +86,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         />
       </div>
       {props.badgeText && (
-        <div className="absolute -bottom-5 -right-5 bg-[#C7E738] text-[#003A30] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
+        <div className="absolute -bottom-5 -right-5 bg-[var(--brand-accent)] text-[var(--brand-primary)] font-bold text-base px-6 py-3.5 rounded-2xl shadow-lg">
           <InlineText value={props.badgeText} onUpdate={field("badgeText")} />
         </div>
       )}

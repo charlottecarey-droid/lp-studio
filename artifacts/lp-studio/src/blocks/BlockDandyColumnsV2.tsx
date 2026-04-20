@@ -43,7 +43,7 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[#003A30] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
+              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
               </h2>
             )}
@@ -66,7 +66,7 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                   loading="lazy"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-[#003A30] mb-3">
+              <h3 className="text-2xl font-bold text-[var(--brand-primary)] mb-3">
                 <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
               </h3>
               <p className="text-slate-600 text-base leading-relaxed mb-4">
@@ -76,7 +76,7 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
                 <ul className="space-y-2 mb-6 flex-1">
                   {(item.bullets ?? []).map((b, bi) => (
                     <li key={bi} className="text-base text-slate-500 flex items-start gap-2">
-                      <span className="mt-2 w-2 h-2 rounded-full bg-[#C7E738] shrink-0" />
+                      <span className="mt-2 w-2 h-2 rounded-full bg-[var(--brand-accent)] shrink-0" />
                       <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, bi, v) : undefined} />
                     </li>
                   ))}
@@ -85,7 +85,7 @@ export function BlockDandyColumnsV2({ props, brand, onFieldChange }: Props) {
               {item.ctaText && (
                 <button
                   onClick={() => safeNavigate(item.ctaUrl)}
-                  className="mt-auto inline-flex items-center gap-2.5 border-2 border-[#003A30] rounded-xl px-6 py-3.5 text-base font-semibold text-[#003A30] hover:bg-[#003A30] hover:text-white transition-colors w-fit"
+                  className="mt-auto inline-flex items-center gap-2.5 border-2 border-[var(--brand-primary)] rounded-xl px-6 py-3.5 text-base font-semibold text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white transition-colors w-fit"
                 >
                   <span className="w-7 h-7 rounded border border-current flex items-center justify-center shrink-0">
                     <ArrowRight className="w-3.5 h-3.5" />

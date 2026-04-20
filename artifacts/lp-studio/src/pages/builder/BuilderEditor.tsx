@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
@@ -1644,6 +1644,8 @@ export default function BuilderEditor() {
                   "w-full bg-white shadow-2xl rounded-lg overflow-hidden transition-all duration-300",
                   isMobile ? "max-w-[390px]" : "max-w-5xl"
                 )}
+                style={getBrandStyleVars(brand)}
+                data-lp-page
               >
                 <style>{`
                   @keyframes marquee {
@@ -1902,7 +1904,7 @@ export default function BuilderEditor() {
                               key={url}
                               type="button"
                               onClick={() => { setOgImage(url); setOgPickerOpen(false); setTimeout(handleSave, 100); }}
-                              className="aspect-video rounded overflow-hidden border border-transparent hover:border-[#003A30] focus:outline-none focus:ring-1 focus:ring-[#003A30] bg-muted"
+                              className="aspect-video rounded overflow-hidden border border-transparent hover:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-muted"
                             >
                               <img src={url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
                             </button>
@@ -1928,7 +1930,7 @@ export default function BuilderEditor() {
                       onClick={() => { setAnimationsEnabled(v => !v); setTimeout(handleSave, 50); }}
                       className={cn(
                         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none",
-                        animationsEnabled ? "bg-[#003A30]" : "bg-slate-200"
+                        animationsEnabled ? "bg-[var(--brand-primary)]" : "bg-slate-200"
                       )}
                     >
                       <span

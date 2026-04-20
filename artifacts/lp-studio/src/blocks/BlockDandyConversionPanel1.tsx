@@ -17,28 +17,28 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange }: Prop
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   const bgMap: Record<string, string> = {
-    teal: "#003A30",
-    lime: "#C7E738",
+    teal: "var(--brand-primary)",
+    lime: "var(--brand-accent)",
     medium: "#006651",
     white: "#FFFFFF",
   };
   const textMap: Record<string, { eyebrow: string; heading: string; sub: string; divider: string }> = {
-    teal:   { eyebrow: "text-[#C7E738]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
-    lime:   { eyebrow: "text-[#006651]", heading: "text-[#003A30]",  sub: "text-[#004d3f]/70",   divider: "border-[#003A30]/10" },
-    medium: { eyebrow: "text-[#C7E738]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
-    white:  { eyebrow: "text-[#006651]", heading: "text-[#003A30]",  sub: "text-slate-500",      divider: "border-slate-200" },
+    teal:   { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
+    lime:   { eyebrow: "text-[#006651]", heading: "text-[var(--brand-primary)]",  sub: "text-[#004d3f]/70",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
+    medium: { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-green-100/70",   divider: "border-white/10" },
+    white:  { eyebrow: "text-[#006651]", heading: "text-[var(--brand-primary)]",  sub: "text-slate-500",      divider: "border-slate-200" },
   };
 
   const bg = props.bgColor ?? bgMap[style] ?? bgMap.teal;
   const colors = textMap[style] ?? textMap.teal;
 
   const primaryBtnCls = style === "lime"
-    ? "bg-[#003A30] text-[#C7E738] hover:bg-[#004d3f]"
-    : "bg-[#C7E738] text-[#003A30] hover:brightness-105";
+    ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:bg-[#004d3f]"
+    : "bg-[var(--brand-accent)] text-[var(--brand-primary)] hover:brightness-105";
 
   const secondaryBtnCls = style === "lime" || style === "white"
-    ? "border-2 border-[#003A30] text-[#003A30] hover:bg-[#003A30] hover:text-white"
-    : "border-2 border-white text-white hover:bg-white hover:text-[#003A30]";
+    ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
+    : "border-2 border-white text-white hover:bg-white hover:text-[var(--brand-primary)]";
 
   return (
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>

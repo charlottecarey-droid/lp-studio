@@ -144,12 +144,12 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
         <div className="flex items-center gap-2">
           <input
             type="color"
-            value={props.ctaTextColor || "#003A30"}
+            value={props.ctaTextColor || "var(--brand-primary)"}
             onChange={e => set("ctaTextColor", e.target.value)}
             className="w-9 h-9 rounded border cursor-pointer"
           />
           <Input
-            value={props.ctaTextColor || "#003A30"}
+            value={props.ctaTextColor || "var(--brand-primary)"}
             onChange={e => set("ctaTextColor", e.target.value)}
             className="text-sm font-mono"
           />
@@ -164,7 +164,7 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
           <button
             type="button"
             className="text-xs px-2 py-1 rounded border border-input bg-background hover:bg-muted whitespace-nowrap"
-            onClick={() => set("ctaTextColor", "#003A30")}
+            onClick={() => set("ctaTextColor", "var(--brand-primary)")}
             title="Set to dark green"
           >
             Dark Green

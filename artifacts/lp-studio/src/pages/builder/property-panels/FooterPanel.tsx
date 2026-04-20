@@ -52,12 +52,12 @@ export function FooterPanel({ props, onChange }: Props) {
         <div className="flex items-center gap-2">
           <input
             type="color"
-            value={props.backgroundColor || "#003A30"}
+            value={props.backgroundColor || "var(--brand-primary)"}
             onChange={e => set("backgroundColor", e.target.value)}
             className="w-9 h-9 rounded cursor-pointer border border-border p-0.5 bg-transparent"
           />
           <Input
-            value={props.backgroundColor || "#003A30"}
+            value={props.backgroundColor || "var(--brand-primary)"}
             onChange={e => set("backgroundColor", e.target.value)}
             className="font-mono text-sm h-9"
           />
@@ -69,12 +69,12 @@ export function FooterPanel({ props, onChange }: Props) {
         <div className="flex items-center gap-2">
           <input
             type="color"
-            value={props.accentColor || "#C7E738"}
+            value={props.accentColor || "var(--brand-accent)"}
             onChange={e => set("accentColor", e.target.value)}
             className="w-9 h-9 rounded cursor-pointer border border-border p-0.5 bg-transparent"
           />
           <Input
-            value={props.accentColor || "#C7E738"}
+            value={props.accentColor || "var(--brand-accent)"}
             onChange={e => set("accentColor", e.target.value)}
             className="font-mono text-sm h-9"
           />

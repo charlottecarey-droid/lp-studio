@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import dandyLogoUrl from "@/assets/dandy-logo.svg?url";
+import { BrandLogo } from "@/components/BrandLogo";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
@@ -131,16 +131,13 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
           {/* Logo */}
           <a href={props.logoUrl || "#"} className="shrink-0">
-            {props.logoImageUrl ? (
-              <img src={props.logoImageUrl} alt="Logo" className="h-8 w-auto" />
-            ) : (
-              <img
-                src={dandyLogoUrl}
-                alt="Dandy"
-                className="h-8 w-auto"
-                style={{ filter: "brightness(0) invert(1)" }}
-              />
-            )}
+            <BrandLogo
+              brand={brand}
+              url={props.logoImageUrl}
+              tone="onDark"
+              alt={brand.brandName || "Logo"}
+              className="h-8 w-auto"
+            />
           </a>
 
           {/* Nav links */}
