@@ -6,7 +6,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS } from "./lib/tenantHosts";
+import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost } from "./lib/tenantHosts";
 
 const app: Express = express();
 
