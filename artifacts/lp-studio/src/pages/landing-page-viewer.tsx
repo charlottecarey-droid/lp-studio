@@ -26,6 +26,7 @@ import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
@@ -505,6 +506,7 @@ export default function LandingPageViewer() {
 
     return (
       <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
+        <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -594,6 +596,7 @@ export default function LandingPageViewer() {
 
     return (
       <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
+        <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -697,7 +700,7 @@ export default function LandingPageViewer() {
       "min-h-screen w-full font-sans",
       isDark ? "bg-background text-foreground" : "bg-background text-foreground"
     )} style={getBrandStyleVars(brand)} data-lp-page>
-      
+      <BrandFontLoader brand={brand} />
       <style>{`
         @keyframes marquee {
           from { transform: translateX(0); }

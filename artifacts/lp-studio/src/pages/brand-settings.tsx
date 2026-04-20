@@ -31,6 +31,8 @@ import type {
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
 } from "@/lib/brand-config";
+import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
+import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -107,6 +109,79 @@ function SelectField({ label, value, onChange, options, hint }: {
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+/**
+ * FontPicker — curated catalog dropdown + advanced URL override.
+ *
+ * The catalog covers our standard system fonts (loaded by `BrandFontLoader`
+ * via Google Fonts CSS2). Self-hosted families (Bagoss / Inter / JetBrains)
+ * appear in the list but are loaded by the app shell, not the loader.
+ * The URL field lets ops paste a custom Google Fonts CSS link for one-off
+ * brands — `BrandFontLoader` injects whatever href is provided and skips it
+ * if the family is self-hosted.
+ */
+function FontPicker({ label, family, url, onFamilyChange, onUrlChange, hint }: {
+  label: string;
+  family: string;
+  url: string | undefined;
+  onFamilyChange: (v: string) => void;
+  onUrlChange: (v: string | undefined) => void;
+  hint?: string;
+}) {
+  // Show the current family even if it's not in the catalog (legacy / custom).
+  const inCatalog = FONT_CATALOG.some((f) => f.family === family);
+  return (
+    <div>
+      <Label className="text-sm font-medium mb-1.5 block">{label}</Label>
+      {hint && <p className="text-xs text-muted-foreground mb-2">{hint}</p>}
+      <Select value={inCatalog ? family : "__custom__"} onValueChange={(v) => {
+        if (v === "__custom__") return;
+        onFamilyChange(v);
+        // Clear any prior URL override when picking a catalog font — the
+        // loader builds the Google Fonts URL deterministically from the
+        // catalog entry.
+        if (url) onUrlChange(undefined);
+      }}>
+        <SelectTrigger className="h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {FONT_CATALOG.map((f) => (
+            <SelectItem key={f.family} value={f.family}>
+              <span style={{ fontFamily: `"${f.family}", ${f.category === "serif" ? "serif" : f.category === "mono" ? "monospace" : "sans-serif"}` }}>
+                {f.family}
+              </span>
+              {isSelfHostedFont(f.family) ? (
+                <span className="text-xs text-muted-foreground ml-2">(bundled)</span>
+              ) : null}
+            </SelectItem>
+          ))}
+          {!inCatalog && family ? (
+            <SelectItem value="__custom__">
+              <span style={{ fontFamily: `"${family}", sans-serif` }}>{family}</span>
+              <span className="text-xs text-muted-foreground ml-2">(custom)</span>
+            </SelectItem>
+          ) : null}
+        </SelectContent>
+      </Select>
+      {/* Custom family + URL override row — for fonts not in the catalog. */}
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <Input
+          value={family}
+          onChange={(e) => onFamilyChange(e.target.value)}
+          placeholder="Custom family name"
+          className="h-8 text-xs"
+        />
+        <Input
+          value={url ?? ""}
+          onChange={(e) => onUrlChange(e.target.value || undefined)}
+          placeholder="Optional CSS URL"
+          className="h-8 text-xs"
+        />
+      </div>
     </div>
   );
 }
@@ -1109,6 +1184,10 @@ export default function BrandSettings() {
             </div>
             <Separator />
 
+            {/* Inject brand fonts so the live preview below renders in the
+                actual selected family (otherwise we'd only see system fallbacks). */}
+            <BrandFontLoader brand={config} />
+
             <div className="p-6 bg-muted/20 rounded-xl border border-border/50 flex flex-col gap-4">
               <div
                 className={cn(
@@ -1158,18 +1237,20 @@ export default function BrandSettings() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <TextField
+              <FontPicker
                 label="Display Font (headings)"
-                value={config.displayFont}
-                onChange={(v) => update("displayFont", v)}
-                placeholder="e.g. Inter, Playfair Display"
+                family={config.displayFont}
+                url={config.displayFontUrl}
+                onFamilyChange={(v) => update("displayFont", v)}
+                onUrlChange={(v) => update("displayFontUrl", v)}
                 hint="Font family for H1/H2/H3"
               />
-              <TextField
+              <FontPicker
                 label="Body Font"
-                value={config.bodyFont}
-                onChange={(v) => update("bodyFont", v)}
-                placeholder="e.g. Inter, Open Sans"
+                family={config.bodyFont}
+                url={config.bodyFontUrl}
+                onFamilyChange={(v) => update("bodyFont", v)}
+                onUrlChange={(v) => update("bodyFontUrl", v)}
                 hint="Font family for body text"
               />
               <SelectField

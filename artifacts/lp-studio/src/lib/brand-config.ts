@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { toFontFamilyValue } from "./font-catalog";
 
 export type ButtonRadius = "pill" | "rounded" | "slight" | "square";
 export type ButtonShadow = "none" | "sm" | "md" | "lg";
@@ -100,6 +101,11 @@ export interface BrandConfig {
   sectionPadding: SectionPadding;
   displayFont: string;
   bodyFont: string;
+  /** Optional override URL for the display font's stylesheet (advanced
+   *  picker path — accepts any Google Fonts CSS URL or self-hosted CSS). */
+  displayFontUrl?: string;
+  /** Optional override URL for the body font's stylesheet. */
+  bodyFontUrl?: string;
   h1Size: HeadlineSize;
   h2Size: HeadlineSize;
   h3Size: HeadlineSize;
@@ -243,6 +249,15 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
     "--brand-cta-bg": brand.ctaBackground || accent,
     "--brand-cta-text": brand.ctaText || onAccent,
   };
+  // Brand fonts. Quote family names containing whitespace and chain a sensible
+  // system fallback. The wrapped element re-points Tailwind's `--font-display`
+  // / `--font-sans` tokens at these so every block inheriting `font-display`
+  // / `font-sans` swaps automatically. Falls back to `--app-font-*` defaults
+  // when the brand has no font set (preserves Dandy typography).
+  const displayValue = toFontFamilyValue(brand.displayFont, "display");
+  const bodyValue = toFontFamilyValue(brand.bodyFont, "sans");
+  if (displayValue) vars["--brand-font-display"] = displayValue;
+  if (bodyValue) vars["--brand-font-body"] = bodyValue;
   return vars as CSSProperties;
 }
 

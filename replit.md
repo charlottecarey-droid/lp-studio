@@ -72,6 +72,7 @@ A React + Vite application providing the user interface for the A/B testing plat
 - **BrandConfig**: Defines comprehensive brand guidelines including color roles, typography, button styling, voice & messaging, product lines, and audience segments.
 - **Brand Settings UI**: Provides an interface for configuring and managing brand settings, including AI-powered import functionality.
 - **Block Typography Integration**: All blocks inherit brand typography defaults.
+- **Brand-driven Fonts**: `BrandConfig.displayFont`/`bodyFont` (+ optional `displayFontUrl`/`bodyFontUrl`) flow into `--brand-font-display` / `--brand-font-body` CSS variables on `[data-lp-page]` wrappers. `BrandFontLoader` injects Google Fonts CSS for non-self-hosted families. Catalog lives in `lib/font-catalog.ts`; Brand Settings exposes a curated picker with custom-URL escape hatch.
 
 ### Multi-tenant Identity & Authorization
 

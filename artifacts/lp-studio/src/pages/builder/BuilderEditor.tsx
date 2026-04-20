@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
+import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
@@ -1647,6 +1648,7 @@ export default function BuilderEditor() {
                 style={getBrandStyleVars(brand)}
                 data-lp-page
               >
+                <BrandFontLoader brand={brand} />
                 <style>{`
                   @keyframes marquee {
                     from { transform: translateX(0); }

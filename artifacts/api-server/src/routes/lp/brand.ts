@@ -20,6 +20,13 @@ const DEFAULT_CONFIG = {
     instagram: "https://www.instagram.com/meetdandy/",
     linkedin: "https://www.linkedin.com/company/meetdandy/",
   },
+  // Dandy default typography. Both families are loaded by the lp-studio app
+  // shell (Bagoss Standard via local @font-face, Inter via the global stylesheet
+  // import in `index.css`) and are listed as `selfHosted` in the font catalog.
+  // `BrandFontLoader` therefore skips them — no per-page Google Fonts call is
+  // issued for the default brand.
+  displayFont: "Bagoss Standard",
+  bodyFont: "Inter",
 };
 
 router.get("/lp/brand", async (req, res): Promise<void> => {
