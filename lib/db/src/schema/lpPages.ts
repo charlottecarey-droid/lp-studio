@@ -23,6 +23,12 @@ export const lpPagesTable = pgTable("lp_pages", {
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),
+  // Cross-tenant template visibility. When isGlobal=true, this template is
+  // visible to every tenant whose settings.industry matches `industry` (or any
+  // tenant if `industry` is null). Tenant-owned templates (isGlobal=false) are
+  // visible only to their owning tenant. See routes/lp/templates.ts.
+  isGlobal: boolean("is_global").notNull().default(false),
+  industry: text("industry"),
   audienceType: text("audience_type"),  // "dso-corporate" | "dso-practice" | "independent"
   segmentId: text("segment_id"),        // brand segment ID applied to this page
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

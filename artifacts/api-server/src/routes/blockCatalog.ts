@@ -1,24 +1,12 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { pool } from "@workspace/db";
 import { requireAuth } from "../middleware/requireAuth";
+import { requireAdminKey } from "../middleware/requireAdminKey";
+import { getTenantIndustry as tenantIndustry, VALID_INDUSTRIES as INDUSTRY_SET } from "../lib/tenantIndustry";
 
 const router = Router();
 
-const VALID_INDUSTRIES = new Set(["dental", "generic"]);
-
-/**
- * Read the canonical industry for a tenant from tenants.settings.industry.
- * Defaults to 'generic' — only an explicit 'dental' value resolves to the
- * dental experience. This is the safety contract: a missing / unknown value
- * must never expose dental-only blocks to a non-Dandy tenant.
- */
-async function tenantIndustry(tenantId: number | null | undefined): Promise<"dental" | "generic"> {
-  if (tenantId == null) return "generic";
-  const r = await pool.query(`SELECT settings FROM tenants WHERE id = $1`, [tenantId]);
-  const ind = r.rows[0]?.settings?.industry;
-  return ind === "dental" ? "dental" : "generic";
-}
+const VALID_INDUSTRIES = INDUSTRY_SET;
 
 // ─── Authenticated: tenant-aware catalog read ───────────────────────────────
 // GET /api/block-catalog
@@ -47,17 +35,6 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ─── Superadmin: full CRUD ───────────────────────────────────────────────────
-function requireAdminKey(req: any, res: any, next: any): void {
-  const key = req.headers["x-admin-key"];
-  if (!process.env.ADMIN_PASSWORD) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { timingSafeEqual } = crypto;
-  const keyBuf = Buffer.from((key ? String(key) : "").padEnd(64, '\0'));
-  const envBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, '\0'));
-  let ok = false;
-  try { ok = timingSafeEqual(keyBuf, envBuf); } catch { ok = false; }
-  if (!ok) { res.status(401).json({ error: "Unauthorized" }); return; }
-  next();
-}
 
 // GET /api/admin/block-catalog — list all rows (every industry)
 router.get("/admin/block-catalog", requireAdminKey, async (_req, res): Promise<void> => {

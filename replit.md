@@ -54,7 +54,7 @@ A React + Vite application providing the user interface for the A/B testing plat
 - **Review Shell**: Standalone read-only review page with approval workflow.
 - **Block System**: 16 predefined block types (e.g., Hero, Testimonial, Rich Text) with customizable properties.
 - **Collaboration Features**: Comment mode, share for review, and presence indicators.
-- **Templates**: 5 pre-built page templates.
+- **Templates**: Per-tenant templates plus an industry-scoped global template library managed by superadmin (Templates tab in `/superadmin`). `lp_pages` carries `is_global` (boolean) and `industry` (text, nullable — null means "universal"). `GET /lp/templates(/enriched)` and the page-clone endpoint union the caller tenant's templates with global templates whose industry matches (or is null). Admin endpoints: `GET /api/admin/lp/templates`, `PUT /api/admin/lp/templates/:id`. Three generic-SaaS starters (landing, lead-gen, pricing) are seeded idempotently at boot via `seeds/globalTemplates.ts` (marker `global_templates_v1`).
 - **One-Pager Template Manager** (`/sales/one-pager-templates`): Admin console for managing one-pager templates with gallery card view, visibility toggles, clone/edit/delete, drag-and-drop field placement editor, field properties panel, and PDF generation. Stored in `sales_one_pager_templates` table with image upload via object storage.
 - **Styling**: Uses `@dnd-kit/core` and `@dnd-kit/sortable` for drag-and-drop.
 

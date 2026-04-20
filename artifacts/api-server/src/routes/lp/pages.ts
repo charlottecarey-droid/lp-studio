@@ -1,9 +1,10 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, or, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { getTenantIndustry } from "../../lib/tenantIndustry";
 
 const router = Router();
 
@@ -84,14 +85,30 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
   }
 });
 
-// List all marketing-defined templates (pages with isTemplate = true)
+// List all marketing-defined templates (pages with isTemplate = true).
+// Returns the union of:
+//   1. The caller's tenant-owned templates
+//   2. Global templates (isGlobal=true) whose `industry` is null (universal)
+//      OR matches the caller's tenant industry
 router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const industry = await getTenantIndustry(tenantId);
     const templates = await db
       .select()
       .from(lpPagesTable)
-      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isTemplate, true)))
+      .where(
+        and(
+          eq(lpPagesTable.isTemplate, true),
+          or(
+            eq(lpPagesTable.tenantId, tenantId),
+            and(
+              eq(lpPagesTable.isGlobal, true),
+              or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, industry)),
+            ),
+          ),
+        ),
+      )
       .orderBy(asc(lpPagesTable.templateLabel));
     res.json(templates);
   } catch (err) {
@@ -157,8 +174,21 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   let sourceOgImage = "";
   let sourcePageVariables: Record<string, string> = {};
   if (typeof fromTemplateId === "number") {
+    // Source can be either a tenant-owned template or a global template visible
+    // to this tenant's industry. Non-template global pages are not allowed.
+    const callerIndustry = await getTenantIndustry(tenantId);
     const [source] = await db.select().from(lpPagesTable).where(
-      and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, fromTemplateId))
+      and(
+        eq(lpPagesTable.id, fromTemplateId),
+        or(
+          eq(lpPagesTable.tenantId, tenantId),
+          and(
+            eq(lpPagesTable.isGlobal, true),
+            eq(lpPagesTable.isTemplate, true),
+            or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, callerIndustry)),
+          ),
+        ),
+      )
     );
     if (source) {
       sourceBlocks = Array.isArray(source.blocks) ? source.blocks : [];

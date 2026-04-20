@@ -690,6 +690,10 @@ async function runMigrations(): Promise<void> {
       -- Tenant onboarding tracking
       ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
 
+      -- Global landing-page templates (cross-tenant template library, scoped by industry)
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS is_global boolean NOT NULL DEFAULT false;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS industry text;
+
       -- One-time backfill: mark all tenants that existed BEFORE the onboarding wizard was
       -- introduced as already onboarded so they never see the wizard. This block only runs
       -- once (guarded by the migration marker) so new tenants created after deployment keep
@@ -782,6 +786,51 @@ async function runMigrations(): Promise<void> {
     } catch (seedErr) {
       // Don't block boot on seed errors — admins can re-run scripts/seed-block-catalog.cjs
       logger.error({ err: seedErr }, "block_catalog seed failed (non-fatal)");
+    }
+
+    // Idempotent seed for the global landing-page templates available to all
+    // generic-industry tenants. Owned by the lowest-id tenant (Dandy) by
+    // default — `is_global=true` makes ownership irrelevant for visibility.
+    // Marker-gated so we only attempt once per database.
+    try {
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'global_templates_seed_v1'`
+      );
+      if (marker.rows.length === 0) {
+        const ownerRow = await db.execute<{ id: number }>(
+          sql`SELECT id FROM tenants ORDER BY id ASC LIMIT 1`,
+        );
+        const ownerId = ownerRow.rows[0]?.id;
+        if (!ownerId) {
+          logger.warn("Skipping global_templates seed — no tenants exist yet");
+        } else {
+          const { GLOBAL_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
+          let inserted = 0;
+          for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
+            const blocksJson = JSON.stringify(tpl.blocks);
+            const result = await db.execute<{ "?column?": number }>(sql`
+              INSERT INTO lp_pages (
+                tenant_id, title, slug, blocks, status,
+                is_template, template_label, template_description,
+                is_global, industry, mode
+              ) VALUES (
+                ${ownerId}, ${tpl.title}, ${tpl.slug}, ${blocksJson}::jsonb, 'draft',
+                true, ${tpl.templateLabel}, ${tpl.templateDescription},
+                true, ${tpl.industry}, 'marketing'
+              )
+              ON CONFLICT (slug) DO NOTHING
+              RETURNING 1
+            `);
+            if (result.rows.length > 0) inserted++;
+          }
+          await db.execute(sql`
+            INSERT INTO _schema_migration_markers (key) VALUES ('global_templates_seed_v1') ON CONFLICT DO NOTHING
+          `);
+          logger.info({ inserted, total: GLOBAL_TEMPLATE_SEEDS.length }, "global_templates seed applied");
+        }
+      }
+    } catch (seedErr) {
+      logger.error({ err: seedErr }, "global_templates seed failed (non-fatal)");
     }
   } catch (err) {
     logger.error({ err }, "Migration failed — halting server startup");

@@ -27,9 +27,10 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library,
+  Library, LayoutTemplate,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
+import SuperAdminTemplates from "./SuperAdminTemplates";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -857,17 +858,19 @@ export default function SuperAdminPage() {
   const [authed, setAuthed] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog">(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#catalog") return "catalog";
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates">(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hash === "#catalog") return "catalog";
+      if (window.location.hash === "#templates") return "templates";
+    }
     return "tenants";
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (tab === "catalog" && window.location.hash !== "#catalog") {
-      window.history.replaceState(null, "", `${window.location.pathname}#catalog`);
-    } else if (tab === "tenants" && window.location.hash === "#catalog") {
-      window.history.replaceState(null, "", window.location.pathname);
+    const targetHash = tab === "tenants" ? "" : `#${tab}`;
+    if (window.location.hash !== targetHash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${targetHash}`);
     }
   }, [tab]);
 
@@ -993,10 +996,20 @@ export default function SuperAdminPage() {
           >
             <Library className="w-3.5 h-3.5" /> Block Catalog
           </button>
+          <button
+            onClick={() => setTab("templates")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "templates" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" /> Templates
+          </button>
         </div>
 
         {tab === "catalog" ? (
           <SuperAdminBlockCatalog adminKey={adminKey} />
+        ) : tab === "templates" ? (
+          <SuperAdminTemplates adminKey={adminKey} />
         ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>
