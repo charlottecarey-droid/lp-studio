@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, Component, type ReactNode, type RefObject, type ErrorInfo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trackView } from "@/hooks/use-recently-viewed";
 import {
@@ -47,6 +47,7 @@ import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
+import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience } from "@/lib/audience-gating";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import {
@@ -690,7 +691,7 @@ export default function BuilderEditor() {
   // Avoids divergent fetch states across subcomponents that previously caused
   // brief windows where the palette showed catalog labels while insertion still
   // used registry/dental defaults.
-  const { blocks: catalogBlocks, getDef: catalogGetDef } = useBlockCatalog();
+  const { blocks: allCatalogBlocks, getDef: catalogGetDef } = useBlockCatalog();
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -738,6 +739,20 @@ export default function BuilderEditor() {
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [appliedBrief, setAppliedBrief] = useState<{ brief: ContentBrief; company: string; objective: string } | null>(null);
   const [pageAudienceType, setPageAudienceType] = useState<string | null>(null);
+  // Audience-filtered palette: hides "DSO" (leadership-only) from practice
+  // pages and "DSO Practices" from leadership pages. Preserves the custom
+  // getDef fallback so renderers for legacy blocks on a page keep working
+  // even after the block type is filtered from the palette.
+  const catalogBlocks = useMemo<ResolvedBlockDef[]>(
+    () => allCatalogBlocks.filter(b => isBlockVisibleForAudience(b.category, pageAudienceType)),
+    [allCatalogBlocks, pageAudienceType],
+  );
+  // Custom blocks wrap a base block_type; gate them by that wrapped type so a
+  // saved "Dandy Insights Snapshot" custom block stays hidden on practice pages.
+  const visibleCustomBlocks = useMemo(
+    () => customBlocks.filter(cb => isBlockTypeAllowedForAudience(cb.block_type, pageAudienceType)),
+    [customBlocks, pageAudienceType],
+  );
   const [appliedSegment, setAppliedSegment] = useState<AudienceSegment | null>(() => {
     const ctx = getBriefContext();
     if (ctx?.segmentContext) {
@@ -1493,7 +1508,7 @@ export default function BuilderEditor() {
         open={insertDialogOpen}
         onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); }}
         onInsert={handleInsertBlock}
-        customBlocks={customBlocks}
+        customBlocks={visibleCustomBlocks}
         visibleBlocks={catalogBlocks}
       />
 
@@ -1603,10 +1618,10 @@ export default function BuilderEditor() {
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
-              <BlockLibrary onAdd={addBlock} customBlocks={customBlocks} visibleBlocks={catalogBlocks} />
+              <BlockLibrary onAdd={addBlock} customBlocks={visibleCustomBlocks} visibleBlocks={catalogBlocks} />
             </TabsContent>
             <TabsContent value="segment" className="mt-0">
-              <SegmentLibrary onAdd={addBlock} customBlocks={customBlocks} segments={brand.segments ?? []} visibleBlocks={catalogBlocks} />
+              <SegmentLibrary onAdd={addBlock} customBlocks={visibleCustomBlocks} segments={brand.segments ?? []} visibleBlocks={catalogBlocks} />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel

@@ -26,6 +26,7 @@ import { ContentBriefModal } from "@/components/ContentBriefModal";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
+import { audienceBucket, templateContainsLeadershipContent } from "@/lib/audience-gating";
 import { setBriefContext } from "@/lib/brief-context";
 import { useListTests } from "@workspace/api-client-react";
 import { getLpPageUrl } from "@/lib/utils";
@@ -135,6 +136,8 @@ interface ApiTemplate {
   templateLabel: string;
   templateDescription: string;
   blockCount: number;
+  /** Block-type identifiers in this template; used for audience gating. */
+  blockTypes?: string[];
   isGlobal: boolean;
   industry: "dental" | "generic" | null;
 }
@@ -615,7 +618,14 @@ export default function PagesGallery() {
     setNewSlug(slugify(v));
   };
 
-  const inferAudienceType = (segName: string): string | null => {
+  // Audience gating for the create-page dialog. When the selected segment
+  // resolves to a practice audience, we (a) hide the "Sales Microsites"
+  // section entirely (all 6 microsites are Dandy leadership sales decks),
+  // and (b) drop any API template whose block list contains a
+  // leadership-only block type (e.g. dso-insights-dashboard). When the
+  // segment resolves to leadership we conversely keep everything — those
+  // templates are all appropriate. Neutral/no-segment = show everything.
+  function inferAudienceType(segName: string): string | null {
     const n = segName.toLowerCase();
     if (n.includes("dso") && (n.includes("corporate") || n.includes("leadership") || n.includes("executive") || n.includes("c-suite"))) return "dso-corporate";
     if (n.includes("dso") && (n.includes("practice") || n.includes("office") || n.includes("dentist"))) return "dso-practice";
@@ -623,13 +633,41 @@ export default function PagesGallery() {
     if (n.includes("dso")) return "dso-corporate";
     if (n.includes("practice")) return "dso-practice";
     return null;
-  };
+  }
+
+  const selectedAudienceType = selectedSegment ? inferAudienceType(selectedSegment.name) : null;
+  const selectedAudienceBucket = audienceBucket(selectedAudienceType);
+  const visibleApiTemplates = useMemo(() => {
+    if (selectedAudienceBucket !== "practice") return apiTemplates;
+    return apiTemplates.filter(t => !templateContainsLeadershipContent(t.blockTypes));
+  }, [apiTemplates, selectedAudienceBucket]);
 
   const handleCreate = async () => {
     if (!newTitle.trim() || !newSlug.trim()) return;
     setIsCreating(true);
     setCreateError(null);
     try {
+      // Audience guard — if the user picked a template/microsite and then
+      // switched to a practice segment (or vice versa), the selection can
+      // survive past its section being hidden. Re-check against the filtered
+      // sets and refuse to create a leakage page instead of silently
+      // continuing. We normalize the selection to "blank" so the user sees
+      // the reset and can pick an audience-appropriate template.
+      const isMicroSelection = MICROSITE_TEMPLATES.some(m => m.id === selectedTemplate);
+      if (isMicroSelection && selectedAudienceBucket === "practice") {
+        setSelectedTemplate("blank");
+        throw new Error("That microsite is leadership-only; pick a template appropriate for a practice audience.");
+      }
+      if (selectedTemplate.startsWith("api:") && selectedAudienceBucket === "practice") {
+        const parsedId = parseInt(selectedTemplate.slice(4), 10);
+        const stillVisible = !Number.isNaN(parsedId)
+          && visibleApiTemplates.some(t => t.id === parsedId);
+        if (!stillVisible) {
+          setSelectedTemplate("blank");
+          throw new Error("That template contains leadership-only content; pick one without Dandy Insights / network-level blocks.");
+        }
+      }
+
       // API templates have ids of the form "api:<numericId>". For those we
       // hand the work to the server via `fromTemplateId` so the source page's
       // blocks/CSS/meta are copied with full industry isolation. For all
@@ -1349,11 +1387,11 @@ export default function PagesGallery() {
                   </div>
                   {/* Industry-filtered templates from the API (global SaaS or
                       dental templates + this tenant's saved templates). */}
-                  {apiTemplates.length > 0 && (
+                  {visibleApiTemplates.length > 0 && (
                     <div>
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Templates</p>
                       <div className="grid grid-cols-2 gap-2">
-                        {apiTemplates.map(t => {
+                        {visibleApiTemplates.map(t => {
                           const optionId = `api:${t.id}`;
                           return (
                             <button
@@ -1381,8 +1419,11 @@ export default function PagesGallery() {
                       </div>
                     </div>
                   )}
-                  {/* Sales Microsites — DSO/dental sales decks; hide from generic tenants. */}
-                  {user?.tenantIndustry === "dental" && (
+                  {/* Sales Microsites — Dandy leadership sales decks (all 6 are
+                      Dandy-Insights-forward). Hide from generic tenants and
+                      from practice-targeted pages to stop leadership content
+                      leaking onto practice/DSO-practice microsites. */}
+                  {user?.tenantIndustry === "dental" && selectedAudienceBucket !== "practice" && (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <Building2 className="w-3 h-3 text-primary" />

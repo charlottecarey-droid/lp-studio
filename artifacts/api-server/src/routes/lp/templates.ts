@@ -39,6 +39,12 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
 
     const enriched = templates.map((t) => {
       const blocks = Array.isArray(t.blocks) ? t.blocks : [];
+      // Expose the block-type list so the UI can audience-gate templates
+      // (e.g. hide leadership-only templates from practice-targeted pages).
+      // Unknown-shape entries are skipped rather than coerced.
+      const blockTypes = blocks
+        .map((b) => (b && typeof b === "object" ? (b as { type?: unknown }).type : null))
+        .filter((t): t is string => typeof t === "string");
       return {
         id: t.id,
         title: t.title,
@@ -46,6 +52,7 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         templateLabel: t.templateLabel || t.title,
         templateDescription: t.templateDescription || "",
         blockCount: blocks.length,
+        blockTypes,
         status: t.status,
         mode: t.mode,
         ogImage: t.ogImage || "",
