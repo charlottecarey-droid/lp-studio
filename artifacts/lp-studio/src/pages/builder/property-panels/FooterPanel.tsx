@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Trash2, GripVertical } from "lucide-react";
 import type { FooterBlockProps, FooterColumn } from "@/lib/block-types";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: FooterBlockProps;
@@ -62,6 +63,7 @@ export function FooterPanel({ props, onChange }: Props) {
             className="font-mono text-sm h-9"
           />
         </div>
+        <BrandSwatches className="mt-1.5" current={props.backgroundColor} onPick={hex => set("backgroundColor", hex)} />
       </div>
 
       <div>
@@ -77,6 +79,7 @@ export function FooterPanel({ props, onChange }: Props) {
             value={props.accentColor || "var(--brand-accent)"}
             onChange={e => set("accentColor", e.target.value)}
             className="font-mono text-sm h-9"
+            data-brand-swatches-after={true}
           />
         </div>
       </div>

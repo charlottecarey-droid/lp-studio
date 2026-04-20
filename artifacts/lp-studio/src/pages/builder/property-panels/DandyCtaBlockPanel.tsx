@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyCtaBlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -29,6 +30,7 @@ export function DandyCtaBlockPanel({ props: p, onChange }: Props) {
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">
           <input type="color" value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
           <Input value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
         </div>
       </div>

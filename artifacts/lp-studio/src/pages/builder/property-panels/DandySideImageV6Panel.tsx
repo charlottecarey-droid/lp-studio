@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { ImagePicker } from "@/components/ImagePicker";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 
@@ -44,6 +45,7 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">
           <input type="color" value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
           <Input value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
         </div>
       </div>

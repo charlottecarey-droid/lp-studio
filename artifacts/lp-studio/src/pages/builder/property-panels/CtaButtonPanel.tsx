@@ -2,6 +2,7 @@ import type { CtaButtonBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: CtaButtonBlockProps;
@@ -137,6 +138,7 @@ export function CtaButtonPanel({ props, onChange, onApplyCtaToAll }: Props) {
             className="text-sm font-mono"
           />
         </div>
+        <BrandSwatches className="mt-1.5" current={props.bgColor} onPick={hex => set("bgColor", hex)} />
         <p className="text-xs text-muted-foreground mt-1">Used for Primary and Outline styles.</p>
       </div>
     </div>

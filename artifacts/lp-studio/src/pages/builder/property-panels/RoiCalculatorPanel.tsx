@@ -3,6 +3,7 @@ import { BG_OPTIONS } from "@/lib/bg-styles";
 import type { RoiCalculatorBlockProps, RoiInputField, RoiOutputField } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -310,6 +311,7 @@ export function RoiCalculatorPanel({ props, onChange }: Props) {
       <FieldRow label="Accent Color">
         <div className="flex items-center gap-2">
           <input type="color" value={props.accentColor ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="w-8 h-8 rounded cursor-pointer border border-border" />
+          <BrandSwatches className="ml-1" current={props.accentColor} onPick={hex => onChange({ ...props, accentColor: hex })} />
           <Input value={props.accentColor ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, accentColor: e.target.value })} className="h-8 text-xs font-mono flex-1" />
         </div>
       </FieldRow>

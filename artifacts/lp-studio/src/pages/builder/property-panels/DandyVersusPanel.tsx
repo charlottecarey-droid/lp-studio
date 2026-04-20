@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyVersusBlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -37,6 +38,7 @@ export function DandyVersusPanel({ props: p, onChange }: Props) {
         <Label className="text-xs">Background Color</Label>
         <div className="flex gap-2 items-center">
           <input type="color" value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
+          <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
           <Input value={p.bgColor ?? "var(--brand-primary)"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
         </div>
       </div>

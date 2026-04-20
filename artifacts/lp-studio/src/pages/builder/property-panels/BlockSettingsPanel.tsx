@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   settings?: BlockSettings;
@@ -92,6 +93,7 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
           </Button>
         )}
       </div>
+      <BrandSwatches className="mt-1.5" current={hex} onPick={(h) => onChange(h)} />
     </div>
   );
 }

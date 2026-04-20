@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -82,6 +83,7 @@ export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Old Card BG</Label>
             <div className="flex items-center gap-2">
               <input type="color" value={props.oldCardBg ?? "#f1f5f9"} onChange={e => onChange({ ...props, oldCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <BrandSwatches className="ml-1" current={props.oldCardBg} onPick={hex => onChange({ ...props, oldCardBg: hex })} />
               <Input value={props.oldCardBg ?? "#f1f5f9"} onChange={e => onChange({ ...props, oldCardBg: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>
@@ -89,6 +91,7 @@ export function ComparisonPanel({ props, onChange, onApplyCtaToAll }: Props) {
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">New Card BG</Label>
             <div className="flex items-center gap-2">
               <input type="color" value={props.newCardBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <BrandSwatches className="ml-1" current={props.newCardBg} onPick={hex => onChange({ ...props, newCardBg: hex })} />
               <Input value={props.newCardBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, newCardBg: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>

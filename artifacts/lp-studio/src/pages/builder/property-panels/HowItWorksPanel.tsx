@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { Plus, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
@@ -60,6 +61,7 @@ export function HowItWorksPanel({ blockType, props, onChange, brandVoiceSet }: P
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle BG</Label>
             <div className="flex items-center gap-2">
               <input type="color" value={props.circleBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <BrandSwatches className="ml-1" current={props.circleBg} onPick={hex => onChange({ ...props, circleBg: hex })} />
               <Input value={props.circleBg ?? "var(--brand-primary)"} onChange={e => onChange({ ...props, circleBg: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>
@@ -67,6 +69,7 @@ export function HowItWorksPanel({ blockType, props, onChange, brandVoiceSet }: P
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Circle Text</Label>
             <div className="flex items-center gap-2">
               <input type="color" value={props.circleText ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="w-9 h-9 rounded border cursor-pointer flex-shrink-0" />
+              <BrandSwatches className="ml-1" current={props.circleText} onPick={hex => onChange({ ...props, circleText: hex })} />
               <Input value={props.circleText ?? "var(--brand-accent)"} onChange={e => onChange({ ...props, circleText: e.target.value })} className="text-xs font-mono" />
             </div>
           </div>

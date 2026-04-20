@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { suggestCopy } from "@/lib/copy-api";
 import type { EventPageBlockProps, EventPageAgendaDay, EventPagePhoto, EventPageDetail, EventPageNavLink, EventPageTheme } from "@/lib/block-types";
 import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
@@ -67,6 +68,7 @@ function ColorRow({ label, value, fallback, onChange }: { label: string; value: 
         placeholder={fallback}
         className="text-xs h-7 w-24 font-mono"
       />
+      <BrandSwatches className="basis-full justify-end" current={value} onPick={onChange} />
     </div>
   );
 }

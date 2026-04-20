@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -27,6 +28,7 @@ function ColorRow({ label, value, defaultValue, onChange }: { label: string; val
         maxLength={9}
       />
       <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
+      <BrandSwatches className="basis-full" current={current} onPick={onChange} />
     </div>
   );
 }
