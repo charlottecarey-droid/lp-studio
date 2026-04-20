@@ -31,23 +31,45 @@ import {
 const API_BASE = "/api";
 
 async function loadLayoutDefault(key: string): Promise<Record<string, any> | null> {
+  // The API is the source of truth — sales reps must always see the freshest
+  // template-editor saves, never a stale browser/HTTP cache or stale data left
+  // in localStorage from a previous tenant or session.
+  //
+  //   • `cache: "no-store"` — bypass the HTTP cache so we never serve a stale
+  //     `200 OK null` response captured before the user saved.
+  //   • A successful response (even when the body is `null`) is authoritative;
+  //     do NOT fall back to localStorage in that case, otherwise data from a
+  //     different tenant context can leak through and override real defaults.
+  //   • LocalStorage is only a fallback for true network failures (offline /
+  //     server unreachable).
   try {
-    const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`);
+    const res = await fetch(
+      `${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`,
+      { cache: "no-store", credentials: "include" },
+    );
     if (res.ok) {
       const data = await res.json();
-      if (data) {
-        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch { /* quota exceeded — API is source of truth */ }
-        return data;
+      if (data && typeof data === "object") {
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch { /* quota — API is source of truth */ }
+        return data as Record<string, any>;
       }
+      // API explicitly says "no saved row" — clear stale local cache so we
+      // can't accidentally show another tenant's old data, then return null.
+      try { localStorage.removeItem(`lp_studio_${key}`); } catch {}
+      return null;
     }
-  } catch {
-    // API unavailable — fall back to localStorage
-  }
-  try {
-    const raw = localStorage.getItem(`lp_studio_${key}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
+    // Non-OK (4xx/5xx): treat as transient. Do NOT poison with localStorage —
+    // returning null lets the generator fall through to its built-in defaults
+    // rather than render someone else's saved layout.
     return null;
+  } catch {
+    // True network error (offline, DNS, etc.) — last-resort cache.
+    try {
+      const raw = localStorage.getItem(`lp_studio_${key}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
