@@ -1736,6 +1736,21 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="{company}" />
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs">Partner / co-brand logo (optional)</Label>
+              <ImagePicker value={p.companyLogoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, companyLogoUrl: v } })} />
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Shown in the nav as <span className="font-medium">Dandy × [logo]</span>. Replaces the company name text. Dark logos are auto-inverted to white for the dark hero background.
+              </p>
+              {p.companyLogoUrl && (
+                <Input
+                  value={p.companyLogoAlt ?? ""}
+                  onChange={e => onChange({ ...block, props: { ...p, companyLogoAlt: e.target.value } })}
+                  placeholder="Logo alt text (e.g. 'Heartland Dental')"
+                  className="h-8 text-xs"
+                />
+              )}
+            </div>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Subheadline</Label>
                 <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, subheadline: (p.subheadline ?? "") + token } })} />

@@ -196,6 +196,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       brand={brand}
       logoAlt={brand.brandName || "Logo"}
       companyName={company || undefined}
+      companyLogoUrl={p.companyLogoUrl || undefined}
+      companyLogoAlt={p.companyLogoAlt || company || undefined}
       navLinks={p.navLinks ?? []}
       primaryCtaText={p.primaryCtaText}
       primaryCtaUrl={p.primaryCtaUrl}
@@ -228,12 +230,30 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           alt={brand.brandName || "Logo"}
           style={{ height: 26, display: "block" }}
         />
-        {company && (
+        {(p.companyLogoUrl || company) && (
           <>
             <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.30)", margin: "0 0.125rem", userSelect: "none" }}>×</span>
-            <span style={{ fontSize: "0.9375rem", fontWeight: 500, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.01em" }}>
-              {company}
-            </span>
+            {p.companyLogoUrl ? (
+              <img
+                src={p.companyLogoUrl}
+                alt={p.companyLogoAlt || company || "Partner"}
+                style={{
+                  height: 26,
+                  width: "auto",
+                  maxWidth: 160,
+                  display: "block",
+                  objectFit: "contain",
+                  // Hero is on a dark background — invert dark partner marks so
+                  // they read cleanly without the user having to upload a white
+                  // version separately.
+                  filter: "brightness(0) invert(1)",
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: "0.9375rem", fontWeight: 500, color: "rgba(255,255,255,0.75)", letterSpacing: "-0.01em" }}>
+                {company}
+              </span>
+            )}
           </>
         )}
       </div>

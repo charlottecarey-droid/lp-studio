@@ -51,6 +51,12 @@ export interface DsoStatBarBlockProps {
 export interface DsoHeartlandHeroBlockProps {
   headline: string;
   companyName: string;
+  /** Optional partner / co-branded company logo shown in the nav as `Dandy × [logo]`.
+   *  When present, this replaces the text rendering of `companyName` in the
+   *  hero nav (sticky header + fallback nav). */
+  companyLogoUrl?: string;
+  /** Alt text for the partner logo. Falls back to `companyName`. */
+  companyLogoAlt?: string;
   eyebrow?: string;
   subheadline: string;
   primaryCtaText: string;

@@ -16,6 +16,11 @@ export interface StickyHeroNavProps {
   logoAlt?: string;
   /** Optional partner / company shown as "logo × Company" */
   companyName?: string;
+  /** Optional partner logo URL. When set, replaces the text rendering of `companyName`
+   *  in the divider slot — useful for co-branded heroes. */
+  companyLogoUrl?: string;
+  /** Alt text for the partner logo. Falls back to `companyName` or "Partner". */
+  companyLogoAlt?: string;
   /** Optional nav links. # anchors smooth-scroll. */
   navLinks?: StickyHeroNavLink[];
   primaryCtaText?: string;
@@ -42,6 +47,8 @@ export function StickyHeroNav({
   logoUrl,
   logoAlt = "Logo",
   companyName,
+  companyLogoUrl,
+  companyLogoAlt,
   navLinks,
   primaryCtaText,
   primaryCtaUrl,
@@ -136,7 +143,7 @@ export function StickyHeroNav({
               alt={logoAlt}
               style={{ height: 24, display: "block" }}
             />
-            {companyName && (
+            {(companyLogoUrl || companyName) && (
               <>
                 <span
                   style={{
@@ -148,17 +155,34 @@ export function StickyHeroNav({
                 >
                   ×
                 </span>
-                <span
-                  className="truncate"
-                  style={{
-                    fontSize: "0.9375rem",
-                    fontWeight: 500,
-                    color: companyTextColor,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {companyName}
-                </span>
+                {companyLogoUrl ? (
+                  <img
+                    src={companyLogoUrl}
+                    alt={companyLogoAlt || companyName || "Partner"}
+                    style={{
+                      height: 24,
+                      width: "auto",
+                      maxWidth: 160,
+                      display: "block",
+                      objectFit: "contain",
+                      // Brighten dark logos when sitting on a dark hero so the
+                      // partner mark reads cleanly against the navy background.
+                      filter: isDark ? "brightness(0) invert(1)" : "none",
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize: "0.9375rem",
+                      fontWeight: 500,
+                      color: companyTextColor,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {companyName}
+                  </span>
+                )}
               </>
             )}
           </div>
