@@ -8,17 +8,26 @@ const API_BASE = "/api";
 // ── API helpers ───────────────────────────────────────────────────────
 
 export async function apiLoadLayoutDefault(key: string): Promise<Record<string, unknown> | null> {
+  // The API is the source of truth — bypass HTTP cache and only fall back to
+  // localStorage on real network errors. See sales-one-pager.tsx for rationale.
   try {
-    const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`);
+    const res = await fetch(
+      `${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`,
+      { cache: "no-store", credentials: "include" },
+    );
     if (res.ok) {
       const d = await res.json();
-      if (d) {
-        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(d)); } catch { /* quota exceeded — API is source of truth */ }
-        return d;
+      if (d && typeof d === "object") {
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(d)); } catch {}
+        return d as Record<string, unknown>;
       }
+      try { localStorage.removeItem(`lp_studio_${key}`); } catch {}
+      return null;
     }
-  } catch {}
-  try { const r = localStorage.getItem(`lp_studio_${key}`); return r ? JSON.parse(r) : null; } catch { return null; }
+    return null;
+  } catch {
+    try { const r = localStorage.getItem(`lp_studio_${key}`); return r ? JSON.parse(r) : null; } catch { return null; }
+  }
 }
 
 export async function apiSaveLayoutDefault(key: string, config: Record<string, unknown>): Promise<void> {

@@ -22,17 +22,28 @@ import {
 const API_BASE = "/api";
 
 async function loadLayoutDefault(key: string): Promise<Record<string, any> | null> {
+  // The API is the source of truth — sales reps must always see the freshest
+  // template-editor saves, never a stale browser/HTTP cache or stale data left
+  // in localStorage from a previous tenant or session. See sales-one-pager.tsx
+  // for the full rationale; keep these two implementations in sync.
   try {
-    const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`);
+    const res = await fetch(
+      `${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`,
+      { cache: "no-store", credentials: "include" },
+    );
     if (res.ok) {
       const data = await res.json();
-      if (data) {
-        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch { /* quota exceeded — API is source of truth */ }
-        return data;
+      if (data && typeof data === "object") {
+        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch {}
+        return data as Record<string, any>;
       }
+      try { localStorage.removeItem(`lp_studio_${key}`); } catch {}
+      return null;
     }
-  } catch { /* network error — fall back to localStorage */ }
-  try { const raw = localStorage.getItem(`lp_studio_${key}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
+    return null;
+  } catch {
+    try { const raw = localStorage.getItem(`lp_studio_${key}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
 }
 
 async function saveLayoutDefault(key: string, config: Record<string, any>): Promise<void> {
