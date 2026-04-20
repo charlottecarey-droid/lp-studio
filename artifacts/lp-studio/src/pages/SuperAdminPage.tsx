@@ -428,18 +428,76 @@ function TenantRow({
   const [copyingBrand, setCopyingBrand] = useState(false);
   const [brandCopyError, setBrandCopyError] = useState<string | null>(null);
   const [brandCopied, setBrandCopied] = useState(false);
+  const [tenantRoles, setTenantRoles] = useState<{ id: number; name: string; is_admin: boolean }[]>([]);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRoleId, setAddRoleId] = useState<string>("");
+  const [addSendInvite, setAddSendInvite] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
     try {
-      const data = await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey);
-      setMembers(data);
+      const [membersData, rolesData] = await Promise.all([
+        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey),
+        apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/roles`, adminKey),
+      ]);
+      setMembers(membersData);
+      setTenantRoles(rolesData);
+      // Default the role select to the first non-admin role, or the first role.
+      if (rolesData.length && !addRoleId) {
+        const def = rolesData.find((r: any) => !r.is_admin) ?? rolesData[0];
+        setAddRoleId(String(def.id));
+      }
     } catch {
       /* ignore */
     } finally {
       setLoadingMembers(false);
     }
+    // addRoleId intentionally excluded — we only seed it once per panel-open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenant.id, adminKey]);
+
+  const handleAddMember = async () => {
+    setAdding(true);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members`, adminKey, {
+        method: "POST",
+        body: JSON.stringify({
+          email: addEmail.trim(),
+          roleId: Number(addRoleId),
+          sendInvite: addSendInvite,
+        }),
+      });
+      setAddSuccess(addSendInvite ? `Invited ${addEmail.trim()}` : `Added ${addEmail.trim()}`);
+      setAddEmail("");
+      // Reload members to reflect the change.
+      await loadMembers();
+    } catch (err: any) {
+      let msg = err?.message ?? "Failed to add member";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      setAddError(msg);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: number, email: string) => {
+    if (!window.confirm(`Remove ${email} from ${tenant.name}?`)) return;
+    try {
+      await apiFetch(`/api/admin/superadmin/tenants/${tenant.id}/members/${memberId}`, adminKey, {
+        method: "DELETE",
+      });
+      await loadMembers();
+    } catch (err: any) {
+      let msg = err?.message ?? "Failed to remove";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      window.alert(msg);
+    }
+  };
 
   const toggle = () => {
     if (!open && !members) loadMembers();
@@ -809,6 +867,7 @@ function TenantRow({
                       <th className="pb-1.5 font-medium">Role</th>
                       <th className="pb-1.5 font-medium">Status</th>
                       <th className="pb-1.5 font-medium">Last login</th>
+                      <th className="pb-1.5 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -833,10 +892,66 @@ function TenantRow({
                             : <span className="text-xs text-amber-700">Pending invite</span>}
                         </td>
                         <td className="py-2 text-xs text-muted-foreground">{fmtDate(m.last_login_at)}</td>
+                        <td className="py-2 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveMember(m.id, m.email)}
+                          >
+                            Remove
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              )}
+
+              {/* Add member */}
+              {members && tenantRoles.length > 0 && (
+                <div className="mt-3 pt-3 border-t space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Add member to {tenant.name}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      type="email"
+                      value={addEmail}
+                      onChange={(e) => { setAddEmail(e.target.value); setAddError(null); setAddSuccess(null); }}
+                      placeholder="user@example.com"
+                      className="h-7 text-xs flex-1 min-w-[200px]"
+                      disabled={adding}
+                    />
+                    <select
+                      value={addRoleId}
+                      onChange={(e) => setAddRoleId(e.target.value)}
+                      disabled={adding}
+                      className="h-7 text-xs border rounded px-2 bg-background"
+                    >
+                      {tenantRoles.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}{r.is_admin ? " (admin)" : ""}</option>
+                      ))}
+                    </select>
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={addSendInvite}
+                        onChange={(e) => setAddSendInvite(e.target.checked)}
+                        disabled={adding}
+                      />
+                      Send invite email
+                    </label>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={adding || !addEmail.trim() || !addRoleId}
+                      onClick={handleAddMember}
+                    >
+                      {adding ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                    </Button>
+                  </div>
+                  {addError && <p className="text-xs text-destructive">{addError}</p>}
+                  {addSuccess && <p className="text-xs text-green-700">{addSuccess}</p>}
+                </div>
               )}
             </div>
           </TableCell>

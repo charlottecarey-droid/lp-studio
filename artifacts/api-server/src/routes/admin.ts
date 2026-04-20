@@ -280,6 +280,113 @@ router.get("/superadmin/tenants/:id/members", requireAdminKey, async (req, res):
   }
 });
 
+// GET /api/admin/superadmin/tenants/:id/roles — list roles available in a tenant.
+router.get("/superadmin/tenants/:id/roles", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
+  try {
+    const result = await pool.query(
+      `SELECT id, name, is_admin, is_system FROM tenant_roles WHERE tenant_id = $1 ORDER BY is_admin DESC, name ASC`,
+      [tenantId],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("[superadmin] GET /tenants/:id/roles error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/tenants/:id/members — invite/add a member to any tenant.
+// Body: { email: string, roleId: number, sendInvite?: boolean (default true) }
+router.post("/superadmin/tenants/:id/members", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  if (!tenantId || isNaN(tenantId)) { res.status(400).json({ error: "Invalid tenant id" }); return; }
+  const { email: rawEmail, roleId: rawRoleId, sendInvite } = req.body ?? {};
+  const roleId = Number(rawRoleId);
+  if (!rawEmail || typeof rawEmail !== "string" || !roleId || !Number.isInteger(roleId)) {
+    res.status(400).json({ error: "email and integer roleId are required" });
+    return;
+  }
+  const email = rawEmail.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: "Invalid email address" });
+    return;
+  }
+  try {
+    const [userResult, tenantResult, roleResult] = await Promise.all([
+      pool.query(`SELECT id FROM app_users WHERE LOWER(email) = $1`, [email]),
+      pool.query(`SELECT name, domain FROM tenants WHERE id = $1`, [tenantId]),
+      pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, tenantId]),
+    ]);
+    if (!tenantResult.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    if (!roleResult.rows.length)   { res.status(400).json({ error: "Role does not belong to this tenant" }); return; }
+
+    const userId: number | null = userResult.rows[0]?.id ?? null;
+    const acceptedAt = userId ? new Date() : null;
+    const tenantName: string = tenantResult.rows[0].name ?? "the workspace";
+    const tenantDomain: string | null = tenantResult.rows[0].domain ?? null;
+    const roleName: string = roleResult.rows[0].name ?? "Member";
+
+    // Re-verify role↔tenant in the INSERT itself (closes any TOCTOU window).
+    const result = await pool.query(
+      `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+       SELECT $1, $2, tr.id, $4, $5
+         FROM tenant_roles tr
+        WHERE tr.id = $3 AND tr.tenant_id = $1
+       ON CONFLICT (tenant_id, user_id)
+         WHERE user_id IS NOT NULL
+         DO UPDATE SET role_id = EXCLUDED.role_id
+       RETURNING *`,
+      [tenantId, userId, roleId, email, acceptedAt],
+    );
+    if (!result.rows.length) {
+      res.status(400).json({ error: "Role does not belong to this tenant" });
+      return;
+    }
+
+    if (sendInvite !== false) {
+      const signInUrl = tenantDomain
+        ? `https://${tenantDomain}`
+        : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
+      const fromEmail = tenantDomain
+        ? `LP Studio <noreply@${tenantDomain}>`
+        : undefined;
+      sendInviteEmail({
+        inviteeEmail: email,
+        inviterName: req.authUser?.name ?? "Superadmin",
+        tenantName,
+        roleName,
+        isNewUser: userId === null,
+        signInUrl,
+        fromEmail,
+      }).catch((err) => console.error("[superadmin] sendInviteEmail error:", err));
+    }
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("[superadmin] POST /tenants/:id/members error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/superadmin/tenants/:tenantId/members/:memberId — remove a member.
+router.delete("/superadmin/tenants/:tenantId/members/:memberId", requireAdminKey, async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.tenantId);
+  const memberId = Number(req.params.memberId);
+  if (!tenantId || !memberId) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const r = await pool.query(
+      `DELETE FROM tenant_members WHERE id = $1 AND tenant_id = $2 RETURNING id`,
+      [memberId, tenantId],
+    );
+    if (!r.rowCount) { res.status(404).json({ error: "Member not found" }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[superadmin] DELETE /tenants/:tenantId/members/:memberId error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // PATCH /api/admin/superadmin/tenants/:id
 router.patch("/superadmin/tenants/:id", requireAdminKey, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
