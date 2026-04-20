@@ -4,6 +4,12 @@ import { motion } from "framer-motion";
 import { ChevronDown, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import { SalesLayout } from "@/components/layout/sales-layout";
+import {
+  fetchBrandConfig,
+  getBrandStyleVars,
+  DEFAULT_BRAND,
+  type BrandConfig,
+} from "@/lib/brand-config";
 
 const API_BASE = "/api";
 
@@ -79,6 +85,19 @@ const SalesRoiCalculator = () => {
   const [restoProdPerHour, setRestoProdPerHour] = useState(500);
 
   const [practices, setPractices] = useState(1);
+
+  // The sales console layout doesn't emit `--brand-*` CSS variables (those are
+  // wired up by the page-viewer / builder canvas). Without them, all the
+  // `bg-[var(--brand-primary)]` / `text-[var(--brand-accent)]` classes on this
+  // page resolve to an empty value and the dark-green results panel + lime
+  // CTA render as plain white. Load the brand here and emit the vars on the
+  // page wrapper so the calculator picks up the tenant's colors. Falls back
+  // to DEFAULT_BRAND so first paint is never colorless.
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  useEffect(() => {
+    fetchBrandConfig().then(setBrand).catch(() => {});
+  }, []);
+  const brandStyleVars = useMemo(() => getBrandStyleVars(brand), [brand]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -323,7 +342,7 @@ const SalesRoiCalculator = () => {
 
   return (
     <SalesLayout>
-      <div className="px-6 md:px-10 py-10">
+      <div className="px-6 md:px-10 py-10" style={brandStyleVars}>
         <div className="max-w-[1100px] mx-auto">
 
           {/* Back button */}
