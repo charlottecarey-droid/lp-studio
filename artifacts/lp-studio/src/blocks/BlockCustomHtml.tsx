@@ -17,7 +17,15 @@ export function BlockCustomHtml({ props }: Props) {
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
     if (!doc) return;
 
-    const content = `<!DOCTYPE html>
+    // If the user pasted a complete HTML document, write it as-is so their own
+    // <head>, <style>, <body> styling (including `html, body { ... }` rules)
+    // applies correctly. Otherwise, wrap the snippet in a minimal shell.
+    const raw = (props.html || "").trim();
+    const isFullDoc = /^<!doctype/i.test(raw) || /^<html[\s>]/i.test(raw);
+
+    const content = isFullDoc
+      ? raw
+      : `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -26,25 +34,46 @@ export function BlockCustomHtml({ props }: Props) {
   body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; }
 </style>
 </head>
-<body>${props.html || ""}</body>
+<body>${raw}</body>
 </html>`;
 
     doc.open();
     doc.write(content);
     doc.close();
 
-    const resizeObserver = new ResizeObserver(() => {
-      if (iframe.contentDocument?.body) {
-        iframe.style.height = iframe.contentDocument.body.scrollHeight + "px";
-      }
-    });
+    // Recompute height based on the larger of body/documentElement scrollHeight
+    // (full-document HTML often relies on `html, body { min-height: 100vh }`,
+    // which makes body height equal to the iframe height and breaks naive
+    // measurement — documentElement gives the true content height).
+    const measure = () => {
+      const d = iframe.contentDocument;
+      if (!d) return;
+      const h = Math.max(
+        d.body?.scrollHeight ?? 0,
+        d.documentElement?.scrollHeight ?? 0,
+        d.body?.offsetHeight ?? 0,
+        d.documentElement?.offsetHeight ?? 0,
+      );
+      if (h > 0) iframe.style.height = h + "px";
+    };
 
-    if (doc.body) {
-      resizeObserver.observe(doc.body);
-      iframe.style.height = doc.body.scrollHeight + "px";
-    }
+    const resizeObserver = new ResizeObserver(measure);
+    if (doc.body) resizeObserver.observe(doc.body);
+    if (doc.documentElement) resizeObserver.observe(doc.documentElement);
 
-    return () => resizeObserver.disconnect();
+    // Initial + post-load measurements (covers fonts, images, and inline
+    // scripts that mutate the DOM after parse).
+    measure();
+    iframe.contentWindow?.addEventListener("load", measure);
+    const t1 = window.setTimeout(measure, 100);
+    const t2 = window.setTimeout(measure, 500);
+
+    return () => {
+      resizeObserver.disconnect();
+      iframe.contentWindow?.removeEventListener("load", measure);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [props.html]);
 
   if (!props.html || props.html.trim() === "") {
@@ -60,7 +89,7 @@ export function BlockCustomHtml({ props }: Props) {
       <iframe
         ref={iframeRef}
         title="Custom HTML Block"
-        sandbox="allow-same-origin allow-forms"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         className="w-full border-0"
         style={{ minHeight: "60px", display: "block" }}
         scrolling="no"
