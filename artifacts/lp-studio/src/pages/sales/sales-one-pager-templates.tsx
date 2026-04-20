@@ -1420,7 +1420,20 @@ export default function SalesOnePagerTemplates() {
     !deletedBuiltins[bt.id] && bt.label.toLowerCase().includes(search.toLowerCase())
   ) : [];
   const deletedBuiltinsList = BUILTIN_TEMPLATES.filter(bt => deletedBuiltins[bt.id]);
-  const activeTemplates = typeFilter !== "builtin" ? templates.filter(t => !t.isDeleted && t.name.toLowerCase().includes(search.toLowerCase())) : [];
+  const activeTemplates = typeFilter !== "builtin"
+    ? templates
+        .filter(t => !t.isDeleted && t.name.toLowerCase().includes(search.toLowerCase()))
+        // Newest first. The API already orders by createdAt desc, but sorting
+        // here keeps the UI correct if a freshly-saved template is appended
+        // to local state without a refetch, or if the field is missing.
+        .slice()
+        .sort((a, b) => {
+          const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (bt !== at) return bt - at;
+          return (b.id ?? 0) - (a.id ?? 0);
+        })
+    : [];
   const deletedTemplates = templates.filter(t => t.isDeleted);
 
   if (editing !== null) {
