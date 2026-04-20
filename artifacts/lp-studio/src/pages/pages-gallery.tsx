@@ -126,6 +126,17 @@ interface CreatePageData {
   status: "draft" | "published";
   audienceType?: string | null;
   segmentId?: string | null;
+  fromTemplateId?: number | null;
+}
+
+interface ApiTemplate {
+  id: number;
+  title: string;
+  templateLabel: string;
+  templateDescription: string;
+  blockCount: number;
+  isGlobal: boolean;
+  industry: "dental" | "generic" | null;
 }
 
 async function createPage(data: CreatePageData) {
@@ -153,10 +164,12 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-const TEMPLATE_OPTIONS = [
-  { id: "blank", name: "Blank Canvas", description: "Start from scratch with an empty page" },
-  ...LP_TEMPLATES.map(t => ({ id: t.id, name: t.name, description: t.description })),
-];
+// "blank" is always first; dental-only built-in templates are appended below
+// at render time when the tenant's industry is "dental". Generic tenants get
+// their starting templates from the API (industry-filtered global templates),
+// so they never see hardcoded Dandy/dental copy.
+const BLANK_OPTION = { id: "blank", name: "Blank Canvas", description: "Start from scratch with an empty page" };
+const DENTAL_BUILTIN_OPTIONS = LP_TEMPLATES.map(t => ({ id: t.id, name: t.name, description: t.description }));
 
 function getTemplateBlocks(templateId: string): PageBlock[] {
   if (templateId === "blank") return [];
@@ -535,6 +548,12 @@ export default function PagesGallery() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Industry-filtered templates from the API (global + tenant-owned). Drives
+  // the "Templates" section of the create dialog so generic tenants see the
+  // SaaS starter templates and dental tenants see the dental ones — never
+  // the wrong industry's copy.
+  const [apiTemplates, setApiTemplates] = useState<ApiTemplate[]>([]);
+
   const { data: runningTests = [], isLoading: testsLoading } = useRunningTests();
   const { data: commentSummary = [] } = useCommentSummary();
   const commentCounts = Object.fromEntries(commentSummary.map(s => [s.pageId, s.unresolvedCount]));
@@ -560,6 +579,17 @@ export default function PagesGallery() {
     if (showCreateModal && segments.length === 0) {
       fetchBrandConfig().then(b => setSegments(b.segments ?? [])).catch(() => {});
     }
+  }, [showCreateModal]);
+
+  // Refetch industry-filtered templates each time the dialog opens so newly
+  // saved tenant templates / superadmin global-template edits show up
+  // immediately. `cache: "no-store"` mirrors the layout-defaults fix.
+  useEffect(() => {
+    if (!showCreateModal) return;
+    fetch(`${API_BASE}/lp/templates/enriched`, { cache: "no-store", credentials: "include" })
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: ApiTemplate[]) => setApiTemplates(Array.isArray(rows) ? rows : []))
+      .catch(() => setApiTemplates([]));
   }, [showCreateModal]);
 
   // Fetch performance scores once pages load
@@ -600,7 +630,19 @@ export default function PagesGallery() {
     setIsCreating(true);
     setCreateError(null);
     try {
-      const blocks = getTemplateBlocks(selectedTemplate);
+      // API templates have ids of the form "api:<numericId>". For those we
+      // hand the work to the server via `fromTemplateId` so the source page's
+      // blocks/CSS/meta are copied with full industry isolation. For all
+      // other (built-in / microsite / blank) ids we resolve blocks locally
+      // as before.
+      let blocks: PageBlock[] = [];
+      let fromTemplateId: number | null = null;
+      if (selectedTemplate.startsWith("api:")) {
+        const parsed = parseInt(selectedTemplate.slice(4), 10);
+        if (!Number.isNaN(parsed)) fromTemplateId = parsed;
+      } else {
+        blocks = getTemplateBlocks(selectedTemplate);
+      }
       const page = await createPage({
         title: newTitle.trim(),
         slug: newSlug.trim(),
@@ -608,6 +650,7 @@ export default function PagesGallery() {
         status: "draft",
         segmentId: selectedSegment?.id ?? null,
         audienceType: selectedSegment ? inferAudienceType(selectedSegment.name) : null,
+        fromTemplateId,
       });
       setShowCreateModal(false);
       setNewTitle("");
@@ -1279,11 +1322,15 @@ export default function PagesGallery() {
               <div>
                 <Label className="text-sm font-medium mb-2 block">Starting Template</Label>
                 <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-                  {/* General templates */}
+                  {/* General templates — Blank is universal; the dental built-in
+                      templates (LP_TEMPLATES) and DSO microsite templates contain
+                      hardcoded Dandy/dental copy and are only shown to dental
+                      tenants. Generic tenants get their starter templates from
+                      the API section below, which is industry-filtered server-side. */}
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">General</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {TEMPLATE_OPTIONS.map(t => (
+                      {[BLANK_OPTION, ...(user?.tenantIndustry === "dental" ? DENTAL_BUILTIN_OPTIONS : [])].map(t => (
                         <button
                           key={t.id}
                           onClick={() => setSelectedTemplate(t.id)}
@@ -1300,7 +1347,42 @@ export default function PagesGallery() {
                       ))}
                     </div>
                   </div>
-                  {/* Sales Microsites category */}
+                  {/* Industry-filtered templates from the API (global SaaS or
+                      dental templates + this tenant's saved templates). */}
+                  {apiTemplates.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Templates</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {apiTemplates.map(t => {
+                          const optionId = `api:${t.id}`;
+                          return (
+                            <button
+                              key={optionId}
+                              onClick={() => setSelectedTemplate(optionId)}
+                              className={cn(
+                                "text-left p-3 rounded-lg border text-sm transition-all",
+                                selectedTemplate === optionId
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                  : "border-border hover:border-primary/30 hover:bg-muted/50"
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="font-medium text-xs text-foreground line-clamp-1">{t.templateLabel || t.title}</p>
+                                {t.isGlobal && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-muted text-muted-foreground shrink-0">Global</span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
+                                {t.templateDescription || `${t.blockCount} block${t.blockCount === 1 ? "" : "s"}`}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {/* Sales Microsites — DSO/dental sales decks; hide from generic tenants. */}
+                  {user?.tenantIndustry === "dental" && (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <Building2 className="w-3 h-3 text-primary" />
@@ -1339,6 +1421,7 @@ export default function PagesGallery() {
                       ))}
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
               {createError && (
