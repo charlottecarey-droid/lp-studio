@@ -132,7 +132,10 @@ const SalesRoiCalculator = () => {
     const recoveredProdYear = recoveredProdMonth * 12;
     const chairTimeSavedMonth = remakesAvoided * chairTimePerAppt;
     const chairTimeSavedYear = chairTimeSavedMonth * 12;
-    const labCostsAvoidedMonth = remakesAvoided * labCostPerCase;
+    // Hard cost savings extrapolate across ALL cases, not just remakes —
+    // switching labs eliminates the per-case hard cost on every case shipped.
+    // (e.g. $8/case × 900 cases/mo × 12 = $86,400/year)
+    const labCostsAvoidedMonth = restoCases * labCostPerCase;
     const labCostsAvoidedYear = labCostsAvoidedMonth * 12;
     const opptyProdMonth = chairTimeSavedMonth * restoProdPerHour;
     const opptyProdYear = opptyProdMonth * 12;

@@ -154,7 +154,10 @@ export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
     const remakesAvoided = currentRemakes - improvedRemakes;
     const recoveredProdYear = remakesAvoided * avgCaseValue * 12;
     const chairTimeSavedMonth = remakesAvoided * chairTimePerAppt;
-    const labCostsAvoidedYear = remakesAvoided * labCostPerCase * 12;
+    // Hard cost savings extrapolate across ALL cases, not just remakes —
+    // switching labs eliminates the per-case hard cost on every case shipped.
+    // (e.g. $8/case × 900 cases/mo × 12 = $86,400/year)
+    const labCostsAvoidedYear = restoCases * labCostPerCase * 12;
     const opptyProdYear = chairTimeSavedMonth * restoProdPerHour * 12;
     const totalUpsideYear = recoveredProdYear + labCostsAvoidedYear + opptyProdYear;
     return { remakesAvoided, recoveredProdYear, labCostsAvoidedYear, opptyProdYear, totalUpsideYear };
