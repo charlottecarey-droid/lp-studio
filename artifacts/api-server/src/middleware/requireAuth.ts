@@ -46,21 +46,28 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // tenant (custom domain, microsite, or wildcard subdomain), the session's
     // tenant MUST match. Hosts that don't map to any tenant (the canonical
     // app URL, Replit dev domain, localhost) are exempt.
-    const hostHeader = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
-    const host = hostHeader.split(":")[0].toLowerCase();
-    if (host) {
-      try {
-        const match = await findTenantByHost(host);
-        if (match && user.tenantId != null && match.tenantId !== user.tenantId) {
-          res.status(403).json({ error: "Session does not belong to this domain's tenant" });
+    //
+    // Superadmins (isAdmin=true) are exempt from this check: they need to be
+    // able to use the cross-tenant Switch Tenant tool (and access /superadmin
+    // endpoints) from any domain. Tenant data isolation for normal users is
+    // still enforced via getTenantId() / req.authUser.tenantId in each route.
+    if (!user.isAdmin) {
+      const hostHeader = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
+      const host = hostHeader.split(":")[0].toLowerCase();
+      if (host) {
+        try {
+          const match = await findTenantByHost(host);
+          if (match && user.tenantId != null && match.tenantId !== user.tenantId) {
+            res.status(403).json({ error: "Session does not belong to this domain's tenant" });
+            return;
+          }
+        } catch (err) {
+          // Fail-CLOSED on resolver errors. Failing open here would let a session
+          // from one tenant access another tenant's domain during a DB blip.
+          console.error("[requireAuth] host resolver error:", err);
+          res.status(503).json({ error: "Domain check temporarily unavailable" });
           return;
         }
-      } catch (err) {
-        // Fail-CLOSED on resolver errors. Failing open here would let a session
-        // from one tenant access another tenant's domain during a DB blip.
-        console.error("[requireAuth] host resolver error:", err);
-        res.status(503).json({ error: "Domain check temporarily unavailable" });
-        return;
       }
     }
 
