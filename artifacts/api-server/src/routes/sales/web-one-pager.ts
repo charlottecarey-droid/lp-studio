@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable } from "@workspace/db";
 
@@ -175,11 +175,13 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
     const baseSlug = `onepager-${slugify(dsoName)}`;
     let finalSlug = baseSlug;
 
+    // Slug conflicts are scoped per tenant — two tenants can each have an
+    // "onepager-acme" page. Only check within this tenant's namespace.
     for (let attempt = 1; attempt <= 20; attempt++) {
       const conflict = await db
         .select({ id: lpPagesTable.id })
         .from(lpPagesTable)
-        .where(eq(lpPagesTable.slug, finalSlug))
+        .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, finalSlug)))
         .limit(1);
       if (conflict.length === 0) break;
       finalSlug = `${baseSlug}-${attempt}`;

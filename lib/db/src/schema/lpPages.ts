@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -6,7 +6,9 @@ export const lpPagesTable = pgTable("lp_pages", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").notNull(),
   title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
+  // Slug is unique *per tenant*, not globally — see uniqueIndex below.
+  // Two tenants can each have a page named "pricing" or "envisage-dandy-partnership".
+  slug: text("slug").notNull(),
   blocks: jsonb("blocks").notNull().default([]),
   status: text("status").notNull().default("draft"),
   customCss: text("custom_css").notNull().default(""),
@@ -34,7 +36,8 @@ export const lpPagesTable = pgTable("lp_pages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
-  index("lp_pages_tenant_slug_idx").on(table.tenantId, table.slug),
+  // Per-tenant uniqueness: each tenant can have its own page named "pricing".
+  uniqueIndex("lp_pages_tenant_slug_unique").on(table.tenantId, table.slug),
 ]);
 
 export const insertLpPageSchema = createInsertSchema(lpPagesTable).omit({ id: true, createdAt: true, updatedAt: true });

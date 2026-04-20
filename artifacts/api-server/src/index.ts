@@ -818,7 +818,7 @@ async function runMigrations(): Promise<void> {
                 true, ${tpl.templateLabel}, ${tpl.templateDescription},
                 true, ${tpl.industry}, 'marketing'
               )
-              ON CONFLICT (slug) DO NOTHING
+              ON CONFLICT (tenant_id, slug) DO NOTHING
               RETURNING 1
             `);
             if (result.rows.length > 0) inserted++;

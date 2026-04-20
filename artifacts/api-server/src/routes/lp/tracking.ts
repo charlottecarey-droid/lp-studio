@@ -8,6 +8,19 @@ import type { LpVariant } from "@workspace/db";
 import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import { revealAccountName } from "../../lib/apollo-reveal";
+import { findTenantByHost } from "../../lib/tenantHosts";
+
+/**
+ * Resolve tenant id for a public, slug-based request from the request host.
+ * Returns null if no tenant is mapped to that host. Page lookups by slug must
+ * always be scoped by tenant — slugs are unique only per (tenant_id, slug).
+ */
+async function resolveTenantIdFromRequest(req: Request): Promise<number | null> {
+  const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+  if (!host) return null;
+  const match = await findTenantByHost(host);
+  return match?.tenantId ?? null;
+}
 
 /** Extract UTM parameters from the request query string */
 function extractUtm(req: Request): {
@@ -149,13 +162,20 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
   if (!slug) { res.status(400).send("Bad request"); return; }
 
   try {
+    // Slugs are unique per (tenant_id, slug). Resolve the tenant from the
+    // request host so we never serve another tenant's page metadata.
+    const tenantId = await resolveTenantIdFromRequest(req);
+    if (tenantId == null) { res.status(404).send("Not found"); return; }
+
     const [page] = await db.select({
       title: lpPagesTable.title,
       metaTitle: lpPagesTable.metaTitle,
       metaDescription: lpPagesTable.metaDescription,
       ogImage: lpPagesTable.ogImage,
       status: lpPagesTable.status,
-    }).from(lpPagesTable).where(eq(lpPagesTable.slug, slug)).limit(1);
+    }).from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)))
+      .limit(1);
 
     if (!page || page.status === "draft") {
       res.status(404).send("Not found");
@@ -231,11 +251,17 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     .where(eq(lpTestsTable.slug, params.data.slug));
 
   if (!test) {
-    // Check if it's a builder page
+    // Check if it's a builder page — slugs are unique only per (tenant_id, slug),
+    // so we must scope the lookup by the host's tenant.
+    const tenantId = await resolveTenantIdFromRequest(req);
+    if (tenantId == null) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
     const [builderPage] = await db
       .select()
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.slug, params.data.slug));
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, params.data.slug)));
 
     if (builderPage) {
       // Check if this is a public domain (microsite) and block draft pages
@@ -418,11 +444,14 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
   let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean } | null = null;
   if (!enrichedHasPage) {
-    const [found] = await db
-      .select()
-      .from(lpPagesTable)
-      .where(eq(lpPagesTable.slug, params.data.slug));
-    if (found) basePage = found;
+    const tenantId = await resolveTenantIdFromRequest(req);
+    if (tenantId != null) {
+      const [found] = await db
+        .select()
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, params.data.slug)));
+      if (found) basePage = found;
+    }
   }
 
   if (basePage && !enrichedHasPage) {
