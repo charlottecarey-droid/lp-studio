@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -591,6 +592,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
               </Button>
             )}
           </div>
+          <BrandSwatches className="mt-1.5" current={props.submitButtonColor} onPick={hex => set("submitButtonColor", hex)} />
           <p className="text-[10px] text-muted-foreground mt-1">Defaults to brand accent color. Clear to reset.</p>
         </div>
         <div>
@@ -615,6 +617,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
               </Button>
             )}
           </div>
+          <BrandSwatches className="mt-1.5" current={props.submitButtonTextColor} onPick={hex => set("submitButtonTextColor", hex)} />
           <p className="text-[10px] text-muted-foreground mt-1">Defaults to dark on light backgrounds, near-black on dark. Clear to reset.</p>
         </div>
         <div>

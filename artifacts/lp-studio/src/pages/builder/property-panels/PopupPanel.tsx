@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { MousePointerClick, Clock, ArrowUpFromLine, LogOut, Link, Calendar } from "lucide-react";
 import type { PopupBlockProps } from "@/lib/block-types";
 
@@ -182,6 +183,7 @@ export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
               className="flex-1 font-mono text-xs h-8"
             />
           </div>
+          <BrandSwatches className="mt-1.5" current={p.ctaColor} onPick={hex => set("ctaColor", hex)} />
         </div>
       </div>
 

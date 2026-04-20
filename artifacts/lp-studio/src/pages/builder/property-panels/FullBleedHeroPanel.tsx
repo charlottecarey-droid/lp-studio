@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
@@ -91,6 +92,7 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
               placeholder="#ffffff"
             />
           </div>
+          <BrandSwatches className="mt-1.5" current={props.headlineColor} onPick={hex => set("headlineColor", hex)} />
         </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Subheadline Color</Label>
@@ -108,6 +110,7 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
               placeholder="#ffffff"
             />
           </div>
+          <BrandSwatches className="mt-1.5" current={props.subheadlineColor} onPick={hex => set("subheadlineColor", hex)} />
         </div>
       </div>
 
@@ -277,6 +280,7 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
                 placeholder="var(--brand-primary)"
               />
             </div>
+            <BrandSwatches className="mt-1.5" current={props.overlayColor} onPick={hex => set("overlayColor", hex)} />
           </div>
 
           <div>
@@ -375,6 +379,7 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
               className="text-sm font-mono"
             />
           </div>
+          <BrandSwatches className="mt-1.5" current={props.headerScrolledBg} onPick={hex => set("headerScrolledBg", hex)} />
         </div>
 
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Nav Links</Label>

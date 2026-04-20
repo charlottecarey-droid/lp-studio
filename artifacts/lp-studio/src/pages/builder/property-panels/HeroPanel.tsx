@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
@@ -138,6 +139,7 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
           <input type="color" value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="w-9 h-9 rounded border cursor-pointer" />
           <Input value={props.ctaColor} onChange={e => set("ctaColor", e.target.value)} className="text-sm font-mono" />
         </div>
+        <BrandSwatches className="mt-1.5" current={props.ctaColor} onPick={hex => set("ctaColor", hex)} />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Text Color</Label>
@@ -170,6 +172,7 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
             Dark Green
           </button>
         </div>
+        <BrandSwatches className="mt-1.5" current={props.ctaTextColor} onPick={hex => set("ctaTextColor", hex)} />
       </div>
       <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Button Width</Label>

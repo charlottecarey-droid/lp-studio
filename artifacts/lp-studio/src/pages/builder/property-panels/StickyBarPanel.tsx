@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import type { StickyBarBlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -83,6 +84,7 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
             className="flex-1 font-mono text-xs h-8"
           />
         </div>
+        <BrandSwatches className="mt-1.5" current={p.ctaColor} onPick={hex => set("ctaColor", hex)} />
       </div>
 
       <div>

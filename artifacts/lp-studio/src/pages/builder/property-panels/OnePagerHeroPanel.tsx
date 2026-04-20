@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 const LIME = "var(--brand-accent)";
 
@@ -178,6 +179,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
               placeholder="var(--brand-accent)"
             />
           </div>
+          <BrandSwatches className="mt-1.5" current={props.accentColor} onPick={hex => onChange({ ...props, accentColor: hex })} />
           <p className="text-[11px] text-muted-foreground">Used for the tagline and glow accent.</p>
         </div>
       </div>

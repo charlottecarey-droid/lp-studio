@@ -79,9 +79,9 @@ export function FooterPanel({ props, onChange }: Props) {
             value={props.accentColor || "var(--brand-accent)"}
             onChange={e => set("accentColor", e.target.value)}
             className="font-mono text-sm h-9"
-            data-brand-swatches-after={true}
           />
         </div>
+        <BrandSwatches className="mt-1.5" current={props.accentColor} onPick={hex => set("accentColor", hex)} />
       </div>
 
       <div>

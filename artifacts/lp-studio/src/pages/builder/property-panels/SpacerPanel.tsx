@@ -1,5 +1,6 @@
 import type { SpacerBlockProps } from "@/lib/block-types";
 import { Label } from "@/components/ui/label";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: SpacerBlockProps;
@@ -62,6 +63,9 @@ export function SpacerPanel({ props, onChange }: Props) {
             Transparent
           </button>
         </div>
+        {props.backgroundColor !== "transparent" && (
+          <BrandSwatches className="mt-1.5" current={props.backgroundColor} onPick={hex => onChange({ ...props, backgroundColor: hex })} />
+        )}
       </div>
 
       <p className="text-[10px] text-muted-foreground leading-relaxed">
