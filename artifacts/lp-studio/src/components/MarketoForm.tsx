@@ -1,0 +1,148 @@
+import { useEffect, useRef, useState } from "react";
+
+interface MktoFormsGlobal {
+  loadForm: (
+    baseUrl: string,
+    munchkinId: string,
+    formId: number,
+    callback?: (form: MktoFormInstance) => void,
+  ) => void;
+  whenReady: (cb: (form: MktoFormInstance) => void) => void;
+}
+interface MktoFormInstance {
+  vals: (values: Record<string, string>) => void;
+  getId: () => number;
+  onSuccess: (cb: (values: unknown, followUpUrl: string) => boolean) => void;
+}
+
+declare global {
+  interface Window {
+    MktoForms2?: MktoFormsGlobal;
+  }
+}
+
+export interface MarketoFormProps {
+  /** Marketo instance URL, e.g. "//app-XXX.marketo.com" or "https://app-XXX.marketo.com". */
+  baseUrl: string;
+  /** Munchkin ID, e.g. "123-ABC-456". */
+  munchkinId: string;
+  /** Numeric form ID. */
+  formId: number;
+  /** Pre-fill values keyed by Marketo field name (e.g. { Email: "x@y.com" }). */
+  prefill?: Record<string, string>;
+  /** Optional follow-up URL to redirect to on submit. */
+  followUpUrl?: string;
+  /** When set, prevents Marketo's default redirect on submit. */
+  onSuccess?: () => void;
+  className?: string;
+}
+
+const SCRIPT_ID = "marketo-forms2-script";
+const scriptLoadPromises = new Map<string, Promise<void>>();
+
+function loadMarketoScript(baseUrl: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.MktoForms2) return Promise.resolve();
+  const existing = scriptLoadPromises.get(baseUrl);
+  if (existing) return existing;
+  const promise = new Promise<void>((resolve, reject) => {
+    const existingEl = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    if (existingEl) {
+      existingEl.addEventListener("load", () => resolve());
+      existingEl.addEventListener("error", () => reject(new Error("Failed to load Marketo script")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = SCRIPT_ID;
+    script.src = `${baseUrl.replace(/\/$/, "")}/js/forms2/js/forms2.min.js`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Marketo script"));
+    document.head.appendChild(script);
+  });
+  scriptLoadPromises.set(baseUrl, promise);
+  return promise;
+}
+
+export function MarketoForm({
+  baseUrl,
+  munchkinId,
+  formId,
+  prefill,
+  followUpUrl,
+  onSuccess,
+  className,
+}: MarketoFormProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!baseUrl || !munchkinId || !formId) {
+      setError("Marketo form is not configured.");
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    setLoading(true);
+
+    let cancelled = false;
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Reset container — Marketo replaces the inner <form>, but we re-mount on prop changes.
+    container.innerHTML = `<form id="mktoForm_${formId}"></form>`;
+
+    loadMarketoScript(baseUrl)
+      .then(() => {
+        if (cancelled || !window.MktoForms2) return;
+        window.MktoForms2.loadForm(baseUrl, munchkinId, formId, (form) => {
+          if (cancelled) return;
+          setLoading(false);
+          if (prefill && Object.keys(prefill).length > 0) {
+            try {
+              form.vals(prefill);
+            } catch {
+              // ignore
+            }
+          }
+          if (onSuccess || followUpUrl) {
+            form.onSuccess((_vals, defaultFollowUp) => {
+              onSuccess?.();
+              if (followUpUrl) {
+                window.location.href = followUpUrl;
+                return false;
+              }
+              return Boolean(defaultFollowUp);
+            });
+          }
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("Could not load the Marketo form. Please try again later.");
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Stringify prefill so re-mount happens when values change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUrl, munchkinId, formId, JSON.stringify(prefill ?? {}), followUpUrl]);
+
+  return (
+    <div className={className}>
+      {error ? (
+        <p className="text-sm text-red-500">{error}</p>
+      ) : (
+        <>
+          {loading && (
+            <p className="text-sm text-slate-400 mb-2">Loading form…</p>
+          )}
+          <div ref={containerRef} />
+        </>
+      )}
+    </div>
+  );
+}

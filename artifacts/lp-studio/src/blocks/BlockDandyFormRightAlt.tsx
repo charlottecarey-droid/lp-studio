@@ -4,6 +4,7 @@ import { Check, Loader2, X, Calendar } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandyFormRightAltBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { MarketoForm } from "@/components/MarketoForm";
 
 interface Props {
   props: DandyFormRightAltBlockProps;
@@ -126,7 +127,26 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
               </p>
             )}
 
-            {formState === "success" ? (
+            {props.formMode === "marketo" ? (
+              props.marketoBaseUrl && props.marketoMunchkinId && props.marketoFormId ? (
+                <MarketoForm
+                  baseUrl={props.marketoBaseUrl}
+                  munchkinId={props.marketoMunchkinId}
+                  formId={props.marketoFormId}
+                  onSuccess={() => {
+                    setFormState("success");
+                    if (props.chilipiperUrl) {
+                      setCpUrl(buildCpUrl(props.chilipiperUrl, ""));
+                      setCpOpen(true);
+                    }
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Marketo form is not configured. Add the instance URL, Munchkin ID, and Form ID in the panel.
+                </p>
+              )
+            ) : formState === "success" ? (
               <div className="py-12 text-center">
                 <div className="w-16 h-16 rounded-full bg-[var(--brand-accent)] flex items-center justify-center mx-auto mb-5">
                   <Check className="w-8 h-8 text-[var(--brand-primary)]" />

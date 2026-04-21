@@ -64,6 +64,43 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
       </div>
 
       <div className="border-t pt-3 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Form Source</p>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Form Mode</Label>
+          <div className="flex gap-1">
+            {(["native", "marketo"] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => set("formMode", m)}
+                className={`flex-1 py-1.5 text-xs rounded border ${(p.formMode ?? "native") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+              >
+                {m === "native" ? "Built-in form" : "Marketo embed"}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">Marketo embed loads your Marketo form directly in this card.</p>
+        </div>
+        {p.formMode === "marketo" && (
+          <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+            <div>
+              <Label className="text-xs">Marketo Instance URL</Label>
+              <Input value={p.marketoBaseUrl ?? ""} onChange={e => set("marketoBaseUrl", e.target.value || undefined)} placeholder="//app-XXX.marketo.com" className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs">Munchkin ID</Label>
+              <Input value={p.marketoMunchkinId ?? ""} onChange={e => set("marketoMunchkinId", e.target.value || undefined)} placeholder="123-ABC-456" className="h-8 text-xs font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs">Form ID</Label>
+              <Input type="number" value={p.marketoFormId ?? ""} onChange={e => set("marketoFormId", e.target.value ? Number(e.target.value) : undefined)} placeholder="1234" className="h-8 text-xs font-mono" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Find these in Marketo's "Embed Code" for your form.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t pt-3 space-y-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Form Card</p>
         <div className="space-y-1.5">
           <Label className="text-xs">Form Headline</Label>

@@ -199,6 +199,15 @@ export interface FormBlockProps {
   inputAccentColor?: string;
   /** Label style. Defaults to "uppercase" (Dandy-style). */
   labelStyle?: "uppercase" | "default";
+
+  /** Form mode. "native" (default) renders our own fields; "marketo" embeds a Marketo form. */
+  formMode?: "native" | "marketo";
+  /** Marketo instance base URL, e.g. "//app-XXX.marketo.com". */
+  marketoBaseUrl?: string;
+  /** Munchkin ID, e.g. "123-ABC-456". */
+  marketoMunchkinId?: string;
+  /** Numeric Marketo form ID. */
+  marketoFormId?: number;
 }
 
 export interface ZigzagFeaturesBlockProps {
@@ -455,6 +464,12 @@ export interface DandyFormRightAltBlockProps {
   successMessage?: string;
   chilipiperUrl?: string;
   bgColor?: string;
+
+  /** Form mode. "native" (default) renders our own fields; "marketo" embeds a Marketo form. */
+  formMode?: "native" | "marketo";
+  marketoBaseUrl?: string;
+  marketoMunchkinId?: string;
+  marketoFormId?: number;
 }
 
 export interface DandyConversionPanel1Stat {

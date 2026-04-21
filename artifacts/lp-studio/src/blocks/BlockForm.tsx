@@ -3,6 +3,7 @@ import type { FormBlockProps, FormField, FormStep, StepCondition } from "@/lib/b
 import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
+import { MarketoForm } from "@/components/MarketoForm";
 
 const API_BASE = "/api";
 
@@ -366,6 +367,8 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
 
   const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
 
+  const isMarketo = props.formMode === "marketo";
+
   if (submitted) {
     return (
       <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
@@ -405,6 +408,22 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
           className={`${radiusClass} ${cardShadowClass} p-8 md:p-10 ${isDark && !cardBg ? "bg-white/10 border-white/20" : ""}`}
           style={cardBg ? { backgroundColor: cardBg } : undefined}
         >
+          {isMarketo ? (
+            props.marketoBaseUrl && props.marketoMunchkinId && props.marketoFormId ? (
+              <MarketoForm
+                baseUrl={props.marketoBaseUrl}
+                munchkinId={props.marketoMunchkinId}
+                formId={props.marketoFormId}
+                followUpUrl={activeRedirectUrl || undefined}
+                onSuccess={() => setSubmitted(true)}
+              />
+            ) : (
+              <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>
+                Marketo form is not configured. Add the instance URL, Munchkin ID, and Form ID in the panel.
+              </p>
+            )
+          ) : (
+            <>
           {activeMultiStep && totalSteps > 1 && (
             <div className="mb-7">
               <div className="flex items-center justify-between mb-2">
@@ -480,6 +499,8 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </section>
