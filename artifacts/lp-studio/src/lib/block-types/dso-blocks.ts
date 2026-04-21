@@ -106,6 +106,22 @@ export interface DsoHeartlandHeroBlockProps {
   stickyHeader?: boolean;
   /** Optional nav links (label + href) shown in the header. */
   navLinks?: { label: string; href: string }[];
+
+  /** What happens when the user submits the email-capture pill (ctaStyle === "email-capture").
+   *  - "navigate" (default): redirect to primaryCtaUrl with ?email=…
+   *  - "modal-form": open a modal with a customizable form (email pre-filled)
+   *  - "modal-chilipiper": open a modal with a Chili Piper iframe (email pre-filled) */
+  submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
+  modalChilipiperUrl?: string;
+  modalHeadline?: string;
+  modalSubheadline?: string;
+  modalSubmitText?: string;
+  modalSuccessMessage?: string;
+  modalDisclaimer?: string;
+  modalShowFirstName?: boolean;
+  modalShowLastName?: boolean;
+  modalShowPhone?: boolean;
+  modalShowCompany?: boolean;
 }
 
 /**
@@ -153,6 +169,32 @@ export interface DandyProductHeroBlockProps {
   accentColor?: string;
   /** Text color. Default: white. */
   textColor?: string;
+
+  /** What happens when the user submits the email pill.
+   *  - "navigate" (default, current): redirect to primaryCtaUrl with ?email=…
+   *  - "modal-form": open a modal with a customizable form (email pre-filled)
+   *  - "modal-chilipiper": open a modal with a Chili Piper iframe (email pre-filled) */
+  submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
+  /** Chili Piper booking URL used when submitMode === "modal-chilipiper". */
+  modalChilipiperUrl?: string;
+  /** Modal form headline. */
+  modalHeadline?: string;
+  /** Modal form subheadline. */
+  modalSubheadline?: string;
+  /** Modal form submit button label. */
+  modalSubmitText?: string;
+  /** Success message shown after the modal form is submitted. */
+  modalSuccessMessage?: string;
+  /** Fine-print disclaimer under the modal submit button. */
+  modalDisclaimer?: string;
+  /** Show first-name field in modal form. Default: true. */
+  modalShowFirstName?: boolean;
+  /** Show last-name field in modal form. Default: true. */
+  modalShowLastName?: boolean;
+  /** Show phone field in modal form. Default: true. */
+  modalShowPhone?: boolean;
+  /** Show company field in modal form. Default: false. */
+  modalShowCompany?: boolean;
 }
 
 export interface DsoSuccessStoriesBlockProps {

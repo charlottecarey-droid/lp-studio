@@ -7,6 +7,7 @@ import { getBgStyle } from "@/lib/bg-styles";
 import { StickyHeroNav } from "@/components/StickyHeroNav";
 import { BrandLogo } from "@/components/BrandLogo";
 import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 interface Props {
   props: DsoHeartlandHeroBlockProps;
@@ -16,6 +17,8 @@ interface Props {
    *  In that case the sticky hero nav is rendered absolute-within-the-hero
    *  instead of fixed-to-viewport so it cannot overlap the builder's top bar. */
   isBuilder?: boolean;
+  pageId?: number;
+  variantId?: number;
 }
 
 const PRIMARY  = "hsl(72, 55%, 48%)";
@@ -23,7 +26,9 @@ const MUTED_FG = "hsl(192, 10%, 55%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 
-export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder }: Props) {
+export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaClick, isBuilder, pageId, variantId }: Props) {
+  const submitMode = p.submitMode ?? "navigate";
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -161,6 +166,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     e.preventDefault();
     const trimmed = emailValue.trim();
     if (!trimmed) return;
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setEmailModalOpen(true);
+      return;
+    }
     if (p.primaryCtaUrl) {
       try {
         const url = new URL(p.primaryCtaUrl, window.location.origin);
@@ -1114,6 +1123,29 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           )}
         </motion.div>
       </section>
+      <EmailCaptureModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        email={emailValue}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={p.modalChilipiperUrl}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        pageId={pageId}
+        variantId={variantId}
+        source="dso-heartland-hero"
+        formConfig={{
+          headline: p.modalHeadline,
+          subheadline: p.modalSubheadline,
+          submitText: p.modalSubmitText,
+          successMessage: p.modalSuccessMessage,
+          disclaimer: p.modalDisclaimer,
+          showFirstName: p.modalShowFirstName,
+          showLastName: p.modalShowLastName,
+          showPhone: p.modalShowPhone,
+          showCompany: p.modalShowCompany,
+        }}
+      />
     </div>
   );
 }

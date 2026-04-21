@@ -1873,6 +1873,58 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     <Input value={p.emailCaptureButtonText ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailCaptureButtonText: e.target.value } })} placeholder="GET STARTED" className="h-8 text-xs" />
                     <p className="text-[11px] text-muted-foreground">Falls back to "CTA text" below if blank.</p>
                   </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-dashed">
+                    <Label className="text-xs">On submit</Label>
+                    <Select value={p.submitMode ?? "navigate"} onValueChange={v => onChange({ ...block, props: { ...p, submitMode: v as "navigate" | "modal-form" | "modal-chilipiper" } })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="navigate" className="text-xs">Redirect to URL</SelectItem>
+                        <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                        <SelectItem value="modal-chilipiper" className="text-xs">Open modal with Chili Piper</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Email is pre-populated in the modal.</p>
+                  </div>
+
+                  {p.submitMode === "modal-chilipiper" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Chili Piper booking URL</Label>
+                      <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs" />
+                    </div>
+                  )}
+
+                  {p.submitMode === "modal-form" && (
+                    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                      <Label className="text-xs font-semibold uppercase tracking-wider">Modal form</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Headline</Label>
+                        <Input value={p.modalHeadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalHeadline: e.target.value } })} placeholder="Tell us a bit about you" className="h-8 text-xs" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Subheadline</Label>
+                        <Input value={p.modalSubheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSubheadline: e.target.value } })} placeholder="We'll be in touch shortly." className="h-8 text-xs" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowFirstName !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowFirstName: e.target.checked } })} />First name</label>
+                        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowLastName !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowLastName: e.target.checked } })} />Last name</label>
+                        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowPhone !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowPhone: e.target.checked } })} />Phone</label>
+                        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!p.modalShowCompany} onChange={e => onChange({ ...block, props: { ...p, modalShowCompany: e.target.checked } })} />Company</label>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Submit button text</Label>
+                        <Input value={p.modalSubmitText ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSubmitText: e.target.value } })} placeholder="Submit" className="h-8 text-xs" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Success message</Label>
+                        <Input value={p.modalSuccessMessage ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSuccessMessage: e.target.value } })} placeholder="Thanks! We'll be in touch shortly." className="h-8 text-xs" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Disclaimer (under submit)</Label>
+                        <Input value={p.modalDisclaimer ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalDisclaimer: e.target.value } })} className="h-8 text-xs" />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <div className="space-y-1.5">
@@ -2013,6 +2065,58 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-dashed">
+                <Label className="text-xs">On submit</Label>
+                <Select value={p.submitMode ?? "navigate"} onValueChange={v => onChange({ ...block, props: { ...p, submitMode: v as "navigate" | "modal-form" | "modal-chilipiper" } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="navigate" className="text-xs">Redirect to URL</SelectItem>
+                    <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
+                    <SelectItem value="modal-chilipiper" className="text-xs">Open modal with Chili Piper</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">Email is pre-populated in the modal.</p>
+              </div>
+
+              {p.submitMode === "modal-chilipiper" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Chili Piper booking URL</Label>
+                  <Input value={p.modalChilipiperUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalChilipiperUrl: e.target.value } })} placeholder="https://meetdandy.chilipiper.com/router/…" className="h-8 text-xs" />
+                </div>
+              )}
+
+              {p.submitMode === "modal-form" && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <Label className="text-xs font-semibold uppercase tracking-wider">Modal form</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Headline</Label>
+                    <Input value={p.modalHeadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalHeadline: e.target.value } })} placeholder="Tell us a bit about you" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Subheadline</Label>
+                    <Input value={p.modalSubheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSubheadline: e.target.value } })} placeholder="We'll be in touch shortly." className="h-8 text-xs" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowFirstName !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowFirstName: e.target.checked } })} />First name</label>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowLastName !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowLastName: e.target.checked } })} />Last name</label>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={p.modalShowPhone !== false} onChange={e => onChange({ ...block, props: { ...p, modalShowPhone: e.target.checked } })} />Phone</label>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!p.modalShowCompany} onChange={e => onChange({ ...block, props: { ...p, modalShowCompany: e.target.checked } })} />Company</label>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Submit button text</Label>
+                    <Input value={p.modalSubmitText ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSubmitText: e.target.value } })} placeholder="Submit" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Success message</Label>
+                    <Input value={p.modalSuccessMessage ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalSuccessMessage: e.target.value } })} placeholder="Thanks! We'll be in touch shortly." className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Disclaimer (under submit)</Label>
+                    <Input value={p.modalDisclaimer ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalDisclaimer: e.target.value } })} className="h-8 text-xs" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3 border-t pt-3">

@@ -484,6 +484,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
             isBuilder={isBuilder}
+            pageId={pageId}
+            variantId={variantId}
           />
         );
       case "dandy-product-hero":
@@ -491,6 +493,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockDandyProductHero
             block={block}
             onCtaClick={onCtaClick ? (url) => onCtaClick(resolveDsoCtaUrl(url, block.props.primaryCtaMode)) : undefined}
+            pageId={pageId}
+            variantId={variantId}
           />
         );
       case "dso-problem":

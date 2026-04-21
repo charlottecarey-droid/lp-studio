@@ -1,10 +1,13 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import type { DandyProductHeroBlockProps } from "@/lib/block-types/dso-blocks";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
   onCtaClick?: (url: string, mode?: "link" | "chilipiper") => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 const DANDY_GREEN = "#003a30";
@@ -12,9 +15,11 @@ const DANDY_LIME = "#c7e738";
 const DISPLAY_FONT = `var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'Reckless', Georgia, serif`;
 const SANS_FONT = `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
-export function BlockDandyProductHero({ block, onCtaClick }: Props) {
+export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: Props) {
   const p = block.props;
   const [email, setEmail] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const submitMode = p.submitMode ?? "navigate";
 
   const bg = p.backgroundColor || DANDY_GREEN;
   const accent = p.accentColor || DANDY_LIME;
@@ -29,6 +34,10 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setModalOpen(true);
+      return;
+    }
     const url = p.primaryCtaUrl || "#";
     const targetUrl = email
       ? `${url}${url.includes("?") ? "&" : "?"}email=${encodeURIComponent(email)}`
@@ -259,6 +268,30 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
           )}
         </motion.div>
       </div>
+
+      <EmailCaptureModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        email={email}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={p.modalChilipiperUrl}
+        primaryColor={bg}
+        accentColor={accent}
+        pageId={pageId}
+        variantId={variantId}
+        source="dandy-product-hero"
+        formConfig={{
+          headline: p.modalHeadline,
+          subheadline: p.modalSubheadline,
+          submitText: p.modalSubmitText,
+          successMessage: p.modalSuccessMessage,
+          disclaimer: p.modalDisclaimer,
+          showFirstName: p.modalShowFirstName,
+          showLastName: p.modalShowLastName,
+          showPhone: p.modalShowPhone,
+          showCompany: p.modalShowCompany,
+        }}
+      />
     </section>
   );
 }
