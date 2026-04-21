@@ -9,8 +9,8 @@ interface Props {
 
 const DANDY_GREEN = "#003a30";
 const DANDY_LIME = "#c7e738";
-const DISPLAY_FONT = `"Reckless", "Reckless Neue", "Recoleta", "GT Sectra", Georgia, serif`;
-const SANS_FONT = `"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+const DISPLAY_FONT = `var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'Reckless', Georgia, serif`;
+const SANS_FONT = `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
 export function BlockDandyProductHero({ block, onCtaClick }: Props) {
   const p = block.props;
