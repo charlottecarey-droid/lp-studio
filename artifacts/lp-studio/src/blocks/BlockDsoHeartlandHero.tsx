@@ -974,12 +974,25 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             />
           </div>
         ) : p.backgroundImageUrl ? (
-          <div className="absolute inset-0">
+          (() => {
+            const fbFit = p.heroImageFit ?? "cover";
+            const fbPos = p.heroImagePosition ?? "center";
+            const fbScale = p.heroImageScale ?? 1;
+            const fbPad = p.heroImagePadding ?? 0;
+            return (
+          <div className="absolute inset-0" style={{ padding: fbPad }}>
             <img
               src={p.backgroundImageUrl}
               alt=""
-              className="w-full h-full object-cover"
               aria-hidden="true"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: fbFit,
+                objectPosition: fbPos,
+                transform: fbScale !== 1 ? `scale(${fbScale})` : undefined,
+                transformOrigin: fbPos,
+              }}
             />
             <div
               className="absolute inset-0 pointer-events-none"
@@ -989,6 +1002,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               }}
             />
           </div>
+            );
+          })()
         ) : (
           <div
             className="absolute inset-0"

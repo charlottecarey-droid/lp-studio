@@ -1624,6 +1624,48 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Input value={p.backgroundVideoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, backgroundVideoUrl: e.target.value } })} placeholder="https://…/video.mp4" className="h-8 text-xs" />
                   <p className="text-[11px] text-muted-foreground">Overrides background image when set. Use a direct MP4/WebM link.</p>
                 </div>
+                {p.backgroundImageUrl && !p.backgroundVideoUrl && (
+                  <div className="space-y-3 border border-border rounded-lg p-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Image framing</p>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Image fit</Label>
+                      <div className="flex gap-2">
+                        {(["cover", "contain"] as const).map(fit => (
+                          <button key={fit} onClick={() => onChange({ ...block, props: { ...p, heroImageFit: fit } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageFit ?? "cover") === fit ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                            {fit}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Image anchor (focal point)</Label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {([
+                          ["top left", "↖"], ["top", "↑"], ["top right", "↗"],
+                          ["left", "←"], ["center", "•"], ["right", "→"],
+                          ["bottom left", "↙"], ["bottom", "↓"], ["bottom right", "↘"],
+                        ] as const).map(([pos, glyph]) => (
+                          <button
+                            key={pos}
+                            onClick={() => onChange({ ...block, props: { ...p, heroImagePosition: pos } })}
+                            className={`py-1.5 text-sm rounded border ${(p.heroImagePosition ?? "center") === pos ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                            title={pos}
+                          >
+                            {glyph}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Image zoom: {(p.heroImageScale ?? 1).toFixed(2)}×</Label>
+                      <Slider value={[p.heroImageScale ?? 1]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImageScale: v } })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Image padding: {p.heroImagePadding ?? 0}px</Label>
+                      <Slider value={[p.heroImagePadding ?? 0]} min={0} max={120} step={2} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImagePadding: v } })} />
+                    </div>
+                  </div>
+                )}
                 {(p.backgroundImageUrl || p.backgroundVideoUrl) && (
                   <div className="space-y-3 border border-border rounded-lg p-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Overlay</p>
