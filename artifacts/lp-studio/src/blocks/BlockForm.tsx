@@ -35,6 +35,14 @@ interface Props {
   pageId?: number;
   variantId?: number;
   sessionId?: string;
+  /** Pre-fill values for matching fields. Email maps to the first email-type field, etc. */
+  prefill?: {
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    company?: string;
+  };
 }
 
 function validateField(field: FormField, value: string): string | null {
@@ -163,7 +171,7 @@ function resolveHiddenValue(template: string): string {
   return result;
 }
 
-export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props) {
+export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill }: Props) {
   const bgStyles: Record<string, string> = {
     "white": "bg-white",
     "light-gray": "bg-gray-50",
@@ -192,6 +200,38 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   }, [props.formId]);
 
   const allSteps = globalForm?.steps ?? props.steps ?? [];
+
+  // Seed prefill values into matching fields by type / label.
+  useEffect(() => {
+    if (!prefill) return;
+    const labelMatches = (label: string, ...needles: string[]) => {
+      const l = label.toLowerCase();
+      return needles.some(n => l.includes(n));
+    };
+    const seeds: Record<string, string> = {};
+    for (const s of allSteps) {
+      for (const f of s.fields) {
+        if (!f.id) continue;
+        if (prefill.email && f.type === "email" && !fieldValues[f.id]) {
+          seeds[f.id] = prefill.email;
+          continue;
+        }
+        if (prefill.phone && f.type === "phone" && !fieldValues[f.id]) {
+          seeds[f.id] = prefill.phone;
+          continue;
+        }
+        if (f.type === "text" && !fieldValues[f.id]) {
+          if (prefill.firstName && labelMatches(f.label, "first")) { seeds[f.id] = prefill.firstName; continue; }
+          if (prefill.lastName && labelMatches(f.label, "last")) { seeds[f.id] = prefill.lastName; continue; }
+          if (prefill.company && labelMatches(f.label, "company", "practice", "organization")) { seeds[f.id] = prefill.company; continue; }
+        }
+      }
+    }
+    if (Object.keys(seeds).length > 0) {
+      setFieldValues(prev => ({ ...seeds, ...prev }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSteps, prefill?.email, prefill?.firstName, prefill?.lastName, prefill?.phone, prefill?.company]);
   const activeMultiStep = globalForm?.multiStep ?? props.multiStep;
   const activeSubmitText = globalForm?.submitButtonText ?? props.submitButtonText;
   const activeSuccessMessage = globalForm?.successMessage ?? props.successMessage;
