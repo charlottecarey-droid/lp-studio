@@ -23,18 +23,6 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
 
   return (
     <header className="w-full bg-[var(--brand-primary)] shadow-sm">
-      {/* Utility bar */}
-      <div className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 md:px-10 h-10 flex items-center justify-end">
-          <a
-            href="https://www.meetdandy.com/careers/"
-            className="text-xs text-white/55 hover:text-white transition-colors tracking-wide"
-          >
-            *We&apos;re hiring* Careers
-          </a>
-        </div>
-      </div>
-
       {/* Main header */}
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
         {/* Logo */}
