@@ -122,6 +122,17 @@ export interface DsoHeartlandHeroBlockProps {
   modalShowLastName?: boolean;
   modalShowPhone?: boolean;
   modalShowCompany?: boolean;
+  /** Which form to render inside the modal when submitMode === "modal-form".
+   *  - "simple" (default): hand-rolled fields driven by modalShow*
+   *  - "linked": render a global form from the Forms library by id
+   *  - "marketo": embed a Marketo form */
+  modalFormSource?: "simple" | "linked" | "marketo";
+  /** Linked global form id (when modalFormSource === "linked"). */
+  modalFormId?: number;
+  /** Marketo instance URL (when modalFormSource === "marketo"). */
+  modalMarketoBaseUrl?: string;
+  modalMarketoMunchkinId?: string;
+  modalMarketoFormId?: number;
 }
 
 /**
@@ -195,6 +206,17 @@ export interface DandyProductHeroBlockProps {
   modalShowPhone?: boolean;
   /** Show company field in modal form. Default: false. */
   modalShowCompany?: boolean;
+  /** Which form to render inside the modal when submitMode === "modal-form".
+   *  - "simple" (default): hand-rolled fields driven by modalShow*
+   *  - "linked": render a global form from the Forms library by id
+   *  - "marketo": embed a Marketo form */
+  modalFormSource?: "simple" | "linked" | "marketo";
+  /** Linked global form id (when modalFormSource === "linked"). */
+  modalFormId?: number;
+  /** Marketo instance URL (when modalFormSource === "marketo"). */
+  modalMarketoBaseUrl?: string;
+  modalMarketoMunchkinId?: string;
+  modalMarketoFormId?: number;
 }
 
 export interface DsoSuccessStoriesBlockProps {

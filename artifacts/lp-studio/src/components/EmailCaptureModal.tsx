@@ -1,8 +1,27 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, Check, Loader2, X } from "lucide-react";
+import { MarketoForm } from "@/components/MarketoForm";
+import { BlockForm } from "@/blocks/BlockForm";
+import type { BrandConfig } from "@/lib/brand-config";
+import type { FormBlockProps } from "@/lib/block-types";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
+export type EmailCaptureFormSource = "simple" | "linked" | "marketo";
+
+const LINKED_FORM_DEFAULTS: Partial<FormBlockProps> = {
+  headline: "",
+  subheadline: "",
+  multiStep: false,
+  steps: [],
+  submitButtonText: "Submit",
+  successMessage: "Thanks! We'll be in touch shortly.",
+  redirectUrl: "",
+  backgroundStyle: "white",
+  cardStyle: "minimal",
+  cardRadius: "2xl",
+  labelStyle: "uppercase",
+};
 
 export interface EmailCaptureFormConfig {
   showFirstName?: boolean;
@@ -24,9 +43,20 @@ export interface EmailCaptureModalProps {
   /** Required when mode === "chilipiper". Email is appended as ?email=… */
   chilipiperUrl?: string;
   formConfig?: EmailCaptureFormConfig;
+  /** Form source when mode === "form". "simple" (default) uses formConfig,
+   *  "linked" renders a global form by id, "marketo" embeds a Marketo form. */
+  formSource?: EmailCaptureFormSource;
+  /** Linked global form id (required when formSource === "linked"). */
+  linkedFormId?: number;
+  /** Marketo config (required when formSource === "marketo"). */
+  marketoBaseUrl?: string;
+  marketoMunchkinId?: string;
+  marketoFormId?: number;
   /** Optional theme. Defaults to brand-primary / brand-accent CSS vars. */
   primaryColor?: string;
   accentColor?: string;
+  /** Brand passed through to embedded BlockForm when formSource === "linked". */
+  brand?: BrandConfig;
   /** Submit metadata. */
   pageId?: number;
   variantId?: number;
@@ -52,8 +82,14 @@ export function EmailCaptureModal({
   mode,
   chilipiperUrl,
   formConfig,
+  formSource = "simple",
+  linkedFormId,
+  marketoBaseUrl,
+  marketoMunchkinId,
+  marketoFormId,
   primaryColor,
   accentColor,
+  brand,
   pageId,
   variantId,
   source,
@@ -172,6 +208,75 @@ export function EmailCaptureModal({
               Scheduling link not configured.
             </div>
           )}
+        </div>
+      ) : formSource === "marketo" ? (
+        <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="p-7 sm:p-9">
+            {(cfg.headline || cfg.subheadline) && (
+              <div className="mb-5">
+                {cfg.headline && (
+                  <h3 className="text-xl font-bold mb-1" style={{ color: primary }}>{cfg.headline}</h3>
+                )}
+                {cfg.subheadline && (
+                  <p className="text-sm text-slate-500">{cfg.subheadline}</p>
+                )}
+              </div>
+            )}
+            {marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
+              <MarketoForm
+                baseUrl={marketoBaseUrl}
+                munchkinId={marketoMunchkinId}
+                formId={marketoFormId}
+                prefill={email ? { Email: email } : undefined}
+                onSuccess={() => setState("success")}
+              />
+            ) : (
+              <p className="text-sm text-slate-500">Marketo form is not configured.</p>
+            )}
+            {state === "success" && (
+              <div className="mt-5 flex items-center gap-2 text-sm" style={{ color: primary }}>
+                <Check className="w-4 h-4" /> {cfg.successMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : formSource === "linked" ? (
+        <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="p-2 sm:p-3">
+            {linkedFormId != null && brand ? (
+              <BlockForm
+                props={{
+                  ...(LINKED_FORM_DEFAULTS as FormBlockProps),
+                  formId: linkedFormId,
+                  headline: cfg.headline,
+                  subheadline: cfg.subheadline,
+                  submitButtonText: cfg.submitText,
+                  successMessage: cfg.successMessage,
+                }}
+                brand={brand}
+                pageId={pageId}
+                variantId={variantId}
+              />
+            ) : (
+              <p className="p-6 text-sm text-slate-500">
+                {!brand ? "Brand context is missing." : "No form linked. Pick one in the property panel."}
+              </p>
+            )}
+          </div>
         </div>
       ) : (
         <div className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl">

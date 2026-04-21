@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import type { DandyProductHeroBlockProps } from "@/lib/block-types/dso-blocks";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { useBrandConfig } from "@/components/BrandSwatches";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
@@ -23,6 +24,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: 
 
   const bg = p.backgroundColor || DANDY_GREEN;
   const accent = p.accentColor || DANDY_LIME;
+  const brand = useBrandConfig() ?? undefined;
   const textColor = p.textColor || "#ffffff";
   const imageBleed = p.imageBleed ?? true;
   const imageScale = p.imageScale ?? 1.35;
@@ -277,9 +279,15 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: 
         chilipiperUrl={p.modalChilipiperUrl}
         primaryColor={bg}
         accentColor={accent}
+        brand={brand}
         pageId={pageId}
         variantId={variantId}
         source="dandy-product-hero"
+        formSource={p.modalFormSource ?? "simple"}
+        linkedFormId={p.modalFormId}
+        marketoBaseUrl={p.modalMarketoBaseUrl}
+        marketoMunchkinId={p.modalMarketoMunchkinId}
+        marketoFormId={p.modalMarketoFormId}
         formConfig={{
           headline: p.modalHeadline,
           subheadline: p.modalSubheadline,

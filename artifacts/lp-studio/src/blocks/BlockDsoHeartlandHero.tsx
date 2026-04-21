@@ -1131,9 +1131,15 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         chilipiperUrl={p.modalChilipiperUrl}
         primaryColor={brand.primaryColor}
         accentColor={brand.accentColor}
+        brand={brand}
         pageId={pageId}
         variantId={variantId}
         source="dso-heartland-hero"
+        formSource={p.modalFormSource ?? "simple"}
+        linkedFormId={p.modalFormId}
+        marketoBaseUrl={p.modalMarketoBaseUrl}
+        marketoMunchkinId={p.modalMarketoMunchkinId}
+        marketoFormId={p.modalMarketoFormId}
         formConfig={{
           headline: p.modalHeadline,
           subheadline: p.modalSubheadline,

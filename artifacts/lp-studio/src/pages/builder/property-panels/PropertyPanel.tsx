@@ -28,6 +28,7 @@ import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
 import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
 import { FooterPanel } from "./FooterPanel";
+import { ModalFormSourcePanel } from "./ModalFormSourcePanel";
 import { FormPanel } from "./FormPanel";
 import { PopupPanel } from "./PopupPanel";
 import { StickyBarPanel } from "./StickyBarPanel";
@@ -1897,6 +1898,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   {p.submitMode === "modal-form" && (
                     <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                       <Label className="text-xs font-semibold uppercase tracking-wider">Modal form</Label>
+                      <ModalFormSourcePanel
+                        value={{
+                          modalFormSource: p.modalFormSource,
+                          modalFormId: p.modalFormId,
+                          modalMarketoBaseUrl: p.modalMarketoBaseUrl,
+                          modalMarketoMunchkinId: p.modalMarketoMunchkinId,
+                          modalMarketoFormId: p.modalMarketoFormId,
+                        }}
+                        onChange={next => onChange({ ...block, props: { ...p, ...next } })}
+                      />
                       <div className="space-y-1.5">
                         <Label className="text-xs">Headline</Label>
                         <Input value={p.modalHeadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalHeadline: e.target.value } })} placeholder="Tell us a bit about you" className="h-8 text-xs" />
@@ -2089,6 +2100,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               {p.submitMode === "modal-form" && (
                 <div className="space-y-2 rounded-md border bg-muted/30 p-3">
                   <Label className="text-xs font-semibold uppercase tracking-wider">Modal form</Label>
+                  <ModalFormSourcePanel
+                    value={{
+                      modalFormSource: p.modalFormSource,
+                      modalFormId: p.modalFormId,
+                      modalMarketoBaseUrl: p.modalMarketoBaseUrl,
+                      modalMarketoMunchkinId: p.modalMarketoMunchkinId,
+                      modalMarketoFormId: p.modalMarketoFormId,
+                    }}
+                    onChange={next => onChange({ ...block, props: { ...p, ...next } })}
+                  />
                   <div className="space-y-1.5">
                     <Label className="text-xs">Headline</Label>
                     <Input value={p.modalHeadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, modalHeadline: e.target.value } })} placeholder="Tell us a bit about you" className="h-8 text-xs" />
