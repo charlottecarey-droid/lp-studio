@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { VideoPicker } from "@/components/VideoPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy } from "@/lib/copy-api";
@@ -47,14 +48,13 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
       />
 
       <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Poster / Thumbnail Image URL</Label>
-        <Input
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Poster / Thumbnail Image</Label>
+        <ImagePicker
           value={props.posterUrl ?? ""}
-          onChange={e => set("posterUrl", e.target.value || undefined as unknown as string)}
+          onChange={url => set("posterUrl", url || (undefined as unknown as string))}
           placeholder="https://… or /images/thumb.jpg"
-          className="h-8 text-xs"
         />
-        <p className="text-[11px] text-muted-foreground mt-1">Shown before the video plays (matches the Dandy site's video thumbnail look).</p>
+        <p className="text-[11px] text-muted-foreground mt-1">Shown before the video plays. Upload, pick from library, or paste a URL.</p>
       </div>
 
       <div className="flex items-center justify-between">
