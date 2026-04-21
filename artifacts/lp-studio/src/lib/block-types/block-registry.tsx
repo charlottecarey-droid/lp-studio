@@ -49,6 +49,7 @@ import type {
   DsoFinalCtaBlockProps,
   DsoComparisonBlockProps,
   DsoHeartlandHeroBlockProps,
+  DandyProductHeroBlockProps,
   DsoProblemBlockProps,
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
@@ -1237,6 +1238,50 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect x="72" y={31 + i*9} width="20" height="2" rx="1" fill="#94a3b8" opacity="0.3" />
           </g>
         ))}
+      </svg>
+    ),
+  },
+  {
+    type: "dandy-product-hero" as const,
+    label: "Dandy Product Hero (Crown & Bridge style)",
+    category: "DSO" as BlockCategory,
+    defaultProps: (): DandyProductHeroBlockProps => ({
+      eyebrow: "Crown & Bridge",
+      headline: "Crown & Bridge\nDelivered in 5 Days",
+      subheadline: "Premium zirconia restorations with industry-leading turnaround. Backed by Dandy's 5-year warranty.",
+      emailPlaceholder: "Email address",
+      primaryCtaText: "Get Started",
+      primaryCtaUrl: "#",
+      primaryCtaMode: "link",
+      imageUrl: "",
+      imageAlt: "Dandy crown",
+      imageBleed: true,
+      imageAnchor: "top left",
+      imageScale: 1.35,
+      minHeight: 90,
+      backgroundColor: "#003a30",
+      accentColor: "#c7e738",
+      textColor: "#ffffff",
+      disclaimer: "By submitting, you agree to be contacted about Dandy products and services.",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003a30" rx="4" />
+        {/* eyebrow */}
+        <rect x="8" y="14" width="22" height="2" rx="1" fill="#c7e738" />
+        {/* headline lines */}
+        <rect x="8" y="22" width="42" height="4" rx="1" fill="#ffffff" />
+        <rect x="8" y="29" width="36" height="4" rx="1" fill="#ffffff" />
+        {/* sub */}
+        <rect x="8" y="38" width="48" height="2" rx="1" fill="#ffffff" opacity="0.6" />
+        <rect x="8" y="42" width="40" height="2" rx="1" fill="#ffffff" opacity="0.6" />
+        {/* email pill */}
+        <rect x="8" y="50" width="56" height="9" rx="4.5" fill="#ffffff" />
+        <rect x="42" y="52" width="20" height="5" rx="2.5" fill="#c7e738" />
+        {/* crown image bleed */}
+        <ellipse cx="100" cy="48" rx="22" ry="22" fill="#ffffff" opacity="0.95" />
+        <ellipse cx="100" cy="48" rx="14" ry="14" fill="#e5e7eb" />
+        <ellipse cx="100" cy="44" rx="8" ry="6" fill="#9ca3af" opacity="0.5" />
       </svg>
     ),
   },
@@ -2950,6 +2995,7 @@ export function createBlock(type: "dso-pilot-steps"): Extract<PageBlock, { type:
 export function createBlock(type: "dso-final-cta"): Extract<PageBlock, { type: "dso-final-cta" }>;
 export function createBlock(type: "dso-comparison"): Extract<PageBlock, { type: "dso-comparison" }>;
 export function createBlock(type: "dso-heartland-hero"): Extract<PageBlock, { type: "dso-heartland-hero" }>;
+export function createBlock(type: "dandy-product-hero"): Extract<PageBlock, { type: "dandy-product-hero" }>;
 export function createBlock(type: "dso-problem"): Extract<PageBlock, { type: "dso-problem" }>;
 export function createBlock(type: "dso-ai-feature"): Extract<PageBlock, { type: "dso-ai-feature" }>;
 export function createBlock(type: "dso-stat-showcase"): Extract<PageBlock, { type: "dso-stat-showcase" }>;
@@ -3036,6 +3082,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dso-final-cta": return { id, type: "dso-final-cta", props: props as DsoFinalCtaBlockProps };
     case "dso-comparison": return { id, type: "dso-comparison", props: props as DsoComparisonBlockProps };
     case "dso-heartland-hero": return { id, type: "dso-heartland-hero", props: props as DsoHeartlandHeroBlockProps };
+    case "dandy-product-hero": return { id, type: "dandy-product-hero", props: props as DandyProductHeroBlockProps };
     case "dso-problem": return { id, type: "dso-problem", props: props as DsoProblemBlockProps };
     case "dso-ai-feature": return { id, type: "dso-ai-feature", props: props as DsoAiFeatureBlockProps };
     case "dso-stat-showcase": return { id, type: "dso-stat-showcase", props: props as DsoStatShowcaseBlockProps };

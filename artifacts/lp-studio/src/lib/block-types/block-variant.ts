@@ -47,6 +47,7 @@ import type {
   DsoFinalCtaBlockProps,
   DsoComparisonBlockProps,
   DsoHeartlandHeroBlockProps,
+  DandyProductHeroBlockProps,
   DsoProblemBlockProps,
   DsoAiFeatureBlockProps,
   DsoStatShowcaseBlockProps,
@@ -124,6 +125,7 @@ export type BlockVariant =
   | { type: "dso-final-cta"; props: DsoFinalCtaBlockProps }
   | { type: "dso-comparison"; props: DsoComparisonBlockProps }
   | { type: "dso-heartland-hero"; props: DsoHeartlandHeroBlockProps }
+  | { type: "dandy-product-hero"; props: DandyProductHeroBlockProps }
   | { type: "dso-problem"; props: DsoProblemBlockProps }
   | { type: "dso-ai-feature"; props: DsoAiFeatureBlockProps }
   | { type: "dso-stat-showcase"; props: DsoStatShowcaseBlockProps }

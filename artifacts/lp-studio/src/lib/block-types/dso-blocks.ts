@@ -108,6 +108,47 @@ export interface DsoHeartlandHeroBlockProps {
   navLinks?: { label: string; href: string }[];
 }
 
+/**
+ * Dandy Product Hero — pixel-faithful clone of the meetdandy.com Crown & Bridge
+ * style hero. Dark green left half with eyebrow + serif headline + subheadline +
+ * inline white email-capture pill (lime submit). Right half holds a product
+ * image that intentionally bleeds off the bottom-right corner.
+ */
+export interface DandyProductHeroBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** Pre-CTA disclaimer / fine-print under the email pill. */
+  disclaimer?: string;
+  /** Email field placeholder. Default: "Email address". */
+  emailPlaceholder?: string;
+  /** Submit button label. Default: "Get Started". */
+  primaryCtaText?: string;
+  /** Where to send the user on submit. Email is appended as ?email=…. */
+  primaryCtaUrl?: string;
+  /** "link" (redirect) or "chilipiper" (popup). */
+  primaryCtaMode?: CtaMode;
+  /** Hero product image (e.g. crown PNG). */
+  imageUrl?: string;
+  imageAlt?: string;
+  /** When true (default), image is absolutely positioned and bleeds off the
+   *  right edge of the section. When false, fills its grid cell normally. */
+  imageBleed?: boolean;
+  /** CSS object-position focal point. Default: "top left" (matches meetdandy). */
+  imageAnchor?: string;
+  /** Image zoom multiplier. Default: 1.35 — pushes the crown larger so it
+   *  bleeds off the corners like the reference page. */
+  imageScale?: number;
+  /** Section min-height in vh. Default: 90. */
+  minHeight?: number;
+  /** Background color. Default: dandy-green #003a30. */
+  backgroundColor?: string;
+  /** Accent color (eyebrow + submit button). Default: dandy-lime #c7e738. */
+  accentColor?: string;
+  /** Text color. Default: white. */
+  textColor?: string;
+}
+
 export interface DsoSuccessStoriesBlockProps {
   eyebrow: string;
   headline: string;

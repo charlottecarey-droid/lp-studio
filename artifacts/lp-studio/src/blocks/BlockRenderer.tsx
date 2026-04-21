@@ -10,6 +10,7 @@ import { BlockDsoPilotSteps } from "./BlockDsoPilotSteps";
 import { BlockDsoFinalCta } from "./BlockDsoFinalCta";
 import { BlockDsoComparison } from "./BlockDsoComparison";
 import { BlockDsoHeartlandHero } from "./BlockDsoHeartlandHero";
+import { BlockDandyProductHero } from "./BlockDandyProductHero";
 import { BlockDsoProblem } from "./BlockDsoProblem";
 import { BlockDsoAiFeature } from "./BlockDsoAiFeature";
 import { BlockDsoStatShowcase } from "./BlockDsoStatShowcase";
@@ -483,6 +484,13 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
             isBuilder={isBuilder}
+          />
+        );
+      case "dandy-product-hero":
+        return (
+          <BlockDandyProductHero
+            block={block}
+            onCtaClick={onCtaClick ? (url) => onCtaClick(resolveDsoCtaUrl(url, block.props.primaryCtaMode)) : undefined}
           />
         );
       case "dso-problem":
