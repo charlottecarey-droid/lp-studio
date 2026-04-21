@@ -56,6 +56,7 @@ import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { VideoPicker } from "@/components/VideoPicker";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -1682,6 +1683,27 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image fit</Label>
+                  <div className="flex gap-2">
+                    {(["cover", "contain"] as const).map(fit => (
+                      <button key={fit} onClick={() => onChange({ ...block, props: { ...p, heroImageFit: fit } })} className={`flex-1 py-1.5 text-xs rounded border capitalize ${(p.heroImageFit ?? "cover") === fit ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                        {fit}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    <strong>Cover</strong>: crops &amp; fills (best for photos). <strong>Contain</strong>: shows whole image (best for product shots / transparent PNGs like the crown).
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image column width: {p.heroImageWidth ?? 45}%</Label>
+                  <Slider value={[p.heroImageWidth ?? 45]} min={25} max={70} step={1} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImageWidth: v } })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image padding: {p.heroImagePadding ?? ((p.heroImageFit ?? "cover") === "contain" ? 32 : 0)}px</Label>
+                  <Slider value={[p.heroImagePadding ?? ((p.heroImageFit ?? "cover") === "contain" ? 32 : 0)]} min={0} max={120} step={2} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImagePadding: v } })} />
                 </div>
               </>
             )}

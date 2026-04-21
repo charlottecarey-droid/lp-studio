@@ -432,12 +432,19 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             </motion.div>
 
             {/* ── Image column ── */}
+            {(() => {
+              const fit = p.heroImageFit ?? "cover";
+              const pad = p.heroImagePadding ?? (fit === "contain" ? 32 : 0);
+              const colW = p.heroImageWidth ?? 45;
+              return (
             <div
               style={{
-                flex: "0 0 45%",
+                flex: `0 0 ${colW}%`,
                 position: "relative",
                 minHeight: "40vh",
                 overflow: "hidden",
+                padding: pad,
+                boxSizing: "border-box",
               }}
             >
               {p.heroImageUrl ? (
@@ -445,7 +452,14 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                   src={p.heroImageUrl}
                   alt=""
                   aria-hidden="true"
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{
+                    position: "absolute",
+                    inset: pad,
+                    width: `calc(100% - ${pad * 2}px)`,
+                    height: `calc(100% - ${pad * 2}px)`,
+                    objectFit: fit,
+                    objectPosition: "center",
+                  }}
                 />
               ) : (
                 <div
@@ -467,6 +481,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                 </div>
               )}
             </div>
+              );
+            })()}
           </div>
         </section>
       </div>

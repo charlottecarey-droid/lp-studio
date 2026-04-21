@@ -80,6 +80,13 @@ export interface DsoHeartlandHeroBlockProps {
   layout?: "full-bleed" | "split" | "split-video" | "stacked-video";
   heroImageUrl?: string;
   heroImageSide?: "left" | "right";
+  /** How the hero image fits its column. `cover` crops to fill (good for photos);
+   *  `contain` shows the whole image (good for product shots on transparent bg). */
+  heroImageFit?: "cover" | "contain";
+  /** Inner padding (px) around a `contain`-fit hero image so it doesn't touch the edges. */
+  heroImagePadding?: number;
+  /** Width (%) of the image column in split layout. Defaults to 45. */
+  heroImageWidth?: number;
   heroVideoUrl?: string;
   heroTopPadding?: number;
   heroMinHeight?: number;
