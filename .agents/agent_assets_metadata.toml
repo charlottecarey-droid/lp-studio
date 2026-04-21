@@ -89,3 +89,9 @@ id = "u4ug9ioJ5cBwT1xsN7I0j"
 uri = "file://attached_assets/dandy-videos/dr-barry-bartusiak-5day-crowns.mp4"
 type = "video"
 title = "Dr. Barry Bartusiak — Posterior Crowns / 5-Day Crowns testimonial"
+
+[[outputs]]
+id = "jDJmCy1hNTvYfZCxyJv2D"
+uri = "file://artifacts/lp-studio/public/videos/dr-barry-bartusiak-5day-crowns.mp4"
+type = "video"
+title = "Dr. Barry Bartusiak — 5 Day Crowns"
