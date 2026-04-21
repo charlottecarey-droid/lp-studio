@@ -139,6 +139,12 @@ export interface DandyProductHeroBlockProps {
   /** Image zoom multiplier. Default: 1.35 — pushes the crown larger so it
    *  bleeds off the corners like the reference page. */
   imageScale?: number;
+  /** When true, slowly rotates the product image (Hero 7 Style 3 effect). */
+  spinImage?: boolean;
+  /** Seconds for one full rotation. Default: 18. */
+  spinDuration?: number;
+  /** Spin direction. Default: "cw". */
+  spinDirection?: "cw" | "ccw";
   /** Section min-height in vh. Default: 90. */
   minHeight?: number;
   /** Background color. Default: dandy-green #003a30. */

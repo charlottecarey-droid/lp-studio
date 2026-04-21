@@ -2047,6 +2047,25 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Label className="text-xs">Image zoom: {(p.imageScale ?? 1.35).toFixed(2)}×</Label>
                 <Slider value={[p.imageScale ?? 1.35]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, imageScale: v } })} />
               </div>
+              <div className="flex items-center justify-between pt-1">
+                <Label className="text-xs">Spin image (Hero 7 Style 3)</Label>
+                <Switch checked={p.spinImage ?? false} onCheckedChange={(v) => onChange({ ...block, props: { ...p, spinImage: v } })} />
+              </div>
+              {p.spinImage && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Spin duration: {p.spinDuration ?? 18}s / rotation</Label>
+                    <Slider value={[p.spinDuration ?? 18]} min={4} max={60} step={1} onValueChange={([v]) => onChange({ ...block, props: { ...p, spinDuration: v } })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["cw", "ccw"] as const).map(dir => (
+                      <button key={dir} onClick={() => onChange({ ...block, props: { ...p, spinDirection: dir } })} className={`py-1.5 text-xs rounded border ${(p.spinDirection ?? "cw") === dir ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                        {dir === "cw" ? "Clockwise ↻" : "Counter ↺"}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-3 border-t pt-3">

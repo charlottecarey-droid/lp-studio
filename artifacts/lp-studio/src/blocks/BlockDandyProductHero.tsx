@@ -23,6 +23,9 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
   const imageScale = p.imageScale ?? 1.35;
   const imageAnchor = p.imageAnchor || "top left";
   const minH = p.minHeight ?? 90;
+  const spinImage = p.spinImage ?? false;
+  const spinDuration = p.spinDuration ?? 18;
+  const spinDirection = p.spinDirection ?? "cw";
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -183,20 +186,49 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
           }}
         >
           {p.imageUrl ? (
-            <img
-              src={p.imageUrl}
-              alt={p.imageAlt || ""}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: imageAnchor,
-                transform: imageScale !== 1 ? `scale(${imageScale})` : undefined,
-                transformOrigin: imageAnchor,
-              }}
-            />
+            spinImage ? (
+              <>
+                <style>{`@keyframes dandyHeroSpin${spinDirection}{from{transform:rotate(${spinDirection === "cw" ? "0deg" : "360deg"})}to{transform:rotate(${spinDirection === "cw" ? "360deg" : "0deg"})}}`}</style>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={p.imageUrl}
+                    alt={p.imageAlt || ""}
+                    style={{
+                      width: "82%",
+                      height: "82%",
+                      objectFit: "contain",
+                      transform: `scale(${imageScale})`,
+                      animation: `dandyHeroSpin${spinDirection} ${spinDuration}s linear infinite`,
+                      transformOrigin: "center center",
+                      willChange: "transform",
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <img
+                src={p.imageUrl}
+                alt={p.imageAlt || ""}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: imageAnchor,
+                  transform: imageScale !== 1 ? `scale(${imageScale})` : undefined,
+                  transformOrigin: imageAnchor,
+                }}
+              />
+            )
           ) : (
             <div
               style={{
