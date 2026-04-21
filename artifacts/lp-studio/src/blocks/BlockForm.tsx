@@ -53,23 +53,35 @@ function FieldInput({
   value,
   error,
   onChange,
+  inputRadius,
+  inputAccentColor,
+  isDark,
 }: {
   field: FormField;
   value: string;
   error: string | null;
   onChange: (v: string) => void;
+  inputRadius: string;
+  inputAccentColor: string;
+  isDark: boolean;
 }) {
-  const baseInput = "w-full px-3 py-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 transition-colors";
-  const borderClass = error ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-blue-300";
+  const baseInput = `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius} ${isDark ? "bg-white/95 text-slate-900" : "bg-white text-slate-900"}`;
+  const borderClass = error ? "border-red-400" : "border-slate-200";
+  const focusStyle = { ["--tw-ring-color" as string]: inputAccentColor } as React.CSSProperties;
+  const onFocus = (e: React.FocusEvent<HTMLElement>) => { e.currentTarget.style.borderColor = inputAccentColor; };
+  const onBlur = (e: React.FocusEvent<HTMLElement>) => { e.currentTarget.style.borderColor = ""; };
 
   if (field.type === "textarea") {
     return (
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={field.placeholder}
         rows={4}
         className={`${baseInput} ${borderClass} resize-none`}
+        style={focusStyle}
         aria-invalid={!!error}
       />
     );
@@ -80,7 +92,10 @@ function FieldInput({
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         className={`${baseInput} ${borderClass}`}
+        style={focusStyle}
         aria-invalid={!!error}
       >
         <option value="">Select an option…</option>
@@ -98,9 +113,10 @@ function FieldInput({
           type="checkbox"
           checked={value === "true"}
           onChange={e => onChange(e.target.checked ? "true" : "")}
-          className="w-4 h-4 accent-current"
+          className="w-4 h-4"
+          style={{ accentColor: inputAccentColor }}
         />
-        <span className="text-sm text-gray-700">{field.placeholder || field.label}</span>
+        <span className={`text-sm ${isDark ? "text-white/90" : "text-slate-700"}`}>{field.placeholder || field.label}</span>
       </label>
     );
   }
@@ -115,8 +131,11 @@ function FieldInput({
       type={inputType}
       value={value}
       onChange={e => onChange(e.target.value)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder={field.placeholder}
       className={`${baseInput} ${borderClass}`}
+      style={focusStyle}
       aria-invalid={!!error}
     />
   );
@@ -326,20 +345,37 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
     }
   };
 
-  const accentColor = props.submitButtonColor || brand.primaryColor || "var(--brand-accent)";
+  // Brand-aware defaults (Dandy-style)
+  const submitBg = props.submitButtonColor || brand.accentColor || "var(--brand-accent)";
+  const submitFg = props.submitButtonTextColor || brand.primaryColor || "var(--brand-primary)";
+  const inputAccent = props.inputAccentColor || brand.primaryColor || "var(--brand-primary)";
+  const cardBg = props.cardBgColor || (isDark ? undefined : "#ffffff");
+  const cardStyle = props.cardStyle ?? "elevated";
+  const cardRadius = props.cardRadius ?? "2xl";
+  const radiusClass = { lg: "rounded-lg", xl: "rounded-xl", "2xl": "rounded-2xl", "3xl": "rounded-3xl" }[cardRadius];
+  const inputRadiusClass = { lg: "rounded-md", xl: "rounded-lg", "2xl": "rounded-xl", "3xl": "rounded-2xl" }[cardRadius];
+  const btnRadiusClass = inputRadiusClass;
+  const cardShadowClass =
+    cardStyle === "elevated" ? "shadow-2xl border border-slate-100" :
+    cardStyle === "flat" ? "shadow-md border border-slate-200" :
+    "border border-slate-200";
+  const labelStyle = props.labelStyle ?? "uppercase";
+  const labelClass = labelStyle === "uppercase"
+    ? `block text-xs font-semibold mb-2 uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`
+    : `block text-sm font-medium mb-1.5 ${isDark ? "text-gray-200" : "text-slate-700"}`;
 
   const bgInlineStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
 
   if (submitted) {
     return (
-      <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-16 px-4`} style={bgInlineStyle}>
+      <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
         <div className="max-w-xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{ background: `${accentColor}22` }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2.5" className="w-8 h-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{ background: submitBg }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke={submitFg} strokeWidth="2.75" className="w-8 h-8">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h3 className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+          <h3 className={`text-2xl font-bold mb-2 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
             {activeSuccessMessage || "Thank you!"}
           </h3>
         </div>
@@ -348,50 +384,53 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
   }
 
   return (
-    <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-16 px-4`} style={bgInlineStyle}>
+    <section className={`${bgStyles[props.backgroundStyle] ?? "bg-white"} py-20 px-4`} style={bgInlineStyle}>
       <div className="max-w-xl mx-auto">
         {(props.headline || props.subheadline) && (
           <div className="text-center mb-8">
             {props.headline && (
-              <h2 className={`text-3xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h2 className={`text-3xl md:text-4xl font-bold leading-tight mb-3 ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
                 {props.headline}
               </h2>
             )}
             {props.subheadline && (
-              <p className={`text-base ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <p className={`text-base md:text-lg ${isDark ? "text-white/80" : "text-slate-600"}`}>
                 {props.subheadline}
               </p>
             )}
           </div>
         )}
 
-        <div className={`rounded-xl shadow-sm border p-8 ${isDark ? "bg-white/10 border-white/20" : "bg-white border-gray-200"}`}>
+        <div
+          className={`${radiusClass} ${cardShadowClass} p-8 md:p-10 ${isDark && !cardBg ? "bg-white/10 border-white/20" : ""}`}
+          style={cardBg ? { backgroundColor: cardBg } : undefined}
+        >
           {activeMultiStep && totalSteps > 1 && (
-            <div className="mb-6">
+            <div className="mb-7">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-600"}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`}>
                   Step {clampedStep + 1} of {totalSteps}
                 </span>
                 {step.title && (
-                  <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className={`text-sm font-semibold ${isDark ? "text-white" : "text-[var(--brand-primary)]"}`}>
                     {step.title}
                   </span>
                 )}
               </div>
-              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-slate-200/60 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${((clampedStep + 1) / totalSteps) * 100}%`, background: accentColor }}
+                  style={{ width: `${((clampedStep + 1) / totalSteps) * 100}%`, background: submitBg }}
                 />
               </div>
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {visibleFields.map(field => (
               <div key={field.id}>
                 {field.type !== "checkbox" && (
-                  <label className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                  <label className={labelClass}>
                     {field.label}
                     {field.required && <span className="text-red-400 ml-0.5">*</span>}
                   </label>
@@ -400,13 +439,16 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
                   field={field}
                   value={fieldValues[field.id] ?? ""}
                   error={fieldErrors[field.id] ?? null}
+                  inputRadius={inputRadiusClass}
+                  inputAccentColor={inputAccent}
+                  isDark={isDark}
                   onChange={val => {
                     setFieldValues(prev => ({ ...prev, [field.id]: val }));
                     setFieldErrors(prev => ({ ...prev, [field.id]: null }));
                   }}
                 />
                 {fieldErrors[field.id] && (
-                  <p className="text-xs text-red-500 mt-1">{fieldErrors[field.id]}</p>
+                  <p className="text-xs text-red-500 mt-1.5">{fieldErrors[field.id]}</p>
                 )}
               </div>
             ))}
@@ -418,12 +460,12 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
             <p className="text-sm text-red-500 mt-4">{submitError}</p>
           )}
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-7 flex gap-3">
             {activeMultiStep && clampedStep > 0 && (
               <button
                 type="button"
                 onClick={() => setCurrentStep(s => s - 1)}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-colors ${isDark ? "border-white/30 text-white hover:bg-white/10" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                className={`flex-1 py-3.5 px-4 ${btnRadiusClass} text-sm font-semibold border transition-colors ${isDark ? "border-white/30 text-white hover:bg-white/10" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
               >
                 Back
               </button>
@@ -432,8 +474,8 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId }: Props)
               type="button"
               onClick={isLastStep ? handleSubmit : handleNext}
               disabled={submitting}
-              className="flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-60"
-              style={{ background: accentColor, color: props.submitButtonTextColor ?? (isDark ? "var(--brand-primary)" : "#1a1a1a") }}
+              className={`flex-1 py-4 px-4 ${btnRadiusClass} text-base font-bold transition-all hover:brightness-105 disabled:opacity-60`}
+              style={{ background: submitBg, color: submitFg }}
             >
               {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>

@@ -189,6 +189,16 @@ export interface FormBlockProps {
   redirectUrl: string;
   backgroundStyle: BackgroundStyle;
   formId?: number;
+  /** Visual style for the form card. */
+  cardStyle?: "elevated" | "flat" | "minimal";
+  /** Override the form card background color. Defaults to white. */
+  cardBgColor?: string;
+  /** Border radius for the card and inputs. Defaults to "2xl". */
+  cardRadius?: "lg" | "xl" | "2xl" | "3xl";
+  /** Focus ring/border color for inputs. Defaults to brand primary. */
+  inputAccentColor?: string;
+  /** Label style. Defaults to "uppercase" (Dandy-style). */
+  labelStyle?: "uppercase" | "default";
 }
 
 export interface ZigzagFeaturesBlockProps {

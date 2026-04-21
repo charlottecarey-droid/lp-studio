@@ -618,8 +618,107 @@ export function FormPanel({ props, onChange, pageId }: Props) {
             )}
           </div>
           <BrandSwatches className="mt-1.5" current={props.submitButtonTextColor} onPick={hex => set("submitButtonTextColor", hex)} />
-          <p className="text-[10px] text-muted-foreground mt-1">Defaults to dark on light backgrounds, near-black on dark. Clear to reset.</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Defaults to brand primary color. Clear to reset.</p>
         </div>
+
+        <div className="border-t pt-4 mt-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Card Style</p>
+          <div className="space-y-3">
+            <div>
+              <Label className={LABEL_CLS}>Style</Label>
+              <Select
+                value={props.cardStyle ?? "elevated"}
+                onValueChange={v => set("cardStyle", v as NonNullable<FormBlockProps["cardStyle"]>)}
+              >
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="elevated">Elevated (Dandy-style, big shadow)</SelectItem>
+                  <SelectItem value="flat">Flat (subtle shadow)</SelectItem>
+                  <SelectItem value="minimal">Minimal (border only)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Corner Radius</Label>
+              <Select
+                value={props.cardRadius ?? "2xl"}
+                onValueChange={v => set("cardRadius", v as NonNullable<FormBlockProps["cardRadius"]>)}
+              >
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lg">Small</SelectItem>
+                  <SelectItem value="xl">Medium</SelectItem>
+                  <SelectItem value="2xl">Large (default)</SelectItem>
+                  <SelectItem value="3xl">Extra large</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Label Style</Label>
+              <Select
+                value={props.labelStyle ?? "uppercase"}
+                onValueChange={v => set("labelStyle", v as NonNullable<FormBlockProps["labelStyle"]>)}
+              >
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="uppercase">Uppercase (Dandy-style)</SelectItem>
+                  <SelectItem value="default">Default sentence case</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Card Background</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={props.cardBgColor || "#ffffff"}
+                  onChange={e => set("cardBgColor", e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
+                />
+                <Input
+                  value={props.cardBgColor ?? ""}
+                  onChange={e => set("cardBgColor", e.target.value || undefined)}
+                  placeholder="#ffffff"
+                  className="h-8 text-xs font-mono flex-1"
+                  maxLength={7}
+                />
+                {props.cardBgColor && (
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => set("cardBgColor", undefined)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              <BrandSwatches className="mt-1.5" current={props.cardBgColor} onPick={hex => set("cardBgColor", hex)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Defaults to white. Clear to reset.</p>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Input Focus Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={props.inputAccentColor || "#003a30"}
+                  onChange={e => set("inputAccentColor", e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-background shrink-0"
+                />
+                <Input
+                  value={props.inputAccentColor ?? ""}
+                  onChange={e => set("inputAccentColor", e.target.value || undefined)}
+                  placeholder="e.g. #003a30"
+                  className="h-8 text-xs font-mono flex-1"
+                  maxLength={7}
+                />
+                {props.inputAccentColor && (
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0" onClick={() => set("inputAccentColor", undefined)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              <BrandSwatches className="mt-1.5" current={props.inputAccentColor} onPick={hex => set("inputAccentColor", hex)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Border color when input is focused. Defaults to brand primary.</p>
+            </div>
+          </div>
+        </div>
+
         <div>
           <Label className={LABEL_CLS}>Success Message</Label>
           <Textarea
