@@ -29,3 +29,9 @@ id = "X-s4TMrZi_ZGGfCBStiuk"
 uri = "file://.backups/lp-studio-backup-20260330.tar.gz"
 type = "unspecified"
 title = "LP Studio Backup — March 30, 2026"
+
+[[outputs]]
+id = "e6K5aUF1aKPT2UHXb8pG1"
+uri = "file://attached_assets/dandy-hero/dandy-drop-in-crowns.png"
+type = "image"
+title = "Crown & Bridge hero image"
