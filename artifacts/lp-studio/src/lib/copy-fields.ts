@@ -31,6 +31,7 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
 
   // ── DSO enterprise blocks (dso-heartland-*) ──────────────────────────────
   "dso-heartland-hero":   ["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText"],
+  "dandy-product-hero":   ["eyebrow", "headline", "subheadline", "primaryCtaText", "disclaimer"],
   "dso-scroll-story-hero":["eyebrow", "ctaText"],
   "dso-problem":          ["eyebrow", "headline", "body", "ctaText"],
   "dso-ai-feature":       ["eyebrow", "headline", "body", "ctaText"],

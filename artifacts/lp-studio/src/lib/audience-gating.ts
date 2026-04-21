@@ -73,6 +73,7 @@ export const LEADERSHIP_ONLY_BLOCK_TYPES: readonly string[] = [
   "dso-final-cta",
   "dso-comparison",
   "dso-heartland-hero",
+  "dandy-product-hero",
   "dso-ai-feature",
   "dso-problem",
   "dso-stat-showcase",

@@ -1963,6 +1963,129 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           </div>
         );
       }
+      case "dandy-product-hero": {
+        const p = block.props;
+        return (
+          <div className="space-y-4 p-4">
+            <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText", "disclaimer"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "", disclaimer: p.disclaimer ?? "" }} />
+
+            <div className="space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Copy</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Eyebrow</Label>
+                <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Crown & Bridge" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Headline (use \n for line break)</Label>
+                <Textarea rows={2} value={p.headline ?? ""} onChange={e => onChange({ ...block, props: { ...p, headline: e.target.value } })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Subheadline</Label>
+                <Textarea rows={3} value={p.subheadline ?? ""} onChange={e => onChange({ ...block, props: { ...p, subheadline: e.target.value } })} className="text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Disclaimer (under email pill)</Label>
+                <Textarea rows={2} value={p.disclaimer ?? ""} onChange={e => onChange({ ...block, props: { ...p, disclaimer: e.target.value } })} className="text-xs" />
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Capture</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email field placeholder</Label>
+                <Input value={p.emailPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailPlaceholder: e.target.value } })} placeholder="Email address" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Submit button label</Label>
+                <Input value={p.primaryCtaText ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaText: e.target.value } })} placeholder="Get Started" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Submit URL (email is appended as ?email=…)</Label>
+                <Input value={p.primaryCtaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, primaryCtaUrl: e.target.value } })} placeholder="https://…" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CTA mode</Label>
+                <Select value={p.primaryCtaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, primaryCtaMode: v as CtaMode } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="link" className="text-xs">Link / Redirect</SelectItem>
+                    <SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Product Image</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image</Label>
+                <ImagePicker value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Alt text</Label>
+                <Input value={p.imageAlt ?? ""} onChange={e => onChange({ ...block, props: { ...p, imageAlt: e.target.value } })} className="h-8 text-xs" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Bleed off right edge</Label>
+                <Switch checked={p.imageBleed !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, imageBleed: v } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image anchor (focal point)</Label>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    ["top left", "↖"], ["top", "↑"], ["top right", "↗"],
+                    ["left", "←"], ["center", "•"], ["right", "→"],
+                    ["bottom left", "↙"], ["bottom", "↓"], ["bottom right", "↘"],
+                  ] as const).map(([pos, glyph]) => (
+                    <button key={pos} onClick={() => onChange({ ...block, props: { ...p, imageAnchor: pos } })} className={`py-1.5 text-sm rounded border ${(p.imageAnchor ?? "top left") === pos ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`} title={pos}>
+                      {glyph}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Image zoom: {(p.imageScale ?? 1.35).toFixed(2)}×</Label>
+                <Slider value={[p.imageScale ?? 1.35]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, imageScale: v } })} />
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Min height: {p.minHeight ?? 90}vh</Label>
+                <Slider value={[p.minHeight ?? 90]} min={50} max={100} step={1} onValueChange={([v]) => onChange({ ...block, props: { ...p, minHeight: v } })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Background color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.backgroundColor ?? "#003a30" }}>
+                    <input type="color" value={p.backgroundColor ?? "#003a30"} onChange={e => onChange({ ...block, props: { ...p, backgroundColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.backgroundColor ?? "#003a30"} onChange={e => onChange({ ...block, props: { ...p, backgroundColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Accent color (eyebrow + button)</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.accentColor ?? "#c7e738" }}>
+                    <input type="color" value={p.accentColor ?? "#c7e738"} onChange={e => onChange({ ...block, props: { ...p, accentColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.accentColor ?? "#c7e738"} onChange={e => onChange({ ...block, props: { ...p, accentColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Text color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.textColor ?? "#ffffff" }}>
+                    <input type="color" value={p.textColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, textColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.textColor ?? "#ffffff"} onChange={e => onChange({ ...block, props: { ...p, textColor: e.target.value } })} className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
       case "dso-problem": {
         const p = block.props;
         const panels = p.panels ?? [];
