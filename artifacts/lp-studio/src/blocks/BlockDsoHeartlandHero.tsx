@@ -436,6 +436,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               const fit = p.heroImageFit ?? "cover";
               const pad = p.heroImagePadding ?? (fit === "contain" ? 32 : 0);
               const colW = p.heroImageWidth ?? 45;
+              const objPos = p.heroImagePosition ?? "center";
+              const scale = p.heroImageScale ?? 1;
               return (
             <div
               style={{
@@ -458,7 +460,9 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                     width: `calc(100% - ${pad * 2}px)`,
                     height: `calc(100% - ${pad * 2}px)`,
                     objectFit: fit,
-                    objectPosition: "center",
+                    objectPosition: objPos,
+                    transform: scale !== 1 ? `scale(${scale})` : undefined,
+                    transformOrigin: objPos,
                   }}
                 />
               ) : (

@@ -1705,6 +1705,32 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Label className="text-xs">Image padding: {p.heroImagePadding ?? ((p.heroImageFit ?? "cover") === "contain" ? 32 : 0)}px</Label>
                   <Slider value={[p.heroImagePadding ?? ((p.heroImageFit ?? "cover") === "contain" ? 32 : 0)]} min={0} max={120} step={2} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImagePadding: v } })} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image anchor (focal point)</Label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {([
+                      ["top left", "↖"], ["top", "↑"], ["top right", "↗"],
+                      ["left", "←"], ["center", "•"], ["right", "→"],
+                      ["bottom left", "↙"], ["bottom", "↓"], ["bottom right", "↘"],
+                    ] as const).map(([pos, glyph]) => (
+                      <button
+                        key={pos}
+                        onClick={() => onChange({ ...block, props: { ...p, heroImagePosition: pos } })}
+                        className={`py-1.5 text-sm rounded border ${(p.heroImagePosition ?? "center") === pos ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+                        title={pos}
+                      >
+                        {glyph}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    With <strong>cover</strong> fit, this is the focal point that stays visible — the rest bleeds off the opposite edges. To match meetdandy.com Crown &amp; Bridge, choose <strong>top left</strong> so the crown bleeds off bottom &amp; right.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Image zoom: {(p.heroImageScale ?? 1).toFixed(2)}×</Label>
+                  <Slider value={[p.heroImageScale ?? 1]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, heroImageScale: v } })} />
+                </div>
               </>
             )}
 

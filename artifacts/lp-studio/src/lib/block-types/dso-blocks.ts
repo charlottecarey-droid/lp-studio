@@ -87,6 +87,11 @@ export interface DsoHeartlandHeroBlockProps {
   heroImagePadding?: number;
   /** Width (%) of the image column in split layout. Defaults to 45. */
   heroImageWidth?: number;
+  /** CSS object-position for the hero image (e.g. "top left", "50% 50%", "20% 80%").
+   *  Combined with `cover`, lets the image intentionally bleed off the opposite edges. */
+  heroImagePosition?: string;
+  /** Optional zoom multiplier for the hero image (1 = natural cover, 1.5 = 150%). */
+  heroImageScale?: number;
   heroVideoUrl?: string;
   heroTopPadding?: number;
   heroMinHeight?: number;
