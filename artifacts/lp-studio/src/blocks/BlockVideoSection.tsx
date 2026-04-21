@@ -1,12 +1,13 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
-import { motion } from "framer-motion";
-import { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
@@ -71,6 +72,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const [cpOpen, setCpOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const attachVideo = useCallback((el: HTMLVideoElement | null) => {
@@ -87,11 +89,29 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     setVideoMuted(el.muted);
   };
 
+  const playInModal = props.playInModal ?? false;
+
   const handlePlayClick = () => {
+    if (playInModal) {
+      setModalOpen(true);
+      return;
+    }
     const el = videoRef.current;
     if (!el) return;
     el.play().catch(() => {});
   };
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setModalOpen(false); };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [modalOpen]);
 
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
 
@@ -218,10 +238,57 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
 
   const autoplay = props.videoAutoplay ?? false;
 
+  const showPosterOnly = playInModal && hasVideo;
   const videoElement = (
-    <div className={cn("relative w-full rounded-xl overflow-hidden shadow-lg", aspectClass)}>
+    <div className={cn("relative w-full rounded-2xl overflow-hidden shadow-lg", aspectClass)}>
       {hasVideo ? (
-        isNativeVideo ? (
+        showPosterOnly ? (
+          <button
+            type="button"
+            onClick={handlePlayClick}
+            aria-label="Play video"
+            className="group absolute inset-0 w-full h-full"
+            style={{
+              backgroundImage: props.posterUrl ? `url(${props.posterUrl})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            {!props.posterUrl && isNativeVideo && (
+              <video
+                src={props.videoUrl}
+                className="absolute inset-0 w-full h-full object-cover"
+                muted
+                playsInline
+                preload="metadata"
+              />
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
+              <motion.div
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  border: "1.5px solid rgba(255,255,255,0.55)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+                }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                transition={SPRING}
+              >
+                <svg
+                  className="w-7 h-7 text-white drop-shadow"
+                  style={{ marginLeft: 3 }}
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <polygon points="5,3 19,12 5,21" />
+                </svg>
+              </motion.div>
+            </div>
+          </button>
+        ) : isNativeVideo ? (
           <>
             <video
               ref={attachVideo}
@@ -248,20 +315,20 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
                 <motion.div
                   className="w-20 h-20 rounded-full flex items-center justify-center"
                   style={{
-                    background: "rgba(0,0,0,0.45)",
-                    backdropFilter: "blur(8px)",
-                    WebkitBackdropFilter: "blur(8px)",
-                    border: "2px solid rgba(255,255,255,0.35)",
-                    boxShadow: "0 4px 32px rgba(0,0,0,0.3)",
+                    background: "rgba(255,255,255,0.18)",
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    border: "1.5px solid rgba(255,255,255,0.55)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
                   }}
-                  whileHover={{ scale: 1.1 }}
+                  whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   transition={SPRING}
                 >
                   {/* Offset the triangle slightly right to look optically centred */}
                   <svg
-                    className="w-8 h-8 text-white drop-shadow"
-                    style={{ marginLeft: 4 }}
+                    className="w-7 h-7 text-white drop-shadow"
+                    style={{ marginLeft: 3 }}
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -343,6 +410,59 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
       sessionId={sessionId}
       onClose={() => setCpOpen(false)}
     />
+  ) : null;
+
+  const videoModal = typeof document !== "undefined" ? createPortal(
+    <AnimatePresence>
+      {modalOpen && hasVideo && (
+        <motion.div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
+          style={{ background: "rgba(0,0,0,0.85)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setModalOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            aria-label="Close video"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <motion.div
+            className="relative w-full max-w-5xl"
+            initial={{ scale: 0.94, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.94, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black">
+              {isNativeVideo ? (
+                <video
+                  src={props.videoUrl}
+                  className="w-full h-full"
+                  autoPlay
+                  controls
+                  playsInline
+                />
+              ) : (
+                <iframe
+                  src={toAutoEmbedUrl(props.videoUrl, true, false)}
+                  className="absolute inset-0 w-full h-full border-0"
+                  title="Video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
   ) : null;
 
   if (isSplit) {

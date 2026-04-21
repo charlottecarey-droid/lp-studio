@@ -144,6 +144,8 @@ export interface VideoSectionBlockProps {
   videoAutoplay?: boolean;
   /** Poster image shown before play (matches the Dandy site's video thumbnail look). */
   posterUrl?: string;
+  /** When true, clicking play opens the video in a fullscreen modal (Dandy site style). */
+  playInModal?: boolean;
 }
 
 export interface CaseStudiesBlockProps {
