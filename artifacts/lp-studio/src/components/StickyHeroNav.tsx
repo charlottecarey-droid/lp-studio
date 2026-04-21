@@ -80,9 +80,10 @@ export function StickyHeroNav({
   const scrolledBg = isDark
     ? "rgba(8, 22, 20, 0.72)"
     : "rgba(255, 255, 255, 0.82)";
-  const transparentBg = isDark
-    ? "linear-gradient(to bottom, rgba(8,22,20,0.55) 0%, rgba(8,22,20,0) 100%)"
-    : "linear-gradient(to bottom, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)";
+  // At top of page: fully transparent so the nav perfectly blends into the
+  // hero behind it. Any gradient/tint here creates a visible band-edge that
+  // reads as a faint horizontal line — we only want a backdrop after scroll.
+  const transparentBg = "transparent";
   const scrolledBorder = isDark
     ? "1px solid rgba(255,255,255,0.08)"
     : "1px solid rgba(15,23,42,0.08)";
