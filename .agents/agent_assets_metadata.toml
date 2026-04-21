@@ -35,3 +35,51 @@ id = "e6K5aUF1aKPT2UHXb8pG1"
 uri = "file://attached_assets/dandy-hero/dandy-drop-in-crowns.png"
 type = "image"
 title = "Crown & Bridge hero image"
+
+[[outputs]]
+id = "43V-a-7d1kyR1l4A4kGuo"
+uri = "file://attached_assets/dandy-videos/dr-michael-cabral.mp4"
+type = "video"
+title = "Dr. Michael Cabral — Northeast Dental Partners (default slide / standalone-feeling one near the top)"
+
+[[outputs]]
+id = "h1kkU44KL1Pnvz5C03HVU"
+uri = "file://attached_assets/dandy-videos/dr-raj-patel.mp4"
+type = "video"
+title = "Dr. Raj Patel — Raj Patel DDS"
+
+[[outputs]]
+id = "iGc1Dh7yRJMUMTT7pieLX"
+uri = "file://attached_assets/dandy-videos/brooke-sears.mp4"
+type = "video"
+title = "Brooke Sears, RDA — Mars Hill Dental"
+
+[[outputs]]
+id = "Xr6Phu6q3yfu7aBQNvn5j"
+uri = "file://attached_assets/dandy-videos/dr-alexander-linares.mp4"
+type = "video"
+title = "Dr. Alexander Linares — Linares Family Dental"
+
+[[outputs]]
+id = "v_r6h79hKvEVvtoVrU-_y"
+uri = "file://attached_assets/dandy-videos/dr-daniel-bures.mp4"
+type = "video"
+title = "Dr. Daniel Bures — Daniel Bures DDS"
+
+[[outputs]]
+id = "JxykRaRMHDw_x8fFo0wSg"
+uri = "file://attached_assets/dandy-videos/dr-jessica-krausz.mp4"
+type = "video"
+title = "Dr. Jessica Krausz — Claire M. Giordano DDS"
+
+[[outputs]]
+id = "QwSO5lBV_REr6GVKDN4xg"
+uri = "file://attached_assets/dandy-videos/dr-tiffanie-garrison-jeter.mp4"
+type = "video"
+title = "Dr. Tiffanie Garrison-Jeter — Definition Dental Studio"
+
+[[outputs]]
+id = "dnTM951ocM4-atRfr0d5N"
+uri = "file://attached_assets/dandy-videos/dr-johnimel-bianco.mp4"
+type = "video"
+title = "Dr. Johnimel Bianco — All Care General Dentistry"
