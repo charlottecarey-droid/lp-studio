@@ -64,6 +64,14 @@ export interface DsoHeartlandHeroBlockProps {
   primaryCtaMode?: CtaMode;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  /** CTA presentation style. "buttons" (default) renders the primary/secondary
+   *  pill buttons. "email-capture" renders an inline pill-shaped email field
+   *  with a submit button — mirrors the meetdandy.com Crown & Bridge hero. */
+  ctaStyle?: "buttons" | "email-capture";
+  /** Placeholder for the email-capture input. Defaults to "Email address". */
+  emailCapturePlaceholder?: string;
+  /** Submit button label for the email-capture form. Defaults to the primary CTA text. */
+  emailCaptureButtonText?: string;
   backgroundStyle?: BackgroundStyle;
   backgroundImageUrl?: string;
   backgroundVideoUrl?: string;

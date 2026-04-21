@@ -1760,6 +1760,32 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="border-t pt-3 space-y-3">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary CTA</Label>
               <div className="space-y-1.5">
+                <Label className="text-xs">CTA style</Label>
+                <Select value={p.ctaStyle ?? "buttons"} onValueChange={v => onChange({ ...block, props: { ...p, ctaStyle: v as "buttons" | "email-capture" } })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buttons" className="text-xs">Buttons (primary + secondary)</SelectItem>
+                    <SelectItem value="email-capture" className="text-xs">Inline email capture pill</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Email capture mirrors the meetdandy.com Crown &amp; Bridge hero. On submit, the email is appended to the CTA URL as <code>?email=…</code>.
+                </p>
+              </div>
+              {(p.ctaStyle === "email-capture") && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email field placeholder</Label>
+                    <Input value={p.emailCapturePlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailCapturePlaceholder: e.target.value } })} placeholder="Email address" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Submit button label</Label>
+                    <Input value={p.emailCaptureButtonText ?? ""} onChange={e => onChange({ ...block, props: { ...p, emailCaptureButtonText: e.target.value } })} placeholder="GET STARTED" className="h-8 text-xs" />
+                    <p className="text-[11px] text-muted-foreground">Falls back to "CTA text" below if blank.</p>
+                  </div>
+                </>
+              )}
+              <div className="space-y-1.5">
                 <Label className="text-xs">CTA text</Label>
                 <AiTextField type="input" value={p.primaryCtaText ?? ""} onChange={v => onChange({ ...block, props: { ...p, primaryCtaText: v } })} fieldLabel="Primary CTA" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "primaryCtaText", p.primaryCtaText ?? "", { headline: p.headline ?? "" })} />
               </div>

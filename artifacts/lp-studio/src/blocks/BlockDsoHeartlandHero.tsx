@@ -152,7 +152,87 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
     </motion.div>
   );
 
-  const ctaButtons = (
+  const [emailValue, setEmailValue] = useState("");
+
+  // Email-capture submit: navigates to the configured primary CTA URL with the
+  // email appended as `?email=…` so the destination form/checkout can prefill.
+  // Falls back to onCtaClick (e.g. Chili Piper popup) when no URL is set.
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = emailValue.trim();
+    if (!trimmed) return;
+    if (p.primaryCtaUrl) {
+      try {
+        const url = new URL(p.primaryCtaUrl, window.location.origin);
+        url.searchParams.set("email", trimmed);
+        window.location.assign(url.toString());
+        return;
+      } catch {
+        // Fall through to onCtaClick / no-op for non-URL targets.
+      }
+    }
+    onCtaClick?.();
+  };
+
+  const ctaStyle = p.ctaStyle ?? "buttons";
+
+  const emailCaptureForm = (
+    <motion.form
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.35 }}
+      onSubmit={handleEmailSubmit}
+      style={{
+        marginTop: "2rem",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: 6,
+        borderRadius: 9999,
+        background: "#fff",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+        maxWidth: 480,
+      }}
+    >
+      <input
+        type="email"
+        required
+        value={emailValue}
+        onChange={(e) => setEmailValue(e.target.value)}
+        placeholder={p.emailCapturePlaceholder || "Email address"}
+        aria-label={p.emailCapturePlaceholder || "Email address"}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          padding: "0.75rem 1rem",
+          fontSize: "0.9375rem",
+          color: "hsl(192, 30%, 6%)",
+          fontFamily: "inherit",
+        }}
+      />
+      <button
+        type="submit"
+        className="inline-flex items-center justify-center rounded-full text-sm font-semibold transition-opacity hover:opacity-90"
+        style={{
+          background: PRIMARY,
+          color: "hsl(192, 30%, 6%)",
+          padding: "0.75rem 1.5rem",
+          border: "none",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          letterSpacing: "0.02em",
+          textTransform: "uppercase",
+        }}
+      >
+        {p.emailCaptureButtonText || p.primaryCtaText || "Get Started"}
+      </button>
+    </motion.form>
+  );
+
+  const ctaButtons = ctaStyle === "email-capture" ? emailCaptureForm : (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
