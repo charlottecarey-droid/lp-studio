@@ -309,9 +309,22 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           marketoConfig: local.marketoConfig, salesforceConfig: local.salesforceConfig,
         }),
       });
+      if (!r.ok) {
+        const err = await r.text().catch(() => "");
+        alert(`Save failed (${r.status}): ${err.slice(0, 300)}`);
+        return;
+      }
       const updated = await r.json() as GlobalForm;
-      onSaved(updated);
+      const safe: GlobalForm = {
+        ...updated,
+        steps: Array.isArray(updated.steps) ? updated.steps : local.steps,
+        emailRecipients: Array.isArray(updated.emailRecipients) ? updated.emailRecipients : [],
+      };
+      onSaved(safe);
+      setLocal(safe);
       setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      alert(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally { setSaving(false); }
   };
 
