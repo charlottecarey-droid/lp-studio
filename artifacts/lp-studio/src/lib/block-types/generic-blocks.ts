@@ -194,6 +194,12 @@ export interface FormBlockProps {
 export interface ZigzagFeaturesBlockProps {
   rows: ZigzagFeatureRow[];
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Optional section heading shown above the rows. */
+  headline?: string;
+  /** Optional supporting copy beneath the section headline. */
+  subheadline?: string;
+  /** Alignment for the optional section heading. */
+  headlineAlign?: "left" | "center";
 }
 
 export interface ProductShowcaseBlockProps {
@@ -322,6 +328,7 @@ export interface DandyVerticalTabsBlockProps {
   headline: string;
   subheadline?: string;
   tabs: DandyVerticalTabItem[];
+  headlineAlign?: "left" | "center";
 }
 
 export interface DandySwitchbackItem {
@@ -337,6 +344,7 @@ export interface DandySwitchbackBlockProps {
   headline: string;
   subheadline?: string;
   items: DandySwitchbackItem[];
+  headlineAlign?: "left" | "center";
 }
 
 export interface DandySiteHeaderNavLink {

@@ -2433,17 +2433,48 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
     try {
       if (block.type === "zigzag-features") {
         type ZigRow = { headline: string; body: string; [key: string]: unknown };
-        const rows = ((block.props as unknown as { rows?: ZigRow[] }).rows ?? []) as ZigRow[];
-        const updatedRows = await Promise.all(
-          rows.map(async (row) => {
-            const updated = await refreshBlockCopy("zigzag-features", ["headline", "body"], {
-              headline: typeof row.headline === "string" ? row.headline : "",
-              body: typeof row.body === "string" ? row.body : "",
-            });
-            return { ...row, ...updated };
-          }),
-        );
-        onBlockChange({ ...block, props: { ...block.props, rows: updatedRows } } as unknown as PageBlock);
+        const propsAny = block.props as unknown as { rows?: ZigRow[]; headline?: string; subheadline?: string };
+        const rows = (propsAny.rows ?? []) as ZigRow[];
+        const [topUpdated, updatedRows] = await Promise.all([
+          (propsAny.headline || propsAny.subheadline)
+            ? refreshBlockCopy("zigzag-features", ["headline", "subheadline"], {
+                headline: typeof propsAny.headline === "string" ? propsAny.headline : "",
+                subheadline: typeof propsAny.subheadline === "string" ? propsAny.subheadline : "",
+              })
+            : Promise.resolve({} as Record<string, string>),
+          Promise.all(
+            rows.map(async (row) => {
+              const updated = await refreshBlockCopy("zigzag-features", ["headline", "body"], {
+                headline: typeof row.headline === "string" ? row.headline : "",
+                body: typeof row.body === "string" ? row.body : "",
+              });
+              return { ...row, ...updated };
+            }),
+          ),
+        ]);
+        onBlockChange({ ...block, props: { ...block.props, ...topUpdated, rows: updatedRows } } as unknown as PageBlock);
+      } else if (block.type === "dandy-switchback" || block.type === "dandy-vertical-tabs") {
+        const isSwitchback = block.type === "dandy-switchback";
+        type Item = { title: string; description: string; [key: string]: unknown };
+        const propsAny = block.props as unknown as { headline?: string; subheadline?: string; eyebrow?: string; items?: Item[]; tabs?: Item[] };
+        const items = (isSwitchback ? propsAny.items : propsAny.tabs) ?? [];
+        const topFields = isSwitchback ? ["eyebrow", "headline", "subheadline"] : ["headline", "subheadline"];
+        const topValues: Record<string, string> = {};
+        for (const f of topFields) topValues[f] = String((propsAny as Record<string, unknown>)[f] ?? "");
+        const [topUpdated, updatedItems] = await Promise.all([
+          refreshBlockCopy(block.type, topFields, topValues),
+          Promise.all(
+            items.map(async (item) => {
+              const updated = await refreshBlockCopy(block.type, ["title", "description"], {
+                title: typeof item.title === "string" ? item.title : "",
+                description: typeof item.description === "string" ? item.description : "",
+              });
+              return { ...item, ...updated };
+            }),
+          ),
+        ]);
+        const collectionKey = isSwitchback ? "items" : "tabs";
+        onBlockChange({ ...block, props: { ...block.props, ...topUpdated, [collectionKey]: updatedItems } } as unknown as PageBlock);
       } else {
         const currentValues: Record<string, string> = {};
         for (const f of blockCopyFields!) {

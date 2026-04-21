@@ -32,7 +32,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
     <section className="w-full py-20 md:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {(props.headline || props.subheadline) && (
-          <div className="mb-14 max-w-2xl">
+          <div className={cn("mb-14 max-w-2xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
               <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))}>
                 <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />

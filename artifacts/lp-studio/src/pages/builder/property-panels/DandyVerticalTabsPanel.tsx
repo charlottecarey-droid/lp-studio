@@ -4,14 +4,18 @@ import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 import type { DandyVerticalTabsBlockProps } from "@/lib/block-types";
 
 interface Props {
+  blockType?: string;
   props: DandyVerticalTabsBlockProps;
   onChange: (p: DandyVerticalTabsBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function DandyVerticalTabsPanel({ props: p, onChange }: Props) {
+export function DandyVerticalTabsPanel({ blockType = "dandy-vertical-tabs", props: p, onChange, brandVoiceSet }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   const set = <K extends keyof DandyVerticalTabsBlockProps>(k: K, v: DandyVerticalTabsBlockProps[K]) =>
@@ -24,15 +28,53 @@ export function DandyVerticalTabsPanel({ props: p, onChange }: Props) {
   const addTab = () => onChange({ ...p, tabs: [...p.tabs, { title: "", description: "", ctaText: "", ctaUrl: "", imageUrl: "" }] });
   const removeTab = (i: number) => onChange({ ...p, tabs: p.tabs.filter((_, idx) => idx !== i) });
 
+  const align = p.headlineAlign ?? "left";
+
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
         <Label className="text-xs">Headline</Label>
-        <Input value={p.headline} onChange={e => set("headline", e.target.value)} className="h-8 text-xs" />
+        <AiTextField
+          type="input"
+          value={p.headline}
+          onChange={v => set("headline", v)}
+          fieldLabel="Section Headline"
+          className="text-xs h-8"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "headline", p.headline, {
+            body: p.subheadline ?? "",
+          })}
+        />
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Subheadline</Label>
-        <Input value={p.subheadline ?? ""} onChange={e => set("subheadline", e.target.value || undefined)} className="h-8 text-xs" />
+        <AiTextField
+          type="textarea"
+          value={p.subheadline ?? ""}
+          onChange={v => set("subheadline", v || undefined)}
+          rows={2}
+          fieldLabel="Section Subheadline"
+          className="text-xs resize-none"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "subheadline", p.subheadline ?? "", {
+            headline: p.headline,
+          })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Headline alignment</Label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {(["left", "center"] as const).map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => set("headlineAlign", opt)}
+              className={`py-1.5 text-xs rounded border ${align === opt ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+            >
+              {opt === "left" ? "← Left" : "↔ Center"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="border-t pt-3">
@@ -58,11 +100,34 @@ export function DandyVerticalTabsPanel({ props: p, onChange }: Props) {
                   <ImagePicker label="Image" value={tab.imageUrl} onChange={v => updateTab(i, { imageUrl: v })} />
                   <div className="space-y-1">
                     <Label className="text-xs">Tab Title</Label>
-                    <Input value={tab.title} onChange={e => updateTab(i, { title: e.target.value })} className="h-7 text-xs" />
+                    <AiTextField
+                      type="input"
+                      value={tab.title}
+                      onChange={v => updateTab(i, { title: v })}
+                      fieldLabel={`Tab ${i + 1} Title`}
+                      className="text-xs h-7"
+                      brandVoiceSet={brandVoiceSet}
+                      onSuggest={() => suggestCopy(blockType, "title", tab.title, {
+                        body: tab.description,
+                        headline: p.headline,
+                      })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Description</Label>
-                    <Input value={tab.description} onChange={e => updateTab(i, { description: e.target.value })} className="h-7 text-xs" />
+                    <AiTextField
+                      type="textarea"
+                      value={tab.description}
+                      onChange={v => updateTab(i, { description: v })}
+                      rows={3}
+                      fieldLabel={`Tab ${i + 1} Description`}
+                      className="text-xs resize-none"
+                      brandVoiceSet={brandVoiceSet}
+                      onSuggest={() => suggestCopy(blockType, "description", tab.description, {
+                        headline: tab.title,
+                        tagline: p.headline,
+                      })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">CTA Text</Label>

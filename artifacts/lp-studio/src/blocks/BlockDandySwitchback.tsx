@@ -56,7 +56,7 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
 
           {/* section header (shows above columns always) */}
           {(props.eyebrow || props.headline || props.subheadline) && (
-            <div className="mb-10 max-w-2xl">
+            <div className={cn("mb-10 max-w-2xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
               {props.eyebrow && (
                 <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-2">
                   <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />

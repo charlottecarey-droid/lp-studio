@@ -4,14 +4,18 @@ import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 import type { DandySwitchbackBlockProps } from "@/lib/block-types";
 
 interface Props {
+  blockType?: string;
   props: DandySwitchbackBlockProps;
   onChange: (p: DandySwitchbackBlockProps) => void;
+  brandVoiceSet?: boolean;
 }
 
-export function DandySwitchbackPanel({ props: p, onChange }: Props) {
+export function DandySwitchbackPanel({ blockType = "dandy-switchback", props: p, onChange, brandVoiceSet }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   const set = <K extends keyof DandySwitchbackBlockProps>(k: K, v: DandySwitchbackBlockProps[K]) =>
@@ -24,6 +28,8 @@ export function DandySwitchbackPanel({ props: p, onChange }: Props) {
   const addItem = () => onChange({ ...p, items: [...p.items, { title: "", description: "", ctaText: "", ctaUrl: "", imageUrl: "" }] });
   const removeItem = (i: number) => onChange({ ...p, items: p.items.filter((_, idx) => idx !== i) });
 
+  const align = p.headlineAlign ?? "left";
+
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
@@ -32,11 +38,49 @@ export function DandySwitchbackPanel({ props: p, onChange }: Props) {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Headline</Label>
-        <Input value={p.headline} onChange={e => set("headline", e.target.value)} className="h-8 text-xs" />
+        <AiTextField
+          type="input"
+          value={p.headline}
+          onChange={v => set("headline", v)}
+          fieldLabel="Section Headline"
+          className="text-xs h-8"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "headline", p.headline, {
+            tagline: p.eyebrow ?? "",
+            body: p.subheadline ?? "",
+          })}
+        />
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Subheadline</Label>
-        <Input value={p.subheadline ?? ""} onChange={e => set("subheadline", e.target.value || undefined)} className="h-8 text-xs" />
+        <AiTextField
+          type="textarea"
+          value={p.subheadline ?? ""}
+          onChange={v => set("subheadline", v || undefined)}
+          rows={2}
+          fieldLabel="Section Subheadline"
+          className="text-xs resize-none"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "subheadline", p.subheadline ?? "", {
+            headline: p.headline,
+            tagline: p.eyebrow ?? "",
+          })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Headline alignment</Label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {(["left", "center"] as const).map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => set("headlineAlign", opt)}
+              className={`py-1.5 text-xs rounded border ${align === opt ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+            >
+              {opt === "left" ? "← Left" : "↔ Center"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="border-t pt-3">
@@ -62,11 +106,34 @@ export function DandySwitchbackPanel({ props: p, onChange }: Props) {
                   <ImagePicker label="Image" value={item.imageUrl} onChange={v => updateItem(i, { imageUrl: v })} />
                   <div className="space-y-1">
                     <Label className="text-xs">Title</Label>
-                    <Input value={item.title} onChange={e => updateItem(i, { title: e.target.value })} className="h-7 text-xs" />
+                    <AiTextField
+                      type="input"
+                      value={item.title}
+                      onChange={v => updateItem(i, { title: v })}
+                      fieldLabel={`Feature ${i + 1} Title`}
+                      className="text-xs h-7"
+                      brandVoiceSet={brandVoiceSet}
+                      onSuggest={() => suggestCopy(blockType, "title", item.title, {
+                        body: item.description,
+                        headline: p.headline,
+                      })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Description</Label>
-                    <Input value={item.description} onChange={e => updateItem(i, { description: e.target.value })} className="h-7 text-xs" />
+                    <AiTextField
+                      type="textarea"
+                      value={item.description}
+                      onChange={v => updateItem(i, { description: v })}
+                      rows={3}
+                      fieldLabel={`Feature ${i + 1} Description`}
+                      className="text-xs resize-none"
+                      brandVoiceSet={brandVoiceSet}
+                      onSuggest={() => suggestCopy(blockType, "description", item.description, {
+                        headline: item.title,
+                        tagline: p.headline,
+                      })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">CTA Text</Label>

@@ -33,6 +33,20 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
     <>
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
       <div className="max-w-7xl mx-auto px-6 space-y-20 lg:space-y-28">
+        {(props.headline || props.subheadline) && (
+          <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
+            {props.headline && (
+              <h2 className={cn("text-3xl md:text-4xl lg:text-5xl text-[var(--brand-primary)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}>
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} />
+              </h2>
+            )}
+            {props.subheadline && (
+              <p className={cn("text-slate-600 leading-relaxed", getBodySizeClass(brand))}>
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} />
+              </p>
+            )}
+          </div>
+        )}
         {props.rows.map((row, i) => {
           const isImageLeft = i % 2 === 0;
           const imageEl = (

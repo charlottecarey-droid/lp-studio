@@ -4183,9 +4183,9 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "dandy-columns-v3":
         return <DandyColumnsV3Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-vertical-tabs":
-        return <DandyVerticalTabsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <DandyVerticalTabsPanel blockType={block.type} props={block.props} onChange={props => onChange({ ...block, props })} brandVoiceSet={brandVoiceSet} />;
       case "dandy-switchback":
-        return <DandySwitchbackPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <DandySwitchbackPanel blockType={block.type} props={block.props} onChange={props => onChange({ ...block, props })} brandVoiceSet={brandVoiceSet} />;
       case "dandy-site-header":
         return <DandySiteHeaderPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-site-footer":
