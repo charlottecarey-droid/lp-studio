@@ -142,6 +142,8 @@ export interface VideoSectionBlockProps {
   overlayTextLight?: boolean;
   fillContainer?: boolean;
   videoAutoplay?: boolean;
+  /** Poster image shown before play (matches the Dandy site's video thumbnail look). */
+  posterUrl?: string;
 }
 
 export interface CaseStudiesBlockProps {

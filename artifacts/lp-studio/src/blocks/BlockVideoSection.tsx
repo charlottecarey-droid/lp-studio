@@ -226,6 +226,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
             <video
               ref={attachVideo}
               src={props.videoUrl}
+              poster={props.posterUrl || undefined}
               className="w-full h-full object-cover"
               autoPlay={autoplay}
               muted

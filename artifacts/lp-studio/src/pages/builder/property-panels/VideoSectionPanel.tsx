@@ -46,6 +46,17 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
         onChange={url => set("videoUrl", url)}
       />
 
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Poster / Thumbnail Image URL</Label>
+        <Input
+          value={props.posterUrl ?? ""}
+          onChange={e => set("posterUrl", e.target.value || undefined as unknown as string)}
+          placeholder="https://… or /images/thumb.jpg"
+          className="h-8 text-xs"
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">Shown before the video plays (matches the Dandy site's video thumbnail look).</p>
+      </div>
+
       <div className="flex items-center justify-between">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Autoplay Video</Label>
         <Switch
