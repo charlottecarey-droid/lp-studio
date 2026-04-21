@@ -358,11 +358,19 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       <div style={{ ...getBgStyle(p.backgroundStyle ?? "dandy-green") }}>
         <section
           ref={heroRef}
-          className="relative overflow-hidden"
+          className="relative overflow-hidden heartland-split"
           style={{ minHeight: "100vh" }}
         >
+          <style>{`
+            @media (max-width: 767px) {
+              .heartland-split .hl-split-row { flex-direction: column !important; }
+              .heartland-split .hl-split-content { flex: 1 1 100% !important; padding: 5.5rem 1.5rem 3.5rem !important; }
+              .heartland-split .hl-split-image { display: none !important; }
+            }
+          `}</style>
           {navBar}
           <div
+            className="hl-split-row"
             style={{
               display: "flex",
               flexDirection: imageRight ? "row" : "row-reverse",
@@ -373,7 +381,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             {/* ── Content column ── */}
             <motion.div
               style={{ opacity: scrollOpacity, y: scrollY, flex: "0 0 55%", padding: "7rem 3rem 4rem", minWidth: 0 }}
-              className="relative z-10 flex flex-col justify-center"
+              className="relative z-10 flex flex-col justify-center hl-split-content"
             >
               {p.eyebrow && (
                 <motion.p
@@ -440,6 +448,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               const scale = p.heroImageScale ?? 1;
               return (
             <div
+              className="hl-split-image"
               style={{
                 flex: `0 0 ${colW}%`,
                 position: "relative",

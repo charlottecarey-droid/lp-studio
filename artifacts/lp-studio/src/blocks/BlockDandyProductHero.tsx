@@ -68,6 +68,7 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
 
   return (
     <section
+      className="dandy-product-hero"
       style={{
         position: "relative",
         backgroundColor: bg,
@@ -78,7 +79,14 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
         alignItems: "stretch",
       }}
     >
+      <style>{`
+        @media (max-width: 767px) {
+          .dandy-product-hero .dph-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
+          .dandy-product-hero .dph-image { display: none !important; }
+        }
+      `}</style>
       <div
+        className="dph-grid"
         style={{
           width: "100%",
           maxWidth: "1440px",
@@ -173,6 +181,7 @@ export function BlockDandyProductHero({ block, onCtaClick }: Props) {
 
         {/* ── Right: product image (intentionally bleeds off) ── */}
         <motion.div
+          className="dph-image"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
