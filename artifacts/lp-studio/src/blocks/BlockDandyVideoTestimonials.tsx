@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass } from "@/lib/brand-config";
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Props) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+
   const updateItem = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const items = props.items.map((item, idx) => idx === i ? { ...item, [key]: value } : item);
@@ -27,6 +30,14 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
   };
 
   const items = props.items ?? [];
+  const activeItem = activeIdx !== null ? items[activeIdx] : null;
+
+  useEffect(() => {
+    if (activeIdx === null) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setActiveIdx(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [activeIdx]);
 
   return (
     <section className="w-full py-20 md:py-28 bg-[#FDFCFA]">
@@ -55,7 +66,11 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
           {items.map((item, i) => (
             <div
               key={i}
-              className="relative shrink-0 rounded-3xl overflow-hidden cursor-pointer group shadow-xl"
+              role="button"
+              tabIndex={0}
+              onClick={() => { if (item.videoSrc || item.videoId) setActiveIdx(i); }}
+              onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && (item.videoSrc || item.videoId)) { e.preventDefault(); setActiveIdx(i); } }}
+              className="relative shrink-0 rounded-3xl overflow-hidden cursor-pointer group shadow-xl focus:outline-none focus:ring-2 focus:ring-[#003A30]/40"
               style={{ width: "260px", aspectRatio: "9/16" }}
             >
               <img
@@ -89,6 +104,56 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
           ))}
         </div>
       </div>
+
+      {activeItem && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-8"
+          onClick={() => setActiveIdx(null)}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setActiveIdx(null); }}
+            aria-label="Close video"
+            className="absolute top-4 right-4 md:top-6 md:right-6 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div
+            className="relative bg-black rounded-2xl overflow-hidden shadow-2xl"
+            style={{ width: "min(92vw, 480px)", aspectRatio: "9/16", maxHeight: "92vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {activeItem.videoSrc ? (
+              <video
+                key={activeItem.videoSrc}
+                src={activeItem.videoSrc}
+                poster={activeItem.imageUrl}
+                controls
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : activeItem.videoId ? (
+              <iframe
+                src={`https://fast.wistia.net/embed/iframe/${activeItem.videoId}?autoPlay=true`}
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                className="w-full h-full border-0"
+                title={activeItem.name}
+              />
+            ) : null}
+          </div>
+          <div className="absolute bottom-6 left-0 right-0 text-center text-white pointer-events-none">
+            <p className="text-base font-semibold">{activeItem.name}</p>
+            {activeItem.practiceName && (
+              <p className="text-white/65 text-sm mt-1">{activeItem.practiceName}</p>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

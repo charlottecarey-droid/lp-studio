@@ -373,7 +373,10 @@ export interface DandyVideoTestimonialItem {
   imageUrl: string;
   name: string;
   practiceName: string;
+  /** Wistia hashed ID (legacy / external playback). */
   videoId?: string;
+  /** Direct video URL (e.g. local /videos/foo.mp4) — opens in lightbox on click. */
+  videoSrc?: string;
 }
 
 export interface DandyVideoTestimonialsBlockProps {
