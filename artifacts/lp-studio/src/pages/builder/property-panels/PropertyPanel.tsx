@@ -2047,6 +2047,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <Label className="text-xs">Image zoom: {(p.imageScale ?? 1.35).toFixed(2)}×</Label>
                 <Slider value={[p.imageScale ?? 1.35]} min={0.5} max={3} step={0.05} onValueChange={([v]) => onChange({ ...block, props: { ...p, imageScale: v } })} />
               </div>
+              <button
+                type="button"
+                onClick={() => onChange({ ...block, props: {
+                  ...p,
+                  imageUrl: "/images/dandy-crown-bridge-spin.webp",
+                  imageAlt: p.imageAlt || "Dandy crown",
+                  imageBleed: false,
+                  imageAnchor: "center",
+                  imageScale: 1,
+                  spinImage: true,
+                  spinDuration: p.spinDuration ?? 18,
+                  spinDirection: p.spinDirection ?? "cw",
+                } })}
+                className="w-full py-2 text-xs font-medium rounded-md border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+              >
+                ↻ Use the Dandy spinning crown
+              </button>
+              <p className="text-[11px] text-muted-foreground -mt-1">Loads the crown image, centers it, and turns on the spin animation in one click.</p>
               <div className="flex items-center justify-between pt-1">
                 <Label className="text-xs">Spin image (Hero 7 Style 3)</Label>
                 <Switch checked={p.spinImage ?? false} onCheckedChange={(v) => onChange({ ...block, props: { ...p, spinImage: v } })} />
