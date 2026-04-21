@@ -22,6 +22,7 @@ const ALL_PERM_KEYS = [
   { key: "sales_outreach",   group: "Sales", label: "Outreach" },
   { key: "sales_signals",    group: "Sales", label: "Signals" },
   { key: "sales_campaigns",  group: "Sales", label: "Campaigns (admin)" },
+  { key: "one_pager_templates", group: "Sales", label: "One-Pager Templates (edit)" },
   // Admin
   { key: "settings",  group: "Admin", label: "Settings" },
   { key: "team",      group: "Admin", label: "Team" },
@@ -52,6 +53,7 @@ const ROLE_PRESETS: RolePreset[] = [
       analytics: true,
       sales_dashboard: true, sales_contacts: true, sales_accounts: true,
       sales_outreach: true, sales_signals: true, sales_campaigns: true,
+      one_pager_templates: true,
     },
   },
   {

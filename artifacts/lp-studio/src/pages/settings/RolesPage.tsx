@@ -45,6 +45,7 @@ const PERMISSION_GROUPS = [
       { key: "sales_contacts", label: "Contacts" },
       { key: "sales_outreach", label: "Outreach" },
       { key: "sales_signals", label: "Signals" },
+      { key: "one_pager_templates", label: "One-Pager Templates (edit)" },
     ],
   },
   {

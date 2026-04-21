@@ -1,8 +1,10 @@
-import { getTenantId, requirePermission, requireAuth } from "../../middleware/requireAuth";
+import { getTenantId, requirePermission, requireAnyPermission, requireAuth } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesOnePagerTemplatesTable } from "@workspace/db";
+
+const requireTemplateEdit = requireAnyPermission(["sales_campaigns", "one_pager_templates"]);
 import multer from "multer";
 import { ObjectStorageService } from "../../lib/objectStorage";
 
@@ -72,7 +74,7 @@ router.get("/one-pager-templates/:id", requireAuth, async (req, res): Promise<vo
 
 // ─── POST /sales/one-pager-templates ─────────────────────────
 // Admin only: create a new template
-router.post("/one-pager-templates", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+router.post("/one-pager-templates", requireTemplateEdit, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const { name, background_url, orientation, fields, headerHeight, headerImageUrl } = req.body;
@@ -99,7 +101,7 @@ router.post("/one-pager-templates", requirePermission("sales_campaigns"), async 
 
 // ─── PATCH /sales/one-pager-templates/:id ────────────────────
 // Admin only: update a template
-router.patch("/one-pager-templates/:id", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+router.patch("/one-pager-templates/:id", requireTemplateEdit, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const updates: Record<string, unknown> = {};
@@ -129,7 +131,7 @@ router.patch("/one-pager-templates/:id", requirePermission("sales_campaigns"), a
 
 // ─── DELETE /sales/one-pager-templates/:id ───────────────────
 // Admin only: hard delete
-router.delete("/one-pager-templates/:id", requirePermission("sales_campaigns"), async (req, res): Promise<void> => {
+router.delete("/one-pager-templates/:id", requireTemplateEdit, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const [deleted] = await db
@@ -149,7 +151,7 @@ router.delete("/one-pager-templates/:id", requirePermission("sales_campaigns"), 
 
 // ─── POST /sales/one-pager-templates/upload-bg ───────────────
 // Admin only: upload a background image for a template
-router.post("/one-pager-templates/upload-bg", requirePermission("sales_campaigns"), upload.single("file"), async (req, res): Promise<void> => {
+router.post("/one-pager-templates/upload-bg", requireTemplateEdit, upload.single("file"), async (req, res): Promise<void> => {
   try {
     if (!req.file) { res.status(400).json({ error: "No file provided" }); return; }
     const storagePath = await objectStorage.uploadObjectEntity(req.file.buffer, req.file.mimetype);

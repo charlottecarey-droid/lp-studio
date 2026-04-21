@@ -1255,7 +1255,7 @@ function TemplateEditor({ initial, onSave, onCancel }: {
 // ════════════════════════════════════════════════════════════════════
 export default function SalesOnePagerTemplates() {
   const { user, hasPerm } = useAuth();
-  const isAdmin = user?.isAdmin || hasPerm("sales_campaigns");
+  const isAdmin = user?.isAdmin || hasPerm("sales_campaigns") || hasPerm("one_pager_templates");
 
   const [templates, setTemplates] = useState<CustomTemplate[]>([]);
   const [loading, setLoading] = useState(true);

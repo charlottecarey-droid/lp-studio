@@ -117,3 +117,12 @@ export function requirePermission(permission: string) {
     res.status(403).json({ error: "Permission denied" });
   };
 }
+
+export function requireAnyPermission(permissions: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = req.authUser;
+    if (!user) { res.status(401).json({ error: "Not authenticated" }); return; }
+    if (user.isAdmin || permissions.some(p => user.permissions[p])) { next(); return; }
+    res.status(403).json({ error: "Permission denied" });
+  };
+}
