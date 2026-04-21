@@ -486,6 +486,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
           </div>
         </section>
         {modal}
+        {videoModal}
       </>
     );
   }
@@ -535,6 +536,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
         </div>
       </section>
       {modal}
+      {videoModal}
     </>
   );
 }

@@ -69,6 +69,18 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
       )}
 
       <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Play in Modal</Label>
+        <Switch
+          checked={props.playInModal ?? false}
+          onCheckedChange={v => set("playInModal", v)}
+          disabled={props.videoAutoplay ?? false}
+        />
+      </div>
+      {(props.playInModal ?? false) && !(props.videoAutoplay ?? false) && (
+        <p className="text-xs text-muted-foreground -mt-2">Shows the poster with a play button; clicking it opens the video in a fullscreen lightbox.</p>
+      )}
+
+      <div className="flex items-center justify-between">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Bleed</Label>
         <Switch
           checked={props.fillContainer ?? false}
