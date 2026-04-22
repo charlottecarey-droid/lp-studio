@@ -55,7 +55,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
           <div className="rounded-3xl p-8 md:p-12 opacity-80 flex flex-col" style={{ backgroundColor: oldCardBg }}>
             <div className="mb-8">
               <span className="text-sm font-bold tracking-widest text-slate-500 uppercase mb-2 block">OLD WAY</span>
-              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "md"), "text-[var(--brand-primary)]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
+              <InlineText as="h3" value={props.oldWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, oldWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)]", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
             </div>
             <ul className="space-y-6 flex-1">
               {props.oldWayBullets.map((bullet, i) => (
@@ -70,7 +70,7 @@ export function BlockComparison({ props, brand, onCtaClick, onFieldChange, pageI
             <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--brand-accent)] opacity-[0.03] blur-3xl rounded-full" />
             <div className="mb-8 relative z-10">
               <span className="text-sm font-bold tracking-widest text-[var(--brand-accent)] uppercase mb-2 block">NEW WAY</span>
-              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "md"), "text-white", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
+              <InlineText as="h3" value={props.newWayLabel} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, newWayLabel: v }) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-white", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
             </div>
             <ul className="space-y-6 flex-1 relative z-10">
               {props.newWayBullets.map((bullet, i) => (

@@ -26,7 +26,7 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
       <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-12">
         <div className="md:w-1/2 space-y-6">
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
-          <InlineText as="p" value={props.body} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, body: v }) : undefined} className={cn(getBodySizeClass(brand), "text-white/80 leading-relaxed")} multiline />
+          <InlineText as="p" value={props.body} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, body: v }) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-white/80")} multiline />
         </div>
         <div className="md:w-1/2">
           <ul className="space-y-4">

@@ -37,7 +37,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
-            className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+            className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
             style={{ color: brand.primaryColor }}
           />
           {props.subheadline && (
@@ -45,7 +45,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
               as="p"
               value={props.subheadline}
               onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined}
-              className={cn(getBodySizeClass(brand), "text-slate-500 max-w-2xl mx-auto")}
+              className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-slate-500 max-w-2xl mx-auto")}
               multiline
             />
           )}

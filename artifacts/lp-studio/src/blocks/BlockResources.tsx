@@ -38,7 +38,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
           </h2>
         )}
         {subheadline && (
-          <p className={`${getBodySizeClass(brand)} mb-10 ${isDark ? "text-white/70" : "text-slate-500"}`}>
+          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed mb-10 ${isDark ? "text-white/70" : "text-slate-500"}`}>
             {subheadline}
           </p>
         )}

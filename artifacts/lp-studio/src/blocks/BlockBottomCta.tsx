@@ -27,7 +27,7 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange }: Prop
   return (
     <section className={cn("w-full bg-[var(--brand-primary)] text-white px-6 text-center", sectionPy)}>
       <div className="max-w-3xl mx-auto">
-        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "xl"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
+        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
         {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "text-white/80 mb-10")} multiline />}
         {props.ctaAction === "chilipiper" && props.chilipiperUrl ? (
           <ChiliPiperButton

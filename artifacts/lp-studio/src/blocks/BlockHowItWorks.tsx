@@ -33,7 +33,7 @@ export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
                 {step.number}
               </div>
               <InlineText as="h3" value={step.title} onUpdate={onFieldChange ? (v) => updateStep(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-4", getHeadingWeightClass(brand))} />
-              <InlineText as="p" value={step.description} onUpdate={onFieldChange ? (v) => updateStep(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")} multiline />
+              <InlineText as="p" value={step.description} onUpdate={onFieldChange ? (v) => updateStep(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} multiline />
             </div>
           ))}
         </div>

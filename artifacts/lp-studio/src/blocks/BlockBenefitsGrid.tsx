@@ -60,7 +60,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                   <Icon className="w-7 h-7 text-[var(--brand-primary)]" />
                 </div>
                 <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-primary)] mb-3", getHeadingWeightClass(brand))} />
-                <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "text-[#4A6358] leading-relaxed")} multiline />
+                <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} multiline />
               </motion.div>
             );
           })}
