@@ -109,11 +109,14 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
 
           return (
             <div key={i} className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              {isImageLeft ? (
-                <>{imageEl}{textEl}</>
-              ) : (
-                <>{textEl}{imageEl}</>
-              )}
+              {/* Mobile: always image-on-top for a consistent rhythm.
+                  Desktop (lg+): alternate sides for the zigzag effect. */}
+              <div className={cn(isImageLeft ? "lg:order-1" : "lg:order-2", "order-1")}>
+                {imageEl}
+              </div>
+              <div className={cn(isImageLeft ? "lg:order-2" : "lg:order-1", "order-2")}>
+                {textEl}
+              </div>
             </div>
           );
         })}
