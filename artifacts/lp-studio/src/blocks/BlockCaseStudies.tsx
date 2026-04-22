@@ -39,7 +39,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>{headline}</h2>
         )}
         {subheadline && (
-          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-10`}>{subheadline}</p>
+          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-12 lg:mb-16`}>{subheadline}</p>
         )}
 
         <div className={`grid grid-cols-1 gap-4 ${{

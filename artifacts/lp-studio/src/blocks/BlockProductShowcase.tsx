@@ -32,7 +32,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
   return (
     <section className={cn("w-full bg-slate-50", SECTION_PY[brand.sectionPadding])}>
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-12 space-y-3">
+        <div className="text-center mb-12 lg:mb-16 space-y-3">
           <InlineText
             as="h2"
             value={props.headline}

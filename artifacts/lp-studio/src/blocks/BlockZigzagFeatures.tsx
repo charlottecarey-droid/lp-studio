@@ -32,7 +32,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
   return (
     <>
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
-      <div className="max-w-7xl mx-auto px-6 space-y-20 lg:space-y-28">
+      <div className="max-w-7xl mx-auto px-6 space-y-16 lg:space-y-24">
         {(props.headline || props.subheadline) && (
           <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (

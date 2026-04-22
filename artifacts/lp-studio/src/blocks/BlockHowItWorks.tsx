@@ -21,9 +21,9 @@ export function BlockHowItWorks({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {props.headline && (
-          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-primary)] mb-20", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
+          <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-primary)] mb-12 lg:mb-16", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} />
         )}
         <div className="grid md:grid-cols-3 gap-12 relative">
           <div className="hidden md:block absolute top-8 left-1/6 right-1/6 h-[2px] bg-slate-100 z-0" />
