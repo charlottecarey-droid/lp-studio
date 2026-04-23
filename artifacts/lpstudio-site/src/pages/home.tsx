@@ -1,8 +1,5 @@
 import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
-import SocialProof from "@/components/SocialProof";
-import Features from "@/components/Features";
-import HowItWorks from "@/components/HowItWorks";
+import AssembleScene from "@/components/AssembleScene";
 import Pricing from "@/components/Pricing";
 import Testimonials from "@/components/Testimonials";
 import Waitlist from "@/components/Waitlist";
@@ -13,10 +10,7 @@ export default function Home() {
     <div className="min-h-screen" style={{ background: "#000", color: "#F5F5F5" }}>
       <Navbar />
       <main>
-        <Hero />
-        <SocialProof />
-        <Features />
-        <HowItWorks />
+        <AssembleScene />
         <Pricing />
         <Testimonials />
         <Waitlist />

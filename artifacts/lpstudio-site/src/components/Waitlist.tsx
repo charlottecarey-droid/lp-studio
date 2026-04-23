@@ -5,7 +5,7 @@ export default function Waitlist() {
 
   return (
     <section
-      id="get-started"
+      id="waitlist"
       className="px-6 py-20 md:py-28"
       style={{ background: "#003A30", borderTop: "1px solid rgba(199,231,56,0.12)" }}
     >

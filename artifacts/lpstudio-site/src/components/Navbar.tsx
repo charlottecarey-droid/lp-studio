@@ -12,10 +12,9 @@ export default function Navbar() {
         </a>
 
         <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
-          <a href="#features" className="hover:text-white transition-colors">Features</a>
-          <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
           <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
+          <a href="#waitlist" className="hover:text-white transition-colors">Get Access</a>
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -47,10 +46,9 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="md:hidden mt-4 pb-4 flex flex-col gap-4 text-sm px-2" style={{ color: "rgba(255,255,255,0.7)" }}>
-          <a href="#features" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Features</a>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">How It Works</a>
           <a href="#pricing" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Pricing</a>
           <a href="#testimonials" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Testimonials</a>
+          <a href="#waitlist" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Get Access</a>
           <a
             href="https://app.lpstudio.ai"
             onClick={() => setMenuOpen(false)}
