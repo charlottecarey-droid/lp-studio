@@ -4,6 +4,7 @@ const LIME = "#D4F542";
 const INK = "#0A0A0A";
 const INK_2 = "#0F0F10";
 const INK_3 = "#141416";
+const INK_4 = "#1A1A1D";
 const TEXT = "#FAFAFA";
 const MUTED = "rgba(250,250,250,0.55)";
 const FAINT = "rgba(250,250,250,0.35)";
@@ -14,6 +15,8 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const range = (p: number, a: number, b: number) => clamp01((p - a) / (b - a));
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t: number) =>
+  t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
 function useScrollProgress<T extends HTMLElement = HTMLElement>() {
   const ref = useRef<T>(null);
@@ -67,390 +70,346 @@ function useScrollProgress<T extends HTMLElement = HTMLElement>() {
   return { ref, progress, vw };
 }
 
-/* ---------- tiny inline icons (1.5px stroke) ---------- */
-function Icon({ d, size = 14 }: { d: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d={d} />
-    </svg>
-  );
-}
-const ICON_BOLT = "M13 2 4 14h7l-1 8 9-12h-7l1-8Z";
-const ICON_TARGET = "M12 2v4M12 18v4M2 12h4M18 12h4";
-const ICON_LOCK = "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4";
-
-/* ---------- block: stylized hero ---------- */
-function MockHero({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  return (
-    <div
-      style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 12}px)`,
-        background: INK_2,
-        border: `1px solid ${HAIRLINE}`,
-        borderRadius: 14,
-        padding: "26px 28px",
-      }}
-    >
-      <div
-        className="text-[9.5px] uppercase mb-3"
-        style={{ letterSpacing: "0.22em", color: FAINT }}
-      >
-        For revenue teams
-      </div>
-      <div
-        style={{
-          fontFamily: "'Inter Tight', sans-serif",
-          fontWeight: 600,
-          letterSpacing: "-0.035em",
-          fontSize: 30,
-          lineHeight: 1.05,
-          color: TEXT,
-        }}
-      >
-        Landing pages that{" "}
-        <span
-          style={{            color: LIME,
-          }}
-        >
-          convert
-        </span>
-        ,<br />
-        shipped before the brief is dry.
-      </div>
-      <div className="mt-3 text-[13px] max-w-md" style={{ color: MUTED, lineHeight: 1.55 }}>
-        Personalized pages from your CRM data — written, designed, and live in
-        under a minute.
-      </div>
-      <div className="mt-5 flex items-center gap-2">
-        <div
-          className="px-4 py-2 rounded-full text-[12px] font-medium"
-          style={{ background: TEXT, color: INK }}
-        >
-          Start free
-        </div>
-        <div
-          className="px-3.5 py-2 rounded-full text-[12px]"
-          style={{ color: TEXT, border: `1px solid ${HAIRLINE_STRONG}` }}
-        >
-          See a live page →
-        </div>
-      </div>
-    </div>
-  );
+/* Slice text by scroll progress, character-by-character. */
+function typed(text: string, p: number) {
+  const n = Math.floor(text.length * clamp01(p) + 0.0001);
+  return text.slice(0, n);
 }
 
-/* ---------- block: visuals row ---------- */
-function MockVisuals({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  const tiles = [
-    { label: "Demo", grad: "linear-gradient(135deg, #1e2a0d 0%, #3a5410 60%, #6e8f1c 100%)" },
-    { label: "Product", grad: "linear-gradient(135deg, #0e1a2a 0%, #1c3a5e 60%, #2f5e95 100%)" },
-    { label: "Team", grad: "linear-gradient(135deg, #2a160d 0%, #5a2c1a 60%, #8a4a30 100%)" },
-    { label: "Outcome", grad: "linear-gradient(135deg, #1c0d2a 0%, #3a1c5e 60%, #5e2f95 100%)" },
-  ];
+/* Animated cursor (arrow pointer) */
+function Cursor({
+  x,
+  y,
+  visible,
+  clicking,
+}: {
+  x: number;
+  y: number;
+  visible: number;
+  clicking: number;
+}) {
   return (
-    <div
-      className="grid grid-cols-4 gap-2"
-      style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 12}px)`,
-      }}
-    >
-      {tiles.map((t, i) => (
-        <div
-          key={t.label}
-          className="aspect-[4/3] rounded-lg relative overflow-hidden flex items-end p-2"
-          style={{
-            background: t.grad,
-            border: `1px solid ${HAIRLINE}`,
-            opacity: clamp01(v * 1.2 - i * 0.08),
-            transform: `translateY(${(1 - v) * (8 + i * 4)}px)`,
-          }}
-        >
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45), transparent 55%)" }}
-          />
-          <span
-            className="relative text-[10px]"
-            style={{
-              color: "rgba(255,255,255,0.85)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            {t.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---------- block: feature trio ---------- */
-function MockFeatures({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  const items = [
-    { icon: ICON_BOLT, title: "Ship in minutes", body: "AI copy and brand styles, baked in." },
-    { icon: ICON_TARGET, title: "Convert more", body: "A/B variants with auto-significance." },
-    { icon: ICON_LOCK, title: "On-brand always", body: "Locked tokens, approved blocks." },
-  ];
-  return (
-    <div
-      className="grid grid-cols-3"
-      style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 12}px)`,
-        border: `1px solid ${HAIRLINE}`,
-        borderRadius: 14,
-        background: INK_2,
-        overflow: "hidden",
-      }}
-    >
-      {items.map((f, i) => (
-        <div
-          key={f.title}
-          className="p-4"
-          style={{
-            borderLeft: i > 0 ? `1px solid ${HAIRLINE}` : "none",
-          }}
-        >
-          <div style={{ color: LIME, marginBottom: 10 }}>
-            <Icon d={f.icon} size={15} />
-          </div>
-          <div
-            className="text-[12.5px] mb-1"
-            style={{
-              color: TEXT,
-              fontFamily: "'Inter Tight', sans-serif",
-              fontWeight: 600,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {f.title}
-          </div>
-          <div className="text-[11px]" style={{ color: MUTED, lineHeight: 1.5 }}>
-            {f.body}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---------- block: logo strip ---------- */
-function MockLogos({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  const logos = ["NORTHWIND", "ACME", "GLOBEX", "INITECH", "UMBRELLA"];
-  return (
-    <div
-      style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 12}px)`,
-        border: `1px solid ${HAIRLINE}`,
-        borderRadius: 14,
-        background: INK_2,
-        padding: "16px 20px",
-      }}
-    >
-      <div
-        className="text-[9.5px] uppercase mb-3"
-        style={{ letterSpacing: "0.22em", color: FAINT }}
-      >
-        Trusted by 1,200+ revenue teams
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        {logos.map((n) => (
-          <div
-            key={n}
-            className="text-[11px]"
-            style={{
-              color: "rgba(250,250,250,0.6)",
-              letterSpacing: "0.18em",
-              fontWeight: 500,
-            }}
-          >
-            {n}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- block: CTA band ---------- */
-function MockCTA({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  return (
-    <div
-      className="flex items-center justify-between"
-      style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 12}px)`,
-        border: `1px solid ${HAIRLINE}`,
-        borderRadius: 14,
-        background: `linear-gradient(180deg, ${INK_3}, ${INK_2})`,
-        padding: "18px 22px",
-      }}
-    >
-      <div>
-        <div
-          className="text-[15px] mb-0.5"
-          style={{
-            color: TEXT,
-            fontFamily: "'Inter Tight', sans-serif",
-            fontWeight: 600,
-            letterSpacing: "-0.015em",
-          }}
-        >
-          See it on a real{" "}
-          <span
-            style={{              color: LIME,
-            }}
-          >
-            page
-          </span>
-          .
-        </div>
-        <div className="text-[11.5px]" style={{ color: MUTED }}>
-          Drop your email — we'll spin up your workspace.
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div
-          className="px-3 py-1.5 rounded-full text-[11px]"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            color: FAINT,
-            border: `1px solid ${HAIRLINE}`,
-          }}
-        >
-          you@company.com
-        </div>
-        <div
-          className="px-3 py-1.5 rounded-full text-[11px] font-medium"
-          style={{ background: LIME, color: INK }}
-        >
-          Get access
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- selection handle: shows the page is editable ---------- */
-function SelectionFrame({ in: vis }: { in: number }) {
-  const v = easeOut(clamp01(vis));
-  if (v < 0.02) return null;
-  const Handle = ({ pos }: { pos: React.CSSProperties }) => (
     <div
       style={{
         position: "absolute",
-        width: 8,
-        height: 8,
-        background: LIME,
-        border: `1.5px solid ${INK}`,
-        borderRadius: 2,
-        opacity: v,
-        ...pos,
-      }}
-    />
-  );
-  return (
-    <div
-      className="absolute pointer-events-none"
-      style={{
-        inset: "20px 24px auto 24px",
-        height: "auto",
-        top: 20,
-        bottom: "auto",
+        left: 0,
+        top: 0,
+        transform: `translate(${x}px, ${y}px)`,
+        transition: "none",
+        pointerEvents: "none",
+        opacity: visible,
+        zIndex: 40,
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          border: `1px solid ${LIME}`,
-          borderRadius: 16,
-          opacity: v * 0.9,
-          boxShadow: `0 0 0 4px rgba(212,245,66,${v * 0.08})`,
-          height: 188,
-        }}
-      >
-        <Handle pos={{ top: -5, left: -5 }} />
-        <Handle pos={{ top: -5, right: -5 }} />
-        <Handle pos={{ bottom: -5, left: -5 }} />
-        <Handle pos={{ bottom: -5, right: -5 }} />
-        <Handle pos={{ top: -5, left: "50%", marginLeft: -4 }} />
-        <Handle pos={{ bottom: -5, left: "50%", marginLeft: -4 }} />
-        <Handle pos={{ top: "50%", left: -5, marginTop: -4 }} />
-        <Handle pos={{ top: "50%", right: -5, marginTop: -4 }} />
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          top: -28,
-          left: 0,
-          padding: "3px 8px",
-          background: LIME,
-          color: INK,
-          borderRadius: 4,
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: "0.04em",
-          opacity: v,
-        }}
-      >
-        Hero · editable
-      </div>
+      {/* click ripple */}
+      {clicking > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: 6,
+            top: 6,
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            border: `2px solid ${LIME}`,
+            transform: `translate(-50%, -50%) scale(${1 + clicking * 4})`,
+            opacity: 1 - clicking,
+          }}
+        />
+      )}
+      <svg width="20" height="22" viewBox="0 0 20 22" fill="none">
+        <path
+          d="M2 2 L2 16 L6 12.5 L8.5 18.5 L11 17.5 L8.5 11.5 L14 11 Z"
+          fill={TEXT}
+          stroke={INK}
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }
 
-/* ---------- left caption phase ---------- */
-interface PhaseProps {
-  active: number; // 0..1
+type TypingTarget = "eyebrow" | "l1" | "l2" | "subtitle" | "none";
+
+interface SceneProps {
+  ctaColor: string;
+  ctaLabel: string;
   eyebrow: string;
-  title: React.ReactNode;
-  body: string;
+  headlineL1: string;
+  headlineL2: string;
+  subtitle: string;
+  typing: TypingTarget;
+  primaryClick: number;
+  visualsIn: number;
+  showSelection: boolean;
 }
-function Phase({ active, eyebrow, title, body }: PhaseProps) {
-  const v = clamp01(active);
+
+/* Render headline L1 with the word "convert" highlighted in lime as it types in. */
+function renderL1(typed: string) {
+  const pre = "Landing pages that ";
+  const accent = "convert";
+  const post = ",";
+  const n = typed.length;
+  const preShown = typed.slice(0, Math.min(n, pre.length));
+  const accentShown =
+    n > pre.length
+      ? typed.slice(pre.length, Math.min(n, pre.length + accent.length))
+      : "";
+  const postShown =
+    n > pre.length + accent.length ? typed.slice(pre.length + accent.length) : "";
   return (
-    <div
-      className="absolute inset-0"
+    <>
+      {preShown}
+      <span style={{ color: LIME }}>{accentShown}</span>
+      {postShown}
+    </>
+  );
+}
+
+/* The mock landing page that builds itself */
+function MockPage({
+  ctaColor,
+  ctaLabel,
+  eyebrow,
+  headlineL1,
+  headlineL2,
+  subtitle,
+  typing,
+  primaryClick,
+  visualsIn,
+  showSelection,
+}: SceneProps) {
+  const Caret = () => (
+    <span
       style={{
-        opacity: v,
-        transform: `translateY(${(1 - v) * 14}px)`,
-        pointerEvents: v > 0.5 ? "auto" : "none",
+        display: "inline-block",
+        width: 2,
+        height: "0.95em",
+        background: LIME,
+        marginLeft: 2,
+        verticalAlign: "text-bottom",
+        animation: "lpc-blink 0.9s steps(2,end) infinite",
       }}
-    >
+    />
+  );
+
+  return (
+    <div className="relative h-full w-full" style={{ background: INK_2 }}>
+      {/* hero section */}
       <div
-        className="text-[11px] uppercase mb-4"
-        style={{ letterSpacing: "0.22em", color: FAINT }}
-      >
-        {eyebrow}
-      </div>
-      <h2
+        className="relative px-12 pt-14 pb-10"
         style={{
-          fontFamily: "'Inter Tight', sans-serif",
-          fontWeight: 600,
-          letterSpacing: "-0.035em",
-          fontSize: 44,
-          lineHeight: 1.04,
-          color: TEXT,
+          borderBottom: `1px solid ${HAIRLINE}`,
         }}
       >
-        {title}
-      </h2>
-      <p
-        className="mt-5 text-[16px]"
-        style={{ color: MUTED, lineHeight: 1.6, maxWidth: 440 }}
+        {/* selection rectangle around hero when builder is open */}
+        {showSelection && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              inset: "10px 16px 10px 16px",
+              border: `1px solid ${LIME}`,
+              borderRadius: 8,
+              boxShadow: `0 0 0 4px rgba(212,245,66,0.06)`,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: -22,
+                left: -1,
+                background: LIME,
+                color: INK,
+                fontSize: 9.5,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "2px 6px",
+                borderRadius: 3,
+              }}
+            >
+              Hero
+            </div>
+            {[
+              { top: -4, left: -4 },
+              { top: -4, right: -4 },
+              { bottom: -4, left: -4 },
+              { bottom: -4, right: -4 },
+            ].map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  width: 7,
+                  height: 7,
+                  background: LIME,
+                  border: `1.5px solid ${INK}`,
+                  borderRadius: 1,
+                  ...p,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* eyebrow */}
+        <div
+          className="text-[11px] uppercase mb-5"
+          style={{
+            letterSpacing: "0.22em",
+            color: FAINT,
+            minHeight: "1em",
+          }}
+        >
+          {eyebrow}
+          {typing === "eyebrow" && <Caret />}
+        </div>
+
+        {/* headline */}
+        <h2
+          style={{
+            fontFamily: "'Inter Tight', sans-serif",
+            fontWeight: 600,
+            letterSpacing: "-0.04em",
+            fontSize: 52,
+            lineHeight: 1.02,
+            color: TEXT,
+            maxWidth: 720,
+            minHeight: "2.04em",
+          }}
+        >
+          {renderL1(headlineL1)}
+          {typing === "l1" && <Caret />}
+          {(headlineL2.length > 0 || typing === "l2") && <br />}
+          {headlineL2}
+          {typing === "l2" && <Caret />}
+        </h2>
+
+        {/* subtitle */}
+        <p
+          className="mt-5 text-[16px]"
+          style={{
+            color: MUTED,
+            lineHeight: 1.55,
+            maxWidth: 560,
+            minHeight: "3.1em",
+          }}
+        >
+          {subtitle}
+          {typing === "subtitle" && <Caret />}
+        </p>
+
+        {/* CTAs */}
+        <div className="mt-8 flex items-center gap-3">
+          <button
+            className="relative px-5 py-2.5 rounded-full text-[13.5px] font-medium"
+            style={{
+              background: ctaColor,
+              color: INK,
+              fontFamily: "'Inter Tight', sans-serif",
+              letterSpacing: "-0.005em",
+              transform: `scale(${1 - primaryClick * 0.05})`,
+              transition: "background 220ms ease",
+            }}
+          >
+            {ctaLabel}
+            {primaryClick > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: 999,
+                  border: `2px solid ${LIME}`,
+                  transform: `scale(${1 + primaryClick * 0.45})`,
+                  opacity: 1 - primaryClick,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+          </button>
+          <button
+            className="px-4 py-2.5 rounded-full text-[13.5px]"
+            style={{
+              color: TEXT,
+              border: `1px solid ${HAIRLINE_STRONG}`,
+              background: "transparent",
+              fontFamily: "'Inter Tight', sans-serif",
+            }}
+          >
+            See a live page →
+          </button>
+        </div>
+      </div>
+
+      {/* below-the-fold — fades in after CTA click */}
+      <div
+        className="px-12 py-9"
+        style={{ opacity: easeOut(visualsIn) }}
       >
-        {body}
-      </p>
+        {/* logo strip */}
+        <div
+          className="text-[10px] uppercase mb-4"
+          style={{ letterSpacing: "0.22em", color: FAINT }}
+        >
+          Trusted by 1,200+ revenue teams
+        </div>
+        <div
+          className="flex items-center justify-between pb-7"
+          style={{ borderBottom: `1px solid ${HAIRLINE}` }}
+        >
+          {["NORTHWIND", "ACME", "GLOBEX", "INITECH", "UMBRELLA", "VANDELAY"].map((n) => (
+            <div
+              key={n}
+              className="text-[11px]"
+              style={{
+                color: "rgba(250,250,250,0.55)",
+                letterSpacing: "0.18em",
+                fontWeight: 500,
+              }}
+            >
+              {n}
+            </div>
+          ))}
+        </div>
+
+        {/* feature row */}
+        <div className="grid grid-cols-3 gap-8 pt-9">
+          {[
+            { num: "01", title: "Generated", body: "Pages composed from a brief in under a minute." },
+            { num: "02", title: "On-brand", body: "Locked tokens and approved blocks — never off." },
+            { num: "03", title: "Measured", body: "Variants, attribution, and learnings, built-in." },
+          ].map((f) => (
+            <div key={f.num}>
+              <div
+                className="text-[11px] mb-3"
+                style={{
+                  color: LIME,
+                  letterSpacing: "0.18em",
+                  fontFamily: "'Inter Tight', sans-serif",
+                  fontWeight: 600,
+                }}
+              >
+                {f.num}
+              </div>
+              <div
+                className="text-[16px] mb-1.5"
+                style={{
+                  color: TEXT,
+                  fontFamily: "'Inter Tight', sans-serif",
+                  fontWeight: 600,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {f.title}
+              </div>
+              <div className="text-[13px]" style={{ color: MUTED, lineHeight: 1.55 }}>
+                {f.body}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -459,60 +418,138 @@ export default function AssembleScene() {
   const { ref, progress, vw } = useScrollProgress<HTMLDivElement>();
   const isMobile = vw < 768;
 
-  // Five clean phases, with overlap windows for crossfade.
-  // 0–0.10 intro · 0.10–0.30 hero · 0.30–0.50 body · 0.50–0.72 proof+cta · 0.72–1.00 editable
-  const intro = 1 - range(progress, 0.05, 0.14);
-  const heroIn = range(progress, 0.10, 0.24);
-  const visualsIn = range(progress, 0.28, 0.42);
-  const featuresIn = range(progress, 0.36, 0.50);
-  const logosIn = range(progress, 0.50, 0.62);
-  const ctaIn = range(progress, 0.62, 0.74);
-  const editIn = range(progress, 0.78, 0.92);
+  // ---------- phase plan ----------
+  // 0.00–0.06  intro overlay fades out, device frame fades in
+  // 0.06–0.10  empty canvas, cursor blinks in top-left
+  // 0.10–0.14  type eyebrow
+  // 0.14–0.30  type headline (L1 then L2)
+  // 0.30–0.40  type subtitle
+  // 0.40–0.45  cursor moves to primary CTA
+  // 0.45–0.50  primary CTA click → triggers below-the-fold reveal
+  // 0.50–0.62  visuals (logo strip + features) build in
+  // 0.62–0.70  builder sidebars slide in (left blocks panel, right properties)
+  // 0.70–0.78  cursor moves to a color swatch in right panel
+  // 0.78–0.83  swatch click → primary CTA color shifts from white to lime + label edits to "Try it free"
+  // 0.83–0.92  cursor moves to "Publish" button in header
+  // 0.92–0.97  publish click → "Building" pill turns "Live"
+  // 0.97–1.00  hold
 
-  // Phase activations for the left caption column
-  const pIntro = 1 - range(progress, 0.06, 0.13);
-  const pHero = range(progress, 0.10, 0.18) * (1 - range(progress, 0.28, 0.34));
-  const pBody = range(progress, 0.30, 0.38) * (1 - range(progress, 0.52, 0.58));
-  const pProof = range(progress, 0.55, 0.62) * (1 - range(progress, 0.74, 0.80));
-  const pEdit = range(progress, 0.76, 0.84);
+  const introOut = range(progress, 0.0, 0.06);
+  const frameIn = range(progress, 0.03, 0.09);
 
-  // Page translate Y inside the device frame: as more blocks stack, scroll up
-  const stackProgress =
-    heroIn * 0.18 +
-    visualsIn * 0.18 +
-    featuresIn * 0.22 +
-    logosIn * 0.18 +
-    ctaIn * 0.24;
-  const pageY = -lerp(0, 240, clamp01(stackProgress));
+  // typing
+  const typeEyebrow = range(progress, 0.10, 0.14);
+  const typeHeadlineL1 = range(progress, 0.14, 0.22);
+  const typeHeadlineL2 = range(progress, 0.22, 0.30);
+  const typeSubtitle = range(progress, 0.30, 0.40);
+
+  // CTA click
+  const primaryClickWindow = range(progress, 0.45, 0.50);
+  const primaryClick = primaryClickWindow * (1 - primaryClickWindow); // peaks at 0.5
+  const primaryClicked = progress >= 0.48;
+
+  // visuals reveal
+  const visualsIn = range(progress, 0.50, 0.62);
+
+  // builder open
+  const builderIn = range(progress, 0.62, 0.72);
+
+  // swatch click
+  const swatchClickWindow = range(progress, 0.78, 0.83);
+  const swatchClick = swatchClickWindow * (1 - swatchClickWindow);
+  const swatchClicked = progress >= 0.81;
+
+  // publish click
+  const publishClickWindow = range(progress, 0.92, 0.97);
+  const publishClick = publishClickWindow * (1 - publishClickWindow);
+  const published = progress >= 0.95;
+
+  // ---------- text values ----------
+  const eyebrowFull = "FOR REVENUE TEAMS";
+  const headlineL1Full = "Landing pages that convert,";
+  const headlineL2Full = "shipped before the brief is dry.";
+  const subtitleFull =
+    "Personalized pages from your CRM data — written, designed, and live in under a minute.";
+
+  const eyebrow = typed(eyebrowFull, typeEyebrow);
+  const headlineL1 = typed(headlineL1Full, typeHeadlineL1);
+  const headlineL2 = typed(headlineL2Full, typeHeadlineL2);
+  const subtitle = typed(subtitleFull, typeSubtitle);
+
+  // typing target — drives caret placement
+  let typing: TypingTarget = "none";
+  if (progress >= 0.10 && progress < 0.14) typing = "eyebrow";
+  else if (progress >= 0.14 && progress < 0.22) typing = "l1";
+  else if (progress >= 0.22 && progress < 0.30) typing = "l2";
+  else if (progress >= 0.30 && progress < 0.40) typing = "subtitle";
+
+  // CTA after edit
+  const ctaColor = swatchClicked ? LIME : TEXT;
+  const ctaLabel = swatchClicked ? "Try it free" : "Get started";
+
+  // ---------- cursor positions (relative to device canvas) ----------
+  // Coordinates are in canvas-local px assuming a ~960px wide device. Will scale below.
+  const CANVAS_W = 960;
+  const cursorKeyframes: { at: number; pos: { x: number; y: number } }[] = [
+    { at: 0.07, pos: { x: 80, y: 60 } },
+    { at: 0.13, pos: { x: 100, y: 90 } },     // hovering near eyebrow
+    { at: 0.28, pos: { x: 480, y: 200 } },    // end of headline
+    { at: 0.39, pos: { x: 520, y: 320 } },    // end of subtitle
+    { at: 0.45, pos: { x: 130, y: 400 } },    // on primary CTA
+    { at: 0.50, pos: { x: 130, y: 400 } },    // hold during click
+    { at: 0.66, pos: { x: 600, y: 280 } },    // moving toward right panel area
+    { at: 0.78, pos: { x: 870, y: 360 } },    // on color swatch (right panel)
+    { at: 0.83, pos: { x: 870, y: 360 } },    // hold during swatch click
+    { at: 0.92, pos: { x: 870, y: 60 } },     // up to Publish button in header
+    { at: 0.97, pos: { x: 870, y: 60 } },     // hold during publish click
+  ];
+
+  const cursorPos = (() => {
+    if (progress < cursorKeyframes[0].at) return cursorKeyframes[0].pos;
+    for (let i = 0; i < cursorKeyframes.length - 1; i++) {
+      const a = cursorKeyframes[i];
+      const b = cursorKeyframes[i + 1];
+      if (progress >= a.at && progress <= b.at) {
+        const t = easeInOut((progress - a.at) / (b.at - a.at));
+        return { x: lerp(a.pos.x, b.pos.x, t), y: lerp(a.pos.y, b.pos.y, t) };
+      }
+    }
+    return cursorKeyframes[cursorKeyframes.length - 1].pos;
+  })();
+
+  const cursorVisible = (1 - introOut) * (1 - publishClickWindow * 0.5);
+  const cursorClickAmount = Math.max(primaryClick, swatchClick, publishClick) * 4;
 
   return (
     <section
       ref={ref}
       style={{
-        height: "420vh",
+        height: "560vh",
         background: INK,
         position: "relative",
       }}
     >
+      <style>{`@keyframes lpc-blink { 50% { opacity: 0; } }`}</style>
+
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* very subtle baseline grid, fades in as the device appears */}
+        {/* very subtle baseline grid */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage:
               "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
             backgroundSize: "100% 96px",
-            opacity: 0.6,
+            opacity: 0.5,
           }}
         />
 
-        {/* INTRO — full-bleed centered headline, dissolves into the scene */}
+        {/* INTRO overlay */}
         <div
           className="absolute inset-0 z-30 flex flex-col items-center justify-center px-6 text-center"
           style={{
-            opacity: intro,
-            transform: `translateY(${(1 - intro) * -20}px)`,
-            pointerEvents: intro > 0.5 ? "auto" : "none",
+            opacity: 1 - introOut,
+            transform: `translateY(${introOut * -20}px)`,
+            pointerEvents: introOut > 0.5 ? "none" : "auto",
           }}
         >
           <div
@@ -534,21 +571,11 @@ export default function AssembleScene() {
           >
             Your next landing page,
             <br />
-            <span
-              style={{                color: LIME,
-              }}
-            >
-              assembled
-            </span>{" "}
-            in real time.
+            <span style={{ color: LIME }}>assembled</span> in real time.
           </h1>
           <p
             className="mt-7 max-w-lg"
-            style={{
-              color: MUTED,
-              fontSize: 17,
-              lineHeight: 1.55,
-            }}
+            style={{ color: MUTED, fontSize: 17, lineHeight: 1.55 }}
           >
             Scroll. Watch a complete, on-brand page build itself — the way it
             does inside LP Studio, in about a minute.
@@ -570,246 +597,438 @@ export default function AssembleScene() {
           </div>
         </div>
 
-        {/* MAIN STAGE — split layout */}
+        {/* DEVICE STAGE — full bleed */}
         <div
-          className="absolute inset-0 z-10"
+          className="absolute inset-0 z-10 flex items-center justify-center px-4 md:px-8 py-6"
           style={{
-            opacity: 1 - intro * 0.92,
-            pointerEvents: intro > 0.5 ? "none" : "auto",
+            opacity: frameIn,
+            pointerEvents: frameIn < 0.5 ? "none" : "auto",
           }}
         >
-          <div className="h-full max-w-[1200px] mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-center">
-            {/* LEFT — phase captions */}
-            <div className="hidden md:block md:col-span-5 relative" style={{ height: 320 }}>
-              <Phase
-                active={pHero}
-                eyebrow="Step 01"
-                title={
-                  <>
-                    Start with a{" "}
-                    <span
-                      style={{                        color: LIME,
-                      }}
-                    >
-                      hero
-                    </span>{" "}
-                    that already knows your brand.
-                  </>
-                }
-                body="Type a brief — or sync from your CRM. LP Studio writes the headline, picks the layout, and applies your tokens automatically."
-              />
-              <Phase
-                active={pBody}
-                eyebrow="Step 02"
-                title={
-                  <>
-                    Visuals and{" "}
-                    <span
-                      style={{                        color: LIME,
-                      }}
-                    >
-                      features
-                    </span>{" "}
-                    fall into place.
-                  </>
-                }
-                body="Imagery from your library, feature blocks pulled from your product taxonomy. Composed for the audience the page is targeting."
-              />
-              <Phase
-                active={pProof}
-                eyebrow="Step 03"
-                title={
-                  <>
-                    Proof and a{" "}
-                    <span
-                      style={{                        color: LIME,
-                      }}
-                    >
-                      conversion
-                    </span>{" "}
-                    moment.
-                  </>
-                }
-                body="Logos, testimonials, and a single, sharp CTA. Forms wired to your CRM and warehouse from the second the page goes live."
-              />
-              <Phase
-                active={pEdit}
-                eyebrow="Step 04"
-                title={
-                  <>
-                    Then it's{" "}
-                    <span
-                      style={{                        color: LIME,
-                      }}
-                    >
-                      yours
-                    </span>{" "}
-                    to refine.
-                  </>
-                }
-                body="Every block stays editable. Tokens, copy, layout, A/B variants — open the page in the visual builder and tune it like a real designer would."
-              />
-            </div>
-
-            {/* RIGHT — device frame */}
-            <div className="col-span-1 md:col-span-7 flex items-center justify-center">
+          <div
+            className="relative w-full max-w-[1200px]"
+            style={{
+              height: "min(82vh, 760px)",
+              transform: `translateY(${(1 - frameIn) * 30}px) scale(${0.96 + frameIn * 0.04})`,
+              transition: "none",
+            }}
+          >
+            {/* App frame */}
+            <div
+              className="relative w-full h-full rounded-2xl overflow-hidden flex flex-col"
+              style={{
+                background: INK_2,
+                border: `1px solid ${HAIRLINE_STRONG}`,
+                boxShadow:
+                  "0 50px 140px -20px rgba(0,0,0,0.7), 0 8px 30px -10px rgba(0,0,0,0.5)",
+              }}
+            >
+              {/* App header */}
               <div
-                className="relative w-full"
+                className="flex items-center justify-between shrink-0"
                 style={{
-                  maxWidth: 620,
-                  aspectRatio: "4 / 5",
-                  background: INK_2,
-                  border: `1px solid ${HAIRLINE_STRONG}`,
-                  borderRadius: 18,
-                  overflow: "hidden",
-                  boxShadow:
-                    "0 30px 80px -20px rgba(0,0,0,0.6), 0 8px 30px -10px rgba(0,0,0,0.5)",
+                  height: 44,
+                  padding: "0 16px",
+                  borderBottom: `1px solid ${HAIRLINE}`,
+                  background: INK_3,
                 }}
               >
-                {/* slim app header — no traffic lights, no URL bar */}
-                <div
-                  className="flex items-center justify-between"
-                  style={{
-                    height: 36,
-                    padding: "0 14px",
-                    borderBottom: `1px solid ${HAIRLINE}`,
-                    background: INK_3,
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 3,
-                        background: LIME,
-                      }}
-                    />
-                    <div
-                      className="text-[11px]"
-                      style={{
-                        color: "rgba(250,250,250,0.7)",
-                        fontFamily: "'Inter Tight', sans-serif",
-                        fontWeight: 500,
-                        letterSpacing: "-0.005em",
-                      }}
-                    >
-                      Untitled page
-                    </div>
-                    <div
-                      className="text-[10px] uppercase"
-                      style={{
-                        color: FAINT,
-                        letterSpacing: "0.18em",
-                        marginLeft: 6,
-                      }}
-                    >
-                      Draft
-                    </div>
+                <div className="flex items-center gap-2.5">
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      background: LIME,
+                    }}
+                  />
+                  <div
+                    className="text-[12.5px]"
+                    style={{
+                      color: "rgba(250,250,250,0.85)",
+                      fontFamily: "'Inter Tight', sans-serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Untitled page
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      className="text-[10px] uppercase"
-                      style={{
-                        color: editIn > 0.3 ? LIME : FAINT,
-                        letterSpacing: "0.2em",
-                      }}
-                    >
-                      {editIn > 0.3 ? "Editing" : "Building"}
-                    </div>
-                    <div
+                  <div
+                    className="text-[10px] uppercase ml-2 px-1.5 py-0.5 rounded"
+                    style={{
+                      color: FAINT,
+                      letterSpacing: "0.18em",
+                      background: "rgba(255,255,255,0.04)",
+                    }}
+                  >
+                    Draft
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="text-[10.5px] uppercase flex items-center gap-1.5"
+                    style={{ letterSpacing: "0.2em", color: FAINT }}
+                  >
+                    <span
                       style={{
                         width: 6,
                         height: 6,
                         borderRadius: 999,
-                        background: editIn > 0.3 ? LIME : "rgba(250,250,250,0.45)",
-                        boxShadow: editIn > 0.3 ? `0 0 8px ${LIME}` : "none",
+                        background: published ? LIME : (builderIn > 0.3 ? LIME : "rgba(250,250,250,0.4)"),
+                        boxShadow: published || builderIn > 0.3 ? `0 0 8px ${LIME}` : "none",
+                        display: "inline-block",
                       }}
                     />
+                    <span style={{ color: published || builderIn > 0.3 ? "rgba(250,250,250,0.75)" : FAINT }}>
+                      {published ? "Live" : builderIn > 0.3 ? "Editing" : "Building"}
+                    </span>
+                  </div>
+                  <button
+                    className="relative px-3.5 py-1.5 rounded-md text-[11.5px]"
+                    style={{
+                      background: published ? LIME : "rgba(255,255,255,0.06)",
+                      color: published ? INK : TEXT,
+                      border: `1px solid ${published ? LIME : HAIRLINE_STRONG}`,
+                      fontFamily: "'Inter Tight', sans-serif",
+                      fontWeight: 600,
+                      letterSpacing: "-0.005em",
+                      transform: `scale(${1 - publishClick * 0.05})`,
+                      transition: "background 200ms ease, color 200ms ease, border-color 200ms ease",
+                    }}
+                  >
+                    {published ? "Live ✓" : "Publish"}
+                    {publishClick > 0 && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: 6,
+                          border: `2px solid ${LIME}`,
+                          transform: `scale(${1 + publishClick * 0.5})`,
+                          opacity: 1 - publishClick,
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Body — sidebars + canvas */}
+              <div className="flex-1 flex min-h-0 relative">
+                {/* LEFT BUILDER PANEL */}
+                <div
+                  className="shrink-0 overflow-hidden"
+                  style={{
+                    width: isMobile ? 0 : lerp(0, 220, builderIn),
+                    background: INK_3,
+                    borderRight: builderIn > 0.05 ? `1px solid ${HAIRLINE}` : "none",
+                    opacity: builderIn,
+                  }}
+                >
+                  <div className="p-4 w-[220px]">
+                    <div
+                      className="text-[10px] uppercase mb-3"
+                      style={{ letterSpacing: "0.22em", color: FAINT }}
+                    >
+                      Blocks on page
+                    </div>
+                    {[
+                      { name: "Hero", on: true, sel: true },
+                      { name: "Logo strip", on: visualsIn > 0.4 },
+                      { name: "Features", on: visualsIn > 0.7 },
+                    ].map((b) => (
+                      <div
+                        key={b.name}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded text-[12px] mb-0.5"
+                        style={{
+                          background: b.sel ? "rgba(212,245,66,0.08)" : "transparent",
+                          color: b.sel ? LIME : b.on ? "rgba(250,250,250,0.75)" : FAINT,
+                          fontWeight: b.sel ? 600 : 500,
+                          fontFamily: "'Inter Tight', sans-serif",
+                          letterSpacing: "-0.005em",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 2,
+                            background: b.on ? (b.sel ? LIME : "rgba(250,250,250,0.7)") : "rgba(255,255,255,0.06)",
+                            border: b.on ? "none" : `1px solid ${HAIRLINE_STRONG}`,
+                          }}
+                        />
+                        {b.name}
+                      </div>
+                    ))}
+                    <div
+                      className="text-[10px] uppercase mt-5 mb-2"
+                      style={{ letterSpacing: "0.22em", color: FAINT }}
+                    >
+                      Library
+                    </div>
+                    {["Pricing", "Testimonials", "FAQ", "Footer"].map((n) => (
+                      <div
+                        key={n}
+                        className="flex items-center gap-2 px-2 py-1 text-[11.5px]"
+                        style={{
+                          color: "rgba(250,250,250,0.45)",
+                          fontFamily: "'Inter Tight', sans-serif",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 10,
+                            height: 10,
+                            border: `1px solid ${HAIRLINE_STRONG}`,
+                            borderRadius: 2,
+                          }}
+                        />
+                        {n}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* canvas */}
-                <div className="relative" style={{ height: "calc(100% - 36px)" }}>
-                  {/* baseline grid behind blocks */}
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      backgroundImage:
-                        `linear-gradient(${HAIRLINE} 1px, transparent 1px), linear-gradient(90deg, ${HAIRLINE} 1px, transparent 1px)`,
-                      backgroundSize: "32px 32px",
-                      opacity: clamp01(1 - heroIn * 1.3),
-                    }}
-                  />
-                  {/* empty hint */}
-                  <div
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{
-                      opacity: clamp01(1 - heroIn * 2.2),
-                    }}
+                {/* CENTER CANVAS — wraps the mock page; this is the cursor coordinate space */}
+                <div
+                  className="flex-1 min-w-0 relative overflow-hidden"
+                  style={{ background: INK_2 }}
+                >
+                  {/* scaled canvas: design at 960px wide */}
+                  <CanvasScaled
+                    designWidth={CANVAS_W}
+                    cursorX={cursorPos.x}
+                    cursorY={cursorPos.y}
+                    cursorVisible={cursorVisible}
+                    cursorClickAmount={cursorClickAmount}
                   >
+                    <MockPage
+                      ctaColor={ctaColor}
+                      ctaLabel={ctaLabel}
+                      eyebrow={eyebrow}
+                      headlineL1={headlineL1}
+                      headlineL2={headlineL2}
+                      subtitle={subtitle}
+                      typing={typing}
+                      primaryClick={primaryClick}
+                      visualsIn={visualsIn}
+                      showSelection={builderIn > 0.5}
+                    />
+                  </CanvasScaled>
+                </div>
+
+                {/* RIGHT BUILDER PANEL */}
+                <div
+                  className="shrink-0 overflow-hidden"
+                  style={{
+                    width: isMobile ? 0 : lerp(0, 260, builderIn),
+                    background: INK_3,
+                    borderLeft: builderIn > 0.05 ? `1px solid ${HAIRLINE}` : "none",
+                    opacity: builderIn,
+                  }}
+                >
+                  <div className="p-4 w-[260px]">
+                    <div className="flex items-center justify-between mb-3">
+                      <div
+                        className="text-[10px] uppercase"
+                        style={{ letterSpacing: "0.22em", color: FAINT }}
+                      >
+                        Hero properties
+                      </div>
+                      <div
+                        className="text-[9px] uppercase px-1.5 py-0.5 rounded"
+                        style={{ background: "rgba(212,245,66,0.12)", color: LIME, letterSpacing: "0.16em" }}
+                      >
+                        Live
+                      </div>
+                    </div>
+
                     <div
-                      className="text-[11px] uppercase"
+                      className="text-[10px] uppercase mb-1.5"
+                      style={{ color: FAINT, letterSpacing: "0.18em" }}
+                    >
+                      CTA color
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-4">
+                      {[TEXT, LIME, "#5fa9ff", "#ff8e6e"].map((c, i) => {
+                        const isLime = c === LIME;
+                        const isSelected = swatchClicked ? isLime : c === TEXT;
+                        return (
+                          <div
+                            key={c}
+                            className="relative"
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 6,
+                              background: c,
+                              border: `1.5px solid ${isSelected ? LIME : "rgba(255,255,255,0.12)"}`,
+                              boxShadow: isSelected ? `0 0 0 2px rgba(212,245,66,0.25)` : "none",
+                              transform: isLime && swatchClick > 0 ? `scale(${1 - swatchClick * 0.1})` : "none",
+                            }}
+                          >
+                            {isLime && swatchClick > 0 && (
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  inset: -2,
+                                  borderRadius: 8,
+                                  border: `2px solid ${LIME}`,
+                                  transform: `scale(${1 + swatchClick * 0.6})`,
+                                  opacity: 1 - swatchClick,
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      className="text-[10px] uppercase mb-1.5"
+                      style={{ color: FAINT, letterSpacing: "0.18em" }}
+                    >
+                      CTA label
+                    </div>
+                    <div
+                      className="px-2.5 py-1.5 rounded text-[12px] mb-4"
                       style={{
-                        color: FAINT,
-                        letterSpacing: "0.22em",
+                        background: "rgba(255,255,255,0.04)",
+                        color: TEXT,
+                        border: `1px solid ${HAIRLINE_STRONG}`,
+                        fontFamily: "'Inter Tight', sans-serif",
                       }}
                     >
-                      Empty canvas
+                      {ctaLabel}
+                    </div>
+
+                    <div
+                      className="text-[10px] uppercase mb-1.5"
+                      style={{ color: FAINT, letterSpacing: "0.18em" }}
+                    >
+                      Audience
+                    </div>
+                    <div
+                      className="px-2.5 py-1.5 rounded text-[12px] mb-4 flex items-center justify-between"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        color: TEXT,
+                        border: `1px solid ${HAIRLINE_STRONG}`,
+                        fontFamily: "'Inter Tight', sans-serif",
+                      }}
+                    >
+                      <span>Revenue teams</span>
+                      <span style={{ color: FAINT }}>▾</span>
+                    </div>
+
+                    <div
+                      className="text-[10px] uppercase mb-1.5"
+                      style={{ color: FAINT, letterSpacing: "0.18em" }}
+                    >
+                      A/B variant
+                    </div>
+                    <div
+                      className="px-2.5 py-1.5 rounded text-[12px] flex items-center justify-between"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        color: TEXT,
+                        border: `1px solid ${HAIRLINE_STRONG}`,
+                        fontFamily: "'Inter Tight', sans-serif",
+                      }}
+                    >
+                      <span>2 active</span>
+                      <span style={{ color: LIME }}>+</span>
                     </div>
                   </div>
-
-                  {/* stack of blocks — translates up as more are added */}
-                  <div
-                    className="absolute inset-x-0 top-0 px-5 pt-5 flex flex-col gap-3"
-                    style={{
-                      transform: `translateY(${pageY}px)`,
-                      transition: "none",
-                    }}
-                  >
-                    <MockHero in={heroIn} />
-                    <MockVisuals in={visualsIn} />
-                    <MockFeatures in={featuresIn} />
-                    <MockLogos in={logosIn} />
-                    <MockCTA in={ctaIn} />
-                  </div>
-
-                  {/* selection chrome (appears at the end) */}
-                  <SelectionFrame in={editIn} />
-
-                  {/* bottom fade so blocks dissolve out cleanly */}
-                  <div
-                    className="absolute inset-x-0 bottom-0 pointer-events-none"
-                    style={{
-                      height: 80,
-                      background: `linear-gradient(180deg, transparent, ${INK_2})`,
-                    }}
-                  />
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* progress indicator — minimal hairline */}
-        <div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none"
-          style={{
-            height: 1,
-            background: HAIRLINE,
-            opacity: 1 - intro,
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${progress * 100}%`,
-              background: LIME,
-              opacity: 0.7,
-            }}
-          />
+            {/* Caption above frame describing what's happening */}
+            <PhaseLabel progress={progress} />
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/* Scales the design (CANVAS_W) into whatever the parent gives, and renders an animated cursor at design coordinates. */
+function CanvasScaled({
+  designWidth,
+  children,
+  cursorX,
+  cursorY,
+  cursorVisible,
+  cursorClickAmount,
+}: {
+  designWidth: number;
+  children: React.ReactNode;
+  cursorX: number;
+  cursorY: number;
+  cursorVisible: number;
+  cursorClickAmount: number;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      setScale(Math.max(0.4, Math.min(1.4, w / designWidth)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [designWidth]);
+
+  return (
+    <div ref={wrapRef} className="absolute inset-0">
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: designWidth,
+          transformOrigin: "top left",
+          transform: `scale(${scale})`,
+          height: `${100 / scale}%`,
+        }}
+      >
+        {children}
+        <Cursor
+          x={cursorX}
+          y={cursorY}
+          visible={cursorVisible}
+          clicking={cursorClickAmount}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PhaseLabel({ progress }: { progress: number }) {
+  const labels: { at: number; text: string }[] = [
+    { at: 0.06, text: "01 — Open a blank canvas" },
+    { at: 0.10, text: "02 — Brief the page" },
+    { at: 0.30, text: "03 — Page composes itself" },
+    { at: 0.45, text: "04 — Convert with one CTA" },
+    { at: 0.62, text: "05 — Open the builder to refine" },
+    { at: 0.78, text: "06 — Tweak any property, live" },
+    { at: 0.92, text: "07 — Publish" },
+  ];
+  const active = [...labels].reverse().find((l) => progress >= l.at) ?? labels[0];
+  return (
+    <div
+      className="absolute -top-7 left-0 text-[11px] uppercase"
+      style={{
+        letterSpacing: "0.22em",
+        color: FAINT,
+        opacity: range(progress, 0.04, 0.10),
+      }}
+    >
+      {active.text}
+    </div>
   );
 }
