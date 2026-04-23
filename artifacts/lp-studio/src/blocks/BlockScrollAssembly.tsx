@@ -1,15 +1,20 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ScrollAssemblyBlockProps, ScrollAssemblyPiece } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineEmailCapture } from "@/components/InlineEmailCapture";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { appendEmailToUrl } from "@/lib/append-email";
 
 interface Props {
   props: ScrollAssemblyBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: ScrollAssemblyBlockProps) => void;
-  onCtaClick?: () => void;
+  onCtaClick?: (url?: string) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -289,8 +294,30 @@ function isDarkColor(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) < 140;
 }
 
-export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick }: Props) {
+export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, pageId, variantId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [email, setEmail] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const emailCfg = props.email ?? {};
+  const submitMode = emailCfg.submitMode ?? "navigate";
+
+  const handleSubmit = (submittedEmail: string) => {
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setModalOpen(true);
+      return;
+    }
+    const target = appendEmailToUrl(props.ctaUrl ?? "#", submittedEmail);
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
+
+  const handleButtonCta = () => {
+    // Plain CTA button always navigates directly — modal logic is reserved for
+    // the inline email-capture pill (matches the product-hero pattern).
+    const target = props.ctaUrl ?? "#";
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
@@ -403,9 +430,25 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick }:
               />
             ))}
 
-            {props.ctaText && (
+            {props.showEmailCapture ? (
+              <motion.div
+                style={{ opacity: ctaOpacity, y: ctaY, width: "100%", display: "flex", justifyContent: "center" }}
+                className="mt-4"
+              >
+                <InlineEmailCapture
+                  email={email}
+                  onEmailChange={setEmail}
+                  onSubmit={handleSubmit}
+                  placeholder={props.emailPlaceholder ?? "Email address"}
+                  buttonText={props.ctaText || "Get started"}
+                  buttonBg={accentColor}
+                  buttonColor={brandPrimary}
+                  pillBg={theme === "dark" ? "rgba(255,255,255,0.95)" : "#ffffff"}
+                />
+              </motion.div>
+            ) : props.ctaText ? (
               <motion.button
-                onClick={() => (onCtaClick ? onCtaClick() : safeNavigate(props.ctaUrl ?? "#"))}
+                onClick={handleButtonCta}
                 style={{
                   opacity: ctaOpacity,
                   y: ctaY,
@@ -420,7 +463,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick }:
                   onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, ctaText: v }) : undefined}
                 />
               </motion.button>
-            )}
+            ) : null}
           </div>
 
           {/* Scroll hint (only visible at the very start) */}
@@ -446,6 +489,36 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick }:
         {/* Top-most: subtle film grain */}
         {showGrain && <GrainOverlay />}
       </div>
+
+      <EmailCaptureModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        email={email}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={emailCfg.modalChilipiperUrl}
+        primaryColor={brandPrimary}
+        accentColor={accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="scroll-assembly"
+        formSource={emailCfg.modalFormSource ?? "simple"}
+        linkedFormId={emailCfg.modalFormId}
+        marketoBaseUrl={emailCfg.modalMarketoBaseUrl}
+        marketoMunchkinId={emailCfg.modalMarketoMunchkinId}
+        marketoFormId={emailCfg.modalMarketoFormId}
+        formConfig={{
+          headline: emailCfg.modalHeadline,
+          subheadline: emailCfg.modalSubheadline,
+          submitText: emailCfg.modalSubmitText,
+          successMessage: emailCfg.modalSuccessMessage,
+          disclaimer: emailCfg.modalDisclaimer,
+          showFirstName: emailCfg.modalShowFirstName,
+          showLastName: emailCfg.modalShowLastName,
+          showPhone: emailCfg.modalShowPhone,
+          showCompany: emailCfg.modalShowCompany,
+        }}
+      />
     </div>
   );
 }

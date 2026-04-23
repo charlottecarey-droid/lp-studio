@@ -10,6 +10,7 @@ import type {
   StickyStackBlockProps,
   StickyStackCard,
 } from "@/lib/block-types";
+import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
 
 interface Props {
   props: StickyStackBlockProps;
@@ -56,6 +57,11 @@ export function StickyStackPanel({ props, onChange }: Props) {
         </div>
       </div>
 
+      <EmailCaptureConfigSection
+        value={props.email}
+        onChange={(email) => onChange({ ...props, email })}
+      />
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <Label className="text-sm font-semibold">Cards ({cards.length})</Label>
@@ -75,6 +81,24 @@ export function StickyStackPanel({ props, onChange }: Props) {
               </div>
               <Input value={card.title} onChange={(e) => setCard(i, { title: e.target.value })} placeholder="Title" className="h-9 text-sm font-semibold" />
               <Textarea value={card.body ?? ""} onChange={(e) => setCard(i, { body: e.target.value })} placeholder="Body" rows={2} className="text-sm resize-none" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={card.ctaText ?? ""} onChange={(e) => setCard(i, { ctaText: e.target.value })} placeholder="CTA text" className="h-8 text-xs" />
+                <Input value={card.ctaUrl ?? ""} onChange={(e) => setCard(i, { ctaUrl: e.target.value })} placeholder="CTA URL" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5 pl-1 border-l-2 border-slate-200">
+                <label className="flex items-center gap-2 text-xs cursor-pointer pl-2">
+                  <input type="checkbox" checked={card.showEmailCapture === true} onChange={(e) => setCard(i, { showEmailCapture: e.target.checked })} className="rounded" />
+                  Use email capture pill instead of button
+                </label>
+                {card.showEmailCapture && (
+                  <Input
+                    value={card.emailPlaceholder ?? ""}
+                    onChange={(e) => setCard(i, { emailPlaceholder: e.target.value })}
+                    placeholder="Email placeholder"
+                    className="h-8 text-xs ml-2"
+                  />
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Input value={card.imageUrl ?? ""} onChange={(e) => setCard(i, { imageUrl: e.target.value })} placeholder="Image URL (optional)" className="h-8 text-xs" />
                 <Select value={card.imageSide ?? "right"} onValueChange={(v) => setCard(i, { imageSide: v as "left" | "right" })}>

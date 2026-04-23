@@ -1,13 +1,20 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { StickyStackBlockProps, StickyStackCard } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { safeNavigate } from "@/lib/safe-url";
+import { InlineEmailCapture } from "@/components/InlineEmailCapture";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { appendEmailToUrl } from "@/lib/append-email";
 
 interface Props {
   props: StickyStackBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: StickyStackBlockProps) => void;
+  onCtaClick?: (url: string) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 /**
@@ -16,8 +23,31 @@ interface Props {
  * as the next card slides up over it. Inspired by Apple's iPhone feature
  * pages and Linear's "Built for product teams" section.
  */
-export function BlockStickyStack({ props, onFieldChange }: Props) {
+export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, pageId, variantId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [email, setEmail] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const emailCfg = props.email ?? {};
+  const submitMode = emailCfg.submitMode ?? "navigate";
+
+  const handleEmailSubmit = (cardCtaUrl: string | undefined, submittedEmail: string) => {
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setModalOpen(true);
+      return;
+    }
+    const target = appendEmailToUrl(cardCtaUrl ?? "#", submittedEmail);
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
+
+  const handleCardButtonCta = (cardCtaUrl: string | undefined) => {
+    // Plain CTA button always navigates directly — modal logic is reserved for
+    // the inline email-capture pill (matches the product-hero pattern).
+    const target = cardCtaUrl ?? "#";
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
@@ -61,6 +91,10 @@ export function BlockStickyStack({ props, onFieldChange }: Props) {
           index={i}
           total={count}
           card={card}
+          email={email}
+          onEmailChange={setEmail}
+          onEmailSubmit={(v) => handleEmailSubmit(card.ctaUrl, v)}
+          onButtonCta={() => handleCardButtonCta(card.ctaUrl)}
           scrollYProgress={scrollYProgress}
           onChange={onFieldChange ? (patch) => onFieldChange({
             ...props,
@@ -68,6 +102,36 @@ export function BlockStickyStack({ props, onFieldChange }: Props) {
           }) : undefined}
         />
       ))}
+
+      <EmailCaptureModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        email={email}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={emailCfg.modalChilipiperUrl}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="sticky-stack"
+        formSource={emailCfg.modalFormSource ?? "simple"}
+        linkedFormId={emailCfg.modalFormId}
+        marketoBaseUrl={emailCfg.modalMarketoBaseUrl}
+        marketoMunchkinId={emailCfg.modalMarketoMunchkinId}
+        marketoFormId={emailCfg.modalMarketoFormId}
+        formConfig={{
+          headline: emailCfg.modalHeadline,
+          subheadline: emailCfg.modalSubheadline,
+          submitText: emailCfg.modalSubmitText,
+          successMessage: emailCfg.modalSuccessMessage,
+          disclaimer: emailCfg.modalDisclaimer,
+          showFirstName: emailCfg.modalShowFirstName,
+          showLastName: emailCfg.modalShowLastName,
+          showPhone: emailCfg.modalShowPhone,
+          showCompany: emailCfg.modalShowCompany,
+        }}
+      />
     </div>
   );
 }
@@ -76,12 +140,20 @@ function CardLayer({
   index,
   total,
   card,
+  email,
+  onEmailChange,
+  onEmailSubmit,
+  onButtonCta,
   scrollYProgress,
   onChange,
 }: {
   index: number;
   total: number;
   card: StickyStackCard;
+  email: string;
+  onEmailChange: (v: string) => void;
+  onEmailSubmit: (v: string) => void;
+  onButtonCta: () => void;
   scrollYProgress: MotionValue<number>;
   onChange?: (patch: Partial<StickyStackCard>) => void;
 }) {
@@ -157,6 +229,31 @@ function CardLayer({
               <InlineText value={card.body} onUpdate={onChange ? (v) => onChange({ body: v }) : undefined} />
             </p>
           )}
+
+          {card.showEmailCapture ? (
+            <div className="mt-7 max-w-md">
+              <InlineEmailCapture
+                email={email}
+                onEmailChange={onEmailChange}
+                onSubmit={onEmailSubmit}
+                placeholder={card.emailPlaceholder ?? "Email address"}
+                buttonText={card.ctaText || "Get started"}
+                buttonBg={card.accentColor || "var(--brand-accent)"}
+                buttonColor={card.bgColor || "#0B0B0F"}
+              />
+            </div>
+          ) : card.ctaText ? (
+            <button
+              onClick={onButtonCta}
+              style={{
+                backgroundColor: card.accentColor || "var(--brand-accent)",
+                color: card.bgColor || "#0B0B0F",
+              }}
+              className="self-start mt-7 font-bold px-7 py-3.5 rounded-xl text-sm md:text-base hover:brightness-110 transition-all"
+            >
+              <InlineText value={card.ctaText} onUpdate={onChange ? (v) => onChange({ ctaText: v }) : undefined} />
+            </button>
+          ) : null}
 
           {/* Big card number, faint background */}
           <div className="absolute bottom-6 right-8 text-7xl md:text-9xl font-black opacity-10 leading-none select-none pointer-events-none">

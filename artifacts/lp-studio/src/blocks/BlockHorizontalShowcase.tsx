@@ -1,15 +1,20 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { HorizontalShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineEmailCapture } from "@/components/InlineEmailCapture";
+import { EmailCaptureModal } from "@/components/EmailCaptureModal";
+import { appendEmailToUrl } from "@/lib/append-email";
 
 interface Props {
   props: HorizontalShowcaseBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: HorizontalShowcaseBlockProps) => void;
   onCtaClick?: (url: string) => void;
+  pageId?: number;
+  variantId?: number;
 }
 
 /**
@@ -18,8 +23,31 @@ interface Props {
  * is its own visual story (image + copy + optional CTA). Inspired by Apple
  * product pages and Stripe / Linear marketing sites.
  */
-export function BlockHorizontalShowcase({ props, onFieldChange, onCtaClick }: Props) {
+export function BlockHorizontalShowcase({ props, brand, onFieldChange, onCtaClick, pageId, variantId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [email, setEmail] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const emailCfg = props.email ?? {};
+  const submitMode = emailCfg.submitMode ?? "navigate";
+
+  const handleEmailSubmit = (panelCtaUrl: string | undefined, submittedEmail: string) => {
+    if (submitMode === "modal-form" || submitMode === "modal-chilipiper") {
+      setModalOpen(true);
+      return;
+    }
+    const target = appendEmailToUrl(panelCtaUrl ?? "#", submittedEmail);
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
+
+  const handlePanelButtonCta = (panelCtaUrl: string | undefined) => {
+    // Plain CTA button always navigates directly — modal logic is reserved for
+    // the inline email-capture pill (matches the product-hero pattern).
+    const target = panelCtaUrl ?? "#";
+    if (onCtaClick) onCtaClick(target);
+    else safeNavigate(target);
+  };
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
@@ -138,9 +166,21 @@ export function BlockHorizontalShowcase({ props, onFieldChange, onCtaClick }: Pr
                     />
                   </p>
                 )}
-                {panel.ctaText && (
+                {panel.showEmailCapture ? (
+                  <div className={panel.alignment === "center" ? "mx-auto" : panel.alignment === "right" ? "ml-auto" : ""} style={{ maxWidth: 460 }}>
+                    <InlineEmailCapture
+                      email={email}
+                      onEmailChange={setEmail}
+                      onSubmit={(v) => handleEmailSubmit(panel.ctaUrl, v)}
+                      placeholder={panel.emailPlaceholder ?? "Email address"}
+                      buttonText={panel.ctaText || "Get started"}
+                      buttonBg={panel.accentColor || "var(--brand-accent)"}
+                      buttonColor={panel.bgColor || "#0B0B0F"}
+                    />
+                  </div>
+                ) : panel.ctaText ? (
                   <button
-                    onClick={() => (onCtaClick ? onCtaClick(panel.ctaUrl ?? "#") : safeNavigate(panel.ctaUrl ?? "#"))}
+                    onClick={() => handlePanelButtonCta(panel.ctaUrl)}
                     style={{
                       backgroundColor: panel.accentColor || "var(--brand-accent)",
                       color: panel.bgColor || "#0B0B0F",
@@ -152,7 +192,7 @@ export function BlockHorizontalShowcase({ props, onFieldChange, onCtaClick }: Pr
                       onUpdate={onFieldChange ? (v) => updatePanel(panels, i, { ctaText: v }, props, onFieldChange) : undefined}
                     />
                   </button>
-                )}
+                ) : null}
 
                 {/* Panel index */}
                 <div className="absolute -top-16 left-8 md:left-20 text-7xl md:text-9xl font-black text-white/5 leading-none select-none pointer-events-none">
@@ -163,6 +203,36 @@ export function BlockHorizontalShowcase({ props, onFieldChange, onCtaClick }: Pr
           ))}
         </motion.div>
       </div>
+
+      <EmailCaptureModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        email={email}
+        mode={submitMode === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={emailCfg.modalChilipiperUrl}
+        primaryColor={brand.primaryColor}
+        accentColor={brand.accentColor}
+        brand={brand}
+        pageId={pageId}
+        variantId={variantId}
+        source="horizontal-showcase"
+        formSource={emailCfg.modalFormSource ?? "simple"}
+        linkedFormId={emailCfg.modalFormId}
+        marketoBaseUrl={emailCfg.modalMarketoBaseUrl}
+        marketoMunchkinId={emailCfg.modalMarketoMunchkinId}
+        marketoFormId={emailCfg.modalMarketoFormId}
+        formConfig={{
+          headline: emailCfg.modalHeadline,
+          subheadline: emailCfg.modalSubheadline,
+          submitText: emailCfg.modalSubmitText,
+          successMessage: emailCfg.modalSuccessMessage,
+          disclaimer: emailCfg.modalDisclaimer,
+          showFirstName: emailCfg.modalShowFirstName,
+          showLastName: emailCfg.modalShowLastName,
+          showPhone: emailCfg.modalShowPhone,
+          showCompany: emailCfg.modalShowCompany,
+        }}
+      />
     </div>
   );
 }

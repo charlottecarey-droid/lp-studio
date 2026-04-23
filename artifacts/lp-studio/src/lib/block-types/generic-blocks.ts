@@ -522,6 +522,42 @@ export interface ScrollAssemblyPiece {
 
 export type ScrollAssemblyDecor = "minimal" | "orbs" | "grid" | "all";
 
+/* ------------------------------------------------------------------------- */
+/*  Shared email-capture / modal config                                      */
+/*  Used by Scroll Assembly, Horizontal Showcase, and Sticky Stack so all    */
+/*  three blocks support the same global form / Marketo / Chili Piper modal  */
+/*  flow as BlockDandyProductHero.                                           */
+/* ------------------------------------------------------------------------- */
+
+export type BlockSubmitMode = "navigate" | "modal-form" | "modal-chilipiper";
+export type BlockModalFormSource = "simple" | "linked" | "marketo";
+
+export interface EmailCaptureConfig {
+  /** What happens when the inline email pill is submitted. Defaults to navigate. */
+  submitMode?: BlockSubmitMode;
+  /** Chili Piper booking URL (when submitMode === "modal-chilipiper"). */
+  modalChilipiperUrl?: string;
+  /** Which form source the modal uses (when submitMode === "modal-form"). */
+  modalFormSource?: BlockModalFormSource;
+  /** Linked global form id (when modalFormSource === "linked"). */
+  modalFormId?: number;
+  /** Marketo config (when modalFormSource === "marketo"). */
+  modalMarketoBaseUrl?: string;
+  modalMarketoMunchkinId?: string;
+  modalMarketoFormId?: number;
+  /** Optional copy overrides for the modal. */
+  modalHeadline?: string;
+  modalSubheadline?: string;
+  modalSubmitText?: string;
+  modalSuccessMessage?: string;
+  modalDisclaimer?: string;
+  /** Field visibility toggles for the simple form variant. */
+  modalShowFirstName?: boolean;
+  modalShowLastName?: boolean;
+  modalShowPhone?: boolean;
+  modalShowCompany?: boolean;
+}
+
 export interface ScrollAssemblyBlockProps {
   eyebrow?: string;
   pieces: ScrollAssemblyPiece[];
@@ -543,6 +579,15 @@ export interface ScrollAssemblyBlockProps {
   grain?: boolean;
   /** Overall text color (light/dark). Auto-derived from bg if omitted. */
   theme?: "light" | "dark";
+
+  /** When true, renders an inline email pill in place of the CTA button at
+   *  the end of the assembly. Submitting routes through the section's modal
+   *  config below (or appends ?email=… to ctaUrl when submitMode is "navigate"). */
+  showEmailCapture?: boolean;
+  /** Placeholder for the inline email input. Default "Email address". */
+  emailPlaceholder?: string;
+  /** Email-capture / modal config (Chili Piper, Marketo, simple, linked global form). */
+  email?: EmailCaptureConfig;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -563,6 +608,10 @@ export interface HorizontalShowcasePanel {
   overlayColor?: string;
   /** Accent color used for the tag pill and CTA button. */
   accentColor?: string;
+  /** When true, renders an inline email capture pill instead of the CTA button. */
+  showEmailCapture?: boolean;
+  /** Placeholder for the email input. Default "Email address". */
+  emailPlaceholder?: string;
 }
 
 export interface HorizontalShowcaseBlockProps {
@@ -573,6 +622,9 @@ export interface HorizontalShowcaseBlockProps {
   bgColor?: string;
   /** Approximate vh of vertical scroll consumed per panel. Default 90. */
   panelHeightVh?: number;
+  /** Section-level email-capture / modal config. Shared by every panel that
+   *  has showEmailCapture enabled (or a panel whose ctaUrl uses the modal flow). */
+  email?: EmailCaptureConfig;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -588,6 +640,13 @@ export interface StickyStackCard {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Optional CTA shown under the card body. */
+  ctaText?: string;
+  ctaUrl?: string;
+  /** When true, renders an inline email capture pill instead of the CTA button. */
+  showEmailCapture?: boolean;
+  /** Placeholder for the email input. Default "Email address". */
+  emailPlaceholder?: string;
 }
 
 export interface StickyStackBlockProps {
@@ -597,4 +656,6 @@ export interface StickyStackBlockProps {
   bgColor?: string;
   /** vh of scroll consumed per card (default 110). */
   cardScrollVh?: number;
+  /** Section-level email-capture / modal config shared by every card. */
+  email?: EmailCaptureConfig;
 }

@@ -10,6 +10,7 @@ import type {
   HorizontalShowcaseBlockProps,
   HorizontalShowcasePanel,
 } from "@/lib/block-types";
+import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
 
 interface Props {
   props: HorizontalShowcaseBlockProps;
@@ -56,6 +57,11 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
         </div>
       </div>
 
+      <EmailCaptureConfigSection
+        value={props.email}
+        onChange={(email) => onChange({ ...props, email })}
+      />
+
       <div>
         <div className="flex items-center justify-between mb-3">
           <Label className="text-sm font-semibold">Panels ({panels.length})</Label>
@@ -89,6 +95,20 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
               <div className="grid grid-cols-2 gap-2">
                 <Input value={panel.ctaText ?? ""} onChange={(e) => setPanel(i, { ctaText: e.target.value })} placeholder="CTA text" className="h-8 text-xs" />
                 <Input value={panel.ctaUrl ?? ""} onChange={(e) => setPanel(i, { ctaUrl: e.target.value })} placeholder="CTA URL" className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1.5 pl-1 border-l-2 border-slate-200">
+                <label className="flex items-center gap-2 text-xs cursor-pointer pl-2">
+                  <input type="checkbox" checked={panel.showEmailCapture === true} onChange={(e) => setPanel(i, { showEmailCapture: e.target.checked })} className="rounded" />
+                  Use email capture pill instead of button
+                </label>
+                {panel.showEmailCapture && (
+                  <Input
+                    value={panel.emailPlaceholder ?? ""}
+                    onChange={(e) => setPanel(i, { emailPlaceholder: e.target.value })}
+                    placeholder="Email placeholder"
+                    className="h-8 text-xs ml-2"
+                  />
+                )}
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>

@@ -13,6 +13,7 @@ import type {
   ScrollAssemblyDirection,
   ScrollAssemblyDecor,
 } from "@/lib/block-types";
+import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
 
 interface Props {
   props: ScrollAssemblyBlockProps;
@@ -160,6 +161,31 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
           />
           <p className="text-[10px] text-slate-500 mt-1">Drift across the bottom in a continuous loop, brightening as you scroll into the section.</p>
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label className="text-sm font-semibold block">Inline email capture</Label>
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={props.showEmailCapture === true}
+            onChange={(e) => onChange({ ...props, showEmailCapture: e.target.checked })}
+            className="rounded"
+          />
+          Show email pill in place of the CTA button
+        </label>
+        {props.showEmailCapture && (
+          <Input
+            value={props.emailPlaceholder ?? ""}
+            onChange={(e) => onChange({ ...props, emailPlaceholder: e.target.value })}
+            placeholder="Email address"
+            className="h-9 text-xs"
+          />
+        )}
+        <EmailCaptureConfigSection
+          value={props.email}
+          onChange={(email) => onChange({ ...props, email })}
+        />
       </div>
 
       <div>

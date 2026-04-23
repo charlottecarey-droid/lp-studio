@@ -607,10 +607,12 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockScrollAssembly
             props={block.props}
             brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
-            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
+            onCtaClick={onCtaClick}
           />
         );
       case "horizontal-showcase":
@@ -618,6 +620,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockHorizontalShowcase
             props={block.props}
             brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -629,9 +633,12 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockStickyStack
             props={block.props}
             brand={brand}
+            pageId={pageId}
+            variantId={variantId}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}
+            onCtaClick={onCtaClick}
           />
         );
       default: {
