@@ -36,6 +36,7 @@ import type {
   DandyFormRightAltBlockProps,
   DandyConversionPanel1BlockProps,
   DandyCtaBlockProps,
+  ScrollAssemblyBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -167,6 +168,7 @@ export type BlockVariant =
   | { type: "dandy-form-right-alt"; props: DandyFormRightAltBlockProps }
   | { type: "dandy-conversion-panel-1"; props: DandyConversionPanel1BlockProps }
   | { type: "dandy-cta-block"; props: DandyCtaBlockProps }
+  | { type: "scroll-assembly"; props: ScrollAssemblyBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps };
 

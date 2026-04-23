@@ -504,3 +504,29 @@ export interface DandyCtaBlockProps {
   alignment?: "left" | "center" | "right";
   bgColor?: string;
 }
+
+export type ScrollAssemblyPieceKind = "text-display" | "text-headline" | "text-body" | "image" | "shape";
+export type ScrollAssemblyDirection = "left" | "right" | "top" | "bottom" | "scale" | "fade";
+
+export interface ScrollAssemblyPiece {
+  kind: ScrollAssemblyPieceKind;
+  /** Either text content (for text-* kinds) or an image URL (for image kind). */
+  content: string;
+  /** Direction the piece flies in from. Defaults to "fade". */
+  from?: ScrollAssemblyDirection;
+  /** Optional override (0..1) for when in the scroll progress this piece resolves. */
+  revealAt?: number;
+  /** Optional color override (text or shape). */
+  color?: string;
+}
+
+export interface ScrollAssemblyBlockProps {
+  eyebrow?: string;
+  pieces: ScrollAssemblyPiece[];
+  ctaText?: string;
+  ctaUrl?: string;
+  /** Background color for the whole pinned section. */
+  bgColor?: string;
+  /** Total scroll length (in vh) per piece. Higher = slower assembly. Default 100. */
+  scrollLengthVh?: number;
+}

@@ -55,6 +55,10 @@ export type {
   DandyConversionPanel1BlockProps,
   DandyConversionPanel1Stat,
   DandyCtaBlockProps,
+  ScrollAssemblyBlockProps,
+  ScrollAssemblyPiece,
+  ScrollAssemblyPieceKind,
+  ScrollAssemblyDirection,
 } from "./generic-blocks";
 
 // DSO block types

@@ -38,6 +38,7 @@ import type {
   DandyFormRightAltBlockProps,
   DandyConversionPanel1BlockProps,
   DandyCtaBlockProps,
+  ScrollAssemblyBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -2950,6 +2951,37 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "scroll-assembly" as const,
+    label: "Scroll Assembly",
+    category: "Hero" as BlockCategory,
+    defaultProps: (): ScrollAssemblyBlockProps => ({
+      eyebrow: "BUILT FOR YOU",
+      pieces: [
+        { kind: "text-display",  content: "One",       from: "left",   color: "var(--brand-primary)" },
+        { kind: "text-display",  content: "platform.", from: "right",  color: "var(--brand-accent)" },
+        { kind: "text-headline", content: "Every piece, perfectly in place.", from: "bottom" },
+        { kind: "text-body",     content: "Watch each promise click into position as you scroll. No fluff — just the parts that matter, assembled in front of you.", from: "fade" },
+      ],
+      ctaText: "See it in action",
+      ctaUrl: "#",
+      bgColor: "#FDFCFA",
+      scrollLengthVh: 100,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FDFCFA" rx="4"/>
+        <rect x="6"  y="20" width="22" height="6"  rx="1" fill="#003A30" opacity="0.85"/>
+        <rect x="32" y="20" width="34" height="6"  rx="1" fill="#C7E738"/>
+        <rect x="68" y="20" width="20" height="6"  rx="1" fill="#003A30" opacity="0.4"/>
+        <rect x="14" y="34" width="92" height="3"  rx="1" fill="rgba(0,58,48,0.5)"/>
+        <rect x="14" y="40" width="80" height="2"  rx="1" fill="rgba(0,58,48,0.25)"/>
+        <rect x="14" y="44" width="64" height="2"  rx="1" fill="rgba(0,58,48,0.18)"/>
+        <rect x="40" y="56" width="40" height="10" rx="3" fill="#C7E738"/>
+        <path d="M58 70 L58 76 M55 73 L58 76 L61 73" stroke="rgba(0,58,48,0.5)" strokeWidth="0.8" strokeLinecap="round" fill="none"/>
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -3040,6 +3072,7 @@ export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
+export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -3128,6 +3161,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
+    case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
   }
 }
 

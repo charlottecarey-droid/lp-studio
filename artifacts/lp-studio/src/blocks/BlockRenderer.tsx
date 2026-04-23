@@ -81,6 +81,8 @@ import { BlockDandyHeroV7S3 } from "./BlockDandyHeroV7S3";
 import { BlockDandyFormRightAlt } from "./BlockDandyFormRightAlt";
 import { BlockDandyConversionPanel1 } from "./BlockDandyConversionPanel1";
 import { BlockDandyCtaBlock } from "./BlockDandyCtaBlock";
+import { BlockScrollAssembly } from "./BlockScrollAssembly";
+import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -598,6 +600,17 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
+      case "scroll-assembly":
+        return (
+          <BlockScrollAssembly
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
+          />
+        );
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
@@ -614,9 +627,31 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
     ? { ...block.blockSettings, paddingX: undefined }
     : block.blockSettings;
 
+  // Wrap visible content blocks in a subtle viewport reveal so pages have a
+  // polished, deliberate feel as the user scrolls. We intentionally skip:
+  //   - layout chrome (nav, sticky, popups, footers) — they shouldn't animate
+  //   - blocks that own their own scroll-driven animations (pinned scroll
+  //     stories, switchbacks, the new scroll-assembly block) — wrapping them
+  //     would interfere with their internal sticky/transform layers
+  //   - first-paint hero blocks — visitors expect to see them immediately
+  //   - the builder canvas (animations distract while editing)
+  const NO_REVEAL = new Set<string>([
+    "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
+    "dandy-site-header", "dandy-site-footer",
+    "scroll-assembly", "dso-scroll-story", "dso-scroll-story-hero",
+    "dandy-switchback", "dso-paradigm-shift",
+    "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
+    "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page",
+    "spacer",
+  ]);
+  const shouldReveal = animationsEnabled && !isBuilder && !NO_REVEAL.has(block.type);
+
+  const wrapped = wrapWithSettings(inner, outerSettings, animationsEnabled);
+  const final = shouldReveal ? <Reveal>{wrapped}</Reveal> : wrapped;
+
   return (
     <PageContextProvider value={{ pageId, variantId, sessionId }}>
-      {wrapWithSettings(inner, outerSettings, animationsEnabled)}
+      {final}
     </PageContextProvider>
   );
 }
