@@ -70,4 +70,6 @@ export const COPY_FIELDS: Partial<Record<string, string[]>> = {
   "dso-lab-tour":           ["title", "subtitle", "description", "quote", "quoteAttribution", "ctaLabel"],
   "one-pager-hero":         ["partnerName", "tagline", "subtitle", "phone"],
   "scroll-assembly":        ["eyebrow", "ctaText"],
+  "horizontal-showcase":    ["eyebrow", "headline"],
+  "sticky-stack":           ["eyebrow", "headline"],
 };

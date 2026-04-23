@@ -39,6 +39,8 @@ import type {
   DandyConversionPanel1BlockProps,
   DandyCtaBlockProps,
   ScrollAssemblyBlockProps,
+  HorizontalShowcaseBlockProps,
+  StickyStackBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -2952,6 +2954,66 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "horizontal-showcase" as const,
+    label: "Horizontal Showcase",
+    category: "Hero" as BlockCategory,
+    defaultProps: (): HorizontalShowcaseBlockProps => ({
+      eyebrow: "OUR WORK",
+      headline: "Built for the way you work.",
+      bgColor: "#0B0B0F",
+      panelHeightVh: 90,
+      panels: [
+        { tag: "PRODUCT", title: "One canvas. Endless possibility.", body: "A flexible workspace that bends to whatever you're building.", imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80", alignment: "left", bgColor: "#0B0B0F", overlayColor: "rgba(0,0,0,0.6)", accentColor: "#C7E738", ctaText: "Explore", ctaUrl: "#" },
+        { tag: "WORKFLOW", title: "Move from idea to live in minutes.", body: "Drag, edit, publish — no engineering bottleneck required.", imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1600&q=80", alignment: "right", bgColor: "#16161D", overlayColor: "rgba(0,0,0,0.55)", accentColor: "#C7E738", ctaText: "Try it", ctaUrl: "#" },
+        { tag: "TEAM", title: "Designed with your whole team in mind.", body: "Roles, comments, drafts — collaboration built in from day one.", imageUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1600&q=80", alignment: "left", bgColor: "#1F1F2A", overlayColor: "rgba(0,0,0,0.55)", accentColor: "#C7E738", ctaText: "See how", ctaUrl: "#" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#0B0B0F" rx="4"/>
+        <rect x="6"   y="14" width="36" height="52" rx="3" fill="#1F1F2A"/>
+        <rect x="44"  y="14" width="36" height="52" rx="3" fill="#16161D"/>
+        <rect x="82"  y="14" width="36" height="52" rx="3" fill="#1F1F2A"/>
+        <rect x="10"  y="44" width="14" height="3"  rx="1" fill="#C7E738"/>
+        <rect x="10"  y="50" width="22" height="2"  rx="1" fill="rgba(255,255,255,0.6)"/>
+        <rect x="48"  y="44" width="14" height="3"  rx="1" fill="#C7E738"/>
+        <rect x="48"  y="50" width="22" height="2"  rx="1" fill="rgba(255,255,255,0.6)"/>
+        <rect x="86"  y="44" width="14" height="3"  rx="1" fill="#C7E738"/>
+        <rect x="86"  y="50" width="22" height="2"  rx="1" fill="rgba(255,255,255,0.6)"/>
+        <rect x="55"  y="70" width="10" height="2"  rx="1" fill="rgba(255,255,255,0.4)"/>
+        <path d="M50 6 L8 6 M48 4 L50 6 L48 8 M70 6 L112 6 M110 4 L112 6 L110 8" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8"/>
+      </svg>
+    ),
+  },
+  {
+    type: "sticky-stack" as const,
+    label: "Sticky Stack",
+    category: "Content" as BlockCategory,
+    defaultProps: (): StickyStackBlockProps => ({
+      eyebrow: "WHY US",
+      headline: "Three reasons teams choose us.",
+      bgColor: "#FAFAF7",
+      cardScrollVh: 110,
+      cards: [
+        { tag: "FAST", title: "Built for speed, every step.", body: "From first draft to live page in under an hour. No more waiting on dev sprints to ship a landing page.", imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", imageSide: "right", bgColor: "#003a30", textColor: "#fff", accentColor: "#C7E738" },
+        { tag: "FLEXIBLE", title: "Mix, match, and brand it your way.", body: "A library of blocks that automatically adopt your colors, fonts, and voice — so every page looks unmistakably yours.", imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80", imageSide: "left", bgColor: "#1a1a1f", textColor: "#fff", accentColor: "#C7E738" },
+        { tag: "MEASURABLE", title: "Know what's working — and double down.", body: "Every variation tracked. Every conversion attributed. Real data on the moves that move the needle.", imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", imageSide: "right", bgColor: "#0B0B0F", textColor: "#fff", accentColor: "#C7E738" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" fill="#FAFAF7" rx="4"/>
+        <rect x="14" y="10" width="92" height="44" rx="4" fill="#1a1a1f" opacity="0.5"/>
+        <rect x="18" y="14" width="84" height="44" rx="4" fill="#1a1a1f" opacity="0.75"/>
+        <rect x="22" y="18" width="76" height="44" rx="4" fill="#003a30"/>
+        <rect x="26" y="38" width="14" height="3"  rx="1" fill="#C7E738"/>
+        <rect x="26" y="44" width="38" height="3"  rx="1" fill="rgba(255,255,255,0.85)"/>
+        <rect x="26" y="50" width="32" height="2"  rx="1" fill="rgba(255,255,255,0.5)"/>
+        <rect x="74" y="22" width="20" height="36" rx="2" fill="rgba(199,231,56,0.4)"/>
+      </svg>
+    ),
+  },
+  {
     type: "scroll-assembly" as const,
     label: "Scroll Assembly",
     category: "Hero" as BlockCategory,
@@ -3073,6 +3135,8 @@ export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type:
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
+export function createBlock(type: "horizontal-showcase"): Extract<PageBlock, { type: "horizontal-showcase" }>;
+export function createBlock(type: "sticky-stack"): Extract<PageBlock, { type: "sticky-stack" }>;
 export function createBlock(type: BlockType): PageBlock;
 export function createBlock(type: BlockType): PageBlock {
   const def = getBlockDef(type);
@@ -3162,6 +3226,8 @@ export function createBlock(type: BlockType): PageBlock {
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
+    case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };
+    case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };
   }
 }
 

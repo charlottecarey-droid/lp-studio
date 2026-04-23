@@ -59,6 +59,10 @@ export type {
   ScrollAssemblyPiece,
   ScrollAssemblyPieceKind,
   ScrollAssemblyDirection,
+  HorizontalShowcaseBlockProps,
+  HorizontalShowcasePanel,
+  StickyStackBlockProps,
+  StickyStackCard,
 } from "./generic-blocks";
 
 // DSO block types

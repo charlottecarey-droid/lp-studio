@@ -530,3 +530,57 @@ export interface ScrollAssemblyBlockProps {
   /** Total scroll length (in vh) per piece. Higher = slower assembly. Default 100. */
   scrollLengthVh?: number;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Horizontal Showcase                                                      */
+/* ------------------------------------------------------------------------- */
+
+export interface HorizontalShowcasePanel {
+  title: string;
+  body?: string;
+  tag?: string;
+  imageUrl?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  alignment?: "left" | "center" | "right";
+  /** Background color of the panel itself (shows through if no image). */
+  bgColor?: string;
+  /** Color of the gradient overlay applied over the image. */
+  overlayColor?: string;
+  /** Accent color used for the tag pill and CTA button. */
+  accentColor?: string;
+}
+
+export interface HorizontalShowcaseBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  panels: HorizontalShowcasePanel[];
+  /** Background color of the section frame. */
+  bgColor?: string;
+  /** Approximate vh of vertical scroll consumed per panel. Default 90. */
+  panelHeightVh?: number;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Sticky Stack                                                             */
+/* ------------------------------------------------------------------------- */
+
+export interface StickyStackCard {
+  title: string;
+  body?: string;
+  tag?: string;
+  imageUrl?: string;
+  imageSide?: "left" | "right";
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+export interface StickyStackBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  cards: StickyStackCard[];
+  bgColor?: string;
+  /** vh of scroll consumed per card (default 110). */
+  cardScrollVh?: number;
+}

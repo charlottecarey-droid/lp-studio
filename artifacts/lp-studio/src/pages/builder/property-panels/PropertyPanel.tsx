@@ -42,6 +42,8 @@ import { DandyColumnsV3Panel } from "./DandyColumnsV3Panel";
 import { DandyVerticalTabsPanel } from "./DandyVerticalTabsPanel";
 import { DandySwitchbackPanel } from "./DandySwitchbackPanel";
 import { ScrollAssemblyPanel } from "./ScrollAssemblyPanel";
+import { HorizontalShowcasePanel } from "./HorizontalShowcasePanel";
+import { StickyStackPanel } from "./StickyStackPanel";
 import { DandySiteHeaderPanel } from "./DandySiteHeaderPanel";
 import { DandySiteFooterPanel } from "./DandySiteFooterPanel";
 import { DandyVideoTestimonialsPanel } from "./DandyVideoTestimonialsPanel";
@@ -4314,6 +4316,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <DandySwitchbackPanel blockType={block.type} props={block.props} onChange={props => onChange({ ...block, props })} brandVoiceSet={brandVoiceSet} />;
       case "scroll-assembly":
         return <ScrollAssemblyPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "horizontal-showcase":
+        return <HorizontalShowcasePanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+      case "sticky-stack":
+        return <StickyStackPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-site-header":
         return <DandySiteHeaderPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-site-footer":

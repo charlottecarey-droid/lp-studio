@@ -37,6 +37,8 @@ import type {
   DandyConversionPanel1BlockProps,
   DandyCtaBlockProps,
   ScrollAssemblyBlockProps,
+  HorizontalShowcaseBlockProps,
+  StickyStackBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -169,6 +171,8 @@ export type BlockVariant =
   | { type: "dandy-conversion-panel-1"; props: DandyConversionPanel1BlockProps }
   | { type: "dandy-cta-block"; props: DandyCtaBlockProps }
   | { type: "scroll-assembly"; props: ScrollAssemblyBlockProps }
+  | { type: "horizontal-showcase"; props: HorizontalShowcaseBlockProps }
+  | { type: "sticky-stack"; props: StickyStackBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps };
 

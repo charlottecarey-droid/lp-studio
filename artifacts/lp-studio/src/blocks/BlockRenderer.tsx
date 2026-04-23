@@ -82,6 +82,8 @@ import { BlockDandyFormRightAlt } from "./BlockDandyFormRightAlt";
 import { BlockDandyConversionPanel1 } from "./BlockDandyConversionPanel1";
 import { BlockDandyCtaBlock } from "./BlockDandyCtaBlock";
 import { BlockScrollAssembly } from "./BlockScrollAssembly";
+import { BlockHorizontalShowcase } from "./BlockHorizontalShowcase";
+import { BlockStickyStack } from "./BlockStickyStack";
 import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
 import { useRef } from "react";
@@ -611,6 +613,27 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
           />
         );
+      case "horizontal-showcase":
+        return (
+          <BlockHorizontalShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+            onCtaClick={onCtaClick}
+          />
+        );
+      case "sticky-stack":
+        return (
+          <BlockStickyStack
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
       default: {
         const _exhaustive: never = block;
         void _exhaustive;
@@ -638,7 +661,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
   const NO_REVEAL = new Set<string>([
     "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
     "dandy-site-header", "dandy-site-footer",
-    "scroll-assembly", "dso-scroll-story", "dso-scroll-story-hero",
+    "scroll-assembly", "horizontal-showcase", "sticky-stack",
+    "dso-scroll-story", "dso-scroll-story-hero",
     "dandy-switchback", "dso-paradigm-shift",
     "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
     "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page",
