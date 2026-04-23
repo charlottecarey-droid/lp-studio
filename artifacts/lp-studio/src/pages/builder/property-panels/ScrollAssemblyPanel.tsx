@@ -14,6 +14,8 @@ import type {
   ScrollAssemblyDecor,
 } from "@/lib/block-types";
 import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
+import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: ScrollAssemblyBlockProps;
@@ -78,6 +80,7 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Background</Label>
             <Input type="color" value={props.bgColor ?? "#0B0B0F"} onChange={(e) => onChange({ ...props, bgColor: e.target.value })} className="h-10" />
+            <BrandSwatches className="mt-1.5" current={props.bgColor} onPick={(hex) => onChange({ ...props, bgColor: hex })} />
           </div>
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Scroll length (vh per piece)</Label>
@@ -119,6 +122,7 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Accent color</Label>
             <Input type="color" value={props.accentColor ?? "#C7E738"} onChange={(e) => onChange({ ...props, accentColor: e.target.value })} className="h-10" />
+            <BrandSwatches className="mt-1.5" current={props.accentColor} onPick={(hex) => onChange({ ...props, accentColor: hex })} />
           </div>
           <div className="flex items-end gap-2 pb-1">
             <label className="flex items-center gap-2 text-xs cursor-pointer">
@@ -136,16 +140,46 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div>
-          <Label className="text-xs font-medium mb-1.5 block">
-            Floating background images <span className="text-slate-400 font-normal">(one URL per line)</span>
-          </Label>
-          <Textarea
-            rows={4}
-            value={(props.floatingImages ?? []).join("\n")}
-            onChange={(e) => onChange({ ...props, floatingImages: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
-            placeholder="https://…/image1.jpg&#10;https://…/image2.jpg"
-            className="text-xs font-mono resize-none"
-          />
+          <div className="flex items-center justify-between mb-1.5">
+            <Label className="text-xs font-medium block">
+              Floating background images
+            </Label>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onChange({ ...props, floatingImages: [...(props.floatingImages ?? []), ""] })}
+              className="h-7 text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" /> Add image
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {(props.floatingImages ?? []).map((imgUrl, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <div className="flex-1">
+                  <ImagePicker
+                    value={imgUrl}
+                    onChange={(url) => {
+                      const next = [...(props.floatingImages ?? [])];
+                      next[idx] = url;
+                      onChange({ ...props, floatingImages: next });
+                    }}
+                    placeholder="Pick or upload image"
+                  />
+                </div>
+                <button
+                  onClick={() => onChange({ ...props, floatingImages: (props.floatingImages ?? []).filter((_, i) => i !== idx) })}
+                  className="text-slate-400 hover:text-red-600 p-1.5 mt-1"
+                  aria-label="Remove image"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            {(props.floatingImages ?? []).length === 0 && (
+              <p className="text-[10px] text-slate-400 italic">No floating images yet — they drift past at varying parallax depths and auto-scatter.</p>
+            )}
+          </div>
           <p className="text-[10px] text-slate-500 mt-1">Up to 6 images drift past at varying parallax depths. They auto-scatter and fade.</p>
         </div>
         <div>
@@ -224,9 +258,16 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
               </div>
 
               {piece.kind === "image" ? (
-                <Input value={piece.content} onChange={(e) => setPiece(i, { content: e.target.value })} placeholder="https://…/image.jpg" className="h-9 text-xs" />
+                <ImagePicker
+                  value={piece.content}
+                  onChange={(url) => setPiece(i, { content: url })}
+                  placeholder="Pick or upload image"
+                />
               ) : piece.kind === "shape" ? (
-                <Input type="color" value={piece.color ?? "#C7E738"} onChange={(e) => setPiece(i, { color: e.target.value, content: "shape" })} className="h-9" />
+                <div>
+                  <Input type="color" value={piece.color ?? "#C7E738"} onChange={(e) => setPiece(i, { color: e.target.value, content: "shape" })} className="h-9" />
+                  <BrandSwatches className="mt-1.5" current={piece.color} onPick={(hex) => setPiece(i, { color: hex, content: "shape" })} />
+                </div>
               ) : (
                 <Textarea
                   value={piece.content}
@@ -247,6 +288,7 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
                       placeholder="var(--brand-primary)"
                       className="h-8 text-xs"
                     />
+                    <BrandSwatches className="mt-1.5" current={piece.color} onPick={(hex) => setPiece(i, { color: hex })} />
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Reveal at (0–1)</Label>

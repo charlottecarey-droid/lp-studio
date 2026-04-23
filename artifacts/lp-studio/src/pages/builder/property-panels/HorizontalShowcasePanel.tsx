@@ -11,6 +11,8 @@ import type {
   HorizontalShowcasePanel,
 } from "@/lib/block-types";
 import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
+import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: HorizontalShowcaseBlockProps;
@@ -49,6 +51,7 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Background</Label>
             <Input type="color" value={props.bgColor ?? "#0B0B0F"} onChange={(e) => onChange({ ...props, bgColor: e.target.value })} className="h-10" />
+            <BrandSwatches className="mt-1.5" current={props.bgColor} onPick={(hex) => onChange({ ...props, bgColor: hex })} />
           </div>
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Scroll length per panel (vh)</Label>
@@ -81,8 +84,16 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
               </div>
               <Input value={panel.title} onChange={(e) => setPanel(i, { title: e.target.value })} placeholder="Title" className="h-9 text-sm font-semibold" />
               <Textarea value={panel.body ?? ""} onChange={(e) => setPanel(i, { body: e.target.value })} placeholder="Body" rows={2} className="text-sm resize-none" />
-              <div className="grid grid-cols-2 gap-2">
-                <Input value={panel.imageUrl ?? ""} onChange={(e) => setPanel(i, { imageUrl: e.target.value })} placeholder="Image URL" className="h-8 text-xs" />
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Panel image</Label>
+                <ImagePicker
+                  value={panel.imageUrl ?? ""}
+                  onChange={(url) => setPanel(i, { imageUrl: url })}
+                  placeholder="Pick or upload image"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Alignment</Label>
                 <Select value={panel.alignment ?? "left"} onValueChange={(v) => setPanel(i, { alignment: v as "left" | "center" | "right" })}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -110,19 +121,21 @@ export function HorizontalShowcasePanel({ props, onChange }: Props) {
                   />
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">BG</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">BG</Label>
                   <Input type="color" value={panel.bgColor ?? "#16161D"} onChange={(e) => setPanel(i, { bgColor: e.target.value })} className="h-8" />
+                  <BrandSwatches className="mt-1.5" current={panel.bgColor} onPick={(hex) => setPanel(i, { bgColor: hex })} />
                 </div>
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Overlay</Label>
-                  <Input value={panel.overlayColor ?? ""} onChange={(e) => setPanel(i, { overlayColor: e.target.value })} placeholder="rgba(...)" className="h-8 text-[10px]" />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Accent</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Accent</Label>
                   <Input type="color" value={panel.accentColor ?? "#C7E738"} onChange={(e) => setPanel(i, { accentColor: e.target.value })} className="h-8" />
+                  <BrandSwatches className="mt-1.5" current={panel.accentColor} onPick={(hex) => setPanel(i, { accentColor: hex })} />
                 </div>
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Overlay (rgba over image)</Label>
+                <Input value={panel.overlayColor ?? ""} onChange={(e) => setPanel(i, { overlayColor: e.target.value })} placeholder="rgba(0,0,0,0.55)" className="h-8 text-[10px]" />
               </div>
             </div>
           ))}

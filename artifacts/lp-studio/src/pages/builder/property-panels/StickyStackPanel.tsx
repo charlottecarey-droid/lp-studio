@@ -11,6 +11,8 @@ import type {
   StickyStackCard,
 } from "@/lib/block-types";
 import { EmailCaptureConfigSection } from "./EmailCaptureConfigSection";
+import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 
 interface Props {
   props: StickyStackBlockProps;
@@ -49,6 +51,7 @@ export function StickyStackPanel({ props, onChange }: Props) {
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Background</Label>
             <Input type="color" value={props.bgColor ?? "#FAFAF7"} onChange={(e) => onChange({ ...props, bgColor: e.target.value })} className="h-10" />
+            <BrandSwatches className="mt-1.5" current={props.bgColor} onPick={(hex) => onChange({ ...props, bgColor: hex })} />
           </div>
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Scroll length per card (vh)</Label>
@@ -99,8 +102,16 @@ export function StickyStackPanel({ props, onChange }: Props) {
                   />
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Input value={card.imageUrl ?? ""} onChange={(e) => setCard(i, { imageUrl: e.target.value })} placeholder="Image URL (optional)" className="h-8 text-xs" />
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Card image (optional)</Label>
+                <ImagePicker
+                  value={card.imageUrl ?? ""}
+                  onChange={(url) => setCard(i, { imageUrl: url })}
+                  placeholder="Pick or upload image"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Image side</Label>
                 <Select value={card.imageSide ?? "right"} onValueChange={(v) => setCard(i, { imageSide: v as "left" | "right" })}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -111,16 +122,19 @@ export function StickyStackPanel({ props, onChange }: Props) {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Card BG</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Card BG</Label>
                   <Input type="color" value={card.bgColor ?? "#0B0B0F"} onChange={(e) => setCard(i, { bgColor: e.target.value })} className="h-8" />
+                  <BrandSwatches className="mt-1.5" current={card.bgColor} onPick={(hex) => setCard(i, { bgColor: hex })} />
                 </div>
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Text</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Text</Label>
                   <Input type="color" value={card.textColor ?? "#ffffff"} onChange={(e) => setCard(i, { textColor: e.target.value })} className="h-8" />
+                  <BrandSwatches className="mt-1.5" current={card.textColor} onPick={(hex) => setCard(i, { textColor: hex })} />
                 </div>
                 <div>
-                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Accent</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500 mb-1 block">Accent</Label>
                   <Input type="color" value={card.accentColor ?? "#C7E738"} onChange={(e) => setCard(i, { accentColor: e.target.value })} className="h-8" />
+                  <BrandSwatches className="mt-1.5" current={card.accentColor} onPick={(hex) => setCard(i, { accentColor: hex })} />
                 </div>
               </div>
             </div>
