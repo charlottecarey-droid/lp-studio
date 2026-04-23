@@ -70,7 +70,7 @@ export function BlockDandyVideoTestimonials({ props, brand, onFieldChange }: Pro
               tabIndex={0}
               onClick={() => { if (item.videoSrc || item.videoId) setActiveIdx(i); }}
               onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && (item.videoSrc || item.videoId)) { e.preventDefault(); setActiveIdx(i); } }}
-              className="relative shrink-0 rounded-3xl overflow-hidden cursor-pointer group shadow-xl focus:outline-none focus:ring-2 focus:ring-[#003A30]/40"
+              className="relative shrink-0 rounded-3xl overflow-hidden cursor-pointer group shadow-xl focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-primary-rgb)/0.4)]"
               style={{ width: "260px", aspectRatio: "9/16" }}
             >
               <img

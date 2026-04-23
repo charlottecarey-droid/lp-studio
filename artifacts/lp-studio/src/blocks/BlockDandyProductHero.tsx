@@ -11,8 +11,8 @@ interface Props {
   variantId?: number;
 }
 
-const DANDY_GREEN = "#003a30";
-const DANDY_LIME = "#c7e738";
+const DANDY_GREEN = "var(--brand-primary)";
+const DANDY_LIME = "var(--brand-accent)";
 const DISPLAY_FONT = `var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'Reckless', Georgia, serif`;
 const SANS_FONT = `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
