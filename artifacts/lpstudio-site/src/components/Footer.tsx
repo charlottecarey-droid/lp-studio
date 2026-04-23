@@ -1,27 +1,29 @@
 const productLinks = [
   { label: "Visual Builder", href: "/#features" },
-  { label: "A/B Testing", href: "/#features" },
   { label: "AI Copy", href: "/#features" },
-  { label: "Heatmaps", href: "/#features" },
-  { label: "Smart Traffic", href: "/#features" },
   { label: "Brand System", href: "/#features" },
+  { label: "A/B Testing", href: "/#features" },
+  { label: "Integrations", href: "/#integrations" },
+  { label: "Use Cases", href: "/#use-cases" },
 ];
 
 const pricingLinks = [
-  { label: "Starter", href: "/#pricing" },
-  { label: "Growth", href: "/#pricing" },
-  { label: "Enterprise", href: "mailto:sales@lpstudio.ai" },
+  { label: "Plans & Pricing", href: "/#pricing" },
+  { label: "Get Early Access", href: "/#waitlist" },
+  { label: "Contact Sales", href: "mailto:sales@lpstudio.ai?subject=LP%20Studio%20-%20Sales%20inquiry" },
 ];
 
 const companyLinks = [
-  { label: "About", href: "#" },
-  { label: "Blog", href: "#" },
-  { label: "Careers", href: "#" },
+  { label: "About", href: "mailto:hello@lpstudio.ai?subject=About%20LP%20Studio" },
+  { label: "Customers", href: "/#testimonials" },
+  { label: "FAQ", href: "/#faq" },
+  { label: "Careers", href: "mailto:careers@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },
 ];
 
 const legalLinks = [
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "/terms" },
+  { label: "Security", href: "mailto:security@lpstudio.ai?subject=Security%20inquiry" },
 ];
 
 export default function Footer() {

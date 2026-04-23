@@ -21,6 +21,7 @@ export default function Integrations() {
   const { ref, inView } = useInView();
   return (
     <section
+      id="integrations"
       className="px-6 py-20 md:py-24 relative"
       style={{ background: "#001512" }}
     >
