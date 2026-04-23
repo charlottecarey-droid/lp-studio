@@ -59,6 +59,7 @@ export type {
   ScrollAssemblyPiece,
   ScrollAssemblyPieceKind,
   ScrollAssemblyDirection,
+  ScrollAssemblyDecor,
   HorizontalShowcaseBlockProps,
   HorizontalShowcasePanel,
   StickyStackBlockProps,

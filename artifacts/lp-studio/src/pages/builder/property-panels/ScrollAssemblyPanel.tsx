@@ -11,6 +11,7 @@ import type {
   ScrollAssemblyPiece,
   ScrollAssemblyPieceKind,
   ScrollAssemblyDirection,
+  ScrollAssemblyDecor,
 } from "@/lib/block-types";
 
 interface Props {
@@ -75,7 +76,7 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Background</Label>
-            <Input type="color" value={props.bgColor ?? "#FDFCFA"} onChange={(e) => onChange({ ...props, bgColor: e.target.value })} className="h-10" />
+            <Input type="color" value={props.bgColor ?? "#0B0B0F"} onChange={(e) => onChange({ ...props, bgColor: e.target.value })} className="h-10" />
           </div>
           <div>
             <Label className="text-xs font-medium mb-1.5 block">Scroll length (vh per piece)</Label>
@@ -87,6 +88,77 @@ export function ScrollAssemblyPanel({ props, onChange }: Props) {
               onChange={(e) => onChange({ ...props, scrollLengthVh: Number(e.target.value) })}
             />
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-medium mb-1.5 block">Theme</Label>
+            <Select value={props.theme ?? "auto"} onValueChange={(v) => onChange({ ...props, theme: v === "auto" ? undefined : v as "light" | "dark" })}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto" className="text-xs">Auto from background</SelectItem>
+                <SelectItem value="light" className="text-xs">Light</SelectItem>
+                <SelectItem value="dark" className="text-xs">Dark</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs font-medium mb-1.5 block">Ambient decoration</Label>
+            <Select value={props.decor ?? "all"} onValueChange={(v) => onChange({ ...props, decor: v as ScrollAssemblyDecor })}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All (orbs + grid)</SelectItem>
+                <SelectItem value="orbs" className="text-xs">Gradient orbs only</SelectItem>
+                <SelectItem value="grid" className="text-xs">Dot grid only</SelectItem>
+                <SelectItem value="minimal" className="text-xs">Minimal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-medium mb-1.5 block">Accent color</Label>
+            <Input type="color" value={props.accentColor ?? "#C7E738"} onChange={(e) => onChange({ ...props, accentColor: e.target.value })} className="h-10" />
+          </div>
+          <div className="flex items-end gap-2 pb-1">
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={props.grain !== false}
+                onChange={(e) => onChange({ ...props, grain: e.target.checked })}
+                className="rounded"
+              />
+              Film grain overlay
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs font-medium mb-1.5 block">
+            Floating background images <span className="text-slate-400 font-normal">(one URL per line)</span>
+          </Label>
+          <Textarea
+            rows={4}
+            value={(props.floatingImages ?? []).join("\n")}
+            onChange={(e) => onChange({ ...props, floatingImages: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
+            placeholder="https://…/image1.jpg&#10;https://…/image2.jpg"
+            className="text-xs font-mono resize-none"
+          />
+          <p className="text-[10px] text-slate-500 mt-1">Up to 6 images drift past at varying parallax depths. They auto-scatter and fade.</p>
+        </div>
+        <div>
+          <Label className="text-xs font-medium mb-1.5 block">
+            Marquee tags <span className="text-slate-400 font-normal">(one per line)</span>
+          </Label>
+          <Textarea
+            rows={3}
+            value={(props.marqueeTags ?? []).join("\n")}
+            onChange={(e) => onChange({ ...props, marqueeTags: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
+            placeholder="Fast publishing&#10;AI copy&#10;A/B variants"
+            className="text-xs resize-none"
+          />
+          <p className="text-[10px] text-slate-500 mt-1">Drift across the bottom in a continuous loop, brightening as you scroll into the section.</p>
         </div>
       </div>
 

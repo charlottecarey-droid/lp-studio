@@ -520,6 +520,8 @@ export interface ScrollAssemblyPiece {
   color?: string;
 }
 
+export type ScrollAssemblyDecor = "minimal" | "orbs" | "grid" | "all";
+
 export interface ScrollAssemblyBlockProps {
   eyebrow?: string;
   pieces: ScrollAssemblyPiece[];
@@ -529,6 +531,18 @@ export interface ScrollAssemblyBlockProps {
   bgColor?: string;
   /** Total scroll length (in vh) per piece. Higher = slower assembly. Default 100. */
   scrollLengthVh?: number;
+  /** Image URLs that drift past in the background as parallax layers. */
+  floatingImages?: string[];
+  /** Pill tags that ticker across the bottom of the section. */
+  marqueeTags?: string[];
+  /** Ambient decoration style. Default "all". */
+  decor?: ScrollAssemblyDecor;
+  /** Accent color for orbs / highlights. Defaults to brand accent. */
+  accentColor?: string;
+  /** Whether to overlay subtle film grain. Default true. */
+  grain?: boolean;
+  /** Overall text color (light/dark). Auto-derived from bg if omitted. */
+  theme?: "light" | "dark";
 }
 
 /* ------------------------------------------------------------------------- */

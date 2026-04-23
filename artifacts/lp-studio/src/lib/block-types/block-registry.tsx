@@ -3027,8 +3027,22 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       ctaText: "See it in action",
       ctaUrl: "#",
-      bgColor: "#FDFCFA",
+      bgColor: "#0B0B0F",
+      theme: "dark",
       scrollLengthVh: 100,
+      decor: "all",
+      grain: true,
+      floatingImages: [
+        "https://images.unsplash.com/photo-1551434678-e076c223a692?w=600&q=80",
+        "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=600&q=80",
+        "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80",
+        "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=80",
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80",
+      ],
+      marqueeTags: [
+        "Custom themes", "AI copy", "A/B variants", "Sales console",
+        "Lead enrichment", "Tenant-aware", "Fast publishing",
+      ],
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
