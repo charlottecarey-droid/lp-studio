@@ -4,7 +4,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4" style={{ background: "rgba(0,40,32,0.92)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(199,231,56,0.1)" }}>
+    <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(199,231,56,0.1)" }}>
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         <a href="#" className="flex items-center gap-2 text-white font-display font-bold text-xl tracking-tight">
           <span style={{ color: "#C7E738" }}>LP</span>
@@ -12,9 +12,10 @@ export default function Navbar() {
         </a>
 
         <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+          <a href="#use-cases" className="hover:text-white transition-colors">Use cases</a>
+          <a href="#features" className="hover:text-white transition-colors">Features</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-          <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
-          <a href="#waitlist" className="hover:text-white transition-colors">Get Access</a>
+          <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -46,8 +47,10 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="md:hidden mt-4 pb-4 flex flex-col gap-4 text-sm px-2" style={{ color: "rgba(255,255,255,0.7)" }}>
+          <a href="#use-cases" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Use cases</a>
+          <a href="#features" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Features</a>
           <a href="#pricing" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Pricing</a>
-          <a href="#testimonials" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Testimonials</a>
+          <a href="#faq" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">FAQ</a>
           <a href="#waitlist" onClick={() => setMenuOpen(false)} className="hover:text-white transition-colors">Get Access</a>
           <a
             href="https://app.lpstudio.ai"
