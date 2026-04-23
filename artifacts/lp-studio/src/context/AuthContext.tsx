@@ -15,7 +15,7 @@ export interface AuthUser {
 }
 
 export interface DomainContext {
-  mode: "open" | "tenant-locked" | "microsite-only";
+  mode: "open" | "tenant-locked" | "microsite-only" | "not-found";
   tenantId: number | null;
   tenantName: string | null;
   tenantSlug: string | null;

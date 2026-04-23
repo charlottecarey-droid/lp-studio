@@ -292,6 +292,44 @@ function AppShell() {
     return <LoadingFallback />;
   }
 
+  // Unknown wildcard subdomain (e.g. random.lpstudio.ai with no matching tenant).
+  // Fail closed: never expose admin login on tenant-shaped subdomains that don't
+  // resolve to a real tenant.
+  if (domainContext?.mode === "not-found") {
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#0A0A0A",
+        color: "#fff",
+        fontFamily: "Inter, system-ui, sans-serif",
+        padding: "24px",
+        textAlign: "center",
+      }}>
+        <div style={{ maxWidth: 480 }}>
+          <div style={{ fontSize: 48, fontWeight: 600, letterSpacing: "-0.04em", color: "#D4F542", marginBottom: 16 }}>404</div>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 12 }}>Site not found</div>
+          <div style={{ fontSize: 15, lineHeight: 1.5, opacity: 0.7, marginBottom: 24 }}>
+            There's no site at <strong style={{ opacity: 1 }}>{hostname}</strong>. If you're the owner, check your tenant configuration in the admin.
+          </div>
+          <a href="https://lpstudio.ai" style={{
+            display: "inline-block",
+            padding: "10px 18px",
+            background: "#D4F542",
+            color: "#0A0A0A",
+            textDecoration: "none",
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize: 14,
+          }}>Go to LP Studio</a>
+        </div>
+      </div>
+    );
+  }
+
   // Block Replit dev/preview URLs in open mode — these are ephemeral workspace
   // URLs that should never serve the admin UI publicly. Legitimate custom domains
   // (e.g. lpstudio.ai) are allowed through so users can log in.

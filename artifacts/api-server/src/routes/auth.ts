@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug } from "../lib/tenantHosts";
 
 const router = Router();
 
@@ -643,7 +643,9 @@ router.get("/auth/domain-context", async (req, res): Promise<void> => {
           tenantSlug: match.tenantSlug,
           micrositeDomain: match.micrositeDomain,
         }
-      : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
+      : extractWildcardSlug(domain) !== null
+        ? { mode: "not-found", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null }
+        : { mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null };
 
     domainCtxSet(domain, { data, expiresAt: Date.now() + DOMAIN_CTX_TTL_MS });
     res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=60");
