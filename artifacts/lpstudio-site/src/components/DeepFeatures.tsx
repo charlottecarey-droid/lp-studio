@@ -1,287 +1,205 @@
 import { useInView } from "@/hooks/useInView";
 
-const LIME = "#C7E738";
-const FOREST = "#003A30";
-const FOREST_DEEP = "#001F18";
+const LIME = "#D4F542";
 
 interface Feature {
   eyebrow: string;
-  title: string;
+  title: React.ReactNode;
   body: string;
   bullets: string[];
   visual: React.ReactNode;
   side: "left" | "right";
 }
 
-function AICopyVisual() {
+function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-2xl p-5 relative overflow-hidden"
+      className="rounded-xl p-5 relative overflow-hidden"
       style={{
-        background: FOREST_DEEP,
-        border: "1px solid rgba(199,231,56,0.18)",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
+        background: "#101010",
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 60px -20px rgba(0,0,0,0.6)",
       }}
     >
-      <div className="flex items-center gap-2 mb-4">
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-          style={{ background: LIME, color: FOREST }}
-        >
-          ✦
+      {children}
+    </div>
+  );
+}
+
+function AICopyVisual() {
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FAFAFA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" />
+          <path d="M19 16v3M21 17.5h-3M5 17v2M6 18H4" />
+        </svg>
+        <div className="text-[12px] font-medium text-white">AI Copy</div>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(250,250,250,0.45)" }}>
+          <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: LIME }} />
+          generating
         </div>
-        <div className="text-xs font-semibold text-white">AI Copy Assistant</div>
-        <div
-          className="ml-auto px-2 py-0.5 rounded text-[9px] font-bold"
-          style={{ background: "rgba(199,231,56,0.15)", color: LIME }}
-        >
-          GENERATING
-        </div>
+      </div>
+      <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: "rgba(250,250,250,0.35)" }}>
+        Brief
       </div>
       <div
-        className="text-[10px] uppercase tracking-widest mb-1.5"
-        style={{ color: "rgba(255,255,255,0.4)" }}
+        className="rounded-md px-3 py-2 mb-4 text-[12.5px] leading-relaxed"
+        style={{ background: "rgba(255,255,255,0.03)", color: "rgba(250,250,250,0.8)", border: "1px solid rgba(255,255,255,0.05)" }}
       >
-        Prompt
+        Hero for ABM page targeting Acme Co — VP of Eng, payments infra.
       </div>
-      <div
-        className="rounded-lg px-3 py-2 mb-3 text-xs"
-        style={{
-          background: "rgba(255,255,255,0.05)",
-          color: "rgba(255,255,255,0.85)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
-        Hero for ABM page targeting Acme Co. — VP of Eng, payments
-        infrastructure.
-      </div>
-      <div
-        className="text-[10px] uppercase tracking-widest mb-1.5"
-        style={{ color: "rgba(255,255,255,0.4)" }}
-      >
-        Generated headline
+      <div className="text-[10px] uppercase tracking-[0.18em] mb-1.5" style={{ color: "rgba(250,250,250,0.35)" }}>
+        Headlines
       </div>
       {[
         "Acme — ship payment infra without the headcount.",
         "Acme's payments team, supercharged.",
-        "Built for Acme's next 10× in payments volume.",
+        "Built for Acme's next 10× in volume.",
       ].map((h, i) => (
         <div
           key={h}
-          className="rounded-lg px-3 py-2.5 mb-1.5 text-sm flex items-center justify-between transition-all cursor-pointer"
+          className="rounded-md px-3 py-2.5 mb-1.5 text-[13px] flex items-center justify-between"
           style={{
-            background:
-              i === 1 ? "rgba(199,231,56,0.12)" : "rgba(255,255,255,0.04)",
-            border:
-              i === 1
-                ? "1px solid rgba(199,231,56,0.4)"
-                : "1px solid rgba(255,255,255,0.08)",
-            color: i === 1 ? "#fff" : "rgba(255,255,255,0.7)",
+            background: i === 1 ? "rgba(212,245,66,0.08)" : "rgba(255,255,255,0.025)",
+            border: i === 1 ? "1px solid rgba(212,245,66,0.32)" : "1px solid rgba(255,255,255,0.05)",
+            color: i === 1 ? "#FAFAFA" : "rgba(250,250,250,0.65)",
           }}
         >
-          <span style={{ fontFamily: "Outfit, sans-serif", fontWeight: 600 }}>
+          <span className="font-display" style={{ letterSpacing: "-0.01em" }}>
             {h}
           </span>
           {i === 1 && (
-            <span
-              className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-              style={{ background: LIME, color: FOREST }}
-            >
-              USE
+            <span className="text-[9px] font-medium tracking-wider uppercase" style={{ color: LIME }}>
+              Selected
             </span>
           )}
         </div>
       ))}
       <button
-        className="mt-3 w-full text-xs font-semibold py-2 rounded-lg"
+        className="mt-3 w-full text-[12px] font-medium py-2 rounded-md transition-colors"
         style={{
-          background: "rgba(255,255,255,0.05)",
-          color: "rgba(255,255,255,0.6)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.025)",
+          color: "rgba(250,250,250,0.55)",
+          border: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        ↻ Regenerate three more
+        Regenerate three more
       </button>
-    </div>
+    </Card>
   );
 }
 
 function BrandTokensVisual() {
   return (
-    <div
-      className="rounded-2xl p-5 relative overflow-hidden"
-      style={{
-        background: FOREST_DEEP,
-        border: "1px solid rgba(199,231,56,0.18)",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
-      }}
-    >
-      <div className="flex items-center gap-2 mb-4">
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold"
-          style={{ background: LIME, color: FOREST }}
-        >
-          ◉
+    <Card>
+      <div className="flex items-center gap-2 mb-5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FAFAFA" strokeWidth="1.5">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="3" fill="#FAFAFA" />
+        </svg>
+        <div className="text-[12px] font-medium text-white">Brand system</div>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(250,250,250,0.45)" }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="5" y="11" width="14" height="9" rx="1.5" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+          locked
         </div>
-        <div className="text-xs font-semibold text-white">Brand System</div>
       </div>
 
-      <div
-        className="text-[10px] uppercase tracking-widest mb-2"
-        style={{ color: "rgba(255,255,255,0.4)" }}
-      >
-        Colors
+      <div className="text-[10px] uppercase tracking-[0.18em] mb-2" style={{ color: "rgba(250,250,250,0.35)" }}>
+        Color
       </div>
-      <div className="grid grid-cols-5 gap-1.5 mb-4">
+      <div className="grid grid-cols-5 gap-1.5 mb-5">
         {[
-          { hex: FOREST, label: "Primary" },
-          { hex: LIME, label: "Accent" },
-          { hex: "#005A47", label: "Mid" },
-          { hex: "#FAFAF7", label: "Surface" },
-          { hex: "#0B0B0F", label: "Ink" },
+          { hex: "#0A2A22", label: "ink" },
+          { hex: LIME, label: "accent" },
+          { hex: "#1F4F42", label: "deep" },
+          { hex: "#FAFAF7", label: "paper" },
+          { hex: "#171717", label: "shadow" },
         ].map((c) => (
-          <div key={c.label} className="text-center">
+          <div key={c.label}>
             <div
-              className="w-full aspect-square rounded-lg mb-1"
-              style={{
-                background: c.hex,
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
+              className="w-full aspect-square rounded-md mb-1.5"
+              style={{ background: c.hex, border: "1px solid rgba(255,255,255,0.06)" }}
             />
-            <div
-              className="text-[8px]"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-            >
+            <div className="text-[9px]" style={{ color: "rgba(250,250,250,0.4)" }}>
               {c.label}
             </div>
           </div>
         ))}
       </div>
 
-      <div
-        className="text-[10px] uppercase tracking-widest mb-2"
-        style={{ color: "rgba(255,255,255,0.4)" }}
-      >
+      <div className="text-[10px] uppercase tracking-[0.18em] mb-2" style={{ color: "rgba(250,250,250,0.35)" }}>
         Type
       </div>
-      <div className="space-y-1.5 mb-4">
-        <div
-          className="text-2xl font-bold leading-none"
-          style={{ fontFamily: "Outfit, sans-serif", color: "#fff" }}
-        >
-          Display — Outfit
+      <div className="space-y-1 mb-1">
+        <div className="font-display text-[22px] font-semibold leading-none text-white" style={{ letterSpacing: "-0.03em" }}>
+          Display — Inter Tight
         </div>
-        <div
-          className="text-sm"
-          style={{ color: "rgba(255,255,255,0.7)" }}
-        >
+        <div className="text-[13px]" style={{ color: "rgba(250,250,250,0.65)" }}>
           Body — Inter
         </div>
+        <div className="font-serif-italic text-[15px] mt-0.5" style={{ color: LIME }}>
+          accent — Instrument Serif
+        </div>
       </div>
-
-      <div
-        className="rounded-lg p-2.5 flex items-center gap-2"
-        style={{
-          background: "rgba(199,231,56,0.08)",
-          border: "1px solid rgba(199,231,56,0.25)",
-        }}
-      >
-        <span
-          className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold"
-          style={{ background: LIME, color: FOREST }}
-        >
-          🔒
-        </span>
-        <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.8)" }}>
-          Locked. Every block uses these tokens.
-        </span>
-      </div>
-    </div>
+    </Card>
   );
 }
 
 function ABTestVisual() {
   return (
-    <div
-      className="rounded-2xl p-5 relative overflow-hidden"
-      style={{
-        background: FOREST_DEEP,
-        border: "1px solid rgba(199,231,56,0.18)",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
-      }}
-    >
-      <div className="flex items-center gap-2 mb-4">
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold"
-          style={{ background: LIME, color: FOREST }}
-        >
-          ⚡
-        </div>
-        <div className="text-xs font-semibold text-white">Experiment Live</div>
-        <div
-          className="ml-auto px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1"
-          style={{ background: "rgba(199,231,56,0.15)", color: LIME }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: LIME }} />
-          RUNNING — 3d
+    <Card>
+      <div className="flex items-center gap-2 mb-5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FAFAFA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m13 2-3 7h5l-3 7" />
+        </svg>
+        <div className="text-[12px] font-medium text-white">Experiment</div>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px]" style={{ color: LIME }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: LIME }} />
+          live · day 3
         </div>
       </div>
 
       {[
-        { name: "A — Original", traffic: 40, conv: "3.2%", winning: false },
-        { name: "B — Bold CTA", traffic: 40, conv: "5.8%", winning: true },
-        { name: "C — Image hero", traffic: 20, conv: "2.9%", winning: false },
+        { name: "Original", traffic: 24, conv: "3.2%", winning: false },
+        { name: "Bold CTA", traffic: 56, conv: "5.8%", winning: true },
+        { name: "Image hero", traffic: 20, conv: "2.9%", winning: false },
       ].map((v) => (
         <div
           key={v.name}
-          className="mb-2 rounded-lg p-3"
+          className="mb-2 rounded-md p-3"
           style={{
-            background: v.winning
-              ? "rgba(199,231,56,0.10)"
-              : "rgba(255,255,255,0.04)",
-            border: v.winning
-              ? "1px solid rgba(199,231,56,0.35)"
-              : "1px solid rgba(255,255,255,0.08)",
+            background: v.winning ? "rgba(212,245,66,0.06)" : "rgba(255,255,255,0.025)",
+            border: v.winning ? "1px solid rgba(212,245,66,0.28)" : "1px solid rgba(255,255,255,0.05)",
           }}
         >
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span
-                className="text-xs font-semibold"
-                style={{ color: v.winning ? LIME : "#fff" }}
-              >
+              <span className="text-[12.5px] font-medium" style={{ color: v.winning ? "#FAFAFA" : "rgba(250,250,250,0.85)" }}>
                 {v.name}
               </span>
               {v.winning && (
-                <span
-                  className="text-[8px] font-bold px-1.5 py-0.5 rounded"
-                  style={{ background: LIME, color: FOREST }}
-                >
-                  WINNER
+                <span className="text-[9px] font-medium uppercase tracking-wider" style={{ color: LIME }}>
+                  winner
                 </span>
               )}
             </div>
             <span
-              className="text-sm font-bold"
-              style={{
-                color: v.winning ? LIME : "rgba(255,255,255,0.7)",
-                fontFamily: "Outfit, sans-serif",
-              }}
+              className="font-display text-[14px] font-semibold tabular-nums"
+              style={{ color: v.winning ? "#FAFAFA" : "rgba(250,250,250,0.65)", letterSpacing: "-0.02em" }}
             >
               {v.conv}
             </span>
           </div>
-          <div
-            className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          >
+          <div className="h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full transition-all"
               style={{
-                width: `${parseFloat(v.conv) * 12}%`,
-                background: v.winning
-                  ? `linear-gradient(90deg, ${LIME}, #d6f54a)`
-                  : "rgba(255,255,255,0.3)",
+                width: `${v.traffic + 20}%`,
+                background: v.winning ? LIME : "rgba(255,255,255,0.25)",
               }}
             />
           </div>
@@ -289,58 +207,55 @@ function ABTestVisual() {
       ))}
 
       <div
-        className="mt-3 rounded-lg p-2.5 flex items-center gap-2"
-        style={{
-          background: "rgba(199,231,56,0.08)",
-          border: "1px solid rgba(199,231,56,0.25)",
-        }}
+        className="mt-4 rounded-md px-3 py-2.5 text-[11.5px] flex items-center gap-2"
+        style={{ background: "rgba(212,245,66,0.05)", border: "1px solid rgba(212,245,66,0.18)", color: "rgba(250,250,250,0.85)" }}
       >
-        <span className="text-[14px]">🤖</span>
-        <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.85)" }}>
-          Smart Traffic now routing 78% to variant B.
-        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2" strokeLinecap="round">
+          <path d="M3 12h18M12 3l9 9-9 9" />
+        </svg>
+        Smart Traffic now routing 78% to <span style={{ color: LIME }}>Bold CTA</span>.
       </div>
-    </div>
+    </Card>
   );
 }
 
 const features: Feature[] = [
   {
-    eyebrow: "AI THAT KNOWS YOUR VOICE",
-    title: "Copy that sounds like you, not the AI.",
+    eyebrow: "Voice-tuned AI",
+    title: (
+      <>
+        Copy that sounds like <span className="font-serif-italic" style={{ color: LIME }}>you</span>, not the AI.
+      </>
+    ),
     body:
-      "Trained on your voice, your wins, and your category. Generate headline variants in seconds, then refine without leaving the page. Every prompt remembers your tone, your offer, and what's converted before.",
-    bullets: [
-      "Voice tuning from your existing pages",
-      "Variant generation one click deep",
-      "Account, persona, and stage-aware prompts",
-    ],
+      "Trained on your voice, your wins, and your category. Generate variants in seconds and refine in place. Every prompt remembers your tone, your offer, and what's converted before.",
+    bullets: ["Voice tuning from your existing pages", "Variant generation one click deep", "Account, persona, and stage-aware prompts"],
     visual: <AICopyVisual />,
     side: "right",
   },
   {
-    eyebrow: "BRAND-LOCKED, ALWAYS",
-    title: "Tokens enforce your brand. Blocks enforce your taste.",
+    eyebrow: "Brand-locked, always",
+    title: (
+      <>
+        Tokens enforce the brand. Blocks enforce the <span className="font-serif-italic" style={{ color: LIME }}>taste</span>.
+      </>
+    ),
     body:
-      "Colors, type, spacing, radius — locked at the system level. Anyone in your team can ship pages that look like yours on the first try. No more rogue hex codes, no more 14 different button styles.",
-    bullets: [
-      "One source of truth for color, type, spacing",
-      "Block library with approved variations only",
-      "Locked vs. editable regions per template",
-    ],
+      "Color, type, spacing, radius — locked at the system level. Anyone in your team ships pages that look like yours on the first try. No more rogue hex codes, no more 14 button styles.",
+    bullets: ["One source of truth for color, type, spacing", "Block library with approved variations only", "Locked vs. editable regions per template"],
     visual: <BrandTokensVisual />,
     side: "left",
   },
   {
-    eyebrow: "TEST. LEARN. AUTOMATE.",
-    title: "A/B testing built for revenue, not for engineers.",
+    eyebrow: "Test, learn, automate",
+    title: (
+      <>
+        A/B testing built for revenue, not <span className="font-serif-italic" style={{ color: LIME }}>engineers</span>.
+      </>
+    ),
     body:
-      "Spin up variants in the editor. LP Studio splits traffic, watches significance, and routes visitors to the winning variant the moment it's clear. Heatmaps and scroll depth come in the box.",
-    bullets: [
-      "Auto-significance detection — no stats degree needed",
-      "Smart Traffic routes to the winner automatically",
-      "Heatmaps, scroll depth, and click maps included",
-    ],
+      "Spin up variants in the editor. We split traffic, watch significance, and route visitors to the winning variant the moment it's clear. Heatmaps and scroll depth come in the box.",
+    bullets: ["Auto-significance — no stats degree needed", "Smart Traffic routes to the winner", "Heatmaps, scroll depth, click maps included"],
     visual: <ABTestVisual />,
     side: "right",
   },
@@ -348,42 +263,21 @@ const features: Feature[] = [
 
 export default function DeepFeatures() {
   return (
-    <section
-      id="features"
-      className="px-6 py-20 md:py-28 relative"
-      style={{ background: "#000" }}
-    >
+    <section id="features" className="px-6 py-24 md:py-32" style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-20">
-          <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5"
-            style={{
-              background: "rgba(199,231,56,0.08)",
-              color: LIME,
-              border: "1px solid rgba(199,231,56,0.18)",
-            }}
-          >
-            What's inside
-          </div>
-          <h2
-            className="text-4xl md:text-5xl font-bold mb-4 text-white"
-            style={{ fontFamily: "Outfit, sans-serif" }}
-          >
-            Every part of the page,{" "}
-            <span style={{ color: LIME }}>solved.</span>
+        <div className="max-w-2xl mb-20 md:mb-24">
+          <div className="eyebrow mb-5">What's inside</div>
+          <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
+            Every part of the page, <span className="font-serif-italic" style={{ color: LIME }}>solved</span>.
           </h2>
-          <p
-            className="text-lg max-w-xl mx-auto"
-            style={{ color: "rgba(255,255,255,0.55)" }}
-          >
-            From copy to conversion. Three things LP Studio does that the
-            cobbled-together stack can't.
+          <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
+            From copy to conversion. Three things LP Studio does that the cobbled-together stack can't.
           </p>
         </div>
 
-        <div className="space-y-24 md:space-y-32">
-          {features.map((f) => (
-            <FeatureRow key={f.title} feature={f} />
+        <div className="space-y-28 md:space-y-36">
+          {features.map((f, i) => (
+            <FeatureRow key={i} feature={f} />
           ))}
         </div>
       </div>
@@ -395,37 +289,19 @@ function FeatureRow({ feature }: { feature: Feature }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.2);
   const textCol = (
     <div>
-      <div
-        className="text-xs font-bold tracking-widest mb-3"
-        style={{ color: LIME }}
-      >
-        {feature.eyebrow}
-      </div>
-      <h3
-        className="text-3xl md:text-4xl font-bold mb-4 text-white leading-tight"
-        style={{ fontFamily: "Outfit, sans-serif" }}
-      >
+      <div className="eyebrow mb-4">{feature.eyebrow}</div>
+      <h3 className="font-display text-3xl md:text-[36px] font-semibold text-white leading-[1.1]">
         {feature.title}
       </h3>
-      <p
-        className="text-base md:text-lg leading-relaxed mb-6"
-        style={{ color: "rgba(255,255,255,0.6)" }}
-      >
+      <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.6)" }}>
         {feature.body}
       </p>
-      <ul className="space-y-2.5">
+      <ul className="mt-7 space-y-3">
         {feature.bullets.map((b) => (
-          <li
-            key={b}
-            className="flex items-start gap-3 text-sm md:text-base"
-            style={{ color: "rgba(255,255,255,0.8)" }}
-          >
-            <span
-              className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[11px] font-bold"
-              style={{ background: "rgba(199,231,56,0.18)", color: LIME }}
-            >
-              ✓
-            </span>
+          <li key={b} className="flex items-start gap-3 text-[14.5px]" style={{ color: "rgba(250,250,250,0.78)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={LIME} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-1.5 flex-shrink-0">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
             {b}
           </li>
         ))}
@@ -439,7 +315,7 @@ function FeatureRow({ feature }: { feature: Feature }) {
       className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center"
       style={{
         opacity: inView ? 1 : 0,
-        transform: inView ? "none" : "translateY(40px)",
+        transform: inView ? "none" : "translateY(28px)",
         transition: "opacity 0.7s ease, transform 0.7s ease",
       }}
     >

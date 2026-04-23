@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const LIME = "#C7E738";
+const LIME = "#D4F542";
 const FOREST = "#003A30";
 const FOREST_DEEP = "#001F18";
 const FOREST_MID = "#002B24";
@@ -168,34 +168,44 @@ export default function AssembleScene() {
           }}
         >
           <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-4"
-            style={{
-              background: "rgba(199,231,56,0.12)",
-              color: LIME,
-              border: "1px solid rgba(199,231,56,0.3)",
-            }}
+            className="text-[11px] uppercase mb-6"
+            style={{ letterSpacing: "0.22em", color: "rgba(250,250,250,0.4)" }}
           >
-            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: LIME }} />
-            Scroll to watch LP Studio build a page
+            Scroll to watch it build
           </div>
           <h1
-            className="text-3xl md:text-5xl font-bold leading-tight max-w-3xl mx-auto"
-            style={{ fontFamily: "Outfit, sans-serif" }}
+            className="text-[42px] md:text-[68px] font-semibold leading-[1.02] max-w-3xl mx-auto"
+            style={{
+              fontFamily: "'Inter Tight', sans-serif",
+              letterSpacing: "-0.04em",
+              color: "#FAFAFA",
+            }}
           >
             Your next landing page,{" "}
-            <span style={{ color: LIME }}>assembled in real time.</span>
+            <span
+              style={{
+                fontFamily: "'Instrument Serif', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 400,
+                color: LIME,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              assembled
+            </span>{" "}
+            in real time.
           </h1>
           <p
-            className="mt-5 text-sm md:text-base max-w-md mx-auto"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+            className="mt-6 text-[15px] md:text-[16.5px] max-w-md mx-auto leading-relaxed"
+            style={{ color: "rgba(250,250,250,0.55)" }}
           >
-            Scroll down — watch a hero, visuals, social proof, and a full builder
-            stack itself together. That's LP Studio.
+            A hero, visuals, social proof, and a full builder — stacking
+            themselves into a page as you scroll.
           </p>
-          <div className="mt-8 flex flex-col items-center gap-2 animate-pulse">
+          <div className="mt-10 flex flex-col items-center gap-2 animate-pulse">
             <div
-              className="text-[10px] uppercase tracking-widest"
-              style={{ color: "rgba(199,231,56,0.8)" }}
+              className="text-[10px] uppercase"
+              style={{ letterSpacing: "0.22em", color: "rgba(250,250,250,0.35)" }}
             >
               Scroll
             </div>
@@ -420,7 +430,7 @@ export default function AssembleScene() {
                       <div
                         className="font-bold leading-tight mb-2"
                         style={{
-                          fontFamily: "Outfit, sans-serif",
+                          fontFamily: "'Inter Tight', sans-serif",
                           fontSize: 28,
                           color: "#fff",
                         }}
@@ -441,7 +451,7 @@ export default function AssembleScene() {
                           style={{
                             background: LIME,
                             color: FOREST,
-                            fontFamily: "Outfit, sans-serif",
+                            fontFamily: "'Inter Tight', sans-serif",
                           }}
                         >
                           Start Building Free
@@ -466,7 +476,7 @@ export default function AssembleScene() {
                     className="grid grid-cols-4 gap-2"
                   >
                     {[
-                      { label: "Demo", grad: "linear-gradient(135deg, #C7E738, #6c8a1f)" },
+                      { label: "Demo", grad: "linear-gradient(135deg, #D4F542, #6c8a1f)" },
                       { label: "Product", grad: "linear-gradient(135deg, #5fa9ff, #1a5fa0)" },
                       { label: "Team", grad: "linear-gradient(135deg, #ff8e6e, #b8503a)" },
                       { label: "Outcome", grad: "linear-gradient(135deg, #b87cff, #5e3aa0)" },
@@ -541,7 +551,7 @@ export default function AssembleScene() {
                         <div className="text-base mb-1.5">{f.icon}</div>
                         <div
                           className="text-[11px] font-bold mb-1"
-                          style={{ color: "#fff", fontFamily: "Outfit, sans-serif" }}
+                          style={{ color: "#fff", fontFamily: "'Inter Tight', sans-serif" }}
                         >
                           {f.title}
                         </div>
@@ -568,7 +578,7 @@ export default function AssembleScene() {
                     <div>
                       <div
                         className="text-sm font-bold mb-0.5"
-                        style={{ color: "#fff", fontFamily: "Outfit, sans-serif" }}
+                        style={{ color: "#fff", fontFamily: "'Inter Tight', sans-serif" }}
                       >
                         Want this live for your team?
                       </div>
@@ -749,7 +759,7 @@ export default function AssembleScene() {
             >
               <h2
                 className="text-3xl md:text-5xl font-bold mb-4"
-                style={{ fontFamily: "Outfit, sans-serif", color: "#fff" }}
+                style={{ fontFamily: "'Inter Tight', sans-serif", color: "#fff" }}
               >
                 Now make it <span style={{ color: LIME }}>yours.</span>
               </h2>
@@ -765,7 +775,7 @@ export default function AssembleScene() {
                 style={{
                   background: LIME,
                   color: FOREST,
-                  fontFamily: "Outfit, sans-serif",
+                  fontFamily: "'Inter Tight', sans-serif",
                   boxShadow: "0 0 60px rgba(199,231,56,0.4)",
                 }}
                 onMouseEnter={(e) => {

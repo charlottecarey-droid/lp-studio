@@ -2,70 +2,78 @@ import { useInView } from "@/hooks/useInView";
 
 const testimonials = [
   {
-    quote: "We used to wait two weeks for marketing to build a landing page. Now our AEs spin one up themselves in an afternoon — on brand, with real copy. It's completely changed how we run outbound campaigns.",
-    name: "Rachel T.",
-    role: "VP of Revenue Operations",
-    company: "Series B SaaS · 180 employees",
-    avatar: "RT",
+    quote:
+      "We used to wait two weeks for marketing to build a landing page. Now our AEs spin one up in an afternoon — on brand, with real copy. It's completely changed how we run outbound.",
+    name: "Rachel Tran",
+    role: "VP, Revenue Operations",
+    company: "Series B SaaS",
   },
   {
-    quote: "The visual builder is the best I've used. Fast, intuitive, and the AI copy actually sounds like us — not generic filler. Our conversion rate on outbound pages went up 40% in the first month.",
-    name: "Marcus J.",
+    quote:
+      "The visual builder is the best I've used. Fast, intuitive, and the AI copy actually sounds like us — not generic filler. Our outbound conversion went up 40% in the first month.",
+    name: "Marcus Jordan",
     role: "Head of Demand Generation",
     company: "Growth-stage fintech",
-    avatar: "MJ",
   },
   {
-    quote: "Smart Traffic changed how we think about optimization. Set it up once and it just keeps improving conversion in the background. No babysitting, no analyst needed — it's genuinely set-and-forget.",
-    name: "Priya S.",
-    role: "Director of Performance Marketing",
-    company: "B2B SaaS · Enterprise segment",
-    avatar: "PS",
+    quote:
+      "Smart Traffic changed how we think about optimization. Set it up once and it just keeps improving conversion in the background. No babysitting, no analyst needed.",
+    name: "Priya Shah",
+    role: "Director, Performance Marketing",
+    company: "B2B SaaS · Enterprise",
   },
 ];
 
 export default function Testimonials() {
   const { ref, inView } = useInView();
   return (
-    <section id="testimonials" className="px-6 py-20 md:py-28" style={{ background: "#002B24" }}>
+    <section id="testimonials" className="px-6 py-24 md:py-32" style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
       <div
         ref={ref}
         className="max-w-6xl mx-auto"
-        style={{ opacity: inView ? 1 : 0, transform: inView ? "none" : "translateY(24px)", transition: "opacity 0.6s ease, transform 0.6s ease" }}
+        style={{
+          opacity: inView ? 1 : 0,
+          transform: inView ? "none" : "translateY(20px)",
+          transition: "opacity 0.6s ease, transform 0.6s ease",
+        }}
       >
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5"
-            style={{ background: "rgba(199,231,56,0.08)", color: "#C7E738", border: "1px solid rgba(199,231,56,0.18)" }}>
-            What Teams Are Saying
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
-            Real results from <span style={{ color: "#C7E738" }}>real teams.</span>
+        <div className="max-w-2xl mb-14">
+          <div className="eyebrow mb-5">From the field</div>
+          <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
+            Real results from <span className="font-serif-italic" style={{ color: "#D4F542" }}>real teams</span>.
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {testimonials.map((t) => (
-            <div
+            <figure
               key={t.name}
-              className="rounded-2xl p-8 flex flex-col gap-6"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(199,231,56,0.1)" }}
+              className="rounded-xl p-7 flex flex-col gap-7 h-full"
+              style={{ background: "#0D0D0D", border: "1px solid rgba(255,255,255,0.07)" }}
             >
-              <div className="text-3xl" style={{ color: "#C7E738", fontFamily: "Georgia, serif" }}>"</div>
-              <p className="text-sm leading-relaxed flex-1" style={{ color: "rgba(255,255,255,0.8)" }}>"{t.quote}"</p>
-              <div className="flex items-center gap-3">
+              <blockquote className="font-display text-[17px] leading-[1.45] flex-1" style={{ color: "rgba(250,250,250,0.92)", letterSpacing: "-0.015em" }}>
+                <span className="font-serif-italic text-[28px] leading-[0] mr-1 inline-block translate-y-2" style={{ color: "#D4F542" }}>
+                  &ldquo;
+                </span>
+                {t.quote}
+              </blockquote>
+              <figcaption className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ background: "rgba(199,231,56,0.15)", color: "#C7E738" }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(250,250,250,0.85)", border: "1px solid rgba(255,255,255,0.08)" }}
                 >
-                  {t.avatar}
+                  {t.name.split(" ").map((n) => n[0]).join("")}
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-white">{t.name}</div>
-                  <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{t.role}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{t.company}</div>
+                <div className="leading-tight">
+                  <div className="text-[13.5px] font-medium" style={{ color: "#FAFAFA" }}>
+                    {t.name}
+                  </div>
+                  <div className="text-[12px]" style={{ color: "rgba(250,250,250,0.45)" }}>
+                    {t.role} · {t.company}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </figcaption>
+            </figure>
           ))}
         </div>
       </div>

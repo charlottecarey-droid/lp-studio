@@ -8,10 +8,10 @@ export default function Privacy() {
       <main className="max-w-3xl mx-auto px-6 py-32">
         <div className="mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6"
-            style={{ background: "rgba(199,231,56,0.08)", color: "#C7E738", border: "1px solid rgba(199,231,56,0.18)" }}>
+            style={{ background: "rgba(199,231,56,0.08)", color: "#D4F542", border: "1px solid rgba(199,231,56,0.18)" }}>
             Legal
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "'Inter Tight', sans-serif" }}>
             Privacy Policy
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)" }} className="text-sm">Last updated: April 2026</p>
@@ -48,7 +48,7 @@ export default function Privacy() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">4. Data Retention</h2>
-            <p>We retain your data for as long as your account is active or as needed to provide services. You can request deletion of your account and associated data at any time by contacting us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#C7E738" }}>privacy@lpstudio.ai</a>.</p>
+            <p>We retain your data for as long as your account is active or as needed to provide services. You can request deletion of your account and associated data at any time by contacting us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#D4F542" }}>privacy@lpstudio.ai</a>.</p>
           </section>
 
           <section>
@@ -63,7 +63,7 @@ export default function Privacy() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">7. Your Rights</h2>
-            <p>Depending on your location, you may have rights to access, correct, port, or delete your personal data. To exercise these rights, contact us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#C7E738" }}>privacy@lpstudio.ai</a>.</p>
+            <p>Depending on your location, you may have rights to access, correct, port, or delete your personal data. To exercise these rights, contact us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#D4F542" }}>privacy@lpstudio.ai</a>.</p>
           </section>
 
           <section>
@@ -73,7 +73,7 @@ export default function Privacy() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">9. Contact</h2>
-            <p>Questions about this policy? Email us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#C7E738" }}>privacy@lpstudio.ai</a>.</p>
+            <p>Questions about this policy? Email us at <a href="mailto:privacy@lpstudio.ai" className="underline" style={{ color: "#D4F542" }}>privacy@lpstudio.ai</a>.</p>
           </section>
         </div>
       </main>

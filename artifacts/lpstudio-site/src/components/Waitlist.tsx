@@ -1,50 +1,73 @@
 import { useInView } from "@/hooks/useInView";
 
+const LIME = "#D4F542";
+
 export default function Waitlist() {
   const { ref, inView } = useInView();
 
   return (
     <section
       id="waitlist"
-      className="px-6 py-20 md:py-28"
-      style={{ background: "#003A30", borderTop: "1px solid rgba(199,231,56,0.12)" }}
+      className="px-6 py-28 md:py-36 relative overflow-hidden"
+      style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}
     >
       <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 700px 280px at 50% 100%, rgba(212,245,66,0.06), transparent 70%)",
+        }}
+      />
+      <div
         ref={ref}
-        className="max-w-2xl mx-auto text-center"
-        style={{ opacity: inView ? 1 : 0, transform: inView ? "none" : "translateY(24px)", transition: "opacity 0.6s ease, transform 0.6s ease" }}
+        className="relative max-w-2xl mx-auto text-center"
+        style={{
+          opacity: inView ? 1 : 0,
+          transform: inView ? "none" : "translateY(20px)",
+          transition: "opacity 0.6s ease, transform 0.6s ease",
+        }}
       >
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6"
-          style={{ background: "rgba(199,231,56,0.08)", color: "#C7E738", border: "1px solid rgba(199,231,56,0.18)" }}>
-          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: "#C7E738" }} />
-          Free to start — no credit card required
-        </div>
+        <div className="eyebrow mb-6">Free to start — no card required</div>
 
-        <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
-          Ready to build pages that <span style={{ color: "#C7E738" }}>convert?</span>
+        <h2 className="font-display text-[44px] md:text-[60px] leading-[1] font-semibold text-white">
+          Build pages that <span className="font-serif-italic" style={{ color: LIME }}>convert</span>.
         </h2>
-        <p className="text-lg mb-10" style={{ color: "rgba(255,255,255,0.55)" }}>
+        <p className="mt-6 text-[17px] leading-relaxed" style={{ color: "rgba(250,250,250,0.6)" }}>
           Sign in with Google, create your workspace in 30 seconds, and start building.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
             href="https://app.lpstudio.ai"
-            className="px-10 py-4 rounded-full text-base font-bold transition-all"
-            style={{
-              background: "#C7E738",
-              color: "#003A30",
-              fontFamily: "Outfit, sans-serif",
-              boxShadow: "0 0 40px rgba(199,231,56,0.25)"
+            className="px-6 py-3 rounded-md text-[14px] font-medium transition-all"
+            style={{ background: LIME, color: "#0A0A0A" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#dcf85a";
+              e.currentTarget.style.transform = "translateY(-1px)";
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "#d6f54a"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "#C7E738"; e.currentTarget.style.transform = "translateY(0)"; }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = LIME;
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
           >
-            Create Your Workspace
+            Create your workspace
+          </a>
+          <a
+            href="mailto:sales@lpstudio.ai?subject=LP%20Studio%20demo"
+            className="px-6 py-3 rounded-md text-[14px] font-medium transition-colors"
+            style={{
+              background: "transparent",
+              color: "rgba(250,250,250,0.85)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            Talk to sales →
           </a>
         </div>
 
-        <p className="text-xs mt-6" style={{ color: "rgba(255,255,255,0.3)" }}>
+        <p className="text-[12px] mt-6" style={{ color: "rgba(250,250,250,0.35)" }}>
           Sign in with Google · No setup required · Cancel any time
         </p>
       </div>

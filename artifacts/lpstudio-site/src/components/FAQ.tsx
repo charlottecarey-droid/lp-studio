@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useInView } from "@/hooks/useInView";
 
-const LIME = "#C7E738";
-
 const faqs = [
   {
     q: "How fast can my team actually launch a page?",
@@ -10,11 +8,11 @@ const faqs = [
   },
   {
     q: "Do I need design or eng help to use this?",
-    a: "No. Brand tokens and approved blocks are baked in by your design team once, and after that anyone on the team can ship on-brand pages. If you do want to customize a block, the builder has a properties panel — and devs can extend the block library with custom React components.",
+    a: "No. Brand tokens and approved blocks are baked in by your design team once, and after that anyone on the team can ship on-brand pages. If you do want to customize, the builder has a properties panel — and devs can extend the block library with custom React components.",
   },
   {
     q: "How does A/B testing work?",
-    a: "Create variants right in the editor, set your winning metric (clicks, signups, booked meetings), and split traffic. LP Studio detects significance automatically and Smart Traffic routes the majority of visitors to the winning variant once it's clear.",
+    a: "Create variants right in the editor, set your winning metric (clicks, signups, booked meetings), and split traffic. We detect significance automatically and Smart Traffic routes the majority of visitors to the winning variant once it's clear.",
   },
   {
     q: "Where does the page actually live?",
@@ -22,7 +20,7 @@ const faqs = [
   },
   {
     q: "What about analytics and tracking?",
-    a: "Built-in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4, Segment, and your CRM — so the data flows where your revenue team already looks.",
+    a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4, Segment, and your CRM — so the data flows where your revenue team already looks.",
   },
   {
     q: "How is this different from Webflow or Unbounce?",
@@ -34,88 +32,55 @@ export default function FAQ() {
   const { ref, inView } = useInView();
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section
-      id="faq"
-      className="px-6 py-20 md:py-28 relative"
-      style={{ background: "#000" }}
-    >
+    <section id="faq" className="px-6 py-24 md:py-32" style={{ background: "#0A0A0A", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
       <div
         ref={ref}
         className="max-w-3xl mx-auto"
         style={{
           opacity: inView ? 1 : 0,
-          transform: inView ? "none" : "translateY(20px)",
+          transform: inView ? "none" : "translateY(16px)",
           transition: "opacity 0.6s ease, transform 0.6s ease",
         }}
       >
-        <div className="text-center mb-12">
-          <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5"
-            style={{
-              background: "rgba(199,231,56,0.08)",
-              color: LIME,
-              border: "1px solid rgba(199,231,56,0.18)",
-            }}
-          >
-            Common questions
-          </div>
-          <h2
-            className="text-4xl md:text-5xl font-bold mb-4 text-white"
-            style={{ fontFamily: "Outfit, sans-serif" }}
-          >
-            The <span style={{ color: LIME }}>short answers.</span>
+        <div className="mb-12">
+          <div className="eyebrow mb-5">Common questions</div>
+          <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
+            The <span className="font-serif-italic" style={{ color: "#D4F542" }}>short answers</span>.
           </h2>
         </div>
 
-        <div className="space-y-3">
+        <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           {faqs.map((f, i) => {
             const isOpen = open === i;
             return (
-              <div
-                key={f.q}
-                className="rounded-xl overflow-hidden transition-all"
-                style={{
-                  background: isOpen
-                    ? "rgba(199,231,56,0.04)"
-                    : "rgba(255,255,255,0.03)",
-                  border: isOpen
-                    ? "1px solid rgba(199,231,56,0.25)"
-                    : "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
+              <div key={f.q} className="border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
                 <button
                   onClick={() => setOpen(isOpen ? null : i)}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left transition-colors"
-                  style={{ color: "#fff" }}
+                  className="w-full flex items-center justify-between gap-6 py-5 text-left transition-colors group"
                 >
                   <span
-                    className="text-base md:text-lg font-semibold"
-                    style={{ fontFamily: "Outfit, sans-serif" }}
+                    className="font-display text-[17px] md:text-[18px] font-medium"
+                    style={{ color: isOpen ? "#FAFAFA" : "rgba(250,250,250,0.85)" }}
                   >
                     {f.q}
                   </span>
                   <span
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold transition-transform"
+                    className="flex-shrink-0 transition-transform"
                     style={{
-                      background: isOpen ? LIME : "rgba(255,255,255,0.06)",
-                      color: isOpen ? "#003A30" : "rgba(255,255,255,0.5)",
+                      color: "rgba(250,250,250,0.5)",
                       transform: isOpen ? "rotate(45deg)" : "none",
                     }}
                   >
-                    +
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
                   </span>
                 </button>
                 <div
                   className="overflow-hidden transition-all"
-                  style={{
-                    maxHeight: isOpen ? 400 : 0,
-                    opacity: isOpen ? 1 : 0,
-                  }}
+                  style={{ maxHeight: isOpen ? 400 : 0, opacity: isOpen ? 1 : 0 }}
                 >
-                  <p
-                    className="px-5 pb-5 text-sm md:text-base leading-relaxed"
-                    style={{ color: "rgba(255,255,255,0.65)" }}
-                  >
+                  <p className="pb-6 pr-10 text-[15px] leading-relaxed" style={{ color: "rgba(250,250,250,0.6)" }}>
                     {f.a}
                   </p>
                 </div>
@@ -124,19 +89,12 @@ export default function FAQ() {
           })}
         </div>
 
-        <div
-          className="mt-12 text-center text-sm"
-          style={{ color: "rgba(255,255,255,0.5)" }}
-        >
+        <p className="mt-10 text-[14px]" style={{ color: "rgba(250,250,250,0.45)" }}>
           Still curious?{" "}
-          <a
-            href="#waitlist"
-            className="font-semibold underline underline-offset-4 transition-colors"
-            style={{ color: LIME }}
-          >
+          <a href="#waitlist" className="underline underline-offset-4 transition-colors" style={{ color: "#D4F542" }}>
             Get early access and we'll show you a live walkthrough.
           </a>
-        </div>
+        </p>
       </div>
     </section>
   );
