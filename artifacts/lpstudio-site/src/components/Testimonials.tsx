@@ -40,7 +40,7 @@ export default function Testimonials() {
         <div className="max-w-2xl mb-14">
           <div className="eyebrow mb-5">From the field</div>
           <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Real results from <span className="font-serif-italic" style={{ color: "#D4F542" }}>real teams</span>.
+            Real results from <span className="" style={{ color: "#D4F542" }}>real teams</span>.
           </h2>
         </div>
 
@@ -52,9 +52,6 @@ export default function Testimonials() {
               style={{ background: "#0D0D0D", border: "1px solid rgba(255,255,255,0.07)" }}
             >
               <blockquote className="font-display text-[17px] leading-[1.45] flex-1" style={{ color: "rgba(250,250,250,0.92)", letterSpacing: "-0.015em" }}>
-                <span className="font-serif-italic text-[28px] leading-[0] mr-1 inline-block translate-y-2" style={{ color: "#D4F542" }}>
-                  &ldquo;
-                </span>
                 {t.quote}
               </blockquote>
               <figcaption className="flex items-center gap-3">

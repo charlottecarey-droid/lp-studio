@@ -30,7 +30,7 @@ export default function Waitlist() {
         <div className="eyebrow mb-6">Free to start — no card required</div>
 
         <h2 className="font-display text-[44px] md:text-[60px] leading-[1] font-semibold text-white">
-          Build pages that <span className="font-serif-italic" style={{ color: LIME }}>convert</span>.
+          Build pages that <span className="" style={{ color: LIME }}>convert</span>.
         </h2>
         <p className="mt-6 text-[17px] leading-relaxed" style={{ color: "rgba(250,250,250,0.6)" }}>
           Sign in with Google, create your workspace in 30 seconds, and start building.

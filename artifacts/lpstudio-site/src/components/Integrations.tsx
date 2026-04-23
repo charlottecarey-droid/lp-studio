@@ -36,7 +36,7 @@ export default function Integrations() {
           <div className="eyebrow mb-5">Plays nice with your stack</div>
           <h2 className="font-display text-3xl md:text-4xl leading-[1.1] font-semibold text-white">
             Drops into the tools you{" "}
-            <span className="font-serif-italic" style={{ color: "#D4F542" }}>
+            <span className="" style={{ color: "#D4F542" }}>
               already use
             </span>.
           </h2>

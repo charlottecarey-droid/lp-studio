@@ -141,8 +141,8 @@ function BrandTokensVisual() {
         <div className="text-[13px]" style={{ color: "rgba(250,250,250,0.65)" }}>
           Body — Inter
         </div>
-        <div className="font-serif-italic text-[15px] mt-0.5" style={{ color: LIME }}>
-          accent — Instrument Serif
+        <div className="font-display text-[15px] mt-0.5" style={{ color: LIME, letterSpacing: "-0.01em" }}>
+          accent — lime
         </div>
       </div>
     </Card>
@@ -224,7 +224,7 @@ const features: Feature[] = [
     eyebrow: "Voice-tuned AI",
     title: (
       <>
-        Copy that sounds like <span className="font-serif-italic" style={{ color: LIME }}>you</span>, not the AI.
+        Copy that sounds like <span className="" style={{ color: LIME }}>you</span>, not the AI.
       </>
     ),
     body:
@@ -237,7 +237,7 @@ const features: Feature[] = [
     eyebrow: "Brand-locked, always",
     title: (
       <>
-        Tokens enforce the brand. Blocks enforce the <span className="font-serif-italic" style={{ color: LIME }}>taste</span>.
+        Tokens enforce the brand. Blocks enforce the <span className="" style={{ color: LIME }}>taste</span>.
       </>
     ),
     body:
@@ -250,7 +250,7 @@ const features: Feature[] = [
     eyebrow: "Test, learn, automate",
     title: (
       <>
-        A/B testing built for revenue, not <span className="font-serif-italic" style={{ color: LIME }}>engineers</span>.
+        A/B testing built for revenue, not <span className="" style={{ color: LIME }}>engineers</span>.
       </>
     ),
     body:
@@ -268,7 +268,7 @@ export default function DeepFeatures() {
         <div className="max-w-2xl mb-20 md:mb-24">
           <div className="eyebrow mb-5">What's inside</div>
           <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Every part of the page, <span className="font-serif-italic" style={{ color: LIME }}>solved</span>.
+            Every part of the page, <span className="" style={{ color: LIME }}>solved</span>.
           </h2>
           <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
             From copy to conversion. Three things LP Studio does that the cobbled-together stack can't.

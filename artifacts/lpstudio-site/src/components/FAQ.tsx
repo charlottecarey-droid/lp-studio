@@ -45,7 +45,7 @@ export default function FAQ() {
         <div className="mb-12">
           <div className="eyebrow mb-5">Common questions</div>
           <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            The <span className="font-serif-italic" style={{ color: "#D4F542" }}>short answers</span>.
+            The <span className="" style={{ color: "#D4F542" }}>short answers</span>.
           </h2>
         </div>
 

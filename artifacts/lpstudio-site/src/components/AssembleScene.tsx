@@ -111,12 +111,7 @@ function MockHero({ in: vis }: { in: number }) {
       >
         Landing pages that{" "}
         <span
-          style={{
-            fontFamily: "'Instrument Serif', Georgia, serif",
-            fontStyle: "italic",
-            fontWeight: 400,
-            letterSpacing: "-0.01em",
-            color: LIME,
+          style={{            color: LIME,
           }}
         >
           convert
@@ -312,11 +307,7 @@ function MockCTA({ in: vis }: { in: number }) {
         >
           See it on a real{" "}
           <span
-            style={{
-              fontFamily: "'Instrument Serif', Georgia, serif",
-              fontStyle: "italic",
-              fontWeight: 400,
-              color: LIME,
+            style={{              color: LIME,
             }}
           >
             page
@@ -544,12 +535,7 @@ export default function AssembleScene() {
             Your next landing page,
             <br />
             <span
-              style={{
-                fontFamily: "'Instrument Serif', Georgia, serif",
-                fontStyle: "italic",
-                fontWeight: 400,
-                letterSpacing: "-0.02em",
-                color: LIME,
+              style={{                color: LIME,
               }}
             >
               assembled
@@ -602,11 +588,7 @@ export default function AssembleScene() {
                   <>
                     Start with a{" "}
                     <span
-                      style={{
-                        fontFamily: "'Instrument Serif', Georgia, serif",
-                        fontStyle: "italic",
-                        fontWeight: 400,
-                        color: LIME,
+                      style={{                        color: LIME,
                       }}
                     >
                       hero
@@ -623,11 +605,7 @@ export default function AssembleScene() {
                   <>
                     Visuals and{" "}
                     <span
-                      style={{
-                        fontFamily: "'Instrument Serif', Georgia, serif",
-                        fontStyle: "italic",
-                        fontWeight: 400,
-                        color: LIME,
+                      style={{                        color: LIME,
                       }}
                     >
                       features
@@ -644,11 +622,7 @@ export default function AssembleScene() {
                   <>
                     Proof and a{" "}
                     <span
-                      style={{
-                        fontFamily: "'Instrument Serif', Georgia, serif",
-                        fontStyle: "italic",
-                        fontWeight: 400,
-                        color: LIME,
+                      style={{                        color: LIME,
                       }}
                     >
                       conversion
@@ -665,11 +639,7 @@ export default function AssembleScene() {
                   <>
                     Then it's{" "}
                     <span
-                      style={{
-                        fontFamily: "'Instrument Serif', Georgia, serif",
-                        fontStyle: "italic",
-                        fontWeight: 400,
-                        color: LIME,
+                      style={{                        color: LIME,
                       }}
                     >
                       yours

@@ -77,7 +77,7 @@ export default function UseCases() {
         <div className="max-w-2xl mb-16">
           <div className="eyebrow mb-5">For the whole revenue org</div>
           <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Pages for every <span className="font-serif-italic" style={{ color: "#D4F542" }}>play</span>.
+            Pages for every <span className="" style={{ color: "#D4F542" }}>play</span>.
           </h2>
           <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
             Sales, demand gen, launches, success — one builder, every motion.

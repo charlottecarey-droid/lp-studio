@@ -75,7 +75,7 @@ export default function Pricing() {
         <div className="max-w-2xl mb-14">
           <div className="eyebrow mb-5">Pricing</div>
           <h2 className="font-display text-4xl md:text-[44px] leading-[1.05] font-semibold text-white">
-            Start free. <span className="font-serif-italic" style={{ color: LIME }}>Scale</span> when you win.
+            Start free. <span className="" style={{ color: LIME }}>Scale</span> when you win.
           </h2>
           <p className="mt-5 text-[16px] leading-relaxed" style={{ color: "rgba(250,250,250,0.55)" }}>
             No contracts. No surprises. Cancel any time.
