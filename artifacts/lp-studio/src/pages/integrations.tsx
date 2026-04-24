@@ -204,9 +204,10 @@ export function IntegrationsContent() {
           <div className="px-6 py-6 space-y-5">
             <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
               <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
-              <p>1. In Marketo Admin, go to <strong>LaunchPoint</strong> → <strong>New Service</strong> → select <strong>Custom</strong> to create an API-only user.</p>
+              <p>1. In Marketo Admin, go to <strong>LaunchPoint</strong> → <strong>New Service</strong> → select <strong>Custom</strong> to create an API-only user. Make sure the API user role has at least <strong>Read-Write Lead</strong> access.</p>
               <p>2. Under <strong>Admin → Web Services</strong>, find your <strong>Munchkin ID</strong> and the <strong>REST API</strong> client credentials.</p>
-              <p>3. Paste them below. Field mappings (which form fields go to which Marketo fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+              <p>3. Paste them below. Field mappings (which form fields go to which Marketo fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a> — open the Marketo section there for a full setup guide.</p>
+              <p className="pt-1"><strong className="text-foreground">UTM auto-injection:</strong> when this integration is on, the visitor's <code className="bg-muted px-1 rounded">utm_source / medium / campaign / term / content</code> are sent to Marketo on every submission — no hidden form fields needed. Add per-form mappings to route them to your custom Marketo fields (e.g. <code className="bg-muted px-1 rounded">utm_source:uTMSource__c</code>).</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Munchkin ID</Label>

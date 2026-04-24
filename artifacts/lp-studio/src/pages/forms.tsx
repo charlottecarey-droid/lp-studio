@@ -449,6 +449,59 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                       onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setMarketoMappings(m); }}
                     />
                   </div>
+
+                  <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-foreground select-none">
+                      How to set up Marketo field mappings
+                    </summary>
+                    <div className="pt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">How it works</p>
+                        <p>The left side is your <strong>form field label</strong> (exactly as it appears on the form). The right side is the Marketo field's <strong>REST API name</strong> — not its display name. If a form field's label exactly matches a Marketo REST name, you can omit it and the value still flows through.</p>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">Standard Marketo fields</p>
+                        <pre className="bg-muted px-3 py-2 rounded text-[11px] font-mono whitespace-pre overflow-x-auto">{`Email Address:email           ← required (lookup key)
+Full Name:firstName
+Last Name:lastName
+Company:company
+Job Title:title
+Phone:phone
+Mobile:mobilePhone
+Website:website
+City:city
+State:state
+Country:country
+Postal Code:postalCode
+Industry:industry`}</pre>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">UTM tracking (auto-injected)</p>
+                        <p className="mb-1.5">UTMs captured from the visitor's session are sent to Marketo on every submission — you don't need hidden form fields. By default they're sent under the literal names <code className="bg-muted px-1 rounded">utm_source</code>, <code className="bg-muted px-1 rounded">utm_medium</code>, <code className="bg-muted px-1 rounded">utm_campaign</code>, <code className="bg-muted px-1 rounded">utm_term</code>, <code className="bg-muted px-1 rounded">utm_content</code>. To route them to your custom fields, map them like any other field:</p>
+                        <pre className="bg-muted px-3 py-2 rounded text-[11px] font-mono whitespace-pre overflow-x-auto">{`utm_source:uTMSource__c
+utm_medium:uTMMedium__c
+utm_campaign:uTMCampaign__c
+utm_term:uTMTerm__c
+utm_content:uTMContent__c`}</pre>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">Finding REST API names in Marketo</p>
+                        <p>Marketo Admin → <strong>Field Management</strong>. The <strong>REST API Name</strong> column is what you paste here. Custom fields almost always end in <code className="bg-muted px-1 rounded">__c</code>. Names are case-sensitive.</p>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">Gotchas</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Email is required.</strong> Marketo uses email as the lookup key — submissions without an email are dropped.</li>
+                          <li><strong>Custom fields must exist in Marketo first.</strong> Mapping to a non-existent field fails silently (the field is dropped, not errored).</li>
+                          <li><strong>Hidden form UTMs win.</strong> If a form already has a hidden field named <code className="bg-muted px-1 rounded">utm_source</code>, that value is used instead of the auto-injected one.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               )}
             </div>
@@ -479,6 +532,47 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                       onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setSalesforceMappings(m); }}
                     />
                   </div>
+
+                  <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-foreground select-none">
+                      How to set up Salesforce field mappings
+                    </summary>
+                    <div className="pt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">How it works</p>
+                        <p>The left side is your <strong>form field label</strong> (exactly as it appears on the form). The right side is the Salesforce <strong>API Name</strong> on the Lead object — case-sensitive. Custom fields end in <code className="bg-muted px-1 rounded">__c</code>.</p>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">Standard Lead fields</p>
+                        <pre className="bg-muted px-3 py-2 rounded text-[11px] font-mono whitespace-pre overflow-x-auto">{`Email Address:Email           ← required
+First Name:FirstName
+Last Name:LastName            ← required by Salesforce
+Company:Company               ← required by Salesforce
+Job Title:Title
+Phone:Phone
+Mobile:MobilePhone
+Website:Website
+City:City
+State:State
+Country:Country
+Postal Code:PostalCode
+Industry:Industry
+Lead Source:LeadSource`}</pre>
+                        <p className="mt-1.5"><strong>Tip:</strong> Salesforce requires <code className="bg-muted px-1 rounded">LastName</code> and <code className="bg-muted px-1 rounded">Company</code> on every Lead. If your form only collects a single name field, map it to <code className="bg-muted px-1 rounded">LastName</code>. If you don't collect a company, set a default in Salesforce or Lead creation will fail.</p>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">Finding API names in Salesforce</p>
+                        <p>Setup → <strong>Object Manager → Lead → Fields & Relationships</strong>. The <strong>Field Name</strong> column (not Label) is what you paste here.</p>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">UTM tracking</p>
+                        <p>UTM auto-injection is currently Marketo-only. To send UTMs to Salesforce, add hidden form fields named <code className="bg-muted px-1 rounded">utm_source</code>, <code className="bg-muted px-1 rounded">utm_medium</code>, etc., then map them to your custom Lead fields here.</p>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               )}
             </div>
