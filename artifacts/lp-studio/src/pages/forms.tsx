@@ -272,7 +272,27 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const [showSalesforce, setShowSalesforce] = useState(!!form.salesforceConfig);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { setLocal(form); setShowMarketo(!!form.marketoConfig); setShowSalesforce(!!form.salesforceConfig); }, [form.id]);
+  const mappingsToText = (m: Record<string, string> | undefined) =>
+    Object.entries(m ?? {}).map(([k, v]) => `${k}:${v}`).join("\n");
+  const textToMappings = (text: string): Record<string, string> => {
+    const m: Record<string, string> = {};
+    text.split("\n").forEach(line => {
+      const [k, ...rest] = line.split(":");
+      if (k && rest.length) m[k.trim()] = rest.join(":").trim();
+    });
+    return m;
+  };
+
+  const [marketoText, setMarketoText] = useState(mappingsToText(form.marketoConfig?.fieldMappings));
+  const [salesforceText, setSalesforceText] = useState(mappingsToText(form.salesforceConfig?.fieldMappings));
+
+  useEffect(() => {
+    setLocal(form);
+    setShowMarketo(!!form.marketoConfig);
+    setShowSalesforce(!!form.salesforceConfig);
+    setMarketoText(mappingsToText(form.marketoConfig?.fieldMappings));
+    setSalesforceText(mappingsToText(form.salesforceConfig?.fieldMappings));
+  }, [form.id]);
 
   const set = <K extends keyof GlobalForm>(k: K, v: GlobalForm[K]) => setLocal(p => ({ ...p, [k]: v }));
 
@@ -445,8 +465,8 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                     <p className="text-xs text-muted-foreground mb-2">Map form field labels to Marketo field names — one per line (Label:marketoFieldName)</p>
                     <Textarea rows={4} className="text-sm font-mono"
                       placeholder={"Full Name:firstName\nEmail Address:email\nPhone Number:phone"}
-                      value={Object.entries(local.marketoConfig?.fieldMappings ?? {}).map(([k, v]) => `${k}:${v}`).join("\n")}
-                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setMarketoMappings(m); }}
+                      value={marketoText}
+                      onChange={e => { setMarketoText(e.target.value); setMarketoMappings(textToMappings(e.target.value)); }}
                     />
                   </div>
 
@@ -528,8 +548,8 @@ utm_content:uTMContent__c`}</pre>
                     <p className="text-xs text-muted-foreground mb-2">Map form field labels to Salesforce field names — one per line (Label:SalesforceField)</p>
                     <Textarea rows={4} className="text-sm font-mono"
                       placeholder={"Full Name:LastName\nEmail Address:Email\nPhone Number:Phone"}
-                      value={Object.entries(local.salesforceConfig?.fieldMappings ?? {}).map(([k, v]) => `${k}:${v}`).join("\n")}
-                      onChange={e => { const m: Record<string, string> = {}; e.target.value.split("\n").forEach(line => { const [k, ...rest] = line.split(":"); if (k && rest.length) m[k.trim()] = rest.join(":").trim(); }); setSalesforceMappings(m); }}
+                      value={salesforceText}
+                      onChange={e => { setSalesforceText(e.target.value); setSalesforceMappings(textToMappings(e.target.value)); }}
                     />
                   </div>
 
