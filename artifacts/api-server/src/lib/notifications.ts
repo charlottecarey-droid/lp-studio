@@ -141,6 +141,13 @@ export interface LeadPayload {
   variantName?: string;
   fields: Record<string, unknown>;
   submittedAt: string;
+  utm?: {
+    source?: string | null;
+    medium?: string | null;
+    campaign?: string | null;
+    term?: string | null;
+    content?: string | null;
+  };
 }
 
 export interface EmailRecipient {
@@ -279,6 +286,27 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
     for (const [formField, value] of Object.entries(lead.fields)) {
       const marketoField = mappings[formField] ?? formField;
       marketoFields[marketoField] = value;
+    }
+    // Auto-inject UTM attribution. Only set fields that have a value AND
+    // (a) the user has explicitly mapped them, OR (b) the form didn't
+    // already include them (so we never overwrite a hidden form UTM).
+    if (lead.utm) {
+      const utmPairs: Array<[string, string | null | undefined]> = [
+        ["utm_source",   lead.utm.source],
+        ["utm_medium",   lead.utm.medium],
+        ["utm_campaign", lead.utm.campaign],
+        ["utm_term",     lead.utm.term],
+        ["utm_content",  lead.utm.content],
+      ];
+      for (const [key, value] of utmPairs) {
+        if (!value) continue;
+        const marketoField = mappings[key];
+        if (marketoField) {
+          marketoFields[marketoField] = value;
+        } else if (!(key in marketoFields)) {
+          marketoFields[key] = value;
+        }
+      }
     }
 
     const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {

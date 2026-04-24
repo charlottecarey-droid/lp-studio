@@ -176,6 +176,13 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         variantName,
         fields: fields as Record<string, unknown>,
         submittedAt: (lead.createdAt as Date).toISOString(),
+        utm: {
+          source: utmSource,
+          medium: utmMedium,
+          campaign: utmCampaign,
+          term: utmTerm,
+          content: utmContent,
+        },
       };
 
       let emailRecipients: string[] = [];
