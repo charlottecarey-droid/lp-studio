@@ -54,6 +54,7 @@ import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { EventPagePanel } from "./EventPagePanel";
+import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
@@ -4348,6 +4349,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "event-page":
         return (
           <EventPagePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "spatial-tour":
+        return (
+          <SpatialTourPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
 
@@ -11,21 +11,9 @@ const CREAM = "#ECEAE6";
 const WHITE = "#FFFFFF";
 const INK2 = "#5A6862";
 
-// ─── Inject Bagoss + Inter ─────────────────────────────────────
-function useSpatialTourFonts() {
-  useEffect(() => {
-    const id = "spatial-tour-fonts";
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }, []);
-}
-
-const SERIF = "'EB Garamond', 'Bagoss Standard', Georgia, serif";
+// Bagoss Standard + Inter are loaded globally via `index.css` @font-face,
+// so no runtime font injection is needed here.
+const SERIF = "'Bagoss Standard', 'EB Garamond', Georgia, serif";
 const SANS = "'Inter', system-ui, sans-serif";
 
 // ─── Atoms ─────────────────────────────────────────────────────
