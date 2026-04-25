@@ -59,8 +59,25 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
     return;
   }
 
-  const { pageId, variantId, formId, fields, sessionId: bodySessionId } = parsed.data;
+  const { pageId, variantId, formId, sessionId: bodySessionId } = parsed.data;
   const idempotencyKey = req.headers["x-idempotency-key"] as string | undefined;
+
+  // Enrich the submitted fields with Cloudflare-supplied geo headers when available.
+  // Cloudflare sets `cf-ipcountry` (ISO 3166-1 alpha-2) on every proxied request.
+  // We only set the field if the form actually has a labeled slot for it AND the
+  // visitor didn't already submit a value (so manual entries always win).
+  const fields: Record<string, unknown> = { ...(parsed.data.fields as Record<string, unknown>) };
+  const cfCountry = req.headers["cf-ipcountry"];
+  const country = typeof cfCountry === "string" && cfCountry && cfCountry !== "XX" && cfCountry !== "T1"
+    ? cfCountry.toUpperCase()
+    : null;
+  if (country) {
+    for (const key of ["IP Country", "ip_country", "ipCountry", "Country"]) {
+      if (key in fields && (fields[key] === "" || fields[key] == null)) {
+        fields[key] = country;
+      }
+    }
+  }
 
   const [page] = await db.select().from(lpPagesTable).where(eq(lpPagesTable.id, pageId));
   if (!page) {
