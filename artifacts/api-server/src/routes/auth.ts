@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { findTenantByHost, extractWildcardSlug } from "../lib/tenantHosts";
+import { getRequestHost } from "../lib/requestHost";
 
 const router = Router();
 
@@ -68,11 +69,9 @@ function getOAuthClient(redirectUri?: string): OAuth2Client | null {
 
 // GET /api/auth/google — initiates Google OAuth flow
 router.get("/auth/google", oauthInitLimiter, (req, res): void => {
-  // Determine the host the request came from (custom domain or dev domain)
-  const originHost =
-    (req.headers["x-forwarded-host"] as string)?.split(",")[0].trim() ||
-    (req.headers.host as string) ||
-    "";
+  // Determine the host the request came from (custom domain, wildcard tenant
+  // subdomain via Cloudflare Worker, or dev domain).
+  const originHost = getRequestHost(req);
   const redirectUri = getRedirectUri(originHost);
   const client = getOAuthClient(redirectUri);
   if (!client) {
@@ -612,12 +611,10 @@ router.post("/auth/password", async (req, res): Promise<void> => {
 // and to detect microsite-only domains where only public LP pages should render.
 router.get("/auth/domain-context", async (req, res): Promise<void> => {
   try {
-    const hostHeader =
-      (req.query.host as string) ||
-      (req.headers["x-forwarded-host"] as string) ||
-      req.headers.host ||
-      "";
-    const domain = hostHeader.split(":")[0].toLowerCase();
+    const queryHost = (req.query.host as string) || "";
+    const domain = queryHost
+      ? queryHost.split(":")[0].toLowerCase()
+      : getRequestHost(req);
 
     if (!domain) {
       res.json({ mode: "open", tenantId: null, tenantName: null, tenantSlug: null, micrositeDomain: null });

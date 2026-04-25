@@ -93,6 +93,16 @@ A React + Vite application providing the user interface for the A/B testing plat
 - **Frontend Logic**: `AuthGate` component adapts UI and access based on `domainContext`, handling sign-in, "Access Pending," or "Create workspace" flows.
 - **Tenant Provisioning**: Supports programmatic provisioning of new tenants and future self-serve signup.
 
+### Wildcard Tenant Subdomains via Cloudflare Worker
+
+Replit's deployment edge only honours the `Host` header for hostnames explicitly registered as custom domains. To unlock self-serve `*.lpstudio.ai` subdomains without per-tenant Replit registration:
+
+- **Cloudflare Worker** (`cloudflare/tenant-host-router`) sits in front of `*.lpstudio.ai`, forwards requests to the canonical Replit deployment URL (which Replit accepts), and passes the real visitor hostname in `X-Original-Host` along with a shared-secret `X-Worker-Secret` header.
+- **Host resolver** (`artifacts/api-server/src/lib/requestHost.ts`) — `getRequestHost(req)` is the single source of truth for the request's effective tenant host. It honours `X-Original-Host` only when `X-Worker-Secret` matches the `WORKER_HOST_SECRET` env var, then falls through to `X-Forwarded-Host` and finally `Host`. This is wired into `auth.ts`, `requireAuth.ts`, and `lp/tracking.ts`.
+- **Required secret**: `WORKER_HOST_SECRET` must be set on both the Replit deployment and the Cloudflare Worker (same value).
+- **Passthrough hosts**: `lpstudio.ai`, `www.lpstudio.ai`, and `app.lpstudio.ai` bypass the worker (already registered as Replit custom domains).
+- See `cloudflare/tenant-host-router/README.md` for deploy + DNS steps.
+
 # External Dependencies
 
 - **pnpm**: Monorepo package manager.

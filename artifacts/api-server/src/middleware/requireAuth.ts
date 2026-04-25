@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { pool } from "@workspace/db";
 import { findTenantByHost } from "../lib/tenantHosts";
+import { getRequestHost } from "../lib/requestHost";
 
 export const SESSION_COOKIE = "lp_sid";
 
@@ -52,8 +53,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // endpoints) from any domain. Tenant data isolation for normal users is
     // still enforced via getTenantId() / req.authUser.tenantId in each route.
     if (!user.isAdmin) {
-      const hostHeader = (req.headers["x-original-host"] as string) || (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
-      const host = hostHeader.split(":")[0].toLowerCase();
+      const host = getRequestHost(req);
       if (host) {
         try {
           const match = await findTenantByHost(host);

@@ -9,6 +9,7 @@ import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import { revealAccountName } from "../../lib/apollo-reveal";
 import { findTenantByHost } from "../../lib/tenantHosts";
+import { getRequestHost } from "../../lib/requestHost";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -16,7 +17,7 @@ import { findTenantByHost } from "../../lib/tenantHosts";
  * always be scoped by tenant — slugs are unique only per (tenant_id, slug).
  */
 async function resolveTenantIdFromRequest(req: Request): Promise<number | null> {
-  const host = (req.headers["x-original-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+  const host = getRequestHost(req);
   if (!host) return null;
   const match = await findTenantByHost(host);
   return match?.tenantId ?? null;
@@ -187,7 +188,7 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
     const pageImage = page.ogImage || "";
 
     // Derive canonical public URL from request origin
-    const host = (req.headers["x-original-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.headers.host || "partners.meetdandy.com";
+    const host = getRequestHost(req) || "partners.meetdandy.com";
     const proto = req.headers["x-forwarded-proto"] || "https";
     const canonicalUrl = `${proto}://${host}/lp/${slug}`;
 
@@ -265,8 +266,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 
     if (builderPage) {
       // Check if this is a public domain (microsite) and block draft pages
-      const host = (req.headers["x-original-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
-      const hostname = host.split(":")[0].toLowerCase();
+      const hostname = getRequestHost(req);
       const isPublicDomain = hostname.includes("partners.meetdandy.com");
 
       if (builderPage.status === "draft" && isPublicDomain) {

@@ -5,6 +5,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+import { getRequestOrigin } from "../../lib/requestHost";
 
 interface LinkRow {
   id: number;
@@ -253,10 +254,7 @@ router.post("/lp/personalized-links/:token/visit", async (req, res): Promise<voi
         `);
         const recipients = (alertResult.rows as unknown as AlertEmailRow[]).map(r => r.email).filter(Boolean);
         if (recipients.length > 0) {
-          const origin =
-            (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])
-              ? `${req.headers["x-forwarded-proto"]}://${req.headers["x-forwarded-host"]}`
-              : `${req.protocol}://${req.get("host")}`;
+          const origin = getRequestOrigin(req) || `${req.protocol}://${req.get("host")}`;
           await sendPersonalizedLinkVisitAlert(recipients, {
             contactName: link.contact_name,
             company: link.company,

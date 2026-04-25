@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+import { getRequestOrigin } from "../../lib/requestHost";
 import rateLimit from "express-rate-limit";
 
 interface LinkWithPage {
@@ -163,10 +164,7 @@ router.get("/lp/resolve-token/:token", tokenResolveLimiter, async (req, res): Pr
         if (!process.env["RESEND_API_KEY"]) {
           logger.warn("Visit alert skipped: RESEND_API_KEY is not set");
         } else if (recipients.length > 0) {
-          const origin =
-            (req.headers["x-forwarded-proto"] && req.headers["x-forwarded-host"])
-              ? `${req.headers["x-forwarded-proto"]}://${req.headers["x-forwarded-host"]}`
-              : `${req.protocol}://${req.get("host")}`;
+          const origin = getRequestOrigin(req) || `${req.protocol}://${req.get("host")}`;
           await sendVisitAlert(recipients, {
             contactName: link.contact_name,
             company: link.company,

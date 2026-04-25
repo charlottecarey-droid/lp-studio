@@ -1,0 +1,17 @@
+name = "tenant-host-router"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Routes: catch every subdomain of lpstudio.ai. Wildcard routes do NOT match
+# the apex (lpstudio.ai), so the apex bypasses this worker entirely and goes
+# through Cloudflare's normal proxy → Replit edge.
+#
+# The route DOES match app.lpstudio.ai and www.lpstudio.ai, but the worker
+# itself short-circuits those (PASSTHROUGH_HOSTS) so they pass through.
+routes = [
+  { pattern = "*.lpstudio.ai/*", zone_name = "lpstudio.ai" },
+]
+
+# WORKER_HOST_SECRET is provided as a worker secret (not stored in this file).
+# Set it with:  npx wrangler secret put WORKER_HOST_SECRET
+# Use the SAME value as the WORKER_HOST_SECRET secret on the Replit deployment.
