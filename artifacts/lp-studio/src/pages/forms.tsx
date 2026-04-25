@@ -167,7 +167,7 @@ function FieldEditor({ field, onChange, onDelete, onMoveUp, onMoveDown, allField
                 <p className="text-[11px] text-muted-foreground mt-1">Static text or a template variable. Click a variable to insert it.</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {["{{utm_source}}", "{{utm_medium}}", "{{utm_campaign}}", "{{utm_content}}", "{{utm_term}}", "{{page_url}}", "{{page_title}}", "{{referrer}}"].map(v => (
+                {["{{utm_source}}", "{{utm_medium}}", "{{utm_campaign}}", "{{utm_content}}", "{{utm_term}}", "{{utm_ad_id}}", "{{gclid}}", "{{fbclid}}", "{{gbraid}}", "{{wbraid}}", "{{msclkid}}", "{{ga_client_id}}", "{{page_url}}", "{{page_title}}", "{{referrer}}"].map(v => (
                   <button key={v} type="button"
                     className="text-[11px] font-mono bg-muted hover:bg-muted/70 border border-border rounded px-2 py-0.5 transition-colors"
                     onClick={() => set("defaultValue", (field.defaultValue ?? "") + v)}>

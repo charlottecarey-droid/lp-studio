@@ -150,24 +150,58 @@ function FieldInput({
   );
 }
 
-const UTM_VARS: Record<string, string> = {
-  "{{utm_source}}": "utm_source",
-  "{{utm_medium}}": "utm_medium",
+// URL-param-backed tokens. The right-hand side is the URL query parameter name.
+// All of these are also persisted in localStorage on first hit so attribution
+// survives page navigation (matches Google Ads / GA's recommended pattern).
+const URL_PARAM_TOKENS: Record<string, string> = {
+  "{{utm_source}}":   "utm_source",
+  "{{utm_medium}}":   "utm_medium",
   "{{utm_campaign}}": "utm_campaign",
-  "{{utm_content}}": "utm_content",
-  "{{utm_term}}": "utm_term",
+  "{{utm_content}}":  "utm_content",
+  "{{utm_term}}":     "utm_term",
+  "{{utm_ad_id}}":    "utm_ad_id",
+  "{{gclid}}":        "gclid",
+  "{{fbclid}}":       "fbclid",
+  "{{gbraid}}":       "gbraid",
+  "{{wbraid}}":       "wbraid",
+  "{{msclkid}}":      "msclkid",
 };
+const LS_PREFIX = "lpstudio_attr_";
+
+function readPersistedParam(name: string): string {
+  if (typeof window === "undefined") return "";
+  const live = new URLSearchParams(window.location.search).get(name);
+  if (live) {
+    try { window.localStorage.setItem(LS_PREFIX + name, live); } catch { /* private mode */ }
+    return live;
+  }
+  try { return window.localStorage.getItem(LS_PREFIX + name) ?? ""; } catch { return ""; }
+}
+
+// Read the GA4 client ID from the `_ga` cookie (format: GA1.2.<clientId-2-parts>.<timestamp>).
+function readGaClientId(): string {
+  if (typeof document === "undefined") return "";
+  const m = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
+  if (!m) return "";
+  const parts = decodeURIComponent(m[1]).split(".");
+  // GA1.2.123456789.1700000000 → "123456789.1700000000"
+  if (parts.length >= 4) return `${parts[2]}.${parts[3]}`;
+  return "";
+}
 
 function resolveHiddenValue(template: string): string {
   if (!template) return "";
-  const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   let result = template;
-  for (const [token, param] of Object.entries(UTM_VARS)) {
-    result = result.replaceAll(token, params.get(param) ?? "");
+  for (const [token, param] of Object.entries(URL_PARAM_TOKENS)) {
+    if (!result.includes(token)) continue;
+    result = result.replaceAll(token, readPersistedParam(param));
   }
-  result = result.replaceAll("{{page_url}}", typeof window !== "undefined" ? window.location.href : "");
+  if (result.includes("{{ga_client_id}}")) {
+    result = result.replaceAll("{{ga_client_id}}", readGaClientId());
+  }
+  result = result.replaceAll("{{page_url}}",   typeof window !== "undefined" ? window.location.href : "");
   result = result.replaceAll("{{page_title}}", typeof document !== "undefined" ? document.title : "");
-  result = result.replaceAll("{{referrer}}", typeof document !== "undefined" ? document.referrer : "");
+  result = result.replaceAll("{{referrer}}",   typeof document !== "undefined" ? document.referrer : "");
   return result;
 }
 
