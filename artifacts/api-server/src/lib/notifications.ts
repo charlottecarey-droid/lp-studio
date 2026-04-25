@@ -309,6 +309,7 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
       }
     }
 
+    const sentFields = Object.keys(marketoFields);
     const res = await retryFetch(`https://${config.munchkinId}.mktorest.com/rest/v1/leads.json`, {
       method: "POST",
       headers: {
@@ -321,8 +322,30 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
         input: [marketoFields],
       }),
     });
-    if (!res.ok) throw new Error(`Marketo leads API failed: ${res.status}`);
-    logger.info({ leadId: lead.leadId }, "Lead synced to Marketo");
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Marketo leads API failed: ${res.status} ${text.slice(0, 500)}`);
+    }
+    // Marketo returns 200 OK even when the request itself failed at the API
+    // level (errors[]) or when individual records were rejected (result[].reasons[]).
+    // We must inspect the body to know whether the lead actually synced.
+    const body = await res.json().catch(() => null) as {
+      success?: boolean;
+      requestId?: string;
+      errors?: Array<{ code: string; message: string }>;
+      result?: Array<{ id?: number; status?: string; reasons?: Array<{ code: string; message: string }> }>;
+    } | null;
+    if (!body || body.success === false) {
+      logger.error({ leadId: lead.leadId, sentFields, body }, "Marketo API returned failure");
+      return;
+    }
+    const record = body.result?.[0];
+    const reasons = record?.reasons ?? [];
+    if (reasons.length > 0) {
+      logger.warn({ leadId: lead.leadId, marketoLeadId: record?.id, status: record?.status, sentFields, reasons }, "Marketo accepted lead but rejected some fields");
+    } else {
+      logger.info({ leadId: lead.leadId, marketoLeadId: record?.id, status: record?.status, sentFieldCount: sentFields.length }, "Lead synced to Marketo");
+    }
   } catch (err) {
     logger.error({ err, leadId: lead.leadId }, "Failed to sync lead to Marketo");
   }
