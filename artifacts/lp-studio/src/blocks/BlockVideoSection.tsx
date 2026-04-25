@@ -120,7 +120,15 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     if (isChiliPiper) {
       setCpOpen(true);
     } else if (props.ctaUrl) {
-      safeNavigate(props.ctaUrl, "_blank");
+      const url = props.ctaUrl.trim();
+      // In-page anchor links (e.g. "#form") should scroll within the current
+      // page instead of opening in a new tab — matches the behaviour of every
+      // other CTA on the page.
+      if (url.startsWith("#")) {
+        safeNavigate(url);
+      } else {
+        safeNavigate(url, "_blank");
+      }
     }
   };
   const sectionPy = SECTION_PY[brand.sectionPadding];
