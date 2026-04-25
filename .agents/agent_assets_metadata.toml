@@ -95,3 +95,9 @@ id = "jDJmCy1hNTvYfZCxyJv2D"
 uri = "file://artifacts/lp-studio/public/videos/dr-barry-bartusiak-5day-crowns.mp4"
 type = "video"
 title = "Dr. Barry Bartusiak — 5 Day Crowns"
+
+[[outputs]]
+id = "mEaTVdgfJpN4QvNuGbr06"
+uri = "file://screenshots/spatial-tour-preview.jpg"
+type = "image"
+title = "Inside Dandy — Spatial Lab Tour preview"
