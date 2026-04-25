@@ -27,7 +27,7 @@ import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
-import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { BlockRenderer, NO_REVEAL } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
 import { getDtrParams, applyDtr } from "@/lib/dtr";
 
@@ -534,7 +534,7 @@ export default function LandingPageViewer() {
               <ScrollReveal
                 delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
                 style={block.blockSettings?.animationStyle ?? "fade-up"}
-                enabled={animationsEnabled}
+                enabled={animationsEnabled && !NO_REVEAL.has(block.type)}
               >
                 <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
               </ScrollReveal>
@@ -650,7 +650,7 @@ export default function LandingPageViewer() {
                   <ScrollReveal
                     delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
                     style={block.blockSettings?.animationStyle ?? "fade-up"}
-                    enabled={linkedAnimationsEnabled}
+                    enabled={linkedAnimationsEnabled && !NO_REVEAL.has(block.type)}
                   >
                     <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
                   </ScrollReveal>

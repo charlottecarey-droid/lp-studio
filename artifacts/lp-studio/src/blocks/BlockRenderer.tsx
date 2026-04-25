@@ -216,6 +216,26 @@ function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefine
   return url;
 }
 
+// Blocks that should NOT be wrapped in any entrance/scroll-reveal motion
+// wrapper, either by the viewer (outer fade-up wrapper) or by BlockRenderer
+// itself (inner Reveal wrapper). We exclude:
+//   - layout chrome (nav, sticky, popups, footers) — they shouldn't animate
+//   - blocks that own their own scroll-driven animations (pinned scroll
+//     stories, switchbacks, scroll-assembly, the spatial tour) — wrapping them
+//     in a transformed motion.div breaks their internal useScroll measurements
+//   - first-paint hero blocks — visitors expect to see them immediately
+//   - spacers — nothing visible to reveal
+export const NO_REVEAL = new Set<string>([
+  "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
+  "dandy-site-header", "dandy-site-footer",
+  "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
+  "dso-scroll-story", "dso-scroll-story-hero",
+  "dandy-switchback", "dso-paradigm-shift",
+  "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
+  "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page",
+  "spacer",
+]);
+
 export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars, isBuilder }: Props) {
   // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
   // Ensure `block.props` always exists so child components don't crash on prop access.
@@ -660,24 +680,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
     ? { ...block.blockSettings, paddingX: undefined }
     : block.blockSettings;
 
-  // Wrap visible content blocks in a subtle viewport reveal so pages have a
-  // polished, deliberate feel as the user scrolls. We intentionally skip:
-  //   - layout chrome (nav, sticky, popups, footers) — they shouldn't animate
-  //   - blocks that own their own scroll-driven animations (pinned scroll
-  //     stories, switchbacks, the new scroll-assembly block) — wrapping them
-  //     would interfere with their internal sticky/transform layers
-  //   - first-paint hero blocks — visitors expect to see them immediately
-  //   - the builder canvas (animations distract while editing)
-  const NO_REVEAL = new Set<string>([
-    "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
-    "dandy-site-header", "dandy-site-footer",
-    "scroll-assembly", "horizontal-showcase", "sticky-stack",
-    "dso-scroll-story", "dso-scroll-story-hero",
-    "dandy-switchback", "dso-paradigm-shift",
-    "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
-    "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page",
-    "spacer",
-  ]);
+  // Skip the inner reveal for the same blocks the outer viewer skips
+  // (layout chrome, self-contained scroll-driven blocks, first-paint heroes),
+  // and always skip on the builder canvas.
   const shouldReveal = animationsEnabled && !isBuilder && !NO_REVEAL.has(block.type);
 
   const wrapped = wrapWithSettings(inner, outerSettings, animationsEnabled);
