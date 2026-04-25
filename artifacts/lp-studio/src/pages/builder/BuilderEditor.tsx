@@ -1973,7 +1973,7 @@ export default function BuilderEditor() {
                 )}
 
                 {/* SEO & GEO Score Panel */}
-                <SeoGeoPanel blocks={blocks} metaTitle={metaTitle} metaDescription={metaDescription} ogImage={ogImage} slug={slug} />
+                <SeoGeoPanel blocks={blocks} metaTitle={metaTitle} metaDescription={metaDescription} ogImage={ogImage} slug={slug} brand={brand} />
 
                 {/* Heatmap Panel */}
                 {!isNaN(pageIdNum) && (
@@ -2178,12 +2178,14 @@ function SeoGeoPanel({
   metaDescription,
   ogImage,
   slug,
+  brand,
 }: {
   blocks: PageBlock[];
   metaTitle: string;
   metaDescription: string;
   ogImage: string;
   slug: string;
+  brand: BrandConfig;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);

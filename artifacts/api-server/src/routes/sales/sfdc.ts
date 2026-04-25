@@ -222,7 +222,7 @@ router.post("/sfdc/sync", requireAuth, async (req, res): Promise<void> => {
  */
 router.post("/sfdc/sync/:object", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { object } = req.params;
+  const object = String(req.params["object"] ?? "");
   const validObjects = ["accounts", "contacts", "leads", "opportunities"];
 
   if (!validObjects.includes(object)) {

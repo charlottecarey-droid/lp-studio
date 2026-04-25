@@ -98,7 +98,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
           brandVoiceSet={brandVoiceSet}
           onSuggest={() => suggestCopy(blockType, "subtitle", props.subtitle ?? "", {
             partnerName: props.partnerName,
-            tagline: props.tagline,
+            tagline: props.tagline ?? "",
           })}
         />
       </div>

@@ -27,6 +27,7 @@ interface Account {
   id: number;
   name: string;
   domain?: string;
+  segment?: string;
   practiceSegment?: string;
   abmTier?: string;
   abmStage?: string;

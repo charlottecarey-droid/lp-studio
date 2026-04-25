@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
@@ -17,15 +18,17 @@ interface InfoTipProps {
   content: string;
   /** Color accent */
   color?: TipColor;
-  /** Size of the info icon */
+  /** Size of the info icon (only used when no children are provided) */
   size?: "sm" | "md";
   /** Side of the tooltip */
   side?: "top" | "bottom" | "left" | "right";
   /** Additional className for the trigger */
   className?: string;
+  /** Optional custom trigger. When provided, replaces the default Info icon button. */
+  children?: ReactNode;
 }
 
-export function InfoTip({ content, color = "default", size = "sm", side = "top", className = "" }: InfoTipProps) {
+export function InfoTip({ content, color = "default", size = "sm", side = "top", className = "", children }: InfoTipProps) {
   const c = TIP_COLORS[color];
   const iconSize = size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
 
@@ -33,13 +36,17 @@ export function InfoTip({ content, color = "default", size = "sm", side = "top",
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
-            className={`inline-flex items-center justify-center ${c.icon} transition-colors cursor-help ${className}`}
-            tabIndex={-1}
-          >
-            <Info className={iconSize} />
-          </button>
+          {children ? (
+            <span className={`inline-flex items-center ${className}`}>{children}</span>
+          ) : (
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center ${c.icon} transition-colors cursor-help ${className}`}
+              tabIndex={-1}
+            >
+              <Info className={iconSize} />
+            </button>
+          )}
         </TooltipTrigger>
         <TooltipContent
           side={side}

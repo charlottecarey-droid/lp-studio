@@ -337,7 +337,7 @@ router.post("/hotlinks", async (req, res): Promise<void> => {
 
 // Bulk-delete hotlinks by ID (tenant-scoped via page ownership)
 router.delete("/hotlinks", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req);
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { ids } = req.body as { ids?: number[] };
   if (!Array.isArray(ids) || ids.length === 0) {
     res.status(400).json({ error: "ids must be a non-empty array" });
@@ -373,7 +373,7 @@ router.delete("/hotlinks", async (req, res): Promise<void> => {
 
 // Delete ALL hotlinks for a specific page in one query (tenant-scoped)
 router.delete("/hotlinks/page/:pageId", async (req, res): Promise<void> => {
-  const tenantId = getTenantId(req);
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = Number(req.params["pageId"]);
   if (!pageId || isNaN(pageId)) {
     res.status(400).json({ error: "pageId is required" });
@@ -384,8 +384,7 @@ router.delete("/hotlinks/page/:pageId", async (req, res): Promise<void> => {
     const pages = await db
       .select({ id: lpPagesTable.id })
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.tenantId, tenantId))
-      .where(eq(lpPagesTable.id, pageId));
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
     if (pages.length === 0) {
       res.status(404).json({ error: "Page not found" });
       return;

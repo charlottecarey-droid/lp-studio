@@ -85,8 +85,9 @@ router.put("/admin/block-catalog", requireAdminKey, async (req, res): Promise<vo
 
 // DELETE /api/admin/block-catalog/:blockType/:industry — remove a row
 router.delete("/admin/block-catalog/:blockType/:industry", requireAdminKey, async (req, res): Promise<void> => {
-  const { blockType, industry } = req.params;
-  if (!VALID_INDUSTRIES.has(industry)) { res.status(400).json({ error: "Invalid industry" }); return; }
+  const blockType = String(req.params["blockType"] ?? "");
+  const industry = String(req.params["industry"] ?? "");
+  if (!VALID_INDUSTRIES.has(industry as never)) { res.status(400).json({ error: "Invalid industry" }); return; }
   try {
     const result = await pool.query(
       `DELETE FROM block_catalog WHERE block_type = $1 AND industry = $2 RETURNING block_type`,

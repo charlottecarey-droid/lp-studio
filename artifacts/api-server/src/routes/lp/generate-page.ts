@@ -39,6 +39,7 @@ interface BrandConfig {
   ctaTextColor?: string;
   productLines?: ProductLine[];
   chilipiperUrl?: string;
+  defaultCtaUrl?: string;
 }
 
 // ── Media library helpers ────────────────────────────────────────────────
@@ -826,7 +827,7 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
         }
 
         // Fallback: replace any remaining "#" ctaUrls with the brand's defaultCtaUrl
-        const defaultCtaUrl = brand.defaultCtaUrl as string | undefined;
+        const defaultCtaUrl = brand.defaultCtaUrl;
         if (defaultCtaUrl) {
           if ("primaryCtaUrl" in props && (!props.primaryCtaUrl || props.primaryCtaUrl === "#")) {
             props.primaryCtaUrl = defaultCtaUrl;

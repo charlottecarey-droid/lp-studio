@@ -307,6 +307,7 @@ export default function LandingPageViewer() {
       const timeout = setTimeout(() => clearInterval(interval), 10_000);
       return () => { clearInterval(interval); clearTimeout(timeout); };
     }
+    return undefined;
   }, []);
 
   // Merge URL-based vars + Apollo + RB2B into one substitution map.

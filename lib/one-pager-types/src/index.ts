@@ -58,6 +58,8 @@ export interface CustomTemplate {
   isDeleted?: boolean;
   headerHeight?: number;
   headerImageUrl?: string;
+  /** ISO timestamp set by the API when the template is created. */
+  createdAt?: string;
 }
 
 export const TEMPLATE_VISIBILITY_KEY = "template_visibility";
