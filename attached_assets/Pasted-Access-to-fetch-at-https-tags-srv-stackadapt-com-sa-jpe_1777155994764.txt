@@ -1,0 +1,54 @@
+Access to fetch at 'https://tags.srv.stackadapt.com/sa.jpeg' from origin 'https://lp.meetdandy.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://www.meetdandy.com' that is not equal to the supplied origin. Have the server send the header with a valid value.Understand this error
+tags.srv.stackadapt.com/sa.jpeg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+api/auth/me:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+instrument.js:108 ReferenceError: useSpatialTourFonts is not defined
+    at zm (BlockRenderer-DWG66FlJ.js:101:72190)
+    at zu (index-sovhNzia.js:9:34157)
+    at Fu (index-sovhNzia.js:9:62153)
+    at td (index-sovhNzia.js:9:72657)
+    at Nd (index-sovhNzia.js:9:106673)
+    at yg (index-sovhNzia.js:9:105738)
+    at bc (index-sovhNzia.js:9:105570)
+    at Ed (index-sovhNzia.js:9:102680)
+    at Gd (index-sovhNzia.js:9:114235)
+    at Rn (index-sovhNzia.js:9:112807)
+    at Bd (index-sovhNzia.js:9:113078)
+    at index-sovhNzia.js:9:114295
+(anonymous) @ instrument.js:108Understand this error
+instrument.js:108 [BlockErrorBoundary] block render error: ReferenceError: useSpatialTourFonts is not defined
+    at zm (BlockRenderer-DWG66FlJ.js:101:72190)
+    at zu (index-sovhNzia.js:9:34157)
+    at Fu (index-sovhNzia.js:9:62153)
+    at td (index-sovhNzia.js:9:72657)
+    at Nd (index-sovhNzia.js:9:106673)
+    at yg (index-sovhNzia.js:9:105738)
+    at bc (index-sovhNzia.js:9:105570)
+    at Ed (index-sovhNzia.js:9:102680)
+    at Gd (index-sovhNzia.js:9:114235)
+    at Rn (index-sovhNzia.js:9:112807)
+    at Bd (index-sovhNzia.js:9:113078)
+    at index-sovhNzia.js:9:114295 
+    at zm (https://lp.meetdandy.com/assets/BlockRenderer-DWG66FlJ.js:101:72186)
+    at div (<anonymous>)
+    at a (https://lp.meetdandy.com/assets/vendor-motion-2c5s_mv6.js:9:8943)
+    at lh (https://lp.meetdandy.com/assets/BlockRenderer-DWG66FlJ.js:120:69467)
+    at il (https://lp.meetdandy.com/assets/BlockRenderer-DWG66FlJ.js:1:9271)
+    at ex (https://lp.meetdandy.com/assets/BlockRenderer-DWG66FlJ.js:120:72022)
+    at div (<anonymous>)
+    at a (https://lp.meetdandy.com/assets/vendor-motion-2c5s_mv6.js:9:8943)
+    at me (https://lp.meetdandy.com/assets/landing-page-viewer-DYXtLWBM.js:1:5909)
+    at oe (https://lp.meetdandy.com/assets/landing-page-viewer-DYXtLWBM.js:1:4327)
+    at div (<anonymous>)
+    at _t (https://lp.meetdandy.com/assets/landing-page-viewer-DYXtLWBM.js:1:6580)
+    at V (https://lp.meetdandy.com/assets/index-sovhNzia.js:10:38825)
+    at ji (https://lp.meetdandy.com/assets/index-sovhNzia.js:10:39636)
+    at Suspense (<anonymous>)
+    at J2 (https://lp.meetdandy.com/assets/index-sovhNzia.js:25:19859)
+    at b1 (https://lp.meetdandy.com/assets/index-sovhNzia.js:10:112235)
+    at xi (https://lp.meetdandy.com/assets/index-sovhNzia.js:10:38133)
+    at l (https://lp.meetdandy.com/assets/vendor-ui-DQJ6l4K5.js:1:13299)
+    at go (https://lp.meetdandy.com/assets/vendor-ui-DQJ6l4K5.js:1:51838)
+    at jv (https://lp.meetdandy.com/assets/index-sovhNzia.js:10:64427)
+    at P2 (<anonymous>)
+(anonymous) @ instrument.js:108Understand this error
+api/lp/brand:1  Failed to load resource: the server responded with a status of 401 ()Understand this error

@@ -1518,7 +1518,7 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
   const stations = useMemo(() => props.tourStations || [], [props.tourStations]);
 
   return (
-    <div style={{ width: "100%", fontFamily: SANS, background: WHITE, color: FOREST }}>
+    <div style={{ width: "100%", position: "relative", fontFamily: SANS, background: WHITE, color: FOREST }}>
       <Nav p={props} />
       <Hero p={props} />
       <Marquee p={props} />
