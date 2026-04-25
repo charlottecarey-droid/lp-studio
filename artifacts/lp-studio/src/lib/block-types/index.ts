@@ -132,6 +132,13 @@ export type {
   EventPageNavLink,
   EventPageTheme,
   OnePagerHeroBlockProps,
+  SpatialTourBlockProps,
+  SpatialTourNavLink,
+  SpatialTourMarqueeItem,
+  SpatialTourStation,
+  SpatialTourCalloutPoint,
+  SpatialTourWay,
+  SpatialTourDate,
 } from "./dso-blocks";
 
 // Utility block types

@@ -397,6 +397,38 @@ export const templateInsideDandyEvent: LPTemplate = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 7 — Inside Dandy: Spatial Lab Tour (Apple Vision Pro)
+// ─────────────────────────────────────────────────────────────────────────────
+export const templateInsideDandySpatialTour: LPTemplate = {
+  id: "inside-dandy-spatial-tour",
+  name: "Inside Dandy — Spatial Lab Tour",
+  description: "Cinematic, immersive landing page for the Apple Vision Pro lab tour. Five-station vertical journey, dark forest palette, spatial-VR vibe. Designed for DSO leadership reservations.",
+  framework: "Hero → Tour Stations → Vision Pro → Reserve",
+  badge: "Spatial / VR",
+  config: {
+    templateId: "inside-dandy-spatial-tour",
+    heroType: "static-image",
+    layout: "centered",
+    backgroundStyle: "dark",
+    headline: "Step inside the most advanced dental lab in the industry.",
+    subheadline: "A 6–8 minute spatial experience on Apple Vision Pro. One real case, end to end. Show, don't tell.",
+    ctaText: "Reserve your visit",
+    ctaColor: "#158915",
+    ctaUrl: "#rsvp",
+    showSocialProof: false,
+    trustBar: {
+      enabled: true,
+      items: [
+        { value: "6–8 min", label: "Spatial Experience" },
+        { value: "5", label: "Tour Stations" },
+        { value: "Apple Vision Pro", label: "Built For" },
+        { value: "By Appointment", label: "Access" },
+      ],
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
 export const LP_TEMPLATES: LPTemplate[] = [
@@ -406,6 +438,7 @@ export const LP_TEMPLATES: LPTemplate[] = [
   templateHowItWorks,
   templateMinimalCta,
   templateInsideDandyEvent,
+  templateInsideDandySpatialTour,
 ];
 
 export function getTemplateById(id: string): LPTemplate | undefined {

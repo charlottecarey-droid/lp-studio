@@ -856,3 +856,125 @@ export interface EventPageBlockProps {
   /** Optional visual theme overrides. Falls back to dark luxury defaults when unset. */
   theme?: EventPageTheme;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPATIAL TOUR — Inside Dandy Spatial Lab Tour landing page
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SpatialTourNavLink {
+  label: string;
+  href: string;
+}
+
+export interface SpatialTourMarqueeItem {
+  value: string;
+  label: string;
+}
+
+export interface SpatialTourStation {
+  number: string;
+  label: string;
+  imageUrl: string;
+  /** CSS object-position for the station photo */
+  objectPosition?: string;
+  headline: string;
+  body: string;
+  /** Inset card duration label, e.g. "0:48" */
+  insetDuration: string;
+  /** Inset card detail copy */
+  insetDetail: string;
+}
+
+export interface SpatialTourCalloutPoint {
+  title: string;
+  body: string;
+}
+
+export interface SpatialTourWay {
+  number: string;
+  label: string;
+  eyebrow: string;
+  body: string;
+  ctaText: string;
+  imageUrl: string;
+  objectPosition?: string;
+}
+
+export interface SpatialTourDate {
+  date: string;
+  city: string;
+  event: string;
+  /** "Filling fast" | "Open" | "Limited" | "Always open" */
+  status: string;
+}
+
+export interface SpatialTourBlockProps {
+  // Nav
+  navBrand: string;
+  navLinks: SpatialTourNavLink[];
+  navCtaText: string;
+  navCtaUrl: string;
+
+  // Hero
+  heroEyebrow: string;
+  heroHeadlineLine1: string;
+  heroHeadlineLine2: string;
+  heroHeadlineEmphasis: string;
+  heroHeadlineLine3: string;
+  heroBody: string;
+  heroPrimaryCta: string;
+  heroSecondaryCta: string;
+  heroImageUrl: string;
+  heroVisionChipText: string;
+  heroScrollLabel: string;
+
+  // Marquee
+  marqueeItems: SpatialTourMarqueeItem[];
+
+  // Manifesto
+  manifestoEyebrow: string;
+  manifestoHeadlineLine1: string;
+  manifestoHeadlineEmphasis: string;
+  manifestoBody1: string;
+  manifestoBody2: string;
+  manifestoImageUrl: string;
+  manifestoCaption: string;
+
+  // Tour intro + stations
+  tourEyebrow: string;
+  tourHeadlineLine1: string;
+  tourHeadlineEmphasis: string;
+  tourHeadlineLine3: string;
+  tourBody: string;
+  tourStations: SpatialTourStation[];
+
+  // Spatial callout
+  calloutEyebrow: string;
+  calloutHeadlineLine1: string;
+  calloutHeadlineLine2: string;
+  calloutHeadlineEmphasis: string;
+  calloutPoints: SpatialTourCalloutPoint[];
+
+  // Four ways
+  waysEyebrow: string;
+  waysHeadlineLine1: string;
+  waysHeadlineEmphasis: string;
+  ways: SpatialTourWay[];
+
+  // Calendar / RSVP
+  calendarEyebrow: string;
+  calendarHeadlineLine1: string;
+  calendarHeadlineEmphasis: string;
+  calendarBody: string;
+  calendarPrimaryCta: string;
+  calendarSecondaryCta: string;
+  calendarUrlText: string;
+  calendarPanelTitle: string;
+  calendarPanelEyebrow: string;
+  calendarDates: SpatialTourDate[];
+
+  // Footer
+  footerBrand: string;
+  footerEyebrow: string;
+  footerInfo: string;
+}

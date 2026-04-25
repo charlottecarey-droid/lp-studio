@@ -62,6 +62,42 @@ export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilder
                   ))}
                 </div>
               </div>
+            ) : template.id === "inside-dandy-spatial-tour" ? (
+              <div className="h-48 bg-[#003A30] p-4 flex flex-col gap-2 overflow-hidden border-b border-[#00231D] relative">
+                {/* Dot grid texture */}
+                <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(197,241,197,0.25) 1px, transparent 0)', backgroundSize: '12px 12px' }} />
+                {/* Mint glow */}
+                <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(197,241,197,0.18) 0%, transparent 65%)', filter: 'blur(8px)' }} />
+                {/* Nav */}
+                <div className="relative h-4 flex justify-between items-center">
+                  <div className="h-1.5 w-12 bg-[#C5F1C5]/70 rounded-sm" />
+                  <div className="h-3 w-16 bg-[#158915] rounded-full" />
+                </div>
+                {/* Vision Pro chip */}
+                <div className="relative flex justify-end">
+                  <div className="h-2.5 w-20 bg-black/40 rounded-full border border-[#C5F1C5]/40" />
+                </div>
+                {/* Hero text */}
+                <div className="relative flex-1 flex flex-col justify-center gap-1.5">
+                  <div className="h-1 w-10 bg-[#C5F1C5]/60 rounded-sm" />
+                  <div className="h-3 w-44 bg-white/95 rounded-sm" />
+                  <div className="h-3 w-36 bg-white/95 rounded-sm" />
+                  <div className="h-3 w-28 bg-[#C5F1C5] rounded-sm italic" />
+                  <div className="flex gap-1.5 mt-1.5">
+                    <div className="h-4 w-16 bg-[#158915] rounded-full" />
+                    <div className="h-4 w-20 bg-transparent border border-white/40 rounded-full" />
+                  </div>
+                </div>
+                {/* Marquee strip */}
+                <div className="relative flex gap-3 pt-1.5 border-t border-white/10">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="flex flex-col gap-0.5">
+                      <div className="h-1.5 w-7 bg-[#C5F1C5] rounded-sm" />
+                      <div className="h-1 w-9 bg-white/40 rounded-sm" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
             <div className="h-48 bg-slate-50 p-4 flex flex-col gap-2 overflow-hidden border-b border-slate-100">
               {/* Nav */}

@@ -83,6 +83,7 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  SpatialTourBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -2954,6 +2955,195 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "spatial-tour" as const,
+    label: "Spatial Lab Tour",
+    category: "Events" as BlockCategory,
+    defaultProps: (): SpatialTourBlockProps => ({
+      navBrand: "Inside Dandy",
+      navLinks: [
+        { label: "The Experience", href: "#experience" },
+        { label: "The Lab", href: "#lab" },
+        { label: "Tour Calendar", href: "#calendar" },
+      ],
+      navCtaText: "Reserve your visit",
+      navCtaUrl: "#rsvp",
+
+      heroEyebrow: "First dental lab on Apple Vision Pro · Launching Dykema 2026",
+      heroHeadlineLine1: "Step inside",
+      heroHeadlineLine2: "the most advanced",
+      heroHeadlineEmphasis: "dental lab",
+      heroHeadlineLine3: "in the industry.",
+      heroBody: "A 6–8 minute spatial experience on Apple Vision Pro. One real case, end to end — scan intake, AI design, robotic milling, QC, shipping. Show, don't tell.",
+      heroPrimaryCta: "Reserve your visit",
+      heroSecondaryCta: "Watch the trailer",
+      heroImageUrl: "/event-assets/carousel-lab-machine.png",
+      heroVisionChipText: "Apple Vision Pro · 6–8 min",
+      heroScrollLabel: "The tour begins",
+
+      marqueeItems: [
+        { value: "6–8 min", label: "spatial experience" },
+        { value: "01", label: "real case, start to finish" },
+        { value: "5", label: "stations on the tour" },
+        { value: "Q1 2027", label: "tour ends" },
+      ],
+
+      manifestoEyebrow: "Why we built this",
+      manifestoHeadlineLine1: "Show,",
+      manifestoHeadlineEmphasis: "don't tell.",
+      manifestoBody1: "Most DSO leaders haven't seen what a fully vertically integrated, AI-driven, robotically manufactured dental lab actually looks like. Until now, no one had built one.",
+      manifestoBody2: "So we stopped trying to describe it. We put you inside.",
+      manifestoImageUrl: "/event-assets/carousel-lab-floor.jpg",
+      manifestoCaption: "Manufacturing floor · NY",
+
+      tourEyebrow: "The Tour · Five Stations",
+      tourHeadlineLine1: "One case.",
+      tourHeadlineEmphasis: "End to end.",
+      tourHeadlineLine3: "Nothing simulated.",
+      tourBody: "You'll move through five real stations on our manufacturing floor in 1:1 scale. Real machines. Real technicians. Real timestamps. The full case takes 6–8 minutes — about as long as a coffee.",
+      tourStations: [
+        {
+          number: "01",
+          label: "Scan intake",
+          imageUrl: "/event-assets/carousel-ai-scan.jpg",
+          objectPosition: "center 40%",
+          headline: "From chairside to lab in seconds.",
+          body: "You'll watch the case enter our system the moment the dentist saves it. No scanned-and-shipped delay. No paper Rx. The intraoral scan crosses the country in seconds, lands on a manufacturing engineer's queue, and starts moving.",
+          insetDuration: "0:48",
+          insetDetail: "Scan rendering live, in real space.",
+        },
+        {
+          number: "02",
+          label: "AI-assisted design",
+          imageUrl: "/event-assets/carousel-ai-scan.jpg",
+          objectPosition: "center",
+          headline: "Millions of cases of pattern recognition.",
+          body: "Step inside our design suite as our AI proposes a margin line, an occlusal profile, a contact pattern — drawn from millions of similar cases. A senior CAD designer reviews, refines, and approves. The AI does the predictable work; the human owns the decisions.",
+          insetDuration: "1:24",
+          insetDetail: "AI design overlay, side by side with the technician.",
+        },
+        {
+          number: "03",
+          label: "Robotic milling",
+          imageUrl: "/event-assets/carousel-lab-machine.png",
+          objectPosition: "center 55%",
+          headline: "Manufacturing scale no traditional lab can match.",
+          body: "Walk between rows of CNC mills cutting zirconia and lithium disilicate to within 10 microns of design intent. This is not bench work — this is a factory. Twenty-four hours a day, every restoration cut by the same robot, to the same tolerance, every time.",
+          insetDuration: "2:06",
+          insetDetail: "Stand inside the robotic milling cell — full scale.",
+        },
+        {
+          number: "04",
+          label: "QC & finishing",
+          imageUrl: "/event-assets/carousel-lab-floor.jpg",
+          objectPosition: "center 30%",
+          headline: "Every restoration verified before it leaves.",
+          body: "See the human hand return — finishing technicians inspect every unit, polish, glaze, and verify against the original prep. Each case is scanned a second time and compared against the design file. Fail any check, and the case goes back, not out the door.",
+          insetDuration: "1:12",
+          insetDetail: "Final QC station, with scanned-vs-designed comparison.",
+        },
+        {
+          number: "05",
+          label: "Shipping & delivery",
+          imageUrl: "/event-assets/hero-provo.jpg",
+          objectPosition: "center 35%",
+          headline: "Back to your operatory on schedule.",
+          body: "The case lands in a tray, the tray lands in a box, and the box leaves the building under a tracked SLA. Watch it move from the loading dock to the operatory — the loop closes the moment the dentist seats it. One workflow. One accountable team.",
+          insetDuration: "0:54",
+          insetDetail: "Track-and-trace, from dock to chair.",
+        },
+      ],
+
+      calloutEyebrow: "Why spatial",
+      calloutHeadlineLine1: "A video tells you",
+      calloutHeadlineLine2: "what we built.",
+      calloutHeadlineEmphasis: "This puts you in it.",
+      calloutPoints: [
+        { title: "Walk between machines", body: "A robotic milling cell is 9 feet long. You'll feel it." },
+        { title: "Look around, not at.", body: "Designed in spatial — the lab surrounds you, not a screen." },
+        { title: "Real time, real scale", body: "Every motion captured at 1:1. Nothing sped up or simulated." },
+        { title: "Side-by-side with us", body: "Your account exec stands next to you in the experience." },
+      ],
+
+      waysEyebrow: "Four ways to step inside",
+      waysHeadlineLine1: "Pick the way",
+      waysHeadlineEmphasis: "that works for you.",
+      ways: [
+        {
+          number: "01",
+          label: "Dykema 2026",
+          eyebrow: "July · Las Vegas",
+          body: "Reserved 8-minute booth experience. We'll have a private room, a calendar, and your AirPods Pro waiting.",
+          ctaText: "Book a slot",
+          imageUrl: "/event-assets/carousel-hotel.jpg",
+          objectPosition: "center 40%",
+        },
+        {
+          number: "02",
+          label: "On the road",
+          eyebrow: "Through Q1 2027",
+          body: "Sales onsite visits, DSO HQ tours. Our team brings the experience to your office or boardroom — same kit, same lab, just at your address.",
+          ctaText: "Request a visit",
+          imageUrl: "/event-assets/carousel-rooftop.jpg",
+          objectPosition: "center 25%",
+        },
+        {
+          number: "03",
+          label: "Private virtual tour",
+          eyebrow: "Anywhere, anytime",
+          body: "Schedule a 1:1 walkthrough. We'll ship a Vision Pro to you for the day. Built for execs without a calendar window for travel.",
+          ctaText: "Schedule remotely",
+          imageUrl: "/event-assets/carousel-spa.jpg",
+          objectPosition: "center 35%",
+        },
+        {
+          number: "04",
+          label: "In-lab visit",
+          eyebrow: "By invitation",
+          body: "For select accounts. Tour the actual New York facility — robotic milling, AI design, QC, ship dock — then experience the spatial tour where it was filmed.",
+          ctaText: "Request invitation",
+          imageUrl: "/event-assets/carousel-lab-floor.jpg",
+          objectPosition: "center",
+        },
+      ],
+
+      calendarEyebrow: "Reserve your visit",
+      calendarHeadlineLine1: "Pick a city.",
+      calendarHeadlineEmphasis: "Pick a date.",
+      calendarBody: "Eight-minute slots, by appointment. Bring one decision-maker, or your whole leadership team — we have rooms for both.",
+      calendarPrimaryCta: "Reserve at insidedandy.com",
+      calendarSecondaryCta: "Talk to your account exec",
+      calendarUrlText: "insidedandy.com/[your-id]",
+      calendarPanelTitle: "Upcoming tour dates",
+      calendarPanelEyebrow: "2026 — Q1 2027",
+      calendarDates: [
+        { date: "Jul 18", city: "Las Vegas", event: "Dykema 2026 · Booth 412", status: "Filling fast" },
+        { date: "Aug 06", city: "Dallas", event: "On-the-road · DSO HQ Tour", status: "Open" },
+        { date: "Sep 12", city: "New York", event: "In-lab · By invitation", status: "Limited" },
+        { date: "Oct 03", city: "Chicago", event: "On-the-road · DSO HQ Tour", status: "Open" },
+        { date: "Anytime", city: "Anywhere", event: "Private virtual tour", status: "Always open" },
+      ],
+
+      footerBrand: "Dandy",
+      footerEyebrow: "Inside Dandy · 2026",
+      footerInfo: "insidedandy.com · meetdandy.com · accounts@dandy.dental",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#003A30" rx="4"/>
+        <rect x="0" y="0" width="120" height="10" fill="#00231D"/>
+        <rect x="4" y="3" width="14" height="3" rx="1" fill="rgba(197,241,197,0.8)"/>
+        <rect x="92" y="3" width="24" height="4" rx="2" fill="#158915"/>
+        <ellipse cx="44" cy="40" rx="14" ry="9" fill="none" stroke="#C5F1C5" strokeWidth="0.8"/>
+        <ellipse cx="76" cy="40" rx="14" ry="9" fill="none" stroke="#C5F1C5" strokeWidth="0.8"/>
+        <path d="M 30 40 Q 30 28, 44 28 L 76 28 Q 90 28, 90 40 Q 90 52, 76 52 L 44 52 Q 30 52, 30 40 Z" fill="none" stroke="#C5F1C5" strokeWidth="0.8"/>
+        <rect x="6" y="60" width="42" height="3" rx="1" fill="rgba(255,255,255,0.85)"/>
+        <rect x="6" y="65" width="28" height="2" rx="1" fill="rgba(197,241,197,0.6)"/>
+        <rect x="6" y="71" width="20" height="5" rx="2" fill="#158915"/>
+        <rect x="60" y="60" width="56" height="16" rx="2" fill="rgba(197,241,197,0.08)" stroke="rgba(197,241,197,0.3)" strokeWidth="0.5"/>
+      </svg>
+    ),
+  },
+  {
     type: "horizontal-showcase" as const,
     label: "Horizontal Showcase",
     category: "Hero" as BlockCategory,
@@ -3148,6 +3338,7 @@ export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
+export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
 export function createBlock(type: "horizontal-showcase"): Extract<PageBlock, { type: "horizontal-showcase" }>;
 export function createBlock(type: "sticky-stack"): Extract<PageBlock, { type: "sticky-stack" }>;
@@ -3239,6 +3430,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
+    case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
     case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };
     case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };
@@ -3253,6 +3445,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "how-it-works": ["hero", "how-it-works", "trust-bar", "product-grid", "benefits-grid", "testimonial", "bottom-cta"],
     "minimal-cta": ["hero", "trust-bar"],
     "inside-dandy-event": ["event-page"],
+    "inside-dandy-spatial-tour": ["spatial-tour"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

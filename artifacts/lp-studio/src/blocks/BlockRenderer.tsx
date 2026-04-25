@@ -41,6 +41,7 @@ import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
 import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import { BlockEventPage } from "./BlockEventPage";
+import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
@@ -602,6 +603,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
+      case "spatial-tour":
+        return <BlockSpatialTour props={block.props} />;
       case "scroll-assembly":
         return (
           <BlockScrollAssembly

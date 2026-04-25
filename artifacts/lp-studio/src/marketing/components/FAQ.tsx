@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useInView } from "@/marketing/hooks/useInView";
+import { useInView } from "../hooks/useInView";
 
 const faqs = [
   {

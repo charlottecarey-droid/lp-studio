@@ -1,5 +1,5 @@
-import Navbar from "@/marketing/components/Navbar";
-import Footer from "@/marketing/components/Footer";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 export default function Privacy() {
   return (

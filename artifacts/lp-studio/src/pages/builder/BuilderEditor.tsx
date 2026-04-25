@@ -1086,6 +1086,13 @@ export default function BuilderEditor() {
       return;
     }
 
+    if (templateId === "inside-dandy-spatial-tour") {
+      const block = createBlock("spatial-tour");
+      setBlocks([block]);
+      setSelectedBlockId(null);
+      return;
+    }
+
     const templateBlockTypes: Record<string, BlockType[]> = {
       "video-hero": ["hero", "trust-bar", "photo-strip", "stat-callout", "benefits-grid", "testimonial", "product-grid", "bottom-cta"],
       "problem-first": ["hero", "pas-section", "comparison", "stat-callout", "trust-bar", "benefits-grid", "testimonial", "bottom-cta"],

@@ -1,4 +1,4 @@
-import { useInView } from "@/marketing/hooks/useInView";
+import { useInView } from "../hooks/useInView";
 
 type IconProps = { className?: string };
 const Crosshair = ({ className }: IconProps) => (

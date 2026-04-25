@@ -81,6 +81,7 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  SpatialTourBlockProps,
 } from "./dso-blocks";
 import type {
   NavHeaderBlockProps,
@@ -174,7 +175,8 @@ export type BlockVariant =
   | { type: "horizontal-showcase"; props: HorizontalShowcaseBlockProps }
   | { type: "sticky-stack"; props: StickyStackBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
-  | { type: "event-page"; props: EventPageBlockProps };
+  | { type: "event-page"; props: EventPageBlockProps }
+  | { type: "spatial-tour"; props: SpatialTourBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 
