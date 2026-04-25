@@ -497,9 +497,17 @@ export default function LandingPageViewer() {
         return;
       }
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
-      if (dest) {
-        safeNavigate(dest, "_blank");
+      if (!dest) return;
+      // In-page anchor links scroll smoothly instead of opening a new tab.
+      if (dest.startsWith("#") && dest.length > 1) {
+        const target = document.getElementById(dest.slice(1));
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", dest);
+          return;
+        }
       }
+      safeNavigate(dest, "_blank");
     };
 
     const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
@@ -516,29 +524,22 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {scopedCss && <style>{scopedCss}</style>}
-        {(() => {
-          const firstFormIdx = blocks.findIndex(b => b.type === "form");
-          return blocks.map((block, i) => {
-            const dtrBlock = Object.keys(dtrParams).length > 0
-              ? { ...block, props: applyDtr(block.props, dtrParams) }
-              : block;
-            const isFormAnchor = i === firstFormIdx;
-            const inner = (
-              <BlockErrorBoundary key={block.id ?? i}>
-                <ScrollReveal
-                  delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-                  style={block.blockSettings?.animationStyle ?? "fade-up"}
-                  enabled={animationsEnabled}
-                >
-                  <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
-                </ScrollReveal>
-              </BlockErrorBoundary>
-            );
-            return isFormAnchor
-              ? <div key={block.id ?? i} id="form" style={{ scrollMarginTop: 80 }}>{inner}</div>
-              : inner;
-          });
-        })()}
+        {blocks.map((block, i) => {
+          const dtrBlock = Object.keys(dtrParams).length > 0
+            ? { ...block, props: applyDtr(block.props, dtrParams) }
+            : block;
+          return (
+            <BlockErrorBoundary key={block.id ?? i}>
+              <ScrollReveal
+                delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                style={block.blockSettings?.animationStyle ?? "fade-up"}
+                enabled={animationsEnabled}
+              >
+                <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
+              </ScrollReveal>
+            </BlockErrorBoundary>
+          );
+        })}
         {blocks.length === 0 && (
           <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">
             This page has no blocks yet.
@@ -585,20 +586,28 @@ export default function LandingPageViewer() {
         return;
       }
       const dest = ctaUrl && ctaUrl !== "#" ? ctaUrl : brand.defaultCtaUrl;
-      if (dest) {
-        if (!isPreviewMode) {
-          trackEvent.mutate({
-            data: {
-              sessionId,
-              testId: config.testId,
-              variantId: config.assignedVariant.id,
-              eventType: "conversion",
-              conversionType: "cta_click"
-            }
-          });
-        }
-        safeNavigate(dest, "_blank");
+      if (!dest) return;
+      if (!isPreviewMode) {
+        trackEvent.mutate({
+          data: {
+            sessionId,
+            testId: config.testId,
+            variantId: config.assignedVariant.id,
+            eventType: "conversion",
+            conversionType: "cta_click"
+          }
+        });
       }
+      // In-page anchor links scroll smoothly instead of opening a new tab.
+      if (dest.startsWith("#") && dest.length > 1) {
+        const target = document.getElementById(dest.slice(1));
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", dest);
+          return;
+        }
+      }
+      safeNavigate(dest, "_blank");
     };
 
     return (
@@ -631,29 +640,22 @@ export default function LandingPageViewer() {
           </div>
         )}
         {blocks.length > 0
-          ? (() => {
-              const firstFormIdx = blocks.findIndex(b => b.type === "form");
-              return blocks.map((block, i) => {
-                const dtrBlock = Object.keys(dtrParams).length > 0
-                  ? { ...block, props: applyDtr(block.props, dtrParams) }
-                  : block;
-                const isFormAnchor = i === firstFormIdx;
-                const inner = (
-                  <BlockErrorBoundary key={block.id ?? i}>
-                    <ScrollReveal
-                      delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
-                      style={block.blockSettings?.animationStyle ?? "fade-up"}
-                      enabled={linkedAnimationsEnabled}
-                    >
-                      <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
-                    </ScrollReveal>
-                  </BlockErrorBoundary>
-                );
-                return isFormAnchor
-                  ? <div key={block.id ?? i} id="form" style={{ scrollMarginTop: 80 }}>{inner}</div>
-                  : inner;
-              });
-            })()
+          ? blocks.map((block, i) => {
+              const dtrBlock = Object.keys(dtrParams).length > 0
+                ? { ...block, props: applyDtr(block.props, dtrParams) }
+                : block;
+              return (
+                <BlockErrorBoundary key={block.id ?? i}>
+                  <ScrollReveal
+                    delay={i === 0 ? 0 : Math.min((i - 1) * 60, 180)}
+                    style={block.blockSettings?.animationStyle ?? "fade-up"}
+                    enabled={linkedAnimationsEnabled}
+                  >
+                    <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
+                  </ScrollReveal>
+                </BlockErrorBoundary>
+              );
+            })
           : (
             <div className="min-h-screen flex flex-col items-center justify-center text-slate-400 text-sm gap-4">
               <div className="text-4xl">🧱</div>
