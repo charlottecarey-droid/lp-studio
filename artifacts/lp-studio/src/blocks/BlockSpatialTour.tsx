@@ -401,7 +401,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       <div
         style={{
           position: "absolute",
-          top: 96,
+          top: 56,
           right: 56,
           padding: "10px 16px",
           background: "rgba(0,0,0,0.40)",
@@ -1514,7 +1514,6 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Mega-block entry ──────────────────────────────────────────
 export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
-  useSpatialTourFonts();
   // Memoize stations so the alternating layout is stable
   const stations = useMemo(() => props.tourStations || [], [props.tourStations]);
 
