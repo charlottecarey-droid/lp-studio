@@ -147,6 +147,7 @@ const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
+const TemplatePreview = lazy(() => import("@/pages/template-preview"));
 
 // Marketing site for the lpstudio.ai apex domain. Lazy-loaded so it ships in
 // its own chunk and SaaS users (app.lpstudio.ai, *.lpstudio.ai) never download
@@ -416,7 +417,8 @@ function AppShell() {
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
     location.startsWith("/review/") || location === "/review" ||
-    location.startsWith("/thank-you");
+    location.startsWith("/thank-you") ||
+    location.startsWith("/preview/template/");
 
   if (isPublicRoute) {
     return (
@@ -427,6 +429,7 @@ function AppShell() {
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             <Route path="/review/:token" component={ReviewShell} />
             <Route path="/thank-you" component={ThankYou} />
+            <Route path="/preview/template/:templateId" component={TemplatePreview} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>
@@ -480,6 +483,22 @@ function App() {
       </WouterRouter>
     );
   }
+
+  // Truly-public template preview — bypass auth and domain context entirely so
+  // the page renders immediately without waiting on /api/me or /api/domain-context.
+  // Useful for sharing template previews with non-logged-in stakeholders.
+  if (typeof window !== "undefined" && window.location.pathname.includes("/preview/template/")) {
+    return (
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <Suspense fallback={<LoadingFallback />}>
+          <Switch>
+            <Route path="/preview/template/:templateId" component={TemplatePreview} />
+          </Switch>
+        </Suspense>
+      </WouterRouter>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
