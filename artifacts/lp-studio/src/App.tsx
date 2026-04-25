@@ -450,7 +450,26 @@ function AppShell() {
   );
 }
 
+/**
+ * Permanently redirect www.lpstudio.ai → lpstudio.ai so the apex stays
+ * canonical. Runs once at module evaluation time, before React renders,
+ * so no marketing chunk is downloaded on the www host. Production-only
+ * (skipped in dev / on replit.dev / replit.app / localhost).
+ */
+function maybeRedirectWwwToApex(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname.toLowerCase();
+  if (h !== "www.lpstudio.ai") return false;
+  const target = `https://lpstudio.ai${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.replace(target);
+  return true;
+}
+
 function App() {
+  // www → apex redirect. If this returns true the browser is already
+  // navigating away; render nothing so we don't flash any UI.
+  if (maybeRedirectWwwToApex()) return null;
+
   // Public marketing site at lpstudio.ai apex — no auth, no query client.
   if (isMarketingHost()) {
     return (
