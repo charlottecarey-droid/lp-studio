@@ -287,10 +287,18 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
       const marketoField = mappings[formField] ?? formField;
       marketoFields[marketoField] = value;
     }
-    // Auto-inject UTM attribution. Only set fields that have a value AND
-    // (a) the user has explicitly mapped them, OR (b) the form didn't
-    // already include them (so we never overwrite a hidden form UTM).
+    // Auto-inject UTM attribution from the URL when the form did not already
+    // capture it. Marketo's createOrUpdate is all-or-nothing: a single
+    // unrecognized field name causes the ENTIRE lead to be skipped (status
+    // "skipped", no record created). So we must (a) match form submissions
+    // case- and separator-insensitively (so "UTM Source" already covers
+    // utm_source), and (b) refuse to inject a raw lowercase key like
+    // "utm_source" when no mapping exists, since it is unlikely to be a valid
+    // Marketo REST field name and would poison the whole sync.
     if (lead.utm) {
+      const canon = (s: string) => s.toLowerCase().replace(/[\s_\-]+/g, "");
+      const submittedCanonKeys = new Set(Object.keys(lead.fields).map(canon));
+      const mappedTargets = new Set(Object.keys(marketoFields));
       const utmPairs: Array<[string, string | null | undefined]> = [
         ["utm_source",   lead.utm.source],
         ["utm_medium",   lead.utm.medium],
@@ -300,12 +308,17 @@ export async function syncToMarketo(config: MarketoConfig, lead: LeadPayload): P
       ];
       for (const [key, value] of utmPairs) {
         if (!value) continue;
-        const marketoField = mappings[key];
-        if (marketoField) {
-          marketoFields[marketoField] = value;
-        } else if (!(key in marketoFields)) {
-          marketoFields[key] = value;
+        // Skip if the form already submitted any field whose label collapses
+        // to the same canonical UTM key (e.g. "UTM Source" → "utmsource").
+        if (submittedCanonKeys.has(canon(key))) continue;
+        // Otherwise honor an explicit mapping for the URL-param key, if any.
+        const explicit = mappings[key];
+        if (explicit && !mappedTargets.has(explicit)) {
+          marketoFields[explicit] = value;
         }
+        // Intentionally do NOT inject the raw lowercase URL-param key as a
+        // Marketo field name — it usually is not a valid REST field name and
+        // would cause Marketo to skip the whole record.
       }
     }
 
