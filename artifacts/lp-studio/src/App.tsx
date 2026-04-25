@@ -148,6 +148,39 @@ const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
 
+// Marketing site for the lpstudio.ai apex domain. Lazy-loaded so it ships in
+// its own chunk and SaaS users (app.lpstudio.ai, *.lpstudio.ai) never download
+// it. Co-located CSS inside MarketingApp is chunked alongside it by Vite.
+const MarketingApp = lazy(() => import("@/marketing/MarketingApp"));
+
+/**
+ * Detect requests destined for the public marketing site. We branch at the
+ * top of App() so marketing visitors never bootstrap auth, query client, or
+ * tooltip providers.
+ *
+ * - Apex hosts (lpstudio.ai, www.lpstudio.ai) → marketing site
+ * - Dev override (?preview=marketing) → marketing site (any host)
+ * - Everything else (app.lpstudio.ai, *.lpstudio.ai, replit.dev, replit.app,
+ *   localhost, custom tenant/microsite domains) → SaaS / tenant rendering
+ */
+function isMarketingHost(): boolean {
+  if (typeof window === "undefined") return false;
+  // Dev-only override so we can preview the marketing site on the lp-studio
+  // dev URL without a custom DNS setup. Gated on import.meta.env.DEV so it
+  // can never flip a production SaaS host (app.lpstudio.ai) into marketing
+  // mode via a query string.
+  if (import.meta.env.DEV) {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("preview") === "marketing") return true;
+    } catch {
+      // ignore — fall through to host check
+    }
+  }
+  const h = window.location.hostname.toLowerCase();
+  return h === "lpstudio.ai" || h === "www.lpstudio.ai";
+}
+
 // Legacy routes (redirect to consolidated pages)
 const LeadsPage = lazy(() => import("@/pages/leads"));
 const FormsPage = lazy(() => import("@/pages/forms"));
@@ -418,6 +451,16 @@ function AppShell() {
 }
 
 function App() {
+  // Public marketing site at lpstudio.ai apex — no auth, no query client.
+  if (isMarketingHost()) {
+    return (
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <Suspense fallback={<LoadingFallback />}>
+          <MarketingApp />
+        </Suspense>
+      </WouterRouter>
+    );
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
