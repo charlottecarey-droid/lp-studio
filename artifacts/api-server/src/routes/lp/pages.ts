@@ -374,8 +374,24 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  // Source can be either a page/template owned by the caller's tenant, OR a
+  // global template (is_global=true AND is_template=true) whose industry is
+  // null (universal) or matches the caller's tenant industry. This mirrors the
+  // visibility rule used by GET /lp/templates/enriched and the fromTemplateId
+  // branch of POST /lp/pages, so cross-tenant global templates can be cloned.
+  const callerIndustry = await getTenantIndustry(tenantId);
   const [source] = await db.select().from(lpPagesTable).where(
-    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+    and(
+      eq(lpPagesTable.id, id),
+      or(
+        eq(lpPagesTable.tenantId, tenantId),
+        and(
+          eq(lpPagesTable.isGlobal, true),
+          eq(lpPagesTable.isTemplate, true),
+          or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, callerIndustry)),
+        ),
+      ),
+    )
   );
   if (!source) {
     res.status(404).json({ error: "Page not found" });
