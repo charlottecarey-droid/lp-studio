@@ -15,22 +15,24 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const ICONS = [TrendingDown, BarChart3, Scale, Wallet];
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies challenges for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_CHALLENGES = [
   {
     title: "Same-Store Growth Pressure",
-    desc: "Acquisition pipelines have slowed. With rising costs and tighter financing, DSOs must unlock more revenue from existing practices to protect EBITDA — and the dental lab is one of the most overlooked levers.",
+    desc: "Pipelines have slowed. With rising costs and tighter financing, teams must unlock more revenue from existing operations to protect margins.",
   },
   {
-    title: "Fragmented Lab Relationships",
-    desc: "If every dentist chooses their own lab, you never get a volume advantage. Disconnected vendors across regions create data silos, quality variance, and zero negotiating leverage.",
+    title: "Fragmented Vendor Relationships",
+    desc: "When every team picks their own tools, you lose the volume advantage. Disconnected vendors create data silos, quality variance, and zero negotiating leverage.",
   },
   {
     title: "Standards That Don't Survive Growth",
-    desc: "Most DSOs don't fail because they grow too fast — they fail because their standards don't scale. Variability creeps in, outcomes drift, and operational discipline erodes with every new location.",
+    desc: "Organizations rarely fail because they grow too fast — they fail because their standards don't scale. Variability creeps in and operational discipline erodes with every new site.",
   },
   {
     title: "Capital Constraints",
-    desc: "Scanner requests pile up every year — $40K–$75K per operatory adds up fast. DSOs need a partner that eliminates CAPEX, includes premium hardware, and proves ROI within months.",
+    desc: "Hardware refresh cycles add up fast. Teams need a partner that eliminates upfront CAPEX, includes premium gear, and proves ROI within months.",
   },
 ];
 

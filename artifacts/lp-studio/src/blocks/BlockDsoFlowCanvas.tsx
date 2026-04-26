@@ -31,13 +31,13 @@ interface Props { props: DsoFlowCanvasBlockProps }
 
 export function BlockDsoFlowCanvas({ props }: Props) {
   const {
-    eyebrow     = "The Dandy Standard",
-    quote       = "We didn't just digitize the lab workflow.\nWe rebuilt it from the ground up.",
-    attribution = "Dandy Engineering Team",
-    stat        = "99.2%",
-    statLabel   = "First-Time Fit Rate — Network-Wide",
+    eyebrow     = "What customers say",
+    quote       = "It replaced three tools and freed up an FTE in the first quarter.",
+    attribution = "Jamie Patel, VP Ops · Northwind",
+    stat        = "$240K",
+    statLabel   = "Annual savings",
     imageUrl    = "",
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "dark",
   } = props;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);

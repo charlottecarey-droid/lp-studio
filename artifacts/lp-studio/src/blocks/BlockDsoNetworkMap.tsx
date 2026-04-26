@@ -161,13 +161,13 @@ interface Props {
 
 export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
   const {
-    eyebrow    = "Dandy Network",
-    headline   = "One platform.\nEvery practice.",
-    body       = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
+    eyebrow    = "The Network",
+    headline   = "One platform.\nEvery location.",
+    body       = "Connect every site, every team, every workflow into one ecosystem — routing requests, surfacing insights, and standardizing outcomes in real time.",
     ctaText    = "See the Live Network",
     ctaUrl     = "#",
-    hubLabel   = "DANDY HUB",
-    backgroundStyle = "dandy-green",
+    hubLabel   = "",
+    backgroundStyle = "dark",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -253,9 +253,9 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
               marginBottom: "2.5rem",
             }}
           >
-            <TickStat target={500} suffix="+" label="DSO Locations"    delay={0.5}  inView={inView} />
-            <TickStat target={96}  suffix="%" label="First-Time Right"  delay={0.65} inView={inView} />
-            <TickStat target={4}   suffix="d" label="Avg Turnaround"    delay={0.8}  inView={inView} />
+            <TickStat target={500} suffix="+" label="Locations"        delay={0.5}  inView={inView} />
+            <TickStat target={96}  suffix="%" label="Quality Pass"     delay={0.65} inView={inView} />
+            <TickStat target={4}   suffix="d" label="Avg Turnaround"   delay={0.8}  inView={inView} />
           </motion.div>
 
           {ctaText && (

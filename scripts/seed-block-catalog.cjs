@@ -516,6 +516,10 @@ const GENERIC_SEED = [
       headline: "A modern stack vs. the old way.",
       subheadline: "What changes when you stop duct-taping tools together.",
       companyName: "Your Team",
+      // The middle column was previously hardcoded to "Dandy" in the
+      // component. The neutral default here keeps non-Dandy tenants safe.
+      providerLabel: "Our Platform",
+      traditionalLabel: "Traditional",
       ctaText: "Request a Demo",
       ctaUrl: "#",
       rows: [],
@@ -622,6 +626,9 @@ const GENERIC_SEED = [
       headline: "See everything.\nAct on what matters.",
       body: "Every metric from every location, streaming in real time. Turn raw operational data into executive-ready intelligence — automatically.",
       footerNote: "Live data across your network",
+      // The terminal header was previously hardcoded to "DSO Insights".
+      // Neutral default keeps non-DSO tenants safe.
+      terminalLabel: "Live Insights",
     } },
   { block_type: "dso-case-flow", label: "Case Flow", category: "Engagement", sort_order: 78, force: true,
     default_props: {

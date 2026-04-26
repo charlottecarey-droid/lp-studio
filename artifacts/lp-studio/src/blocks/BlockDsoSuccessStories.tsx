@@ -15,30 +15,32 @@ const FG  = "hsl(152,40%,13%)";
 const MU  = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies cases for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_CASES = [
   {
-    name: "APEX Dental Partners",
+    name: "Northwind Group",
     stat: "12.5%",
-    label: "annualized revenue potential increase",
-    quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.",
-    author: "Dr. Layla Lohmann, Founder",
-    image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=800&h=480&fit=crop",
+    label: "annualized revenue lift",
+    quote: "They value education, technology, and people. That's what makes them a great partner.",
+    author: "Layla Lohmann, Founder",
+    image: "",
   },
   {
-    name: "Smile Brands",
+    name: "Helio Brands",
     stat: "2–3 min",
-    label: "saved per crown appointment",
-    quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.",
-    author: "VP of Clinical Operations",
-    image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop",
+    label: "saved per request",
+    quote: "The efficiency gains were immediate. Our team noticed the difference from day one.",
+    author: "VP of Operations",
+    image: "",
   },
   {
     name: "Tend",
     stat: "40%",
-    label: "faster lab turnaround",
-    quote: "Speed matters when you're growing fast. Dandy keeps pace with our expansion without sacrificing quality.",
+    label: "faster turnaround",
+    quote: "Speed matters when you're growing fast. They keep pace without sacrificing quality.",
     author: "Head of Operations",
-    image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop",
+    image: "",
   },
 ];
 
@@ -100,7 +102,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
               letterSpacing: "-0.015em",
             }}
           >
-            {headline || "DSOs that switched and never looked back."}
+            {headline || "Teams that switched and never looked back."}
           </motion.h2>
         </div>
 

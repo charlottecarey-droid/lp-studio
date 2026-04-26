@@ -18,14 +18,16 @@ const FG    = "#002922";
 const FG_MU = "hsl(192,10%,42%)";
 const LIGHT_BG = "hsl(0,0%,99%)";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies tiles for catalog-added blocks; this fallback only fires for
+// isolated previews or when no catalog row matches.
 const DEFAULT_TILES: DsoBentoTile[] = [
-  { type: "stat",    value: "96%",    label: "First-time right rate", description: "Across all cases, all locations." },
-  { type: "photo",   imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=700&fit=crop", caption: "U.S.-based manufacturing" },
-  { type: "feature", headline: "Enterprise-grade quality at independent-practice speed.", body: "Dandy's AI-driven manufacturing delivers the consistency your DSO demands — without the compromises." },
-  { type: "stat",    value: "$0",     label: "CAPEX required",        description: "Premium scanners included at no upfront cost." },
-  { type: "quote",   quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations, Smile Brands" },
-  { type: "stat",    value: "4.2 days", label: "Average turnaround",  description: "Including AI scan review and QC." },
-  { type: "photo",   imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=900&h=700&fit=crop", caption: "Expert technicians, every case" },
+  { type: "stat",    value: "73%",    label: "Less manual work",      description: "Across teams and locations." },
+  { type: "feature", headline: "Native integrations",                 body: "Works with the tools you already use." },
+  { type: "stat",    value: "10x",    label: "Faster onboarding",     description: "From multi-week rollouts to same-day." },
+  { type: "quote",   quote: "Best ROI we've ever booked.",            author: "Priya, VP Ops" },
+  { type: "feature", headline: "Audit-ready",                         body: "SOC 2, HIPAA, GDPR — all out of the box." },
+  { type: "stat",    value: "4.9★",   label: "G2 rating",             description: "From 800+ verified reviews." },
 ];
 
 function StatTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "stat" }>; delay: number }) {
@@ -191,7 +193,7 @@ interface Props {
 
 export function BlockDsoBentoOutcomes({ props, brand }: Props) {
   const {
-    eyebrow = "Why Dandy",
+    eyebrow = "Outcomes",
     headline = "Every metric that matters. All in one platform.",
     tiles,
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",

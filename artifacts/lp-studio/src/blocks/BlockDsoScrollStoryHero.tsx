@@ -31,26 +31,30 @@ const BG_OVERLAY_MAP: Record<string, string> = {
   "gradient":    "rgba(0,26,20,0.70)",
 };
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies richer chapters; this fallback only fires for isolated previews or
+// when no catalog row matches. Previously this leaked Dandy/dental copy and
+// Unsplash dental imagery into every generic-tenant page that didn't override.
 const DEFAULT_CHAPTERS: DsoScrollStoryHeroBlockProps["chapters"] = [
   {
-    headline: "One lab partner. Every location.",
-    body: "Dandy becomes your single lab relationship — standardizing quality, pricing, and reporting across every practice in your network. One contract. Zero silos.",
-    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=1400&h=1000&fit=crop",
+    headline: "One platform. Every location.",
+    body: "Become your single source of truth — standardizing quality, pricing, and reporting across every site in your network.",
+    imageUrl: "",
   },
   {
-    headline: "AI that catches problems before they happen.",
-    body: "AI Scan Review validates every case in real time — before it leaves the chair. The result: a 96% first-time right rate and fewer costly remakes across your entire footprint.",
-    imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=1400&h=1000&fit=crop",
+    headline: "Catch problems before they happen.",
+    body: "Real-time checks validate every workflow before issues become costly downstream.",
+    imageUrl: "",
   },
   {
-    headline: "Executive visibility into every practice.",
-    body: "Real-time dashboards give DSO leadership insight into remake rates, case volumes, and turnaround times — by location, region, and brand. Manage by exception, not by spreadsheet.",
-    imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1400&h=1000&fit=crop",
+    headline: "Executive visibility, by site and region.",
+    body: "Dashboards give leadership insight into the metrics that matter, in real time. Manage by exception, not by spreadsheet.",
+    imageUrl: "",
   },
   {
-    headline: "Prove ROI at 10 offices. Scale to 500.",
-    body: "Our Pilot Program validates impact at a small number of locations first — measuring revenue lift, remake reduction, and chair time recovered — before you commit to a full rollout.",
-    imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=1400&h=1000&fit=crop",
+    headline: "Prove ROI, then scale.",
+    body: "Validate impact at a small number of locations first, then expand with confidence.",
+    imageUrl: "",
   },
 ];
 
@@ -61,12 +65,12 @@ interface Props {
 
 export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
   const {
-    eyebrow = "The Dandy Advantage",
+    eyebrow = "Why teams choose us",
     chapters,
-    ctaText = "Request a Custom Demo",
+    ctaText = "Request a Demo",
     ctaUrl = "#",
     imagePosition = "right",
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "dark",
   } = props;
   const imageRight = imagePosition !== "left";
   const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;

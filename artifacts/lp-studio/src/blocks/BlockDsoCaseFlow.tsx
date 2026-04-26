@@ -11,13 +11,16 @@ const CARD  = "rgba(255,255,255,0.05)";
 const BORDER = "rgba(255,255,255,0.10)";
 const MUTED = "hsla(48,100%,96%,0.48)";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies a richer 4-step flow; this is only used in isolated previews or
+// when no catalog row matches. Previously this leaked Dandy/dental copy.
 const DEFAULT_STAGES = [
   {
     number: "01",
-    label: "Intraoral Scan",
-    metric: "90s",
-    metricLabel: "scan to submit",
-    body: "Chairside HD scan submitted directly from the Dandy app. No PVS impressions. No prep lab.",
+    label: "Submit",
+    metric: "< 1 min",
+    metricLabel: "avg submission time",
+    body: "Kick off a request from any location with a streamlined intake form.",
     icon: (
       <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
         <motion.path d="M4 16 C4 9.4 9.4 4 16 4 C22.6 4 28 9.4 28 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
@@ -29,10 +32,10 @@ const DEFAULT_STAGES = [
   },
   {
     number: "02",
-    label: "AI Scan Review",
-    metric: "0s",
-    metricLabel: "validation delay",
-    body: "Every scan validated by Dandy AI before it leaves the chair. Issues caught at the source.",
+    label: "Validate",
+    metric: "Real-time",
+    metricLabel: "automated checks",
+    body: "Built-in validation catches issues before they propagate downstream.",
     icon: (
       <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
         <motion.circle cx="16" cy="16" r="7" stroke="currentColor" strokeWidth="2"
@@ -46,10 +49,10 @@ const DEFAULT_STAGES = [
   },
   {
     number: "03",
-    label: "Lab Production",
-    metric: "< 4d",
-    metricLabel: "avg turnaround",
-    body: "Cases routed to your dedicated Dandy lab network. Consistent quality. Predictable pricing.",
+    label: "Route",
+    metric: "Auto",
+    metricLabel: "routing",
+    body: "Requests are routed to the right team based on rules you control.",
     icon: (
       <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
         <motion.path d="M16 4 L26 10 L26 22 L16 28 L6 22 L6 10 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
@@ -61,10 +64,10 @@ const DEFAULT_STAGES = [
   },
   {
     number: "04",
-    label: "Delivery & Fit",
-    metric: "99.2%",
-    metricLabel: "first-time fit",
-    body: "Restorations delivered ready to seat. No adjustments. No remakes. No chair time wasted.",
+    label: "Deliver",
+    metric: "Days",
+    metricLabel: "typical turnaround",
+    body: "Track every step end-to-end with full visibility into status and SLA.",
     icon: (
       <svg viewBox="0 0 32 32" fill="none" width={28} height={28}>
         <motion.path d="M6 17 L12 23 L26 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -80,11 +83,11 @@ interface Props { props: DsoCaseFlowBlockProps }
 
 export function BlockDsoCaseFlow({ props }: Props) {
   const {
-    eyebrow = "How Dandy Works",
-    headline = "From scan to seat in under 4 days.",
-    subheadline = "Every Dandy case follows the same precise, AI-validated workflow — regardless of which location submits it.",
+    eyebrow = "How it works",
+    headline = "From request to delivery, in days.",
+    subheadline = "Every workflow follows the same precise, validated path — regardless of which location submits it.",
     stages,
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "muted",
   } = props;
 
   const displayStages = stages && stages.length > 0 ? stages.slice(0, 4) : DEFAULT_STAGES;

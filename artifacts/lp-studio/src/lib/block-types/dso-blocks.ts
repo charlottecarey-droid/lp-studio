@@ -360,6 +360,8 @@ export interface DsoLiveFeedBlockProps {
   headline?: string;
   body?: string;
   footerNote?: string;
+  /** Label shown in the terminal header bar. Defaults to a neutral "Live Insights". */
+  terminalLabel?: string;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -699,6 +701,14 @@ export interface DsoComparisonBlockProps {
   headline: string;
   subheadline: string;
   companyName: string;
+  /**
+   * Label for the "modern" comparison column. Defaults to a neutral
+   * "Our Platform" if not provided. Previously the column was hardcoded
+   * to "Dandy" inside the component.
+   */
+  providerLabel?: string;
+  /** Label for the legacy/traditional column (defaults to "Traditional"). */
+  traditionalLabel?: string;
   ctaText: string;
   ctaUrl: string;
   ctaMode?: CtaMode;

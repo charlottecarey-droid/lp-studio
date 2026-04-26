@@ -20,12 +20,14 @@ interface Metric {
   good: "high" | "low";
 }
 
+// Neutral default metrics. Catalog-added blocks will receive these (plus
+// optional overrides via props) without leaking dental/Dandy terminology.
 const BASE_METRICS: Metric[] = [
-  { label: "First-Time Right Rate",   value: 96.4, unit: "%",  direction: "up",   good: "high", sparkline: [90,92,93,91,94,95,96.4] },
+  { label: "Quality Pass Rate",       value: 96.4, unit: "%",  direction: "up",   good: "high", sparkline: [90,92,93,91,94,95,96.4] },
   { label: "Avg Turnaround Time",     value: 3.8,  unit: "d",  direction: "down", good: "low",  sparkline: [5.1,4.8,4.6,4.3,4.1,3.9,3.8] },
-  { label: "Remake Rate",             value: 2.1,  unit: "%",  direction: "down", good: "low",  sparkline: [5.8,5.0,4.2,3.5,3.0,2.5,2.1] },
-  { label: "Cases Submitted Today",   value: 847,  unit: "",   direction: "up",   good: "high", sparkline: [610,680,710,750,790,822,847] },
-  { label: "Provider Adoption",       value: 91,   unit: "%",  direction: "up",   good: "high", sparkline: [67,71,76,80,84,88,91] },
+  { label: "Rework Rate",             value: 2.1,  unit: "%",  direction: "down", good: "low",  sparkline: [5.8,5.0,4.2,3.5,3.0,2.5,2.1] },
+  { label: "Requests Submitted Today",value: 847,  unit: "",   direction: "up",   good: "high", sparkline: [610,680,710,750,790,822,847] },
+  { label: "Team Adoption",           value: 91,   unit: "%",  direction: "up",   good: "high", sparkline: [67,71,76,80,84,88,91] },
   { label: "Avg Satisfaction Score",  value: 4.7,  unit: "/5", direction: "up",   good: "high", sparkline: [4.1,4.2,4.3,4.4,4.5,4.6,4.7] },
 ];
 
@@ -147,10 +149,11 @@ interface Props { props: DsoLiveFeedBlockProps }
 export function BlockDsoLiveFeed({ props }: Props) {
   const {
     eyebrow = "Platform Intelligence",
-    headline = "Dandy sees everything.\nYour team acts on what matters.",
-    body = "Every metric from every location, streaming in real time. The Dandy dashboard transforms raw case data into executive-ready intelligence — automatically.",
-    footerNote = "Live data from 127 DSO locations across 14 states",
-    backgroundStyle = "dandy-green",
+    headline = "See everything.\nAct on what matters.",
+    body = "Every metric across every location, streaming in real time. The dashboard turns raw operational data into executive-ready intelligence — automatically.",
+    footerNote = "Live data from across your network",
+    terminalLabel = "Live Insights",
+    backgroundStyle = "dark",
   } = props;
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -214,7 +217,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
                 ))}
               </div>
               <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>
-                DSO Insights
+                {terminalLabel}
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                 <div style={{

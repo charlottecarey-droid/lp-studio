@@ -33,14 +33,14 @@ interface Props { props: DsoParticleMeshBlockProps }
 export function BlockDsoParticleMesh({ props }: Props) {
   const {
     eyebrow    = "AI-Driven Intelligence",
-    headline   = "Every case,\nconnected.",
-    body       = "Dandy's neural lab infrastructure routes, validates, and delivers with machine precision — connecting every practice, every provider, every outcome.",
+    headline   = "Every workflow,\nconnected.",
+    body       = "A unified infrastructure that routes, validates, and delivers with machine precision — connecting every team, every site, every outcome.",
     stat1Value = "500+", stat1Label = "Locations",
-    stat2Value = "96%",  stat2Label = "First-Time Right",
+    stat2Value = "96%",  stat2Label = "Quality Pass",
     stat3Value = "< 4d", stat3Label = "Avg Turnaround",
     imageUrl   = "",
     imagePosition = "right",
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "dark",
   } = props;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);

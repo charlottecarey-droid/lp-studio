@@ -17,21 +17,26 @@ const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies an empty rows array so this fallback only fires when no rows are
+// provided — and the catalog seed sets rows: [] explicitly. Keep neutral.
 const DEFAULT_ROWS = [
-  { need: "Patient Volume Growth", dandy: "30% higher case acceptance, expanded services like Aligners", traditional: "No growth enablement" },
-  { need: "Multi-Brand Consistency", dandy: "One standard across all your brands and locations", traditional: "Varies by location and vendor" },
-  { need: "Waste Prevention", dandy: "AI Scan Review catches issues before they cost you", traditional: "Remakes discovered after the fact" },
-  { need: "Executive Visibility", dandy: "Real-time, actionable data across your entire network", traditional: "Fragmented, non-actionable reports" },
-  { need: "Capital Efficiency", dandy: "Premium scanners included — no CAPEX required", traditional: "Heavy CAPEX, scanner bottlenecks" },
-  { need: "Change Management", dandy: "Hands-on training that respects provider autonomy", traditional: "Minimal onboarding, slow rollout" },
+  { need: "Growth Enablement",       dandy: "Same-store growth from existing locations",                  traditional: "No growth enablement" },
+  { need: "Multi-Brand Consistency", dandy: "One standard across every brand and site",                   traditional: "Varies by location and vendor" },
+  { need: "Quality Assurance",       dandy: "Real-time checks catch issues before they cost you",         traditional: "Problems discovered after the fact" },
+  { need: "Executive Visibility",    dandy: "Live dashboards across your entire network",                 traditional: "Fragmented, non-actionable reports" },
+  { need: "Capital Efficiency",      dandy: "No upfront CAPEX — pay-as-you-grow",                         traditional: "Heavy CAPEX, slow ROI" },
+  { need: "Change Management",       dandy: "Hands-on onboarding that respects team autonomy",            traditional: "Minimal onboarding, slow rollout" },
 ];
 
 export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true }: Props) {
   const {
-    eyebrow = "The Dandy Difference",
-    headline = "Built for DSO scale.\nDesigned for provider trust.",
-    subheadline = "Dandy combines the lab providers choose with advanced manufacturing, AI-driven quality control, and network-wide insights — a model traditional labs simply can't match.",
-    companyName = "Your DSO",
+    eyebrow = "The Difference",
+    headline = "A modern stack vs. the old way.",
+    subheadline = "What changes when you stop duct-taping tools together.",
+    companyName = "Your Team",
+    providerLabel = "Our Platform",
+    traditionalLabel = "Traditional",
     ctaText = "Request a Demo",
     ctaUrl = "#",
     rows,
@@ -158,7 +163,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              Dandy
+              {providerLabel}
             </div>
             <div
               style={{
@@ -171,7 +176,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              Traditional Labs
+              {traditionalLabel}
             </div>
           </div>
 

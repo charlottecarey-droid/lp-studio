@@ -18,7 +18,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
   const {
     eyebrow, headline, subheadline,
     oldWayLabel = "Traditional Lab",
-    newWayLabel = "Dandy",
+    newWayLabel = "The New Way",
     oldWayItems = [],
     newWayItems = [],
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",

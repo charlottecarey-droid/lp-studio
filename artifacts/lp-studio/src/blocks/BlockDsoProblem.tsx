@@ -38,11 +38,13 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   "scale": Scale,
 };
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies panels for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_PANELS: DsoProblemBlockProps["panels"] = [
-  { icon: "alert-triangle", title: "Fragmented Networks",   desc: "No centralized visibility or control across your lab relationships." },
-  { icon: "bar-chart",      title: "Scattered Data",        desc: "Performance tracking impossible across disconnected systems." },
-  { icon: "users",          title: "Provider Resistance",   desc: "Inconsistent quality erodes provider confidence and slows adoption." },
-  { icon: "trending-down",  title: "Revenue Leakage",       desc: "Remakes, wasted chair time, and inefficiency drain profitability silently." },
+  { icon: "alert-triangle", title: "Fragmented Tools",       desc: "No centralized visibility across the systems your team relies on." },
+  { icon: "bar-chart",      title: "Scattered Data",         desc: "Performance tracking is impossible when systems don't talk to each other." },
+  { icon: "users",          title: "Team Resistance",        desc: "Inconsistent quality erodes confidence and slows adoption." },
+  { icon: "trending-down",  title: "Revenue Leakage",        desc: "Rework, wasted time, and inefficiency drain margins silently." },
 ];
 
 interface Props {
@@ -52,13 +54,13 @@ interface Props {
 export function BlockDsoProblem({ props }: Props) {
   const {
     eyebrow = "The Problem",
-    headline = "Lab consolidation shouldn't mean compromise.",
+    headline = "Consolidation shouldn't mean compromise.",
     body = "",
     panels,
     imageUrls = [],
     statValue = "96%",
-    statLabel = "First-time right rate",
-    backgroundStyle = "dandy-green",
+    statLabel = "Quality pass rate",
+    backgroundStyle = "muted",
     ctaText,
     ctaUrl,
     ctaMode = "link",

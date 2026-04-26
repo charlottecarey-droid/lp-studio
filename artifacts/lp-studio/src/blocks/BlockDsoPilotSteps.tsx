@@ -21,26 +21,28 @@ const MU    = "hsl(152,8%,48%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies steps for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_STEPS = [
   {
     icon: Rocket,
     title: "Launch a Pilot",
-    subtitle: "Start with 5–10 offices",
-    desc: "Dandy deploys premium scanners, onboards doctors with hands-on training, and integrates into existing workflows — no CAPEX, no disruption.",
+    subtitle: "Start with a handful of teams",
+    desc: "We deploy the platform, onboard your team with hands-on training, and integrate into existing workflows — no upfront cost, no disruption.",
     details: [
-      "Premium hardware included for every operatory",
+      "Premium tooling included for every team",
       "Dedicated field team manages change management",
-      "Doctors trained and scanning within days",
+      "Users trained and live within days",
     ],
   },
   {
     icon: BarChart3,
     title: "Validate Impact",
     subtitle: "Measure results in 60–90 days",
-    desc: "Track remake reduction, chair time recovered, and same-store revenue lift in real time — proving ROI before you scale.",
+    desc: "Track efficiency gains, time reclaimed, and revenue lift in real time — proving ROI before you scale.",
     details: [
       "Live dashboard tracks pilot KPIs",
-      "Compare pilot offices vs. control group",
+      "Compare pilot teams vs. control group",
       "Executive-ready reporting for leadership review",
     ],
   },
@@ -48,11 +50,11 @@ const DEFAULT_STEPS = [
     icon: TrendingUp,
     title: "Scale With Confidence",
     subtitle: "Roll out across the network",
-    desc: "Expand across your entire network with the same standard, same playbook, and same results — predictable execution at enterprise scale.",
+    desc: "Expand across your entire organization with the same standard, same playbook, and same results — predictable execution at scale.",
     details: [
-      "Consistent onboarding across all locations",
-      "One standard across every office and brand",
-      "MSA ensures network-wide alignment at scale",
+      "Consistent onboarding across all sites",
+      "One standard across every team and brand",
+      "Master agreement ensures network-wide alignment",
     ],
   },
 ];

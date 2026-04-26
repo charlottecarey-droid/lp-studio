@@ -50,12 +50,12 @@ function buildChiliPiperUrl(base: string, email: string, company: string): strin
 export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, isBuilder }: Props) {
   const {
     eyebrow       = "Get Started Today",
-    headline      = "See what Dandy can\ndo for your group.",
-    body          = "Join DSO leaders already running smarter, faster dental operations. Setup takes one call.",
+    headline      = "See what we can do\nfor your team.",
+    body          = "Join leaders already running smarter, faster operations. Setup takes one call.",
     inputLabel    = "Work email",
-    inputPlaceholder = "yourname@dsogroup.com",
+    inputPlaceholder = "yourname@company.com",
     ctaLabel      = "Request a Demo",
-    trust1        = "1,200+ DSO locations",
+    trust1        = "Trusted across 1,200+ teams",
     trust2        = "No long-term contract",
     trust3        = "Live in 30 days",
     imageUrl      = "",
@@ -63,7 +63,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
     chilipiperUrl = "",
     successHeadline = "You're on the list!",
     successBody = "Check your inbox — we'll be in touch shortly to schedule your demo.",
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "dark",
   } = props;
 
   const dark          = isDarkBg(backgroundStyle);

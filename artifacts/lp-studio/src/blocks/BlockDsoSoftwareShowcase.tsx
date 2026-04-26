@@ -39,7 +39,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
     ctaText,
     ctaUrl,
     ctaMode = "link",
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "muted",
     layout = "centered",
   } = props;
 
@@ -90,10 +90,10 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   const bodyC     = dark ? "rgba(255,255,255,0.65)" : "#4b5563";
 
   const defaultFeatures = [
-    { icon: "zap",   label: "Real-time scan analysis" },
-    { icon: "check", label: "AI-flagged margin errors" },
-    { icon: "clock", label: "2–3 min saved per case" },
-    { icon: "bar",   label: "Full-arch 3D crown prep" },
+    { icon: "zap",   label: "Live workflows, not demo magic" },
+    { icon: "check", label: "Inline checks catch errors" },
+    { icon: "clock", label: "Minutes saved per task" },
+    { icon: "bar",   label: "Real-time analytics built in" },
   ];
   const displayFeatures = features.length > 0 ? features : defaultFeatures;
 
@@ -173,7 +173,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             }}
           >
             <MonitorPlay style={{ width: 10, height: 10 }} />
-            app.meetdandy.com
+            app.example.com
           </div>
         </div>
       )}
@@ -210,7 +210,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         ) : imageUrl ? (
           <img
             src={imageUrl}
-            alt="Dandy Chairside Software"
+            alt="Software showcase"
             style={{ width: "100%", display: "block", objectFit: "cover" }}
           />
         ) : (

@@ -13,13 +13,15 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P   = "var(--brand-primary, #003A30)";
 const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies stats for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_STATS: DsoStatShowcaseBlockProps["stats"] = [
-  { value: "96%",     label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },
-  { value: "12,000+", label: "Dental practices",       description: "Trust Dandy for their lab work" },
-  { value: "4.2 days", label: "Average turnaround",   description: "Including AI review and quality control" },
-  { value: "$0",      label: "CAPEX to start",         description: "All hardware included at no upfront cost" },
-  { value: "30%",     label: "Case acceptance lift",   description: "On average across DSO partner networks" },
-  { value: "100%",    label: "AI quality screened",    description: "Every scan reviewed before it leaves the chair" },
+  { value: "96%",      label: "Quality pass rate",   description: "Consistent at enterprise scale" },
+  { value: "12,000+",  label: "Teams served",        description: "Across every industry segment" },
+  { value: "4.2 days", label: "Average turnaround",  description: "From request to delivery" },
+  { value: "$0",       label: "Upfront cost",        description: "No CAPEX required to get started" },
+  { value: "30%",      label: "Productivity lift",   description: "Reported by partner organizations" },
+  { value: "100%",     label: "Quality reviewed",    description: "Every output checked before delivery" },
 ];
 
 function parseValue(raw: string): { prefix: string; num: number; suffix: string; isDecimal: boolean } {
@@ -140,7 +142,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
     eyebrow = "By the Numbers",
     headline = "Results that compound at scale.",
     stats,
-    backgroundStyle = "dandy-green",
+    backgroundStyle = "muted",
     ctaText,
     ctaUrl,
     ctaMode = "link",

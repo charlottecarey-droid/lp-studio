@@ -15,51 +15,54 @@ const FG = "hsl(152,40%,13%)";
 const MU = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies the case-study content for catalog-added blocks; this fires only
+// for isolated previews or when no catalog row matches.
 const DEFAULT_STATS = [
-  { value: "1.6", label: "Fewer appointments per denture" },
-  { value: "9,600", label: "Freed appointments" },
+  { value: "60%",   label: "Fewer manual touchpoints" },
+  { value: "9,600", label: "Hours reclaimed annually" },
   { value: "$2.5M", label: "Hard cost savings" },
-  { value: "$9.2M+", label: "Total annualized value" },
+  { value: "$9.2M", label: "Total annualized value" },
 ];
 
 const DEFAULT_CHALLENGE: DsoCaseStudyBodySection = {
   heading: "The Challenge",
-  body: "Enable Dental operates 45 locations across the Southeast and Midwest. Like many growing DSOs, they were running a hybrid model — part analog, part digital — for denture workflows. Each denture case required an average of 4 patient appointments, tying up chair time and staff resources. With rising labor costs and a post-pandemic surge in demand, Enable needed a way to scale their denture production without proportionally scaling their headcount or infrastructure.",
+  body: "A fast-growing 45-site organization was running a hybrid model — part manual, part digital — across their core workflow. Each request consumed multiple touchpoints, tying up time and staff. With rising labor costs and surging demand, the team needed a way to scale without proportionally scaling headcount.",
 };
 
 const DEFAULT_SOLUTION: DsoCaseStudyBodySection = {
   heading: "The Solution",
-  body: "Enable Dental partnered with Dandy to standardize their denture workflow across all 45 locations using Dandy's fully digital denture process. Dandy's platform replaced the traditional try-in appointment with a precision-fit approach powered by intraoral scanning, AI-assisted design, and Dandy's proprietary manufacturing pipeline. A phased rollout starting with 10 pilot practices allowed the clinical team to validate outcomes before scaling system-wide.",
+  body: "The team partnered with us to standardize the workflow across all 45 sites. We replaced manual handoffs with an automated, AI-assisted pipeline. A phased rollout starting with 10 pilot sites allowed the operations team to validate outcomes before scaling system-wide.",
 };
 
-const DEFAULT_QUOTE = "Dandy didn't just improve our lab turnaround — they gave us our schedule back. We went from four appointments per denture case to fewer than two, and our patients can't believe how fast and comfortable the process is now.";
+const DEFAULT_QUOTE = "It didn't just improve our turnaround — it gave us our schedule back. We cut touchpoints by more than half and our team can't believe how fast and reliable the process is now.";
 
 const DEFAULT_RESULTS: DsoCaseStudyResultItem[] = [
   {
     value: "1.6",
-    label: "Avg. appointments per denture",
-    description: "Down from 4.0 appointments in the pre-Dandy workflow — a 60% reduction",
+    label: "Avg. touchpoints per request",
+    description: "Down from 4.0 in the prior workflow — a 60% reduction",
   },
   {
     value: "9,600",
-    label: "Appointments freed annually",
-    description: "Hours recaptured for higher-value procedures across all 45 locations",
+    label: "Hours freed annually",
+    description: "Time recaptured for higher-value work across all 45 sites",
   },
   {
     value: "$2.5M",
     label: "Hard cost savings",
-    description: "From reduced lab fees, eliminated remakes, and lower denture COGS",
+    description: "From reduced rework, vendor consolidation, and lower COGS",
   },
   {
-    value: "$9.2M+",
+    value: "$9.2M",
     label: "Total annualized value",
-    description: "Including freed chair time at market rate across the full practice network",
+    description: "Including reclaimed time valued at market rate across the network",
   },
 ];
 
 const DEFAULT_WHY: DsoCaseStudyBodySection = {
   heading: "Why It Matters",
-  body: "Dentures represent one of the highest-value, highest-complexity production categories for DSOs. Every appointment saved is a slot that can be filled with an exam, a crown, or an implant consult. For a 45-location group, recapturing 9,600 appointments per year isn't an operational win — it's a revenue transformation. Enable Dental's results demonstrate that the biggest gains from digital dentistry don't come from technology alone. They come from standardizing the workflow across every location, then letting the data compound.",
+  body: "The biggest gains don't come from technology alone — they come from standardizing the workflow across every site, then letting the data compound. For a 45-site organization, recapturing thousands of hours per year isn't an operational win — it's a revenue transformation.",
 };
 
 export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
@@ -73,8 +76,8 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
   const resultsDark = isDarkBg(resultsBg);
 
   const eyebrow     = props.eyebrow     ?? "Customer Story";
-  const headline    = props.headline    ?? "Enable Dental cuts appointments per denture in half — and frees 9,600 hours of chair time";
-  const subheadline = props.subheadline ?? "How a 45-location DSO reduced denture appointments from 4 to 1.6 per case, unlocking $9.2M in annualized value through Dandy's digital workflow.";
+  const headline    = props.headline    ?? "How a 45-site organization cut touchpoints in half and reclaimed 9,600 hours";
+  const subheadline = props.subheadline ?? "A multi-site rollout that standardized the workflow, unlocking $9.2M in annualized value.";
   const stats       = props.stats       ?? DEFAULT_STATS;
   const challenge   = props.challenge   ?? DEFAULT_CHALLENGE;
   const solution    = props.solution    ?? DEFAULT_SOLUTION;

@@ -13,15 +13,17 @@ const P    = "var(--brand-primary, #003A30)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
+// Neutral component-level fallback. Catalog default_props (industry='generic')
+// supplies bullets/stats for catalog-added blocks; this fires only for isolated previews.
 const DEFAULT_BULLETS = [
-  { icon: ScanLine,   text: "AI reviews every scan for clinical accuracy" },
-  { icon: RefreshCw,  text: "Real-time feedback before case submission" },
-  { icon: ShieldCheck,text: "Eliminates remakes at the source" },
+  { icon: ScanLine,   text: "AI reviews every submission for accuracy" },
+  { icon: RefreshCw,  text: "Real-time feedback before final approval" },
+  { icon: ShieldCheck,text: "Eliminates rework at the source" },
 ];
 
 const DEFAULT_STATS = [
   { value: "96%",  label: "First-Time Right" },
-  { value: "<30s", label: "Scan Review" },
+  { value: "<30s", label: "Auto Review" },
   { value: "100%", label: "AI-Screened" },
 ];
 
@@ -32,13 +34,13 @@ interface Props {
 export function BlockDsoAiFeature({ props }: Props) {
   const {
     eyebrow   = "Waste Prevention",
-    headline  = "Remakes are a tax. AI eliminates them.",
-    body      = "AI Scan Review catches issues in real time — avoiding costly rework and maximizing revenue potential before a case ever reaches the bench.",
+    headline  = "Rework is a tax. AI eliminates it.",
+    body      = "Inline AI review catches issues in real time — avoiding costly rework and maximizing throughput before anything reaches the next stage.",
     bullets   = DEFAULT_BULLETS.map(b => b.text),
     stats     = DEFAULT_STATS,
     imageUrl  = "",
-    videoUrl  = "/videos/ai-scan-review.mp4",
-    backgroundStyle = "dandy-green",
+    videoUrl  = "",
+    backgroundStyle = "muted",
     ctaText,
     ctaUrl,
     ctaMode = "link",
