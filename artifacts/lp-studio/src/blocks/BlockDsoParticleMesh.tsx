@@ -5,7 +5,7 @@ import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
-const AW    = "hsl(68,60%,52%)";
+const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED = "hsla(48,100%,96%,0.42)";
 const BG    = "#001a13";
 

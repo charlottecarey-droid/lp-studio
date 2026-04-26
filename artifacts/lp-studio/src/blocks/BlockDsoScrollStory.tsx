@@ -5,10 +5,17 @@ import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const AW    = "hsl(68,60%,52%)";
-const FG    = "hsl(152,30%,10%)";
+// Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
+// `getBrandStyleVars`). Hardcoded HSL fallbacks preserve the original Dandy
+// look when no brand wrapper is present (e.g. isolated previews).
+const AW    = "var(--brand-accent, hsl(68,60%,52%))";
+const FG    = "var(--brand-primary, hsl(152,30%,10%))";
 const FG_MU = "hsl(192,10%,42%)";
 const LIGHT_BG = "hsl(0,0%,99%)";
+// Decorative tints/shadows derived from the brand-primary RGB channels
+// (declared by the brand wrapper as space-separated `R G B`). Falls back to
+// Dandy forest (#003A30 = 0 58 48) for isolated previews.
+const FG_RGBA = (a: number) => `rgb(var(--brand-primary-rgb, 0 58 48) / ${a})`;
 
 const DEFAULT_CHAPTERS: DsoScrollStoryBlockProps["chapters"] = [
   {
@@ -153,7 +160,7 @@ export function BlockDsoScrollStory({ props }: Props) {
                         height: 3,
                         width: active === i ? 36 : 10,
                         borderRadius: 2,
-                        background: active === i ? "rgba(0,58,48,0.12)" : "rgba(0,58,48,0.12)",
+                        background: active === i ? FG_RGBA(0.12) : FG_RGBA(0.12),
                         border: "none",
                         padding: 0,
                         cursor: "pointer",
@@ -173,7 +180,7 @@ export function BlockDsoScrollStory({ props }: Props) {
                           transition={{ duration: 4, ease: "linear" }}
                         />
                       ) : (
-                        <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: active === i ? AW : "rgba(0,58,48,0.20)" }} />
+                        <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: active === i ? AW : FG_RGBA(0.20) }} />
                       )}
                     </button>
                   ))}
@@ -245,7 +252,7 @@ export function BlockDsoScrollStory({ props }: Props) {
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                       loading="lazy"
                     />
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(0,58,48,0.05) 0%, rgba(0,0,0,0.35) 100%)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(160deg, ${FG_RGBA(0.05)} 0%, rgba(0,0,0,0.35) 100%)` }} />
                     <div style={{
                       position: "absolute",
                       bottom: "1.75rem",
@@ -286,7 +293,7 @@ export function BlockDsoScrollStory({ props }: Props) {
               {/* Image */}
               <div style={{ borderRadius: "1rem", overflow: "hidden", height: 240, marginBottom: "1.5rem", position: "relative" }}>
                 <img src={ch.imageUrl} alt={ch.headline} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(0,58,48,0.05) 0%, rgba(0,0,0,0.35) 100%)" }} />
+                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(160deg, ${FG_RGBA(0.05)} 0%, rgba(0,0,0,0.35) 100%)` }} />
                 <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
               </div>
               {/* Chapter index */}

@@ -10,8 +10,8 @@ interface Props {
   onCtaClick?: () => void;
 }
 
-const P   = "#003A30";
-const AW  = "hsl(68,60%,52%)";
+const P   = "var(--brand-primary, #003A30)";
+const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const SEC = "hsl(42,18%,96%)";
 const FG  = "hsl(152,40%,13%)";
 const MU  = "hsl(152,8%,48%)";

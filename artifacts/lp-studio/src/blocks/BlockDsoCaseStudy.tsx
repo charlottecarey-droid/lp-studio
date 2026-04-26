@@ -10,7 +10,7 @@ interface Props {
   onFieldChange?: (updated: DsoCaseStudyBlockProps) => void;
 }
 
-const AW = "hsl(68,60%,52%)";
+const AW = "var(--brand-accent, hsl(68,60%,52%))";
 const FG = "hsl(152,40%,13%)";
 const MU = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -105,7 +105,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
     upd({ results: next });
   };
 
-  const heroStatDivider = heroDark ? "rgba(255,255,255,0.10)" : "rgba(0,58,48,0.10)";
+  const heroStatDivider = heroDark ? "rgba(255,255,255,0.10)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.10)";
   const bodyDivider     = bodyDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
   const resDivider      = resultsDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
 
@@ -452,7 +452,7 @@ function PullQuote({
         marginBottom: "3rem",
         padding: "2rem 2.25rem",
         borderLeft: `3px solid ${dark ? AW : FG}`,
-        background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,58,48,0.03)",
+        background: dark ? "rgba(255,255,255,0.04)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.03)",
         borderRadius: "0 0.75rem 0.75rem 0",
         position: "relative",
       }}

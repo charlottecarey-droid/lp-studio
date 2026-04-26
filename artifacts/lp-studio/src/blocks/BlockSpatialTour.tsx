@@ -4,7 +4,7 @@ import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-type
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
 
 // ─── Brand palette ──────────────────────────────────────────────
-const FOREST = "#003A30";
+const FOREST = "var(--brand-primary, #003A30)";
 const FOREST_DEEP = "#00231D";
 const KELLY = "#158915";
 const MINT = "#C5F1C5";
@@ -473,15 +473,31 @@ function MintEmphasis({
   );
 }
 
-function DandyWordmark({ color = FOREST, height = 22 }: { color?: string; height?: number }) {
-  // On the dark spatial-tour chrome we use the white logo; everywhere else
-  // (e.g. on a CREAM section) we use the default dark logo.
+// Spatial-tour wordmark. We expose a `logoSrc` prop so non-Dandy tenants can
+// pass their own brand mark; if omitted, we fall back to the bundled Dandy
+// SVGs (this block is currently Dandy-only via the spatial-tour template).
+// The dark-bg variant is detected via the chrome color === WHITE.
+function DandyWordmark({
+  color = FOREST,
+  height = 22,
+  logoSrc,
+  logoSrcDark,
+  alt = "Dandy",
+}: {
+  color?: string;
+  height?: number;
+  logoSrc?: string;
+  logoSrcDark?: string;
+  alt?: string;
+}) {
   const isDarkBg = color === WHITE;
-  const src = isDarkBg ? "/dandy-logo-white.svg" : "/dandy-logo.svg";
+  const fallback = isDarkBg ? "/dandy-logo-white.svg" : "/dandy-logo.svg";
+  const override = isDarkBg ? (logoSrcDark || logoSrc) : (logoSrc || logoSrcDark);
+  const src = override || fallback;
   return (
     <img
       src={src}
-      alt="Dandy"
+      alt={alt}
       style={{ height, width: "auto", display: "block" }}
     />
   );
@@ -603,7 +619,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(100deg, rgba(0,35,29,0.92) 0%, rgba(0,58,48,0.78) 35%, rgba(0,58,48,0.40) 70%, rgba(0,58,48,0.20) 100%)",
+            "linear-gradient(100deg, rgb(var(--brand-primary-rgb, 0 35 29) / 0.92) 0%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.78) 35%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.40) 70%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.20) 100%)",
         }}
       />
       <DotGrid opacity={0.6} />
@@ -904,7 +920,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
               height: "100%",
               overflow: "hidden",
               borderRadius: 4,
-              boxShadow: "0 30px 80px rgba(0,58,48,0.25)",
+              boxShadow: "0 30px 80px rgb(var(--brand-primary-rgb, 0 58 48) / 0.25)",
             }}
           >
             {p.manifestoImageUrl && (
@@ -942,7 +958,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
               </span>
             </div>
           </div>
-          <CornerFrame color="rgba(0,58,48,0.55)" size={16} inset={-10} />
+          <CornerFrame color="rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)" size={16} inset={-10} />
         </motion.div>
       </div>
     </div>
@@ -957,7 +973,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
         background: flip ? WHITE : CREAM,
         padding: "120px 56px",
         position: "relative",
-        borderBottom: isLast ? "none" : "1px solid rgba(0,58,48,0.06)",
+        borderBottom: isLast ? "none" : "1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.06)",
       }}
     >
       <div
@@ -990,7 +1006,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
               inset: 0,
               overflow: "hidden",
               borderRadius: 4,
-              boxShadow: "0 24px 60px rgba(0,58,48,0.18)",
+              boxShadow: "0 24px 60px rgb(var(--brand-primary-rgb, 0 58 48) / 0.18)",
             }}
           >
           {station.imageUrl && (
@@ -1010,7 +1026,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
               position: "absolute",
               bottom: 16,
               left: 16,
-              background: "rgba(0,35,29,0.90)",
+              background: "rgb(var(--brand-primary-rgb, 0 35 29) / 0.90)",
               color: WHITE,
               padding: "14px 18px",
               borderRadius: 4,
@@ -1073,7 +1089,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
             </span>
           </div>
           </div>
-          <CornerFrame color="rgba(0,58,48,0.55)" size={16} inset={-10} />
+          <CornerFrame color="rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)" size={16} inset={-10} />
         </motion.div>
 
         <motion.div
@@ -1100,7 +1116,7 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
               <span style={{ fontWeight: 400 }}>{station.number}</span>
               <span style={{ opacity: 0.55, fontWeight: 400 }}>]</span>
             </span>
-            <div style={{ height: 1, background: "rgba(0,58,48,0.20)", flex: 1 }} />
+            <div style={{ height: 1, background: "rgb(var(--brand-primary-rgb, 0 58 48) / 0.20)", flex: 1 }} />
             <span
               style={{
                 fontFamily: SANS,
@@ -1476,7 +1492,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
                   style={{
                     position: "absolute",
                     inset: 0,
-                    background: "linear-gradient(180deg, rgba(0,58,48,0.0) 50%, rgba(0,58,48,0.55) 100%)",
+                    background: "linear-gradient(180deg, rgb(var(--brand-primary-rgb, 0 58 48) / 0.0) 50%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.55) 100%)",
                   }}
                 />
                 <div
@@ -1493,7 +1509,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
                   <div
                     style={{
                       padding: "6px 10px",
-                      background: "rgba(0,35,29,0.8)",
+                      background: "rgb(var(--brand-primary-rgb, 0 35 29) / 0.8)",
                       borderRadius: 4,
                       fontSize: 9.5,
                       fontWeight: 600,
@@ -1538,7 +1554,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
                   style={{
                     marginTop: 24,
                     paddingTop: 20,
-                    borderTop: "1px solid rgba(0,58,48,0.12)",
+                    borderTop: "1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.12)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",

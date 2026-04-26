@@ -12,8 +12,8 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P    = "#003A30";
-const AW   = "hsl(68,60%,52%)";
+const P    = "var(--brand-primary, #003A30)";
+const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 
 const DEFAULT_IMG_A = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=660&fit=crop";
 const DEFAULT_IMG_B = "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=640&h=440&fit=crop";
@@ -63,7 +63,7 @@ export function BlockDsoProblem({ props }: Props) {
 
   const dark = isDarkBg(backgroundStyle);
   const fg   = dark ? "hsl(48,100%,96%)"      : P;
-  const mu   = dark ? "rgba(255,255,255,0.52)" : "rgba(0,58,48,0.55)";
+  const mu   = dark ? "rgba(255,255,255,0.52)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
   const dividerColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const iconBg     = dark ? `${AW}14` : `${AW}22`;
   const iconBorder = dark ? `${AW}28` : `${AW}44`;
@@ -277,7 +277,7 @@ export function BlockDsoProblem({ props }: Props) {
                           justifyContent: "center",
                           transition: "background 0.3s, border-color 0.3s",
                         }}
-                        className="group-hover:!bg-[hsl(68,60%,52%)]/20 group-hover:!border-[hsl(68,60%,52%)]/50"
+                        className="group-hover:!bg-[var(--brand-accent,hsl(68,60%,52%))]/20 group-hover:!border-[var(--brand-accent,hsl(68,60%,52%))]/50"
                       >
                         <Icon style={{ width: 16, height: 16, color: AW }} />
                       </div>

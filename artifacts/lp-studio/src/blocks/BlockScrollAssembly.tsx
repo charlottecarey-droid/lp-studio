@@ -406,7 +406,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
                 className="text-xs font-bold uppercase tracking-[0.25em] mb-1 px-4 py-1.5 rounded-full"
                 style={{
                   color: eyebrowColor,
-                  border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.25)" : "rgba(0,58,48,0.2)"}`,
+                  border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.25)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.2)"}`,
                   backgroundColor: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.6)",
                   backdropFilter: "blur(8px)",
                 }}

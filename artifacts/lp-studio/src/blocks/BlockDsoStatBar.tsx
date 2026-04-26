@@ -58,7 +58,7 @@ const StatItem = ({
         style={{
           width: 24,
           height: 1,
-          background: dark ? AW : "rgba(0,58,48,0.18)",
+          background: dark ? AW : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.18)",
           opacity: dark ? 0.33 : 1,
           margin: "0.875rem auto",
         }}

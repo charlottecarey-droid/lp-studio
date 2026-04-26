@@ -12,8 +12,8 @@ interface Props {
   brand: BrandConfig;
 }
 
-const BRAND   = "#003A30";
-const LIME    = "hsl(68,60%,52%)";
+const BRAND   = "var(--brand-primary, #003A30)";
+const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoPracticeHero({ props, brand }: Props) {
@@ -154,7 +154,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           <ChiliPiperButton
             url={secondaryCtaUrl || ""}
             className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgba(0,58,48,0.5)" }}
+            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)" }}
           >
             {secondaryCtaText}
           </ChiliPiperButton>
@@ -162,7 +162,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           <motion.a
             href={secondaryCtaUrl || "#"}
             className={getSecondaryButtonClasses(brand)}
-            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgba(0,58,48,0.5)", textDecoration: "none" }}
+            style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)", textDecoration: "none" }}
             whileHover={{ scale: 1.04, y: -1 }}
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
@@ -280,7 +280,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
                 boxShadow: imageShadow
                   ? (dark
                     ? "0 32px 64px rgba(0,0,0,0.45)"
-                    : "0 24px 48px rgba(0,58,48,0.12)")
+                    : "0 24px 48px rgb(var(--brand-primary-rgb, 0 58 48) / 0.12)")
                   : "none",
                 aspectRatio: imageAspect,
               }}

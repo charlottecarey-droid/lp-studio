@@ -10,7 +10,7 @@ interface Props {
 
 const P   = "hsl(152,42%,12%)";
 const PFG = "hsl(48,100%,96%)";
-const AW  = "hsl(68,60%,52%)";
+const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const FG  = "hsl(152,40%,13%)";
 const MU  = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -55,7 +55,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
   const labelColor   = dark ? "rgba(255,255,255,0.55)" : MU;
   const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `${FG}cc`;
   const authorColor  = dark ? AW : P;
-  const dividerColor = dark ? `rgba(255,255,255,0.12)` : `rgba(0,58,48,0.10)`;
+  const dividerColor = dark ? `rgba(255,255,255,0.12)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.10)`;
 
   const cardBg     = dark ? "rgba(255,255,255,0.04)" : "#fff";
   const cardBorder = dark ? "1px solid rgba(255,255,255,0.09)" : "1px solid rgba(0,0,0,0.06)";

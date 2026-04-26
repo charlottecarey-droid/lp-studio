@@ -34,14 +34,15 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   const resolvedImage = props.imageUrl && props.imageUrl.trim() !== "" ? props.imageUrl : "";
   const resolvedMedia = props.mediaUrl && props.mediaUrl.trim() !== "" ? props.mediaUrl : "";
 
-  // If the user picked a split layout but no media/image is set (and the
-  // hero isn't a video), collapse to a single-column layout instead of
-  // rendering a blank media column. This previously fell back to the
-  // hardcoded /dandy-platform.webp image, which leaked Dandy branding.
-  const hasMedia =
-    props.heroType !== "none" && (resolvedMedia !== "" || resolvedImage !== "");
-  const isSplit = requestedSplit && hasMedia;
-  const isSplitRight = props.layout === "split-right" && hasMedia;
+  // Honor the author-chosen layout regardless of media presence so saved
+  // pages don't visually shift if an image is temporarily missing. When
+  // there's no media, `renderMedia()` returns null and the split column
+  // simply renders empty — better than collapsing the layout (which would
+  // be a regression for Dandy templates that legitimately use split).
+  // Previously the missing-media path fell back to the hardcoded
+  // /dandy-platform.webp default, which leaked Dandy branding.
+  const isSplit = requestedSplit;
+  const isSplitRight = props.layout === "split-right";
 
   const field = (key: keyof HeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;

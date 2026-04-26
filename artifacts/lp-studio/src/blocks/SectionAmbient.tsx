@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-const AW = "hsl(68,60%,52%)";
+const AW = "var(--brand-accent, hsl(68,60%,52%))";
 
 /** Thin horizontal line that sweeps top→bottom through the section */
 export function ScanDown({

@@ -10,9 +10,9 @@ const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P     = "#003A30";
+const P     = "var(--brand-primary, #003A30)";
 const PFG   = "hsl(48,100%,96%)";
-const AW    = "hsl(68,60%,52%)";
+const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const MU    = "rgba(255,255,255,0.50)";
 const FG    = "#002922";
 const FG_MU = "hsl(192,10%,42%)";

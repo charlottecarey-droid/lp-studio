@@ -7,8 +7,8 @@ interface Props {
   props: DsoPromoCardsBlockProps;
 }
 
-const BRAND   = "#003A30";
-const LIME    = "hsl(68,60%,52%)";
+const BRAND   = "var(--brand-primary, #003A30)";
+const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const BADGE_PALETTE: Record<string, { bg: string; text: string }> = {

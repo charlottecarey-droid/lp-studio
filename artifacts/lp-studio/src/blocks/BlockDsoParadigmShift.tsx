@@ -10,7 +10,7 @@ interface Props {
   brand: BrandConfig;
 }
 
-const BRAND   = "#003A30";
+const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "#C7E738"; /* alpha-concat literal */
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 

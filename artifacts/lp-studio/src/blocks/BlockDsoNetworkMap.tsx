@@ -5,9 +5,12 @@ import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
-const P     = "#003A30";
+// Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
+// `getBrandStyleVars`). Hardcoded HSL/hex fallbacks preserve the original
+// Dandy look when no brand wrapper is present (e.g. isolated previews).
+const P     = "var(--brand-primary, #003A30)";
 const PFG   = "hsl(48,100%,96%)";
-const AW    = "hsl(68,60%,52%)";
+const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED = "hsla(48,100%,96%,0.5)";
 const CARD  = "rgba(255,255,255,0.05)";
 const CARD_BORDER = "rgba(255,255,255,0.10)";

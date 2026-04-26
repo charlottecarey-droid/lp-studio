@@ -812,7 +812,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
                 fontWeight: 600,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
-                color: isDark ? "hsl(68,60%,52%)" : "hsl(152,42%,12%)",
+                color: isDark ? "var(--brand-accent, hsl(68,60%,52%))" : "var(--brand-primary, hsl(152,42%,12%))",
                 marginBottom: "1.25rem",
               }}
             >

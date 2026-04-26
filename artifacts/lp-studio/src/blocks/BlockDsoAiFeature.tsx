@@ -9,8 +9,8 @@ import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 import { WordReveal } from "./WordReveal";
 import { StatCounter } from "./StatCounter";
 
-const P    = "#003A30";
-const AW   = "hsl(68,60%,52%)";
+const P    = "var(--brand-primary, #003A30)";
+const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const DEFAULT_BULLETS = [
@@ -46,9 +46,9 @@ export function BlockDsoAiFeature({ props }: Props) {
 
   const dark = isDarkBg(backgroundStyle);
   const fg   = dark ? "#fff"                    : P;
-  const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgba(0,58,48,0.60)";
-  const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgba(0,58,48,0.80)";
-  const statMu = dark ? "rgba(255,255,255,0.40)" : "rgba(0,58,48,0.45)";
+  const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)";
+  const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.80)";
+  const statMu = dark ? "rgba(255,255,255,0.40)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.45)";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoMuted, setVideoMuted] = useState(true);
@@ -153,7 +153,7 @@ export function BlockDsoAiFeature({ props }: Props) {
             >
               <WordReveal
                 text={headline}
-                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgba(0,58,48,0.2)"}
+                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.2)"}
                 brightColor={fg}
               />
             </h2>
@@ -161,7 +161,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               <p style={{ fontSize: "1rem", lineHeight: 1.7 }}>
                 <WordReveal
                   text={body}
-                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgba(0,58,48,0.18)"}
+                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.18)"}
                   brightColor={mu}
                 />
               </p>

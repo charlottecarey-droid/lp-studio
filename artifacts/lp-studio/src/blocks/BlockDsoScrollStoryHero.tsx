@@ -6,9 +6,9 @@ import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P      = "#003A30";
+const P      = "var(--brand-primary, #003A30)";
 const PFG    = "hsl(48,100%,96%)";
-const AW     = "hsl(68,60%,52%)";
+const AW     = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED  = "hsla(48,100%,96%,0.55)";
 
 const BG_PANEL_MAP: Record<string, string> = {
@@ -26,7 +26,7 @@ const BG_OVERLAY_MAP: Record<string, string> = {
   "light-gray":  "rgba(243,244,246,0.70)",
   "muted":       "rgba(255,250,230,0.70)",
   "dark":        "rgba(26,26,26,0.70)",
-  "dandy-green": "rgba(0,58,48,0.60)",
+  "dandy-green": "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)",
   "black":       "rgba(0,0,0,0.70)",
   "gradient":    "rgba(0,26,20,0.70)",
 };
@@ -70,7 +70,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
   } = props;
   const imageRight = imagePosition !== "left";
   const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;
-  const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgba(0,58,48,0.60)";
+  const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);

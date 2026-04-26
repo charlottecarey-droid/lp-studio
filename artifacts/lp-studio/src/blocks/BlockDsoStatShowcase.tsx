@@ -151,7 +151,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
   const dark = isDarkBg(backgroundStyle);
   const fg         = dark ? "hsl(48,100%,96%)"      : P;
   const eyebrowFg  = AW;
-  const mu         = dark ? "rgba(255,255,255,0.46)" : "rgba(0,58,48,0.55)";
+  const mu         = dark ? "rgba(255,255,255,0.46)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
   const borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
 
   const sectionRef = useRef<HTMLElement>(null);
