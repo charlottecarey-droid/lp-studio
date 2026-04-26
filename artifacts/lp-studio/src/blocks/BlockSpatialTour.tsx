@@ -259,19 +259,16 @@ function NumberBadge({
 }
 
 function DandyWordmark({ color = FOREST, height = 22 }: { color?: string; height?: number }) {
+  // On the dark spatial-tour chrome we use the white logo; everywhere else
+  // (e.g. on a CREAM section) we use the default dark logo.
+  const isDarkBg = color === WHITE;
+  const src = isDarkBg ? "/dandy-logo-white.svg" : "/dandy-logo.svg";
   return (
-    <span
-      style={{
-        fontFamily: SERIF,
-        fontStyle: "italic",
-        fontSize: height * 1.05,
-        letterSpacing: "-0.03em",
-        color,
-        lineHeight: 1,
-      }}
-    >
-      dandy
-    </span>
+    <img
+      src={src}
+      alt="Dandy"
+      style={{ height, width: "auto", display: "block" }}
+    />
   );
 }
 
