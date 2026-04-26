@@ -17,26 +17,29 @@ const LIGHT_BG = "hsl(0,0%,99%)";
 // Dandy forest (#003A30 = 0 58 48) for isolated previews.
 const FG_RGBA = (a: number) => `rgb(var(--brand-primary-rgb, 0 58 48) / ${a})`;
 
+// Neutral generic-safe defaults so isolated previews / non-seeded instances
+// never leak Dandy/dental copy. Real Dandy & DSO templates always supply
+// their own chapters via the seeded catalog default_props or template payload.
 const DEFAULT_CHAPTERS: DsoScrollStoryBlockProps["chapters"] = [
   {
-    headline: "One lab relationship across every location.",
-    body: "Fragmented lab networks create inconsistency, data silos, and zero negotiating leverage. Dandy becomes your single lab partner — standardizing quality, pricing, and reporting across every practice in your network.",
-    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=700&fit=crop",
+    headline: "Unify operations across every location.",
+    body: "Replace fragmented vendor relationships with a single platform — standardizing quality, pricing, and reporting across your entire footprint.",
+    imageUrl: "",
   },
   {
-    headline: "AI that catches problems before they become remakes.",
-    body: "Dandy's AI Scan Review validates every case in real time — before it ever leaves the chair. The result: a 96% first-time right rate and dramatically fewer costly remakes across your entire footprint.",
-    imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=900&h=700&fit=crop",
+    headline: "Catch problems before they become rework.",
+    body: "Real-time validation flags issues at intake — before they cascade into costly fixes downstream.",
+    imageUrl: "",
   },
   {
-    headline: "Executive visibility into every practice, instantly.",
-    body: "The Dandy Insights dashboard gives DSO leadership a real-time view of remake rates, case volumes, turnaround times, and provider adoption — by location, by region, by brand.",
-    imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&h=700&fit=crop",
+    headline: "Executive visibility, instantly.",
+    body: "A single dashboard surfaces volume, turnaround, and adoption — by location, by region, by brand.",
+    imageUrl: "",
   },
   {
-    headline: "Prove ROI at 10 offices. Scale to 500.",
-    body: "Dandy's Pilot Program validates impact at a small number of locations first — measuring same-store revenue lift, remake reduction, and chair time recovered — before you commit to a full rollout.",
-    imageUrl: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=900&h=700&fit=crop",
+    headline: "Prove ROI in a pilot. Scale with confidence.",
+    body: "Validate impact at a handful of sites first — measure the lift, then commit to a full rollout.",
+    imageUrl: "",
   },
 ];
 
@@ -46,11 +49,11 @@ interface Props {
 
 export function BlockDsoScrollStory({ props }: Props) {
   const {
-    eyebrow = "The Dandy Advantage",
+    eyebrow = "",
     chapters,
     backgroundStyle = "white",
-    sectionHeading = "How Dandy transforms your lab strategy",
-    sectionSubheading = "Scroll to explore each pillar of the Dandy platform.",
+    sectionHeading = "How we transform your operations",
+    sectionSubheading = "Scroll to explore each pillar of the platform.",
   } = props;
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);

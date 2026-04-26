@@ -482,7 +482,7 @@ function DandyWordmark({
   height = 22,
   logoSrc,
   logoSrcDark,
-  alt = "Dandy",
+  alt = "Logo",
 }: {
   color?: string;
   height?: number;
@@ -491,15 +491,32 @@ function DandyWordmark({
   alt?: string;
 }) {
   const isDarkBg = color === WHITE;
-  const fallback = isDarkBg ? "/dandy-logo-white.svg" : "/dandy-logo.svg";
   const override = isDarkBg ? (logoSrcDark || logoSrc) : (logoSrc || logoSrcDark);
-  const src = override || fallback;
+  // No image fallback — non-Dandy callers that don't pass a logoUrl get a
+  // text wordmark (the alt label) so we never leak /dandy-logo*.svg.
+  if (override) {
+    return (
+      <img
+        src={override}
+        alt={alt}
+        style={{ height, width: "auto", display: "block" }}
+      />
+    );
+  }
   return (
-    <img
-      src={src}
-      alt={alt}
-      style={{ height, width: "auto", display: "block" }}
-    />
+    <span
+      style={{
+        fontFamily: "'Bagoss Standard','Inter',system-ui,sans-serif",
+        fontWeight: 700,
+        fontSize: Math.round(height * 0.95),
+        lineHeight: 1,
+        color,
+        letterSpacing: "-0.02em",
+        display: "inline-block",
+      }}
+    >
+      {alt}
+    </span>
   );
 }
 

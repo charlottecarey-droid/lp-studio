@@ -37,7 +37,7 @@ import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockTyp
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
-import { LP_TEMPLATES } from "@/lib/templates";
+import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
@@ -338,11 +338,27 @@ function BlockThumbnail({ type }: { type: string }) {
   );
 }
 
-function TemplateLibrary({ onSelect }: { onSelect: (templateId: string) => void }) {
+function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string) => void; industry?: string | null }) {
+  // Hide Dandy/dental built-in templates from non-dental tenants — every
+  // shipped template currently contains hardcoded Dandy copy / dental
+  // imagery. Dental tenants still see the full set.
+  const visible =
+    industry === undefined ? LP_TEMPLATES : getTemplatesForIndustry(industry);
+  if (visible.length === 0) {
+    return (
+      <div className="p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
+        <p className="text-xs text-muted-foreground mt-3 italic leading-relaxed">
+          No built-in templates for your industry yet. Use saved templates from
+          your team, or start from scratch and add blocks below.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="p-4 space-y-3">
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
-      {LP_TEMPLATES.map(t => (
+      {visible.map(t => (
         <button
           key={t.id}
           onClick={() => onSelect(t.id)}
@@ -812,6 +828,7 @@ export default function BuilderEditor() {
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview } = useReviews(pageIdNum);
   const { user } = useAuth();
+  const tenantIndustry = user?.tenantIndustry ?? null;
   const authDisplayName = user?.name || user?.email || "";
   const displayName = authDisplayName || getAuthorName() || "Builder User";
   const { viewers } = usePresence(pageIdNum, displayName);
@@ -1640,11 +1657,14 @@ export default function BuilderEditor() {
               />
             </TabsContent>
             <TabsContent value="templates" className="mt-0">
-              <TemplateLibrary onSelect={templateId => {
-                if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
-                  applyTemplate(templateId);
-                }
-              }} />
+              <TemplateLibrary
+                industry={tenantIndustry}
+                onSelect={templateId => {
+                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
+                    applyTemplate(templateId);
+                  }
+                }}
+              />
             </TabsContent>
           </Tabs>
         </aside>

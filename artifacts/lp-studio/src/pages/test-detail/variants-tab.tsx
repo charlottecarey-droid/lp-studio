@@ -56,6 +56,7 @@ import { cn, getLpPublicBase } from "@/lib/utils";
 
 import { TemplatePicker, BuilderPageSummary } from "@/components/template-picker";
 import { templateVideoHero } from "@/lib/templates";
+import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = "/api";
 
@@ -111,6 +112,7 @@ const variantSchema = z.object({
 });
 
 export function VariantsTab({ test, commentMode = false }: { test: TestWithVariants; commentMode?: boolean }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createMutation = useCreateVariant();
@@ -272,6 +274,7 @@ export function VariantsTab({ test, commentMode = false }: { test: TestWithVaria
               onSkip={() => handleCreateVariantFromTemplate(templateVideoHero.config)}
               builderPages={builderPages}
               onSelectBuilderPage={handleSelectBuilderPage}
+              industry={user?.tenantIndustry ?? null}
             />
           </div>
         </DialogContent>

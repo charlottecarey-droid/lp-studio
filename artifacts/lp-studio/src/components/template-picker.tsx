@@ -1,4 +1,4 @@
-import { LPTemplate, LP_TEMPLATES } from "@/lib/templates";
+import { LPTemplate, LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,19 @@ interface TemplatePickerProps {
   onSkip: () => void;
   builderPages?: BuilderPageSummary[];
   onSelectBuilderPage?: (pageId: number) => void;
+  /**
+   * Tenant industry. When provided, the built-in template list is filtered so
+   * non-dental tenants don't see the Dandy/dental templates (which contain
+   * hardcoded Dandy copy and dental imagery). Omit only on Dandy-internal
+   * surfaces (e.g. sales tooling).
+   */
+  industry?: string | null;
 }
 
-export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilderPage }: TemplatePickerProps) {
+export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilderPage, industry }: TemplatePickerProps) {
   const hasBuilderPages = builderPages && builderPages.length > 0;
+  const visibleTemplates =
+    industry === undefined ? LP_TEMPLATES : getTemplatesForIndustry(industry);
 
   return (
     <div className="space-y-6">

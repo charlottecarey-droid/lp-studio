@@ -6,6 +6,13 @@ export interface LPTemplate {
   description: string;
   framework: string;
   badge?: string;
+  // Which tenant industries this template is appropriate for. Defaults to
+  // `["dental"]` because every template currently shipped here was built for
+  // Dandy/dental tenants and contains hardcoded Dandy copy / dental imagery.
+  // Generic tenants get their starter templates from the API instead
+  // (industry-filtered global templates) — see pages-gallery.tsx and
+  // getTemplatesForIndustry() below.
+  industries?: ReadonlyArray<"dental" | "generic">;
   config: ExtendedVariantConfig;
 }
 
@@ -431,6 +438,23 @@ export const templateInsideDandySpatialTour: LPTemplate = {
 // ─────────────────────────────────────────────────────────────────────────────
 // All templates
 // ─────────────────────────────────────────────────────────────────────────────
+// Every shipped template is dental/Dandy-flavored — copy, imagery, and
+// constants are all dental. Tag them all "dental" so non-dental tenants
+// never see them in the picker. (When we ship a generic-safe template, set
+// industries: ["dental", "generic"] or ["generic"] on it.)
+const DENTAL_ONLY = ["dental"] as const;
+[
+  templateVideoHero,
+  templateProblemFirst,
+  templateSocialProofLeader,
+  templateHowItWorks,
+  templateMinimalCta,
+  templateInsideDandyEvent,
+  templateInsideDandySpatialTour,
+].forEach((t) => {
+  if (!t.industries) t.industries = DENTAL_ONLY;
+});
+
 export const LP_TEMPLATES: LPTemplate[] = [
   templateVideoHero,
   templateProblemFirst,
@@ -443,4 +467,23 @@ export const LP_TEMPLATES: LPTemplate[] = [
 
 export function getTemplateById(id: string): LPTemplate | undefined {
   return LP_TEMPLATES.find((t) => t.id === id);
+}
+
+/**
+ * Filter LP_TEMPLATES by tenant industry. Use this anywhere generic tenants
+ * could otherwise see a Dandy/dental template card.
+ *
+ * - `industry === "dental"` → all templates (current set is dental-only).
+ * - any other value (including null/undefined) → empty list, since we have
+ *   no generic-safe built-in templates yet. Generic tenants get their starter
+ *   templates from the API instead.
+ */
+export function getTemplatesForIndustry(
+  industry: string | null | undefined,
+): LPTemplate[] {
+  return LP_TEMPLATES.filter((t) =>
+    (t.industries ?? DENTAL_ONLY).includes(
+      (industry as "dental" | "generic") ?? ("generic" as const),
+    ),
+  );
 }
