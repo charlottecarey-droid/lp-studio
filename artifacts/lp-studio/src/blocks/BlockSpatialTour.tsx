@@ -482,7 +482,7 @@ function DandyWordmark({
   height = 22,
   logoSrc,
   logoSrcDark,
-  alt = "Logo",
+  alt = "Dandy",
 }: {
   color?: string;
   height?: number;
@@ -492,31 +492,38 @@ function DandyWordmark({
 }) {
   const isDarkBg = color === WHITE;
   const override = isDarkBg ? (logoSrcDark || logoSrc) : (logoSrc || logoSrcDark);
-  // No image fallback — non-Dandy callers that don't pass a logoUrl get a
-  // text wordmark (the alt label) so we never leak /dandy-logo*.svg.
-  if (override) {
+  // Empty-string logo override = explicit "no logo" → render the alt label
+  // as a text wordmark so non-Dandy callers don't leak /dandy-logo*.svg.
+  // Undefined override = legacy/Dandy default → use the bundled Dandy SVG
+  // (the spatial-tour template is only exposed to dental tenants via the
+  // industry-tagged template picker, so this fallback stays Dandy-safe).
+  const isExplicitlyEmpty =
+    isDarkBg ? logoSrcDark === "" || logoSrc === "" : logoSrc === "" || logoSrcDark === "";
+  if (!override && isExplicitlyEmpty) {
     return (
-      <img
-        src={override}
-        alt={alt}
-        style={{ height, width: "auto", display: "block" }}
-      />
+      <span
+        style={{
+          fontFamily: "'Bagoss Standard','Inter',system-ui,sans-serif",
+          fontWeight: 700,
+          fontSize: Math.round(height * 0.95),
+          lineHeight: 1,
+          color,
+          letterSpacing: "-0.02em",
+          display: "inline-block",
+        }}
+      >
+        {alt}
+      </span>
     );
   }
+  const fallback = isDarkBg ? "/dandy-logo-white.svg" : "/dandy-logo.svg";
+  const src = override || fallback;
   return (
-    <span
-      style={{
-        fontFamily: "'Bagoss Standard','Inter',system-ui,sans-serif",
-        fontWeight: 700,
-        fontSize: Math.round(height * 0.95),
-        lineHeight: 1,
-        color,
-        letterSpacing: "-0.02em",
-        display: "inline-block",
-      }}
-    >
-      {alt}
-    </span>
+    <img
+      src={src}
+      alt={alt}
+      style={{ height, width: "auto", display: "block" }}
+    />
   );
 }
 

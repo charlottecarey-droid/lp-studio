@@ -166,7 +166,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
     body       = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
     ctaText    = "See the Live Network",
     ctaUrl     = "#",
-    hubLabel   = "",
+    hubLabel   = "DANDY HUB",
     backgroundStyle = "dandy-green",
   } = props;
 

@@ -31,7 +31,19 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
     : undefined;
   const requestedSplit = props.layout === "split" || props.layout === "split-right";
 
-  const resolvedImage = props.imageUrl && props.imageUrl.trim() !== "" ? props.imageUrl : "";
+  // Image resolution rules:
+  //   * non-empty value  → use it as-is
+  //   * empty string ""  → explicit "no image" from seed catalog (generic
+  //                        tenants) → render nothing (no Dandy leak)
+  //   * undefined        → legacy / Dandy default behaviour → fall back to
+  //                        the bundled /dandy-platform.webp product shot.
+  const DANDY_FALLBACK_IMAGE = "/dandy-platform.webp";
+  const resolvedImage =
+    props.imageUrl === undefined
+      ? DANDY_FALLBACK_IMAGE
+      : props.imageUrl.trim() === ""
+      ? ""
+      : props.imageUrl;
   const resolvedMedia = props.mediaUrl && props.mediaUrl.trim() !== "" ? props.mediaUrl : "";
 
   // Honor the author-chosen layout regardless of media presence so saved
