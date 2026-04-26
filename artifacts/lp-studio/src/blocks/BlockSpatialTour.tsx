@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
-import spatialHeadsetImg from "@assets/image_1777177674524.png";
+import spatialHeadsetImg from "@assets/image_1777179519607.png";
 
 // ─── Brand palette ──────────────────────────────────────────────
 const FOREST = "#003A30";
