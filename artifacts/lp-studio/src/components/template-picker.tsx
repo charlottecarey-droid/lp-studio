@@ -41,8 +41,16 @@ export function TemplatePicker({ onSelect, onSkip, builderPages, onSelectBuilder
         <Button variant="outline" onClick={onSkip}>Start from scratch</Button>
       </div>
 
+      {visibleTemplates.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
+          <p className="text-sm text-muted-foreground italic">
+            No built-in templates for your industry yet — start from scratch
+            and add blocks below, or pick one of your team's saved pages.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {LP_TEMPLATES.map((template) => (
+        {visibleTemplates.map((template) => (
           <Card key={template.id} className="flex flex-col overflow-hidden border-2 hover:border-[var(--brand-primary)] transition-colors duration-200 shadow-sm hover:shadow-md cursor-default">
             {/* Wireframe Preview */}
             {template.id === "inside-dandy-event" ? (
