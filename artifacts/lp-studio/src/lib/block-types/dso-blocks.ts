@@ -299,6 +299,15 @@ export interface DsoScrollStoryChapter {
 export interface DsoScrollStoryBlockProps {
   eyebrow: string;
   chapters: DsoScrollStoryChapter[];
+  /**
+   * Section header rendered above the scroll story.
+   * Made prop-driven so generic tenants can replace the previously-hardcoded
+   * Dandy copy ("How Dandy transforms your lab strategy" /
+   *  "Scroll to explore each pillar of the Dandy platform.").
+   * Empty string hides the line entirely.
+   */
+  sectionHeading?: string;
+  sectionSubheading?: string;
   backgroundStyle?: BackgroundStyle;
 }
 
@@ -320,6 +329,12 @@ export interface DsoNetworkMapBlockProps {
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;
+  /**
+   * Label rendered under the central hub in the SVG. Made prop-driven so
+   * generic tenants can replace the previously-hardcoded "DANDY HUB" string.
+   * Empty string hides the label entirely.
+   */
+  hubLabel?: string;
   backgroundStyle?: BackgroundStyle;
 }
 

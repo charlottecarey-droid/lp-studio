@@ -9,7 +9,6 @@ import { motion } from "framer-motion";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
-const DEFAULT_IMAGE = "/dandy-platform.webp";
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 interface Props {
@@ -30,11 +29,19 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   const bgExtended = ["black", "gradient", "muted", "light-gray"].includes(props.backgroundStyle ?? "")
     ? getBgStyle(props.backgroundStyle)
     : undefined;
-  const isSplit = props.layout === "split" || props.layout === "split-right";
-  const isSplitRight = props.layout === "split-right";
+  const requestedSplit = props.layout === "split" || props.layout === "split-right";
 
-  const resolvedImage = props.imageUrl && props.imageUrl.trim() !== "" ? props.imageUrl : DEFAULT_IMAGE;
+  const resolvedImage = props.imageUrl && props.imageUrl.trim() !== "" ? props.imageUrl : "";
   const resolvedMedia = props.mediaUrl && props.mediaUrl.trim() !== "" ? props.mediaUrl : "";
+
+  // If the user picked a split layout but no media/image is set (and the
+  // hero isn't a video), collapse to a single-column layout instead of
+  // rendering a blank media column. This previously fell back to the
+  // hardcoded /dandy-platform.webp image, which leaked Dandy branding.
+  const hasMedia =
+    props.heroType !== "none" && (resolvedMedia !== "" || resolvedImage !== "");
+  const isSplit = requestedSplit && hasMedia;
+  const isSplitRight = props.layout === "split-right" && hasMedia;
 
   const field = (key: keyof HeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -53,16 +60,22 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
     return renderImage();
   };
 
-  const renderImage = () => (
-    <div className="relative w-full z-10">
-      <img
-        src={resolvedImage}
-        alt="Product showcase"
-        className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
-        loading="lazy"
-      />
-    </div>
-  );
+  const renderImage = () => {
+    // No image / no media → render nothing rather than a broken <img>.
+    // Previously the code fell back to a hardcoded /dandy-platform.webp default,
+    // which leaked the Dandy product shot into every generic-tenant hero.
+    if (!resolvedImage) return null;
+    return (
+      <div className="relative w-full z-10">
+        <img
+          src={resolvedImage}
+          alt="Product showcase"
+          className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
+          loading="lazy"
+        />
+      </div>
+    );
+  };
 
   const hAnim = animationsEnabled ? { initial: { opacity: 0, y: 28 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.65, ease: EASE, delay: 0 } } : {};
   const sAnim = animationsEnabled ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.65, ease: EASE, delay: 0.12 } } : {};

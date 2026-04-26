@@ -12,10 +12,13 @@ interface Props {
   props: DsoPilotStepsBlockProps;
 }
 
-const P     = "hsl(152,42%,12%)";
-const FG    = "hsl(152,40%,13%)";
+// Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
+// vars (set by getBrandStyleVars). Hardcoded HSL fallbacks preserve the
+// original Dandy look when no brand wrapper is present.
+const P     = "var(--brand-primary, hsl(152,42%,12%))";
+const FG    = "var(--brand-primary, hsl(152,40%,13%))";
 const MU    = "hsl(152,8%,48%)";
-const AW    = "hsl(68,60%,52%)";
+const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 const DEFAULT_STEPS = [

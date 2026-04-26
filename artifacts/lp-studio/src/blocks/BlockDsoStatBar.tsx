@@ -7,8 +7,11 @@ interface Props {
   props: DsoStatBarBlockProps;
 }
 
-const AW  = "hsl(68,60%,52%)";
-const FG  = "hsl(152,40%,13%)";
+// Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
+// `getBrandStyleVars`). Hardcoded HSL fallbacks preserve the original Dandy
+// look when no brand wrapper is present (e.g. isolated previews).
+const AW  = "var(--brand-accent, hsl(68,60%,52%))";
+const FG  = "var(--brand-primary, hsl(152,40%,13%))";
 const MU  = "hsl(152,8%,48%)";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -55,7 +58,8 @@ const StatItem = ({
         style={{
           width: 24,
           height: 1,
-          background: dark ? `${AW}55` : "rgba(0,58,48,0.18)",
+          background: dark ? AW : "rgba(0,58,48,0.18)",
+          opacity: dark ? 0.33 : 1,
           margin: "0.875rem auto",
         }}
       />

@@ -38,7 +38,13 @@ interface Props {
 }
 
 export function BlockDsoScrollStory({ props }: Props) {
-  const { eyebrow = "The Dandy Advantage", chapters, backgroundStyle = "white" } = props;
+  const {
+    eyebrow = "The Dandy Advantage",
+    chapters,
+    backgroundStyle = "white",
+    sectionHeading = "How Dandy transforms your lab strategy",
+    sectionSubheading = "Scroll to explore each pillar of the Dandy platform.",
+  } = props;
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -106,11 +112,13 @@ export function BlockDsoScrollStory({ props }: Props) {
             margin: "0 auto 1.25rem",
           }}
         >
-          How Dandy transforms your lab strategy
+          {sectionHeading}
         </motion.p>
-        <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-          Scroll to explore each pillar of the Dandy platform.
-        </p>
+        {sectionSubheading && (
+          <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+            {sectionSubheading}
+          </p>
+        )}
       </div>
 
       {/* ── Desktop sticky scroll (md+) ── */}

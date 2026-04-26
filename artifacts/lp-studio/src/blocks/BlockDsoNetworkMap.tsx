@@ -163,6 +163,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
     body       = "Dandy connects your entire DSO into a single lab ecosystem — routing cases, surfacing insights, and standardizing outcomes across every location in real time.",
     ctaText    = "See the Live Network",
     ctaUrl     = "#",
+    hubLabel   = "DANDY HUB",
     backgroundStyle = "dandy-green",
   } = props;
 
@@ -405,21 +406,23 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
               <circle cx={CX} cy={CY} r={2.5} fill={AW} />
             </motion.g>
 
-            {/* DANDY HUB label below hub */}
-            <motion.text
-              x={CX} y={CY + 52}
-              textAnchor="middle"
-              fill={PFG}
-              fontSize={8}
-              fontWeight="700"
-              fontFamily="Inter,system-ui,sans-serif"
-              letterSpacing="0.14em"
-              initial={{ opacity: 0 }}
-              animate={inView ? { opacity: 0.6 } : {}}
-              transition={{ duration: 0.6, delay: 1.1 }}
-            >
-              DANDY HUB
-            </motion.text>
+            {/* Hub label below hub (prop-driven; renders nothing when empty) */}
+            {hubLabel && (
+              <motion.text
+                x={CX} y={CY + 52}
+                textAnchor="middle"
+                fill={PFG}
+                fontSize={8}
+                fontWeight="700"
+                fontFamily="Inter,system-ui,sans-serif"
+                letterSpacing="0.14em"
+                initial={{ opacity: 0 }}
+                animate={inView ? { opacity: 0.6 } : {}}
+                transition={{ duration: 0.6, delay: 1.1 }}
+              >
+                {hubLabel}
+              </motion.text>
+            )}
           </svg>
         </div>
       </div>

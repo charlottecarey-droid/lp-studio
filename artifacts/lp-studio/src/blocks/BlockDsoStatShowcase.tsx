@@ -7,8 +7,11 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P   = "#003A30";
-const AW  = "hsl(68,60%,52%)";
+// Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
+// vars (set by getBrandStyleVars). Hardcoded fallbacks preserve the original
+// Dandy look when no brand wrapper is present.
+const P   = "var(--brand-primary, #003A30)";
+const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 
 const DEFAULT_STATS: DsoStatShowcaseBlockProps["stats"] = [
   { value: "96%",     label: "First-time right rate",  description: "Industry-leading precision at enterprise scale" },

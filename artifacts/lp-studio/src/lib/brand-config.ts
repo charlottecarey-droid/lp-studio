@@ -134,15 +134,15 @@ export const DEFAULT_BRAND: BrandConfig = {
   primaryColor: "#003A30",
   accentColor: "#C7E738",
   navBgColor: "#000000",
-  navCtaText: "Get Pricing",
-  navCtaUrl: "https://www.meetdandy.com/get-started/",
-  defaultCtaText: "Get Started Free",
-  defaultCtaUrl: "https://www.meetdandy.com/get-started/",
-  copyrightName: "Dandy",
+  navCtaText: "Get Started",
+  navCtaUrl: "#",
+  defaultCtaText: "Get Started",
+  defaultCtaUrl: "#",
+  copyrightName: "",
   socialUrls: {
-    facebook: "https://www.facebook.com/meetdandy/",
-    instagram: "https://www.instagram.com/meetdandy/",
-    linkedin: "https://www.linkedin.com/company/meetdandy/",
+    facebook: "",
+    instagram: "",
+    linkedin: "",
   },
   textColor: "#1a1a1a",
   ctaBackground: "#C7E738",
@@ -186,9 +186,11 @@ export const DEFAULT_BRAND: BrandConfig = {
   copyInstructions: "",
   productLines: [],
   segments: [],
-  // Default to the Dandy logo served from `public/`. Tenants override this via
-  // Brand Settings → Logo. Resolves correctly under any artifact base path.
-  logoUrl: `${import.meta.env?.BASE_URL ?? "/"}dandy-logo.svg`,
+  // No default logo. Tenants set their own via Brand Settings → Logo. When
+  // empty, BrandLogo falls back to a brandName text wordmark. The Dandy
+  // dental tenants store `/dandy-logo.svg` explicitly in their brand_settings,
+  // so this neutral default does not affect them.
+  logoUrl: "",
   logoAutoRecolor: true,
 };
 
