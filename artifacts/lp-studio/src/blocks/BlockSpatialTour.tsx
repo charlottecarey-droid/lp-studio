@@ -258,6 +258,214 @@ function NumberBadge({
   );
 }
 
+// ─── Tech-HUD atoms ────────────────────────────────────────────
+// Four small "⌐ ⌐ ⌐ ⌐" L-shaped corner brackets that frame a section or an
+// image. Renders absolutely-positioned inside its nearest positioned ancestor.
+function CornerFrame({
+  color = "rgba(197,241,197,0.55)",
+  size = 18,
+  thickness = 1,
+  inset = 14,
+  style = {},
+}: {
+  color?: string;
+  size?: number;
+  thickness?: number;
+  inset?: number | string;
+  style?: React.CSSProperties;
+}) {
+  const w = `${thickness}px solid ${color}`;
+  const base: React.CSSProperties = {
+    position: "absolute",
+    width: size,
+    height: size,
+    pointerEvents: "none",
+  };
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset,
+        pointerEvents: "none",
+        ...style,
+      }}
+    >
+      <div style={{ ...base, top: 0, left: 0, borderTop: w, borderLeft: w }} />
+      <div style={{ ...base, top: 0, right: 0, borderTop: w, borderRight: w }} />
+      <div style={{ ...base, bottom: 0, left: 0, borderBottom: w, borderLeft: w }} />
+      <div style={{ ...base, bottom: 0, right: 0, borderBottom: w, borderRight: w }} />
+    </div>
+  );
+}
+
+// Mono-caps telemetry row: "LAT 42.36° N · LON 71.05° W · ALT — DENTAL LAB · ● LIVE"
+function TelemetryStrip({
+  items = ["LAT 42.36° N", "LON 71.05° W", "ALT — DENTAL LAB"],
+  liveLabel = "LIVE",
+  color = "rgba(255,255,255,0.55)",
+  liveColor = MINT,
+  style = {},
+}: {
+  items?: string[];
+  liveLabel?: string;
+  color?: string;
+  liveColor?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${items.length}, 1fr) auto`,
+        alignItems: "center",
+        gap: 24,
+        fontFamily: SANS,
+        fontSize: 10.5,
+        letterSpacing: "0.20em",
+        textTransform: "uppercase",
+        color,
+        fontWeight: 500,
+        ...style,
+      }}
+    >
+      {items.map((it, i) => (
+        <span key={i}>{it}</span>
+      ))}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          color: liveColor,
+          justifySelf: "end",
+        }}
+      >
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: liveColor,
+            boxShadow: `0 0 6px ${liveColor}`,
+          }}
+        />
+        {liveLabel}
+      </span>
+    </div>
+  );
+}
+
+// Tiny mono-caps file-code line, e.g. "● ID-LP-01 · LANDING / HERO / REV 2026.07"
+function FileCode({
+  text,
+  color = "rgba(197,241,197,0.7)",
+  dotColor = MINT,
+  showDot = true,
+  style = {},
+}: {
+  text: string;
+  color?: string;
+  dotColor?: string;
+  showDot?: boolean;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+        fontFamily: SANS,
+        fontSize: 10.5,
+        letterSpacing: "0.20em",
+        textTransform: "uppercase",
+        color,
+        fontWeight: 500,
+        ...style,
+      }}
+    >
+      {showDot && (
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: dotColor,
+          }}
+        />
+      )}
+      <span>{text}</span>
+    </div>
+  );
+}
+
+// "[ INSIDE / DANDY ]" style bracket pill — the recurring brand chip
+function BracketPill({
+  children,
+  color = MINT,
+  bracketColor,
+  size = 11,
+  style = {},
+}: {
+  children: React.ReactNode;
+  color?: string;
+  bracketColor?: string;
+  size?: number;
+  style?: React.CSSProperties;
+}) {
+  const bc = bracketColor ?? color;
+  return (
+    <span
+      style={{
+        fontFamily: SANS,
+        fontSize: size,
+        fontWeight: 600,
+        letterSpacing: "0.22em",
+        textTransform: "uppercase",
+        color,
+        whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        ...style,
+      }}
+    >
+      <span style={{ color: bc, opacity: 0.85 }}>[</span>
+      <span>{children}</span>
+      <span style={{ color: bc, opacity: 0.85 }}>]</span>
+    </span>
+  );
+}
+
+// Italic Bagoss span with a soft mint→white gradient — used for emphasis
+// words inside dark-section serif headlines (e.g. "dental lab", "End to end.")
+function MintEmphasis({
+  children,
+  style = {},
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        fontStyle: "italic",
+        backgroundImage: `linear-gradient(180deg, ${WHITE} 0%, ${MINT} 55%, ${MINT} 100%)`,
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        color: "transparent",
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function DandyWordmark({ color = FOREST, height = 22 }: { color?: string; height?: number }) {
   // On the dark spatial-tour chrome we use the white logo; everywhere else
   // (e.g. on a CREAM section) we use the default dark logo.
@@ -325,7 +533,7 @@ function Nav({ p }: { p: SpatialTourBlockProps }) {
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <DandyWordmark color={WHITE} height={20} />
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
-        <Eyebrow color={MINT}>{p.navBrand}</Eyebrow>
+        <BracketPill color={MINT}>{p.navBrand}</BracketPill>
       </div>
       <div
         style={{
@@ -395,10 +603,26 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       <Glow size={900} x={-300} y={-200} opacity={0.18} />
       <Glow size={500} x={1080} y={400} opacity={0.1} />
 
+      {/* Tech-HUD frame around the whole hero */}
+      <CornerFrame color="rgba(197,241,197,0.45)" size={22} inset={28} />
+
+      {/* Telemetry strip pinned to the top */}
       <div
         style={{
           position: "absolute",
-          top: 56,
+          top: 60,
+          left: 56,
+          right: 56,
+          zIndex: 2,
+        }}
+      >
+        <TelemetryStrip />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          top: 110,
           right: 56,
           padding: "10px 16px",
           background: "rgba(0,0,0,0.40)",
@@ -408,6 +632,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           alignItems: "center",
           gap: 12,
           backdropFilter: "blur(8px)",
+          zIndex: 2,
         }}
       >
         <VisionGlyph width={28} color={MINT} />
@@ -425,11 +650,12 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       </div>
 
       <motion.div
-        style={{ position: "relative", maxWidth: 1180, margin: "0 auto", opacity }}
+        style={{ position: "relative", maxWidth: 1180, margin: "0 auto", opacity, paddingTop: 60 }}
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: "easeOut" }}
       >
+        <FileCode text="FILE / 01 — THE HOOK" style={{ marginBottom: 18 }} />
         <Eyebrow color={MINT} style={{ marginBottom: 28 }}>
           {p.heroEyebrow}
         </Eyebrow>
@@ -450,7 +676,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           <br />
           {p.heroHeadlineLine2}
           <br />
-          <span style={{ fontStyle: "italic", color: MINT }}>{p.heroHeadlineEmphasis}</span>
+          <MintEmphasis>{p.heroHeadlineEmphasis}</MintEmphasis>
           {p.heroHeadlineLine3 && (
             <>
               {" "}
@@ -480,17 +706,29 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
         </div>
       </motion.div>
 
+      {/* File-code stamp, bottom-left */}
       <div
         style={{
           position: "absolute",
-          left: "50%",
-          transform: "translateX(-50%)",
-          bottom: 36,
+          left: 56,
+          bottom: 40,
+          zIndex: 2,
+        }}
+      >
+        <FileCode text="ID-LP-01 · LANDING / HERO / REV 2026.07" />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          right: 56,
+          bottom: 40,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: "flex-end",
           gap: 14,
-          opacity: 0.7,
+          opacity: 0.85,
+          zIndex: 2,
         }}
       >
         <div
@@ -500,9 +738,12 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             textTransform: "uppercase",
             color: MINT,
             fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          {p.heroScrollLabel}
+          {p.heroScrollLabel} <span>↓</span>
         </div>
         <div style={{ width: 1, height: 36, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
       </div>
@@ -645,45 +886,56 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
           style={{
             position: "relative",
             aspectRatio: "4 / 5",
-            overflow: "hidden",
+            overflow: "visible",
             borderRadius: 4,
-            boxShadow: "0 30px 80px rgba(0,58,48,0.25)",
           }}
         >
-          {p.manifestoImageUrl && (
-            <img
-              src={p.manifestoImageUrl}
-              alt="Dandy lab facility"
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
-            />
-          )}
           <div
             style={{
-              position: "absolute",
-              bottom: 20,
-              left: 20,
-              padding: "10px 14px",
-              background: FOREST,
-              color: MINT,
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              overflow: "hidden",
               borderRadius: 4,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
+              boxShadow: "0 30px 80px rgba(0,58,48,0.25)",
             }}
           >
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: KELLY }} />
-            <span
+            {p.manifestoImageUrl && (
+              <img
+                src={p.manifestoImageUrl}
+                alt="Dandy lab facility"
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+              />
+            )}
+            <div
               style={{
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                fontFamily: SANS,
+                position: "absolute",
+                bottom: 20,
+                left: 20,
+                padding: "10px 14px",
+                background: FOREST,
+                color: MINT,
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
               }}
             >
-              {p.manifestoCaption}
-            </span>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: KELLY } } />
+              <span
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.16em",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  fontFamily: SANS,
+                }}
+              >
+                {p.manifestoCaption}
+              </span>
+            </div>
           </div>
+          <CornerFrame color="rgba(0,58,48,0.55)" size={16} inset={-10} />
         </motion.div>
       </div>
     </div>
@@ -721,11 +973,19 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
             direction: "ltr",
             position: "relative",
             aspectRatio: "4 / 3",
-            overflow: "hidden",
+            overflow: "visible",
             borderRadius: 4,
-            boxShadow: "0 24px 60px rgba(0,58,48,0.18)",
           }}
         >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflow: "hidden",
+              borderRadius: 4,
+              boxShadow: "0 24px 60px rgba(0,58,48,0.18)",
+            }}
+          >
           {station.imageUrl && (
             <img
               src={station.imageUrl}
@@ -805,6 +1065,8 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
               Spatial · 1:1 scale
             </span>
           </div>
+          </div>
+          <CornerFrame color="rgba(0,58,48,0.55)" size={16} inset={-10} />
         </motion.div>
 
         <motion.div
@@ -814,10 +1076,36 @@ function StationCard({ station, flip = false, isLast = false }: { station: Spati
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
           style={{ direction: "ltr" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-            <NumberBadge n={station.number} size={48} bg={KELLY} color={WHITE} />
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 22 }}>
+            <span
+              style={{
+                fontFamily: SERIF,
+                fontSize: 38,
+                lineHeight: 1,
+                letterSpacing: "-0.03em",
+                color: KELLY,
+                display: "inline-flex",
+                alignItems: "baseline",
+                gap: 4,
+              }}
+            >
+              <span style={{ opacity: 0.55, fontWeight: 400 }}>[</span>
+              <span style={{ fontWeight: 400 }}>{station.number}</span>
+              <span style={{ opacity: 0.55, fontWeight: 400 }}>]</span>
+            </span>
             <div style={{ height: 1, background: "rgba(0,58,48,0.20)", flex: 1 }} />
-            <Eyebrow color={KELLY}>Station {station.number}</Eyebrow>
+            <span
+              style={{
+                fontFamily: SANS,
+                fontSize: 10.5,
+                letterSpacing: "0.20em",
+                textTransform: "uppercase",
+                color: KELLY,
+                fontWeight: 600,
+              }}
+            >
+              Station / {station.number} of 05
+            </span>
           </div>
 
           <div
@@ -903,42 +1191,97 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
             <p style={{ fontSize: 17, lineHeight: 1.6, color: "rgba(255,255,255,0.78)", margin: 0, fontFamily: SANS }}>
               {p.tourBody}
             </p>
-            <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 8 }}>
-              {p.tourStations.map((s) => (
-                <div
-                  key={s.number}
+            <div
+              style={{
+                position: "relative",
+                marginTop: 32,
+                background: "rgba(0,0,0,0.30)",
+                border: "1px solid rgba(197,241,197,0.22)",
+                borderRadius: 4,
+                padding: "18px 22px 22px",
+              }}
+            >
+              <CornerFrame color={MINT} size={12} inset={-6} />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingBottom: 12,
+                  marginBottom: 10,
+                  borderBottom: "1px solid rgba(255,255,255,0.10)",
+                }}
+              >
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    fontSize: 12.5,
-                    color: "rgba(255,255,255,0.85)",
                     fontFamily: SANS,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: MINT,
                   }}
                 >
-                  <span
+                  // MANIFEST
+                </span>
+                <span
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: 9.5,
+                    letterSpacing: "0.20em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.45)",
+                  }}
+                >
+                  {p.tourStations.length.toString().padStart(2, "0")} STATIONS
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {p.tourStations.map((s, i) => (
+                  <div
+                    key={s.number}
                     style={{
-                      fontFamily: SERIF,
-                      fontSize: 13,
-                      color: MINT,
-                      width: 24,
-                      letterSpacing: "0.02em",
+                      display: "grid",
+                      gridTemplateColumns: "26px 1fr auto",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "10px 0",
+                      borderBottom:
+                        i === p.tourStations.length - 1
+                          ? "none"
+                          : "1px solid rgba(255,255,255,0.06)",
+                      fontFamily: SANS,
+                      fontSize: 12.5,
+                      color: "rgba(255,255,255,0.85)",
                     }}
                   >
-                    {s.number}
-                  </span>
-                  <span style={{ flex: 1 }}>{s.label}</span>
-                  <span
-                    style={{
-                      fontSize: 10.5,
-                      color: "rgba(255,255,255,0.45)",
-                      letterSpacing: "0.06em",
-                    }}
-                  >
-                    {s.insetDuration}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      style={{
+                        fontFamily: SERIF,
+                        fontSize: 14,
+                        color: MINT,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      <span style={{ opacity: 0.55 }}>[</span>
+                      {s.number}
+                      <span style={{ opacity: 0.55 }}>]</span>
+                    </span>
+                    <span>{s.label}</span>
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        color: "rgba(255,255,255,0.55)",
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        fontWeight: 500,
+                      }}
+                    >
+                      T+{s.insetDuration}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -961,8 +1304,10 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
     >
       <DotGrid opacity={0.5} size={28} />
       <Glow size={700} x={-200} y={-100} opacity={0.18} />
+      <CornerFrame color="rgba(197,241,197,0.30)" size={20} inset={36} />
 
       <div style={{ position: "relative", maxWidth: 1180, margin: "0 auto" }}>
+        <FileCode text="FILE / 03 — WHY SPATIAL" style={{ marginBottom: 32 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
           <div
             style={{
@@ -973,6 +1318,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               justifyContent: "center",
             }}
           >
+            <CornerFrame color="rgba(197,241,197,0.45)" size={14} inset={-8} />
             <div
               style={{
                 position: "absolute",
@@ -1357,12 +1703,14 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
 
         <div
           style={{
+            position: "relative",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(197,241,197,0.18)",
             borderRadius: 8,
             padding: 32,
           }}
         >
+          <CornerFrame color={MINT} size={14} inset={-8} />
           <div
             style={{
               display: "flex",
@@ -1373,15 +1721,29 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
               borderBottom: "1px solid rgba(255,255,255,0.10)",
             }}
           >
-            <div
-              style={{
-                fontFamily: SERIF,
-                fontSize: 22,
-                color: WHITE,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {p.calendarPanelTitle}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span
+                style={{
+                  fontFamily: SANS,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: MINT,
+                }}
+              >
+                // TOUR.SCHEDULE
+              </span>
+              <div
+                style={{
+                  fontFamily: SERIF,
+                  fontSize: 22,
+                  color: WHITE,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {p.calendarPanelTitle}
+              </div>
             </div>
             <Eyebrow color="rgba(255,255,255,0.50)">{p.calendarPanelEyebrow}</Eyebrow>
           </div>
@@ -1470,19 +1832,38 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
 
 // ─── Section: Footer ───────────────────────────────────────────
 function Footer({ p }: { p: SpatialTourBlockProps }) {
+  // Best-effort split of `footerInfo` into `addresses · © line`. Falls back
+  // to placing the whole string on the left if no clear split is present.
+  const info = (p.footerInfo || "").trim();
+  const copyMatch = info.match(/(©[^·•|]*)$/);
+  const copyright = copyMatch ? copyMatch[1].trim() : "© Dandy 2026";
+  const addresses = copyMatch ? info.slice(0, copyMatch.index).replace(/[·•|]\s*$/, "").trim() : info;
+
   return (
     <div
       style={{
         background: FOREST_DEEP,
         color: WHITE,
-        padding: "60px 56px 44px",
         borderTop: "1px solid rgba(255,255,255,0.08)",
       }}
     >
+      {/* Telemetry strip at the very top of the footer */}
       <div
         style={{
           maxWidth: 1180,
           margin: "0 auto",
+          padding: "24px 56px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <TelemetryStrip />
+      </div>
+
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: "28px 56px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1490,20 +1871,36 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
           gap: 24,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <DandyWordmark color={WHITE} height={20} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
-          <Eyebrow color="rgba(255,255,255,0.55)">{p.footerEyebrow}</Eyebrow>
+          <BracketPill color="rgba(255,255,255,0.75)" bracketColor="rgba(197,241,197,0.55)">
+            {p.footerEyebrow}
+          </BracketPill>
         </div>
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(255,255,255,0.50)",
-            fontFamily: SANS,
-          }}
-        >
-          {p.footerInfo}
-        </div>
+        <FileCode
+          text="ID-LP-01 · LANDING / REV 2026.07 · BUILT IN-HOUSE"
+          color="rgba(255,255,255,0.55)"
+        />
+      </div>
+
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: "0 56px 36px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+          fontFamily: SANS,
+          fontSize: 12,
+          color: "rgba(255,255,255,0.45)",
+        }}
+      >
+        <div>{addresses}</div>
+        <div style={{ letterSpacing: "0.04em" }}>{copyright}</div>
       </div>
     </div>
   );
