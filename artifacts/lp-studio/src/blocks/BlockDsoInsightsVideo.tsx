@@ -260,7 +260,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             animate={inView ? { opacity: 1, y: 0, rotateX: 0, scale: 1 } : { opacity: 0, y: 80, rotateX: 12, scale: 0.95 }}
             transition={{ duration: 1.3, delay: 0.8, type: "spring", stiffness: 50, damping: 14 }}
             style={{
-              boxShadow: "0 50px 120px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), 0 0 60px rgba(199,231,56,0.06)",
+              boxShadow: "0 50px 120px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), 0 0 60px rgb(var(--brand-accent-rgb, 199 231 56) / 0.06)",
               perspective: "2000px",
               background: "rgba(255,255,255,0.03)",
             }}
@@ -373,9 +373,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   style={{
                     width: 40,
                     height: 40,
-                    background: "rgba(199,231,56,0.08)",
-                    border: "1px solid rgba(199,231,56,0.2)",
-                    boxShadow: "0 0 12px rgba(199,231,56,0.08)",
+                    background: "rgb(var(--brand-accent-rgb, 199 231 56) / 0.08)",
+                    border: "1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)",
+                    boxShadow: "0 0 12px rgb(var(--brand-accent-rgb, 199 231 56) / 0.08)",
                   }}
                 >
                   <callout.icon className="w-4 h-4 text-[var(--brand-accent)]" />
@@ -416,9 +416,9 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               style={{
                 width: 40,
                 height: 40,
-                background: "rgba(199,231,56,0.08)",
-                border: "1px solid rgba(199,231,56,0.2)",
-                boxShadow: "0 0 12px rgba(199,231,56,0.08)",
+                background: "rgb(var(--brand-accent-rgb, 199 231 56) / 0.08)",
+                border: "1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)",
+                boxShadow: "0 0 12px rgb(var(--brand-accent-rgb, 199 231 56) / 0.08)",
               }}
             >
               <ScanLine className="w-4 h-4 text-[var(--brand-accent)]" />
@@ -491,7 +491,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <ChiliPiperButton
                 url={props.chilipiperUrl || props.ctaUrl || ""}
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
-                style={{ boxShadow: "0 8px 32px rgba(199,231,56,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
+                style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
                 <ChevronRight className="w-4 h-4" />
@@ -500,7 +500,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               <button
                 onClick={onCtaClick}
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
-                style={{ boxShadow: "0 8px 32px rgba(199,231,56,0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
+                style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
                 <ChevronRight className="w-4 h-4" />

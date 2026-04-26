@@ -554,7 +554,7 @@ function Nav({ p }: { p: SpatialTourBlockProps }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        <DandyWordmark color={WHITE} height={20} />
+        <DandyWordmark color={WHITE} height={20} logoSrc={p.logoUrl} logoSrcDark={p.logoUrlDark} alt={p.logoAlt || p.navBrand || "Logo"} />
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
         <BracketPill color={MINT}>{p.navBrand}</BracketPill>
       </div>
@@ -1848,7 +1848,7 @@ function Footer({ p }: { p: SpatialTourBlockProps }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <DandyWordmark color={WHITE} height={20} />
+          <DandyWordmark color={WHITE} height={20} logoSrc={p.logoUrl} logoSrcDark={p.logoUrlDark} alt={p.logoAlt || p.navBrand || "Logo"} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
           <BracketPill color="rgba(255,255,255,0.75)" bracketColor="rgba(197,241,197,0.55)">
             {p.footerEyebrow}

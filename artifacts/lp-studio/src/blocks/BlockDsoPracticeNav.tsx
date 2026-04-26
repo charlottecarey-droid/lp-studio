@@ -8,8 +8,8 @@ import { BrandLogo } from "@/components/BrandLogo";
 
 const BG = "var(--brand-primary)";
 const BG_ALT = "#002B24";
-const LIME = "#C7E738"; /* alpha-concat literal */
-const BORDER = "rgba(199,231,56,0.15)";
+const LIME = "var(--brand-accent, #C7E738)"; /* alpha-concat literal */
+const BORDER = "rgb(var(--brand-accent-rgb, 199 231 56) / 0.15)";
 
 interface Props {
   props: DsoPracticeNavBlockProps;

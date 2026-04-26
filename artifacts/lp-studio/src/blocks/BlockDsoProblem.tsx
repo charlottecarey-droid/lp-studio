@@ -15,8 +15,11 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P    = "var(--brand-primary, #003A30)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 
-const DEFAULT_IMG_A = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=900&h=660&fit=crop";
-const DEFAULT_IMG_B = "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=640&h=440&fit=crop";
+// Empty defaults — the block now renders no fallback image when none is
+// supplied. Previously these pointed at dental Unsplash photos that
+// leaked into every generic-tenant page when the seed didn't override.
+const DEFAULT_IMG_A = "";
+const DEFAULT_IMG_B = "";
 
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties; className?: string }>> = {
   "alert-triangle": AlertTriangle,
@@ -124,7 +127,8 @@ export function BlockDsoProblem({ props }: Props) {
               zIndex: 0,
             }} />
 
-            {/* Primary image */}
+            {/* Primary image — only render when an image URL is supplied */}
+            {imgA ? (
             <motion.div
               style={{
                 y: imgAY,
@@ -142,14 +146,16 @@ export function BlockDsoProblem({ props }: Props) {
             >
               <img
                 src={imgA}
-                alt="Dandy lab manufacturing"
+                alt=""
                 style={{ width: "100%", height: 340, objectFit: "cover", display: "block" }}
                 loading="lazy"
               />
               <div style={{ height: 3, background: `linear-gradient(90deg, ${AW}, transparent)` }} />
             </motion.div>
+            ) : null}
 
-            {/* Secondary image */}
+            {/* Secondary image — only render when an image URL is supplied */}
+            {imgB ? (
             <motion.div
               style={{
                 y: imgBY,
@@ -172,7 +178,7 @@ export function BlockDsoProblem({ props }: Props) {
             >
               <img
                 src={imgB}
-                alt="Precision dental work"
+                alt=""
                 style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
                 loading="lazy"
               />
@@ -193,6 +199,7 @@ export function BlockDsoProblem({ props }: Props) {
               </div>
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
             </motion.div>
+            ) : null}
           </motion.div>
 
           {/* ── Right: Copy + problem list ── */}

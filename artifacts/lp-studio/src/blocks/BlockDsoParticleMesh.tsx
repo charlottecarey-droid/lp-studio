@@ -253,7 +253,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
             transition={{ duration: 0.6, delay: 0.32 }}
             style={{
               display: "flex", gap: "3rem", marginTop: "3.5rem",
-              borderTop: "1px solid rgba(199,231,56,0.18)",
+              borderTop: "1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.18)",
               paddingTop: "2rem",
             }}
             className="dspm-stats"

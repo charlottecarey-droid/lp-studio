@@ -67,8 +67,8 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           letterSpacing: "0.18em",
           textTransform: "uppercase",
           color: eyebrowC,
-          background: dark ? "rgba(199,231,56,0.1)" : `${BRAND}08`,
-          border: `1px solid ${dark ? "rgba(199,231,56,0.2)" : `${BRAND}20`}`,
+          background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `${BRAND}08`,
+          border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `${BRAND}20`}`,
           borderRadius: "999px",
           padding: "0.35rem 1rem",
         }}
@@ -242,7 +242,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
             style={{
               position: "absolute",
               inset: 0,
-              background: "radial-gradient(ellipse 80% 60% at 20% -10%, rgba(199,231,56,0.09) 0%, transparent 70%)",
+              background: "radial-gradient(ellipse 80% 60% at 20% -10%, rgb(var(--brand-accent-rgb, 199 231 56) / 0.09) 0%, transparent 70%)",
               pointerEvents: "none",
             }}
           />
@@ -304,7 +304,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           style={{
             position: "absolute",
             inset: 0,
-            background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(199,231,56,0.09) 0%, transparent 70%)",
+            background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgb(var(--brand-accent-rgb, 199 231 56) / 0.09) 0%, transparent 70%)",
             pointerEvents: "none",
           }}
         />

@@ -183,7 +183,7 @@ export function BlockDsoFlowCanvas({ props }: Props) {
           <div style={{
             paddingBottom: "2.5rem",
             marginBottom: "2.5rem",
-            borderBottom: "1px solid rgba(199,231,56,0.14)",
+            borderBottom: "1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.14)",
           }}>
             <motion.p
               initial={{ opacity: 0, y: 16 }}

@@ -105,7 +105,7 @@ function MetricRow({ metric, idx, inView }: { metric: Metric; idx: number; inVie
         gap: "1.5rem",
         padding: "1rem 1.5rem",
         borderTop: `1px solid ${ROW_BORDER}`,
-        background: flash ? "rgba(199,231,56,0.04)" : "transparent",
+        background: flash ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.04)" : "transparent",
         transition: "background 0.4s",
       }}
     >

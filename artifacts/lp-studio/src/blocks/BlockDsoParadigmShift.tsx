@@ -11,7 +11,7 @@ interface Props {
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
-const LIME    = "#C7E738"; /* alpha-concat literal */
+const LIME    = "var(--brand-accent, #C7E738)"; /* alpha-concat literal */
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 export function BlockDsoParadigmShift({ props, brand }: Props) {
@@ -46,7 +46,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
 
   // New Way
   const newCardBg  = dark ? BRAND : BRAND;
-  const newCardBor = dark ? `2px solid rgba(199,231,56,0.55)` : "2px solid transparent";
+  const newCardBor = dark ? `2px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.55)` : "2px solid transparent";
   const newSubC    = LIME;
   const newHeadC   = "#ffffff";
   const newItemC   = "rgba(255,255,255,0.88)";

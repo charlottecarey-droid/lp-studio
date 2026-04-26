@@ -929,6 +929,12 @@ export interface SpatialTourBlockProps {
   navLinks: SpatialTourNavLink[];
   navCtaText: string;
   navCtaUrl: string;
+  // Optional brand wordmark overrides — when set, the nav + footer
+  // wordmarks render the tenant's logo instead of the bundled Dandy
+  // SVG fallback. `logoUrlDark` is preferred on dark chrome.
+  logoUrl?: string;
+  logoUrlDark?: string;
+  logoAlt?: string;
 
   // Hero
   heroEyebrow: string;
