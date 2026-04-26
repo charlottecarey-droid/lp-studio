@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
+import spatialHeadsetImg from "@assets/image_1777177674524.png";
 
 // ─── Brand palette ──────────────────────────────────────────────
 const FOREST = "#003A30";
@@ -1330,65 +1331,18 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             >
-              <VisionGlyph width={340} color={MINT} />
+              <img
+                src={spatialHeadsetImg}
+                alt="Spatial capture headset with 4K per eye, spatial audio, and 1:1 scale capture HUD callouts"
+                style={{
+                  width: "100%",
+                  maxWidth: 560,
+                  height: "auto",
+                  display: "block",
+                  filter: "drop-shadow(0 24px 60px rgba(0,0,0,0.45))",
+                }}
+              />
             </motion.div>
-            <div
-              style={{
-                position: "absolute",
-                top: "18%",
-                left: "8%",
-                padding: "10px 14px",
-                background: "rgba(0,35,29,0.85)",
-                border: "1px solid rgba(197,241,197,0.35)",
-                borderRadius: 4,
-                fontSize: 11,
-                color: MINT,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                fontFamily: SANS,
-              }}
-            >
-              4K per eye
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                bottom: "16%",
-                right: "8%",
-                padding: "10px 14px",
-                background: "rgba(0,35,29,0.85)",
-                border: "1px solid rgba(197,241,197,0.35)",
-                borderRadius: 4,
-                fontSize: 11,
-                color: MINT,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                fontFamily: SANS,
-              }}
-            >
-              1:1 scale capture
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                top: "60%",
-                left: "4%",
-                padding: "10px 14px",
-                background: "rgba(0,35,29,0.85)",
-                border: "1px solid rgba(197,241,197,0.35)",
-                borderRadius: 4,
-                fontSize: 11,
-                color: MINT,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                fontFamily: SANS,
-              }}
-            >
-              Spatial audio
-            </div>
           </div>
 
           <div>
