@@ -49,8 +49,16 @@ router.use(storageRouter);
 router.use("/dso", dsoRouter);
 router.use("/sales", salesRouter);
 router.use(videoRouter);
-router.use("/admin", adminRouter);
+// blockCatalogRouter must be mounted BEFORE the "/admin" adminRouter mount.
+// adminRouter contains a wildcard `router.use(requireAuth)` at admin.ts:707
+// that 401s any request hitting the /admin prefix without a logged-in
+// session — even if the request was actually destined for a sibling router
+// with its own gate (here: blockCatalogRouter, which uses requireAdminKey
+// for the superadmin /admin/block-catalog endpoints). Mounting
+// blockCatalogRouter first lets its specific routes match before
+// adminRouter gets a chance to swallow the request.
 router.use(blockCatalogRouter);
+router.use("/admin", adminRouter);
 router.use("/webhooks", webhooksRouter);
 
 export default router;

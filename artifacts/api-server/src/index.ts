@@ -756,6 +756,12 @@ async function runMigrations(): Promise<void> {
         );
       `);
       await db.execute(sql`CREATE INDEX IF NOT EXISTS block_catalog_industry_idx ON block_catalog(industry);`);
+      // Backfill `updated_by` on databases whose block_catalog was created
+      // before that column existed in the CREATE TABLE above. CREATE TABLE
+      // IF NOT EXISTS is a no-op for an existing table, so without this
+      // ALTER the superadmin GET /admin/block-catalog (which selects
+      // updated_by) would 500 with `column "updated_by" does not exist`.
+      await db.execute(sql`ALTER TABLE block_catalog ADD COLUMN IF NOT EXISTS updated_by integer;`);
       // Marker table so we only attempt the heavyweight seed once, even though
       // the inserts themselves are idempotent — keeps boot time low.
       await db.execute(sql`
