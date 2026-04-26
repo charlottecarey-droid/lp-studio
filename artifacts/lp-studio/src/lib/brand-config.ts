@@ -131,8 +131,11 @@ export interface BrandConfig {
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
-  primaryColor: "#003A30",
-  accentColor: "#C7E738",
+  // Neutral, brand-agnostic defaults so untouched (non-Dandy) tenants
+  // never inherit the Dandy forest/lime palette by default. Dandy tenants
+  // (id 1, 5) override these through their own lp_brand_settings rows.
+  primaryColor: "#0f172a",      // slate-900 — neutral dark
+  accentColor: "#3b82f6",       // blue-500  — neutral accent
   navBgColor: "#000000",
   navCtaText: "Get Started",
   navCtaUrl: "#",
@@ -145,8 +148,8 @@ export const DEFAULT_BRAND: BrandConfig = {
     linkedin: "",
   },
   textColor: "#1a1a1a",
-  ctaBackground: "#C7E738",
-  ctaText: "#003A30",
+  ctaBackground: "#0f172a",
+  ctaText: "#ffffff",
   pageBackground: "#ffffff",
   cardBackground: "#ffffff",
   navText: "#ffffff",

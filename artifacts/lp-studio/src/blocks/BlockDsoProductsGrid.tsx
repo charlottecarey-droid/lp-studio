@@ -146,7 +146,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
                   <div
                     style={{
                       height: 100,
-                      background: dark ? `${LIME}10` : `${BRAND}06`,
+                      background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.063)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.024)`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",

@@ -206,8 +206,8 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                   display: "flex",
                   alignItems: "flex-start",
                   gap: 10,
-                  borderLeft: `2px solid ${P}18`,
-                  background: `${P}04`,
+                  borderLeft: `2px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`,
+                  background: `rgb(var(--brand-primary-rgb, 0 58 48) / 0.016)`,
                 }}
               >
                 <div
@@ -215,7 +215,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                     width: 18,
                     height: 18,
                     borderRadius: "50%",
-                    background: `${P}15`,
+                    background: `rgb(var(--brand-primary-rgb, 0 58 48) / 0.082)`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -265,15 +265,15 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 cursor: "pointer",
                 border: "none",
                 transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                boxShadow: `0 4px 16px ${P}40`,
+                boxShadow: `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`,
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 8px 32px ${P}55`;
+                e.currentTarget.style.boxShadow = `0 8px 32px rgb(var(--brand-primary-rgb, 0 58 48) / 0.333)`;
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = `0 4px 16px ${P}40`;
+                e.currentTarget.style.boxShadow = `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`;
               }}
             >
               {ctaText} <ArrowRight style={{ width: 16, height: 16 }} />

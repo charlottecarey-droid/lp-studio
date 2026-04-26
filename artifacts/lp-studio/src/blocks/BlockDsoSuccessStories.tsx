@@ -53,7 +53,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
 
   const statColor    = dark ? "#fff" : FG;
   const labelColor   = dark ? "rgba(255,255,255,0.55)" : MU;
-  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `${FG}cc`;
+  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.8)`;
   const authorColor  = dark ? AW : P;
   const dividerColor = dark ? `rgba(255,255,255,0.12)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.10)`;
 
@@ -194,7 +194,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                       left: 0,
                       right: 0,
                       height: 2,
-                      background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)`,
+                      background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))`,
                     }}
                   />
                 </div>
@@ -205,8 +205,8 @@ export function BlockDsoSuccessStories({ props }: Props) {
                     style={{
                       height: 3,
                       background: dark
-                        ? `linear-gradient(90deg, ${AW}00, ${AW}80, ${AW}00)`
-                        : `linear-gradient(90deg, ${P}00, ${P}50, ${P}00)`,
+                        ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), rgb(var(--brand-accent-rgb, 199 231 56) / 0.502), rgb(var(--brand-accent-rgb, 199 231 56) / 0))`
+                        : `linear-gradient(90deg, rgb(var(--brand-primary-rgb, 0 58 48) / 0), rgb(var(--brand-primary-rgb, 0 58 48) / 0.314), rgb(var(--brand-primary-rgb, 0 58 48) / 0))`,
                     }}
                   />
                   <p

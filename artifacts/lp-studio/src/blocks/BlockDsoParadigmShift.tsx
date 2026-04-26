@@ -159,7 +159,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
               style={{
                 position: "absolute", top: -60, right: -60,
                 width: 200, height: 200, borderRadius: "50%",
-                background: `${LIME}18`,
+                background: `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)`,
                 filter: "blur(50px)",
                 pointerEvents: "none",
               }}

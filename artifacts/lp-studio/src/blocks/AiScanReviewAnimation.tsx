@@ -141,8 +141,8 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
             style={{
               position: "absolute", left: "8%", right: "8%",
               height: "1.5px", zIndex: 3,
-              background: `linear-gradient(to right, transparent, ${LIME}cc, transparent)`,
-              boxShadow: `0 0 10px 2px ${LIME}66`,
+              background: `linear-gradient(to right, transparent, rgb(var(--brand-accent-rgb, 199 231 56) / 0.8), transparent)`,
+              boxShadow: `0 0 10px 2px rgb(var(--brand-accent-rgb, 199 231 56) / 0.4)`,
             }}
           />
         )}
@@ -166,7 +166,7 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
                 transform: "translate(-50%, -50%)",
                 width: 8, height: 8, borderRadius: "50%",
                 zIndex: 3,
-                background: LIME, boxShadow: `0 0 8px 2px ${LIME}88`,
+                background: LIME, boxShadow: `0 0 8px 2px rgb(var(--brand-accent-rgb, 199 231 56) / 0.533)`,
               }}
             />
           )))}

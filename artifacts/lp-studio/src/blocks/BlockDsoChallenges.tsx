@@ -52,8 +52,8 @@ export function BlockDsoChallenges({ props }: Props) {
     : "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05), 0 20px 40px rgba(0,0,0,0.06)";
   const cardAccentBorder = dark ? `2px solid ${AW}` : `2px solid ${P}`;
 
-  const iconBg = dark ? `${AW}15` : `${P}12`;
-  const iconBorder = dark ? `1px solid ${AW}28` : `1px solid ${P}20`;
+  const iconBg = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.082)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.071)`;
+  const iconBorder = dark ? `1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.157)` : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`;
   const iconColor = dark ? AW : P;
 
   return (

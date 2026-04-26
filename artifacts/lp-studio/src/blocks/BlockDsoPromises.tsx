@@ -48,7 +48,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
   const headlineC = dark ? "#fff" : BRAND;
   const subC      = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
   const cardBg    = dark ? "rgba(255,255,255,0.04)" : "#fff";
-  const cardBor   = dark ? `1px solid ${LIME}20` : `1px solid ${BRAND}18`;
+  const cardBor   = dark ? `1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.125)` : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`;
   const titleC    = dark ? "#fff" : BRAND;
   const descC     = dark ? "rgba(255,255,255,0.58)" : "#6b7280";
 
@@ -121,8 +121,8 @@ export function BlockDsoPromises({ props, brand }: Props) {
                     width: 52,
                     height: 52,
                     borderRadius: "1rem",
-                    background: dark ? `${LIME}15` : `${BRAND}08`,
-                    border: `1px solid ${dark ? `${LIME}35` : `${BRAND}18`}`,
+                    background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.082)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
+                    border: `1px solid ${dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.208)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

@@ -73,9 +73,9 @@ export function BlockDsoPilotSteps({ props }: Props) {
   const headlineColor = dark ? "#fff" : FG;
   const subColor      = dark ? "rgba(255,255,255,0.60)" : MU;
   const titleColor    = dark ? "#fff" : FG;
-  const subtitleColor = dark ? `${AW}cc` : `${P}b3`;
+  const subtitleColor = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.8)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.702)`;
   const descColor     = dark ? "rgba(255,255,255,0.58)" : MU;
-  const trackGhost    = dark ? "rgba(255,255,255,0.10)" : `${P}18`;
+  const trackGhost    = dark ? "rgba(255,255,255,0.10)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`;
   const trackActive   = dark ? AW : P;
 
   const stepCardBg    = dark ? "rgba(255,255,255,0.04)" : "#fff";
@@ -197,8 +197,8 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         alignItems: "center",
                         justifyContent: "center",
                         boxShadow: dark
-                          ? `0 0 0 4px ${AW}18, 0 8px 24px ${AW}40`
-                          : `0 0 0 4px ${P}12, 0 8px 24px ${P}35`,
+                          ? `0 0 0 4px rgb(var(--brand-accent-rgb, 199 231 56) / 0.094), 0 8px 24px rgb(var(--brand-accent-rgb, 199 231 56) / 0.251)`
+                          : `0 0 0 4px rgb(var(--brand-primary-rgb, 0 58 48) / 0.071), 0 8px 24px rgb(var(--brand-primary-rgb, 0 58 48) / 0.208)`,
                       }}
                     >
                       <Icon style={{ width: 20, height: 20, color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)" }} />
@@ -278,8 +278,8 @@ export function BlockDsoPilotSteps({ props }: Props) {
                               width: 18,
                               height: 18,
                               borderRadius: "50%",
-                              background: dark ? `${AW}20` : `${P}12`,
-                              border: dark ? `1px solid ${AW}35` : `1px solid ${P}25`,
+                              background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.125)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.071)`,
+                              border: dark ? `1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.208)` : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.145)`,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",

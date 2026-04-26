@@ -53,13 +53,13 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
   const eyebrowColor = dark ? AW : P;
   const headlineColor = dark ? "#fff" : FG;
   const bodyColor = dark ? "rgba(255,255,255,0.60)" : MU;
-  const quoteTextColor = dark ? "rgba(255,255,255,0.70)" : `${FG}b3`;
+  const quoteTextColor = dark ? "rgba(255,255,255,0.70)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.702)`;
   const quoteAttrColor = dark ? AW : P;
 
   const tileBg = dark ? "rgba(255,255,255,0.05)" : "#fff";
   const tileBorder = dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)";
   const tileShadow = dark ? "none" : "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)";
-  const tileIconBg = dark ? `${AW}18` : `${P}10`;
+  const tileIconBg = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`;
   const tileIconColor = dark ? AW : P;
   const tileTextColor = dark ? "rgba(255,255,255,0.85)" : FG;
 
@@ -106,7 +106,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                       justifyContent: "center",
                     }}
                   >
-                    <Microscope style={{ width: 64, height: 64, color: `${P}33` }} />
+                    <Microscope style={{ width: 64, height: 64, color: `rgb(var(--brand-primary-rgb, 0 58 48) / 0.2)` }} />
                   </div>
                 )}
 
@@ -133,12 +133,12 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                         width: 72,
                         height: 72,
                         borderRadius: "50%",
-                        background: `${P}ee`,
+                        background: `rgb(var(--brand-primary-rgb, 0 58 48) / 0.933)`,
                         backdropFilter: "blur(8px)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: `0 8px 32px ${P}55, 0 24px 64px rgba(0,0,0,0.30)`,
+                        boxShadow: `0 8px 32px rgb(var(--brand-primary-rgb, 0 58 48) / 0.333), 0 24px 64px rgba(0,0,0,0.30)`,
                       }}
                     >
                       <Play style={{ width: 26, height: 26, color: "hsl(48,100%,96%)", marginLeft: 3 }} fill="hsl(48,100%,96%)" />
@@ -357,18 +357,18 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     border: "none",
                     cursor: "pointer",
                     transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                    boxShadow: dark ? `0 4px 16px ${AW}45` : `0 4px 16px ${P}40`,
+                    boxShadow: dark ? `0 4px 16px rgb(var(--brand-accent-rgb, 199 231 56) / 0.271)` : `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`,
                   }}
                   whileHover={{ y: -2 }}
                   onMouseEnter={e => {
                     e.currentTarget.style.boxShadow = dark
-                      ? `0 8px 28px ${AW}60`
-                      : `0 8px 28px ${P}55`;
+                      ? `0 8px 28px rgb(var(--brand-accent-rgb, 199 231 56) / 0.376)`
+                      : `0 8px 28px rgb(var(--brand-primary-rgb, 0 58 48) / 0.333)`;
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.boxShadow = dark
-                      ? `0 4px 16px ${AW}45`
-                      : `0 4px 16px ${P}40`;
+                      ? `0 4px 16px rgb(var(--brand-accent-rgb, 199 231 56) / 0.271)`
+                      : `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`;
                   }}
                 >
                   <MapPin style={{ width: 16, height: 16 }} />

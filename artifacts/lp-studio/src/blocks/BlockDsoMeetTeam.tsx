@@ -146,7 +146,7 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                     width: "100%",
                     height: 220,
                     flexShrink: 0,
-                    background: dark ? `${LIME}10` : `${BRAND}07`,
+                    background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.063)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.027)`,
                     borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e5e7eb"}`,
                     display: "flex",
                     alignItems: "center",

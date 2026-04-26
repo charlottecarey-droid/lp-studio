@@ -67,8 +67,8 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           letterSpacing: "0.18em",
           textTransform: "uppercase",
           color: eyebrowC,
-          background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `${BRAND}08`,
-          border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `${BRAND}20`}`,
+          background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.1)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
+          border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.125)`}`,
           borderRadius: "999px",
           padding: "0.35rem 1rem",
         }}

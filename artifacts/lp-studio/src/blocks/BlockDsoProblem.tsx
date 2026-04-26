@@ -68,8 +68,8 @@ export function BlockDsoProblem({ props }: Props) {
   const fg   = dark ? "hsl(48,100%,96%)"      : P;
   const mu   = dark ? "rgba(255,255,255,0.52)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
   const dividerColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-  const iconBg     = dark ? `${AW}14` : `${AW}22`;
-  const iconBorder = dark ? `${AW}28` : `${AW}44`;
+  const iconBg     = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.078)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.133)`;
+  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.157)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.267)`;
 
   const imgA = imageUrls[0] || DEFAULT_IMG_A;
   const imgB = imageUrls[1] || DEFAULT_IMG_B;
@@ -122,7 +122,7 @@ export function BlockDsoProblem({ props }: Props) {
               width: "90%",
               height: "75%",
               borderRadius: "50%",
-              background: `radial-gradient(ellipse, ${AW}09 0%, transparent 70%)`,
+              background: `radial-gradient(ellipse, rgb(var(--brand-accent-rgb, 199 231 56) / 0.035) 0%, transparent 70%)`,
               pointerEvents: "none",
               zIndex: 0,
             }} />
@@ -197,7 +197,7 @@ export function BlockDsoProblem({ props }: Props) {
                   <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>{statLabel}</p>
                 </div>
               </div>
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
             </motion.div>
             ) : null}
           </motion.div>

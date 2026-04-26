@@ -71,7 +71,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
           width: 480,
           height: 480,
           borderRadius: "50%",
-          background: dark ? `${AW}18` : `${P}12`,
+          background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.071)`,
           filter: "blur(100px)",
           pointerEvents: "none",
         }}
@@ -101,7 +101,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
           width: 280,
           height: 280,
           borderRadius: "50%",
-          background: dark ? `${AW}10` : `${P}08`,
+          background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.063)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
           filter: "blur(80px)",
           pointerEvents: "none",
         }}
@@ -126,8 +126,8 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
           transform: "translateX(-50%)",
           width: 120, height: 1,
           background: dark
-            ? `linear-gradient(90deg, transparent, ${AW}60, transparent)`
-            : `linear-gradient(90deg, transparent, ${P}40, transparent)`,
+            ? `linear-gradient(90deg, transparent, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), transparent)`
+            : `linear-gradient(90deg, transparent, rgb(var(--brand-primary-rgb, 0 58 48) / 0.251), transparent)`,
         }}
       />
 
@@ -232,15 +232,15 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
                 cursor: "pointer",
                 border: "none",
                 transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                boxShadow: `0 4px 20px ${AW}50`,
+                boxShadow: `0 4px 20px rgb(var(--brand-accent-rgb, 199 231 56) / 0.314)`,
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 8px 36px ${AW}65`;
+                e.currentTarget.style.boxShadow = `0 8px 36px rgb(var(--brand-accent-rgb, 199 231 56) / 0.396)`;
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = `0 4px 20px ${AW}50`;
+                e.currentTarget.style.boxShadow = `0 4px 20px rgb(var(--brand-accent-rgb, 199 231 56) / 0.314)`;
               }}
             >
               {primaryCtaText} <ArrowRight style={{ width: 16, height: 16 }} />
@@ -259,19 +259,19 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
                 padding: "1rem 2.25rem",
                 fontSize: 14,
                 fontWeight: 600,
-                color: dark ? `${PFG}90` : `${P}99`,
+                color: dark ? `${PFG}90` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.6)`,
                 cursor: "pointer",
-                border: dark ? `1px solid ${PFG}30` : `1px solid ${P}30`,
+                border: dark ? `1px solid ${PFG}30` : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.188)`,
                 transition: "all 0.25s ease",
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.color = dark ? PFG : P;
-                e.currentTarget.style.borderColor = dark ? `${PFG}50` : `${P}55`;
-                e.currentTarget.style.background = dark ? `${PFG}08` : `${P}06`;
+                e.currentTarget.style.borderColor = dark ? `${PFG}50` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.333)`;
+                e.currentTarget.style.background = dark ? `${PFG}08` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.024)`;
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.color = dark ? `${PFG}90` : `${P}99`;
-                e.currentTarget.style.borderColor = dark ? `${PFG}30` : `${P}30`;
+                e.currentTarget.style.color = dark ? `${PFG}90` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.6)`;
+                e.currentTarget.style.borderColor = dark ? `${PFG}30` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.188)`;
                 e.currentTarget.style.background = "transparent";
               }}
             >

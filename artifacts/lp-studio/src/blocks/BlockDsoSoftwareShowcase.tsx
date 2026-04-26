@@ -218,7 +218,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             style={{
               width: "100%",
               aspectRatio: "16/9",
-              background: dark ? "#0d1f18" : `${BRAND}10`,
+              background: dark ? "#0d1f18" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -226,8 +226,8 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
               gap: "0.75rem",
             }}
           >
-            <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `${BRAND}30` }} />
-            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `${BRAND}40`, fontFamily: "'Inter',system-ui,sans-serif" }}>
+            <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.188)` }} />
+            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`, fontFamily: "'Inter',system-ui,sans-serif" }}>
               Add a screenshot or video in properties
             </p>
           </div>
@@ -258,8 +258,8 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
-              background: dark ? "rgba(255,255,255,0.07)" : `${BRAND}08`,
-              border: dark ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${BRAND}18`,
+              background: dark ? "rgba(255,255,255,0.07)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
+              border: dark ? "1px solid rgba(255,255,255,0.1)" : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`,
               borderRadius: "999px",
               padding: "0.35rem 0.875rem 0.35rem 0.5rem",
               fontSize: "0.8125rem",

@@ -133,13 +133,13 @@ export function BlockDsoCaseFlow({ props }: Props) {
             style={{ position: "absolute", top: "3.5rem", left: "calc(12.5% + 1rem)", right: "calc(12.5% + 1rem)", height: 2, overflow: "hidden", zIndex: 0 }}
           >
             <motion.div
-              style={{ height: "100%", background: `linear-gradient(90deg, ${AW}60, ${AW}, ${AW}60)`, transformOrigin: "left" }}
+              style={{ height: "100%", background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0.376))`, transformOrigin: "left" }}
               initial={{ scaleX: 0 }}
               animate={inView ? { scaleX: 1 } : {}}
               transition={{ duration: 1.2, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
             />
             {/* Glow overlay */}
-            <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${AW}30, ${AW}60, ${AW}30)`, filter: "blur(4px)" }} />
+            <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.188), rgb(var(--brand-accent-rgb, 199 231 56) / 0.376), rgb(var(--brand-accent-rgb, 199 231 56) / 0.188))`, filter: "blur(4px)" }} />
           </div>
 
           {/* Data packets on the line */}

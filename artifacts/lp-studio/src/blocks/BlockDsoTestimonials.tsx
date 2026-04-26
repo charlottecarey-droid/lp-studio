@@ -90,7 +90,7 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
                 backdropFilter: dark ? "blur(12px)" : "none",
               }}
             >
-              <Quote style={{ width: 24, height: 24, color: dark ? `${LIME}80` : `${BRAND}40`, flexShrink: 0 }} />
+              <Quote style={{ width: 24, height: 24, color: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.502)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`, flexShrink: 0 }} />
 
               <p
                 style={{
@@ -110,14 +110,14 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
                     width: 36,
                     height: 36,
                     borderRadius: "50%",
-                    background: dark ? "rgba(255,255,255,0.10)" : `${BRAND}10`,
+                    background: dark ? "rgba(255,255,255,0.10)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  <User style={{ width: 16, height: 16, color: dark ? "rgba(255,255,255,0.5)" : `${BRAND}70` }} />
+                  <User style={{ width: 16, height: 16, color: dark ? "rgba(255,255,255,0.5)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.439)` }} />
                 </div>
                 <div>
                   <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: authorC, lineHeight: 1.2 }}>{t.author}</p>

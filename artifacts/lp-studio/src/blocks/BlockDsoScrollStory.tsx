@@ -269,7 +269,7 @@ export function BlockDsoScrollStory({ props }: Props) {
                     </div>
                     <div style={{
                       position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
-                      background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)`,
+                      background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))`,
                     }} />
                   </motion.div>
                 ))}
@@ -294,7 +294,7 @@ export function BlockDsoScrollStory({ props }: Props) {
               <div style={{ borderRadius: "1rem", overflow: "hidden", height: 240, marginBottom: "1.5rem", position: "relative" }}>
                 <img src={ch.imageUrl} alt={ch.headline} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
                 <div style={{ position: "absolute", inset: 0, background: `linear-gradient(160deg, ${FG_RGBA(0.05)} 0%, rgba(0,0,0,0.35) 100%)` }} />
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
               </div>
               {/* Chapter index */}
               <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: AW, marginBottom: "0.75rem" }}>

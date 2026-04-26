@@ -68,8 +68,8 @@ export function BlockDsoAiFeature({ props }: Props) {
   };
   const imgBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const imgBg     = dark ? "hsl(152,30%,6%)"        : "hsl(152,20%,95%)";
-  const iconBg    = dark ? `${AW}18` : `${AW}22`;
-  const iconBorder = dark ? `${AW}30` : `${AW}44`;
+  const iconBg    = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.133)`;
+  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.188)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.267)`;
 
   const bulletIcons = [ScanLine, RefreshCw, ShieldCheck];
 
@@ -95,7 +95,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               width: 700,
               height: 700,
               borderRadius: "50%",
-              background: `radial-gradient(circle, ${AW}0A 0%, transparent 65%)`,
+              background: `radial-gradient(circle, rgb(var(--brand-accent-rgb, 199 231 56) / 0.039) 0%, transparent 65%)`,
               pointerEvents: "none",
             }}
           />

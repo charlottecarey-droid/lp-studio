@@ -279,7 +279,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
             {String(i + 1).padStart(2, "0")}
           </div>
           {/* Lime bottom accent */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${AW}00, ${AW}, ${AW}00)` }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
         </motion.div>
       ))}
     </div>
