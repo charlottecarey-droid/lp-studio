@@ -3,6 +3,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
@@ -180,6 +181,16 @@ export function SpatialTourPanel({ props: p, onChange, brandVoiceSet }: Props) {
             <AiTextField type="input" value={p.heroHeadlineEmphasis} onChange={v => set({ heroHeadlineEmphasis: v })} fieldLabel="Headline Emphasis" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("spatial-tour", "heroHeadlineEmphasis", p.heroHeadlineEmphasis, {})} />
           </Field>
+          <div className="flex items-center justify-between gap-2 py-1">
+            <div className="space-y-0.5">
+              <Label className="text-xs">Italic emphasis</Label>
+              <p className="text-[11px] text-muted-foreground">Applies to all section headlines.</p>
+            </div>
+            <Switch
+              checked={p.headlineEmphasisItalic ?? true}
+              onCheckedChange={(v) => set({ headlineEmphasisItalic: v })}
+            />
+          </div>
           <Field label="Headline — Line 3">
             <AiTextField type="input" value={p.heroHeadlineLine3} onChange={v => set({ heroHeadlineLine3: v })} fieldLabel="Headline Line 3" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("spatial-tour", "heroHeadlineLine3", p.heroHeadlineLine3, {})} />

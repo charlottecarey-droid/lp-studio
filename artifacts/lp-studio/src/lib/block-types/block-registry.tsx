@@ -2971,6 +2971,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroEyebrow: "First dental lab on Apple Vision Pro · Launching Dykema 2026",
       heroHeadlineLine1: "Step inside",
       heroHeadlineLine2: "the most advanced",
+      headlineEmphasisItalic: true,
       heroHeadlineEmphasis: "dental lab",
       heroHeadlineLine3: "in the industry.",
       heroBody: "A 6–8 minute spatial experience on Apple Vision Pro. One real case, end to end — scan intake, AI design, robotic milling, QC, shipping. Show, don't tell.",

@@ -973,6 +973,9 @@ export interface SpatialTourBlockProps {
   calendarPanelEyebrow: string;
   calendarDates: SpatialTourDate[];
 
+  // Typography
+  headlineEmphasisItalic?: boolean;
+
   // Footer
   footerBrand: string;
   footerEyebrow: string;

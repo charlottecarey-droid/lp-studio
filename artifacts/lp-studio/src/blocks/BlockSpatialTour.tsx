@@ -445,15 +445,21 @@ function BracketPill({
 // words inside dark-section serif headlines (e.g. "dental lab", "End to end.")
 function MintEmphasis({
   children,
+  italic = true,
   style = {},
 }: {
   children: React.ReactNode;
+  italic?: boolean;
   style?: React.CSSProperties;
 }) {
   return (
     <span
       style={{
-        fontStyle: "italic",
+        fontStyle: italic ? "italic" : "normal",
+        // inline-block + small right padding prevents italic glyphs (e.g. the
+        // trailing "b" in "lab") from being clipped by background-clip: text.
+        display: "inline-block",
+        paddingRight: italic ? "0.12em" : 0,
         backgroundImage: `linear-gradient(180deg, ${WHITE} 0%, ${MINT} 55%, ${MINT} 100%)`,
         WebkitBackgroundClip: "text",
         backgroundClip: "text",
@@ -677,7 +683,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           <br />
           {p.heroHeadlineLine2}
           <br />
-          <MintEmphasis>{p.heroHeadlineEmphasis}</MintEmphasis>
+          <MintEmphasis italic={p.headlineEmphasisItalic ?? true}>{p.heroHeadlineEmphasis}</MintEmphasis>
           {p.heroHeadlineLine3 && (
             <>
               {" "}
@@ -851,7 +857,7 @@ function Manifesto({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.manifestoHeadlineLine1}
             <br />
-            <span style={{ fontStyle: "italic", color: KELLY }}>{p.manifestoHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY }}>{p.manifestoHeadlineEmphasis}</span>
           </h2>
           <p
             style={{
@@ -1184,7 +1190,7 @@ function TourIntro({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.tourHeadlineLine1}
             <br />
-            <span style={{ fontStyle: "italic", color: MINT }}>{p.tourHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: MINT }}>{p.tourHeadlineEmphasis}</span>
             <br />
             {p.tourHeadlineLine3}
           </h2>
@@ -1364,7 +1370,7 @@ function SpatialCallout({ p }: { p: SpatialTourBlockProps }) {
               <br />
               {p.calloutHeadlineLine2}
               <br />
-              <span style={{ color: MINT, fontStyle: "italic" }}>{p.calloutHeadlineEmphasis}</span>
+              <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal" }}>{p.calloutHeadlineEmphasis}</span>
             </h2>
             <div style={{ marginTop: 36, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
               {p.calloutPoints.map((pt) => (
@@ -1431,7 +1437,7 @@ function FourWays({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.waysHeadlineLine1}
             <br />
-            <span style={{ fontStyle: "italic", color: KELLY }}>{p.waysHeadlineEmphasis}</span>
+            <span style={{ fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal", color: KELLY }}>{p.waysHeadlineEmphasis}</span>
           </h2>
         </div>
 
@@ -1610,7 +1616,7 @@ function Calendar({ p }: { p: SpatialTourBlockProps }) {
           >
             {p.calendarHeadlineLine1}
             <br />
-            <span style={{ color: MINT, fontStyle: "italic" }}>{p.calendarHeadlineEmphasis}</span>
+            <span style={{ color: MINT, fontStyle: (p.headlineEmphasisItalic ?? true) ? "italic" : "normal" }}>{p.calendarHeadlineEmphasis}</span>
           </h2>
           <p
             style={{
