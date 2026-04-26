@@ -490,7 +490,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             {props.ctaMode === "chilipiper" ? (
               <ChiliPiperButton
                 url={props.chilipiperUrl || props.ctaUrl || ""}
-                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}
@@ -499,7 +499,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
             ) : (
               <button
                 onClick={onCtaClick}
-                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:bg-[#d4f040] transition-all duration-200"
+                className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
                 {props.ctaLabel}

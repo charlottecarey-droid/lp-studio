@@ -327,8 +327,8 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   const heightVh = Math.max(150, Math.min(600, (props.scrollLengthVh ?? 100) * Math.max(1, pieces.length)));
   const bg = props.bgColor || "#FDFCFA";
   const decor = props.decor ?? "all";
-  const accentColor = props.accentColor || brand.accentColor || "#C7E738";
-  const brandPrimary = brand.primaryColor || "#003a30";
+  const accentColor = props.accentColor || brand.accentColor || "var(--brand-accent, #C7E738)";
+  const brandPrimary = brand.primaryColor || "var(--brand-primary, #003a30)";
   const showOrbs = decor === "orbs" || decor === "all";
   const showGrid = decor === "grid" || decor === "all";
   const showGrain = props.grain !== false;

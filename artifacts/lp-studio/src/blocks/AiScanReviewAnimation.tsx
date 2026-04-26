@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const LIME = "#c6f135";
+const LIME = "var(--brand-accent, #c6f135)";
+const LIME_50 = "rgb(var(--brand-accent-rgb, 198 241 53) / 0.5)";
 const BG_CARD = "rgba(255,255,255,0.04)";
 const BG_DARK = "hsl(152,28%,5%)";
-const BORDER = "rgba(198,241,53,0.12)";
+const BORDER = "rgb(var(--brand-accent-rgb, 198 241 53) / 0.12)";
 const FG = "#ffffff";
 const MU = "rgba(255,255,255,0.45)";
 
@@ -72,7 +73,7 @@ export function AiScanReviewAnimation({ imageUrl }: AiScanReviewAnimationProps =
         <div style={{ position: "relative", width: 8, height: 8 }}>
           <div style={{
             width: 8, height: 8, borderRadius: "50%",
-            background: done ? LIME : "rgba(198,241,53,0.5)",
+            background: done ? LIME : LIME_50,
             transition: "background 0.4s",
           }} />
           {scanning && (
