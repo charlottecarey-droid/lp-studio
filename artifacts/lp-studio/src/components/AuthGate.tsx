@@ -83,16 +83,47 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
 function SignInPanel() {
   const { refresh, domainContext } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [tenantBrand, setTenantBrand] = useState<{ logoUrl?: string | null; brandName?: string | null } | null>(null);
 
-  const isDandy = domainContext?.mode === "tenant-locked";
-  const logo = isDandy ? dandyLogo : lpstudioLogo;
-  const logoAlt = isDandy ? "Dandy" : "LP Studio";
-  const title = isDandy ? "Dandy Admin" : "LP Studio";
-  const subtitle = isDandy ? "Sign in to continue" : "Sign in to your workspace";
+  const isLocked = domainContext?.mode === "tenant-locked";
+  const tenantSlug = domainContext?.tenantSlug ?? null;
+  const isDandyTenant = isLocked && tenantSlug === "dandy";
+
+  // Fetch the tenant's published brand (logo + name) on tenant-locked sign-in pages
+  // so the panel reflects the workspace the visitor is signing into, not Dandy.
+  useEffect(() => {
+    if (!isLocked) return;
+    let cancelled = false;
+    fetch(`/api/lp/brand?host=${encodeURIComponent(window.location.hostname)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (!cancelled && b) setTenantBrand(b); })
+      .catch(() => { /* ignore — fall back to wordmark/name */ });
+    return () => { cancelled = true; };
+  }, [isLocked]);
+
+  const displayName = tenantBrand?.brandName || domainContext?.tenantName || "";
+  const customLogoUrl = isLocked ? (tenantBrand?.logoUrl ?? null) : null;
+  // Only show the Dandy logo on actual Dandy tenant pages — never as a default for other tenants.
+  const fallbackLogo = isLocked
+    ? (isDandyTenant ? dandyLogo : null)
+    : lpstudioLogo;
+  const fallbackLogoAlt = isLocked
+    ? (isDandyTenant ? "Dandy" : displayName || "Workspace")
+    : "LP Studio";
+  const title = isLocked
+    ? (displayName ? `Sign in to ${displayName}` : "Sign in")
+    : "LP Studio";
+  const subtitle = isLocked ? "Sign in to continue" : "Sign in to your workspace";
 
   return (
     <div className="w-full max-w-sm space-y-6 text-center">
-      <img src={logo} alt={logoAlt} className="mx-auto h-10" />
+      {customLogoUrl ? (
+        <img src={customLogoUrl} alt={displayName || "Workspace"} className="mx-auto h-10 object-contain" />
+      ) : fallbackLogo ? (
+        <img src={fallbackLogo} alt={fallbackLogoAlt} className="mx-auto h-10" />
+      ) : displayName ? (
+        <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{displayName}</p>
+      ) : null}
       <div>
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
