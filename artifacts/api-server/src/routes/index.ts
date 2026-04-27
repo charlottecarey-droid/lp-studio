@@ -18,6 +18,7 @@ const router: IRouter = Router();
 const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/track/ },
   { method: "*",    pattern: /^\/lp\/page\// },           // GET /lp/page/:slug (variant config for public viewer)
+  { method: "GET",  pattern: /^\/lp\/brand$/ },           // GET /lp/brand — brand for the published page (tenant resolved from host)
   { method: "POST", pattern: /^\/lp\/leads$/ },           // POST /lp/leads (form submissions)
   { method: "GET",  pattern: /^\/lp\/forms\/\d+$/ },      // GET /lp/forms/:id — public form config for landing page rendering (writes still require auth)
   { method: "*",    pattern: /^\/lp\/review\// },         // GET/PATCH /lp/review/:token
