@@ -3,6 +3,8 @@ import { Router } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpFormsTable } from "@workspace/db";
+import { findTenantByHost } from "../../lib/tenantHosts";
+import { getRequestHost } from "../../lib/requestHost";
 
 const router = Router();
 
@@ -59,12 +61,25 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
     if (!form) { res.status(404).json({ error: "Form not found" }); return; }
     res.json(form);
   } else {
-    // Public (unauthenticated): return only display-safe fields needed to render the form.
+    // Public (unauthenticated): return only display-safe fields needed to
+    // render the form. The result is scoped to the request host's tenant so
+    // a viewer on tenantA's domain can never read tenantB's form (which would
+    // leak tenantB's chili_piper_config URL). This also defends against the
+    // page-block attack vector where a tenant author embeds another tenant's
+    // formId in their page JSON: the host-scoped lookup returns 404 unless
+    // the form's tenant_id matches the host-resolved tenant.
+    //
     // chili_piper_config is included because the Marketo / handoff branch in
     // the public viewer needs it to build the scheduler URL on submit.
     // Marketo creds and Salesforce/email-recipient/webhook config are
     // deliberately omitted — those are operator-side integrations, never the
     // public viewer's business.
+    const host = getRequestHost(req);
+    const tenantMatch = host ? await findTenantByHost(host) : null;
+    if (!tenantMatch) {
+      res.status(404).json({ error: "Form not found" });
+      return;
+    }
     const [form] = await db.select({
       id: lpFormsTable.id,
       steps: lpFormsTable.steps,
@@ -74,8 +89,13 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
       redirectUrl: lpFormsTable.redirectUrl,
       backgroundStyle: lpFormsTable.backgroundStyle,
       chiliPiperConfig: lpFormsTable.chiliPiperConfig,
-    }).from(lpFormsTable).where(eq(lpFormsTable.id, id));
+    }).from(lpFormsTable).where(
+      and(eq(lpFormsTable.tenantId, tenantMatch.tenantId), eq(lpFormsTable.id, id)),
+    );
     if (!form) { res.status(404).json({ error: "Form not found" }); return; }
+    // Vary on Host so the 60s edge cache doesn't serve tenantA's form
+    // payload to a request that arrived on tenantB's hostname.
+    res.set("Vary", "Host, X-Forwarded-Host, X-Original-Host");
     res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     res.json(form);
   }
