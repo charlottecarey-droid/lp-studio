@@ -46,37 +46,14 @@ interface Violation {
 // today (component-internal hardcodes inside the BlockDso* family). The test
 // still fails on a NEW pattern in any of these blocks, or any leak in a
 // block_type not listed here. Tracked separately as a tech-debt follow-up.
-const FOREST_LEAK = new Set<string>([
-  "Dandy forest hex #003A30",
-  "Dandy forest rgb(0, 58, 48)",
-]);
-const LIME_LEAK = new Set<string>([
-  "Dandy lime hex #C7E738",
-  "Dandy lime rgb(199, 231, 56)",
-]);
-const FOREST_AND_LIME_LEAK = new Set<string>([...FOREST_LEAK, ...LIME_LEAK]);
-const MEETDANDY_LEAK = new Set<string>(["meetdandy domain references"]);
-const MEETDANDY_AND_FOREST = new Set<string>([...MEETDANDY_LEAK, ...FOREST_LEAK]);
-
-const KNOWN_DEBT_BLOCKS = new Map<string, Set<string>>([
-  ["dso-stat-showcase", FOREST_LEAK],
-  ["dso-success-stories", FOREST_LEAK],
-  ["dso-problem", FOREST_LEAK],
-  ["dso-ai-feature", FOREST_LEAK],
-  ["dso-bento-outcomes", FOREST_LEAK],
-  ["dso-promo-cards", FOREST_LEAK],
-  ["dso-products-grid", FOREST_LEAK],
-  ["dso-faq", FOREST_LEAK],
-  ["dso-scroll-story-hero", FOREST_LEAK],
-  ["dso-network-map", FOREST_LEAK],
-  ["dso-paradigm-shift", FOREST_AND_LIME_LEAK],
-  ["dso-split-feature", MEETDANDY_AND_FOREST],
-  ["dso-software-showcase", MEETDANDY_AND_FOREST],
-  ["dso-flow-canvas", MEETDANDY_LEAK],
-  ["dso-meet-team", MEETDANDY_LEAK],
-  ["dso-cta-capture", MEETDANDY_LEAK],
-  ["dso-activation-steps", MEETDANDY_LEAK],
-]);
+//
+// As of task #87 the BlockDso* family no longer hardcodes Dandy's forest /
+// lime colors as CSS-var fallbacks (they fall back to neutral slate/blue
+// instead) and the catalog seed overrides every meetdandy.com URL the
+// BLOCK_REGISTRY would otherwise merge in. The map is intentionally left
+// in place (empty) so that any future regression can be marked as known
+// debt without reshaping the test.
+const KNOWN_DEBT_BLOCKS = new Map<string, Set<string>>();
 
 async function getPerBlockSurfaces(page: Page): Promise<PerBlockSurface[]> {
   return page.evaluate(() => {

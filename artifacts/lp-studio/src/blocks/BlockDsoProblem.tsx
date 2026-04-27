@@ -12,7 +12,7 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P    = "var(--brand-primary, #003A30)";
+const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 
 // Empty defaults — the block now renders no fallback image when none is
@@ -68,10 +68,10 @@ export function BlockDsoProblem({ props }: Props) {
 
   const dark = isDarkBg(backgroundStyle);
   const fg   = dark ? "hsl(48,100%,96%)"      : P;
-  const mu   = dark ? "rgba(255,255,255,0.52)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
+  const mu   = dark ? "rgba(255,255,255,0.52)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const dividerColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-  const iconBg     = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.078)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.133)`;
-  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.157)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.267)`;
+  const iconBg     = dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.078)` : `rgb(var(--brand-accent-rgb, 59 130 246) / 0.133)`;
+  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.157)` : `rgb(var(--brand-accent-rgb, 59 130 246) / 0.267)`;
 
   const imgA = imageUrls[0] || DEFAULT_IMG_A;
   const imgB = imageUrls[1] || DEFAULT_IMG_B;
@@ -124,7 +124,7 @@ export function BlockDsoProblem({ props }: Props) {
               width: "90%",
               height: "75%",
               borderRadius: "50%",
-              background: `radial-gradient(ellipse, rgb(var(--brand-accent-rgb, 199 231 56) / 0.035) 0%, transparent 70%)`,
+              background: `radial-gradient(ellipse, rgb(var(--brand-accent-rgb, 59 130 246) / 0.035) 0%, transparent 70%)`,
               pointerEvents: "none",
               zIndex: 0,
             }} />
@@ -199,7 +199,7 @@ export function BlockDsoProblem({ props }: Props) {
                   <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 3 }}>{statLabel}</p>
                 </div>
               </div>
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))` }} />
             </motion.div>
             ) : null}
           </motion.div>

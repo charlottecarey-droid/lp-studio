@@ -10,7 +10,7 @@ const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 // Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
 // vars (set by getBrandStyleVars). Hardcoded fallbacks preserve the original
 // Dandy look when no brand wrapper is present.
-const P   = "var(--brand-primary, #003A30)";
+const P   = "var(--brand-primary, #0f172a)";
 const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 
 // Neutral component-level fallback. Catalog default_props (industry='generic')
@@ -153,7 +153,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
   const dark = isDarkBg(backgroundStyle);
   const fg         = dark ? "hsl(48,100%,96%)"      : P;
   const eyebrowFg  = AW;
-  const mu         = dark ? "rgba(255,255,255,0.46)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
+  const mu         = dark ? "rgba(255,255,255,0.46)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
 
   const sectionRef = useRef<HTMLElement>(null);

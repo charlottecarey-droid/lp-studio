@@ -13,7 +13,7 @@ interface Props {
   brand: BrandConfig;
 }
 
-const BRAND   = "var(--brand-primary, #003A30)";
+const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -146,7 +146,7 @@ export function BlockDsoMeetTeam({ props, brand }: Props) {
                     width: "100%",
                     height: 220,
                     flexShrink: 0,
-                    background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.063)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.027)`,
+                    background: dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.063)` : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.027)`,
                     borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e5e7eb"}`,
                     display: "flex",
                     alignItems: "center",

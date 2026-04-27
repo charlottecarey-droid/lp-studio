@@ -10,7 +10,7 @@ const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P     = "var(--brand-primary, #003A30)";
+const P     = "var(--brand-primary, #0f172a)";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const MU    = "rgba(255,255,255,0.50)";
@@ -97,7 +97,7 @@ function PhotoTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "photo
       <p style={{ position: "absolute", bottom: "1.25rem", left: "1.5rem", right: "1.5rem", fontSize: "0.8125rem", fontWeight: 600, color: "rgba(255,255,255,0.85)", letterSpacing: "0.04em" }}>
         {tile.caption}
       </p>
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))` }} />
     </motion.div>
   );
 }
@@ -110,8 +110,8 @@ function FeatureTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "fea
       viewport={{ once: true }}
       transition={{ delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        background: `linear-gradient(135deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0.094) 0%, rgb(var(--brand-accent-rgb, 199 231 56) / 0.024) 100%)`,
-        border: `1px solid rgb(var(--brand-accent-rgb, 199 231 56) / 0.188)`,
+        background: `linear-gradient(135deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0.094) 0%, rgb(var(--brand-accent-rgb, 59 130 246) / 0.024) 100%)`,
+        border: `1px solid rgb(var(--brand-accent-rgb, 59 130 246) / 0.188)`,
         borderRadius: "1.25rem",
         padding: "2.5rem 2.25rem",
         height: "100%",
@@ -163,7 +163,7 @@ function QuoteTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "quote
       <span style={{
         position: "absolute", top: "1rem", left: "1.5rem",
         fontFamily: "Georgia, serif", fontSize: "5rem", lineHeight: 1,
-        color: `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)`, userSelect: "none", pointerEvents: "none",
+        color: `rgb(var(--brand-accent-rgb, 59 130 246) / 0.094)`, userSelect: "none", pointerEvents: "none",
       }}>
         {"\u201C"}
       </span>

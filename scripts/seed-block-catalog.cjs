@@ -445,14 +445,18 @@ const GENERIC_SEED = [
       newWayItems: ["One platform, fully synced", "Live data, single source", "Dashboards that update themselves", "Workflows with audit trails"] } },
   { block_type: "dso-split-feature", label: "Split Feature", category: "Content", sort_order: 34,
     default_props: { eyebrow: "Capability", headline: "Built for the work, not the demo.", body: "Every feature is shaped by real customer feedback — and ships behind a flag for safety.",
-      bullets: ["Type-safe automations", "Audit-ready by default", "Works offline", "Scales from 5 to 5,000"] } },
+      bullets: ["Type-safe automations", "Audit-ready by default", "Works offline", "Scales from 5 to 5,000"],
+      // Neutralize registry default ctaUrl that points at meetdandy.chilipiper.com.
+      ctaText: "", ctaUrl: "#", imageUrl: "" } },
   { block_type: "dso-ai-feature", label: "AI Feature Highlight", category: "Content", sort_order: 35,
     default_props: { eyebrow: "AI built in", headline: "Smart suggestions, not surveillance.", body: "Our AI helps your team move faster — without ever guessing at your data.",
       bullets: ["Inline suggestions while you work","Always-on summarization","Auto-categorize new items","Privacy-first: nothing leaves your tenant"],
       stats: [{ value: "40%", label: "Faster ticket resolution" },{ value: "10x", label: "Less manual triage" }],
       imageUrl: "" } },
   { block_type: "dso-software-showcase", label: "Software Showcase", category: "Content", sort_order: 36,
-    default_props: { eyebrow: "Product", headline: "See it in action", body: "Live workflows, live data, no demo magic." } },
+    default_props: { eyebrow: "Product", headline: "See it in action", body: "Live workflows, live data, no demo magic.",
+      // Neutralize registry defaults that point at meetdandy-lp.com / meetdandy.chilipiper.com.
+      imageUrl: "", ctaText: "", ctaUrl: "#", ctaMode: "link", backgroundStyle: "muted" } },
   { block_type: "dso-bento-outcomes", label: "Bento Grid", category: "Content", sort_order: 37,
     default_props: { eyebrow: "Outcomes", headline: "What our customers actually get",
       tiles: [
@@ -464,7 +468,9 @@ const GENERIC_SEED = [
         { type: "stat",    value: "4.9★",label: "G2 rating" },
       ] } },
   { block_type: "dso-flow-canvas", label: "Quote Canvas", category: "Content", sort_order: 38,
-    default_props: { eyebrow: "What customers say", quote: "It replaced three tools and freed up an FTE in the first quarter.", attribution: "Jamie Patel, VP Ops · Northwind", stat: "$240K", statLabel: "Annual savings" } },
+    default_props: { eyebrow: "What customers say", quote: "It replaced three tools and freed up an FTE in the first quarter.", attribution: "Jamie Patel, VP Ops · Northwind", stat: "$240K", statLabel: "Annual savings",
+      // Neutralize registry default imageUrl that points at meetdandy-lp.com.
+      imageUrl: "" } },
 
   { block_type: "dso-promises", label: "Promises", category: "Content", sort_order: 39,
     default_props: { eyebrow: "What you can count on", headline: "Three promises, in writing",
@@ -495,7 +501,9 @@ const GENERIC_SEED = [
         { name: "Alex Rivera",  role: "Customer Success Manager" },
         { name: "Priya Shah",   role: "Onboarding Specialist" },
         { name: "Marcus Chen",  role: "Solutions Engineer" },
-      ] } },
+      ],
+      // Neutralize registry default ctaUrl that points at meetdandy.chilipiper.com.
+      ctaText: "", ctaUrl: "#" } },
 
   { block_type: "dso-final-cta", label: "Final CTA", category: "CTA", sort_order: 52, force: true,
     default_props: {
@@ -512,7 +520,9 @@ const GENERIC_SEED = [
       backgroundStyle: "muted",
     } },
   { block_type: "dso-cta-capture", label: "Inline CTA Capture", category: "Lead Capture", sort_order: 61,
-    default_props: { eyebrow: "Get a demo", headline: "See it in action", body: "Pick a time that works for you.", inputLabel: "Work email", inputPlaceholder: "you@company.com", ctaLabel: "Book a demo", trust1: "No credit card", trust2: "30-min walkthrough", trust3: "Free trial after" } },
+    default_props: { eyebrow: "Get a demo", headline: "See it in action", body: "Pick a time that works for you.", inputLabel: "Work email", inputPlaceholder: "you@company.com", ctaLabel: "Book a demo", trust1: "No credit card", trust2: "30-min walkthrough", trust3: "Free trial after",
+      // Neutralize registry defaults that point at meetdandy-lp.com / meetdandy.chilipiper.com.
+      imageUrl: "", chilipiperUrl: "", ctaMode: "form" } },
   { block_type: "dso-comparison", label: "Animated Comparison", category: "Content", sort_order: 43, force: true,
     default_props: {
       eyebrow: "The Difference",
@@ -541,7 +551,9 @@ const GENERIC_SEED = [
         { step: "01", title: "Connect your tools",  desc: "OAuth in, no IT ticket required." },
         { step: "02", title: "Import your data",    desc: "Overnight migration, fully reversible." },
         { step: "03", title: "Invite your team",    desc: "Role-based access, SSO ready." },
-      ] } },
+      ],
+      // Neutralize registry default ctaUrl that points at meetdandy.chilipiper.com.
+      ctaText: "", ctaUrl: "#" } },
   { block_type: "dso-pilot-steps", label: "Pilot Steps", category: "Content", sort_order: 46, force: true,
     default_props: {
       eyebrow: "How It Works",

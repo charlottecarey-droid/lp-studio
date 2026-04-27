@@ -68,11 +68,11 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
 
   const dark          = isDarkBg(backgroundStyle);
   const pfg           = dark ? "hsl(48,100%,96%)"       : "var(--brand-primary)";
-  const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)";
+  const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const bgHex         = BG_HEX[backgroundStyle] ?? "var(--brand-primary)";
-  const borderDefault = dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.18)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.20)";
-  const borderFocused = dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.50)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.40)";
-  const inputBgColor  = dark ? "rgba(255,255,255,0.05)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.04)";
+  const borderDefault = dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.20)";
+  const borderFocused = dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.50)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.40)";
+  const inputBgColor  = dark ? "rgba(255,255,255,0.05)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.04)";
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-8%" });
@@ -213,7 +213,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
           >
             <span style={{
               display: "inline-block", width: 7, height: 7, borderRadius: "50%",
-              background: AW, boxShadow: `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.18)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.12)"}`,
+              background: AW, boxShadow: `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.12)"}`,
               flexShrink: 0,
             }} />
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0 }}>
@@ -256,8 +256,8 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               style={{
                 display: "flex", flexDirection: "column", gap: "0.625rem",
                 maxWidth: 480,
-                background: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.07)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.06)",
-                border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.22)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.20)"}`,
+                background: dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.07)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.06)",
+                border: `1px solid ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.22)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.20)"}`,
                 borderRadius: "1rem",
                 padding: "1.25rem 1.5rem",
               }}
@@ -293,7 +293,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               style={{ maxWidth: 480 }}
             >
               {inputLabel && (
-                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.6)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.55)", marginBottom: "0.65rem" }}>
+                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.6)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)", marginBottom: "0.65rem" }}>
                   {inputLabel}
                 </p>
               )}
@@ -313,7 +313,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
                     padding: "5px 5px 5px 22px",
                     gap: 8,
                     backdropFilter: "blur(12px)",
-                    boxShadow: focused1 ? `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.08)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.06)"}` : "none",
+                    boxShadow: focused1 ? `0 0 0 3px ${dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.08)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.06)"}` : "none",
                     transition: "border-color 0.2s, box-shadow 0.2s",
                   }}
                 >
@@ -373,7 +373,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               {trusts.map((t, i) => (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
                   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                    <circle cx="6.5" cy="6.5" r="6" stroke={dark ? "rgb(var(--brand-accent-rgb, 199 231 56) / 0.35)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.25)"} strokeWidth="1" />
+                    <circle cx="6.5" cy="6.5" r="6" stroke={dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.35)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.25)"} strokeWidth="1" />
                     <path d="M3.5 6.5l2 2 4-4" stroke={AW} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span style={{ fontSize: "0.8125rem", color: muted, fontWeight: 500 }}>{t}</span>

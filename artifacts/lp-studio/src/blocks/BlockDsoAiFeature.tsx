@@ -9,7 +9,7 @@ import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 import { WordReveal } from "./WordReveal";
 import { StatCounter } from "./StatCounter";
 
-const P    = "var(--brand-primary, #003A30)";
+const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -48,9 +48,9 @@ export function BlockDsoAiFeature({ props }: Props) {
 
   const dark = isDarkBg(backgroundStyle);
   const fg   = dark ? "#fff"                    : P;
-  const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)";
-  const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.80)";
-  const statMu = dark ? "rgba(255,255,255,0.40)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.45)";
+  const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
+  const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.80)";
+  const statMu = dark ? "rgba(255,255,255,0.40)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.45)";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoMuted, setVideoMuted] = useState(true);
@@ -70,8 +70,8 @@ export function BlockDsoAiFeature({ props }: Props) {
   };
   const imgBorder = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const imgBg     = dark ? "hsl(152,30%,6%)"        : "hsl(152,20%,95%)";
-  const iconBg    = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.133)`;
-  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.188)` : `rgb(var(--brand-accent-rgb, 199 231 56) / 0.267)`;
+  const iconBg    = dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.094)` : `rgb(var(--brand-accent-rgb, 59 130 246) / 0.133)`;
+  const iconBorder = dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.188)` : `rgb(var(--brand-accent-rgb, 59 130 246) / 0.267)`;
 
   const bulletIcons = [ScanLine, RefreshCw, ShieldCheck];
 
@@ -97,7 +97,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               width: 700,
               height: 700,
               borderRadius: "50%",
-              background: `radial-gradient(circle, rgb(var(--brand-accent-rgb, 199 231 56) / 0.039) 0%, transparent 65%)`,
+              background: `radial-gradient(circle, rgb(var(--brand-accent-rgb, 59 130 246) / 0.039) 0%, transparent 65%)`,
               pointerEvents: "none",
             }}
           />
@@ -155,7 +155,7 @@ export function BlockDsoAiFeature({ props }: Props) {
             >
               <WordReveal
                 text={headline}
-                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.2)"}
+                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.2)"}
                 brightColor={fg}
               />
             </h2>
@@ -163,7 +163,7 @@ export function BlockDsoAiFeature({ props }: Props) {
               <p style={{ fontSize: "1rem", lineHeight: 1.7 }}>
                 <WordReveal
                   text={body}
-                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.18)"}
+                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.18)"}
                   brightColor={mu}
                 />
               </p>

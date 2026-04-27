@@ -10,7 +10,7 @@ import { getButtonClasses } from "@/lib/brand-config";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 
 const SPRING = { type: "spring" as const, stiffness: 380, damping: 22 };
-const BRAND   = "var(--brand-primary, #003A30)";
+const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -136,7 +136,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         overflow: "hidden",
         boxShadow: dark
           ? "0 40px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)"
-          : "0 32px 64px rgb(var(--brand-primary-rgb, 0 58 48) / 0.18), 0 0 0 1px rgb(var(--brand-primary-rgb, 0 58 48) / 0.08)",
+          : "0 32px 64px rgb(var(--brand-primary-rgb, 15 23 42) / 0.18), 0 0 0 1px rgb(var(--brand-primary-rgb, 15 23 42) / 0.08)",
       }}
     >
       {/* Browser chrome */}
@@ -148,7 +148,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            borderBottom: dark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.1)",
+            borderBottom: dark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgb(var(--brand-primary-rgb, 15 23 42) / 0.1)",
           }}
         >
           <div style={{ display: "flex", gap: "0.3rem" }}>
@@ -161,11 +161,11 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
               flex: 1,
               maxWidth: 340,
               margin: "0 auto",
-              background: dark ? "rgba(0,0,0,0.25)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.07)",
+              background: dark ? "rgba(0,0,0,0.25)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.07)",
               borderRadius: "0.3rem",
               padding: "0.2rem 0.6rem",
               fontSize: "0.6875rem",
-              color: dark ? "rgba(255,255,255,0.3)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.4)",
+              color: dark ? "rgba(255,255,255,0.3)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.4)",
               fontFamily: "'Inter',system-ui,sans-serif",
               display: "flex",
               alignItems: "center",
@@ -218,7 +218,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             style={{
               width: "100%",
               aspectRatio: "16/9",
-              background: dark ? "#0d1f18" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`,
+              background: dark ? "#0d1f18" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.063)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -226,8 +226,8 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
               gap: "0.75rem",
             }}
           >
-            <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.188)` }} />
-            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`, fontFamily: "'Inter',system-ui,sans-serif" }}>
+            <MonitorPlay style={{ width: 48, height: 48, color: dark ? "rgba(255,255,255,0.15)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.188)` }} />
+            <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.2)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)`, fontFamily: "'Inter',system-ui,sans-serif" }}>
               Add a screenshot or video in properties
             </p>
           </div>
@@ -258,8 +258,8 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
-              background: dark ? "rgba(255,255,255,0.07)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`,
-              border: dark ? "1px solid rgba(255,255,255,0.1)" : `1px solid rgb(var(--brand-primary-rgb, 0 58 48) / 0.094)`,
+              background: dark ? "rgba(255,255,255,0.07)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.031)`,
+              border: dark ? "1px solid rgba(255,255,255,0.1)" : `1px solid rgb(var(--brand-primary-rgb, 15 23 42) / 0.094)`,
               borderRadius: "999px",
               padding: "0.35rem 0.875rem 0.35rem 0.5rem",
               fontSize: "0.8125rem",

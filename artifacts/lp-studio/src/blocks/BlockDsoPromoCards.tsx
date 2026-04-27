@@ -7,7 +7,7 @@ interface Props {
   props: DsoPromoCardsBlockProps;
 }
 
-const BRAND   = "var(--brand-primary, #003A30)";
+const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 

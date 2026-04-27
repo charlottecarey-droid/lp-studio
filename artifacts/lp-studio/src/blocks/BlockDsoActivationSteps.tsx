@@ -13,7 +13,7 @@ interface Props {
   brand: BrandConfig;
 }
 
-const BRAND   = "var(--brand-primary, #003A30)";
+const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -102,8 +102,8 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
                   width: 54,
                   height: 54,
                   borderRadius: "50%",
-                  background: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.094)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`,
-                  border: `2px solid ${dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.314)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.188)`}`,
+                  background: dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.094)` : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.063)`,
+                  border: `2px solid ${dark ? `rgb(var(--brand-accent-rgb, 59 130 246) / 0.314)` : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.188)`}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

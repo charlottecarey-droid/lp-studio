@@ -55,9 +55,9 @@ export function BlockDsoSuccessStories({ props }: Props) {
 
   const statColor    = dark ? "#fff" : FG;
   const labelColor   = dark ? "rgba(255,255,255,0.55)" : MU;
-  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.8)`;
+  const quoteColor   = dark ? "rgba(255,255,255,0.70)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.8)`;
   const authorColor  = dark ? AW : P;
-  const dividerColor = dark ? `rgba(255,255,255,0.12)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.10)`;
+  const dividerColor = dark ? `rgba(255,255,255,0.12)` : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.10)`;
 
   const cardBg     = dark ? "rgba(255,255,255,0.04)" : "#fff";
   const cardBorder = dark ? "1px solid rgba(255,255,255,0.09)" : "1px solid rgba(0,0,0,0.06)";
@@ -196,7 +196,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                       left: 0,
                       right: 0,
                       height: 2,
-                      background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))`,
+                      background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))`,
                     }}
                   />
                 </div>
@@ -207,8 +207,8 @@ export function BlockDsoSuccessStories({ props }: Props) {
                     style={{
                       height: 3,
                       background: dark
-                        ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), rgb(var(--brand-accent-rgb, 199 231 56) / 0.502), rgb(var(--brand-accent-rgb, 199 231 56) / 0))`
-                        : `linear-gradient(90deg, rgb(var(--brand-primary-rgb, 0 58 48) / 0), rgb(var(--brand-primary-rgb, 0 58 48) / 0.314), rgb(var(--brand-primary-rgb, 0 58 48) / 0))`,
+                        ? `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), rgb(var(--brand-accent-rgb, 59 130 246) / 0.502), rgb(var(--brand-accent-rgb, 59 130 246) / 0))`
+                        : `linear-gradient(90deg, rgb(var(--brand-primary-rgb, 15 23 42) / 0), rgb(var(--brand-primary-rgb, 15 23 42) / 0.314), rgb(var(--brand-primary-rgb, 15 23 42) / 0))`,
                     }}
                   />
                   <p

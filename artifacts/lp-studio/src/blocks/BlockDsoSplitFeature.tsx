@@ -13,7 +13,7 @@ interface Props {
   brand: BrandConfig;
 }
 
-const BRAND   = "var(--brand-primary, #003A30)";
+const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -39,8 +39,8 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
   const bodyC     = dark ? "rgba(255,255,255,0.6)" : "#4b5563";
   const bulletC   = dark ? "rgba(255,255,255,0.75)" : "#374151";
   const checkC    = dark ? LIME : BRAND;
-  const imgBg     = dark ? "rgba(255,255,255,0.05)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.031)`;
-  const imgBor    = dark ? "rgba(255,255,255,0.08)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.082)`;
+  const imgBg     = dark ? "rgba(255,255,255,0.05)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.031)`;
+  const imgBor    = dark ? "rgba(255,255,255,0.08)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.082)`;
 
   const textCol = (
     <motion.div
@@ -152,11 +152,11 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
           }}
         >
           <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="64" height="64" rx="16" fill={dark ? "rgba(255,255,255,0.06)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.063)`} />
+            <rect width="64" height="64" rx="16" fill={dark ? "rgba(255,255,255,0.06)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.063)`} />
             <path d="M20 44 C20 32 32 20 44 20" stroke={dark ? LIME : BRAND} strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
             <circle cx="32" cy="32" r="8" fill={dark ? LIME : BRAND} opacity="0.2" />
           </svg>
-          <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.25)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)` }}>Add image URL in properties</p>
+          <p style={{ fontSize: "0.8125rem", color: dark ? "rgba(255,255,255,0.25)" : `rgb(var(--brand-primary-rgb, 15 23 42) / 0.251)` }}>Add image URL in properties</p>
         </div>
       )}
     </motion.div>

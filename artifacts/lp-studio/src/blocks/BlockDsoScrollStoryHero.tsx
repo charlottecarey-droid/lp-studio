@@ -6,7 +6,7 @@ import { getBgStyle } from "@/lib/bg-styles";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-const P      = "var(--brand-primary, #003A30)";
+const P      = "var(--brand-primary, #0f172a)";
 const PFG    = "hsl(48,100%,96%)";
 const AW     = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED  = "hsla(48,100%,96%,0.55)";
@@ -26,7 +26,7 @@ const BG_OVERLAY_MAP: Record<string, string> = {
   "light-gray":  "rgba(243,244,246,0.70)",
   "muted":       "rgba(255,250,230,0.70)",
   "dark":        "rgba(26,26,26,0.70)",
-  "dandy-green": "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)",
+  "dandy-green": "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)",
   "black":       "rgba(0,0,0,0.70)",
   "gradient":    "rgba(0,26,20,0.70)",
 };
@@ -74,7 +74,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
   } = props;
   const imageRight = imagePosition !== "left";
   const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;
-  const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgb(var(--brand-primary-rgb, 0 58 48) / 0.60)";
+  const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -283,7 +283,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
             {String(i + 1).padStart(2, "0")}
           </div>
           {/* Lime bottom accent */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 199 231 56) / 0), ${AW}, rgb(var(--brand-accent-rgb, 199 231 56) / 0))` }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))` }} />
         </motion.div>
       ))}
     </div>
