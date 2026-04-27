@@ -64,7 +64,11 @@ export function BlockFooter({ props, brand }: Props) {
 
         <div className="mt-14 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-white/40 text-xs">
-            {props.copyrightText || `© ${new Date().getFullYear()} Dandy. All rights reserved.`}
+            {props.copyrightText
+              ? props.copyrightText
+              : brand.copyrightName
+                ? `© ${new Date().getFullYear()} ${brand.copyrightName}. All rights reserved.`
+                : `© ${new Date().getFullYear()} All rights reserved.`}
           </p>
 
           {props.showSocialLinks && (

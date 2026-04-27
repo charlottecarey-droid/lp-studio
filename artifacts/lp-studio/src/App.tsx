@@ -148,6 +148,7 @@ const RolesPage = lazy(() => import("@/pages/settings/RolesPage"));
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
 const TemplatePreview = lazy(() => import("@/pages/template-preview"));
+const GenericCatalogFixture = lazy(() => import("@/pages/generic-catalog-fixture"));
 
 // Marketing site for the lpstudio.ai apex domain. Lazy-loaded so it ships in
 // its own chunk and SaaS users (app.lpstudio.ai, *.lpstudio.ai) never download
@@ -418,7 +419,8 @@ function AppShell() {
     location.startsWith("/p/") ||
     location.startsWith("/review/") || location === "/review" ||
     location.startsWith("/thank-you") ||
-    location.startsWith("/preview/template/");
+    location.startsWith("/preview/template/") ||
+    location.startsWith("/preview/generic-catalog-fixture");
 
   if (isPublicRoute) {
     return (
@@ -430,6 +432,7 @@ function AppShell() {
             <Route path="/review/:token" component={ReviewShell} />
             <Route path="/thank-you" component={ThankYou} />
             <Route path="/preview/template/:templateId" component={TemplatePreview} />
+            <Route path="/preview/generic-catalog-fixture" component={GenericCatalogFixture} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>
@@ -487,12 +490,19 @@ function App() {
   // Truly-public template preview — bypass auth and domain context entirely so
   // the page renders immediately without waiting on /api/me or /api/domain-context.
   // Useful for sharing template previews with non-logged-in stakeholders.
-  if (typeof window !== "undefined" && window.location.pathname.includes("/preview/template/")) {
+  // Also covers the test-only `/preview/generic-catalog-fixture` route used by
+  // the no-Dandy-leak Playwright spec, which must mount without /api/me.
+  if (
+    typeof window !== "undefined" &&
+    (window.location.pathname.includes("/preview/template/") ||
+      window.location.pathname.includes("/preview/generic-catalog-fixture"))
+  ) {
     return (
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
             <Route path="/preview/template/:templateId" component={TemplatePreview} />
+            <Route path="/preview/generic-catalog-fixture" component={GenericCatalogFixture} />
           </Switch>
         </Suspense>
       </WouterRouter>

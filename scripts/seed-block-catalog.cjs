@@ -47,6 +47,9 @@ const GENERIC_SEED = [
       heroType: "static-image",
       backgroundStyle: "white",
       imageUrl: "",
+      // Empty ctaColor falls through to brand.accentColor in BlockHero — keeps
+      // generic tenants from inheriting the registry default lime (#C7E738).
+      ctaColor: "",
     } },
   { block_type: "full-bleed-hero", label: "Full-Bleed Hero", category: "Layout", sort_order: 11, force: true,
     default_props: {
