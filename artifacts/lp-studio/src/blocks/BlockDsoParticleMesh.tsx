@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoParticleMeshBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
@@ -6,6 +6,7 @@ import { getBgStyle } from "@/lib/bg-styles";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
+const ACCENT_FALLBACK = "hsl(68,60%,52%)";
 const MUTED = "hsla(48,100%,96%,0.42)";
 const BG    = "#001a13";
 
@@ -49,6 +50,27 @@ export function BlockDsoParticleMesh({ props }: Props) {
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: false, margin: "-5%" });
 
+  // Track the resolved brand accent color reactively. The published page sets
+  // `--brand-accent` on a [data-lp-page] wrapper *after* React mounts (it's
+  // populated from an async /api/lp/brand fetch). If we read the var only
+  // once at mount we capture the neutral default (blue) and the canvas keeps
+  // painting blue forever even after the wrapper switches to the tenant's
+  // real palette. Watch the wrapper's style attribute via MutationObserver
+  // so a re-paint in the tenant's accent is automatic. Same hook also covers
+  // live brand edits in the builder.
+  const [accent, setAccent] = useState<string>(ACCENT_FALLBACK);
+  useEffect(() => {
+    const update = () => {
+      setAccent(resolveCssVar("--brand-accent", ACCENT_FALLBACK, sectionRef.current));
+    };
+    update();
+    const wrapper =
+      sectionRef.current?.closest("[data-lp-page], [data-lp-builder-canvas]") ?? document.body;
+    const obs = new MutationObserver(update);
+    obs.observe(wrapper, { attributes: true, attributeFilter: ["style", "class"] });
+    return () => obs.disconnect();
+  }, []);
+
   /* ── Canvas particle animation ── */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,8 +81,6 @@ export function BlockDsoParticleMesh({ props }: Props) {
     const isMobile = window.innerWidth < 768;
     const N    = isMobile ? 45 : 85;
     const DIST = isMobile ? 95 : 130;
-
-    const accent = resolveCssVar("--brand-accent", AW, sectionRef.current);
 
     function resize() {
       if (!canvas) return;
@@ -123,7 +143,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
 
     loop();
     return () => { cancelAnimationFrame(animRef.current); ro.disconnect(); };
-  }, []);
+  }, [accent]);
 
   const hasImage   = Boolean(imageUrl);
   const imgOnLeft  = imagePosition === "left";

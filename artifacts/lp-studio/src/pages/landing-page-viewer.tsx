@@ -271,6 +271,13 @@ export default function LandingPageViewer() {
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  // Tracks whether the async brand fetch has resolved at least once. Until
+  // it does, we hold back the page render so blocks never paint with neutral
+  // DEFAULT_BRAND values (e.g. blue accent) and then snap to the tenant's
+  // real palette one frame later. This was causing a visible blue flash
+  // and — for blocks that imperatively cache `--brand-accent` at mount time
+  // (BlockDsoParticleMesh canvas) — particles would stay blue forever.
+  const [brandLoaded, setBrandLoaded] = useState(false);
   const [dtrParams] = useState(() => getDtrParams());
   const [chilipiperUrl, setChilipiperUrl] = useState<string | null>(null);
 
@@ -335,7 +342,11 @@ export default function LandingPageViewer() {
   useHeatmapTracker(heatmapPageId, sessionId, !isPreviewMode && !!heatmapPageId);
 
   useEffect(() => {
-    fetchBrandConfig().then(setBrand);
+    let cancelled = false;
+    fetchBrandConfig()
+      .then((b) => { if (!cancelled) setBrand(b); })
+      .finally(() => { if (!cancelled) setBrandLoaded(true); });
+    return () => { cancelled = true; };
   }, []);
 
   // ── Page-specific title + OG meta tags ──────────────────────────────────────
@@ -473,7 +484,7 @@ export default function LandingPageViewer() {
     };
   }, [plToken]);
 
-  if (isLoading || (!isPreviewMode && !sessionId)) {
+  if (isLoading || !brandLoaded || (!isPreviewMode && !sessionId)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-foreground" />
