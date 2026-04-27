@@ -825,6 +825,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      '@types/pg':
+        specifier: ^8.18.0
+        version: 8.18.0
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
@@ -867,6 +870,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
       react:
         specifier: 'catalog:'
         version: 19.1.0

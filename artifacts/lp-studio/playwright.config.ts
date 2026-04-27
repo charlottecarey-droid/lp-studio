@@ -18,6 +18,7 @@ function detectChromium(): string | undefined {
 }
 
 const PORT = Number(process.env.E2E_PORT ?? "4318");
+const API_PORT = Number(process.env.E2E_API_PORT ?? "4319");
 const HOST = "127.0.0.1";
 const SYSTEM_CHROMIUM = detectChromium();
 
@@ -28,25 +29,53 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: process.env.CI ? "line" : [["list"]],
-  timeout: 60_000,
+  timeout: 90_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: `http://${HOST}:${PORT}`,
     launchOptions: SYSTEM_CHROMIUM ? { executablePath: SYSTEM_CHROMIUM } : {},
   },
-  webServer: {
-    command: "pnpm run dev",
-    url: `http://${HOST}:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: {
-      PORT: String(PORT),
-      HOST,
-      // Vite dev server picks up these. The /preview/template/* route bypasses
-      // auth entirely and does not call /api, so no API server is required.
-      NODE_ENV: "development",
+  webServer: [
+    // ── 1. The Express API server. Required by the tenant-backed leak spec
+    //      (no-dandy-leak-tenant.spec.ts) which logs in as a real Royal-style
+    //      tenant and exercises /api/block-catalog + /api/lp/pages + /api/lp/brand.
+    //      The dev script (`pnpm run dev`) is build-then-start, so allow extra
+    //      time. The Vite dev-server proxy below forwards /api/* here.
+    {
+      command: "pnpm --filter @workspace/api-server run dev",
+      url: `http://${HOST}:${API_PORT}/api/healthz`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        PORT: String(API_PORT),
+        HOST,
+        NODE_ENV: "development",
+      },
     },
-  },
+    // ── 2. The Vite dev server hosting the lp-studio app. We deliberately
+    //      *unset* REPL_ID so vite.config.ts enables its `/api → API_PORT`
+    //      proxy (the proxy block is gated off when REPL_ID is defined, since
+    //      Replit's platform proxy handles routing in that environment).
+    //      `env -u REPL_ID` removes the variable from the inherited
+    //      environment entirely — Playwright's `env` option only adds /
+    //      overrides keys, and the cartographer/dev-banner plugins in
+    //      vite.config.ts gate on `process.env.REPL_ID !== undefined`,
+    //      which would still trip on `REPL_ID=""`.
+    {
+      command: "env -u REPL_ID pnpm run dev",
+      url: `http://${HOST}:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        PORT: String(PORT),
+        HOST,
+        NODE_ENV: "development",
+        API_PORT: String(API_PORT),
+      },
+    },
+  ],
 });
