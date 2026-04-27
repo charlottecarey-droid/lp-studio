@@ -7,14 +7,10 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
-import productPosteriorCrowns from "@/assets/dandy-product-posterior-crowns.webp";
-import productAnteriorCrowns  from "@/assets/dandy-product-anterior-crowns.webp";
-import productDentures        from "@/assets/dandy-product-dentures.webp";
-import productImplants         from "@/assets/dandy-product-implants.webp";
-import productGuidedSurgery   from "@/assets/dandy-product-guided-surgery.webp";
-import productAligners         from "@/assets/dandy-product-aligners.webp";
-import productGuards           from "@/assets/dandy-product-guards.webp";
-import productSleep            from "@/assets/dandy-product-sleep.webp";
+
+// Note: product photos are no longer bundled with the lp-studio JS.
+// Pages provide imageUrl explicitly (uploaded to the tenant's media library).
+// When imageUrl is missing the card falls back to its lucide icon below.
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -26,25 +22,6 @@ interface Props {
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
-
-const PRODUCT_IMAGES: Record<string, string> = {
-  "posterior-crowns":  productPosteriorCrowns,
-  "anterior-crowns":   productAnteriorCrowns,
-  dentures:            productDentures,
-  implants:            productImplants,
-  "guided-surgery":    productGuidedSurgery,
-  aligners:            productAligners,
-  guards:              productGuards,
-  sleep:               productSleep,
-  "Posterior Crowns":  productPosteriorCrowns,
-  "Anterior Crowns":   productAnteriorCrowns,
-  "Dentures":          productDentures,
-  "Implant Restorations": productImplants,
-  "Guided Surgery":    productGuidedSurgery,
-  "Clear Aligners":    productAligners,
-  "Night Guards & TMJ": productGuards,
-  "Sleep Appliances":  productSleep,
-};
 
 const PRODUCT_ICONS: Record<string, React.ElementType> = {
   crown:       Crown,
@@ -120,7 +97,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
 
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: "1.25rem" }}>
           {products.map((product, i) => {
-            const imgSrc = product.imageUrl || PRODUCT_IMAGES[product.imageKey ?? ""] || PRODUCT_IMAGES[product.name] || null;
+            const imgSrc = product.imageUrl || null;
             const iconKey = product.icon?.toLowerCase() ?? "";
             const Icon = PRODUCT_ICONS[iconKey] ?? Crown;
             return (

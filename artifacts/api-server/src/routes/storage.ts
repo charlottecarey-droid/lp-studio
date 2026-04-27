@@ -3,9 +3,68 @@ import { Readable } from "stream";
 import multer from "multer";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { db, lpMediaTable } from "@workspace/db";
-import { desc, eq, sql, ilike, and, count } from "drizzle-orm";
+import crypto from "crypto";
+import { db, lpMediaTable, tenantsTable } from "@workspace/db";
+import { desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId } from "../middleware/requireAuth";
+
+/** Constant-time check of the x-admin-key header against ADMIN_PASSWORD. */
+function isAdminRequest(req: Request): boolean {
+  const provided = req.headers["x-admin-key"];
+  if (!process.env.ADMIN_PASSWORD) return false;
+  const keyBuf = Buffer.from((provided ? String(provided) : "").padEnd(64, "\0"));
+  const envBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, "\0"));
+  try { return crypto.timingSafeEqual(keyBuf, envBuf); } catch { return false; }
+}
+
+/**
+ * Resolve the set of tenant ids whose media a given tenant should be allowed
+ * to see/modify (the tenant's own + any sibling it explicitly shares a library
+ * with). Returns null if no tenant context can be established.
+ *
+ * Sibling sharing is RECIPROCAL: A is treated as sharing with B only if both
+ * `tenants[A].shares_library_with_tenant_id = B` AND
+ * `tenants[B].shares_library_with_tenant_id = A`. A one-sided value is ignored,
+ * so a misconfiguration on a single row cannot grant cross-tenant access.
+ */
+async function resolveLibraryTenantScope(req: Request, res: Response): Promise<{
+  tenantId: number;
+  ownedTenantIds: number[];
+} | null> {
+  const tenantId = getTenantId(req, res);
+  if (tenantId == null) return null;
+  const ownRows = await db
+    .select({ sibling: tenantsTable.sharesLibraryWithTenantId })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1);
+  const sibling = ownRows[0]?.sibling ?? null;
+  let ownedTenantIds = [tenantId];
+  if (sibling != null && sibling !== tenantId) {
+    const reciprocal = await db
+      .select({ pointsBack: tenantsTable.sharesLibraryWithTenantId })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, sibling))
+      .limit(1);
+    if (reciprocal[0]?.pointsBack === tenantId) {
+      ownedTenantIds = [tenantId, sibling];
+    }
+  }
+  return { tenantId, ownedTenantIds };
+}
+
+/** WHERE clause for "I can read this row" — own tenant, sibling tenant, or shared. */
+function libraryReadablePredicate(ownedTenantIds: number[]): SQL<unknown> {
+  return or(
+    inArray(lpMediaTable.tenantId, ownedTenantIds),
+    eq(lpMediaTable.isShared, true),
+  )!;
+}
+
+/** WHERE clause for "I can mutate this row" — own tenant or sibling tenant only (not shared). */
+function libraryWritablePredicate(ownedTenantIds: number[]): SQL<unknown> {
+  return inArray(lpMediaTable.tenantId, ownedTenantIds);
+}
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -253,8 +312,16 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
   }
 }
 
-/** Reclassify all images that don't yet have a purpose tag */
+/**
+ * Reclassify all images that don't yet have a purpose tag.
+ * Admin-only (x-admin-key) — this is a global maintenance op that touches
+ * every tenant's images, not a per-tenant user feature.
+ */
 router.post("/lp/media/reclassify", async (req: Request, res: Response) => {
+  if (!isAdminRequest(req)) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   try {
     // force=true re-examines ALL images, including those already tagged.
     // Use this to fix images that were misclassified before the OG-detection prompt was tightened.
@@ -348,6 +415,87 @@ router.post("/lp/upload", (req: Request, res: Response) => {
       res.json({ url: servePath, mediaId: record.id });
     } catch (error) {
       req.log.error({ err: error }, "Error uploading LP image");
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
+});
+
+/**
+ * Admin-only image upload. Authenticated by x-admin-key (same scheme as the
+ * superadmin routes), so it does NOT require a tenant session.
+ *
+ * Default behaviour: uploads land in the shared "starter" library
+ *   (tenant_id = NULL, is_shared = true) — visible to every tenant.
+ * If `tenantId` is provided in the form body, the upload is scoped to that
+ *   tenant only (used for one-time backfills like re-homing the Dandy product
+ *   photos out of the JS bundle).
+ *
+ * Body (multipart/form-data):
+ *   file:       the image (jpg/png/gif/webp/avif/heic/heif, max 20 MB)
+ *   title?:     friendly title (defaults to filename without extension)
+ *   tags?:      comma-separated tag list (e.g. "workspace,team,office")
+ *   tenantId?:  numeric tenant id to scope the upload to. Omit for shared.
+ */
+router.post("/lp/media/shared/upload", (req: Request, res: Response) => {
+  if (!isAdminRequest(req)) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  imageUpload.single("file")(req, res, async (err) => {
+    if (err) {
+      const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
+        ? "File too large. Maximum size is 20 MB."
+        : (err as Error).message ?? "Upload failed";
+      res.status(400).json({ error: message });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const servePath = await objectStorageService.uploadObjectEntity(
+        req.file.buffer,
+        req.file.mimetype,
+      );
+      const serveUrl = `/api/storage${servePath}`;
+      const rawTitle = (req.body as { title?: string }).title;
+      const title = (rawTitle && rawTitle.trim())
+        || (req.file.originalname?.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") ?? "Untitled");
+
+      let tags: string[] = [];
+      const rawTags = (req.body as { tags?: string }).tags;
+      if (typeof rawTags === "string" && rawTags.length > 0) {
+        tags = rawTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+      }
+
+      const rawTenantId = (req.body as { tenantId?: string }).tenantId;
+      let tenantId: number | null = null;
+      let isShared = true;
+      if (rawTenantId !== undefined && rawTenantId !== "") {
+        const parsed = parseInt(String(rawTenantId), 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          res.status(400).json({ error: "Invalid tenantId" });
+          return;
+        }
+        tenantId = parsed;
+        isShared = false;
+      }
+
+      const [record] = await db.insert(lpMediaTable).values({
+        tenantId,
+        title,
+        url: serveUrl,
+        mediaType: "image",
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        tags,
+        isShared,
+      }).returning();
+
+      res.json({ id: record.id, url: serveUrl, title: record.title, tenantId, isShared });
+    } catch (error) {
+      req.log.error({ err: error }, "Error uploading shared image");
       res.status(500).json({ error: "Upload failed" });
     }
   });
@@ -454,9 +602,11 @@ router.post("/lp/pdf/upload", (req: Request, res: Response) => {
 
 router.get("/lp/media", async (req: Request, res: Response) => {
   try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
     const mediaTypeFilter = typeof req.query.mediaType === "string" ? req.query.mediaType : "video";
     const uploaded = await db.select().from(lpMediaTable)
-      .where(undefined)
+      .where(libraryReadablePredicate(scope.ownedTenantIds))
       .orderBy(desc(lpMediaTable.createdAt));
 
     const uploadedItems = uploaded
@@ -484,6 +634,8 @@ router.get("/lp/media", async (req: Request, res: Response) => {
 /** Browse image library with optional search query and tag filter */
 router.get("/lp/media/images", async (req: Request, res: Response) => {
   try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const tag = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
     const excludeTag = typeof req.query.excludeTag === "string" ? req.query.excludeTag.trim() : "";
@@ -491,8 +643,11 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
     const pageNum = Math.max(1, parseInt(typeof req.query.page === "string" ? req.query.page : "1") || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(typeof req.query.limit === "string" ? req.query.limit : "48") || 48));
 
-    // Build SQL conditions
-    const conditions = [eq(lpMediaTable.mediaType, "image")];
+    // Build SQL conditions — tenant scope first so we never leak cross-tenant rows.
+    const conditions = [
+      libraryReadablePredicate(scope.ownedTenantIds),
+      eq(lpMediaTable.mediaType, "image"),
+    ];
     if (q) conditions.push(ilike(lpMediaTable.title, `%${q}%`));
     if (tag) conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([tag])}::jsonb`);
     // excludeTag: hide images that have this tag (e.g. "og-image")
@@ -559,6 +714,8 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
 /** Update tags for a media item */
 router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
   try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
     const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -566,7 +723,14 @@ router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
     if (!Array.isArray(tags)) { res.status(400).json({ error: "tags must be an array" }); return; }
 
     const cleaned = tags.filter(t => typeof t === "string" && t.trim()).map(t => t.trim().toLowerCase()).slice(0, 12);
-    await db.update(lpMediaTable).set({ tags: cleaned }).where(eq(lpMediaTable.id, id));
+    // Only allow editing rows the requester owns (own tenant or sibling). Shared
+    // starter rows are read-only — admins manage them via the admin upload route.
+    const result = await db
+      .update(lpMediaTable)
+      .set({ tags: cleaned })
+      .where(and(eq(lpMediaTable.id, id), libraryWritablePredicate(scope.ownedTenantIds)))
+      .returning({ id: lpMediaTable.id });
+    if (result.length === 0) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ tags: cleaned });
   } catch (error) {
     req.log.error({ err: error }, "Error updating tags");
@@ -576,9 +740,15 @@ router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
 
 router.delete("/lp/media/:id", async (req: Request, res: Response) => {
   try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
     const id = parseInt(String(req.params.id), 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    await db.delete(lpMediaTable).where(eq(lpMediaTable.id, id));
+    const result = await db
+      .delete(lpMediaTable)
+      .where(and(eq(lpMediaTable.id, id), libraryWritablePredicate(scope.ownedTenantIds)))
+      .returning({ id: lpMediaTable.id });
+    if (result.length === 0) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ success: true });
   } catch (error) {
     req.log.error({ err: error }, "Error deleting media");
