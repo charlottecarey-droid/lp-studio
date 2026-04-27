@@ -232,15 +232,21 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [globalForm, setGlobalForm] = useState<GlobalFormConfig | null>(null);
+  // Tracks whether the public /api/lp/forms/:id fetch has resolved (success
+  // OR failure). Without this we'd keep showing "Loading form…" forever if
+  // the fetch 404s / errors, leaving the visitor staring at a dead block.
+  const [globalFormFetched, setGlobalFormFetched] = useState(false);
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!props.formId) { setGlobalForm(null); return; }
+    if (!props.formId) { setGlobalForm(null); setGlobalFormFetched(true); return; }
+    setGlobalFormFetched(false);
     fetch(`${API_BASE}/lp/forms/${props.formId}`)
       .then(r => r.ok ? r.json() : null)
       .then((data: GlobalFormConfig | null) => setGlobalForm(data))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setGlobalFormFetched(true));
   }, [props.formId]);
 
   const allSteps = globalForm?.steps ?? props.steps ?? [];
@@ -498,7 +504,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
               // load before mounting MarketoForm — otherwise the onSuccess
               // closure captures `globalForm=null` and the Chili Piper
               // handoff silently no-ops on the first submission.
-              props.formId && !globalForm ? (
+              props.formId && !globalForm && !globalFormFetched ? (
                 <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>Loading form…</p>
               ) : (
               <>
@@ -547,7 +553,12 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
                         }).catch(() => undefined);
                       }
                       if (cp.mode === "redirect") {
-                        safeNavigate(url);
+                        // Open in a new tab so the visitor can return to the
+                        // landing page after booking. Falls through to the
+                        // current tab if the popup is blocked (safeNavigate
+                        // honours its target and we accept the trade-off
+                        // rather than dropping the handoff entirely).
+                        safeNavigate(url, "_blank");
                       } else {
                         setChiliPiperHandoffUrl(url);
                       }

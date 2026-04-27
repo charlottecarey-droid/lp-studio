@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { usePageContext } from "@/lib/page-context";
+import { safeNavigate } from "@/lib/safe-url";
 
 const API_BASE = "/api";
 
@@ -142,14 +143,54 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
             <X className="w-4 h-4" />
           </button>
         </div>
-        <iframe
-          src={url}
-          className="flex-1 w-full border-0"
-          allow="camera; microphone"
-          title="Schedule a meeting"
-        />
+        <ChiliPiperIframe url={url} onUnavailable={() => {
+          // Iframe failed to load (network error, X-Frame-Options/CSP block,
+          // ad-blocker, etc.). Fall back to opening the scheduler URL in a
+          // new tab so the visitor can still book — the worst case is a
+          // blocked popup, which is materially better than silently dropping
+          // the handoff.
+          safeNavigate(url, "_blank");
+          onClose();
+        }} />
       </div>
     </div>,
     document.body
+  );
+}
+
+// Renders the Chili Piper iframe with a load-failure escape hatch. If the
+// iframe never fires `load` within `LOAD_TIMEOUT_MS`, OR the browser fires
+// `error` (rare; iframe error events are inconsistent across browsers), we
+// surface the failure to the parent so it can fall back to opening the
+// scheduler URL in a new tab.
+const LOAD_TIMEOUT_MS = 8000;
+
+function ChiliPiperIframe({ url, onUnavailable }: { url: string; onUnavailable: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  const failedRef = useRef(false);
+
+  useEffect(() => {
+    if (loaded) return;
+    const t = window.setTimeout(() => {
+      if (loaded || failedRef.current) return;
+      failedRef.current = true;
+      onUnavailable();
+    }, LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(t);
+  }, [loaded, onUnavailable]);
+
+  return (
+    <iframe
+      src={url}
+      className="flex-1 w-full border-0"
+      allow="camera; microphone"
+      title="Schedule a meeting"
+      onLoad={() => setLoaded(true)}
+      onError={() => {
+        if (failedRef.current) return;
+        failedRef.current = true;
+        onUnavailable();
+      }}
+    />
   );
 }

@@ -619,9 +619,11 @@ Lead Source:LeadSource`}</pre>
             </div>
 
             {/* Chili Piper handoff — picks up the form's submitted values and
-                forwards them to the configured scheduler URL. Used today to
-                hand Marketo-mode forms off to Chili Piper, but works with any
-                form mode (Marketo, native, etc.). */}
+                forwards them to the configured scheduler URL. The handoff is
+                wired into the Marketo submit path (BlockForm's MarketoForm
+                onSuccess), so we only show this section when the form is in
+                Marketo mode to avoid offering a setting that can't fire. */}
+            {local.marketoConfig && (
             <div className="border rounded-lg overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
                 <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowChiliPiper(s => !s)}>
@@ -678,6 +680,7 @@ Lead Source:LeadSource`}</pre>
                 </div>
               )}
             </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

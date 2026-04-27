@@ -139,3 +139,18 @@ Shared library used by both LP Studio and Dandy DSO for one-pager PDF generation
   - All accept pre-loaded image data (`logoPng`, `headerImgData`) and layout overrides via `opts`
 
 DSO imports shared generators and wraps them with asset pre-loading (SVG→PNG conversion, image loading) and layout override fetching from `loadLayoutDefault`.
+## Marketo → Chili Piper handoff
+
+Per-tenant `lp_forms.chili_piper_config` jsonb column drives an opt-in handoff from a Marketo "global form" submission to a Chili Piper concierge router. The scheduler URL is **only** ever read from this row — never hardcoded in app code.
+
+### Configure a tenant
+Run the seed script against the target Postgres (Neon for prod):
+
+```bash
+NEON_DATABASE_URL=... node scripts/seed-smb-chilipiper.cjs \
+  --tenant <tenant-slug> --form "<form name>" \
+  --cp-url "https://<tenant>.chilipiper.com/concierge-router/link/<router>" \
+  --mode modal
+```
+
+The script is idempotent — re-running it just overwrites the row's `chili_piper_config`.
