@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
-import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
+import { ChiliPiperIframe } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
 const API_BASE = "/api";
@@ -598,15 +598,9 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
                     setSubmitted(true);
                   }}
                 />
-                {chiliPiperHandoffUrl && (
-                  <ChiliPiperModal
-                    url={chiliPiperHandoffUrl}
-                    pageId={pageId}
-                    variantId={variantId}
-                    sessionId={sessionId}
-                    onClose={() => { setChiliPiperHandoffUrl(null); setSubmitted(true); }}
-                  />
-                )}
+                {/* In-place swap above replaces the form with the scheduler
+                    iframe once chiliPiperHandoffUrl is set, so no portal
+                    modal is needed here. */}
               </>
               )
             ) : (
