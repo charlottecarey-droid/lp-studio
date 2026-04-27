@@ -165,7 +165,7 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
 // scheduler URL in a new tab.
 const LOAD_TIMEOUT_MS = 8000;
 
-function ChiliPiperIframe({ url, onUnavailable }: { url: string; onUnavailable: () => void }) {
+export function ChiliPiperIframe({ url, onUnavailable, className }: { url: string; onUnavailable: () => void; className?: string }) {
   const [loaded, setLoaded] = useState(false);
   const failedRef = useRef(false);
 
@@ -182,7 +182,7 @@ function ChiliPiperIframe({ url, onUnavailable }: { url: string; onUnavailable: 
   return (
     <iframe
       src={url}
-      className="flex-1 w-full border-0"
+      className={className ?? "flex-1 w-full border-0"}
       allow="camera; microphone"
       title="Schedule a meeting"
       onLoad={() => setLoaded(true)}

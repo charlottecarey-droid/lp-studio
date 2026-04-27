@@ -125,16 +125,24 @@ export function MarketoForm({
                   vals[k] = typeof v === "string" ? v : String(v);
                 }
               }
+              // Always invoke the handler first (if provided) so callers can
+              // run side effects (lead persistence, analytics, Chili Piper
+              // hand-off, etc.) before any navigation. The handler is
+              // synchronous wrt Marketo's own follow-up.
               if (onSuccess) {
-                // When a handler is provided, it is responsible for whatever
-                // post-submit UX (Chili Piper hand-off, success state, etc.).
-                // We always cancel Marketo's default redirect in that case so
-                // the handler runs to completion.
                 onSuccess(vals);
-                return false;
               }
+              // After the handler runs, honour an explicit followUpUrl. This
+              // preserves the prior non-handoff behaviour where a Marketo form
+              // with a configured redirect URL navigates after submit, even
+              // when an onSuccess handler is also wired up (e.g. for analytics).
               if (followUpUrl) {
                 window.location.href = followUpUrl;
+                return false;
+              }
+              // No explicit follow-up. If onSuccess was wired up at all, it
+              // owns the post-submit UX, so cancel Marketo's default redirect.
+              if (onSuccess) {
                 return false;
               }
               return Boolean(defaultFollowUp);

@@ -6,6 +6,8 @@ import { BlockForm } from "@/blocks/BlockForm";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { FormBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
+import { ChiliPiperIframe } from "@/blocks/ChiliPiperModal";
+import { safeNavigate } from "@/lib/safe-url";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
 export type EmailCaptureFormSource = "simple" | "linked" | "marketo";
@@ -242,11 +244,18 @@ export function EmailCaptureModal({
               </div>
             )}
             {chiliPiperHandoffUrl ? (
-              <iframe
-                src={chiliPiperHandoffUrl}
+              <ChiliPiperIframe
+                url={chiliPiperHandoffUrl}
                 className="w-full h-[min(70vh,520px)] border-0 rounded-lg"
-                allow="camera; microphone; clipboard-write"
-                title="Schedule"
+                onUnavailable={() => {
+                  // Iframe failed (CSP/X-Frame-Options/network/ad-blocker).
+                  // Pop the scheduler in a new tab so the lead can still book
+                  // and close the capture modal so the visitor isn't stuck
+                  // staring at a blank frame.
+                  safeNavigate(chiliPiperHandoffUrl, "_blank");
+                  setChiliPiperHandoffUrl(null);
+                  onClose();
+                }}
               />
             ) : marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
               <MarketoForm
@@ -256,10 +265,18 @@ export function EmailCaptureModal({
                 prefill={email ? { Email: email } : undefined}
                 onSuccess={(vals) => {
                   if (chiliPiperConfig?.url) {
-                    // Hand off to CP inline — replaces the Marketo form
-                    // with the scheduler iframe, preserving the modal so
-                    // the visitor never leaves the page.
-                    setChiliPiperHandoffUrl(buildChiliPiperHandoffUrl(chiliPiperConfig, vals));
+                    const url = buildChiliPiperHandoffUrl(chiliPiperConfig, vals);
+                    if (chiliPiperConfig.mode === "redirect") {
+                      // Redirect mode: open the scheduler in a new tab and
+                      // close the capture modal, mirroring BlockForm behaviour.
+                      safeNavigate(url, "_blank");
+                      onClose();
+                      return;
+                    }
+                    // Modal mode (default): swap the Marketo form for the
+                    // scheduler iframe inline so the visitor never leaves
+                    // the page.
+                    setChiliPiperHandoffUrl(url);
                     return;
                   }
                   setState("success");
