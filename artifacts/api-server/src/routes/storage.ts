@@ -3,19 +3,10 @@ import { Readable } from "stream";
 import multer from "multer";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import crypto from "crypto";
 import { db, lpMediaTable, tenantsTable } from "@workspace/db";
 import { desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId } from "../middleware/requireAuth";
-
-/** Constant-time check of the x-admin-key header against ADMIN_PASSWORD. */
-function isAdminRequest(req: Request): boolean {
-  const provided = req.headers["x-admin-key"];
-  if (!process.env.ADMIN_PASSWORD) return false;
-  const keyBuf = Buffer.from((provided ? String(provided) : "").padEnd(64, "\0"));
-  const envBuf = Buffer.from(process.env.ADMIN_PASSWORD.padEnd(64, "\0"));
-  try { return crypto.timingSafeEqual(keyBuf, envBuf); } catch { return false; }
-}
+import { requireAdminKey } from "../middleware/requireAdminKey";
 
 /**
  * Resolve the set of tenant ids whose media a given tenant should be allowed
@@ -317,11 +308,7 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
  * Admin-only (x-admin-key) — this is a global maintenance op that touches
  * every tenant's images, not a per-tenant user feature.
  */
-router.post("/lp/media/reclassify", async (req: Request, res: Response) => {
-  if (!isAdminRequest(req)) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.post("/lp/media/reclassify", requireAdminKey, async (req: Request, res: Response) => {
   try {
     // force=true re-examines ALL images, including those already tagged.
     // Use this to fix images that were misclassified before the OG-detection prompt was tightened.
@@ -436,11 +423,7 @@ router.post("/lp/upload", (req: Request, res: Response) => {
  *   tags?:      comma-separated tag list (e.g. "workspace,team,office")
  *   tenantId?:  numeric tenant id to scope the upload to. Omit for shared.
  */
-router.post("/lp/media/shared/upload", (req: Request, res: Response) => {
-  if (!isAdminRequest(req)) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+router.post("/lp/media/shared/upload", requireAdminKey, (req: Request, res: Response) => {
   imageUpload.single("file")(req, res, async (err) => {
     if (err) {
       const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
