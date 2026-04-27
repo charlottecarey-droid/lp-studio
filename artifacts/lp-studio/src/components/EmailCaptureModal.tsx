@@ -4,7 +4,8 @@ import { Calendar, Check, Loader2, X } from "lucide-react";
 import { MarketoForm } from "@/components/MarketoForm";
 import { BlockForm } from "@/blocks/BlockForm";
 import type { BrandConfig } from "@/lib/brand-config";
-import type { FormBlockProps } from "@/lib/block-types";
+import type { FormBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types";
+import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
 export type EmailCaptureFormSource = "simple" | "linked" | "marketo";
@@ -52,6 +53,14 @@ export interface EmailCaptureModalProps {
   marketoBaseUrl?: string;
   marketoMunchkinId?: string;
   marketoFormId?: number;
+  /**
+   * Optional Chili Piper hand-off applied after a Marketo submission.
+   * When set, the modal swaps the Marketo form for an inline Chili Piper
+   * iframe with the submitted identity prefilled. Mirrors the BlockForm
+   * Marketo branch so the same form opened from a CTA modal behaves
+   * identically to the form rendered directly on the page.
+   */
+  chiliPiperConfig?: ChiliPiperHandoffConfig | null;
   /** Optional theme. Defaults to brand-primary / brand-accent CSS vars. */
   primaryColor?: string;
   accentColor?: string;
@@ -87,6 +96,7 @@ export function EmailCaptureModal({
   marketoBaseUrl,
   marketoMunchkinId,
   marketoFormId,
+  chiliPiperConfig,
   primaryColor,
   accentColor,
   brand,
@@ -117,11 +127,13 @@ export function EmailCaptureModal({
     company: "",
   });
   const [state, setState] = useState<"idle" | "loading" | "success">("idle");
+  const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setData((d) => ({ ...d, email: email || "" }));
       setState("idle");
+      setChiliPiperHandoffUrl(null);
     }
   }, [open, email]);
 
@@ -229,18 +241,34 @@ export function EmailCaptureModal({
                 )}
               </div>
             )}
-            {marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
+            {chiliPiperHandoffUrl ? (
+              <iframe
+                src={chiliPiperHandoffUrl}
+                className="w-full h-[min(70vh,520px)] border-0 rounded-lg"
+                allow="camera; microphone; clipboard-write"
+                title="Schedule"
+              />
+            ) : marketoBaseUrl && marketoMunchkinId && marketoFormId ? (
               <MarketoForm
                 baseUrl={marketoBaseUrl}
                 munchkinId={marketoMunchkinId}
                 formId={marketoFormId}
                 prefill={email ? { Email: email } : undefined}
-                onSuccess={() => setState("success")}
+                onSuccess={(vals) => {
+                  if (chiliPiperConfig?.url) {
+                    // Hand off to CP inline — replaces the Marketo form
+                    // with the scheduler iframe, preserving the modal so
+                    // the visitor never leaves the page.
+                    setChiliPiperHandoffUrl(buildChiliPiperHandoffUrl(chiliPiperConfig, vals));
+                    return;
+                  }
+                  setState("success");
+                }}
               />
             ) : (
               <p className="text-sm text-slate-500">Marketo form is not configured.</p>
             )}
-            {state === "success" && (
+            {state === "success" && !chiliPiperHandoffUrl && (
               <div className="mt-5 flex items-center gap-2 text-sm" style={{ color: primary }}>
                 <Check className="w-4 h-4" /> {cfg.successMessage}
               </div>

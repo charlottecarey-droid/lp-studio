@@ -6,7 +6,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost } from "./lib/tenantHosts";
+import { getKnownTenantOrigins, WILDCARD_BASE_HOSTS, findTenantByHost, invalidateTenantHostCache } from "./lib/tenantHosts";
 
 const app: Express = express();
 
@@ -112,6 +112,16 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Test-only helper: invalidate the in-process tenant host cache so direct-DB
+// tenant inserts in e2e fixtures (royal-tenant, etc.) become visible without
+// waiting out the 60s TTL. Hard-gated on NODE_ENV !== "production".
+if (process.env.NODE_ENV !== "production") {
+  app.post("/api/_test/invalidate-host-cache", (_req, res) => {
+    invalidateTenantHostCache();
+    res.json({ ok: true });
+  });
+}
 
 app.use("/api", router);
 

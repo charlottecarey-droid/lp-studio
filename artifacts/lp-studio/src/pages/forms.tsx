@@ -27,6 +27,7 @@ interface GlobalForm {
   webhookUrl: string | null;
   marketoConfig: MarketoConfig | null;
   salesforceConfig: SalesforceConfig | null;
+  chiliPiperConfig: ChiliPiperConfig | null;
   createdAt: string;
 }
 
@@ -38,6 +39,12 @@ interface MarketoConfig {
 interface SalesforceConfig {
   enabled?: boolean;
   fieldMappings: Record<string, string>;
+}
+
+interface ChiliPiperConfig {
+  url: string;
+  mode?: "modal" | "redirect";
+  fieldMap?: Record<string, string>;
 }
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
@@ -270,6 +277,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const [emailInput, setEmailInput] = useState("");
   const [showMarketo, setShowMarketo] = useState(!!form.marketoConfig);
   const [showSalesforce, setShowSalesforce] = useState(!!form.salesforceConfig);
+  const [showChiliPiper, setShowChiliPiper] = useState(!!form.chiliPiperConfig);
   const [copied, setCopied] = useState(false);
 
   const mappingsToText = (m: Record<string, string> | undefined) =>
@@ -286,12 +294,16 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
   const [marketoText, setMarketoText] = useState(mappingsToText(form.marketoConfig?.fieldMappings));
   const [salesforceText, setSalesforceText] = useState(mappingsToText(form.salesforceConfig?.fieldMappings));
 
+  const [chiliPiperFieldMapText, setChiliPiperFieldMapText] = useState(mappingsToText(form.chiliPiperConfig?.fieldMap));
+
   useEffect(() => {
     setLocal(form);
     setShowMarketo(!!form.marketoConfig);
     setShowSalesforce(!!form.salesforceConfig);
+    setShowChiliPiper(!!form.chiliPiperConfig);
     setMarketoText(mappingsToText(form.marketoConfig?.fieldMappings));
     setSalesforceText(mappingsToText(form.salesforceConfig?.fieldMappings));
+    setChiliPiperFieldMapText(mappingsToText(form.chiliPiperConfig?.fieldMap));
   }, [form.id]);
 
   const set = <K extends keyof GlobalForm>(k: K, v: GlobalForm[K]) => setLocal(p => ({ ...p, [k]: v }));
@@ -308,6 +320,14 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
     set("marketoConfig", on ? { enabled: true, fieldMappings: local.marketoConfig?.fieldMappings ?? {} } : null);
   const toggleSalesforce = (on: boolean) =>
     set("salesforceConfig", on ? { enabled: true, fieldMappings: local.salesforceConfig?.fieldMappings ?? {} } : null);
+  const toggleChiliPiper = (on: boolean) =>
+    set("chiliPiperConfig", on ? { url: local.chiliPiperConfig?.url ?? "", mode: local.chiliPiperConfig?.mode ?? "modal", fieldMap: local.chiliPiperConfig?.fieldMap ?? {} } : null);
+  const setChiliPiperUrl = (url: string) =>
+    set("chiliPiperConfig", { ...(local.chiliPiperConfig ?? { url: "", mode: "modal", fieldMap: {} }), url });
+  const setChiliPiperMode = (mode: "modal" | "redirect") =>
+    set("chiliPiperConfig", { ...(local.chiliPiperConfig ?? { url: "", mode: "modal", fieldMap: {} }), mode });
+  const setChiliPiperFieldMap = (m: Record<string, string>) =>
+    set("chiliPiperConfig", { ...(local.chiliPiperConfig ?? { url: "", mode: "modal", fieldMap: {} }), fieldMap: m });
 
   const addEmail = () => {
     const t = emailInput.trim();
@@ -327,6 +347,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           redirectUrl: local.redirectUrl, backgroundStyle: local.backgroundStyle,
           emailRecipients: local.emailRecipients, webhookUrl: local.webhookUrl,
           marketoConfig: local.marketoConfig, salesforceConfig: local.salesforceConfig,
+          chiliPiperConfig: local.chiliPiperConfig,
         }),
       });
       if (!r.ok) {
@@ -593,6 +614,67 @@ Lead Source:LeadSource`}</pre>
                       </div>
                     </div>
                   </details>
+                </div>
+              )}
+            </div>
+
+            {/* Chili Piper handoff — picks up the form's submitted values and
+                forwards them to the configured scheduler URL. Used today to
+                hand Marketo-mode forms off to Chili Piper, but works with any
+                form mode (Marketo, native, etc.). */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
+                <button className="flex items-center gap-2 text-sm font-medium flex-1 text-left hover:text-foreground transition-colors" onClick={() => setShowChiliPiper(s => !s)}>
+                  {showChiliPiper ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                  Chili Piper handoff
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{local.chiliPiperConfig ? "On" : "Off"}</span>
+                  <Switch checked={!!local.chiliPiperConfig} onCheckedChange={toggleChiliPiper} />
+                </div>
+              </div>
+              {showChiliPiper && (
+                <div className="p-3 space-y-3">
+                  <p className="text-xs text-muted-foreground rounded-lg bg-muted/50 px-3 py-2">
+                    On submit, hand the visitor off to a Chili Piper scheduler URL with their submitted identity prefilled (email, first/last name, phone, company). Marketo's own form action still runs first, so the lead lands in Marketo too.
+                  </p>
+                  <div>
+                    <Label className={LABEL_CLS}>Scheduler URL</Label>
+                    <Input
+                      value={local.chiliPiperConfig?.url ?? ""}
+                      onChange={e => setChiliPiperUrl(e.target.value)}
+                      placeholder="https://yourcompany.chilipiper.com/router/your-router"
+                      className="text-sm font-mono"
+                      disabled={!local.chiliPiperConfig}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Paste the concierge / router link from your Chili Piper admin.</p>
+                  </div>
+                  <div>
+                    <Label className={LABEL_CLS}>Open as</Label>
+                    <Select
+                      value={local.chiliPiperConfig?.mode ?? "modal"}
+                      onValueChange={v => setChiliPiperMode(v as "modal" | "redirect")}
+                      disabled={!local.chiliPiperConfig}
+                    >
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="modal">Modal (recommended) — opens the scheduler in an overlay on the same page</SelectItem>
+                        <SelectItem value="redirect">Redirect — sends the visitor to the scheduler URL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className={LABEL_CLS}>Field map (optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Map submitted field names to Chili Piper query params — one per line (SubmittedFieldName:cpParam). Defaults handle the standard Marketo casings (Email/email, FirstName, LastName, Phone, Company).</p>
+                    <Textarea
+                      rows={4}
+                      className="text-sm font-mono"
+                      placeholder={"Email:email\nFirstName:firstName\nLastName:lastName\nPhone:phone\nCompany:company"}
+                      value={chiliPiperFieldMapText}
+                      onChange={e => { setChiliPiperFieldMapText(e.target.value); setChiliPiperFieldMap(textToMappings(e.target.value)); }}
+                      disabled={!local.chiliPiperConfig}
+                    />
+                  </div>
                 </div>
               )}
             </div>

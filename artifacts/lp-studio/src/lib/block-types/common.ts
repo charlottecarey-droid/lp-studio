@@ -132,3 +132,22 @@ export interface RoiOutputField {
 }
 
 export type PopupTrigger = "exit-intent" | "scroll-percent" | "time-delay" | "click";
+
+/**
+ * Per-form Chili Piper hand-off config.
+ * Stored on the lp_forms record (not the block) so a single config travels
+ * with the form across every page that links it via formId. Includes the
+ * scheduler URL, modal-vs-redirect UX, and an optional Marketo→Chili Piper
+ * field-name map (defaults cover the standard Marketo identity fields).
+ */
+export interface ChiliPiperHandoffConfig {
+  /** Chili Piper concierge / router URL the form should hand off to. */
+  url: string;
+  /** "modal" (default) opens an iframe overlay; "redirect" navigates the tab. */
+  mode?: "modal" | "redirect";
+  /**
+   * Map of submitted field name → Chili Piper query-param name.
+   * Defaults handle the common Marketo casings (Email/email, FirstName, etc.).
+   */
+  fieldMap?: Record<string, string>;
+}

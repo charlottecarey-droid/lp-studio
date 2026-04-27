@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import type { FormBlockProps, FormField, FormStep, StepCondition } from "@/lib/block-types";
+import type { FormBlockProps, FormField, FormStep, StepCondition, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
+import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
+import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
 const API_BASE = "/api";
 
@@ -27,6 +29,13 @@ interface GlobalFormConfig {
   submitButtonText: string;
   successMessage: string | null;
   redirectUrl: string | null;
+  /**
+   * Per-form Chili Piper hand-off. Surfaced from the public form fetch so
+   * a tenant's Marketo embed can punt the user into the scheduler with
+   * their submitted identity prefilled. URL + field map live on the form
+   * record, never in app code, to preserve per-tenant isolation.
+   */
+  chiliPiperConfig?: ChiliPiperHandoffConfig | null;
 }
 
 interface Props {
@@ -223,6 +232,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [globalForm, setGlobalForm] = useState<GlobalFormConfig | null>(null);
+  const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -484,13 +494,79 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
         >
           {isMarketo ? (
             props.marketoBaseUrl && props.marketoMunchkinId && props.marketoFormId ? (
-              <MarketoForm
-                baseUrl={props.marketoBaseUrl}
-                munchkinId={props.marketoMunchkinId}
-                formId={props.marketoFormId}
-                followUpUrl={activeRedirectUrl || undefined}
-                onSuccess={() => setSubmitted(true)}
-              />
+              // If a global form is linked we must wait for its config to
+              // load before mounting MarketoForm — otherwise the onSuccess
+              // closure captures `globalForm=null` and the Chili Piper
+              // handoff silently no-ops on the first submission.
+              props.formId && !globalForm ? (
+                <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>Loading form…</p>
+              ) : (
+              <>
+                <MarketoForm
+                  baseUrl={props.marketoBaseUrl}
+                  munchkinId={props.marketoMunchkinId}
+                  formId={props.marketoFormId}
+                  // The Chili Piper hand-off owns post-submit navigation when
+                  // configured, so we drop the redirect to avoid double-firing.
+                  followUpUrl={globalForm?.chiliPiperConfig?.url ? undefined : (activeRedirectUrl || undefined)}
+                  onSuccess={(vals) => {
+                    const cp = globalForm?.chiliPiperConfig;
+                    if (cp?.url) {
+                      const url = buildChiliPiperHandoffUrl(cp, vals);
+                      // Best-effort lead persistence + analytics conversion so
+                      // the operator sees the submission in lp-studio even
+                      // though Marketo runs the form. Failures are swallowed
+                      // because the user is already being handed to CP.
+                      if (pageId != null) {
+                        const fields: Record<string, string> = {};
+                        for (const [k, v] of Object.entries(vals)) {
+                          if (typeof v === "string" && v.length > 0) fields[k] = v;
+                        }
+                        const body: Record<string, unknown> = {
+                          fields,
+                          pageId,
+                          formId: props.formId,
+                        };
+                        if (variantId != null) body.variantId = variantId;
+                        if (sessionId) body.sessionId = sessionId;
+                        fetch(`${API_BASE}/lp/leads`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(body),
+                        }).catch(() => undefined);
+                        fetch(`${API_BASE}/lp/track`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            sessionId: sessionId ?? `anon-${Date.now()}`,
+                            testId: 0,
+                            variantId: variantId ?? 0,
+                            eventType: "conversion",
+                            conversionType: "form_submit",
+                          }),
+                        }).catch(() => undefined);
+                      }
+                      if (cp.mode === "redirect") {
+                        safeNavigate(url);
+                      } else {
+                        setChiliPiperHandoffUrl(url);
+                      }
+                      return;
+                    }
+                    setSubmitted(true);
+                  }}
+                />
+                {chiliPiperHandoffUrl && (
+                  <ChiliPiperModal
+                    url={chiliPiperHandoffUrl}
+                    pageId={pageId}
+                    variantId={variantId}
+                    sessionId={sessionId}
+                    onClose={() => { setChiliPiperHandoffUrl(null); setSubmitted(true); }}
+                  />
+                )}
+              </>
+              )
             ) : (
               <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>
                 Marketo form is not configured. Add the instance URL, Munchkin ID, and Form ID in the panel.

@@ -32,8 +32,12 @@ export interface MarketoFormProps {
   prefill?: Record<string, string>;
   /** Optional follow-up URL to redirect to on submit. */
   followUpUrl?: string;
-  /** When set, prevents Marketo's default redirect on submit. */
-  onSuccess?: () => void;
+  /**
+   * When set, prevents Marketo's default redirect on submit.
+   * Receives the submitted field map (Marketo passes us the form's REST values
+   * — keys are the Marketo field names, e.g. `Email`, `FirstName`, `Phone`).
+   */
+  onSuccess?: (vals: Record<string, string>) => void;
   className?: string;
 }
 
@@ -93,7 +97,10 @@ export function MarketoForm({
     // Reset container — Marketo replaces the inner <form>, but we re-mount on prop changes.
     container.innerHTML = `<form id="mktoForm_${formId}"></form>`;
 
-    loadMarketoScript(baseUrl)
+    // If the Marketo loader is already on the page (preloaded by the host,
+    // or stubbed by a test) skip the network fetch. Otherwise pull it in.
+    const ready = window.MktoForms2 ? Promise.resolve() : loadMarketoScript(baseUrl);
+    ready
       .then(() => {
         if (cancelled || !window.MktoForms2) return;
         window.MktoForms2.loadForm(baseUrl, munchkinId, formId, (form) => {
@@ -107,8 +114,25 @@ export function MarketoForm({
             }
           }
           if (onSuccess || followUpUrl) {
-            form.onSuccess((_vals, defaultFollowUp) => {
-              onSuccess?.();
+            form.onSuccess((rawVals, defaultFollowUp) => {
+              // Normalise: Marketo always passes a plain object of strings, but
+              // type it loosely upstream and coerce here so an unexpected
+              // value doesn't crash the handoff.
+              const vals: Record<string, string> = {};
+              if (rawVals && typeof rawVals === "object") {
+                for (const [k, v] of Object.entries(rawVals as Record<string, unknown>)) {
+                  if (v == null) continue;
+                  vals[k] = typeof v === "string" ? v : String(v);
+                }
+              }
+              if (onSuccess) {
+                // When a handler is provided, it is responsible for whatever
+                // post-submit UX (Chili Piper hand-off, success state, etc.).
+                // We always cancel Marketo's default redirect in that case so
+                // the handler runs to completion.
+                onSuccess(vals);
+                return false;
+              }
               if (followUpUrl) {
                 window.location.href = followUpUrl;
                 return false;

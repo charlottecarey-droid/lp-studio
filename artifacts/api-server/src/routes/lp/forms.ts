@@ -39,6 +39,7 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
       webhookUrl: null,
       marketoConfig: null,
       salesforceConfig: null,
+      chiliPiperConfig: null,
     })
     .returning();
   res.status(201).json(form);
@@ -58,7 +59,12 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
     if (!form) { res.status(404).json({ error: "Form not found" }); return; }
     res.json(form);
   } else {
-    // Public (unauthenticated): return only display-safe fields needed to render the form
+    // Public (unauthenticated): return only display-safe fields needed to render the form.
+    // chili_piper_config is included because the Marketo / handoff branch in
+    // the public viewer needs it to build the scheduler URL on submit.
+    // Marketo creds and Salesforce/email-recipient/webhook config are
+    // deliberately omitted — those are operator-side integrations, never the
+    // public viewer's business.
     const [form] = await db.select({
       id: lpFormsTable.id,
       steps: lpFormsTable.steps,
@@ -67,6 +73,7 @@ router.get("/lp/forms/:id", async (req, res): Promise<void> => {
       successMessage: lpFormsTable.successMessage,
       redirectUrl: lpFormsTable.redirectUrl,
       backgroundStyle: lpFormsTable.backgroundStyle,
+      chiliPiperConfig: lpFormsTable.chiliPiperConfig,
     }).from(lpFormsTable).where(eq(lpFormsTable.id, id));
     if (!form) { res.status(404).json({ error: "Form not found" }); return; }
     res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
@@ -83,6 +90,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "name", "description", "steps", "multiStep", "submitButtonText",
     "successMessage", "redirectUrl", "backgroundStyle",
     "emailRecipients", "webhookUrl", "marketoConfig", "salesforceConfig",
+    "chiliPiperConfig",
   ];
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   for (const key of allowed) {

@@ -7,6 +7,7 @@ export type { FooterLink, FooterColumn } from "./common";
 export type { ZigzagFeatureRow, ProductShowcaseCard } from "./common";
 export type { RoiInputField, RoiOutputField } from "./common";
 export type { PopupTrigger } from "./common";
+export type { ChiliPiperHandoffConfig } from "./common";
 
 // Generic block types
 export type {

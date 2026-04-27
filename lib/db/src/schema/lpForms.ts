@@ -15,6 +15,7 @@ export const lpFormsTable = pgTable("lp_forms", {
   webhookUrl: text("webhook_url"),
   marketoConfig: jsonb("marketo_config"),
   salesforceConfig: jsonb("salesforce_config"),
+  chiliPiperConfig: jsonb("chili_piper_config"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
