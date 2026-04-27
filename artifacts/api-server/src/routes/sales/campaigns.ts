@@ -496,9 +496,24 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 // ─── Email send records ─────────────────────────────────────
 
 router.get("/campaigns/:id/sends", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   try {
+    const campaignId = Number(req.params.id);
+
+    // Verify the campaign belongs to the caller's tenant before exposing its sends.
+    const [campaign] = await db.select({ id: salesEmailCampaignsTable.id })
+      .from(salesEmailCampaignsTable)
+      .where(and(
+        eq(salesEmailCampaignsTable.id, campaignId),
+        eq(salesEmailCampaignsTable.tenantId, tenantId),
+      ));
+    if (!campaign) {
+      res.json([]);
+      return;
+    }
+
     const sends = await db.select().from(salesEmailSendsTable)
-      .where(eq(salesEmailSendsTable.campaignId, Number(req.params.id)))
+      .where(eq(salesEmailSendsTable.campaignId, campaignId))
       .orderBy(desc(salesEmailSendsTable.createdAt));
     res.json(sends);
   } catch (err) {
@@ -622,10 +637,21 @@ router.get("/track/open-hotlink", async (req, res): Promise<void> => {
 // ─── All sends (with contact + campaign info joined) ─────────────────────────
 
 router.get("/sends", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const campaignIdFilter = req.query.campaignId ? Number(req.query.campaignId) : undefined;
   const limitNum = Math.min(Number(req.query.limit ?? 300), 500);
 
   try {
+    // Tenant scope: inner-join the campaign and filter by its tenantId so a tenant
+    // never sees another tenant's sends. Sends without a campaign are excluded —
+    // they cannot be attributed to a tenant.
+    const whereClause = campaignIdFilter
+      ? and(
+          eq(salesEmailCampaignsTable.tenantId, tenantId),
+          eq(salesEmailSendsTable.campaignId, campaignIdFilter),
+        )
+      : eq(salesEmailCampaignsTable.tenantId, tenantId);
+
     const rows = await db
       .select({
         id: salesEmailSendsTable.id,
@@ -645,17 +671,14 @@ router.get("/sends", async (req, res): Promise<void> => {
         campaignName: salesEmailCampaignsTable.name,
       })
       .from(salesEmailSendsTable)
+      .innerJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
       .leftJoin(salesContactsTable, eq(salesEmailSendsTable.contactId, salesContactsTable.id))
       .leftJoin(salesAccountsTable, eq(salesContactsTable.accountId, salesAccountsTable.id))
-      .leftJoin(salesEmailCampaignsTable, eq(salesEmailSendsTable.campaignId, salesEmailCampaignsTable.id))
+      .where(whereClause)
       .orderBy(desc(salesEmailSendsTable.createdAt))
       .limit(limitNum);
 
-    const filtered = campaignIdFilter
-      ? rows.filter(r => r.campaignId === campaignIdFilter)
-      : rows;
-
-    res.json(filtered);
+    res.json(rows);
   } catch (err) {
     logger.error({ err }, "GET /sales/sends error");
     res.status(500).json({ error: "Failed to load sends" });

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { lpSessionsTable, lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpEventsTable, lpVariantsTable } from "@workspace/db";
+import { lpSessionsTable, lpPageVisitsTable, lpPagesTable, lpLeadsTable, lpEventsTable, lpVariantsTable, lpTestsTable } from "@workspace/db";
 import { sql, eq, and, inArray } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 
@@ -56,7 +56,9 @@ function normalizeCountry(country: string, countryCode: string): string {
 /*  GET /lp/analytics/locations — city-level geo data                  */
 /* ------------------------------------------------------------------ */
 
-router.get("/lp/analytics/locations", async (_req, res): Promise<void> => {
+router.get("/lp/analytics/locations", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
   try {
     const [sessionCities, visitCities] = await Promise.all([
       db
@@ -68,7 +70,11 @@ router.get("/lp/analytics/locations", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(lpSessionsTable)
-        .where(sql`${lpSessionsTable.city} is not null`)
+        .innerJoin(lpTestsTable, eq(lpTestsTable.id, lpSessionsTable.testId))
+        .where(and(
+          eq(lpTestsTable.tenantId, tenantId),
+          sql`${lpSessionsTable.city} is not null`,
+        ))
         .groupBy(
           lpSessionsTable.city,
           lpSessionsTable.region,
@@ -84,7 +90,11 @@ router.get("/lp/analytics/locations", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(lpPageVisitsTable)
-        .where(sql`${lpPageVisitsTable.city} is not null`)
+        .innerJoin(lpPagesTable, eq(lpPagesTable.id, lpPageVisitsTable.pageId))
+        .where(and(
+          eq(lpPagesTable.tenantId, tenantId),
+          sql`${lpPageVisitsTable.city} is not null`,
+        ))
         .groupBy(
           lpPageVisitsTable.city,
           lpPageVisitsTable.region,
@@ -124,7 +134,9 @@ router.get("/lp/analytics/locations", async (_req, res): Promise<void> => {
 /*  GET /lp/analytics/countries — normalized country-level data        */
 /* ------------------------------------------------------------------ */
 
-router.get("/lp/analytics/countries", async (_req, res): Promise<void> => {
+router.get("/lp/analytics/countries", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
   try {
     const [sessionRows, visitRows] = await Promise.all([
       db
@@ -134,7 +146,11 @@ router.get("/lp/analytics/countries", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(lpSessionsTable)
-        .where(sql`${lpSessionsTable.country} is not null`)
+        .innerJoin(lpTestsTable, eq(lpTestsTable.id, lpSessionsTable.testId))
+        .where(and(
+          eq(lpTestsTable.tenantId, tenantId),
+          sql`${lpSessionsTable.country} is not null`,
+        ))
         .groupBy(lpSessionsTable.country, lpSessionsTable.countryCode),
       db
         .select({
@@ -143,7 +159,11 @@ router.get("/lp/analytics/countries", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(lpPageVisitsTable)
-        .where(sql`${lpPageVisitsTable.country} is not null`)
+        .innerJoin(lpPagesTable, eq(lpPagesTable.id, lpPageVisitsTable.pageId))
+        .where(and(
+          eq(lpPagesTable.tenantId, tenantId),
+          sql`${lpPageVisitsTable.country} is not null`,
+        ))
         .groupBy(lpPageVisitsTable.country, lpPageVisitsTable.countryCode),
     ]);
 
@@ -173,11 +193,13 @@ router.get("/lp/analytics/countries", async (_req, res): Promise<void> => {
 /* ------------------------------------------------------------------ */
 
 router.get("/lp/analytics/traffic", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
   try {
     const days = Math.max(1, Math.min(365, parseInt((req.query.days as string) || "30", 10) || 30));
     const dateFilter = sql`now() - make_interval(days => ${days})`;
 
-    // Get daily visit counts from page visits
+    // Get daily visit counts from page visits — scoped to the caller's tenant
     const visitsByDay = await db
       .select({
         date: sql<string>`to_char(${lpPageVisitsTable.createdAt}::date, 'YYYY-MM-DD')`,
@@ -185,14 +207,17 @@ router.get("/lp/analytics/traffic", async (req, res): Promise<void> => {
         uniqueVisitors: sql<number>`count(distinct ${lpPageVisitsTable.sessionId})::int`,
       })
       .from(lpPageVisitsTable)
-      .where(sql`${lpPageVisitsTable.createdAt} > ${dateFilter}`)
+      .innerJoin(lpPagesTable, eq(lpPagesTable.id, lpPageVisitsTable.pageId))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        sql`${lpPageVisitsTable.createdAt} > ${dateFilter}`,
+      ))
       .groupBy(sql`${lpPageVisitsTable.createdAt}::date`)
       .orderBy(sql`${lpPageVisitsTable.createdAt}::date`);
 
     // Get daily lead counts
-    const tenantId = getTenantId(req, res);
     let leadsByDay: { date: string; leads: number }[] = [];
-    if (tenantId !== null) {
+    {
       leadsByDay = await db
         .select({
           date: sql<string>`to_char(${lpLeadsTable.createdAt}::date, 'YYYY-MM-DD')`,
@@ -370,22 +395,28 @@ router.get("/lp/analytics/overview", async (req, res): Promise<void> => {
     const dateFilter = sql`now() - make_interval(days => ${days})`;
     const prevDateFilter = sql`now() - make_interval(days => ${days * 2})`;
 
-    // Current period visits
+    // Current period visits — scoped to the caller's tenant
     const [currentVisits] = await db
       .select({
         total: sql<number>`count(*)::int`,
         unique: sql<number>`count(distinct ${lpPageVisitsTable.sessionId})::int`,
       })
       .from(lpPageVisitsTable)
-      .where(sql`${lpPageVisitsTable.createdAt} > ${dateFilter}`);
+      .innerJoin(lpPagesTable, eq(lpPagesTable.id, lpPageVisitsTable.pageId))
+      .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
+        sql`${lpPageVisitsTable.createdAt} > ${dateFilter}`,
+      ));
 
-    // Previous period visits (for trend)
+    // Previous period visits (for trend) — scoped to the caller's tenant
     const [prevVisits] = await db
       .select({
         total: sql<number>`count(*)::int`,
       })
       .from(lpPageVisitsTable)
+      .innerJoin(lpPagesTable, eq(lpPagesTable.id, lpPageVisitsTable.pageId))
       .where(and(
+        eq(lpPagesTable.tenantId, tenantId),
         sql`${lpPageVisitsTable.createdAt} > ${prevDateFilter}`,
         sql`${lpPageVisitsTable.createdAt} <= ${dateFilter}`,
       ));

@@ -162,7 +162,7 @@ function SignInPanel() {
           </>
         )}
 
-        {isDandy && (
+        {isDandyTenant && (
           <a
             href="https://www.meetdandy.com"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -333,10 +333,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
 
     // On a tenant-locked domain (e.g. meetdandy-lp.com) — invite-only, no self-serve signup
+    const tenantSlug = domainContext?.tenantSlug ?? null;
+    const isDandyTenant = tenantSlug === "dandy";
+    const tenantName = domainContext?.tenantName || "";
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm space-y-6 text-center">
-          <img src={dandyLogo} alt="LP Studio" className="mx-auto h-10" />
+          {isDandyTenant ? (
+            <img src={dandyLogo} alt="Dandy" className="mx-auto h-10" />
+          ) : tenantName ? (
+            <p className="mx-auto text-2xl font-semibold tracking-tight text-foreground">{tenantName}</p>
+          ) : (
+            <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-10" />
+          )}
           <div>
             <h1 className="text-xl font-semibold text-foreground">Access Pending</h1>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
