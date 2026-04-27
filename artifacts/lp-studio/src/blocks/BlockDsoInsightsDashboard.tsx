@@ -1,3 +1,10 @@
+// NOTE: This block is intentionally NOT exposed in the block catalog seed
+// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy Insights
+// dashboard simulation and the registry default props still reference Dandy
+// (e.g. eyebrow "Dandy Hub & Insights"). Hardcoded "Dandy Insights" iframe
+// title has been neutralized so that, if the block is ever surfaced to non-
+// Dandy tenants and an embedded video is used, no Dandy text leaks through
+// when default_props are overridden.
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, AnimatePresence, useInView } from "framer-motion";
@@ -898,7 +905,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
             </div>
             <div className="flex-1 max-w-xs">
               <div className={`rounded ${t.browserUrlBg} px-3 py-1 text-[11px] ${t.browserUrlText} text-center`}>
-                app.meetdandy.com/dashboard
+                {props.browserUrl || "app/dashboard"}
               </div>
             </div>
             <div className="relative ml-auto">
@@ -958,7 +965,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
                   key={`id-iframe-${props.videoAutoplay}`}
                   src={props.videoAutoplay !== false ? getAutoplayEmbedUrl(props.videoUrl) : props.videoUrl}
                   className="absolute inset-0 w-full h-full border-0"
-                  title="Dandy Insights"
+                  title={props.headline || "Insights"}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />

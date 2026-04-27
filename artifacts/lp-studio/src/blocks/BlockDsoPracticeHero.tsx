@@ -1,3 +1,10 @@
+// NOTE: This block is intentionally NOT exposed in the block catalog seed
+// (`scripts/seed-block-catalog.cjs`). It was originally authored for the
+// Dandy × Heartland co-branded landing page. While the registry default
+// props still reference Dandy/Heartland for that legacy use, all hardcoded
+// fallbacks inside the component itself have been made neutral so that, if
+// the block is ever surfaced to non-Dandy tenants, no Dandy branding leaks
+// through when default_props are overridden.
 import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -94,7 +101,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
         marginBottom: "1.25rem",
       }}
     >
-      {headline || "Your practice. Elevated by Dandy."}
+      {headline || "Your practice. Elevated."}
     </motion.h1>
   );
 

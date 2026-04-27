@@ -1,3 +1,12 @@
+// NOTE: This block is intentionally NOT exposed in the block catalog seed
+// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy Insights
+// product showcase and includes Dandy-specific imagery (rotating dashboard
+// screenshots in @assets, the meetdandy.com scan GIF). Hardcoded "Dandy"
+// strings (eyebrow, alt text, iframe title, browser URL) have been made
+// prop-driven with neutral defaults so that, if the block is ever surfaced
+// to non-Dandy tenants, no Dandy text leaks. (Note: the dashboard imagery
+// itself is still Dandy-specific and would need to be replaced before
+// catalog-exposing this block.)
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
@@ -204,7 +213,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           >
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
             <span className="text-[var(--brand-accent)] text-[10px] font-semibold tracking-[0.22em] uppercase">
-              Dandy Insights
+              {props.eyebrow || "Insights"}
             </span>
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
           </motion.div>
@@ -276,7 +285,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 <div className="mx-auto bg-white/[0.06] rounded-md px-4 py-1 flex items-center gap-2 w-72 border border-white/[0.04]">
                   <div className="w-2 h-2 rounded-full bg-[rgb(var(--brand-accent-rgb)/0.6)] shrink-0" />
                   <span className="text-[10px] text-white/35 tracking-wider truncate font-mono">
-                    insights.meetdandy.com / dashboard
+                    {props.browserUrl || "insights / dashboard"}
                   </span>
                 </div>
               </div>
@@ -305,7 +314,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                     key={`iv-iframe-${props.videoAutoplay}`}
                     src={props.videoAutoplay !== false ? getAutoplayEmbedUrl(props.videoUrl) : props.videoUrl}
                     className="absolute inset-0 w-full h-full border-0"
-                    title="Dandy Insights"
+                    title={props.videoTitle || props.title || "Insights"}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
@@ -326,7 +335,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                     >
                       <img
                         src={s.src}
-                        alt={`Dandy Insights — ${s.label}`}
+                        alt={`${props.screensAltPrefix || "Insights"} — ${s.label}`}
                         className="w-full h-auto block"
                         draggable={false}
                       />
@@ -433,7 +442,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
             <img
               src="https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif"
-              alt="Dandy scan thickness visualization"
+              alt={props.scanGifAlt || "Scan thickness visualization"}
               className="w-full h-auto block"
               draggable={false}
             />

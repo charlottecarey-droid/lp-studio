@@ -22,6 +22,9 @@ export interface DsoInsightsDashboardBlockProps {
   practiceLabel: string;
   backgroundStyle: BackgroundStyle;
   dashboardVariant: "light" | "dark";
+  /** URL string shown in the simulated browser address bar at the top of the
+   *  dashboard chrome. Defaults to a generic "app/dashboard". */
+  browserUrl?: string;
   videoUrl?: string;
   videoAutoplay?: boolean;
   videoPlayOnScroll?: boolean;
@@ -34,6 +37,12 @@ export interface DsoLabTourBlockProps {
   quote: string;
   quoteAttribution: string;
   imageUrl: string;
+  /** Alt text for the lab image. Falls back to empty string (decorative). */
+  imageAlt?: string;
+  /** Small uppercase label rendered above the caption (e.g. "Lab Tour"). */
+  imageEyebrow?: string;
+  /** Caption shown over the bottom of the image. Tenant-specific copy. */
+  imageCaption?: string;
   videoUrl: string;
   ctaText: string;
   ctaUrl: string;
@@ -758,6 +767,19 @@ export interface DsoCaseStudyBlockProps {
 }
 
 export interface DsoInsightsVideoBlockProps {
+  /** Small uppercase label rendered above the title (e.g. "Insights" or
+   *  "{Brand} Insights"). Falls back to "Insights" when omitted. */
+  eyebrow?: string;
+  /** URL of the chrome address bar shown in the simulated browser frame.
+   *  Tenant-specific. Falls back to a generic "/dashboard" string. */
+  browserUrl?: string;
+  /** Alt-text prefix for the rotating dashboard screenshots. Defaults to
+   *  "Insights". A tenant might want e.g. "Acme Insights — Remake Rates". */
+  screensAltPrefix?: string;
+  /** Alt text for the scan-thickness GIF. Defaults to a neutral description. */
+  scanGifAlt?: string;
+  /** Title attribute for the embedded video iframe (accessibility). */
+  videoTitle?: string;
   title?: string;
   subtitle?: string;
   description?: string;

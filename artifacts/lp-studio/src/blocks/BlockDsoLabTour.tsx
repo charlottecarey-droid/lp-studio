@@ -1,3 +1,10 @@
+// NOTE: This block is intentionally NOT exposed in the block catalog seed
+// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy lab/manufacturing
+// showcase and the registry default props still reference Dandy-specific copy
+// (e.g. "vertical integration", U.S. lab images). Hardcoded fallbacks inside
+// the component itself have been made neutral / prop-driven so that, if the
+// block is ever surfaced to non-Dandy tenants, no Dandy branding leaks through
+// when default_props are overridden.
 import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
@@ -28,7 +35,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
   const {
     eyebrow, headline, body,
     quote, quoteAttribution,
-    imageUrl, videoUrl,
+    imageUrl, imageAlt, imageEyebrow, imageCaption,
+    videoUrl,
     ctaText, ctaUrl,
     backgroundStyle = "white",
     backgroundImage,
@@ -90,7 +98,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                 {imageUrl ? (
                   <img
                     src={imageUrl}
-                    alt="Dandy lab manufacturing floor"
+                    alt={imageAlt ?? ""}
                     style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1)" }}
                     className="group-hover:scale-[1.03]"
                     loading="lazy"
@@ -157,20 +165,28 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 60%, transparent 100%)",
                   }}
                 >
-                  <p
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.60)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.2em",
-                    }}
-                  >
-                    Lab Tour
-                  </p>
-                  <p style={{ marginTop: 4, fontSize: "1rem", fontWeight: 500, color: "#fff" }}>
-                    Inside Dandy's U.S. Manufacturing Facility
-                  </p>
+                  {(imageEyebrow || imageCaption) && (
+                    <>
+                      {imageEyebrow && (
+                        <p
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "rgba(255,255,255,0.60)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.2em",
+                          }}
+                        >
+                          {imageEyebrow}
+                        </p>
+                      )}
+                      {imageCaption && (
+                        <p style={{ marginTop: 4, fontSize: "1rem", fontWeight: 500, color: "#fff" }}>
+                          {imageCaption}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>
