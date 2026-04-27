@@ -6,7 +6,7 @@ import { BlockForm } from "@/blocks/BlockForm";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { FormBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
-import { ChiliPiperIframe } from "@/blocks/ChiliPiperModal";
+import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
 
 export type EmailCaptureModalMode = "form" | "chilipiper";
@@ -130,6 +130,13 @@ export function EmailCaptureModal({
   });
   const [state, setState] = useState<"idle" | "loading" | "success">("idle");
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
+  // Record the second `chilipiper_booking` conversion when the iframe fires
+  // its booking-confirmed postMessage. Hook is benign while the URL is empty.
+  useChiliPiperBookingTracking({
+    url: chiliPiperHandoffUrl ?? "",
+    pageId,
+    variantId,
+  });
 
   useEffect(() => {
     if (open) {

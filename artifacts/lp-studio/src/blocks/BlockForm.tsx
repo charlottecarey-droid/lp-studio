@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
-import { ChiliPiperIframe } from "@/blocks/ChiliPiperModal";
+import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
 import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 
 const API_BASE = "/api";
@@ -238,6 +238,17 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
   const [globalFormFetched, setGlobalFormFetched] = useState(false);
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
+
+  // Wire the booking-confirmed postMessage listener so the inline-iframe
+  // handoff still records the second `chilipiper_booking` conversion. Empty
+  // url is benign — the listener still attaches but never matches anything
+  // until the visitor reaches the scheduler.
+  useChiliPiperBookingTracking({
+    url: chiliPiperHandoffUrl ?? "",
+    pageId,
+    variantId,
+    sessionId,
+  });
 
   useEffect(() => {
     if (!props.formId) { setGlobalForm(null); setGlobalFormFetched(true); return; }

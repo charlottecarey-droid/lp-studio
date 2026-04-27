@@ -148,9 +148,12 @@ Run the seed script against the target Postgres (Neon for prod):
 
 ```bash
 NEON_DATABASE_URL=... node scripts/seed-smb-chilipiper.cjs \
-  --tenant <tenant-slug> --form "<form name>" \
-  --cp-url "https://<tenant>.chilipiper.com/concierge-router/link/<router>" \
-  --mode modal
+  --tenant=<tenant-slug> \
+  --form="<form name>" \
+  --cp-url="https://<tenant>.chilipiper.com/concierge-router/link/<router>" \
+  --mode=modal
 ```
+
+The script uses `--name=value` style — space-separated values won't parse.
 
 The script is idempotent — re-running it just overwrites the row's `chili_piper_config`.

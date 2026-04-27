@@ -52,18 +52,23 @@ function extractLeadFromEvent(data: unknown): ChiliPiperLead | null {
   return Object.keys(lead).length > 0 ? lead : null;
 }
 
-export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
+// Listens for the Chili Piper "booking-confirmed" postMessage from any
+// embedded scheduler iframe and emits the second-conversion analytics +
+// best-effort lead persistence. Used by the legacy modal AND the new
+// inline-iframe handoff path so both routes record `chilipiper_booking`.
+export function useChiliPiperBookingTracking({
+  url,
+  pageId,
+  variantId,
+  sessionId,
+}: {
+  url: string;
+  pageId?: number;
+  variantId?: number;
+  sessionId?: string;
+}) {
   const submittedRef = useRef(false);
-  const ctx = usePageContext();
-  const pageId = pageIdProp ?? ctx.pageId;
-  const variantId = variantIdProp ?? ctx.variantId;
-  const sessionId = sessionIdProp ?? ctx.sessionId;
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEffect(() => { submittedRef.current = false; }, [url]);
 
   useEffect(() => {
     const handler = async (event: MessageEvent) => {
@@ -126,6 +131,21 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [url, pageId, variantId, sessionId]);
+}
+
+export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
+  const ctx = usePageContext();
+  const pageId = pageIdProp ?? ctx.pageId;
+  const variantId = variantIdProp ?? ctx.variantId;
+  const sessionId = sessionIdProp ?? ctx.sessionId;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  useChiliPiperBookingTracking({ url, pageId, variantId, sessionId });
 
   return createPortal(
     <div
