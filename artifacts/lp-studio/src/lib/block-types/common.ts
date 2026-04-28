@@ -149,5 +149,10 @@ export interface ChiliPiperHandoffConfig {
    * Map of submitted field name → Chili Piper query-param name.
    * Defaults handle the common Marketo casings (Email/email, FirstName, etc.).
    */
-  fieldMap?: Record<string, string>;
+  /**
+   * One CP target key per source field, OR an array of CP keys if the
+   * router accepts multiple casings/aliases (e.g. `firstName` AND
+   * `firstname`). All listed CP keys receive the same value.
+   */
+  fieldMap?: Record<string, string | string[]>;
 }

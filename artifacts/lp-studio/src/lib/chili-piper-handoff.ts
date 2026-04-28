@@ -9,33 +9,42 @@ import type { ChiliPiperHandoffConfig } from "@/lib/block-types";
  *
  * Tenants can fully override this via `chiliPiperConfig.fieldMap`.
  */
-const DEFAULT_FIELD_MAP: Record<string, string> = {
+// Each entry maps one source field name (Marketo REST key OR a native
+// lp-studio form's label) to the Chili Piper query-param key(s) we should
+// write the value under.
+//
+// Why arrays? Chili Piper concierge / inbound-router URLs accept *both*
+// camelCase (`?firstName=…`) and lowercase (`?firstname=…`) for prefill,
+// but the casing a given router actually consumes depends on how the
+// router's form was built — there is no portable convention. Writing both
+// spellings every time is harmless (the router silently drops keys it
+// doesn't know) and means the prefill works regardless of the router's
+// internal config, so the visitor never sees an empty First/Last name
+// field on the scheduler page.
+const DEFAULT_FIELD_MAP: Record<string, string | string[]> = {
   Email: "email",
   email: "email",
   EmailAddress: "email",
-  // Native lp-studio forms label this field "Email Address" by default, so
-  // include the spaced variant — without it the email never makes it onto
-  // the Chili Piper URL when a non-Marketo form is doing the handoff.
+  // Native lp-studio forms label this field "Email Address" by default.
   "Email Address": "email",
-  FirstName: "firstName",
-  firstName: "firstName",
-  "First Name": "firstName",
-  LastName: "lastName",
-  lastName: "lastName",
-  "Last Name": "lastName",
+  FirstName: ["firstName", "firstname"],
+  firstName: ["firstName", "firstname"],
+  "First Name": ["firstName", "firstname"],
+  LastName: ["lastName", "lastname"],
+  lastName: ["lastName", "lastname"],
+  "Last Name": ["lastName", "lastname"],
   Phone: "phone",
   phone: "phone",
   PhoneNumber: "phone",
-  // Same reason as "Email Address" above — the native form's default
-  // phone-field label is "Phone Number".
+  // Native default phone-field label.
   "Phone Number": "phone",
-  Company: "company",
-  company: "company",
-  CompanyName: "company",
-  "Company Name": "company",
-  Title: "title",
-  title: "title",
-  JobTitle: "title",
+  Company: ["company", "companyName"],
+  company: ["company", "companyName"],
+  CompanyName: ["company", "companyName"],
+  "Company Name": ["company", "companyName"],
+  Title: ["title", "jobTitle"],
+  title: ["title", "jobTitle"],
+  JobTitle: ["title", "jobTitle"],
   Country: "country",
   country: "country",
   State: "state",
@@ -56,18 +65,26 @@ export function buildChiliPiperHandoffUrl(
   config: ChiliPiperHandoffConfig,
   vals: Record<string, string>,
 ): string {
-  const fieldMap = { ...DEFAULT_FIELD_MAP, ...(config.fieldMap ?? {}) };
+  const fieldMap: Record<string, string | string[]> = {
+    ...DEFAULT_FIELD_MAP,
+    ...(config.fieldMap ?? {}),
+  };
 
   // Resolve the (cpKey -> value) pairs once so we don't trip the
   // "first non-empty wins" rule when multiple aliases map to the same key.
+  // A single source field may fan out to multiple CP keys (e.g. both
+  // `firstName` and `firstname`) so each target key is recorded separately.
   const params: [string, string][] = [];
   const seen = new Set<string>();
-  for (const [marketoKey, cpKey] of Object.entries(fieldMap)) {
-    if (!cpKey || seen.has(cpKey)) continue;
-    const raw = vals[marketoKey];
+  for (const [sourceKey, cpKeyOrKeys] of Object.entries(fieldMap)) {
+    const raw = vals[sourceKey];
     if (typeof raw !== "string" || raw.length === 0) continue;
-    params.push([cpKey, raw]);
-    seen.add(cpKey);
+    const cpKeys = Array.isArray(cpKeyOrKeys) ? cpKeyOrKeys : [cpKeyOrKeys];
+    for (const cpKey of cpKeys) {
+      if (!cpKey || seen.has(cpKey)) continue;
+      params.push([cpKey, raw]);
+      seen.add(cpKey);
+    }
   }
 
   if (params.length === 0) return config.url;
