@@ -33,6 +33,18 @@ export const lpPagesTable = pgTable("lp_pages", {
   industry: text("industry"),
   audienceType: text("audience_type"),  // "dso-corporate" | "dso-practice" | "independent"
   segmentId: text("segment_id"),        // brand segment ID applied to this page
+  // Page-review workflow (task #108). status may be "draft" | "pending_review" | "published".
+  // The review-related columns are nullable and only populated while a review is in flight
+  // or after a decision has been made. asanaTaskId stores the GID of the open Asana review
+  // task so approve/reject can comment+complete it; nulled out after the task closes.
+  submittedForReviewAt: timestamp("submitted_for_review_at", { withTimezone: true }),
+  submittedByUserId: integer("submitted_by_user_id"),
+  // Stored as the reviewer's email (text) so it can be displayed without an extra
+  // join. Matches the convention already used by `createdBy` / `updatedBy` above.
+  lastReviewDecisionBy: text("last_review_decision_by"),
+  lastReviewDecisionAt: timestamp("last_review_decision_at", { withTimezone: true }),
+  lastReviewNote: text("last_review_note"),
+  asanaTaskId: text("asana_task_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

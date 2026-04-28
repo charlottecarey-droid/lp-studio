@@ -61,6 +61,15 @@ async function runMigrations(): Promise<void> {
 
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
 
+      -- Page review workflow (task #108). All columns are nullable; only populated
+      -- while a review is in flight or right after a decision is recorded.
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS submitted_for_review_at timestamptz;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS submitted_by_user_id integer;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS last_review_decision_by text;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS last_review_decision_at timestamptz;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS last_review_note text;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS asana_task_id text;
+
       ALTER TABLE lp_media ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]';
 
       CREATE TABLE IF NOT EXISTS lp_brand_presets (
@@ -734,6 +743,51 @@ async function runMigrations(): Promise<void> {
       }
     } catch (backfillErr) {
       logger.error({ err: backfillErr }, "tenant industry backfill failed (non-fatal)");
+    }
+
+    // Task #108 — page review workflow rollout. Two backfills, both idempotent
+    // and marker-guarded so reboots are no-ops:
+    //   1. Add the system "Content Manager" role to every tenant that lacks
+    //      one. Existing custom roles are NEVER touched.
+    //   2. Extend the system "Admin" role's permissions with the new
+    //      pages.publish + pages.review keys so today's tenant admins keep the
+    //      ability to publish without anyone re-saving the role through the UI.
+    try {
+      const reviewMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'page_review_role_seed_v1'`
+      );
+      if (reviewMarker.rows.length === 0) {
+        const cmPerms = JSON.stringify({
+          pages: true, "pages.publish": true, "pages.review": true,
+          tests: true, analytics: true, forms_leads: true, brand: true,
+          blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+          sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
+        });
+        await db.execute(sql`
+          INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+          SELECT t.id, 'Content Manager', ${cmPerms}::jsonb, false, true
+            FROM tenants t
+           WHERE NOT EXISTS (
+             SELECT 1 FROM tenant_roles r
+              WHERE r.tenant_id = t.id AND r.name = 'Content Manager'
+           )
+        `);
+        await db.execute(sql`
+          UPDATE tenant_roles
+             SET permissions = permissions
+                            || '{"pages.publish": true, "pages.review": true}'::jsonb,
+                 updated_at = now()
+           WHERE is_system = true
+             AND name = 'Admin'
+             AND (NOT (permissions ? 'pages.publish') OR NOT (permissions ? 'pages.review'))
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('page_review_role_seed_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("Content Manager role + admin perms backfill applied");
+      }
+    } catch (cmErr) {
+      logger.error({ err: cmErr }, "page-review role backfill failed (non-fatal)");
     }
 
     // Idempotent first-boot seed for the block_catalog table. Safe to run on

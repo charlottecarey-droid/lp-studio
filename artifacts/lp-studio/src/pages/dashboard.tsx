@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { AppLayout } from "@/components/layout/app-layout";
 import { getLpPageUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { PendingReviewWidget } from "@/components/dashboard/PendingReviewWidget";
 
 const API_BASE = "/api";
 
@@ -222,6 +223,9 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+
+        {/* ── Pending Review queue (reviewers only; component self-hides otherwise) ── */}
+        <PendingReviewWidget />
 
         {isEmpty ? (
           /* ── Empty / Onboarding ────────────────────────────── */

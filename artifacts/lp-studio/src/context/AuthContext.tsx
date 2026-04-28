@@ -12,6 +12,9 @@ export interface AuthUser {
   micrositeDomain?: string | null;
   onboardingCompleted?: boolean;
   tenantIndustry?: "dental" | "generic";
+  // app_users.role — distinct from tenant role above. "superadmin" means a
+  // Dandy employee with cross-tenant publishing/review powers (task #108).
+  appUserRole?: string | null;
 }
 
 export interface DomainContext {
@@ -28,6 +31,10 @@ interface AuthContextValue {
   domainContext: DomainContext | null;
   domainContextError: string | null;
   hasPerm: (key: string) => boolean;
+  /** True if the user can publish landing pages (admin / pages.publish / superadmin). */
+  canPublish: boolean;
+  /** True if the user can approve or reject pending reviews. */
+  canReview: boolean;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -127,6 +134,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, permOverride]
   );
 
+  // Page-review derived flags (task #108). Mirror the server logic:
+  //   superadmin OR tenant-admin OR explicit perm.
+  // Role preview honours the override map (no isAdmin bypass) so dev tools
+  // can faithfully simulate Editor/Viewer experiences.
+  const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+  const canPublish = !!user && (
+    permOverride !== null
+      ? !!permOverride["pages.publish"]
+      : (user.isAdmin || !!user.permissions["pages.publish"] || isSuperadmin)
+  );
+  const canReview = !!user && (
+    permOverride !== null
+      ? !!permOverride["pages.review"]
+      : (user.isAdmin || !!user.permissions["pages.review"] || isSuperadmin)
+  );
+
   // Role preview — pure client-side, no server call
   const setRolePreview = useCallback((roleName: string, perms: Record<string, boolean>) => {
     setImpersonatedRole(roleName);
@@ -173,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, loading, domainContext: effectiveDomainContext, domainContextError,
-      hasPerm, logout, refresh,
+      hasPerm, canPublish, canReview, logout, refresh,
       impersonatedRole, permOverride, setRolePreview, clearRolePreview,
       switchTenant, impersonatedTenantName,
     }}>

@@ -681,13 +681,13 @@ export default function BuilderEditor() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
   const pageId = params?.pageId ?? "";
-  const { domainContext } = useAuth();
+  const { domainContext, canPublish, canReview } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const [blocks, setBlocks] = useState<PageBlock[]>([]);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
-  const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [status, setStatus] = useState<"draft" | "pending_review" | "published">("draft");
   const [isTemplate, setIsTemplate] = useState(false);
   const [templateLabel, setTemplateLabel] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
@@ -876,7 +876,13 @@ export default function BuilderEditor() {
         }
         setTitle(p.title);
         setSlug(p.slug);
-        setStatus(p.status === "published" ? "published" : "draft");
+        setStatus(
+          p.status === "published"
+            ? "published"
+            : p.status === "pending_review"
+              ? "pending_review"
+              : "draft",
+        );
         setIsTemplate(p.isTemplate ?? false);
         setTemplateLabel(p.templateLabel ?? p.title);
         setTemplateDescription(p.templateDescription ?? "");
@@ -1257,6 +1263,85 @@ export default function BuilderEditor() {
     }
   };
 
+  // ─── Page-review workflow handlers (task #108) ────────────────────────────
+  const handleSubmitForReview = async () => {
+    if (!confirm("Submit this page for review? Reviewers will be notified.")) return;
+    setIsSaving(true);
+    try {
+      // Save latest content first so the reviewer sees what was actually drafted.
+      await savePage(pageId, getPageData());
+      const res = await fetch(`${API_BASE}/lp/pages/${pageId}/submit-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(j.error ?? `Submit failed (HTTP ${res.status})`);
+      }
+      const data = await res.json() as { asanaWarning?: string | null };
+      setStatus("pending_review");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+      if (data.asanaWarning) {
+        alert(`Submitted for review.\n\nNote: ${data.asanaWarning}`);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to submit for review");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApproveReview = async () => {
+    if (!confirm("Approve and publish this page?")) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${pageId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(j.error ?? `Approve failed (HTTP ${res.status})`);
+      }
+      setStatus("published");
+      setShowOutreachBanner(true);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to approve");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRejectReview = async () => {
+    const note = window.prompt("Reason for rejection (required, will be shared with the requester):", "");
+    if (!note || !note.trim()) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/lp/pages/${pageId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ note: note.trim() }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(j.error ?? `Reject failed (HTTP ${res.status})`);
+      }
+      setStatus("draft");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to reject");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveAsTemplate = async () => {
     setTemplateSaving(true);
     try {
@@ -1397,6 +1482,11 @@ export default function BuilderEditor() {
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
         onShareForReview={() => setShareModalOpen(true)}
+        canPublish={canPublish}
+        canReview={canReview}
+        onSubmitForReview={handleSubmitForReview}
+        onApproveReview={handleApproveReview}
+        onRejectReview={handleRejectReview}
       />
 
       {/* Post-publish outreach banner */}

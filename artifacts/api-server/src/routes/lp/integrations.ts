@@ -214,6 +214,104 @@ router.post("/lp/integrations/salesforce/test", async (req, res): Promise<void> 
   }
 });
 
+// ─── Asana (page-review workflow, task #108) ──────────────────────────────────
+
+interface AsanaConfigShape {
+  pat: string;
+  workspaceId?: string;
+  projectId: string;
+  defaultAssigneeGid?: string;
+}
+
+router.get("/lp/integrations/asana", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const row = await getIntegration("asana", tenantId);
+  if (!row) {
+    res.json({ enabled: false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "" } });
+    return;
+  }
+  const cfg = row.config as AsanaConfigShape;
+  res.json({
+    enabled: row.enabled,
+    config: {
+      pat: cfg.pat ? MASKED : "",
+      workspaceId: cfg.workspaceId ?? "",
+      projectId: cfg.projectId ?? "",
+      defaultAssigneeGid: cfg.defaultAssigneeGid ?? "",
+    },
+  });
+});
+
+router.put("/lp/integrations/asana", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { enabled, config } = req.body as { enabled: boolean; config: AsanaConfigShape };
+  if (!config || typeof config !== "object") {
+    res.status(400).json({ error: "config is required" });
+    return;
+  }
+  const existing = await getIntegration("asana", tenantId);
+  const existingCfg = (existing?.config ?? {}) as AsanaConfigShape;
+  const merged: AsanaConfigShape = {
+    pat: config.pat && config.pat !== MASKED ? config.pat : (existingCfg.pat ?? ""),
+    workspaceId: config.workspaceId ?? existingCfg.workspaceId ?? "",
+    projectId: config.projectId ?? existingCfg.projectId ?? "",
+    defaultAssigneeGid: config.defaultAssigneeGid ?? existingCfg.defaultAssigneeGid ?? "",
+  };
+  await upsertIntegration("asana", merged, enabled ?? false, tenantId);
+  res.json({ ok: true });
+});
+
+router.post("/lp/integrations/asana/test", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { config } = req.body as { config: AsanaConfigShape };
+  const existing = await getIntegration("asana", tenantId);
+  const existingCfg = (existing?.config ?? {}) as AsanaConfigShape;
+  const pat = config.pat === MASKED ? existingCfg.pat : config.pat;
+  if (!pat || !config.projectId) {
+    res.json({ ok: false, error: "PAT and Project ID are required" });
+    return;
+  }
+  if (process.env.ASANA_FAKE_MODE === "1") {
+    res.json({ ok: true });
+    return;
+  }
+  try {
+    const resp = await fetch(`https://app.asana.com/api/1.0/projects/${encodeURIComponent(config.projectId)}`, {
+      headers: { Authorization: `Bearer ${pat}` },
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      res.json({ ok: false, error: `HTTP ${resp.status} ${body.slice(0, 200)}` });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    res.json({ ok: false, error: String(err) });
+  }
+});
+
+// Test-only endpoint: surface the in-memory Asana call queue so Playwright
+// can assert task creation without touching real Asana. Hidden behind
+// ASANA_FAKE_MODE so it never appears in production.
+router.get("/_test/asana-calls", async (_req, res): Promise<void> => {
+  if (process.env.ASANA_FAKE_MODE !== "1") {
+    res.status(404).json({ error: "Not available" });
+    return;
+  }
+  const { __getRecordedAsanaCalls } = await import("../../lib/asana");
+  res.json({ calls: __getRecordedAsanaCalls() });
+});
+
+router.post("/_test/asana-calls/clear", async (_req, res): Promise<void> => {
+  if (process.env.ASANA_FAKE_MODE !== "1") {
+    res.status(404).json({ error: "Not available" });
+    return;
+  }
+  const { __clearRecordedAsanaCalls } = await import("../../lib/asana");
+  __clearRecordedAsanaCalls();
+  res.json({ ok: true });
+});
+
 // ─── Sync helpers (called from leads.ts, tenantId derived from page) ──────────
 
 export async function syncLeadToSheets(

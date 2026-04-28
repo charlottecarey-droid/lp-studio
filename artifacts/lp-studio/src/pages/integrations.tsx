@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Zap, Cloud } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Zap, Cloud, ClipboardCheck } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const MASKED = "••••••••";
 
 interface SheetsConfig { sheetId: string; serviceAccountEmail: string; privateKey: string; tabName: string; }
 interface MarketoConfig { munchkinId: string; clientId: string; clientSecret: string; }
 interface SalesforceConfig { instanceUrl: string; clientId: string; clientSecret: string; }
+interface AsanaConfig { pat: string; workspaceId: string; projectId: string; defaultAssigneeGid: string; }
 
 type TestResult = { ok: boolean; title?: string; error?: string };
 
@@ -69,15 +71,27 @@ export function IntegrationsContent() {
   const [sfTesting, setSfTesting] = useState(false);
   const [sfResult, setSfResult] = useState<TestResult | null>(null);
 
+  // Asana state (page-review workflow, task #108)
+  const [asana, setAsana] = useState({ enabled: false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "" } as AsanaConfig });
+  const [asanaSaving, setAsanaSaving] = useState(false);
+  const [asanaSaved, setAsanaSaved] = useState(false);
+  const [asanaTesting, setAsanaTesting] = useState(false);
+  const [asanaResult, setAsanaResult] = useState<TestResult | null>(null);
+
+  const { user } = useAuth();
+  const isAdmin = !!user?.isAdmin;
+
   useEffect(() => {
     Promise.all([
       fetch("/api/lp/integrations/sheets").then(r => r.json()),
       fetch("/api/lp/integrations/marketo").then(r => r.json()),
       fetch("/api/lp/integrations/salesforce").then(r => r.json()),
-    ]).then(([s, m, sf]) => {
+      fetch("/api/lp/integrations/asana").then(r => r.ok ? r.json() : { enabled: false, config: {} }).catch(() => ({ enabled: false, config: {} })),
+    ]).then(([s, m, sf, a]) => {
       setSheets({ enabled: s.enabled ?? false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads", ...(s.config ?? {}) } });
       setMarketo({ enabled: m.enabled ?? false, config: { munchkinId: "", clientId: "", clientSecret: "", ...(m.config ?? {}) } });
       setSf({ enabled: sf.enabled ?? false, config: { instanceUrl: "", clientId: "", clientSecret: "", ...(sf.config ?? {}) } });
+      setAsana({ enabled: a.enabled ?? false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "", ...(a.config ?? {}) } });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -120,9 +134,23 @@ export function IntegrationsContent() {
     setSfResult(await res.json()); setSfTesting(false);
   };
 
+  // Asana handlers
+  const updateAsana = (field: keyof AsanaConfig, value: string) => { setAsana(s => ({ ...s, config: { ...s.config, [field]: value } })); setAsanaSaved(false); setAsanaResult(null); };
+  const saveAsana = async () => {
+    setAsanaSaving(true);
+    await fetch("/api/lp/integrations/asana", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(asana) });
+    setAsanaSaving(false); setAsanaSaved(true); setTimeout(() => setAsanaSaved(false), 3000);
+  };
+  const testAsana = async () => {
+    setAsanaTesting(true); setAsanaResult(null);
+    const res = await fetch("/api/lp/integrations/asana/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: asana.config }) });
+    setAsanaResult(await res.json()); setAsanaTesting(false);
+  };
+
   const sheetsReady = !!(sheets.config.sheetId && sheets.config.serviceAccountEmail && sheets.config.privateKey);
   const marketoReady = !!(marketo.config.munchkinId && marketo.config.clientId && marketo.config.clientSecret);
   const sfReady = !!(sf.config.instanceUrl && sf.config.clientId && sf.config.clientSecret);
+  const asanaReady = !!(asana.config.pat && asana.config.workspaceId && asana.config.projectId);
 
   if (loading) {
     return (
@@ -282,6 +310,64 @@ export function IntegrationsContent() {
             } />
           </div>
         </div>
+
+        {/* ── Asana (page-review workflow) ── */}
+        {isAdmin && (
+        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden" data-testid="asana-integration-card">
+          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
+            <div className="w-10 h-10 rounded-xl bg-[#F06A6A]/10 flex items-center justify-center shrink-0">
+              <ClipboardCheck className="w-5 h-5 text-[#F06A6A]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Asana <span className="text-[10px] font-normal text-muted-foreground ml-1">Page review</span></p>
+              <p className="text-xs text-muted-foreground">Create an Asana task whenever a page is submitted for review. Approving or rejecting comments and completes the task.</p>
+            </div>
+            <Toggle checked={asana.enabled} onChange={v => { setAsana(s => ({ ...s, enabled: v })); setAsanaSaved(false); }} />
+          </div>
+          <div className="px-6 py-6 space-y-5">
+            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
+              <p>1. In Asana, open <strong>My Settings → Apps → Manage Developer Apps</strong> and create a <strong>Personal Access Token</strong>.</p>
+              <p>2. Open the project tasks should be created in. The <strong>Project ID</strong> is the long number in the URL after <code className="bg-muted px-1 rounded">/0/</code>.</p>
+              <p>3. The <strong>Workspace ID</strong> is shown in <strong>Admin Console → Settings</strong> (or the URL after <code className="bg-muted px-1 rounded">/0/home/</code>).</p>
+              <p>4. (Optional) Default assignee: paste a user's <strong>Asana user GID</strong> to auto-assign every page-review task.</p>
+              <p className="pt-1 text-[11px]"><strong className="text-foreground">Graceful degradation:</strong> if Asana is unreachable or this section is empty, page submissions still succeed — the response includes a warning instead of an Asana task ID.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Personal Access Token</Label>
+              <Input
+                type={asana.config.pat === MASKED ? "text" : "password"}
+                value={asana.config.pat}
+                onChange={e => updateAsana("pat", e.target.value)}
+                placeholder="0/abc123..."
+                className="font-mono text-sm h-9"
+                data-testid="asana-pat-input"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Workspace ID</Label>
+                <Input value={asana.config.workspaceId} onChange={e => updateAsana("workspaceId", e.target.value)} placeholder="1199876543210" className="font-mono text-sm h-9" data-testid="asana-workspace-input" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Project ID</Label>
+                <Input value={asana.config.projectId} onChange={e => updateAsana("projectId", e.target.value)} placeholder="1209876543210" className="font-mono text-sm h-9" data-testid="asana-project-input" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Default assignee GID <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input value={asana.config.defaultAssigneeGid} onChange={e => updateAsana("defaultAssigneeGid", e.target.value)} placeholder="1188888888888" className="font-mono text-sm h-9" data-testid="asana-assignee-input" />
+            </div>
+            <TestBanner result={asanaResult} />
+            <SaveRow saving={asanaSaving} saved={asanaSaved} onSave={saveAsana} testEl={
+              <Button variant="outline" size="sm" className="gap-2" disabled={asanaTesting || !asanaReady} onClick={testAsana} data-testid="asana-test-button">
+                {asanaTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Test connection
+              </Button>
+            } />
+          </div>
+        </div>
+        )}
 
         {/* More coming soon */}
         <div className="rounded-2xl border border-dashed border-border px-6 py-8 text-center">

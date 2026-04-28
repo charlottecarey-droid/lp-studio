@@ -52,6 +52,9 @@ export default defineConfig({
         PORT: String(API_PORT),
         HOST,
         NODE_ENV: "development",
+        // Page-review workflow (task #108): the spec asserts task creation
+        // without hitting the real Asana API.
+        ASANA_FAKE_MODE: "1",
       },
     },
     // ── 2. The Vite dev server hosting the lp-studio app. We deliberately

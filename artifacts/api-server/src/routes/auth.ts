@@ -414,7 +414,17 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       }
     }
 
-    res.json({ ...sess, onboardingCompleted, tenantIndustry });
+    // Pull app_users.role (NOT the tenant role!) so the frontend can detect
+    // Dandy super-admins (role='superadmin'). Tenant role lives in sess.role
+    // and is unaffected. Done in /me so existing sessions get the value
+    // without forcing every user to re-login.
+    let appUserRole: string | null = null;
+    if (sess.userId) {
+      const ur = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [sess.userId]);
+      if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
+    }
+
+    res.json({ ...sess, onboardingCompleted, tenantIndustry, appUserRole });
   } catch (err) {
     console.error("[auth] /me error:", err);
     res.status(500).json({ error: "Server error" });
@@ -694,18 +704,30 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       return;
     }
 
+    // Mirror admin.ts presets exactly (task #108): pages.publish + pages.review
+    // are gating perms for the page-review workflow. Admins/CMs can publish
+    // directly, Editors must Submit-for-Review, Viewers can browse only.
     const ALL_PERMS = {
-      pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+      pages: true, "pages.publish": true, "pages.review": true,
+      tests: true, analytics: true, forms_leads: true, brand: true,
       blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
       sales_outreach: true, sales_campaigns: true, sales_signals: true, settings: true, team: true, roles: true,
     };
+    const CONTENT_MANAGER_PERMS = {
+      pages: true, "pages.publish": true, "pages.review": true,
+      tests: true, analytics: true, forms_leads: true, brand: true,
+      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+      sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
+    };
     const EDITOR_PERMS = {
-      pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+      pages: true, "pages.publish": false, "pages.review": false,
+      tests: true, analytics: true, forms_leads: true, brand: true,
       blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
       sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
     };
     const VIEWER_PERMS = {
-      pages: true, tests: false, analytics: true, forms_leads: false, brand: false,
+      pages: true, "pages.publish": false, "pages.review": false,
+      tests: false, analytics: true, forms_leads: false, brand: false,
       blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
       sales_outreach: false, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
     };

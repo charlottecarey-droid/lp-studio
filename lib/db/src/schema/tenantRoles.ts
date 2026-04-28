@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 
 export const PERMISSION_KEYS = [
   "pages",
+  "pages.publish",
+  "pages.review",
   "tests",
   "analytics",
   "forms_leads",

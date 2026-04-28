@@ -49,19 +49,32 @@ function isPrivateOrReservedIp(ip: string): boolean {
 const router = Router();
 
 const ALL_PERMS = {
-  pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+  pages: true, "pages.publish": true, "pages.review": true,
+  tests: true, analytics: true, forms_leads: true, brand: true,
   blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
   sales_outreach: true, sales_campaigns: true, sales_signals: true, one_pager_templates: true, settings: true, team: true, roles: true,
 };
+// Editor preset: can build pages but cannot publish or approve reviews — they
+// must use Submit-for-Review and wait for a publisher (task #108).
 const EDITOR_PERMS = {
-  pages: true, tests: true, analytics: true, forms_leads: true, brand: true,
+  pages: true, "pages.publish": false, "pages.review": false,
+  tests: true, analytics: true, forms_leads: true, brand: true,
   blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
   sales_outreach: true, sales_campaigns: false, sales_signals: true, one_pager_templates: false, settings: false, team: false, roles: false,
 };
 const VIEWER_PERMS = {
-  pages: true, tests: false, analytics: true, forms_leads: false, brand: false,
+  pages: true, "pages.publish": false, "pages.review": false,
+  tests: false, analytics: true, forms_leads: false, brand: false,
   blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
   sales_outreach: false, sales_campaigns: false, sales_signals: true, one_pager_templates: false, settings: false, team: false, roles: false,
+};
+// Content Manager preset (task #108): can publish and approve/reject reviews
+// for landing pages, but is intentionally NOT a tenant-admin (no team/role mgmt).
+const CONTENT_MANAGER_PERMS = {
+  pages: true, "pages.publish": true, "pages.review": true,
+  tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_campaigns: false, sales_signals: true, one_pager_templates: false, settings: false, team: false, roles: false,
 };
 
 async function seedDefaultRoles(client: any, tenantId: number): Promise<number> {
@@ -69,6 +82,11 @@ async function seedDefaultRoles(client: any, tenantId: number): Promise<number> 
     `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
      VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
     [tenantId, JSON.stringify(ALL_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Content Manager', $2, false, true)`,
+    [tenantId, JSON.stringify(CONTENT_MANAGER_PERMS)]
   );
   await client.query(
     `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
@@ -81,6 +99,56 @@ async function seedDefaultRoles(client: any, tenantId: number): Promise<number> 
     [tenantId, JSON.stringify(VIEWER_PERMS)]
   );
   return adminRoleResult.rows[0].id as number;
+}
+
+/**
+ * One-time backfill (task #108) — runs at server boot and is fully idempotent.
+ *
+ * For every tenant that does NOT yet have a "Content Manager" system role,
+ * insert the preset. Existing custom roles (or Admin/Editor/Viewer presets) are
+ * left strictly untouched — we only ADD the new preset row.
+ *
+ * Also extend the existing system Admin role's permissions with the new
+ * pages.publish + pages.review keys so today's tenant admins keep being able
+ * to publish without anyone re-saving the role through the UI. Custom roles
+ * (is_system=false) are not touched so admins keep full control over them.
+ */
+export async function backfillContentManagerRole(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Add the Content Manager preset to tenants that don't have one yet.
+    const tenants = await client.query<{ id: number }>(
+      `SELECT t.id FROM tenants t
+        WHERE NOT EXISTS (
+          SELECT 1 FROM tenant_roles r
+           WHERE r.tenant_id = t.id AND r.name = 'Content Manager'
+        )`,
+    );
+    for (const row of tenants.rows) {
+      await client.query(
+        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+         VALUES ($1, 'Content Manager', $2, false, true)`,
+        [row.id, JSON.stringify(CONTENT_MANAGER_PERMS)],
+      );
+    }
+    // Grant pages.publish + pages.review to existing system-Admin roles only.
+    await client.query(
+      `UPDATE tenant_roles
+          SET permissions = permissions
+                          || '{"pages.publish": true, "pages.review": true}'::jsonb,
+              updated_at = now()
+        WHERE is_system = true
+          AND name = 'Admin'
+          AND (NOT (permissions ? 'pages.publish') OR NOT (permissions ? 'pages.review'))`,
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    console.error("[admin] backfillContentManagerRole error:", err);
+  } finally {
+    client.release();
+  }
 }
 
 // POST /api/admin/tenants — provision a new tenant

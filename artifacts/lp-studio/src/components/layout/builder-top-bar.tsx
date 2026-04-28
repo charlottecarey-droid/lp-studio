@@ -2,7 +2,8 @@ import { useState, type RefObject } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Save, Globe, Monitor, Smartphone, CheckCircle, FlaskConical,
-  MessageSquare, Share2, Eye, ExternalLink, Check, Star,
+  MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import type { PresenceViewer } from "@/hooks/use-collaboration";
 interface BuilderTopBarProps {
   title: string;
   titleRef: RefObject<HTMLInputElement>;
-  status: "draft" | "published";
+  status: "draft" | "pending_review" | "published";
   isMobile: boolean;
   isSaving: boolean;
   saveSuccess: boolean;
@@ -33,6 +34,17 @@ interface BuilderTopBarProps {
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
+  // Page-review workflow (task #108).
+  /** Whether the current user can publish (admin / pages.publish / superadmin). */
+  canPublish?: boolean;
+  /** Whether the current user can approve / reject pending reviews. */
+  canReview?: boolean;
+  /** Editor click — submit page for review. */
+  onSubmitForReview?: () => void;
+  /** Reviewer click — approve a pending_review page. */
+  onApproveReview?: () => void;
+  /** Reviewer click — reject a pending_review page (caller prompts for note). */
+  onRejectReview?: () => void;
 }
 
 export function BuilderTopBar({
@@ -56,6 +68,11 @@ export function BuilderTopBar({
   onPublish,
   onToggleCommentMode,
   onShareForReview,
+  canPublish = true,
+  canReview = false,
+  onSubmitForReview,
+  onApproveReview,
+  onRejectReview,
 }: BuilderTopBarProps) {
   const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
@@ -108,11 +125,14 @@ export function BuilderTopBar({
       <Badge
         variant={status === "published" ? "default" : "secondary"}
         className={cn(
-          "text-xs shrink-0",
-          status === "published" ? "bg-green-500/10 text-green-700 border-green-200" : "",
+          "text-xs shrink-0 gap-1",
+          status === "published" && "bg-green-500/10 text-green-700 border-green-200",
+          status === "pending_review" && "bg-amber-500/10 text-amber-700 border-amber-200",
         )}
+        data-testid="page-status-badge"
       >
-        {status === "published" ? "Live" : "Draft"}
+        {status === "pending_review" && <Clock className="w-3 h-3" />}
+        {status === "published" ? "Live" : status === "pending_review" ? "Pending Review" : "Draft"}
       </Badge>
 
       <div className="flex-1" />
@@ -228,16 +248,66 @@ export function BuilderTopBar({
         <span className="hidden sm:inline">A/B Test</span>
       </Button>
 
-      <Button
-        size="sm"
-        className="gap-1.5 text-xs"
-        onClick={onPublish}
-        disabled={isSaving}
-        variant={status === "published" ? "outline" : "default"}
-      >
-        <Globe className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">{status === "published" ? "Unpublish" : "Publish"}</span>
-      </Button>
+      {/*
+        Page-review buttons (task #108).
+        - Reviewers see Approve/Reject when status=pending_review.
+        - Editors without publish perm see Submit-for-Review (or "In Review"
+          disabled while a request is open).
+        - Publishers see the original Publish/Unpublish button.
+      */}
+      {status === "pending_review" && canReview && (
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+            onClick={onRejectReview}
+            disabled={isSaving}
+            data-testid="reject-review-button"
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Reject</span>
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+            onClick={onApproveReview}
+            disabled={isSaving}
+            data-testid="approve-review-button"
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Approve & Publish</span>
+          </Button>
+        </>
+      )}
+
+      {!canPublish && status !== "published" && (
+        <Button
+          size="sm"
+          variant={status === "pending_review" ? "outline" : "default"}
+          className="gap-1.5 text-xs"
+          onClick={onSubmitForReview}
+          disabled={isSaving || status === "pending_review"}
+          data-testid="submit-review-button"
+        >
+          {status === "pending_review" ? <Clock className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+          <span className="hidden sm:inline">{status === "pending_review" ? "In Review" : "Submit for Review"}</span>
+        </Button>
+      )}
+
+      {canPublish && (
+        <Button
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onPublish}
+          disabled={isSaving}
+          variant={status === "published" ? "outline" : "default"}
+          data-testid="publish-button"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{status === "published" ? "Unpublish" : "Publish"}</span>
+        </Button>
+      )}
     </header>
   );
 }

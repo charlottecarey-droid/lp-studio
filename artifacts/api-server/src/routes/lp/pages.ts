@@ -1,12 +1,56 @@
 import { getTenantId } from "../../middleware/requireAuth";
+import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, asc, and, or, isNull } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { eq, asc, and, or, isNull, desc } from "drizzle-orm";
+import { db, pool } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getTenantIndustry } from "../../lib/tenantIndustry";
+import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 
 const router = Router();
+
+/**
+ * Page-review permission helpers (task #108).
+ *
+ * `pages.publish` gates flipping a page TO `published` (or any away-from-
+ * pending_review status change driven by an editor). `pages.review` gates the
+ * approve/reject endpoints and the Pending Review queue.
+ *
+ * Three tiers grant either perm:
+ *   1. tenant Admin (req.authUser.isAdmin)        — set via tenant_roles
+ *   2. explicit perm in their tenant role         — pages.publish / pages.review
+ *   3. Dandy super-admin (app_users.role)         — looked up once per call,
+ *      not in the session, so promoting a user takes effect immediately.
+ */
+async function isAppSuperadmin(userId: number | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [userId]);
+  return r.rows[0]?.role === "superadmin";
+}
+
+async function userCanPublish(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (user.isAdmin || user.permissions["pages.publish"]) return true;
+  return isAppSuperadmin(user.userId);
+}
+
+async function userCanReview(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (user.isAdmin || user.permissions["pages.review"]) return true;
+  return isAppSuperadmin(user.userId);
+}
+
+function buildPreviewUrl(req: import("express").Request, slug: string): string {
+  const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
+  const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+  return `${proto}://${host}/p/${encodeURIComponent(slug)}`;
+}
+function buildReviewUrl(req: import("express").Request, pageId: number): string {
+  const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
+  const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+  return `${proto}://${host}/edit/${pageId}`;
+}
 
 interface DbError {
   code?: string;
@@ -237,6 +281,32 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   }
 });
 
+// ─── Pending Review queue (task #108) ─────────────────────────────────────────
+//
+// IMPORTANT: this `/lp/pages/pending-review` route MUST be declared BEFORE the
+// `/lp/pages/:pageId` route below, otherwise express matches "pending-review"
+// as a non-numeric pageId and the GET-by-id handler 400s with "Invalid page ID".
+router.get("/lp/pages/pending-review", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  if (!(await userCanReview(req.authUser))) {
+    res.status(403).json({ error: "Permission denied" });
+    return;
+  }
+  const rows = await db
+    .select({
+      id: lpPagesTable.id,
+      title: lpPagesTable.title,
+      slug: lpPagesTable.slug,
+      submittedAt: lpPagesTable.submittedForReviewAt,
+      submittedBy: lpPagesTable.updatedBy,
+      asanaTaskId: lpPagesTable.asanaTaskId,
+    })
+    .from(lpPagesTable)
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.status, "pending_review")))
+    .orderBy(desc(lpPagesTable.submittedForReviewAt));
+  res.json(rows);
+});
+
 router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
@@ -252,6 +322,148 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
     return;
   }
   res.json(page);
+});
+
+router.post("/lp/pages/:pageId/submit-review", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  // Anyone with `pages` perm can submit. Admins implicitly have it.
+  const user = req.authUser;
+  if (!user || (!user.isAdmin && !user.permissions["pages"])) {
+    res.status(403).json({ error: "Permission denied" });
+    return;
+  }
+  const [page] = await db.select().from(lpPagesTable).where(
+    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+  );
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+  if (page.status === "published") {
+    res.status(409).json({ error: "Page is already published" });
+    return;
+  }
+
+  // Asana is best-effort. We attempt the task creation BEFORE flipping status
+  // so we can record the task id atomically with the status change. If asana
+  // is misconfigured or unreachable, the warning is surfaced to the requester
+  // but the workflow still proceeds.
+  const asana = await createReviewTask({
+    tenantId,
+    pageId: id,
+    pageTitle: page.title,
+    requesterEmail: user.email,
+    previewUrl: buildPreviewUrl(req, page.slug),
+    reviewUrl: buildReviewUrl(req, id),
+  });
+
+  const [updated] = await db
+    .update(lpPagesTable)
+    .set({
+      status: "pending_review",
+      submittedForReviewAt: new Date(),
+      submittedByUserId: user.userId,
+      lastReviewNote: null,
+      lastReviewDecisionBy: null,
+      lastReviewDecisionAt: null,
+      asanaTaskId: asana.taskId ?? null,
+      updatedBy: user.email,
+    })
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
+    .returning();
+  res.json({ page: updated, asanaTaskId: asana.taskId ?? null, asanaWarning: asana.warning ?? null });
+});
+
+router.post("/lp/pages/:pageId/approve", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  if (!(await userCanReview(req.authUser))) {
+    res.status(403).json({ error: "Permission denied" });
+    return;
+  }
+  const [page] = await db.select().from(lpPagesTable).where(
+    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+  );
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+  if (page.status !== "pending_review") {
+    res.status(409).json({ error: "Page is not pending review" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(lpPagesTable)
+    .set({
+      status: "published",
+      lastReviewDecisionBy: req.authUser!.email,
+      lastReviewDecisionAt: new Date(),
+      lastReviewNote: null,
+      submittedForReviewAt: null,
+      submittedByUserId: null,
+      updatedBy: req.authUser!.email,
+    })
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
+    .returning();
+
+  let asanaWarning: string | null = null;
+  if (page.asanaTaskId) {
+    const result = await commentAndCompleteTask({
+      tenantId,
+      pageId: id,
+      taskId: page.asanaTaskId,
+      comment: `Approved by ${req.authUser!.email} — page published.`,
+    });
+    if (!result.ok) asanaWarning = result.warning ?? null;
+  }
+  res.json({ page: updated, asanaWarning });
+});
+
+router.post("/lp/pages/:pageId/reject", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const id = parseInt(req.params.pageId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  if (!(await userCanReview(req.authUser))) {
+    res.status(403).json({ error: "Permission denied" });
+    return;
+  }
+  const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 2000) : "";
+  if (!note) {
+    res.status(400).json({ error: "A rejection note is required" });
+    return;
+  }
+  const [page] = await db.select().from(lpPagesTable).where(
+    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
+  );
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+  if (page.status !== "pending_review") {
+    res.status(409).json({ error: "Page is not pending review" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(lpPagesTable)
+    .set({
+      status: "draft",
+      lastReviewDecisionBy: req.authUser!.email,
+      lastReviewDecisionAt: new Date(),
+      lastReviewNote: note,
+      submittedForReviewAt: null,
+      submittedByUserId: null,
+      updatedBy: req.authUser!.email,
+    })
+    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
+    .returning();
+
+  let asanaWarning: string | null = null;
+  if (page.asanaTaskId) {
+    const result = await commentAndCompleteTask({
+      tenantId,
+      pageId: id,
+      taskId: page.asanaTaskId,
+      comment: `Rejected by ${req.authUser!.email}: ${note}`,
+    });
+    if (!result.ok) asanaWarning = result.warning ?? null;
+  }
+  res.json({ page: updated, asanaWarning });
 });
 
 router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
@@ -301,7 +513,26 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     updates.slug = slug;
   }
   if (blocks !== undefined) updates.blocks = blocks;
-  if (status !== undefined) updates.status = status;
+  if (status !== undefined) {
+    // Page-review gating (task #108). The PUT endpoint is only allowed to
+    // change status when the caller holds publish perm — the dedicated
+    // submit-review / approve / reject endpoints handle the other transitions
+    // and have their own perm checks. We have to look up the current status
+    // because we only want to gate transitions that would short-circuit the
+    // review workflow (status NOOPs are still allowed).
+    const [current] = await db
+      .select({ status: lpPagesTable.status })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+    if (current && current.status !== status) {
+      const allowed = await userCanPublish(req.authUser);
+      if (!allowed) {
+        res.status(403).json({ error: "You don't have permission to change page status. Submit for review instead." });
+        return;
+      }
+    }
+    updates.status = status;
+  }
   if (customCss !== undefined) updates.customCss = sanitizeCSS(customCss);
   if (metaTitle !== undefined) updates.metaTitle = metaTitle;
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
