@@ -169,6 +169,16 @@ export async function createReviewWorkflowTenant(
       [tenantId],
     );
 
+    // Seed an enabled Asana integration so submit-review / approve / reject
+    // exercise the createReviewTask + commentAndCompleteTask paths in fake
+    // mode. The api-server's webServer config sets ASANA_FAKE_MODE=1, so the
+    // PAT/projectId values here are dummies that never leave the process.
+    await client.query(
+      `INSERT INTO lp_integrations (tenant_id, provider, config, enabled, updated_at)
+       VALUES ($1, 'asana', $2::jsonb, true, now())`,
+      [tenantId, JSON.stringify({ pat: "fake-pat", projectId: `fake-project-${tenantId}` })],
+    );
+
     await client.query("COMMIT");
     return { tenantId, domain, slug, admin, contentManager, editor, superadmin };
   } catch (err) {

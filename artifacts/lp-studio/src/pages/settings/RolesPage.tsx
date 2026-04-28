@@ -30,6 +30,11 @@ const PERMISSION_GROUPS = [
     label: "Marketing",
     keys: [
       { key: "pages", label: "Pages" },
+      // Page-review workflow (task #108). pages.publish lets the holder push
+      // a page live (or unpublish it); pages.review lets them approve or
+      // reject pages submitted for review by editors.
+      { key: "pages.publish", label: "Pages — Publish" },
+      { key: "pages.review", label: "Pages — Review (approve/reject)" },
       { key: "tests", label: "Experiments" },
       { key: "analytics", label: "Analytics" },
       { key: "forms_leads", label: "Forms & Leads" },

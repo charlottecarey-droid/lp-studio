@@ -85,25 +85,52 @@ async function createPage(sid: string, tenantId: number, title: string): Promise
 }
 
 test.describe("Page review workflow", () => {
-  test("editor without publish perm submits, reviewer approves, status=published", async () => {
+  test("editor without publish perm submits, reviewer approves, status=published, Asana task created+completed", async () => {
+    // Reset the in-memory Asana call queue so this test sees only its own
+    // mock calls (other tests in the file also trigger create/complete).
+    const setupCtx = await clientFor(tenant.admin.sessionSid);
+    await setupCtx.post("_test/asana-calls/clear");
+    await setupCtx.dispose();
+
     const page = await createPage(tenant.editor.sessionSid, tenant.tenantId, "Approve me");
 
     // 1. Editor submits for review.
     const editorCtx = await clientFor(tenant.editor.sessionSid);
     const submitRes = await editorCtx.post(`lp/pages/${page.id}/submit-review`);
     expect(submitRes.status()).toBe(200);
-    const submitBody = await submitRes.json() as { page: { status: string }; asanaTaskId: string | null; asanaWarning: string | null };
+    const submitBody = await submitRes.json() as { page: { status: string; asanaTaskId: string | null }; asanaTaskId: string | null; asanaWarning: string | null };
     expect(submitBody.page.status).toBe("pending_review");
-    // Either we got a task id (fake mode) OR a warning (no integration). Never both null without a hint.
-    expect(submitBody.asanaTaskId !== null || submitBody.asanaWarning !== null).toBeTruthy();
+    // Asana fake-mode is active in the test web server, so the integration
+    // (seeded by the tenant helper) must produce a deterministic task id and
+    // never a warning.
+    expect(submitBody.asanaTaskId).toBeTruthy();
+    expect(submitBody.asanaWarning).toBeFalsy();
+    expect(submitBody.page.asanaTaskId).toBe(submitBody.asanaTaskId);
     await editorCtx.dispose();
+
+    // Verify the create call was actually recorded in the fake-mode queue.
+    const inspectCtx = await clientFor(tenant.admin.sessionSid);
+    const callsRes = await inspectCtx.get("_test/asana-calls");
+    expect(callsRes.status()).toBe(200);
+    const { calls } = await callsRes.json() as {
+      calls: Array<{ kind: string; tenantId: number; pageId: number; taskId: string; payload: Record<string, unknown> }>;
+    };
+    const createCall = calls.find(c => c.kind === "create" && c.pageId === page.id);
+    expect(createCall, "expected an Asana create call for the submitted page").toBeTruthy();
+    expect(createCall!.tenantId).toBe(tenant.tenantId);
+    expect((createCall!.payload as { name: string }).name).toContain("Approve me");
+    await inspectCtx.dispose();
 
     // 2. Reviewer (Content Manager) sees it in the queue.
     const cmCtx = await clientFor(tenant.contentManager.sessionSid);
     const queueRes = await cmCtx.get(`lp/pages/pending-review`);
     expect(queueRes.status()).toBe(200);
-    const queue = await queueRes.json() as Array<{ id: number; title: string }>;
-    expect(queue.find(r => r.id === page.id)).toBeTruthy();
+    const queue = await queueRes.json() as Array<{ id: number; title: string; submittedBy: string | null }>;
+    const queueRow = queue.find(r => r.id === page.id);
+    expect(queueRow).toBeTruthy();
+    // The requester field should resolve to the editor's email via the join
+    // on submitted_by_user_id, not the latest updated_by.
+    expect(queueRow!.submittedBy).toBe(tenant.editor.email);
 
     // 3. Reviewer approves.
     const approveRes = await cmCtx.post(`lp/pages/${page.id}/approve`);
@@ -111,6 +138,17 @@ test.describe("Page review workflow", () => {
     const approveBody = await approveRes.json() as { page: { status: string } };
     expect(approveBody.page.status).toBe("published");
     await cmCtx.dispose();
+
+    // Verify the comment+complete call was recorded against the same task id.
+    const inspectCtx2 = await clientFor(tenant.admin.sessionSid);
+    const callsRes2 = await inspectCtx2.get("_test/asana-calls");
+    const { calls: calls2 } = await callsRes2.json() as {
+      calls: Array<{ kind: string; pageId: number; taskId: string }>;
+    };
+    const completeCall = calls2.find(c => c.kind === "comment_complete" && c.pageId === page.id);
+    expect(completeCall, "expected an Asana comment+complete call after approve").toBeTruthy();
+    expect(completeCall!.taskId).toBe(submitBody.asanaTaskId);
+    await inspectCtx2.dispose();
 
     // 4. Verify persistence: pending list no longer contains the page.
     const cmCtx2 = await clientFor(tenant.contentManager.sessionSid);
