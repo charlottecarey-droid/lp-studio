@@ -44,7 +44,9 @@ async function userCanReview(user: AuthUser | undefined): Promise<boolean> {
 function buildPreviewUrl(req: import("express").Request, slug: string): string {
   const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
   const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
-  return `${proto}://${host}/p/${encodeURIComponent(slug)}`;
+  // Use the in-app preview route (works for draft + pending_review pages),
+  // not /p/:slug (which only serves *published* pages and 404s on submissions).
+  return `${proto}://${host}/preview/${encodeURIComponent(slug)}`;
 }
 function buildReviewUrl(req: import("express").Request, pageId: number): string {
   const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
