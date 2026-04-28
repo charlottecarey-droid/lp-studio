@@ -173,7 +173,16 @@ function FieldInput({
   const borderClass = error ? "border-red-400" : "border-slate-200";
   const focusStyle = { ["--tw-ring-color" as string]: inputAccentColor } as React.CSSProperties;
   const onFocus = (e: React.FocusEvent<HTMLElement>) => { e.currentTarget.style.borderColor = inputAccentColor; };
-  const onBlur = (e: React.FocusEvent<HTMLElement>) => { e.currentTarget.style.borderColor = ""; };
+  const onBlur = (e: React.FocusEvent<HTMLElement>) => {
+    e.currentTarget.style.borderColor = "";
+    // Normalize website-like fields on blur (not while typing) so the
+    // visitor's paste isn't mangled mid-flight. Only fires when the
+    // result actually differs to avoid a spurious render.
+    if (isWebsiteField(field) && value) {
+      const normalized = normalizeWebsite(value);
+      if (normalized !== value) onChange(normalized);
+    }
+  };
 
   if (field.type === "textarea") {
     return (
