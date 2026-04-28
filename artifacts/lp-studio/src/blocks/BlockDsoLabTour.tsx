@@ -73,10 +73,10 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
 
   return (
     <>
-      <section ref={sectionRef} style={sectionBgStyle} className="py-24 md:py-32">
+      <section ref={sectionRef} style={sectionBgStyle} className="py-16 sm:py-20 md:py-24 lg:py-32">
         {backgroundImage && <div style={{ position: "absolute", inset: 0, backgroundColor: overlayColor, opacity: backgroundOverlay ?? 0.55, zIndex: 0, pointerEvents: "none" }} />}
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" }}>
-          <div className="grid md:grid-cols-2 gap-14 lg:gap-24 items-center">
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto", padding: "0 clamp(1rem, 3vw, 1.5rem)" }}>
+          <div className="grid md:grid-cols-2 gap-10 md:gap-14 lg:gap-24 items-center">
 
             {/* ── Image / Video ── */}
             <motion.div
@@ -138,8 +138,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     <div
                       className="group-hover:scale-110 transition-transform duration-500"
                       style={{
-                        width: 72,
-                        height: 72,
+                        width: "clamp(56px, 14vw, 72px)",
+                        height: "clamp(56px, 14vw, 72px)",
                         borderRadius: "50%",
                         background: `rgb(var(--brand-primary-rgb, 0 58 48) / 0.933)`,
                         backdropFilter: "blur(8px)",
@@ -149,7 +149,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                         boxShadow: `0 8px 32px rgb(var(--brand-primary-rgb, 0 58 48) / 0.333), 0 24px 64px rgba(0,0,0,0.30)`,
                       }}
                     >
-                      <Play style={{ width: 26, height: 26, color: "hsl(48,100%,96%)", marginLeft: 3 }} fill="hsl(48,100%,96%)" />
+                      <Play style={{ width: "clamp(20px, 5vw, 26px)", height: "clamp(20px, 5vw, 26px)", color: "hsl(48,100%,96%)", marginLeft: 3 }} fill="hsl(48,100%,96%)" />
                     </div>
                   </div>
                 )}
@@ -161,7 +161,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    padding: "2rem 1.5rem 1.5rem",
+                    padding: "clamp(1.25rem, 4vw, 2rem) clamp(1rem, 3vw, 1.5rem) clamp(1rem, 3vw, 1.5rem)",
                     background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 60%, transparent 100%)",
                   }}
                 >
@@ -218,7 +218,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                 transition={{ duration: 0.7 }}
                 style={{
                   fontFamily: DISPLAY_FONT,
-                  fontSize: "clamp(2rem,4vw,3.25rem)",
+                  fontSize: "clamp(1.75rem,5vw,3.25rem)",
                   lineHeight: 1.1,
                   fontWeight: 600,
                   letterSpacing: "-0.015em",
@@ -235,8 +235,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   viewport={{ once: true }}
                   transition={{ delay: 0.1 }}
                   style={{
-                    marginTop: "1.5rem",
-                    fontSize: "1.0625rem",
+                    marginTop: "clamp(1rem, 3vw, 1.5rem)",
+                    fontSize: "clamp(1rem, 2.6vw, 1.0625rem)",
                     color: bodyColor,
                     lineHeight: 1.7,
                   }}
@@ -252,7 +252,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   viewport={{ once: true }}
                   transition={{ delay: 0.12 }}
                   style={{
-                    marginTop: "2rem",
+                    marginTop: "clamp(1.5rem, 4vw, 2rem)",
                     position: "relative",
                     paddingLeft: "1.25rem",
                     borderLeft: `3px solid ${dark ? AW : P}`,
@@ -300,10 +300,10 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                 viewport={{ once: true }}
                 transition={{ delay: 0.15 }}
                 style={{
-                  marginTop: "2.5rem",
+                  marginTop: "clamp(1.5rem, 5vw, 2.5rem)",
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: "0.875rem",
+                  gap: "clamp(0.5rem, 2vw, 0.875rem)",
                 }}
               >
                 {LAB_HIGHLIGHTS.map((h, i) => (
@@ -314,8 +314,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.875rem",
-                      padding: "1rem 1.125rem",
+                      gap: "clamp(0.625rem, 2vw, 0.875rem)",
+                      padding: "clamp(0.75rem, 2.5vw, 1rem) clamp(0.75rem, 3vw, 1.125rem)",
                       borderRadius: "0.875rem",
                       background: tileBg,
                       backdropFilter: dark ? "blur(12px)" : "none",
@@ -323,6 +323,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                       boxShadow: tileShadow,
                       transition: "box-shadow 0.25s ease",
                       cursor: "default",
+                      minWidth: 0,
                     }}
                     onMouseEnter={e => {
                       if (!dark) (e.currentTarget as HTMLElement).style.boxShadow =
@@ -334,8 +335,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   >
                     <div
                       style={{
-                        width: 34,
-                        height: 34,
+                        width: "clamp(28px, 8vw, 34px)",
+                        height: "clamp(28px, 8vw, 34px)",
                         borderRadius: "50%",
                         background: tileIconBg,
                         display: "flex",
@@ -346,7 +347,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     >
                       <h.icon style={{ width: 16, height: 16, color: tileIconColor }} />
                     </div>
-                    <span style={{ fontSize: "0.875rem", fontWeight: 500, color: tileTextColor }}>{h.label}</span>
+                    <span style={{ fontSize: "clamp(0.8125rem, 2.4vw, 0.875rem)", fontWeight: 500, color: tileTextColor, lineHeight: 1.3 }}>{h.label}</span>
                   </motion.div>
                 ))}
               </motion.div>
@@ -360,13 +361,13 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   transition={{ delay: 0.2 }}
                   onClick={handleCtaClick}
                   style={{
-                    marginTop: "2.5rem",
+                    marginTop: "clamp(1.75rem, 5vw, 2.5rem)",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 10,
                     borderRadius: 9999,
                     background: dark ? AW : P,
-                    padding: "1rem 2rem",
+                    padding: "0.875rem 1.75rem",
                     fontSize: 14,
                     fontWeight: 600,
                     color: dark ? "hsl(152,40%,13%)" : "hsl(48,100%,96%)",
