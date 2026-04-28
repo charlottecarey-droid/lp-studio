@@ -252,8 +252,15 @@ export const TrackEventInputEventType = {
 
 export interface TrackEventInput {
   sessionId: string;
-  testId: number;
-  variantId: number;
+  /** Optional. Set when the event is attributed to an A/B test variant.
+Conversions on plain builder pages (no test running) omit this so
+the row lands with NULL test_id instead of violating the FK.
+ */
+  testId?: number;
+  /** Optional. Set when the event is attributed to an A/B test variant.
+Omit alongside testId for non-A/B-test conversions.
+ */
+  variantId?: number;
   eventType: TrackEventInputEventType;
   /** Optional label for the conversion (e.g. "cta_click", "form_submit") */
   conversionType?: string;
@@ -283,4 +290,13 @@ export type GetPageConfigParams = {
    * When set, bypasses session assignment and returns this specific variant (preview mode)
    */
   previewVariantId?: number;
+};
+
+export type UploadLpImageBody = {
+  file: Blob;
+};
+
+export type UploadLpImage200 = {
+  /** Serve path (e.g. /objects/uploads/<uuid>). Prefix with /api/storage to get the full URL. */
+  url: string;
 };

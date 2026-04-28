@@ -17,6 +17,12 @@ interface ChiliPiperLead {
 interface Props {
   url: string;
   pageId?: number;
+  /**
+   * A/B test attribution. See BlockForm.tsx for the contract — both ids flow
+   * straight into the `chilipiper_booking` conversion POST and are omitted
+   * from the body when undefined so the API doesn't reject the row.
+   */
+  testId?: number;
   variantId?: number;
   sessionId?: string;
   onClose: () => void;
@@ -59,11 +65,18 @@ function extractLeadFromEvent(data: unknown): ChiliPiperLead | null {
 export function useChiliPiperBookingTracking({
   url,
   pageId,
+  testId,
   variantId,
   sessionId,
 }: {
   url: string;
   pageId?: number;
+  /**
+   * Optional A/B test attribution. Both ids are present together (real test
+   * variant render) or both absent (plain builder page); the conversion POST
+   * omits whichever is missing so the API accepts the row.
+   */
+  testId?: number;
   variantId?: number;
   sessionId?: string;
 }) {
@@ -112,16 +125,21 @@ export function useChiliPiperBookingTracking({
 
       if (pageId != null) {
         try {
+          // Mirror BlockForm's omission rule: when this booking happens on a
+          // builder page that isn't part of an A/B test we have no test/variant
+          // to attribute to, so omit those keys instead of stuffing 0 — that
+          // used to violate the FK and 500 the request silently.
+          const trackBody: Record<string, unknown> = {
+            sessionId: sessionId ?? `anon-${Date.now()}`,
+            eventType: "conversion",
+            conversionType: "chilipiper_booking",
+          };
+          if (testId != null) trackBody.testId = testId;
+          if (variantId != null) trackBody.variantId = variantId;
           await fetch(`${API_BASE}/lp/track`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: sessionId ?? `anon-${Date.now()}`,
-              testId: 0,
-              variantId: variantId ?? 0,
-              eventType: "conversion",
-              conversionType: "chilipiper_booking",
-            }),
+            body: JSON.stringify(trackBody),
           });
         } catch {
         }
@@ -130,12 +148,13 @@ export function useChiliPiperBookingTracking({
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [url, pageId, variantId, sessionId]);
+  }, [url, pageId, testId, variantId, sessionId]);
 }
 
-export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
+export function ChiliPiperModal({ url, pageId: pageIdProp, testId: testIdProp, variantId: variantIdProp, sessionId: sessionIdProp, onClose }: Props) {
   const ctx = usePageContext();
   const pageId = pageIdProp ?? ctx.pageId;
+  const testId = testIdProp ?? ctx.testId;
   const variantId = variantIdProp ?? ctx.variantId;
   const sessionId = sessionIdProp ?? ctx.sessionId;
 
@@ -145,7 +164,7 @@ export function ChiliPiperModal({ url, pageId: pageIdProp, variantId: variantIdP
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  useChiliPiperBookingTracking({ url, pageId, variantId, sessionId });
+  useChiliPiperBookingTracking({ url, pageId, testId, variantId, sessionId });
 
   return createPortal(
     <div

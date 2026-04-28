@@ -42,6 +42,14 @@ interface Props {
   props: FormBlockProps;
   brand: BrandConfig;
   pageId?: number;
+  /**
+   * A/B test attribution. Both `testId` and `variantId` are present together
+   * (set by the viewer when the page is being rendered as a test variant) or
+   * both absent (plain builder page with no test). They flow into the
+   * conversion-tracking POSTs unchanged — when absent the POST omits them so
+   * the row lands with NULL test_id/variant_id instead of violating the FK.
+   */
+  testId?: number;
   variantId?: number;
   sessionId?: string;
   /** Pre-fill values for matching fields. Email maps to the first email-type field, etc. */
@@ -214,7 +222,7 @@ function resolveHiddenValue(template: string): string {
   return result;
 }
 
-export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill }: Props) {
+export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, prefill }: Props) {
   const bgStyles: Record<string, string> = {
     "white": "bg-white",
     "light-gray": "bg-gray-50",
@@ -257,6 +265,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
   useChiliPiperBookingTracking({
     url: chiliPiperHandoffUrl ?? "",
     pageId,
+    testId,
     variantId,
     sessionId: effectiveSessionId,
   });
@@ -404,16 +413,22 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
         if (!resp.ok) throw new Error("Submission failed");
 
         try {
+          // Omit `testId` / `variantId` when this page isn't being rendered
+          // as part of an A/B test — the API now allows null FKs and the row
+          // is attributed via `sessionId`. Sending `testId: 0` was the
+          // pre-existing bug that made every funnel report drop these
+          // conversions (FK violation → 500 → swallowed by try/catch).
+          const trackBody: Record<string, unknown> = {
+            sessionId: effectiveSessionId,
+            eventType: "conversion",
+            conversionType: "form_submit",
+          };
+          if (testId != null) trackBody.testId = testId;
+          if (variantId != null) trackBody.variantId = variantId;
           await fetch(`${API_BASE}/lp/track`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: effectiveSessionId,
-              testId: 0,
-              variantId: variantId ?? 0,
-              eventType: "conversion",
-              conversionType: "form_submit",
-            }),
+            body: JSON.stringify(trackBody),
           });
         } catch (err) {
           console.error("Form tracking error:", err);
@@ -613,16 +628,20 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify(body),
                         }).catch(() => undefined);
+                        // Same caveat as the standard handleSubmit path:
+                        // omit `testId` / `variantId` when not in an A/B test
+                        // so the FK doesn't reject the row.
+                        const mktoTrackBody: Record<string, unknown> = {
+                          sessionId: effectiveSessionId,
+                          eventType: "conversion",
+                          conversionType: "form_submit",
+                        };
+                        if (testId != null) mktoTrackBody.testId = testId;
+                        if (variantId != null) mktoTrackBody.variantId = variantId;
                         fetch(`${API_BASE}/lp/track`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            sessionId: effectiveSessionId,
-                            testId: 0,
-                            variantId: variantId ?? 0,
-                            eventType: "conversion",
-                            conversionType: "form_submit",
-                          }),
+                          body: JSON.stringify(mktoTrackBody),
                         }).catch(() => undefined);
                       }
                       if (cp.mode === "redirect") {

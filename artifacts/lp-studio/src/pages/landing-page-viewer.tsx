@@ -663,7 +663,7 @@ export default function LandingPageViewer() {
                     style={block.blockSettings?.animationStyle ?? "fade-up"}
                     enabled={linkedAnimationsEnabled && !NO_REVEAL.has(block.type)}
                   >
-                    <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
+                    <BlockRenderer block={dtrBlock as typeof block} brand={brand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} testId={config.testId} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
                   </ScrollReveal>
                 </BlockErrorBoundary>
               );
@@ -682,6 +682,7 @@ export default function LandingPageViewer() {
           <ChiliPiperModal
             url={chilipiperUrl}
             pageId={linkedPage?.id}
+            testId={config.testId}
             variantId={config.assignedVariant.id}
             sessionId={sessionId}
             onClose={() => setChilipiperUrl(null)}

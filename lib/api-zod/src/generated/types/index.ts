@@ -29,6 +29,8 @@ export * from "./updateTestInputStatus";
 export * from "./updateTestInputTestType";
 export * from "./updateVariantInput";
 export * from "./updateVariantInputBlockOverrides";
+export * from "./uploadLpImage200";
+export * from "./uploadLpImageBody";
 export * from "./variant";
 export * from "./variantBlockOverrides";
 export * from "./variantConfig";

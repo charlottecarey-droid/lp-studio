@@ -1,0 +1,21 @@
+-- Make lp_events.test_id and lp_events.variant_id nullable.
+--
+-- Why
+-- ───
+-- Conversion events fired from a builder page that isn't part of an A/B test
+-- (BlockForm.handleSubmit / useChiliPiperBookingTracking / BlockEventPage)
+-- previously hard-coded `testId: 0` and `variantId: 0`. The FK constraints
+-- `lp_events_test_id_lp_tests_id_fk` / `lp_events_variant_id_lp_variants_id_fk`
+-- then rejected those inserts with a 500. The browser swallowed the failure
+-- (POSTs are wrapped in try/catch), so every funnel report based on lp_events
+-- was missing real-world conversions.
+--
+-- Allowing NULL lets us record the conversion against the session even when
+-- there's no test/variant context. The FK references are kept (so cascade
+-- deletes still clean up rows for tests/variants that DO exist); only the
+-- NOT NULL constraint is dropped.
+--
+-- Idempotent so re-running on environments where this was already applied
+-- (e.g. via drizzle-kit push) is a no-op.
+ALTER TABLE lp_events ALTER COLUMN test_id DROP NOT NULL;
+ALTER TABLE lp_events ALTER COLUMN variant_id DROP NOT NULL;

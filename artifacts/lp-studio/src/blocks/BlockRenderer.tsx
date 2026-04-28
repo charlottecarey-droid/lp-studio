@@ -97,6 +97,13 @@ interface Props {
   onBlockChange?: (updated: PageBlock) => void;
   animationsEnabled?: boolean;
   pageId?: number;
+  /**
+   * Active A/B test id when the page is being rendered as a test variant.
+   * Plumbed alongside `variantId` so descendant blocks can attribute
+   * conversions to the right test/variant pair instead of falling back to the
+   * legacy `testId: 0` placeholder (which violated the FK and silently 500'd).
+   */
+  testId?: number;
   variantId?: number;
   sessionId?: string;
   pageVars?: Record<string, string>;
@@ -236,7 +243,7 @@ export const NO_REVEAL = new Set<string>([
   "spacer",
 ]);
 
-export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, variantId, sessionId, pageVars, isBuilder }: Props) {
+export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder }: Props) {
   // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
   // Ensure `block.props` always exists so child components don't crash on prop access.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -409,7 +416,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "footer":
         return <BlockFooter props={block.props} brand={brand} />;
       case "form":
-        return <BlockForm props={block.props} brand={brand} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
+        return <BlockForm props={block.props} brand={brand} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "popup":
         return (
           <BlockPopup
@@ -622,7 +629,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "one-pager-hero":
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
-        return <BlockEventPage props={block.props} pageId={pageId} variantId={variantId} sessionId={sessionId} />;
+        return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "spatial-tour":
         return <BlockSpatialTour props={block.props} />;
       case "scroll-assembly":
@@ -689,7 +696,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
   const final = shouldReveal ? <Reveal>{wrapped}</Reveal> : wrapped;
 
   return (
-    <PageContextProvider value={{ pageId, variantId, sessionId }}>
+    <PageContextProvider value={{ pageId, testId, variantId, sessionId }}>
       {final}
     </PageContextProvider>
   );

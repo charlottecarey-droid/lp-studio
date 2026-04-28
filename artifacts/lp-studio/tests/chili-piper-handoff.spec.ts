@@ -197,6 +197,20 @@ test.describe("Marketo → Chili Piper handoff", () => {
     // out to marketo.com.
     await page.addInitScript(MKTO_INIT_SCRIPT);
 
+    // Track every /api/lp/track POST status so we can assert at the end that
+    // none of them came back as a swallowed 5xx. The original bug shipped a
+    // hard-coded `testId: 0` on builder-page submissions, which violated the
+    // FK constraint on lp_events.test_id and silently 500'd inside a
+    // try/catch — funnel reports lost the conversion entirely. This guard
+    // would have caught that regression on day one.
+    const trackStatuses: number[] = [];
+    page.on("response", (resp) => {
+      const req = resp.request();
+      if (req.method() !== "POST") return;
+      if (!req.url().includes("/api/lp/track")) return;
+      trackStatuses.push(resp.status());
+    });
+
     // Surface uncaught console errors / page errors so a render crash
     // doesn't manifest as a mysterious "iframe not found".
     const consoleErrors: string[] = [];
@@ -256,6 +270,22 @@ test.describe("Marketo → Chili Piper handoff", () => {
     expect(u.searchParams.get("lastName")).toBe("Doe");
     expect(u.searchParams.get("phone")).toBe("555-1212");
     expect(u.searchParams.get("company")).toBe("Acme Co");
+
+    // Final guard for the underlying bug: every /api/lp/track POST that
+    // fired during this flow must have come back 2xx. Before the fix the
+    // form_submit POST returned 500 (FK violation on a phantom test_id=0)
+    // and the catch block in BlockForm swallowed it, dropping the
+    // conversion from analytics. At least one track call must have fired
+    // (the form_submit) so an empty list is also a failure.
+    expect(
+      trackStatuses.length,
+      "expected at least one /api/lp/track POST during the flow",
+    ).toBeGreaterThan(0);
+    const failedStatuses = trackStatuses.filter((s) => s >= 400);
+    expect(
+      failedStatuses,
+      `expected every /api/lp/track POST to return 2xx, got ${JSON.stringify(trackStatuses)}`,
+    ).toHaveLength(0);
   });
 
   test("a Chili Piper booking-confirmed postMessage records a chilipiper_booking conversion attributed to the same session/variant as the form_submit", async ({ page, baseURL, request }) => {
@@ -291,6 +321,17 @@ test.describe("Marketo → Chili Piper handoff", () => {
       } catch {
         /* non-JSON track call — ignore */
       }
+    });
+
+    // Capture every track POST status so we can assert at the end that
+    // none of the conversion events were silently rejected by the API.
+    // See test 1 for the full bug history.
+    const trackStatuses: number[] = [];
+    page.on("response", (resp) => {
+      const req = resp.request();
+      if (req.method() !== "POST") return;
+      if (!req.url().includes("/api/lp/track")) return;
+      trackStatuses.push(resp.status());
     });
 
     await page.addInitScript(MKTO_INIT_SCRIPT);
@@ -380,5 +421,19 @@ test.describe("Marketo → Chili Piper handoff", () => {
     await page.waitForTimeout(300);
     const bookingCount = trackCalls.filter((c) => c.conversionType === "chilipiper_booking").length;
     expect(bookingCount, "duplicate postMessage must not double-fire the booking conversion").toBe(1);
+
+    // Same status guard as test 1: every track POST during this flow must
+    // have come back 2xx. Both the form_submit and the chilipiper_booking
+    // events fired through the API, so a silent 5xx here would mean the
+    // funnel reports lose conversions in production.
+    expect(
+      trackStatuses.length,
+      "expected at least one /api/lp/track POST during the booking flow",
+    ).toBeGreaterThan(0);
+    const failedStatuses = trackStatuses.filter((s) => s >= 400);
+    expect(
+      failedStatuses,
+      `expected every /api/lp/track POST to return 2xx, got ${JSON.stringify(trackStatuses)}`,
+    ).toHaveLength(0);
   });
 });

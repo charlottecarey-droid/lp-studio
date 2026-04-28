@@ -130,6 +130,12 @@ export const GetTestResponse = zod
                 .describe(
                   "Present in tracking responses; omitted in test-detail summary",
                 ),
+              customCss: zod
+                .string()
+                .optional()
+                .describe(
+                  "Custom CSS injected into the live page when served; present in tracking responses",
+                ),
             })
             .nullish()
             .describe(
@@ -251,6 +257,12 @@ export const ListVariantsResponseItem = zod.object({
         .optional()
         .describe(
           "Present in tracking responses; omitted in test-detail summary",
+        ),
+      customCss: zod
+        .string()
+        .optional()
+        .describe(
+          "Custom CSS injected into the live page when served; present in tracking responses",
         ),
     })
     .nullish()
@@ -452,6 +464,12 @@ export const UpdateVariantResponse = zod.object({
         .describe(
           "Present in tracking responses; omitted in test-detail summary",
         ),
+      customCss: zod
+        .string()
+        .optional()
+        .describe(
+          "Custom CSS injected into the live page when served; present in tracking responses",
+        ),
     })
     .nullish()
     .describe("Populated by the tracking route when builderPageId is set"),
@@ -521,8 +539,18 @@ export const GetTestResultsResponse = zod.object({
  */
 export const TrackEventBody = zod.object({
   sessionId: zod.string(),
-  testId: zod.number(),
-  variantId: zod.number(),
+  testId: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional. Set when the event is attributed to an A\/B test variant.\nConversions on plain builder pages (no test running) omit this so\nthe row lands with NULL test_id instead of violating the FK.\n",
+    ),
+  variantId: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional. Set when the event is attributed to an A\/B test variant.\nOmit alongside testId for non-A\/B-test conversions.\n",
+    ),
   eventType: zod.enum(["impression", "conversion"]),
   conversionType: zod
     .string()
@@ -622,6 +650,12 @@ export const GetPageConfigResponse = zod.object({
           .describe(
             "Present in tracking responses; omitted in test-detail summary",
           ),
+        customCss: zod
+          .string()
+          .optional()
+          .describe(
+            "Custom CSS injected into the live page when served; present in tracking responses",
+          ),
       })
       .nullish()
       .describe("Populated by the tracking route when builderPageId is set"),
@@ -640,6 +674,25 @@ export const GetPageConfigResponse = zod.object({
     createdAt: zod.date(),
   }),
   status: zod.string(),
+});
+
+/**
+ * Accepts multipart/form-data with a single "file" field. Returns a
+persistent serve URL that can be saved in block image properties.
+Allowed types: jpeg, png, gif, webp, avif, heic, heif. Max 20 MB.
+
+ * @summary Upload an image for use in LP builder blocks
+ */
+export const UploadLpImageBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const UploadLpImageResponse = zod.object({
+  url: zod
+    .string()
+    .describe(
+      "Serve path (e.g. \/objects\/uploads\/<uuid>). Prefix with \/api\/storage to get the full URL.",
+    ),
 });
 
 /**

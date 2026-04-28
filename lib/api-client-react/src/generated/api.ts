@@ -30,6 +30,8 @@ import type {
   TrackEventResponse,
   UpdateTestInput,
   UpdateVariantInput,
+  UploadLpImage200,
+  UploadLpImageBody,
   Variant,
 } from "./api.schemas";
 
@@ -1145,6 +1147,98 @@ export function useGetPageConfig<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Accepts multipart/form-data with a single "file" field. Returns a
+persistent serve URL that can be saved in block image properties.
+Allowed types: jpeg, png, gif, webp, avif, heic, heif. Max 20 MB.
+
+ * @summary Upload an image for use in LP builder blocks
+ */
+export const getUploadLpImageUrl = () => {
+  return `/api/lp/upload`;
+};
+
+export const uploadLpImage = async (
+  uploadLpImageBody: UploadLpImageBody,
+  options?: RequestInit,
+): Promise<UploadLpImage200> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadLpImageBody.file);
+
+  return customFetch<UploadLpImage200>(getUploadLpImageUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadLpImageMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadLpImage>>,
+    TError,
+    { data: BodyType<UploadLpImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadLpImage>>,
+  TError,
+  { data: BodyType<UploadLpImageBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadLpImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadLpImage>>,
+    { data: BodyType<UploadLpImageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadLpImage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadLpImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadLpImage>>
+>;
+export type UploadLpImageMutationBody = BodyType<UploadLpImageBody>;
+export type UploadLpImageMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Upload an image for use in LP builder blocks
+ */
+export const useUploadLpImage = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadLpImage>>,
+    TError,
+    { data: BodyType<UploadLpImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadLpImage>>,
+  TError,
+  { data: BodyType<UploadLpImageBody> },
+  TContext
+> => {
+  return useMutation(getUploadLpImageMutationOptions(options));
+};
 
 /**
  * @summary Serve an object entity from PRIVATE_OBJECT_DIR

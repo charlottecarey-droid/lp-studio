@@ -190,11 +190,17 @@ function CustomSelect({
 interface Props {
   props: EventPageBlockProps;
   pageId?: number;
+  /**
+   * Optional A/B test attribution. Both ids are present together (real test
+   * variant render) or both absent (plain builder page); see BlockForm.tsx
+   * for the contract.
+   */
+  testId?: number;
   variantId?: number;
   sessionId?: string;
 }
 
-export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props) {
+export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId }: Props) {
   const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
   useGoogleFonts(
     p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
@@ -288,16 +294,21 @@ export function BlockEventPage({ props: p, pageId, variantId, sessionId }: Props
         if (!resp.ok) throw new Error("Submission failed");
 
         try {
+          // Omit `testId` / `variantId` when this event page isn't being
+          // rendered as part of an A/B test — sending `testId: 0` violated
+          // the FK and silently 500'd, dropping every conversion from the
+          // funnel reports.
+          const trackBody: Record<string, unknown> = {
+            sessionId: sessionId ?? `anon-${Date.now()}`,
+            eventType: "conversion",
+            conversionType: "form_submit",
+          };
+          if (testId != null) trackBody.testId = testId;
+          if (variantId != null) trackBody.variantId = variantId;
           await fetch("/api/lp/track", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: sessionId ?? `anon-${Date.now()}`,
-              testId: 0,
-              variantId: variantId ?? 0,
-              eventType: "conversion",
-              conversionType: "form_submit",
-            }),
+            body: JSON.stringify(trackBody),
           });
         } catch (err) {
           console.error("Form tracking error:", err);

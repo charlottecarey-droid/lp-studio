@@ -113,16 +113,28 @@ router.post("/lp/track", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // testId / variantId are optional: builder pages without an active A/B test
+  // emit conversions (form submits, chili piper bookings, etc.) that aren't
+  // tied to any test row. Coerce missing values to null so the FK constraints
+  // (now nullable) accept the row instead of 500ing on a phantom test_id=0.
   const [event] = await db.insert(lpEventsTable).values({
     sessionId: parsed.data.sessionId,
-    testId: parsed.data.testId,
-    variantId: parsed.data.variantId,
+    testId: parsed.data.testId ?? null,
+    variantId: parsed.data.variantId ?? null,
     eventType: parsed.data.eventType,
     conversionType: parsed.data.conversionType ?? null,
   }).returning();
 
-  // Update smart traffic stats on conversion events (fire-and-forget)
-  if (parsed.data.eventType === "conversion" && parsed.data.testId) {
+  // Update smart traffic stats on conversion events (fire-and-forget). Smart
+  // traffic only applies when both a test AND a variant are attributed —
+  // standalone-page conversions can't update per-variant stats.
+  if (
+    parsed.data.eventType === "conversion" &&
+    parsed.data.testId != null &&
+    parsed.data.variantId != null
+  ) {
+    const testId = parsed.data.testId;
+    const variantId = parsed.data.variantId;
     (async () => {
       try {
         // Look up the session to get features
@@ -131,18 +143,18 @@ router.post("/lp/track", async (req, res): Promise<void> => {
           .from(lpSessionsTable)
           .where(and(
             eq(lpSessionsTable.sessionId, parsed.data.sessionId),
-            eq(lpSessionsTable.testId, parsed.data.testId),
+            eq(lpSessionsTable.testId, testId),
           ));
         if (session) {
           const features = (session.features ?? {}) as VisitorFeatures;
           // Only record if features exist (session was created with smart traffic)
           if (features.device) {
-            await recordConversion(parsed.data.testId, parsed.data.variantId, features);
+            await recordConversion(testId, variantId, features);
           }
         }
       } catch (err) {
         // Log error but don't fail — smart traffic stats are best-effort
-        console.warn("Error recording conversion for smart traffic (test", parsed.data.testId, "):", err);
+        console.warn("Error recording conversion for smart traffic (test", testId, "):", err);
       }
     })();
   }
