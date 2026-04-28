@@ -78,6 +78,157 @@ export interface AudienceContent {
   checklist?: string[];
 }
 
+// ── Agreement Summary one-pager ────────────────────────────────────────
+export interface AgreementSection {
+  label: string;
+  body: string;
+}
+
+export interface AgreementSummaryContent {
+  headline: string;
+  subheadline: string;
+  sections: AgreementSection[];
+  footer: string;
+}
+
+export const defaultAgreementSummaryContent: AgreementSummaryContent = {
+  headline: "Summary of Dandy Agreement",
+  subheadline: "With Dandy, you get a simple, month-to-month contract with no surprise fees.",
+  sections: [
+    { label: "Equipment", body: "Our software, hardware, and support are all included when you partner with us, subject to terms and conditions. You are just responsible for sending lab work, and please take care of our scanner." },
+    { label: "Minimum", body: "$2,000 per month in lab work. Month-to-month, no long-term commitment. Cancel anytime." },
+    { label: "Activation Fee", body: "$499 activation fee covers set-up and shipping costs for the scanner, laptop, and the cart." },
+    { label: "No Exit Fee", body: "If you don't want to work with us, we'll send a box for you to return our equipment. If you don't return it within 30 days, we'll invoice for the equipment." },
+    { label: "Billing", body: "We invoice on the first of the month and bill on the eighth. We prefer bank transfers — no fee. (2.4% fee for credit cards. If you have late lab payments over $20,000, we'll pause your orders.)" },
+    { label: "Training", body: "Our CE-accredited training is required for all Dandy users. Unlimited training is included for the whole practice." },
+    { label: "Warranty", body: "Lifetime warranty on all products." },
+    { label: "Exclusivity", body: "For scans you take with our scanner, please use our lab. That's all we ask!" },
+  ],
+  footer: "For the full terms and agreement, please see the Dandy Practice Agreement.",
+};
+
+export const generateAgreementSummaryOnePager = async (
+  content: AgreementSummaryContent,
+  opts?: { logoPng?: string | null },
+): Promise<jsPDF> => {
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  const w = doc.internal.pageSize.getWidth();
+  const h = doc.internal.pageSize.getHeight();
+  const margin = 48;
+  const contentW = w - margin * 2;
+  const logoPng = opts?.logoPng ?? null;
+
+  // ── Header band ──────────────────────────────────────────────────────
+  const headerH = 132;
+  doc.setFillColor(...darkGreen);
+  doc.rect(0, 0, w, headerH, "F");
+
+  // Lime accent stripe
+  doc.setFillColor(...lime);
+  doc.rect(0, headerH - 4, w, 4, "F");
+
+  // Dandy logo top-left
+  drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
+
+  // Headline (white, large) — wrap if long
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.setTextColor(...white);
+  const headlineLines = doc.splitTextToSize(content.headline, contentW);
+  doc.text(headlineLines, margin, 78);
+  const headlineH = headlineLines.length * 26;
+
+  // Subheadline
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(180, 210, 195);
+  const subYBase = 78 + headlineH - 6;
+  const subLines = doc.splitTextToSize(content.subheadline, contentW);
+  doc.text(subLines, margin, subYBase);
+
+  // ── Section grid (2 cols × 4 rows) ──────────────────────────────────
+  const footerH = 70;
+  const gridTop = headerH + 26;
+  const gridBottom = h - footerH - 18;
+  const gridH = gridBottom - gridTop;
+  const gap = 14;
+  const cols = 2;
+  const rows = Math.ceil(content.sections.length / cols);
+  const cardW = (contentW - gap * (cols - 1)) / cols;
+  const cardH = (gridH - gap * (rows - 1)) / rows;
+
+  content.sections.forEach((section, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = margin + col * (cardW + gap);
+    const cy = gridTop + row * (cardH + gap);
+
+    // Card background
+    doc.setFillColor(...offWhite);
+    doc.roundedRect(cx, cy, cardW, cardH, 6, 6, "F");
+    // Lime top accent stripe
+    doc.setFillColor(...lime);
+    doc.roundedRect(cx, cy, cardW, 3, 3, 3, "F");
+    doc.rect(cx, cy + 2, cardW, 2, "F");
+
+    // Label
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...darkGreen);
+    doc.text((section.label || "").toUpperCase(), cx + 16, cy + 26);
+
+    // Separator under label
+    drawSep(doc, cx + 16, cy + 32, cardW - 32, [220, 220, 215]);
+
+    // Body — wrap and fit
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...textDark);
+    const bodyW = cardW - 32;
+    const bodyMaxH = cardH - 48;
+    const bodyLines = doc.splitTextToSize(section.body || "", bodyW);
+    const lineH = 12;
+    const maxLines = Math.max(1, Math.floor(bodyMaxH / lineH));
+    const shown = bodyLines.slice(0, maxLines);
+    doc.text(shown, cx + 16, cy + 48);
+  });
+
+  // ── Footer band ──────────────────────────────────────────────────────
+  doc.setFillColor(...darkGreen);
+  doc.rect(0, h - footerH, w, footerH, "F");
+  // Lime accent stripe
+  doc.setFillColor(...lime);
+  doc.rect(0, h - footerH, w, 3, "F");
+
+  // Dandy logo bottom-left
+  if (logoPng) {
+    try { doc.addImage(logoPng, "PNG", margin, h - footerH + 18, 56, 20); } catch {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(...white);
+      doc.text("dandy", margin, h - footerH + 32);
+    }
+  } else {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(...white);
+    doc.text("dandy", margin, h - footerH + 32);
+  }
+
+  // Footer text (right-aligned, wraps)
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(180, 210, 195);
+  const footerTextW = contentW - 80;
+  const footerLines = doc.splitTextToSize(content.footer || "", footerTextW);
+  const footerLineH = 12;
+  const footerBlockH = footerLines.length * footerLineH;
+  const footerStartY = h - footerH + (footerH - footerBlockH) / 2 + 9;
+  doc.text(footerLines, w - margin, footerStartY, { align: "right" });
+
+  // Subtle URL bottom-center
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(160, 185, 175);
+  doc.text("www.meetdandy.com", w / 2, h - 14, { align: "center" });
+
+  return doc;
+};
+
 export const defaultAudienceContent: Record<Audience, AudienceContent> = {
   executive: {
     subtitle: "Achieve quality, consistency, and control at scale.",

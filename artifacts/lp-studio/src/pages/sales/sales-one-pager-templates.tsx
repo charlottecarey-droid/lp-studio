@@ -17,7 +17,11 @@ import {
   generateComparisonOnePager,
   generateNewPartnerOnePager,
   generateROIOnePager,
+  generateAgreementSummaryOnePager,
   defaultAudienceContent,
+  defaultAgreementSummaryContent,
+  type AgreementSummaryContent,
+  type AgreementSection,
 } from "./sales-one-pager";
 import {
   OverlayField,
@@ -124,6 +128,7 @@ const BUILTIN_TEMPLATES = [
   { id: "comparison", label: "Dandy Evolution", description: "Before/after comparison" },
   { id: "new-partner", label: "Partner Practices", description: "Partner onboarding" },
   { id: "partner2", label: "Partner 2", description: "Alternative partner template" },
+  { id: "agreement-summary", label: "Agreement Summary", description: "Summary of Dandy Agreement terms" },
 ] as const;
 
 type BuiltinId = typeof BUILTIN_TEMPLATES[number]["id"];
@@ -147,6 +152,10 @@ const cloneFieldsForBuiltin = (id: BuiltinId): OverlayField[] => {
     mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 8, bold: false }),
     mk({ ...base, label: "Prospect Logo", type: "logo", x: 22.5, y: 4.3, fontSize: 12, bold: false, logoScale: 14, logoWidth: 135, logoHeight: 30 }),
   ];
+  // Agreement Summary is procedurally rendered (text edited in dialog), so a
+  // clone gets the rendered defaults as a background with no overlays — the
+  // user can then drop their own logo, DSO name, etc. on top if they want.
+  if (id === "agreement-summary") return [];
   return [
     mk({ ...base, label: "Dandy Logo", type: "dandy_logo", x: 7.8, y: 3.8, fontSize: 18, logoScale: 11.4 }),
     mk({ ...base, label: "Dandy & DSO Name", type: "dso_name", x: 7.8, y: 12.6, fontSize: 16, bold: false, italic: true, prefix: "Dandy & ", suffix: ":" }),
@@ -442,11 +451,35 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   builtinId?: BuiltinId;
   onClose: () => void;
 }) {
+  const isAgreement = builtinId === "agreement-summary";
   const [dsoName, setDsoName] = useState("");
   const [phone, setPhone] = useState("");
   const [qrUrl, setQrUrl] = useState("https://meetdandy.com");
   const [audience, setAudience] = useState<"executive" | "clinical" | "practice-manager">("executive");
   const [generating, setGenerating] = useState(false);
+  // Agreement-summary editable content (defaults from PDF source)
+  const [agreement, setAgreement] = useState<AgreementSummaryContent>(() => ({
+    headline: defaultAgreementSummaryContent.headline,
+    subheadline: defaultAgreementSummaryContent.subheadline,
+    sections: defaultAgreementSummaryContent.sections.map(s => ({ ...s })),
+    footer: defaultAgreementSummaryContent.footer,
+  }));
+
+  const updateAgreementSection = (idx: number, updates: Partial<AgreementSection>) => {
+    setAgreement(p => ({
+      ...p,
+      sections: p.sections.map((s, i) => i === idx ? { ...s, ...updates } : s),
+    }));
+  };
+
+  const resetAgreementDefaults = () => {
+    setAgreement({
+      headline: defaultAgreementSummaryContent.headline,
+      subheadline: defaultAgreementSummaryContent.subheadline,
+      sections: defaultAgreementSummaryContent.sections.map(s => ({ ...s })),
+      footer: defaultAgreementSummaryContent.footer,
+    });
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -456,8 +489,10 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
         if (builtinId === "roi") doc = await generateROIOnePager(dsoName || "DSO", 50);
         else if (builtinId === "pilot") doc = await generatePilotOnePager(dsoName || "DSO", audience, [], phone, null, { w: 0, h: 0 }, defaultAudienceContent[audience], undefined, undefined);
         else if (builtinId === "comparison") doc = await generateComparisonOnePager(dsoName || "DSO", [], phone, null, { w: 0, h: 0 }, undefined, undefined);
+        else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(agreement);
         else doc = await generateNewPartnerOnePager(dsoName || "DSO", null, { w: 0, h: 0 }, qrUrl, {});
-        doc.save(`${(dsoName || builtinId).replace(/\s+/g, "_")}_OnePager.pdf`);
+        const baseName = isAgreement ? (agreement.headline || "Agreement_Summary") : (dsoName || builtinId);
+        doc.save(`${baseName.replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
         const values: Record<string, string> = { dso_name: dsoName, phone, qr_url: qrUrl };
         const doc = await generateCustomTemplatePdf(tpl, values, dandyLogoWhiteUrl);
@@ -471,6 +506,95 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
       setGenerating(false);
     }
   };
+
+  // ── Agreement Summary form (wider dialog with scrollable section grid)
+  if (isAgreement) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm px-4 py-6">
+        <div className="bg-card border border-border rounded-2xl w-full max-w-3xl shadow-xl flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between p-6 pb-3 border-b border-border">
+            <div>
+              <h3 className="text-sm font-semibold">Generate Agreement Summary PDF</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">All text is editable. Defaults match the standard Dandy Agreement.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={resetAgreementDefaults}
+                disabled={generating}
+                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors flex items-center gap-1"
+                title="Reset to default text"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+              <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Headline</label>
+              <input
+                type="text"
+                value={agreement.headline}
+                onChange={e => setAgreement(p => ({ ...p, headline: e.target.value }))}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Subheadline</label>
+              <textarea
+                value={agreement.subheadline}
+                onChange={e => setAgreement(p => ({ ...p, subheadline: e.target.value }))}
+                rows={2}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+              />
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sections</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {agreement.sections.map((section, idx) => (
+                  <div key={idx} className="rounded-lg border border-border bg-background/50 p-3 space-y-2">
+                    <input
+                      type="text"
+                      value={section.label}
+                      onChange={e => updateAgreementSection(idx, { label: e.target.value })}
+                      placeholder="Section label"
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                    <textarea
+                      value={section.body}
+                      onChange={e => updateAgreementSection(idx, { body: e.target.value })}
+                      rows={4}
+                      placeholder="Section body"
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none leading-snug"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Footer</label>
+              <textarea
+                value={agreement.footer}
+                onChange={e => setAgreement(p => ({ ...p, footer: e.target.value }))}
+                rows={2}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 p-6 pt-3 border-t border-border">
+            <button onClick={onClose} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex-1 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} Download PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
@@ -1340,6 +1464,7 @@ export default function SalesOnePagerTemplates() {
       if (builtinId === "roi") doc = await generateROIOnePager(" ", 10);
       else if (builtinId === "pilot") doc = await generatePilotOnePager(" ", "executive", [], "", null, { w: 0, h: 0 }, defaultAudienceContent["executive"], undefined, undefined);
       else if (builtinId === "comparison") doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, undefined, undefined);
+      else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent);
       else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, "https://meetdandy.com", {});
 
       const pdfBlob = doc.output("blob");

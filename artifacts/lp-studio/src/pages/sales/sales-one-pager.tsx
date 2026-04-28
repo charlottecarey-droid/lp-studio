@@ -16,12 +16,16 @@ import {
   generateComparisonOnePager as sharedGenerateComparisonOnePager,
   generateNewPartnerOnePager as sharedGenerateNewPartnerOnePager,
   generateROIOnePager as sharedGenerateROIOnePager,
+  generateAgreementSummaryOnePager as sharedGenerateAgreementSummaryOnePager,
   defaultAudienceContent as sharedDefaultAudienceContent,
+  defaultAgreementSummaryContent as sharedDefaultAgreementSummaryContent,
   type Audience,
   type TeamContact,
   type AudienceContent,
   type NewPartnerContent,
   type NewPartnerOpts,
+  type AgreementSummaryContent,
+  type AgreementSection,
 } from "@workspace/one-pager-types/generators";
 
 // =============================================
@@ -355,6 +359,15 @@ export const generateROIOnePager = async (
 
   return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides });
 };
+
+export const generateAgreementSummaryOnePager = async (content: AgreementSummaryContent) => {
+  let logoPng: string | null = null;
+  try { logoPng = await svgToPng(dandyLogoWhite, 206, 74); } catch { /* continue without logo */ }
+  return sharedGenerateAgreementSummaryOnePager(content, { logoPng });
+};
+
+export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;
+export type { AgreementSummaryContent, AgreementSection };
 
 // =============================================
 // COMPONENT
