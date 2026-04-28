@@ -206,6 +206,35 @@ test.describe("Page review workflow", () => {
     await editorCtx2.dispose();
   });
 
+  test("editor cannot bypass review by creating a page directly as published (server coerces to draft)", async () => {
+    // Regression for the create-time access-control bypass: an editor without
+    // pages.publish should NOT be able to land a page in `published` via the
+    // create endpoint, which would otherwise skip the submit/approve flow.
+    const editorCtx = await clientFor(tenant.editor.sessionSid);
+    const slug = `bypass-${tenant.tenantId}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const res = await editorCtx.post(`lp/pages`, {
+      data: { title: "Sneaky publish", slug, blocks: [], status: "published" },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json() as { id: number; status: string };
+    // Server coerces the status back to draft when the caller lacks publish perm.
+    expect(body.status).toBe("draft");
+    await editorCtx.dispose();
+
+    // Sanity: a Content Manager (who DOES have pages.publish) is allowed to
+    // create with status=published, so the gate is keying on perm, not just
+    // dropping the field for everyone.
+    const cmCtx = await clientFor(tenant.contentManager.sessionSid);
+    const cmSlug = `cm-pub-${tenant.tenantId}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const cmRes = await cmCtx.post(`lp/pages`, {
+      data: { title: "CM direct publish", slug: cmSlug, blocks: [], status: "published" },
+    });
+    expect(cmRes.status()).toBe(201);
+    const cmBody = await cmRes.json() as { status: string };
+    expect(cmBody.status).toBe("published");
+    await cmCtx.dispose();
+  });
+
   test("Content Manager (pages.publish perm) can publish directly via PUT", async () => {
     const page = await createPage(tenant.contentManager.sessionSid, tenant.tenantId, "CM publishes");
     const cmCtx = await clientFor(tenant.contentManager.sessionSid);

@@ -49,7 +49,7 @@ function buildPreviewUrl(req: import("express").Request, slug: string): string {
 function buildReviewUrl(req: import("express").Request, pageId: number): string {
   const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
   const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
-  return `${proto}://${host}/edit/${pageId}`;
+  return `${proto}://${host}/builder/${pageId}`;
 }
 
 interface DbError {
@@ -247,6 +247,22 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     }
   }
 
+  // Gate the requested status against the publish-permission model so a
+  // regular editor cannot create a page directly as `published` (or jump it
+  // straight into `pending_review` is allowed for any user with `pages`
+  // perm — that's the explicit submit-for-review entry point). Without this
+  // gate, the review workflow could be bypassed entirely on create.
+  const requestedStatus = typeof status === "string" ? status : "draft";
+  let effectiveStatus = requestedStatus;
+  if (requestedStatus === "published") {
+    if (!(await userCanPublish(req.authUser))) {
+      effectiveStatus = "draft";
+    }
+  } else if (requestedStatus !== "draft" && requestedStatus !== "pending_review") {
+    // Unknown status values fall back to draft.
+    effectiveStatus = "draft";
+  }
+
   try {
     const finalCustomCss = (typeof customCss === "string" && customCss.length > 0) ? sanitizeCSS(customCss) : sanitizeCSS(sourceCss);
     const [page] = await db
@@ -257,7 +273,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         slug,
         // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
         blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
-        status: typeof status === "string" ? status : "draft",
+        status: effectiveStatus,
         customCss: finalCustomCss,
         metaTitle: typeof metaTitle === "string" && metaTitle.length > 0 ? metaTitle : sourceMetaTitle,
         metaDescription: typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription,
