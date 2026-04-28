@@ -13,6 +13,10 @@ const DEFAULT_FIELD_MAP: Record<string, string> = {
   Email: "email",
   email: "email",
   EmailAddress: "email",
+  // Native lp-studio forms label this field "Email Address" by default, so
+  // include the spaced variant — without it the email never makes it onto
+  // the Chili Piper URL when a non-Marketo form is doing the handoff.
+  "Email Address": "email",
   FirstName: "firstName",
   firstName: "firstName",
   "First Name": "firstName",
@@ -22,9 +26,13 @@ const DEFAULT_FIELD_MAP: Record<string, string> = {
   Phone: "phone",
   phone: "phone",
   PhoneNumber: "phone",
+  // Same reason as "Email Address" above — the native form's default
+  // phone-field label is "Phone Number".
+  "Phone Number": "phone",
   Company: "company",
   company: "company",
   CompanyName: "company",
+  "Company Name": "company",
   Title: "title",
   title: "title",
   JobTitle: "title",

@@ -447,6 +447,25 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
         }
       }
 
+      // Chili Piper handoff for native (non-Marketo) forms. Mirrors the
+      // Marketo branch's behaviour so a global form with chiliPiperConfig
+      // hands the visitor straight to the scheduler regardless of which
+      // form-mode the form block is using.
+      const cp = globalForm?.chiliPiperConfig;
+      if (cp?.url) {
+        const cpUrl = buildChiliPiperHandoffUrl(cp, allFields);
+        if (cp.mode === "redirect") {
+          // Open in a new tab so the visitor can return to the landing
+          // page after booking; pop blockers degrade to current tab.
+          safeNavigate(cpUrl, "_blank");
+        } else {
+          // Modal mode (default): swap the form contents in-place for the
+          // scheduler iframe — no portal/modal overlay, no page change.
+          setChiliPiperHandoffUrl(cpUrl);
+        }
+        return;
+      }
+
       setSubmitted(true);
       if (activeRedirectUrl) {
         setTimeout(() => { safeNavigate(activeRedirectUrl); }, 1500);
@@ -520,7 +539,39 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
           className={`${radiusClass} ${cardShadowClass} p-8 md:p-10 ${isDark && !cardBg ? "bg-white/10 border-white/20" : ""}`}
           style={cardBg ? { backgroundColor: cardBg } : undefined}
         >
-          {isMarketo ? (
+          {chiliPiperHandoffUrl ? (
+            // In-place swap: once the visitor has submitted the form (native
+            // OR Marketo) and we have a Chili Piper handoff URL, replace
+            // the form contents with the scheduler iframe. We keep the
+            // surrounding card chrome so the layout doesn't jump and the
+            // visitor stays on the page (no portal/modal overlay). Hoisted
+            // above the isMarketo branch so both modes share this path.
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Schedule a meeting</h3>
+                <button
+                  type="button"
+                  onClick={() => { setChiliPiperHandoffUrl(null); setSubmitted(true); }}
+                  className={`text-sm rounded-md px-2 py-1 ${isDark ? "text-white/80 hover:bg-white/10" : "text-slate-600 hover:bg-slate-100"}`}
+                  aria-label="Close scheduler"
+                >
+                  Close
+                </button>
+              </div>
+              <ChiliPiperIframe
+                url={chiliPiperHandoffUrl}
+                className="w-full h-[min(70vh,560px)] border-0 rounded-lg"
+                onUnavailable={() => {
+                  // Iframe blocked / failed to load — pop the scheduler
+                  // in a new tab so the lead can still book, then mark
+                  // the form as submitted so the page reflects success.
+                  safeNavigate(chiliPiperHandoffUrl, "_blank");
+                  setChiliPiperHandoffUrl(null);
+                  setSubmitted(true);
+                }}
+              />
+            </div>
+          ) : isMarketo ? (
             props.marketoBaseUrl && props.marketoMunchkinId && props.marketoFormId ? (
               // If a global form is linked we must wait for its config to
               // load before mounting MarketoForm — otherwise the onSuccess
@@ -528,37 +579,6 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
               // handoff silently no-ops on the first submission.
               props.formId && !globalForm && !globalFormFetched ? (
                 <p className={`text-sm ${isDark ? "text-white/70" : "text-slate-500"}`}>Loading form…</p>
-              ) : chiliPiperHandoffUrl ? (
-                // In-place swap: once the visitor has submitted the Marketo
-                // form and we have a Chili Piper handoff URL, replace the
-                // form contents with the scheduler iframe. We keep the
-                // surrounding card chrome so the layout doesn't jump and the
-                // visitor stays on the page (no portal/modal overlay).
-                <div className="flex flex-col">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Schedule a meeting</h3>
-                    <button
-                      type="button"
-                      onClick={() => { setChiliPiperHandoffUrl(null); setSubmitted(true); }}
-                      className={`text-sm rounded-md px-2 py-1 ${isDark ? "text-white/80 hover:bg-white/10" : "text-slate-600 hover:bg-slate-100"}`}
-                      aria-label="Close scheduler"
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <ChiliPiperIframe
-                    url={chiliPiperHandoffUrl}
-                    className="w-full h-[min(70vh,560px)] border-0 rounded-lg"
-                    onUnavailable={() => {
-                      // Iframe blocked / failed to load — pop the scheduler
-                      // in a new tab so the lead can still book, then mark
-                      // the form as submitted so the page reflects success.
-                      safeNavigate(chiliPiperHandoffUrl, "_blank");
-                      setChiliPiperHandoffUrl(null);
-                      setSubmitted(true);
-                    }}
-                  />
-                </div>
               ) : (
               <>
                 <MarketoForm
