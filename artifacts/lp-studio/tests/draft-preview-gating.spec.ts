@@ -304,6 +304,18 @@ test.describe("Draft preview gating (task #107)", () => {
     expect(body.slug).toBe(pageSlug);
     expect(body.status).toBe("published");
 
+    // Editor preview endpoint must keep working after publish (so the
+    // builder's preview link doesn't break once a draft goes live).
+    const previewAfterPublish = await request.get(`/api/lp/preview/${pageSlug}`, {
+      headers: { Cookie: `lp_sid=${tenant.sessionSid}` },
+    });
+    expect(
+      previewAfterPublish.ok(),
+      `preview broke after publish: ${previewAfterPublish.status()}`,
+    ).toBe(true);
+    const previewBody = (await previewAfterPublish.json()) as { status?: string };
+    expect(previewBody.status).toBe("published");
+
     // Restore the original domain so cleanup doesn't surprise other tests.
     await pool.query(
       `UPDATE tenants SET domain = $1 WHERE id = $2`,
