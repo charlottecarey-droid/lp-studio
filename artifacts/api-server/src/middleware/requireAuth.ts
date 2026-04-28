@@ -48,6 +48,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
     const user = JSON.parse(result.rows[0].sess) as AuthUser;
+    // Backfill appUserRole for sessions issued before task #108 added the
+    // field. Without this, getTenantId's X-Tenant-Id cross-tenant override
+    // would silently no-op for superadmins still riding an old session.
+    if (user.appUserRole === undefined) {
+      try {
+        const r = await pool.query(
+          `SELECT role FROM app_users WHERE id = $1`,
+          [user.userId],
+        );
+        user.appUserRole = r.rows[0]?.role ?? null;
+      } catch {
+        user.appUserRole = null;
+      }
+    }
     req.authUser = user;
 
     // Host enforcement: if the request arrives via a host that maps to a

@@ -159,8 +159,9 @@ export async function commentAndCompleteTask(input: CommentAndCompleteInput): Pr
 
   try {
     // Best-effort: post comment, then complete the task. Either step failing
-    // doesn't block the page-status flip in lp-studio.
-    await fetch(`https://app.asana.com/api/1.0/tasks/${input.taskId}/stories`, {
+    // doesn't block the page-status flip in lp-studio, but we surface the
+    // failure as a warning instead of silently swallowing it.
+    const commentRes = await fetch(`https://app.asana.com/api/1.0/tasks/${input.taskId}/stories`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.pat}`,
@@ -168,7 +169,12 @@ export async function commentAndCompleteTask(input: CommentAndCompleteInput): Pr
       },
       body: JSON.stringify({ data: { text: input.comment } }),
     });
-    await fetch(`https://app.asana.com/api/1.0/tasks/${input.taskId}`, {
+    if (!commentRes.ok) {
+      const body = await commentRes.text().catch(() => "");
+      console.error("[asana] comment failed", commentRes.status, body.slice(0, 500));
+      return { ok: false, taskId: input.taskId, warning: `Asana comment failed (HTTP ${commentRes.status}). The page-status change went through, but the task is still open.` };
+    }
+    const completeRes = await fetch(`https://app.asana.com/api/1.0/tasks/${input.taskId}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${config.pat}`,
@@ -176,6 +182,11 @@ export async function commentAndCompleteTask(input: CommentAndCompleteInput): Pr
       },
       body: JSON.stringify({ data: { completed: true } }),
     });
+    if (!completeRes.ok) {
+      const body = await completeRes.text().catch(() => "");
+      console.error("[asana] complete failed", completeRes.status, body.slice(0, 500));
+      return { ok: false, taskId: input.taskId, warning: `Asana task close failed (HTTP ${completeRes.status}). Comment posted, but the task is still open.` };
+    }
     return { ok: true, taskId: input.taskId };
   } catch (err) {
     console.error("[asana] comment/complete error", err);
