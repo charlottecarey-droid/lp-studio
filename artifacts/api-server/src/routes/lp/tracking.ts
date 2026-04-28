@@ -191,7 +191,9 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, slug)))
       .limit(1);
 
-    if (!page || page.status === "draft") {
+    // Only published pages are exposed on public endpoints. Drafts and
+    // pages in pending_review must remain private (preview only).
+    if (!page || page.status !== "published") {
       res.status(404).send("Not found");
       return;
     }
@@ -278,15 +280,16 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, params.data.slug)));
 
     if (builderPage) {
-      // Drafts must NEVER be served from a tenant-mapped public host.
+      // Only published pages may be served from a tenant-mapped public host.
       // We're inside this branch only when the request host resolved to a
       // tenant via findTenantByHost — i.e. the visitor is on a public-facing
       // domain (microsite-only OR tenant-locked custom domain). The previous
       // implementation hardcoded "partners.meetdandy.com" which leaked drafts
       // on lp.meetdandy.com, custom tenant domains, and *.lpstudio.ai
-      // wildcard subdomains. Authenticated tenant members and review-token
-      // holders should use /api/lp/preview/:slug instead.
-      if (builderPage.status === "draft") {
+      // wildcard subdomains. Pages in draft or pending_review must remain
+      // private — authenticated tenant members and review-token holders
+      // should use /api/lp/preview/:slug instead.
+      if (builderPage.status !== "published") {
         res.status(404).json({ error: "Page not found" });
         return;
       }

@@ -271,6 +271,70 @@ test.describe("Draft preview gating (task #107)", () => {
     await pool.query(`DELETE FROM lp_page_reviews WHERE token = $1`, [reviewToken]);
   });
 
+  test("pending_review page is gated like a draft on public endpoints", async ({ request }) => {
+    // Pages awaiting reviewer approval must NOT appear on the live URL or
+    // the OG preview endpoint — they should behave exactly like drafts and
+    // remain reachable only via /api/lp/preview/:slug.
+    const reviewSlug = `pending-gating-${Date.now().toString(36)}`;
+    const createRes = await request.post("/api/lp/pages", {
+      headers: {
+        Cookie: `lp_sid=${tenant.sessionSid}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        title: "Pending Review Gating Test",
+        slug: reviewSlug,
+        blocks: [
+          { id: "b1", type: "block-headline", props: { text: "Pending body" } },
+        ],
+        status: "draft",
+      },
+    });
+    expect(
+      createRes.ok(),
+      `pending-review page create failed: ${createRes.status()} ${await createRes.text()}`,
+    ).toBe(true);
+    const newPageId = ((await createRes.json()) as { id: number }).id;
+
+    try {
+      // Move directly to pending_review at the DB level so this test does
+      // not depend on the submit-review endpoint (which lives in a separate
+      // task scope and may evolve independently).
+      await pool.query(
+        `UPDATE lp_pages SET status = 'pending_review' WHERE id = $1`,
+        [newPageId],
+      );
+
+      // 1. Live JSON endpoint must 404.
+      const liveRes = await request.get(`/api/lp/page/${reviewSlug}`);
+      expect(
+        liveRes.status(),
+        `pending_review leak on /api/lp/page/${reviewSlug}: returned ${liveRes.status()} (expected 404)`,
+      ).toBe(404);
+
+      // 2. OG meta endpoint must 404.
+      const ogRes = await request.get(`/api/lp/og-preview/${reviewSlug}`);
+      expect(
+        ogRes.status(),
+        `pending_review leak on /api/lp/og-preview/${reviewSlug}: returned ${ogRes.status()} (expected 404)`,
+      ).toBe(404);
+
+      // 3. Authenticated preview endpoint must still serve it (so reviewers
+      //    and editors can actually read the page they need to act on).
+      const previewRes = await request.get(`/api/lp/preview/${reviewSlug}`, {
+        headers: { Cookie: `lp_sid=${tenant.sessionSid}` },
+      });
+      expect(
+        previewRes.ok(),
+        `auth preview broken for pending_review: ${previewRes.status()} ${await previewRes.text()}`,
+      ).toBe(true);
+      const previewBody = (await previewRes.json()) as { status?: string };
+      expect(previewBody.status).toBe("pending_review");
+    } finally {
+      await pool.query(`DELETE FROM lp_pages WHERE id = $1`, [newPageId]);
+    }
+  });
+
   test("published page returns 200 on the public live URL", async ({ request }) => {
     // Make tenant resolution deterministic by giving the tenant a UNIQUE
     // domain (no shared 'localhost' competition with other test workers)
