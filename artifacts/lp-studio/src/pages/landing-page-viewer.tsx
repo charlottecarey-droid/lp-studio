@@ -581,6 +581,22 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {scopedCss && <style>{scopedCss}</style>}
+        {isPreviewRoute && (
+          <div data-testid="preview-banner" className="bg-card text-foreground py-2 px-4 flex items-center justify-between z-50 relative">
+            <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-foreground opacity-70" />
+                Draft Preview — not publicly visible
+              </span>
+            </div>
+            <button
+              onClick={() => window.close()}
+              className="text-xs font-semibold underline underline-offset-2 opacity-60 hover:opacity-100 transition-opacity"
+            >
+              Close Preview
+            </button>
+          </div>
+        )}
         {blocks.map((block, i) => {
           const dtrBlock = Object.keys(dtrParams).length > 0
             ? { ...block, props: applyDtr(block.props, dtrParams) }

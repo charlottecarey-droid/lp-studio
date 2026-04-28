@@ -522,28 +522,9 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
 });
 
 // ─── Preview endpoint ──────────────────────────────────────────────────────
-// GET /api/lp/preview/:slug
-//
-// Authenticated/authorised counterpart to /api/lp/page/:slug. Renders BOTH
-// drafts and published pages so editors and reviewers can see in-progress
-// work. Public hosts must NEVER serve drafts via the live URL — that's the
-// /api/lp/page/:slug path which returns 404 for drafts above. The preview
-// path is the only way to view a draft.
-//
-// Authorisation is satisfied by EITHER:
-//   1. A valid session cookie (lp_sid) whose tenantId matches the page's
-//      tenantId — or where the user is a global superadmin (isAdmin=true).
-//   2. A query param ?reviewToken=<token> matching an lp_page_reviews row
-//      whose pageId matches the looked-up page. Page-scoped: a token issued
-//      for page A cannot unlock page B.
-//
-// Tenant resolution prefers the request host (when it maps to a tenant) and
-// falls back to the authenticated user's tenant — this lets editors load
-// previews from the admin host (app.lpstudio.ai) without a tenant-mapped
-// host header.
-//
-// Tracking, smart-traffic, A/B assignment, and Apollo IP reveal are all
-// disabled here — preview is a static read.
+// GET /api/lp/preview/:slug — auth/token-gated draft preview.
+// Auth: lp_sid session scoped to page.tenantId, OR ?reviewToken= matching
+// an lp_page_reviews row whose pageId === page.id. No tracking.
 
 async function loadAuthUser(req: Request): Promise<AuthUser | null> {
   const sid = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE];
@@ -568,17 +549,8 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
 
   let page: typeof lpPagesTable.$inferSelect | null = null;
 
-  // Authorisation path 1: review token. Page-scoped — never lets a token
-  // for page A unlock page B with the same slug in another tenant.
-  //
-  // Token validity model (see schema in lib/db/src/schema/lpCollaboration.ts):
-  // the lp_page_reviews row IS the token. Revocation is implemented as
-  // DELETE on the row (DELETE /lp/pages/:pageId/reviews/:reviewId in
-  // collaboration.ts) — once the row is gone the WHERE-clause below
-  // returns nothing and we 404, so revoked tokens are correctly rejected
-  // here without any extra predicate. The schema deliberately has no
-  // expires_at / revoked_at columns; if/when expiry semantics are added,
-  // the WHERE clause must grow corresponding predicates.
+  // Path 1: review token. Page-scoped via review.pageId === page.id.
+  // Revocation = DELETE on lp_page_reviews row (no expires_at column).
   if (reviewToken) {
     const [review] = await db
       .select()
@@ -593,18 +565,8 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     }
   }
 
-  // Authorisation path 2: authenticated session. We always look up the page
-  // under the SESSION's tenant — never under a host-derived tenant. This
-  // prevents a tenant-admin of A from previewing tenant B's drafts simply by
-  // sending a request with B's host header. (`AuthUser.isAdmin` here means
-  // "tenant-role admin", not "global superadmin" — see auth.ts where it is
-  // populated from `tenant_roles.is_admin` — so it must NOT bypass tenant
-  // isolation. The cross-tenant Switch Tenant tool issues a fresh session
-  // for the new tenant, which then matches `user.tenantId` here.)
-  //
-  // Note: the request host is intentionally ignored. The page lookup is
-  // strictly scoped to `user.tenantId`, so a session can only ever surface
-  // its own tenant's pages regardless of which host the request arrived on.
+  // Path 2: session. Page lookup is scoped to user.tenantId; the request
+  // host is ignored, so a tenant-A admin can never reach tenant B's pages.
   if (!page) {
     const user = await loadAuthUser(req);
     if (!user || user.tenantId == null) { res.status(404).json({ error: "Page not found" }); return; }
