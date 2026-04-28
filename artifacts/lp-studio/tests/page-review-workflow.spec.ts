@@ -180,11 +180,10 @@ test.describe("Page review workflow", () => {
     await cmCtx.dispose();
   });
 
-  test("Dandy super-admin (app_users.role=superadmin) can publish in a tenant via session", async () => {
-    // The superadmin user is seeded inside `tenant`; they cannot publish in
-    // `secondTenant` via PUT (that would require a session for that tenant).
-    // What we DO test here: a superadmin's session in their own tenant can
-    // publish a page even though their tenant_role lacks pages.publish.
+  test("Dandy super-admin can publish in their OWN tenant despite weak tenant_role", async () => {
+    // Superadmin's session is attached to `tenant` with the Editor role
+    // (which lacks pages.publish), so this exercises the userCanPublish
+    // app_users.role='superadmin' branch.
     const page = await createPage(tenant.editor.sessionSid, tenant.tenantId, "Super publishes");
     const superCtx = await clientFor(tenant.superadmin.sessionSid);
     const res = await superCtx.put(`lp/pages/${page.id}`, {
@@ -194,6 +193,45 @@ test.describe("Page review workflow", () => {
     const body = await res.json() as { status: string };
     expect(body.status).toBe("published");
     await superCtx.dispose();
+  });
+
+  test("Dandy super-admin can publish in ANOTHER tenant via X-Tenant-Id override", async () => {
+    // Create a page in `secondTenant` using that tenant's editor.
+    const page = await createPage(secondTenant.editor.sessionSid, secondTenant.tenantId, "Cross-tenant super publish");
+
+    // Then have the superadmin (whose session is attached to `tenant`) act on
+    // that page by setting X-Tenant-Id. A non-superadmin user cannot do this.
+    const superCtx = await playwrightRequest.newContext({
+      baseURL: API_BASE,
+      extraHTTPHeaders: {
+        Cookie: `lp_sid=${tenant.superadmin.sessionSid}`,
+        "X-Tenant-Id": String(secondTenant.tenantId),
+      },
+    });
+    const res = await superCtx.put(`lp/pages/${page.id}`, {
+      data: { status: "published" },
+    });
+    expect(res.status(), `cross-tenant super publish (HTTP ${res.status()}: ${await res.text()})`).toBe(200);
+    const body = await res.json() as { status: string };
+    expect(body.status).toBe("published");
+    await superCtx.dispose();
+
+    // Negative control: a regular editor with the same X-Tenant-Id header
+    // gets rejected (the override only honours superadmins).
+    const editorCtx = await playwrightRequest.newContext({
+      baseURL: API_BASE,
+      extraHTTPHeaders: {
+        Cookie: `lp_sid=${tenant.editor.sessionSid}`,
+        "X-Tenant-Id": String(secondTenant.tenantId),
+      },
+    });
+    const cheatPage = await createPage(secondTenant.editor.sessionSid, secondTenant.tenantId, "Editor cheat target");
+    const cheatRes = await editorCtx.put(`lp/pages/${cheatPage.id}`, {
+      data: { status: "published" },
+    });
+    // 404 (page not in editor's session tenant) is the expected outcome — not 200.
+    expect(cheatRes.status()).not.toBe(200);
+    await editorCtx.dispose();
   });
 
   test("editor without pages.review cannot list pending review (403)", async () => {

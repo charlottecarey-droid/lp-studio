@@ -223,7 +223,19 @@ interface AsanaConfigShape {
   defaultAssigneeGid?: string;
 }
 
+// Asana config holds tenant-wide credentials (PAT) and routes review tasks
+// across the workspace, so it's a privileged setting. Restrict GET/PUT/test to
+// users with the `settings` permission or tenant admins (task #108).
+function requireAsanaAdmin(req: import("express").Request, res: import("express").Response): boolean {
+  const u = req.authUser;
+  if (!u) { res.status(401).json({ error: "Not authenticated" }); return false; }
+  if (u.isAdmin || u.permissions["settings"] || u.appUserRole === "superadmin") return true;
+  res.status(403).json({ error: "Permission denied" });
+  return false;
+}
+
 router.get("/lp/integrations/asana", async (req, res): Promise<void> => {
+  if (!requireAsanaAdmin(req, res)) return;
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const row = await getIntegration("asana", tenantId);
   if (!row) {
@@ -243,6 +255,7 @@ router.get("/lp/integrations/asana", async (req, res): Promise<void> => {
 });
 
 router.put("/lp/integrations/asana", async (req, res): Promise<void> => {
+  if (!requireAsanaAdmin(req, res)) return;
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { enabled, config } = req.body as { enabled: boolean; config: AsanaConfigShape };
   if (!config || typeof config !== "object") {
@@ -262,6 +275,7 @@ router.put("/lp/integrations/asana", async (req, res): Promise<void> => {
 });
 
 router.post("/lp/integrations/asana/test", async (req, res): Promise<void> => {
+  if (!requireAsanaAdmin(req, res)) return;
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { config } = req.body as { config: AsanaConfigShape };
   const existing = await getIntegration("asana", tenantId);

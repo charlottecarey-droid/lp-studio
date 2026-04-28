@@ -73,6 +73,9 @@ async function insertUserWithSession(
     userId, email: opts.email, name: opts.name, avatarUrl: null,
     tenantId, role: opts.userRole, permissions: perms, isAdmin: opts.isAdmin,
     micrositeDomain: null,
+    // Mirror the production session shape so getTenantId can honour the
+    // X-Tenant-Id cross-tenant override for Dandy operators (task #108).
+    appUserRole: opts.userRole,
   };
   await client.query(
     `INSERT INTO app_sessions (sid, sess, expire) VALUES ($1, $2, $3)`,

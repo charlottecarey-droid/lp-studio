@@ -278,6 +278,9 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       permissions,
       isAdmin,
       micrositeDomain,
+      // Capture app_users.role at login so getTenantId can honour the
+      // X-Tenant-Id cross-tenant override for Dandy operators (task #108).
+      appUserRole: user.role ?? null,
     });
     const expire = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -593,6 +596,8 @@ router.post("/auth/password", async (req, res): Promise<void> => {
       permissions,
       isAdmin,
       micrositeDomain,
+      // See login route — same rationale (task #108).
+      appUserRole: user.role ?? null,
     });
     const expire = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -750,6 +755,11 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
         `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
          VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
         [tenant.id, JSON.stringify(ALL_PERMS)]
+      );
+      await client.query(
+        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+         VALUES ($1, 'Content Manager', $2, false, true)`,
+        [tenant.id, JSON.stringify(CONTENT_MANAGER_PERMS)]
       );
       await client.query(
         `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)

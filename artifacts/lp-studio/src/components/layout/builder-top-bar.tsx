@@ -281,7 +281,11 @@ export function BuilderTopBar({
         </>
       )}
 
-      {!canPublish && status !== "published" && (
+      {/* Submit for Review is always available on non-published pages so that
+          publish-capable users (admins / Content Managers / superadmins) can
+          still ask a peer to review before pushing to production. Editors who
+          lack publish rights also see this — for them it's the only path. */}
+      {status !== "published" && (
         <Button
           size="sm"
           variant={status === "pending_review" ? "outline" : "default"}

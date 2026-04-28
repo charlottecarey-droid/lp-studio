@@ -292,19 +292,25 @@ router.get("/lp/pages/pending-review", async (req, res): Promise<void> => {
     res.status(403).json({ error: "Permission denied" });
     return;
   }
-  const rows = await db
-    .select({
-      id: lpPagesTable.id,
-      title: lpPagesTable.title,
-      slug: lpPagesTable.slug,
-      submittedAt: lpPagesTable.submittedForReviewAt,
-      submittedBy: lpPagesTable.updatedBy,
-      asanaTaskId: lpPagesTable.asanaTaskId,
-    })
-    .from(lpPagesTable)
-    .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.status, "pending_review")))
-    .orderBy(desc(lpPagesTable.submittedForReviewAt));
-  res.json(rows);
+  // Source the requester from the dedicated submitted_by_user_id audit column
+  // (joined to app_users for the email) rather than `updated_by`. updated_by
+  // can drift if someone edits the page while it sits in review, but the
+  // person who actually clicked "Submit for Review" must remain stable.
+  const result = await pool.query(
+    `SELECT
+        p.id,
+        p.title,
+        p.slug,
+        p.submitted_for_review_at AS "submittedAt",
+        COALESCE(u.email, p.updated_by) AS "submittedBy",
+        p.asana_task_id AS "asanaTaskId"
+     FROM lp_pages p
+     LEFT JOIN app_users u ON u.id = p.submitted_by_user_id
+     WHERE p.tenant_id = $1 AND p.status = 'pending_review'
+     ORDER BY p.submitted_for_review_at DESC`,
+    [tenantId],
+  );
+  res.json(result.rows);
 });
 
 router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {

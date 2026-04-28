@@ -14,6 +14,13 @@ export interface AuthUser {
   role: string;
   permissions: Record<string, boolean>;
   isAdmin: boolean;
+  /**
+   * Global app_users.role — distinct from per-tenant `role`. A value of
+   * "superadmin" identifies a Dandy operator who is allowed to act across
+   * tenants (e.g. via the X-Tenant-Id override on getTenantId). Optional for
+   * backward compatibility with sessions issued before this field existed.
+   */
+  appUserRole?: string | null;
 }
 
 declare global {
@@ -81,9 +88,25 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 /**
  * Safely extract tenantId from the authenticated user.
  * Returns null and sends 403 if no tenant is associated.
+ *
+ * Cross-tenant override (task #108): a Dandy operator (app_users.role='superadmin')
+ * may pass an `X-Tenant-Id` header to act on a tenant they're not a member of.
+ * The header is honoured ONLY when `req.authUser.appUserRole === 'superadmin'`;
+ * for everyone else it is silently ignored so a regular user cannot escape
+ * their tenant scope by setting the header.
  */
 export function getTenantId(req: Request, res: Response): number | null {
-  const tenantId = req.authUser?.tenantId;
+  const user = req.authUser;
+  if (user?.appUserRole === "superadmin") {
+    const raw = req.header("x-tenant-id");
+    if (raw) {
+      const overrideId = Number.parseInt(raw, 10);
+      if (Number.isFinite(overrideId) && overrideId > 0) {
+        return overrideId;
+      }
+    }
+  }
+  const tenantId = user?.tenantId;
   if (tenantId == null) {
     res.status(403).json({ error: "No tenant associated with this account" });
     return null;
