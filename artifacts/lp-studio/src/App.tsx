@@ -297,6 +297,9 @@ function AppRouter() {
         {/* Visitor Facing Landing Page (No App Layout) */}
         <Route path="/lp/:slug" component={LandingPageViewer} />
 
+        {/* Authenticated draft preview (No App Layout) */}
+        <Route path="/preview/:slug" component={LandingPageViewer} />
+
         {/* Review Shell (No App Layout) */}
         <Route path="/review/:token" component={ReviewShell} />
 
@@ -393,6 +396,10 @@ function AppShell() {
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             {/* Thank-you page after form submission */}
             <Route path="/thank-you" component={ThankYou} />
+            {/* Authenticated/token-gated draft preview — must come before /:slug catch-all */}
+            <Route path="/preview/:slug" component={LandingPageViewer} />
+            {/* Token-based review link */}
+            <Route path="/review/:token" component={ReviewShell} />
             {/* Short slug routes: partners.meetdandy.com/{slug} */}
             <Route path="/:slug" component={LandingPageViewer} />
             {/* Keep /lp/:slug for backward compatibility */}
@@ -414,13 +421,22 @@ function AppShell() {
   }
 
   // Public prospect-facing routes — no sign-in prompt, ever
+  // Page preview is a public route only when accessed with a review token —
+  // that way reviewers don't need to log in. Logged-out users hitting
+  // /preview/:slug without a token get bounced through the regular AuthGate
+  // path so they can sign in and load it as a tenant member.
+  const hasReviewToken =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("reviewToken");
+
   const isPublicRoute =
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
     location.startsWith("/review/") || location === "/review" ||
     location.startsWith("/thank-you") ||
     location.startsWith("/preview/template/") ||
-    location.startsWith("/preview/generic-catalog-fixture");
+    location.startsWith("/preview/generic-catalog-fixture") ||
+    (location.startsWith("/preview/") && hasReviewToken);
 
   if (isPublicRoute) {
     return (
@@ -433,6 +449,7 @@ function AppShell() {
             <Route path="/thank-you" component={ThankYou} />
             <Route path="/preview/template/:templateId" component={TemplatePreview} />
             <Route path="/preview/generic-catalog-fixture" component={GenericCatalogFixture} />
+            <Route path="/preview/:slug" component={LandingPageViewer} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

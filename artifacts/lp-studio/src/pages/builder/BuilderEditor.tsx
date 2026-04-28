@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn, getLpPageUrl } from "@/lib/utils";
+import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -1390,7 +1390,7 @@ export default function BuilderEditor() {
         onTitleBlur={handleTitleBlur}
         onSetMobile={setIsMobile}
         liveUrl={getLpPageUrl(slug, micrositeDomain)}
-        previewUrl={`/lp/${slug}`}
+        previewUrl={getLpPreviewUrl(slug, micrositeDomain)}
         onSave={handleSave}
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}

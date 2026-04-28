@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomBytes } from "crypto";
-import { db } from "@workspace/db";
-import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable } from "@workspace/db";
+import { db, pool } from "@workspace/db";
+import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
@@ -10,6 +10,7 @@ import { getClientIp, lookupGeoAsync } from "../../lib/geo";
 import { revealAccountName } from "../../lib/apollo-reveal";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
+import { SESSION_COOKIE, type AuthUser } from "../../middleware/requireAuth";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -277,11 +278,15 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.slug, params.data.slug)));
 
     if (builderPage) {
-      // Check if this is a public domain (microsite) and block draft pages
-      const hostname = getRequestHost(req);
-      const isPublicDomain = hostname.includes("partners.meetdandy.com");
-
-      if (builderPage.status === "draft" && isPublicDomain) {
+      // Drafts must NEVER be served from a tenant-mapped public host.
+      // We're inside this branch only when the request host resolved to a
+      // tenant via findTenantByHost — i.e. the visitor is on a public-facing
+      // domain (microsite-only OR tenant-locked custom domain). The previous
+      // implementation hardcoded "partners.meetdandy.com" which leaked drafts
+      // on lp.meetdandy.com, custom tenant domains, and *.lpstudio.ai
+      // wildcard subdomains. Authenticated tenant members and review-token
+      // holders should use /api/lp/preview/:slug instead.
+      if (builderPage.status === "draft") {
         res.status(404).json({ error: "Page not found" });
         return;
       }
@@ -513,6 +518,114 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
     sessionId,
     assignedVariant: enrichedVariant,
     status: test.status,
+  });
+});
+
+// ─── Preview endpoint ──────────────────────────────────────────────────────
+// GET /api/lp/preview/:slug
+//
+// Authenticated/authorised counterpart to /api/lp/page/:slug. Renders BOTH
+// drafts and published pages so editors and reviewers can see in-progress
+// work. Public hosts must NEVER serve drafts via the live URL — that's the
+// /api/lp/page/:slug path which returns 404 for drafts above. The preview
+// path is the only way to view a draft.
+//
+// Authorisation is satisfied by EITHER:
+//   1. A valid session cookie (lp_sid) whose tenantId matches the page's
+//      tenantId — or where the user is a global superadmin (isAdmin=true).
+//   2. A query param ?reviewToken=<token> matching an lp_page_reviews row
+//      whose pageId matches the looked-up page. Page-scoped: a token issued
+//      for page A cannot unlock page B.
+//
+// Tenant resolution prefers the request host (when it maps to a tenant) and
+// falls back to the authenticated user's tenant — this lets editors load
+// previews from the admin host (app.lpstudio.ai) without a tenant-mapped
+// host header.
+//
+// Tracking, smart-traffic, A/B assignment, and Apollo IP reveal are all
+// disabled here — preview is a static read.
+
+async function loadAuthUser(req: Request): Promise<AuthUser | null> {
+  const sid = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE];
+  if (!sid) return null;
+  try {
+    const result = await pool.query<{ sess: string }>(
+      `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+      [sid],
+    );
+    if (!result.rows.length) return null;
+    return JSON.parse(result.rows[0].sess) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
+  const slug = req.params.slug?.trim();
+  if (!slug) { res.status(404).json({ error: "Page not found" }); return; }
+
+  const reviewToken = typeof req.query.reviewToken === "string" ? req.query.reviewToken : null;
+
+  let page: typeof lpPagesTable.$inferSelect | null = null;
+
+  // Authorisation path 1: review token. Page-scoped — never lets a token
+  // for page A unlock page B with the same slug in another tenant.
+  if (reviewToken) {
+    const [review] = await db
+      .select()
+      .from(lpPageReviewsTable)
+      .where(eq(lpPageReviewsTable.token, reviewToken));
+    if (review) {
+      const [byTokenPage] = await db
+        .select()
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, review.pageId), eq(lpPagesTable.slug, slug)));
+      if (byTokenPage) page = byTokenPage;
+    }
+  }
+
+  // Authorisation path 2: authenticated session. We always look up the page
+  // under the SESSION's tenant — never under a host-derived tenant. This
+  // prevents a tenant-admin of A from previewing tenant B's drafts simply by
+  // sending a request with B's host header. (`AuthUser.isAdmin` here means
+  // "tenant-role admin", not "global superadmin" — see auth.ts where it is
+  // populated from `tenant_roles.is_admin` — so it must NOT bypass tenant
+  // isolation. The cross-tenant Switch Tenant tool issues a fresh session
+  // for the new tenant, which then matches `user.tenantId` here.)
+  //
+  // Note: the request host is intentionally ignored. The page lookup is
+  // strictly scoped to `user.tenantId`, so a session can only ever surface
+  // its own tenant's pages regardless of which host the request arrived on.
+  if (!page) {
+    const user = await loadAuthUser(req);
+    if (!user || user.tenantId == null) { res.status(404).json({ error: "Page not found" }); return; }
+
+    const [byAuthPage] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, user.tenantId), eq(lpPagesTable.slug, slug)));
+    if (byAuthPage) page = byAuthPage;
+  }
+
+  if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+
+  // Preview responses are never cached — they're authenticated and the page
+  // content can change as the editor saves between previews.
+  res.set("Cache-Control", "no-store");
+  res.json({
+    pageType: "builder",
+    id: page.id,
+    title: page.title,
+    slug: page.slug,
+    blocks: page.blocks,
+    status: page.status,
+    customCss: page.customCss ?? "",
+    animationsEnabled: page.animationsEnabled,
+    metaTitle: page.metaTitle || "",
+    metaDescription: page.metaDescription || "",
+    ogImage: page.ogImage || "",
+    accountNameApollo: "",
+    isPreview: true,
   });
 });
 

@@ -77,6 +77,16 @@ export function BuilderTopBar({
     // The anchor tag handles the navigation
   }
 
+  function handlePreviewDraft(e: React.MouseEvent) {
+    // Copy preview URL to clipboard when clicking "Preview" on drafts so
+    // editors can share it with internal reviewers without re-typing it.
+    // The preview URL is auth/token-gated server-side — see task-107.
+    navigator.clipboard.writeText(previewUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
   return (
     <header className="h-14 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl shrink-0">
       <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={goBack}>
@@ -166,10 +176,23 @@ export function BuilderTopBar({
           </Button>
         </a>
       ) : (
-        <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Preview</span>
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handlePreviewDraft}
+          title={`Open and copy preview link: ${previewUrl}`}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "gap-1.5 text-xs transition-colors",
+              copied && "border-green-500 text-green-600",
+            )}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{copied ? "Link copied!" : "Preview"}</span>
           </Button>
         </a>
       )}

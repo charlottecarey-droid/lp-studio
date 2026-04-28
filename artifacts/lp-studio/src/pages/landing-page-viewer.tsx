@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo, Component, type Reac
 import { motion, useInView, type TargetAndTransition } from "framer-motion";
 import { safeNavigate } from "@/lib/safe-url";
 import { useRoute } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useGetPageConfig, useTrackEvent, type LinkedPage } from "@workspace/api-client-react";
 import { useVisitorSession } from "@/hooks/use-visitor-session";
 import { 
@@ -230,15 +231,25 @@ function deepApplyVars(value: unknown, vars: Record<string, string>): unknown {
 
 export default function LandingPageViewer() {
   const [, paramsLp] = useRoute("/lp/:slug");
+  const [, paramsPreview] = useRoute("/preview/:slug");
   const [, paramsShort] = useRoute("/:slug");
-  const slug = paramsLp?.slug || paramsShort?.slug || "";
+  const slug = paramsPreview?.slug || paramsLp?.slug || paramsShort?.slug || "";
+
+  // Draft preview route (/preview/:slug). Always non-tracked, fetches from
+  // the auth/token-gated /api/lp/preview/:slug endpoint instead of the
+  // public /api/lp/page/:slug. Renders draft pages — the live URL never
+  // does. See task-107 (Stop drafts from leaking publicly).
+  const isPreviewRoute = !!paramsPreview;
 
   // Preview mode: ?previewVariantId=123 forces a specific variant, no tracking
   const searchParams = new URLSearchParams(window.location.search);
   const previewVariantId = searchParams.get("previewVariantId")
     ? parseInt(searchParams.get("previewVariantId")!, 10)
     : undefined;
-  const isPreviewMode = !!previewVariantId;
+  // Review token (passed when a reviewer opens /preview/:slug?reviewToken=…)
+  const previewReviewToken = searchParams.get("reviewToken");
+  // Either A/B variant preview OR /preview/:slug route disables tracking.
+  const isPreviewMode = !!previewVariantId || isPreviewRoute;
 
   // Personalized link token: ?_plToken=<token> — enables engagement attribution
   const plToken = searchParams.get("_plToken") ?? null;
@@ -262,11 +273,42 @@ export default function LandingPageViewer() {
     ? { previewVariantId }
     : { sessionId };
 
-  const { data: config, isLoading, error } = useGetPageConfig(
+  // Standard /api/lp/page/:slug fetch (skipped on the /preview/:slug route).
+  const standard = useGetPageConfig(
     slug,
     apiParams,
-    { query: { enabled: !!slug && (isPreviewMode || !!sessionId), retry: false, staleTime: 60_000, queryKey: ["pageConfig", slug, apiParams] } }
+    {
+      query: {
+        enabled: !!slug && !isPreviewRoute && (isPreviewMode || !!sessionId),
+        retry: false,
+        staleTime: 60_000,
+        queryKey: ["pageConfig", slug, apiParams],
+      },
+    },
   );
+
+  // /preview/:slug fetch — auth-or-token gated, returns drafts. Direct
+  // fetch instead of the generated client so we don't have to round-trip
+  // openapi codegen for a single endpoint. Response shape mirrors the
+  // builder branch of /api/lp/page/:slug. See task-107.
+  const previewQuery = useQuery<BuilderPageResponse>({
+    queryKey: ["lp-preview", slug, previewReviewToken ?? ""],
+    enabled: !!slug && isPreviewRoute,
+    retry: false,
+    staleTime: 0,
+    queryFn: async () => {
+      const url = previewReviewToken
+        ? `/api/lp/preview/${encodeURIComponent(slug)}?reviewToken=${encodeURIComponent(previewReviewToken)}`
+        : `/api/lp/preview/${encodeURIComponent(slug)}`;
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`Preview unavailable (${r.status})`);
+      return (await r.json()) as BuilderPageResponse;
+    },
+  });
+
+  const { data: config, isLoading, error } = isPreviewRoute
+    ? { data: previewQuery.data, isLoading: previewQuery.isLoading, error: previewQuery.error }
+    : { data: standard.data, isLoading: standard.isLoading, error: standard.error };
 
   const [hasTrackedImpression, setHasTrackedImpression] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -415,7 +457,10 @@ export default function LandingPageViewer() {
   useEffect(() => {
     // Never track impressions in preview mode
     if (isPreviewMode) return;
-    if (config?.assignedVariant && sessionId && !hasTrackedImpression) {
+    // Builder pages don't carry an `assignedVariant` — only A/B variant
+    // configs do. Narrow with isBuilderPageResponse before reading variant
+    // fields so the BuilderPageResponse | PageConfig union type-checks.
+    if (config && !isBuilderPageResponse(config) && config.assignedVariant && sessionId && !hasTrackedImpression) {
       trackEvent.mutate({
         data: {
           sessionId,
@@ -639,9 +684,11 @@ export default function LandingPageViewer() {
             <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase">
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-foreground opacity-70" />
-                Preview Mode
+                {isPreviewRoute ? "Draft Preview — not publicly visible" : "Preview Mode"}
               </span>
-              <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
+              {!isPreviewRoute && (
+                <span className="font-mono font-normal normal-case tracking-normal opacity-70">— {config.assignedVariant.name}</span>
+              )}
             </div>
             <button
               onClick={() => window.close()}

@@ -18,6 +18,7 @@ const router: IRouter = Router();
 const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/track/ },
   { method: "*",    pattern: /^\/lp\/page\// },           // GET /lp/page/:slug (variant config for public viewer)
+  { method: "GET",  pattern: /^\/lp\/preview\// },        // GET /lp/preview/:slug — does its own auth-or-token check; must skip blanket auth so unauth requests 404 instead of 401 (no enumeration)
   { method: "GET",  pattern: /^\/lp\/brand$/ },           // GET /lp/brand — brand for the published page (tenant resolved from host)
   { method: "POST", pattern: /^\/lp\/media\/shared\/upload$/ }, // POST /lp/media/shared/upload — admin-only, x-admin-key header
   { method: "POST", pattern: /^\/lp\/media\/reclassify$/ },     // POST /lp/media/reclassify — admin-only, x-admin-key header
