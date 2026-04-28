@@ -570,6 +570,15 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
 
   // Authorisation path 1: review token. Page-scoped — never lets a token
   // for page A unlock page B with the same slug in another tenant.
+  //
+  // Token validity model (see schema in lib/db/src/schema/lpCollaboration.ts):
+  // the lp_page_reviews row IS the token. Revocation is implemented as
+  // DELETE on the row (DELETE /lp/pages/:pageId/reviews/:reviewId in
+  // collaboration.ts) — once the row is gone the WHERE-clause below
+  // returns nothing and we 404, so revoked tokens are correctly rejected
+  // here without any extra predicate. The schema deliberately has no
+  // expires_at / revoked_at columns; if/when expiry semantics are added,
+  // the WHERE clause must grow corresponding predicates.
   if (reviewToken) {
     const [review] = await db
       .select()

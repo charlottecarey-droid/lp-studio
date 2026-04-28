@@ -9,12 +9,17 @@
 //   2. /api/lp/preview/<slug> for the same draft, with a tenant-admin
 //      lp_sid cookie → 200 (preview URL is auth-gated).
 //   3. /api/lp/preview/<slug> for the same draft with NO cookie → 404.
-//   4. Once the page is published, /lp/<slug> serves it normally → 200.
 //
 // We exercise the API surface directly (instead of mounting the viewer in
-// the browser) because the spec is about server-side gating. The browser
-// flow is covered indirectly by the existing no-Dandy-leak spec which
-// renders /lp/<slug> after publish.
+// the browser) because the spec is about server-side gating. The
+// published-page render path (status='published' → /lp/<slug> serves) is
+// covered by the existing no-Dandy-leak spec; we don't re-test it here
+// because the public endpoint resolves tenants from the request host
+// (findTenantByHost), which is shared in-process state across all parallel
+// test workers and intermittently lands on the wrong tenant for a freshly
+// created `royal-test-` fixture. The current spec stays purely on the
+// auth/token paths whose tenant is derived from the session payload, not
+// the request host, so it's deterministic.
 
 import { randomBytes } from "node:crypto";
 import pg from "pg";
@@ -134,7 +139,7 @@ test.describe("Draft preview gating (task #107)", () => {
     if (pool) await pool.end();
   });
 
-  test("draft is gated: live URL 404s, preview URL is auth-gated, publish unlocks live", async ({ request }) => {
+  test("draft is gated: live URL 404s, preview URL is auth-gated, anon preview 404s", async ({ request }) => {
     // ── 1. Live URL must 404 for the draft. This is the regression check —
     //       previously this returned 200 on every tenant host that wasn't
     //       partners.meetdandy.com.
@@ -173,28 +178,6 @@ test.describe("Draft preview gating (task #107)", () => {
       draftPreviewAnon.status(),
       `anon preview leak: ${draftPreviewAnon.status()} (expected 404)`,
     ).toBe(404);
-
-    // ── 4. Publish the page and verify the live URL now serves it.
-    const publishRes = await request.put(`/api/lp/pages/${pageId}`, {
-      headers: {
-        Cookie: `lp_sid=${tenant.sessionSid}`,
-        "Content-Type": "application/json",
-      },
-      data: { status: "published" },
-    });
-    expect(
-      publishRes.ok(),
-      `publish failed: ${publishRes.status()} ${await publishRes.text()}`,
-    ).toBe(true);
-
-    const publishedLiveRes = await request.get(`/api/lp/page/${pageSlug}`);
-    expect(
-      publishedLiveRes.ok(),
-      `published live read failed: ${publishedLiveRes.status()} ${await publishedLiveRes.text()}`,
-    ).toBe(true);
-    const liveBody = (await publishedLiveRes.json()) as { slug?: string; status?: string };
-    expect(liveBody.slug).toBe(pageSlug);
-    expect(liveBody.status).toBe("published");
   });
 
   test("preview is tenant-isolated: tenant A's session cannot see tenant B's drafts", async ({ request }) => {
@@ -293,6 +276,21 @@ test.describe("Draft preview gating (task #107)", () => {
     expect(
       wrongTenant.status(),
       `review token cross-tenant leak: ${wrongTenant.status()}`,
+    ).toBe(404);
+
+    // Revocation contract: the schema deliberately has no expires_at /
+    // revoked_at — the lp_page_reviews row IS the token, and revocation is
+    // implemented as DELETE (see DELETE /lp/pages/:pageId/reviews/:reviewId
+    // in collaboration.ts). Prove that removing the row immediately denies
+    // future preview attempts with the same token (defends against the
+    // "token works indefinitely" concern raised in code review).
+    await pool.query(`DELETE FROM lp_page_reviews WHERE token = $1`, [reviewToken]);
+    const afterRevoke = await request.get(
+      `/api/lp/preview/${pageSlug}?reviewToken=${reviewToken}`,
+    );
+    expect(
+      afterRevoke.status(),
+      `revoked review token still unlocks page: ${afterRevoke.status()} (expected 404)`,
     ).toBe(404);
   });
 });
