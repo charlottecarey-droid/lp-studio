@@ -62,6 +62,46 @@ interface Props {
   };
 }
 
+/**
+ * Live-format a phone number as the visitor types.
+ *
+ * - A leading `+` switches to international mode: keep the `+`, strip
+ *   non-digits, and insert spaces every 3 digits (a loose grouping that
+ *   reads correctly for any country code without us shipping a full
+ *   metadata library like libphonenumber-js).
+ * - 10 digits with no `+` is treated as a US/Canada number and rendered
+ *   as `(NNN) NNN-NNNN`.
+ * - 11 digits starting with `1` (typical US/Canada with country code)
+ *   becomes `+1 (NNN) NNN-NNNN`.
+ * - Anything in between just shows the raw digits so the visitor can
+ *   keep typing without the formatter "fighting" them.
+ */
+export function formatPhoneNumber(raw: string): string {
+  if (typeof raw !== "string" || raw.length === 0) return "";
+  const trimmed = raw.trim();
+  const isIntl = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (isIntl) {
+    // International: keep `+`, group every 3 digits with spaces.
+    const groups = digits.match(/.{1,3}/g) ?? [];
+    return `+${groups.join(" ")}`.trimEnd();
+  }
+
+  // 11-digit US with leading 1 → render as +1 (NNN) NNN-NNNN.
+  if (digits.length === 11 && digits.startsWith("1")) {
+    const d = digits.slice(1);
+    return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  }
+
+  // Truncate to 10 digits while typing so paste-of-noise doesn't sprawl.
+  const d = digits.slice(0, 10);
+  if (d.length === 0) return "";
+  if (d.length <= 3) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 function validateField(field: FormField, value: string): string | null {
   if (field.required && !value.trim()) return `${field.label} is required`;
   if (!value.trim()) return null;
@@ -156,13 +196,26 @@ function FieldInput({
     <input
       type={inputType}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      // Phone inputs run through the live formatter so the visitor sees a
+      // properly grouped number as they type — `(555) 123-4567` for US,
+      // `+44 20 7946 0958` for international (anything with a leading `+`).
+      onChange={e =>
+        onChange(
+          field.type === "phone"
+            ? formatPhoneNumber(e.target.value)
+            : e.target.value,
+        )
+      }
       onFocus={onFocus}
       onBlur={onBlur}
       placeholder={field.placeholder}
       className={`${baseInput} ${borderClass}`}
       style={focusStyle}
       aria-invalid={!!error}
+      // Mobile keyboards: `inputMode="tel"` shows the number pad, and
+      // `autoComplete="tel"` lets the OS suggest the user's saved number.
+      inputMode={field.type === "phone" ? "tel" : undefined}
+      autoComplete={field.type === "phone" ? "tel" : undefined}
     />
   );
 }
