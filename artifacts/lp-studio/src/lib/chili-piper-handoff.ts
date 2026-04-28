@@ -45,6 +45,16 @@ const DEFAULT_FIELD_MAP: Record<string, string | string[]> = {
   Title: ["title", "jobTitle"],
   title: ["title", "jobTitle"],
   JobTitle: ["title", "jobTitle"],
+  // Native lp-studio default label for the role / title field.
+  "Job Role": ["title", "jobTitle", "jobRole"],
+  Website: ["website", "companyWebsite"],
+  website: ["website", "companyWebsite"],
+  CompanyWebsite: ["website", "companyWebsite"],
+  // Native lp-studio default label for the company-website field.
+  "Practice/Company Website": ["website", "companyWebsite"],
+  // And the equivalent practice/company-name label, since the existing
+  // "Company Name" entry won't match a slash-separated label.
+  "Practice/Company Name": ["company", "companyName"],
   Country: "country",
   country: "country",
   State: "state",
