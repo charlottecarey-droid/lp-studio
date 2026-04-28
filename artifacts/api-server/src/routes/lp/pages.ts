@@ -3,10 +3,11 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and, or, isNull, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getTenantIndustry } from "../../lib/tenantIndustry";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
+import crypto from "node:crypto";
 
 const router = Router();
 
@@ -367,6 +368,37 @@ router.post("/lp/pages/:pageId/submit-review", async (req, res): Promise<void> =
     return;
   }
 
+  // Mint (or reuse) a review token so the Asana preview link works without
+  // requiring a logged-in lp-studio session. Reusing the most recent pending
+  // token avoids piling up rows on every resubmit.
+  let reviewToken: string | null = null;
+  try {
+    const [existing] = await db
+      .select({ token: lpPageReviewsTable.token })
+      .from(lpPageReviewsTable)
+      .where(and(eq(lpPageReviewsTable.pageId, id), eq(lpPageReviewsTable.status, "pending")))
+      .orderBy(desc(lpPageReviewsTable.createdAt))
+      .limit(1);
+    if (existing?.token) {
+      reviewToken = existing.token;
+    } else {
+      const fresh = crypto.randomBytes(24).toString("hex");
+      const [inserted] = await db
+        .insert(lpPageReviewsTable)
+        .values({ pageId: id, token: fresh, status: "pending" })
+        .returning({ token: lpPageReviewsTable.token });
+      reviewToken = inserted?.token ?? fresh;
+    }
+  } catch (err) {
+    // Token minting is best-effort. If it fails, the Asana link still works
+    // for logged-in tenant users; only external reviewers lose access.
+    console.error("[submit-review] could not mint review token", err);
+  }
+
+  const previewUrl = reviewToken
+    ? `${buildPreviewUrl(req, page.slug)}?reviewToken=${encodeURIComponent(reviewToken)}`
+    : buildPreviewUrl(req, page.slug);
+
   // Asana is best-effort. We attempt the task creation BEFORE flipping status
   // so we can record the task id atomically with the status change. If asana
   // is misconfigured or unreachable, the warning is surfaced to the requester
@@ -376,7 +408,7 @@ router.post("/lp/pages/:pageId/submit-review", async (req, res): Promise<void> =
     pageId: id,
     pageTitle: page.title,
     requesterEmail: user.email,
-    previewUrl: buildPreviewUrl(req, page.slug),
+    previewUrl,
     reviewUrl: buildReviewUrl(req, id),
   });
 
