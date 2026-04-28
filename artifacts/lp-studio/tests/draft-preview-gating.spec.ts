@@ -212,6 +212,49 @@ test.describe("Draft preview gating (task #107)", () => {
     ).toBe(404);
   });
 
+  test("editor preview works on admin host even when tenant has a microsite domain", async ({ request }) => {
+    // Regression check for the auth-context-mismatch the architect flagged:
+    // `getLpPreviewUrl` must always point at the admin host (where the
+    // editor's lp_sid cookie lives), NEVER at the tenant's microsite/custom
+    // domain — because session cookies are host-scoped and a preview link
+    // on the microsite host would not carry the editor's session, causing
+    // an immediate 404. We prove the server-side half of that contract here:
+    // even when the tenant has a microsite_domain configured, the preview
+    // endpoint hit on the admin host with the editor's session returns the
+    // draft (200 + status='draft' + isPreview=true).
+    const micrositeHost = `microsite-${Date.now().toString(36)}.test`;
+    await pool.query(
+      `UPDATE tenants SET microsite_domain = $1 WHERE id = $2`,
+      [micrositeHost, tenant.tenantId],
+    );
+    // Refresh the in-process cache so findTenantByHost picks up the change
+    // immediately (it's TTL-cached for 60s otherwise).
+    await request.post("/api/_test/invalidate-host-cache").catch(() => undefined);
+
+    const editorPreview = await request.get(`/api/lp/preview/${secondPageSlug}`, {
+      headers: { Cookie: `lp_sid=${tenant.sessionSid}` },
+    });
+    expect(
+      editorPreview.ok(),
+      `editor preview broke after microsite domain set: ${editorPreview.status()} ${await editorPreview.text()}`,
+    ).toBe(true);
+    const body = (await editorPreview.json()) as {
+      slug: string;
+      status: string;
+      isPreview: boolean;
+    };
+    expect(body.slug).toBe(secondPageSlug);
+    expect(body.status).toBe("draft");
+    expect(body.isPreview).toBe(true);
+
+    // Restore so subsequent tests / cleanup aren't surprised.
+    await pool.query(
+      `UPDATE tenants SET microsite_domain = NULL WHERE id = $1`,
+      [tenant.tenantId],
+    );
+    await request.post("/api/_test/invalidate-host-cache").catch(() => undefined);
+  });
+
   test("review token is page-scoped: a token for page A cannot unlock page B", async ({ request }) => {
     // Mint a review record for the FIRST page only. Token generated in JS
     // (not via pgcrypto's gen_random_bytes — not always installed in CI DBs).
