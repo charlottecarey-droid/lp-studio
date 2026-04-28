@@ -102,6 +102,44 @@ export function formatPhoneNumber(raw: string): string {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
+/**
+ * Normalize a website / domain string to a bare lowercase host.
+ *
+ *   "  Https://www.MeetDandy.com/contact/  " → "meetdandy.com/contact"
+ *   "WWW.MeetDandy.COM"                       → "meetdandy.com"
+ *
+ * Run on blur (not on every keystroke) so the visitor isn't fighting the
+ * formatter mid-paste. Empty input passes through unchanged.
+ */
+export function normalizeWebsite(raw: string): string {
+  if (typeof raw !== "string") return "";
+  let v = raw.trim();
+  if (!v) return "";
+  // Strip scheme.
+  v = v.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  // Strip leading `www.`.
+  v = v.replace(/^www\./i, "");
+  // Drop trailing slashes.
+  v = v.replace(/\/+$/, "");
+  // Lowercase only the host portion (preserve case-sensitive paths/queries).
+  const slash = v.indexOf("/");
+  if (slash === -1) return v.toLowerCase();
+  return v.slice(0, slash).toLowerCase() + v.slice(slash);
+}
+
+/**
+ * Heuristic: does this field look like it should hold a website / URL?
+ * Triggers domain normalization on blur for the native lp-studio
+ * "Practice/Company Website" labelling without requiring a new field type.
+ */
+function isWebsiteField(field: FormField): boolean {
+  if (field.type !== "text") return false;
+  const label = (field.label || "").toLowerCase();
+  const placeholder = (field.placeholder || "").toLowerCase();
+  const haystack = `${label} ${placeholder}`;
+  return /\b(website|url|domain)\b/.test(haystack);
+}
+
 function validateField(field: FormField, value: string): string | null {
   if (field.required && !value.trim()) return `${field.label} is required`;
   if (!value.trim()) return null;
