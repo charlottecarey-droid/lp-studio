@@ -300,7 +300,11 @@ export function EmailCaptureModal({
           </div>
         </div>
       ) : formSource === "linked" ? (
-        <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+        // max-w-2xl gives the embedded BlockForm — and especially the
+        // Chili Piper iframe it swaps to after submit — enough room to
+        // breathe (the form itself was fine narrower, but the scheduler
+        // looked cramped at max-w-lg).
+        <div className="relative w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
           <button
             onClick={onClose}
             className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full bg-white/80 z-10"
