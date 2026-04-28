@@ -38,23 +38,26 @@ const DEFAULT_FIELD_MAP: Record<string, string | string[]> = {
   PhoneNumber: "phone",
   // Native default phone-field label.
   "Phone Number": "phone",
-  Company: ["company", "companyName"],
-  company: ["company", "companyName"],
-  CompanyName: ["company", "companyName"],
-  "Company Name": ["company", "companyName"],
-  Title: ["title", "jobTitle"],
-  title: ["title", "jobTitle"],
-  JobTitle: ["title", "jobTitle"],
-  // Native lp-studio default label for the role / title field.
-  "Job Role": ["title", "jobTitle", "jobRole"],
-  Website: ["website", "companyWebsite"],
-  website: ["website", "companyWebsite"],
-  CompanyWebsite: ["website", "companyWebsite"],
+  // Company name — write camelCase + lowercase variants so the router
+  // picks it up regardless of which casing it expects.
+  Company: ["company", "companyName", "companyname"],
+  company: ["company", "companyName", "companyname"],
+  CompanyName: ["company", "companyName", "companyname"],
+  "Company Name": ["company", "companyName", "companyname"],
+  // Slash-separated label used by the native lp-studio practice form.
+  "Practice/Company Name": ["company", "companyName", "companyname"],
+  Title: ["title", "jobTitle", "jobtitle"],
+  title: ["title", "jobTitle", "jobtitle"],
+  JobTitle: ["title", "jobTitle", "jobtitle"],
+  // Native lp-studio default label for the role / title field — also
+  // written as `jobRole`/`jobrole` since some routers model the dropdown
+  // separately from job title.
+  "Job Role": ["title", "jobTitle", "jobtitle", "jobRole", "jobrole", "role"],
+  Website: ["website", "companyWebsite", "companywebsite"],
+  website: ["website", "companyWebsite", "companywebsite"],
+  CompanyWebsite: ["website", "companyWebsite", "companywebsite"],
   // Native lp-studio default label for the company-website field.
-  "Practice/Company Website": ["website", "companyWebsite"],
-  // And the equivalent practice/company-name label, since the existing
-  // "Company Name" entry won't match a slash-separated label.
-  "Practice/Company Name": ["company", "companyName"],
+  "Practice/Company Website": ["website", "companyWebsite", "companywebsite"],
   Country: "country",
   country: "country",
   State: "state",
