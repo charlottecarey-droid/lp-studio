@@ -239,6 +239,17 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
   const [chiliPiperHandoffUrl, setChiliPiperHandoffUrl] = useState<string | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
+  // Stable per-mount session id for analytics. Required because BlockForm
+  // fires *two* conversion events (`form_submit` then `chilipiper_booking`)
+  // and the funnel reports stitch them together by sessionId. When the
+  // parent provides one (live A/B test pages), we use it verbatim. When it
+  // doesn't (builder pages without an assigned test), we mint one anon id
+  // *once* so both events share it — otherwise each call site would mint
+  // its own `anon-${Date.now()}` and the booking would look like a brand
+  // new visitor. Lazy useState ensures the id is computed exactly once.
+  const [anonSessionId] = useState(() => `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const effectiveSessionId = sessionId ?? anonSessionId;
+
   // Wire the booking-confirmed postMessage listener so the inline-iframe
   // handoff still records the second `chilipiper_booking` conversion. Empty
   // url is benign — the listener still attaches but never matches anything
@@ -247,7 +258,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
     url: chiliPiperHandoffUrl ?? "",
     pageId,
     variantId,
-    sessionId,
+    sessionId: effectiveSessionId,
   });
 
   useEffect(() => {
@@ -397,7 +408,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              sessionId: sessionId ?? `anon-${Date.now()}`,
+              sessionId: effectiveSessionId,
               testId: 0,
               variantId: variantId ?? 0,
               eventType: "conversion",
@@ -586,7 +597,7 @@ export function BlockForm({ props, brand, pageId, variantId, sessionId, prefill 
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
-                            sessionId: sessionId ?? `anon-${Date.now()}`,
+                            sessionId: effectiveSessionId,
                             testId: 0,
                             variantId: variantId ?? 0,
                             eventType: "conversion",

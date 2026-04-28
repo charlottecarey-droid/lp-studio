@@ -257,4 +257,128 @@ test.describe("Marketo → Chili Piper handoff", () => {
     expect(u.searchParams.get("phone")).toBe("555-1212");
     expect(u.searchParams.get("company")).toBe("Acme Co");
   });
+
+  test("a Chili Piper booking-confirmed postMessage records a chilipiper_booking conversion attributed to the same session/variant as the form_submit", async ({ page, baseURL, request }) => {
+    // Mirrors the structure of the previous test, but stops at the iframe
+    // mount and then drives the postMessage flow that proves the second
+    // conversion event lands. Kept as a separate test so a regression on
+    // either half (handoff URL build vs. booking-confirmed listener) can be
+    // diagnosed in isolation.
+    expect(baseURL, "playwright baseURL must be configured").toBeTruthy();
+
+    // Capture every POST to /api/lp/track up-front. We assert on the bodies
+    // rather than on individual request.waitForResponse calls so the test
+    // works even if the conversion fires before we've started awaiting.
+    const trackCalls: Array<{
+      sessionId: unknown;
+      testId: unknown;
+      variantId: unknown;
+      conversionType: unknown;
+    }> = [];
+    page.on("request", (req) => {
+      if (req.method() !== "POST") return;
+      if (!req.url().includes("/api/lp/track")) return;
+      const raw = req.postData();
+      if (!raw) return;
+      try {
+        const body = JSON.parse(raw) as Record<string, unknown>;
+        trackCalls.push({
+          sessionId: body.sessionId,
+          testId: body.testId,
+          variantId: body.variantId,
+          conversionType: body.conversionType,
+        });
+      } catch {
+        /* non-JSON track call — ignore */
+      }
+    });
+
+    await page.addInitScript(MKTO_INIT_SCRIPT);
+
+    const viewerUrl = `/lp/${pageSlug}`;
+    const response = await page.goto(viewerUrl, { waitUntil: "domcontentloaded" });
+    expect(response, `navigation to ${viewerUrl} returned no response`).not.toBeNull();
+    expect(response!.status(), `unexpected status for ${viewerUrl}`).toBeLessThan(400);
+
+    await page.waitForResponse(
+      (r) => r.url().includes(`/api/lp/forms/${formId}`) && r.ok(),
+      { timeout: 30_000 },
+    );
+    await page.waitForFunction(
+      () => Boolean((window as Window).__mktoTestForm),
+      undefined,
+      { timeout: 30_000 },
+    );
+    await page.waitForTimeout(100);
+
+    await page.evaluate(() => {
+      window.__mktoTestForm!._trigger({
+        Email: "booker@example.com",
+        FirstName: "Book",
+        LastName: "Er",
+        Phone: "555-9090",
+        Company: "Acme Co",
+      });
+    });
+
+    // Iframe must be mounted before we fire the postMessage — the listener
+    // is attached by the BlockForm's useChiliPiperBookingTracking hook only
+    // after chiliPiperHandoffUrl flips to a non-empty value, which happens
+    // in the same render that mounts the iframe. Waiting on visibility
+    // ensures both have settled.
+    const iframe = page.locator("iframe[src*='chilipiper.com']").first();
+    await expect(iframe).toBeVisible({ timeout: 10_000 });
+
+    // The form_submit conversion is fired synchronously in the Marketo
+    // onSuccess closure, so by the time the iframe is on screen it must
+    // already have hit the network.
+    await expect.poll(
+      () => trackCalls.find((c) => c.conversionType === "form_submit"),
+      { timeout: 10_000, message: "expected a form_submit conversion to be recorded" },
+    ).toBeTruthy();
+    const formSubmit = trackCalls.find((c) => c.conversionType === "form_submit")!;
+
+    // Fake what Chili Piper's iframe would post once the visitor picks a
+    // slot. Dispatched on the parent window (same origin) since the listener
+    // is attached to `window` and doesn't filter on `event.source`.
+    await page.evaluate(() => {
+      window.postMessage(
+        {
+          action: "booking-confirmed",
+          lead: {
+            email: "booker@example.com",
+            firstName: "Book",
+            lastName: "Er",
+            phone: "555-9090",
+          },
+        },
+        "*",
+      );
+    });
+
+    // The booking-conversion POST is async (the listener awaits the lead
+    // upsert before firing it), so poll until it shows up.
+    await expect.poll(
+      () => trackCalls.find((c) => c.conversionType === "chilipiper_booking"),
+      { timeout: 10_000, message: "expected a chilipiper_booking conversion to be recorded" },
+    ).toBeTruthy();
+    const booking = trackCalls.find((c) => c.conversionType === "chilipiper_booking")!;
+
+    // Attribution must match the original form_submit event — same visitor
+    // session, same A/B variant, same testId — otherwise the funnel reports
+    // would attribute the booking to a different visitor.
+    expect(booking.sessionId, "booking conversion sessionId must match form_submit").toBe(formSubmit.sessionId);
+    expect(booking.variantId, "booking conversion variantId must match form_submit").toBe(formSubmit.variantId);
+    expect(booking.testId, "booking conversion testId must match form_submit").toBe(formSubmit.testId);
+
+    // Defensive: only one booking conversion should fire per submission.
+    // The hook guards with a submittedRef, so a second postMessage should
+    // be a no-op. If this ever regresses we'll over-count bookings.
+    await page.evaluate(() => {
+      window.postMessage({ action: "booking-confirmed", lead: { email: "booker@example.com" } }, "*");
+    });
+    await page.waitForTimeout(300);
+    const bookingCount = trackCalls.filter((c) => c.conversionType === "chilipiper_booking").length;
+    expect(bookingCount, "duplicate postMessage must not double-fire the booking conversion").toBe(1);
+  });
 });
