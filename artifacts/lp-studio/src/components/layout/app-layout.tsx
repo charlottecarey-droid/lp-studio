@@ -12,6 +12,7 @@ import {
   FormInput,
   Users,
   Shield,
+  Settings,
   LogOut,
   ChevronDown,
   ChevronRight,
@@ -329,6 +330,16 @@ export function AppSidebar() {
                       <Link href="/blocks" className="font-medium">
                         <Blocks className="w-4 h-4" />
                         <span>Blocks</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {(hasPerm("settings") || user?.isAdmin) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/settings/general"}>
+                      <Link href="/settings/general" className="font-medium">
+                        <Settings className="w-4 h-4" />
+                        <span>General</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

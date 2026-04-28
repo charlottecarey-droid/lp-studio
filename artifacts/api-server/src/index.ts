@@ -790,6 +790,34 @@ async function runMigrations(): Promise<void> {
       logger.error({ err: cmErr }, "page-review role backfill failed (non-fatal)");
     }
 
+    // Task #113 — page-review-workflow toggle rollout. Mark every tenant that
+    // existed BEFORE this change as `requireReviewBeforePublish=true` so they
+    // continue to see the Submit/Approve/Reject UI without anyone toggling
+    // anything. Tenants created AFTER this change default to FALSE in the
+    // POST /api/admin/tenants insert. Marker-guarded so reboots are no-ops
+    // and admins who later flip the toggle off are never overwritten.
+    try {
+      const reviewToggleMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'require_review_toggle_backfill_v1'`
+      );
+      if (reviewToggleMarker.rows.length === 0) {
+        await db.execute(sql`
+          UPDATE tenants
+             SET settings = COALESCE(settings, '{}'::jsonb)
+                          || '{"requireReviewBeforePublish": true}'::jsonb,
+                 updated_at = now()
+           WHERE settings IS NULL
+              OR NOT (settings ? 'requireReviewBeforePublish')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('require_review_toggle_backfill_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("requireReviewBeforePublish backfill applied");
+      }
+    } catch (toggleErr) {
+      logger.error({ err: toggleErr }, "require-review toggle backfill failed (non-fatal)");
+    }
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.

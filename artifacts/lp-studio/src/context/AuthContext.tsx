@@ -15,6 +15,11 @@ export interface AuthUser {
   // app_users.role — distinct from tenant role above. "superadmin" means a
   // Dandy employee with cross-tenant publishing/review powers (task #108).
   appUserRole?: string | null;
+  // Task #113 — tenant-wide page-review-workflow toggle. Defaults true on
+  // existing tenants (boot backfill) and false on new ones. When false, the
+  // Submit-for-Review / Approve / Reject UI is hidden and `pages` perm
+  // holders publish directly.
+  requireReviewBeforePublish?: boolean;
 }
 
 export interface DomainContext {
@@ -35,6 +40,13 @@ interface AuthContextValue {
   canPublish: boolean;
   /** True if the user can approve or reject pending reviews. */
   canReview: boolean;
+  /**
+   * Task #113 — true when the active tenant requires the page-review workflow.
+   * When false the Submit-for-Review / Approve / Reject UI is hidden, the
+   * PendingReviewWidget self-hides, and `canPublish` extends to `pages` perm
+   * holders so they can publish directly.
+   */
+  reviewWorkflowEnabled: boolean;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -134,17 +146,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, permOverride]
   );
 
-  // Page-review derived flags (task #108). Mirror the server logic:
+  // Page-review derived flags (task #108 + #113). Mirror the server logic:
   //   superadmin OR tenant-admin OR explicit perm.
   // Role preview honours the override map (no isAdmin bypass) so dev tools
   // can faithfully simulate Editor/Viewer experiences.
+  //
+  // Task #113: when the tenant has the review workflow disabled, ANY user
+  // with the basic `pages` perm (or a higher equivalent) publishes directly,
+  // and `canReview` is forced to false because the review surface is gone.
   const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+  const reviewWorkflowEnabled = user?.requireReviewBeforePublish !== false;
   const canPublish = !!user && (
     permOverride !== null
-      ? !!permOverride["pages.publish"]
-      : (user.isAdmin || !!user.permissions["pages.publish"] || isSuperadmin)
+      ? (
+          // In role-preview, a tenant with the workflow disabled lets any
+          // role that has `pages` (or `pages.publish`) publish directly.
+          reviewWorkflowEnabled
+            ? !!permOverride["pages.publish"]
+            : (!!permOverride["pages.publish"] || !!permOverride["pages"])
+        )
+      : (
+          reviewWorkflowEnabled
+            ? (user.isAdmin || !!user.permissions["pages.publish"] || isSuperadmin)
+            : (user.isAdmin || !!user.permissions["pages.publish"] || !!user.permissions["pages"] || isSuperadmin)
+        )
   );
-  const canReview = !!user && (
+  const canReview = reviewWorkflowEnabled && !!user && (
     permOverride !== null
       ? !!permOverride["pages.review"]
       : (user.isAdmin || !!user.permissions["pages.review"] || isSuperadmin)
@@ -196,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, loading, domainContext: effectiveDomainContext, domainContextError,
-      hasPerm, canPublish, canReview, logout, refresh,
+      hasPerm, canPublish, canReview, reviewWorkflowEnabled, logout, refresh,
       impersonatedRole, permOverride, setRolePreview, clearRolePreview,
       switchTenant, impersonatedTenantName,
     }}>

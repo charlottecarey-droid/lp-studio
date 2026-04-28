@@ -45,6 +45,15 @@ interface BuilderTopBarProps {
   onApproveReview?: () => void;
   /** Reviewer click — reject a pending_review page (caller prompts for note). */
   onRejectReview?: () => void;
+  /**
+   * Task #113 — when false, hide all review-workflow buttons (Submit /
+   * Approve / Reject). Defaults to true so callers that don't pass it keep
+   * the existing behaviour. The "Pending Review" status badge is not
+   * explicitly gated by this flag because `pending_review` is unreachable
+   * in OFF mode (the submit-review endpoint returns 409), so existing pages
+   * always render as Draft or Live.
+   */
+  reviewWorkflowEnabled?: boolean;
 }
 
 export function BuilderTopBar({
@@ -73,6 +82,7 @@ export function BuilderTopBar({
   onSubmitForReview,
   onApproveReview,
   onRejectReview,
+  reviewWorkflowEnabled = true,
 }: BuilderTopBarProps) {
   const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
@@ -255,7 +265,7 @@ export function BuilderTopBar({
           disabled while a request is open).
         - Publishers see the original Publish/Unpublish button.
       */}
-      {status === "pending_review" && canReview && (
+      {reviewWorkflowEnabled && status === "pending_review" && canReview && (
         <>
           <Button
             size="sm"
@@ -284,8 +294,9 @@ export function BuilderTopBar({
       {/* Submit for Review is always available on non-published pages so that
           publish-capable users (admins / Content Managers / superadmins) can
           still ask a peer to review before pushing to production. Editors who
-          lack publish rights also see this — for them it's the only path. */}
-      {status !== "published" && (
+          lack publish rights also see this — for them it's the only path.
+          Task #113: hidden entirely when the tenant has the workflow off. */}
+      {reviewWorkflowEnabled && status !== "published" && (
         <Button
           size="sm"
           variant={status === "pending_review" ? "outline" : "default"}

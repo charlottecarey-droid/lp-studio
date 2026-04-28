@@ -123,7 +123,7 @@ function PermCell({
 /* ── Main content ───────────────────────────────────────────────────── */
 
 function RolesContent() {
-  const { user } = useAuth();
+  const { user, reviewWorkflowEnabled } = useAuth();
   const { toast } = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -515,13 +515,35 @@ function RolesContent() {
                     </tr>
 
                     {/* Individual permission rows */}
-                    {group.keys.map(({ key, label }) => (
+                    {group.keys.map(({ key, label }) => {
+                      // Task #113 — when the tenant has the page-review
+                      // workflow disabled, the pages.publish/pages.review
+                      // perms are inert (Submit/Approve/Reject endpoints all
+                      // 409). We grey the row + show an inline note instead
+                      // of removing it so admins still see the perm exists.
+                      const reviewRowInert =
+                        !reviewWorkflowEnabled &&
+                        (key === "pages.publish" || key === "pages.review");
+                      return (
                       <tr
                         key={key}
-                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                        className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
+                          reviewRowInert ? "opacity-50" : ""
+                        }`}
+                        data-testid={`perm-row-${key}`}
+                        data-inert={reviewRowInert ? "true" : undefined}
                       >
                         <td className="px-5 py-2.5 text-[13px] text-foreground sticky left-0 bg-background z-10 pl-8">
                           {label}
+                          {reviewRowInert && (
+                            <span
+                              className="ml-2 text-[10px] font-normal text-muted-foreground italic"
+                              data-testid={`perm-inert-note-${key}`}
+                              title="Page review workflow is disabled for this tenant — anyone with the Pages permission can publish directly."
+                            >
+                              (inactive — review workflow off)
+                            </span>
+                          )}
                         </td>
                         {adminRole && (
                           <td className="text-center px-4 py-2.5">
@@ -546,7 +568,8 @@ function RolesContent() {
                           </td>
                         ))}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </>
                 ))}
               </tbody>

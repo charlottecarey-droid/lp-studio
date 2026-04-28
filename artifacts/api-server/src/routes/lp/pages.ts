@@ -6,6 +6,7 @@ import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getTenantIndustry } from "../../lib/tenantIndustry";
+import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 import crypto from "node:crypto";
 
@@ -30,10 +31,19 @@ async function isAppSuperadmin(userId: number | undefined): Promise<boolean> {
   return r.rows[0]?.role === "superadmin";
 }
 
-async function userCanPublish(user: AuthUser | undefined): Promise<boolean> {
+async function userCanPublish(
+  user: AuthUser | undefined,
+  tenantId: number | null,
+): Promise<boolean> {
   if (!user) return false;
   if (user.isAdmin || user.permissions["pages.publish"]) return true;
-  return isAppSuperadmin(user.userId);
+  if (await isAppSuperadmin(user.userId)) return true;
+  // Task #113: when the tenant has the review-required toggle OFF, anyone
+  // with the basic `pages` permission can publish directly. The toggle
+  // defaults to ON for tenants existing before #113 (preserving #108
+  // behaviour) so this short-circuit only fires for opted-out tenants.
+  if (user.permissions["pages"] && !(await tenantRequiresReview(tenantId))) return true;
+  return false;
 }
 
 async function userCanReview(user: AuthUser | undefined): Promise<boolean> {
@@ -258,7 +268,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   const requestedStatus = typeof status === "string" ? status : "draft";
   let effectiveStatus = requestedStatus;
   if (requestedStatus === "published") {
-    if (!(await userCanPublish(req.authUser))) {
+    if (!(await userCanPublish(req.authUser, tenantId))) {
       effectiveStatus = "draft";
     }
   } else if (requestedStatus !== "draft" && requestedStatus !== "pending_review") {
@@ -307,6 +317,13 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
 // as a non-numeric pageId and the GET-by-id handler 400s with "Invalid page ID".
 router.get("/lp/pages/pending-review", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  // Task #113: when the tenant has the review-required toggle OFF the queue
+  // is meaningless — return 409 so any stale UI hammering this endpoint
+  // sees an explicit signal to hide itself instead of an empty list.
+  if (!(await tenantRequiresReview(tenantId))) {
+    res.status(409).json({ error: "Page review workflow is disabled for this tenant" });
+    return;
+  }
   if (!(await userCanReview(req.authUser))) {
     res.status(403).json({ error: "Permission denied" });
     return;
@@ -353,6 +370,12 @@ router.post("/lp/pages/:pageId/submit-review", async (req, res): Promise<void> =
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  // Task #113: review workflow is opt-in per tenant. When OFF, this endpoint
+  // is meaningless — return 409 to make the contract explicit.
+  if (!(await tenantRequiresReview(tenantId))) {
+    res.status(409).json({ error: "Page review workflow is disabled for this tenant" });
+    return;
+  }
   // Anyone with `pages` perm can submit. Admins implicitly have it.
   const user = req.authUser;
   if (!user || (!user.isAdmin && !user.permissions["pages"])) {
@@ -433,6 +456,11 @@ router.post("/lp/pages/:pageId/approve", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  // Task #113: 409 when the tenant has the review workflow disabled.
+  if (!(await tenantRequiresReview(tenantId))) {
+    res.status(409).json({ error: "Page review workflow is disabled for this tenant" });
+    return;
+  }
   if (!(await userCanReview(req.authUser))) {
     res.status(403).json({ error: "Permission denied" });
     return;
@@ -477,6 +505,11 @@ router.post("/lp/pages/:pageId/reject", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const id = parseInt(req.params.pageId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+  // Task #113: 409 when the tenant has the review workflow disabled.
+  if (!(await tenantRequiresReview(tenantId))) {
+    res.status(409).json({ error: "Page review workflow is disabled for this tenant" });
+    return;
+  }
   if (!(await userCanReview(req.authUser))) {
     res.status(403).json({ error: "Permission denied" });
     return;
@@ -581,7 +614,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
       .from(lpPagesTable)
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
     if (current && current.status !== status) {
-      const allowed = await userCanPublish(req.authUser);
+      const allowed = await userCanPublish(req.authUser, tenantId);
       if (!allowed) {
         res.status(403).json({ error: "You don't have permission to change page status. Submit for review instead." });
         return;

@@ -681,7 +681,7 @@ export default function BuilderEditor() {
   const [, params] = useRoute("/builder/:pageId");
   const [, navigate] = useLocation();
   const pageId = params?.pageId ?? "";
-  const { domainContext, canPublish, canReview } = useAuth();
+  const { domainContext, canPublish, canReview, reviewWorkflowEnabled } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
   const [blocks, setBlocks] = useState<PageBlock[]>([]);
@@ -1487,6 +1487,7 @@ export default function BuilderEditor() {
         onSubmitForReview={handleSubmitForReview}
         onApproveReview={handleApproveReview}
         onRejectReview={handleRejectReview}
+        reviewWorkflowEnabled={reviewWorkflowEnabled}
       />
 
       {/* Post-publish outreach banner */}

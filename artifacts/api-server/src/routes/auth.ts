@@ -405,6 +405,10 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     // backfilled to "dental" on first server boot; everyone else stays
     // generic.
     let tenantIndustry: string = "generic";
+    // Task #113: tenant-wide page-review-workflow toggle. Default TRUE so
+    // any tenant the boot backfill hasn't yet touched preserves the #108
+    // behaviour (Submit-for-Review / Approve / Reject UI visible).
+    let requireReviewBeforePublish = true;
     if (sess.tenantId) {
       const tenantResult = await pool.query(
         `SELECT onboarding_completed_at, settings FROM tenants WHERE id = $1`,
@@ -412,8 +416,10 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       );
       if (tenantResult.rows.length > 0) {
         onboardingCompleted = tenantResult.rows[0].onboarding_completed_at !== null;
-        const ind = tenantResult.rows[0].settings?.industry;
+        const settings = tenantResult.rows[0].settings ?? {};
+        const ind = settings.industry;
         if (ind === "dental" || ind === "generic") tenantIndustry = ind;
+        if (settings.requireReviewBeforePublish === false) requireReviewBeforePublish = false;
       }
     }
 
@@ -427,7 +433,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
     }
 
-    res.json({ ...sess, onboardingCompleted, tenantIndustry, appUserRole });
+    res.json({ ...sess, onboardingCompleted, tenantIndustry, appUserRole, requireReviewBeforePublish });
   } catch (err) {
     console.error("[auth] /me error:", err);
     res.status(500).json({ error: "Server error" });
@@ -743,9 +749,16 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
       // Default new tenants to industry='generic' so they immediately resolve
       // to the generic block catalog with no manual settings patch required.
+      //
+      // Task #113: self-serve signups also opt OUT of the page-review workflow
+      // (requireReviewBeforePublish=false). Existing tenants are backfilled
+      // to TRUE on server boot so their #108 behaviour is preserved; this
+      // path mirrors the admin-create default so all "new" tenants — however
+      // they're created — start with the workflow off.
       const tenantResult = await client.query(
         `INSERT INTO tenants (name, slug, plan, status, settings)
-         VALUES ($1, $2, 'trial', 'active', '{"industry":"generic"}'::jsonb)
+         VALUES ($1, $2, 'trial', 'active',
+                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb)
          RETURNING id, name, slug`,
         [name.trim(), slugClean]
       );

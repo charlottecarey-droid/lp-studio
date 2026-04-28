@@ -212,9 +212,16 @@ router.post("/tenants", async (req, res): Promise<void> => {
     // the generic block catalog without requiring a manual settings patch.
     // Dental tenants are explicit (set later via /admin or DB) and are also
     // backfilled for the historical Dandy tenants on server boot.
+    //
+    // Task #113: new tenants opt OUT of the page-review workflow by default
+    // (requireReviewBeforePublish=false). Tenants existing before this
+    // change are backfilled to TRUE on server boot, preserving the #108
+    // behaviour they were used to.
     const tenantResult = await client.query(
       `INSERT INTO tenants (name, slug, domain, microsite_domain, plan, status, settings)
-       VALUES ($1, $2, $3, $4, $5, 'active', '{"industry":"generic"}'::jsonb) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, 'active',
+               '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb)
+       RETURNING *`,
       [name.trim(), slugClean, domain ?? null, micrositeDomain ?? null, plan ?? "trial"]
     );
     const tenant = tenantResult.rows[0];
@@ -993,6 +1000,79 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
     res.json({ ok: true });
   } catch (err) {
     console.error("[admin] DELETE /roles/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Tenant settings (task #113) ─────────────────────────────────────────────
+// Lightweight read/write for the toggle-able tenant-wide flags that live in
+// tenants.settings JSONB. Currently exposes the page-review-workflow toggle
+// (`requireReviewBeforePublish`); add new keys here as the surface grows.
+// Both endpoints are session-auth + tenant-scoped — they only ever touch
+// req.authUser.tenantId.
+
+interface TenantSettingsPayload {
+  /** Page-review workflow toggle. true = preserve task #108 behaviour. */
+  requireReviewBeforePublish: boolean;
+}
+
+router.get("/tenant-settings", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  try {
+    const r = await pool.query<{ settings: Record<string, unknown> | null }>(
+      `SELECT settings FROM tenants WHERE id = $1`,
+      [tenantId],
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    const settings = r.rows[0].settings ?? {};
+    const payload: TenantSettingsPayload = {
+      // Default TRUE so any tenant the boot backfill hasn't touched preserves
+      // the #108 review behaviour. Only an explicit `false` opts a tenant out.
+      requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
+    };
+    res.json(payload);
+  } catch (err) {
+    console.error("[admin] GET /tenant-settings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/tenant-settings — admins only. Currently accepts only the
+// requireReviewBeforePublish flag; we ignore unknown keys instead of 400ing
+// so the client can post a partial payload from a future settings UI.
+router.patch("/tenant-settings", async (req, res): Promise<void> => {
+  const tenantId = req.authUser?.tenantId;
+  if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
+  if (!req.authUser?.isAdmin && !req.authUser?.permissions?.["settings"]) {
+    res.status(403).json({ error: "Admin only" });
+    return;
+  }
+  const body = req.body as Partial<TenantSettingsPayload> | undefined;
+  const merge: Record<string, unknown> = {};
+  if (typeof body?.requireReviewBeforePublish === "boolean") {
+    merge.requireReviewBeforePublish = body.requireReviewBeforePublish;
+  }
+  if (Object.keys(merge).length === 0) {
+    res.status(400).json({ error: "No recognised settings to update" });
+    return;
+  }
+  try {
+    const r = await pool.query<{ settings: Record<string, unknown> }>(
+      `UPDATE tenants
+          SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb,
+              updated_at = now()
+        WHERE id = $2
+        RETURNING settings`,
+      [JSON.stringify(merge), tenantId],
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
+    const settings = r.rows[0].settings ?? {};
+    res.json({
+      requireReviewBeforePublish: settings.requireReviewBeforePublish !== false,
+    } satisfies TenantSettingsPayload);
+  } catch (err) {
+    console.error("[admin] PATCH /tenant-settings error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
