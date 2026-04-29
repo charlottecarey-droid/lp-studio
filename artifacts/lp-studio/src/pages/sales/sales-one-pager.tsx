@@ -379,7 +379,7 @@ export type { AgreementSummaryContent, AgreementSection };
 // COMPONENT
 // =============================================
 
-type Template = "roi" | "pilot" | "comparison" | "new-partner" | "partner2";
+type Template = "roi" | "pilot" | "comparison" | "new-partner" | "partner2" | "agreement-summary";
 
 const SalesOnePager = () => {
   const [location] = useLocation();
@@ -531,7 +531,8 @@ const SalesOnePager = () => {
   };
 
   const handleGenerate = async () => {
-    if (!dsoName.trim()) return;
+    // Agreement Summary doesn't need a DSO name — it ships with default copy.
+    if (template !== "agreement-summary" && !dsoName.trim()) return;
     setGenerating(true);
     try {
       let doc;
@@ -566,6 +567,9 @@ const SalesOnePager = () => {
       } else if (template === "partner2") {
         doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com");
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
+      } else if (template === "agreement-summary") {
+        doc = await generateAgreementSummaryOnePager(sharedDefaultAgreementSummaryContent);
+        doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
         doc = await generateROIOnePager(dsoName.trim(), numPractices);
         doc.save(`Dandy_for_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
@@ -662,6 +666,14 @@ const SalesOnePager = () => {
                   90-Day Pilot
                 </button>
               )}
+              {!deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
+                <button
+                  onClick={() => { setTemplate("agreement-summary"); setSelectedCustomId(null); }}
+                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "agreement-summary" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
+                >
+                  Agreement Summary
+                </button>
+              )}
               {customTemplates.filter(t => templateVisibility[`custom:${t.id}`] !== false).map(ct => (
                 <button
                   key={ct.id}
@@ -689,7 +701,12 @@ const SalesOnePager = () => {
           </div>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {template === "agreement-summary" && (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                No inputs required — this template ships with the standard Dandy Practice Agreement copy. Click <span className="font-semibold text-foreground">Download One-Pager</span> below.
+              </div>
+            )}
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${template === "agreement-summary" ? "hidden" : ""}`}>
               <div>
                 <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">DSO Name</label>
                 <input

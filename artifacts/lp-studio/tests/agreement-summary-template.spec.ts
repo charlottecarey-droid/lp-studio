@@ -87,9 +87,15 @@ test.describe("Agreement Summary one-pager template", () => {
     await page.goto("/sales/one-pager-templates");
     await openAgreementGenerateDialog(page);
 
+    // Scope to the dialog card via the h3 → its `rounded-2xl` ancestor (the
+    // card container that holds the inputs as well as the heading).
+    const heading = page.getByRole("heading", { name: "Generate Agreement Summary PDF" });
+    await expect(heading).toBeVisible();
+    const dialog = heading.locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
+    await expect(dialog).toBeVisible();
+
     // Headline default round-trips.
-    const dialog = page.locator("div", { hasText: "Generate Agreement Summary PDF" }).last();
-    const headlineInput = dialog.locator("input[type=\"text\"]").first();
+    const headlineInput = dialog.locator('input[type="text"]').first();
     await expect(headlineInput).toHaveValue("Summary of Dandy Agreement");
 
     // All 8 section labels visible as input values.

@@ -119,7 +119,7 @@ interface SavePageData {
   title: string;
   slug: string;
   blocks: PageBlock[];
-  status: "draft" | "published";
+  status: "draft" | "pending_review" | "published";
   customCss?: string;
   animationsEnabled?: boolean;
   metaTitle?: string;
