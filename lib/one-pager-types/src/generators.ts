@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { BAGOSS_REGULAR_BASE64 } from "./fonts/bagoss-regular.js";
 
 // ── Shared constants ───────────────────────────────────────────────────
 const darkGreen: [number, number, number] = [0, 40, 32];
@@ -10,6 +11,21 @@ const textDark: [number, number, number] = [30, 40, 35];
 const textMuted: [number, number, number] = [90, 100, 95];
 const subtleText: [number, number, number] = [140, 150, 145];
 const lineColor: [number, number, number] = [200, 205, 200];
+
+// Register Bagoss Standard (Regular weight) into a jsPDF doc once. Safe to
+// call multiple times — `addFileToVFS` and `addFont` are idempotent within a
+// single doc, but we still guard to skip work if already registered.
+function ensureBagoss(doc: jsPDF): boolean {
+  try {
+    const list = doc.getFontList?.() ?? {};
+    if (list["Bagoss"]) return true;
+    doc.addFileToVFS("Bagoss-Regular.ttf", BAGOSS_REGULAR_BASE64);
+    doc.addFont("Bagoss-Regular.ttf", "Bagoss", "normal");
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function drawSep(doc: jsPDF, x: number, y: number, len: number, color: [number, number, number]) {
   doc.setDrawColor(...color);
@@ -109,122 +125,153 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
 
 export const generateAgreementSummaryOnePager = async (
   content: AgreementSummaryContent,
-  opts?: { logoPng?: string | null },
+  opts?: { logoPng?: string | null; scannerPng?: string | null },
 ): Promise<jsPDF> => {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
-  const w = doc.internal.pageSize.getWidth();
-  const h = doc.internal.pageSize.getHeight();
+  const w = doc.internal.pageSize.getWidth();   // 612pt
+  const h = doc.internal.pageSize.getHeight();  // 792pt
   const margin = 48;
-  const contentW = w - margin * 2;
   const logoPng = opts?.logoPng ?? null;
+  const scannerPng = opts?.scannerPng ?? null;
+
+  const hasBagoss = ensureBagoss(doc);
+  const headingFont = hasBagoss ? "Bagoss" : "helvetica";
+  const headingStyle = hasBagoss ? "normal" : "bold";
+
+  // Defensive: never let an empty / over-long sections array destabilize the
+  // single-page row layout. The Agreement Summary template ships with 8 rows
+  // and the editor exposes those 8 directly, but guard against bad data.
+  const sections = (Array.isArray(content.sections) ? content.sections : []).slice(0, 8);
+  if (sections.length === 0) {
+    sections.push({ label: " ", body: " " });
+  }
 
   // ── Header band ──────────────────────────────────────────────────────
-  const headerH = 132;
+  // Match the v6 PDF: tall dark-green header (~36% of page), big serif
+  // headline on the left, scanner image bleeding off the top-right.
+  const headerH = 290;
   doc.setFillColor(...darkGreen);
   doc.rect(0, 0, w, headerH, "F");
 
-  // Lime accent stripe
-  doc.setFillColor(...lime);
-  doc.rect(0, headerH - 4, w, 4, "F");
+  // Soft radial-ish vignette from the right (the actual PDF has a halo
+  // around the scanner). Build it with a few overlapping mid-green bands so
+  // the seam between dark and mid green is gradual rather than a hard edge.
+  doc.setFillColor(...midGreen);
+  doc.rect(w * 0.62, 0, w * 0.38, headerH, "F");
+  // Slightly darker overlay on the very right edge for depth
+  doc.setFillColor(0, 48, 38);
+  doc.rect(w * 0.86, 0, w * 0.14, headerH, "F");
 
-  // Dandy logo top-left
-  drawDandyLogo(doc, margin, 22, logoPng, 70, 24);
+  // Scanner image top-right (transparent PNG bleeds to the right edge).
+  if (scannerPng) {
+    try {
+      const imgW = 320;
+      const imgH = 180;
+      // Bleed slightly off the top and right edges for a polished look.
+      doc.addImage(scannerPng, "PNG", w - imgW + 30, 14, imgW, imgH, undefined, "FAST");
+    } catch { /* ignore — header still looks good without the image */ }
+  }
 
-  // Headline (white, large) — wrap if long
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(24);
+  // Dandy wordmark top-left (use logoPng if provided, else fall back to
+  // typed "dandy" in the heading font).
+  if (logoPng) {
+    try { doc.addImage(logoPng, "PNG", margin, 38, 78, 28); }
+    catch {
+      doc.setFont(headingFont, headingStyle); doc.setFontSize(26); doc.setTextColor(...white);
+      doc.text("dandy", margin, 60);
+    }
+  } else {
+    doc.setFont(headingFont, headingStyle); doc.setFontSize(26); doc.setTextColor(...white);
+    doc.text("dandy", margin, 60);
+  }
+
+  // Headline — large serif, wraps to multiple lines. Confine width to ~58%
+  // of page so it doesn't run into the scanner image on the right.
+  const headlineMaxW = w * 0.58;
+  doc.setFont(headingFont, headingStyle);
+  doc.setFontSize(46);
   doc.setTextColor(...white);
-  const headlineLines = doc.splitTextToSize(content.headline, contentW);
-  doc.text(headlineLines, margin, 78);
-  const headlineH = headlineLines.length * 26;
+  const headlineLines = doc.splitTextToSize(content.headline, headlineMaxW);
+  const headlineLineH = 50;
+  const headlineY = 130;
+  doc.text(headlineLines, margin, headlineY);
+  const headlineBottom = headlineY + (headlineLines.length - 1) * headlineLineH;
 
-  // Subheadline
+  // Subheadline — sans-serif, lighter, just below the headline.
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(180, 210, 195);
-  const subYBase = 78 + headlineH - 6;
-  const subLines = doc.splitTextToSize(content.subheadline, contentW);
-  doc.text(subLines, margin, subYBase);
+  doc.setFontSize(13);
+  doc.setTextColor(225, 232, 228);
+  const subY = headlineBottom + 32;
+  const subLines = doc.splitTextToSize(content.subheadline, headlineMaxW);
+  doc.text(subLines, margin, subY, { lineHeightFactor: 1.35 });
 
-  // ── Section grid (2 cols × 4 rows) ──────────────────────────────────
-  const footerH = 70;
-  const gridTop = headerH + 26;
-  const gridBottom = h - footerH - 18;
-  const gridH = gridBottom - gridTop;
-  const gap = 14;
-  const cols = 2;
-  const rows = Math.ceil(content.sections.length / cols);
-  const cardW = (contentW - gap * (cols - 1)) / cols;
-  const cardH = (gridH - gap * (rows - 1)) / rows;
+  // ── Section rows (single column, 8 rows) ────────────────────────────
+  const footerH = 56;
+  const rowsTop = headerH + 28;
+  const rowsBottom = h - footerH - 12;
+  const rowsAvailableH = rowsBottom - rowsTop;
+  const rowCount = sections.length;
+  const rowH = rowsAvailableH / rowCount;
 
-  content.sections.forEach((section, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const cx = margin + col * (cardW + gap);
-    const cy = gridTop + row * (cardH + gap);
+  // Two-column layout inside each row: label LEFT (fixed width), body RIGHT.
+  // Smaller label column + smaller body font so the longer descriptions
+  // (Equipment, Billing) fit within their row without truncation.
+  const labelColW = 110;
+  const labelX = margin;
+  const bodyX = margin + labelColW + 14;
+  const bodyW = w - bodyX - margin;
 
-    // Card background
-    doc.setFillColor(...offWhite);
-    doc.roundedRect(cx, cy, cardW, cardH, 6, 6, "F");
-    // Lime top accent stripe
-    doc.setFillColor(...lime);
-    doc.roundedRect(cx, cy, cardW, 3, 3, 3, "F");
-    doc.rect(cx, cy + 2, cardW, 2, "F");
+  sections.forEach((section, i) => {
+    const ry = rowsTop + i * rowH;
+    const rowMidY = ry + rowH / 2;
 
-    // Label
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(...darkGreen);
-    doc.text((section.label || "").toUpperCase(), cx + 16, cy + 26);
-
-    // Separator under label
-    drawSep(doc, cx + 16, cy + 32, cardW - 32, [220, 220, 215]);
-
-    // Body — wrap and fit
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    // Label (heading font, dark)
+    doc.setFont(headingFont, headingStyle);
+    doc.setFontSize(15);
     doc.setTextColor(...textDark);
-    const bodyW = cardW - 32;
-    const bodyMaxH = cardH - 48;
-    const bodyLines = doc.splitTextToSize(section.body || "", bodyW);
-    const lineH = 12;
-    const maxLines = Math.max(1, Math.floor(bodyMaxH / lineH));
-    const shown = bodyLines.slice(0, maxLines);
-    doc.text(shown, cx + 16, cy + 48);
+    const labelLines = doc.splitTextToSize(section.label || "", labelColW);
+    const labelBlockH = labelLines.length * 17;
+    const labelStartY = rowMidY - labelBlockH / 2 + 12;
+    doc.text(labelLines, labelX, labelStartY);
+
+    // Body (sans-serif, smaller, dark gray). Auto-fit: shrink to 8.5pt if the
+    // text would overflow the row at the default 9.5pt size.
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60, 70, 65);
+    const bodyLineH = 11.5;
+    const maxLines = Math.max(2, Math.floor((rowH - 12) / bodyLineH));
+
+    let fontPt = 9.5;
+    doc.setFontSize(fontPt);
+    let bodyLines = doc.splitTextToSize(section.body || "", bodyW);
+    if (bodyLines.length > maxLines) {
+      fontPt = 8.5;
+      doc.setFontSize(fontPt);
+      bodyLines = doc.splitTextToSize(section.body || "", bodyW);
+    }
+    const lineH = fontPt === 8.5 ? 10.5 : bodyLineH;
+    const bodyBlockH = bodyLines.length * lineH;
+    const bodyStartY = rowMidY - bodyBlockH / 2 + (fontPt - 0.5);
+    doc.text(bodyLines.slice(0, maxLines), bodyX, bodyStartY, { lineHeightFactor: 1.22 });
+
+    // Thin horizontal separator at the bottom of each row.
+    const sepY = ry + rowH - 0.5;
+    drawSep(doc, margin, sepY, w - margin * 2, [220, 224, 220]);
   });
 
   // ── Footer band ──────────────────────────────────────────────────────
   doc.setFillColor(...darkGreen);
   doc.rect(0, h - footerH, w, footerH, "F");
-  // Lime accent stripe
-  doc.setFillColor(...lime);
-  doc.rect(0, h - footerH, w, 3, "F");
 
-  // Dandy logo bottom-left
-  if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", margin, h - footerH + 18, 56, 20); } catch {
-      doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(...white);
-      doc.text("dandy", margin, h - footerH + 32);
-    }
-  } else {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(...white);
-    doc.text("dandy", margin, h - footerH + 32);
-  }
-
-  // Footer text (right-aligned, wraps)
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(9);
-  doc.setTextColor(180, 210, 195);
-  const footerTextW = contentW - 80;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(...white);
+  const footerTextW = w - margin * 2;
   const footerLines = doc.splitTextToSize(content.footer || "", footerTextW);
-  const footerLineH = 12;
+  const footerLineH = 14;
   const footerBlockH = footerLines.length * footerLineH;
-  const footerStartY = h - footerH + (footerH - footerBlockH) / 2 + 9;
-  doc.text(footerLines, w - margin, footerStartY, { align: "right" });
-
-  // Subtle URL bottom-center
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(160, 185, 175);
-  doc.text("www.meetdandy.com", w / 2, h - 14, { align: "center" });
+  const footerStartY = h - footerH + (footerH - footerBlockH) / 2 + 11;
+  doc.text(footerLines, w / 2, footerStartY, { align: "center", lineHeightFactor: 1.3 });
 
   return doc;
 };

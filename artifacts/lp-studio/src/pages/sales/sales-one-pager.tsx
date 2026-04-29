@@ -3,6 +3,7 @@ import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 import headerImgExecutiveUrl from "@/assets/ai-scan-review-news.jpg";
 import headerImgClinicalUrl from "@/assets/ai-scan-review-clinical.png";
 import headerImgPracticeManagerUrl from "@/assets/dandy-dso-enterprise-data.webp";
+import dandyScannerUrl from "@/assets/dandy-scanner-transparent.png?url";
 import { useLocation, Link as RouterLink } from "wouter";
 import {
   FileDown, Loader2, ChevronDown, Upload, X, Pencil, AlertTriangle, Link, QrCode, Settings2
@@ -361,9 +362,14 @@ export const generateROIOnePager = async (
 };
 
 export const generateAgreementSummaryOnePager = async (content: AgreementSummaryContent) => {
-  let logoPng: string | null = null;
-  try { logoPng = await svgToPng(dandyLogoWhite, 206, 74); } catch { /* continue without logo */ }
-  return sharedGenerateAgreementSummaryOnePager(content, { logoPng });
+  // Load each asset independently so a single failure doesn't drop the other.
+  const [logoResult, scannerResult] = await Promise.allSettled([
+    svgToPng(dandyLogoWhite, 206, 74),
+    loadImageAsBase64(dandyScannerUrl, "image/png"),
+  ]);
+  const logoPng = logoResult.status === "fulfilled" ? logoResult.value : null;
+  const scannerPng = scannerResult.status === "fulfilled" ? scannerResult.value : null;
+  return sharedGenerateAgreementSummaryOnePager(content, { logoPng, scannerPng });
 };
 
 export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;

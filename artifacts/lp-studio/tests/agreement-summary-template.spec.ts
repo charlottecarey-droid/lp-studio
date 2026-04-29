@@ -23,18 +23,14 @@ function getDatabaseUrl(): string {
 
 // Open the kebab menu on the Agreement Summary card and click "Generate PDF".
 async function openAgreementGenerateDialog(page: import("@playwright/test").Page) {
-  // The TemplateCard renders title + description, then a ChevronDown button
-  // that opens a popover containing the "Generate PDF" menu item.
-  const card = page
-    .locator("div")
-    .filter({ has: page.locator("p", { hasText: "Agreement Summary" }) })
-    .filter({ has: page.locator("p", { hasText: "Summary of Dandy Agreement terms" }) })
-    .first();
-  await expect(card).toBeVisible({ timeout: 15000 });
+  // The TemplateCard wraps everything in a `rounded-xl border bg-card`
+  // container. Pick the one whose footer paragraph reads "Agreement Summary".
+  const titleP = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
+  await expect(titleP).toBeVisible({ timeout: 15000 });
+  const card = titleP.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+  await expect(card).toBeVisible();
 
-  // The ChevronDown menu trigger is the only <button> in the card footer
-  // beyond the visibility toggle. Use a robust locator: open the menu by
-  // hovering then clicking the chevron icon button.
+  // Open the kebab — it's the last button on the card (visibility toggle + chevron).
   await card.locator("button").last().click();
   await page.getByRole("button", { name: /^Generate PDF$/i }).click();
   await expect(page.getByText("Generate Agreement Summary PDF")).toBeVisible({ timeout: 5000 });
@@ -55,16 +51,34 @@ test.describe("Agreement Summary one-pager template", () => {
     await pool.end();
   });
 
-  test.beforeEach(async ({ context }) => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    // Anchor the cookie to whatever host Playwright's baseURL resolves to so
+    // page navigations actually send it (Playwright is strict about
+    // localhost vs 127.0.0.1 — they are different cookie domains).
+    const url = new URL("/", baseURL ?? "http://127.0.0.1:4318");
     await context.addCookies([{
       name: "lp_sid",
       value: tenant.sessionSid,
-      url: "http://localhost:5000",
+      domain: url.hostname,
+      path: "/",
+      httpOnly: false,
+      secure: false,
+      sameSite: "Lax",
     }]);
   });
 
   test("Agreement Summary card appears in the templates gallery", async ({ page }) => {
     await page.goto("/sales/one-pager-templates");
+    // Debug: screenshot + dump body innerText if the card never shows up.
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: "/tmp/templates-page.png", fullPage: true });
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    if (!bodyText.includes("Agreement Summary")) {
+      // eslint-disable-next-line no-console
+      console.log("[debug] URL:", page.url());
+      // eslint-disable-next-line no-console
+      console.log("[debug] body 1000 chars:", bodyText.slice(0, 1000));
+    }
     await expect(page.getByText("Agreement Summary").first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Summary of Dandy Agreement terms")).toBeVisible();
   });
@@ -102,5 +116,8 @@ test.describe("Agreement Summary one-pager template", () => {
     await page.getByRole("button", { name: /^Download PDF$/i }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/_OnePager\.pdf$/);
+    // Save a copy outside test-results so it survives retries / cleanup —
+    // useful for visual review while iterating on the template.
+    await download.saveAs("/tmp/agreement-out.pdf");
   });
 });
