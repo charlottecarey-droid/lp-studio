@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
+import agreementSummaryPreviewUrl from "@/assets/agreement-summary-preview.png";
 import {
   Search, Plus, Eye, EyeOff, Copy, Trash2, RotateCcw, Upload, X, Loader2,
   FileText, GripVertical, Settings2, ChevronDown, Save, FileDown, Image as ImageIcon,
@@ -128,7 +129,7 @@ const BUILTIN_TEMPLATES = [
   { id: "comparison", label: "Dandy Evolution", description: "Before/after comparison" },
   { id: "new-partner", label: "Partner Practices", description: "Partner onboarding" },
   { id: "partner2", label: "Partner 2", description: "Alternative partner template" },
-  { id: "agreement-summary", label: "Agreement Summary", description: "Summary of Dandy Agreement terms" },
+  { id: "agreement-summary", label: "Agreement Summary", description: "Summary of Dandy Agreement terms", backgroundUrl: agreementSummaryPreviewUrl },
 ] as const;
 
 type BuiltinId = typeof BUILTIN_TEMPLATES[number]["id"];
@@ -1620,7 +1621,12 @@ export default function SalesOnePagerTemplates() {
                 {filteredBuiltins.map(bt => (
                   <TemplateCard
                     key={bt.id}
-                    tpl={{ id: bt.id, label: bt.label, description: bt.description }}
+                    tpl={{
+                      id: bt.id,
+                      label: bt.label,
+                      description: bt.description,
+                      backgroundUrl: "backgroundUrl" in bt ? bt.backgroundUrl : undefined,
+                    }}
                     isBuiltin
                     visible={visibility[bt.id] !== false}
                     onToggleVisibility={() => toggleVisibility(bt.id)}
