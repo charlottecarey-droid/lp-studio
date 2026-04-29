@@ -56,6 +56,7 @@ const FULL_PERMISSIONS: Record<string, boolean> = {
   sales_accounts: true,
   sales_outreach: true,
   sales_signals: true,
+  sales_campaigns: true,
   settings: true,
   team: true,
   roles: true,

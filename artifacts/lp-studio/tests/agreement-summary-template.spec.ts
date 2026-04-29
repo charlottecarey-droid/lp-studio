@@ -114,6 +114,45 @@ test.describe("Agreement Summary one-pager template", () => {
     await expect(headlineInput).toHaveValue("Summary of Dandy Agreement");
   });
 
+  test("Template Editor exposes an Agreement Summary tab with editable headline / subheadline / sections", async ({ page }) => {
+    await page.goto("/sales/one-pager/editor");
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: "/tmp/agreement-editor-tab-debug.png", fullPage: true });
+    // eslint-disable-next-line no-console
+    console.log("[debug] URL:", page.url());
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    // eslint-disable-next-line no-console
+    console.log("[debug] body 800:", bodyText.slice(0, 800));
+
+    // The template selector renders one button per template; the Agreement
+    // Summary tab is what we're verifying exists.
+    const tab = page.getByRole("button", { name: /^Agreement Summary$/i });
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.click();
+
+    // Headline + subheadline fields should be populated from defaults.
+    const headlineField = page.locator("textarea").filter({ hasText: "Summary of Dandy Agreement" }).first();
+    await expect(headlineField).toBeVisible();
+    const subheadlineField = page.locator("textarea").filter({ hasText: /month-to-month/i }).first();
+    await expect(subheadlineField).toBeVisible();
+
+    // Section labels (8 default rows) should be present as text input values.
+    for (const label of ["Equipment", "Minimum", "Activation Fee", "No Exit Fee", "Billing", "Training", "Warranty", "Exclusivity"]) {
+      await expect(page.locator(`input[type="text"][value="${label}"]`)).toHaveCount(1);
+    }
+
+    // Edit the headline and confirm it round-trips into the field.
+    await headlineField.fill("Custom Editor Headline");
+    await expect(headlineField).toHaveValue("Custom Editor Headline");
+
+    // Reset Defaults restores the original headline.
+    await page.getByRole("button", { name: /Reset Defaults/i }).click();
+    await expect(page.locator("textarea").filter({ hasText: "Summary of Dandy Agreement" }).first()).toBeVisible();
+
+    // Capture a screenshot for visual review.
+    await page.screenshot({ path: "/tmp/agreement-editor-tab.png", fullPage: true });
+  });
+
   test("Download PDF triggers a file download", async ({ page }) => {
     await page.goto("/sales/one-pager-templates");
     await openAgreementGenerateDialog(page);

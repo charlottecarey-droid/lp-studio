@@ -16,7 +16,11 @@ import {
   generateComparisonOnePager,
   generateNewPartnerOnePager,
   generateROIOnePager,
+  generateAgreementSummaryOnePager,
+  defaultAgreementSummaryContent,
+  type AgreementSection,
 } from "./sales-one-pager";
+import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
 const API_BASE = "/api";
@@ -56,7 +60,7 @@ async function saveLayoutDefault(key: string, config: Record<string, any>): Prom
 }
 
 // ── Types ───────────────────────────────────────────────────────────
-type EditorTemplate = "pilot" | "comparison" | "partner" | "roi";
+type EditorTemplate = "pilot" | "comparison" | "partner" | "roi" | "agreement-summary";
 type Audience = "executive" | "clinical" | "practice-manager";
 
 interface HeaderConfig {
@@ -279,6 +283,14 @@ export default function SalesOnePagerEditor() {
   const [partnerStats, setPartnerStats] = useState(JSON.parse(JSON.stringify(defaultPartnerStats)));
   const [partnerQrUrl, setPartnerQrUrl] = useState("https://meetdandy.com");
 
+  // Agreement Summary content
+  const [agreementHeadline, setAgreementHeadline] = useState(defaultAgreementSummaryContent.headline);
+  const [agreementSubheadline, setAgreementSubheadline] = useState(defaultAgreementSummaryContent.subheadline);
+  const [agreementFooter, setAgreementFooter] = useState(defaultAgreementSummaryContent.footer);
+  const [agreementSections, setAgreementSections] = useState<AgreementSection[]>(
+    JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections))
+  );
+
   // Team contacts
   const [teamContacts, setTeamContacts] = useState([
     { name: "", title: "", contactInfo: "" },
@@ -373,11 +385,28 @@ export default function SalesOnePagerEditor() {
       return;
     }
 
+    if (tmpl === "agreement-summary") {
+      // Reset to defaults first so switching tabs always starts clean
+      setAgreementHeadline(defaultAgreementSummaryContent.headline);
+      setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
+      setAgreementFooter(defaultAgreementSummaryContent.footer);
+      setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
+      const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
+      if (saved) {
+        if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
+        if (typeof saved.subheadline === "string") setAgreementSubheadline(saved.subheadline);
+        if (typeof saved.footer === "string") setAgreementFooter(saved.footer);
+        if (Array.isArray(saved.sections)) setAgreementSections(saved.sections as AgreementSection[]);
+      }
+      return;
+    }
+
     const keyMap: Record<EditorTemplate, string> = {
       pilot: "",
       comparison: "dandy_comparison_template_layout",
       partner: "dandy_partner_template_layout",
       roi: "",
+      "agreement-summary": "",
     };
     const key = keyMap[tmpl];
     if (!key) return;
@@ -403,6 +432,41 @@ export default function SalesOnePagerEditor() {
   }, [audience]);
 
   useEffect(() => { loadDefaults(editorTemplate); }, [editorTemplate]);
+
+  // Load built-in template visibility / deletions so this editor mirrors what
+  // sales reps actually see on the generator page. Toggling a built-in off in
+  // the templates gallery should hide its tab here too.
+  const [templateVisibility, setTemplateVisibility] = useState<Record<string, boolean>>({});
+  const [deletedBuiltins, setDeletedBuiltins] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    (async () => {
+      const [vis, del] = await Promise.all([
+        loadLayoutDefault(TEMPLATE_VISIBILITY_KEY),
+        loadLayoutDefault(DELETED_BUILTINS_KEY),
+      ]);
+      if (vis) setTemplateVisibility(vis as Record<string, boolean>);
+      if (del) setDeletedBuiltins(del as Record<string, boolean>);
+    })();
+  }, []);
+
+  // Map editor tab id → templates-gallery key (the editor uses "partner" as
+  // shorthand for the "new-partner" built-in; everything else matches 1:1).
+  const visibilityKeyFor = (t: EditorTemplate): string => (t === "partner" ? "new-partner" : t);
+  const isTemplateVisible = (t: EditorTemplate): boolean => {
+    const key = visibilityKeyFor(t);
+    return !deletedBuiltins[key] && templateVisibility[key] !== false;
+  };
+
+  // If the user lands on (or stays on) a tab that was just hidden, fall back
+  // to the first visible tab so the editor never renders an empty selection.
+  useEffect(() => {
+    const order: EditorTemplate[] = ["pilot", "comparison", "partner", "roi", "agreement-summary"];
+    if (!isTemplateVisible(editorTemplate)) {
+      const next = order.find(isTemplateVisible);
+      if (next) setEditorTemplate(next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateVisibility, deletedBuiltins]);
 
   // When audience changes in pilot, save/restore the full per-audience headerCfg
   const switchAudience = (a: Audience) => {
@@ -440,6 +504,13 @@ export default function SalesOnePagerEditor() {
             dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl,
             { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
           );
+        } else if (editorTemplate === "agreement-summary") {
+          doc = await generateAgreementSummaryOnePager({
+            headline: agreementHeadline,
+            subheadline: agreementSubheadline,
+            footer: agreementFooter,
+            sections: agreementSections,
+          });
         } else {
           doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
         }
@@ -497,6 +568,13 @@ export default function SalesOnePagerEditor() {
         });
       } else if (editorTemplate === "roi") {
         await saveLayoutDefault("dandy_roi_template_layout", { headerCfg });
+      } else if (editorTemplate === "agreement-summary") {
+        await saveLayoutDefault("dandy_agreement_summary_template_layout", {
+          headline: agreementHeadline,
+          subheadline: agreementSubheadline,
+          footer: agreementFooter,
+          sections: agreementSections,
+        });
       }
       setSavedIndicator(true);
       setTimeout(() => setSavedIndicator(false), 2500);
@@ -517,6 +595,12 @@ export default function SalesOnePagerEditor() {
     if (editorTemplate === "pilot") setAudienceContent(JSON.parse(JSON.stringify(defaultAudienceContent)));
     if (editorTemplate === "comparison") { setComparisonRows(JSON.parse(JSON.stringify(defaultComparisonRows))); setComparisonStats(JSON.parse(JSON.stringify(defaultComparisonStats))); }
     if (editorTemplate === "partner") { setPartnerHeadline(defaultPartnerHeadline); setPartnerIntro(defaultPartnerIntro); setPartnerFeatures(JSON.parse(JSON.stringify(defaultPartnerFeatures))); setPartnerStats(JSON.parse(JSON.stringify(defaultPartnerStats))); }
+    if (editorTemplate === "agreement-summary") {
+      setAgreementHeadline(defaultAgreementSummaryContent.headline);
+      setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
+      setAgreementFooter(defaultAgreementSummaryContent.footer);
+      setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
+    }
   };
 
   // ── Download ──────────────────────────────────────────────────────
@@ -535,6 +619,14 @@ export default function SalesOnePagerEditor() {
       } else if (editorTemplate === "partner") {
         doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, { ...override, partnerHeadline, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl });
         doc.save(`Dandy_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
+      } else if (editorTemplate === "agreement-summary") {
+        doc = await generateAgreementSummaryOnePager({
+          headline: agreementHeadline,
+          subheadline: agreementSubheadline,
+          footer: agreementFooter,
+          sections: agreementSections,
+        });
+        doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
         doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
         doc.save(`Dandy_for_${dsoName.replace(/\s+/g, "_")}.pdf`);
@@ -595,7 +687,7 @@ export default function SalesOnePagerEditor() {
   }
 
   const currentContent = audienceContent[audience];
-  const templateLabels: Record<EditorTemplate, string> = { pilot: "90-Day Pilot", comparison: "Dandy Evolution", partner: "Partner Practices", roi: "ROI Brief" };
+  const templateLabels: Record<EditorTemplate, string> = { pilot: "90-Day Pilot", comparison: "Dandy Evolution", partner: "Partner Practices", roi: "ROI Brief", "agreement-summary": "Agreement Summary" };
 
   return (
     <SalesLayout>
@@ -618,7 +710,9 @@ export default function SalesOnePagerEditor() {
           {/* Template selector */}
           <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
             <div className="inline-flex rounded-full border border-border overflow-hidden">
-              {(["pilot", "comparison", "partner", "roi"] as EditorTemplate[]).map(t => (
+              {(["pilot", "comparison", "partner", "roi", "agreement-summary"] as EditorTemplate[])
+                .filter(isTemplateVisible)
+                .map(t => (
                 <button key={t} onClick={() => setEditorTemplate(t)}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${editorTemplate === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
                   {templateLabels[t]}
@@ -667,7 +761,8 @@ export default function SalesOnePagerEditor() {
             {/* ── LEFT: Controls ── */}
             <div className={previewVisible ? "w-full md:w-[40%] shrink-0 md:max-h-[calc(100vh-80px)] md:overflow-y-auto md:pr-1" : "max-w-[960px] mx-auto w-full"}>
 
-              {/* Preview name + logo row */}
+              {/* Preview name + logo row (hidden for Agreement Summary — no per-prospect inputs needed) */}
+              {editorTemplate !== "agreement-summary" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 <div>
                   <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">
@@ -706,6 +801,7 @@ export default function SalesOnePagerEditor() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Section panels */}
               <div className="space-y-3">
@@ -1011,8 +1107,97 @@ export default function SalesOnePagerEditor() {
                   </div>
                 </>)}
 
+                {/* ═══ AGREEMENT SUMMARY ═══ */}
+                {editorTemplate === "agreement-summary" && (<>
+                  <EditorSection title="Header" icon={<Type className="w-4 h-4 text-muted-foreground" />} open={openSections.header} onToggle={() => toggle("header")}>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground">Headline</label>
+                      <textarea
+                        value={agreementHeadline}
+                        rows={2}
+                        onChange={e => setAgreementHeadline(e.target.value)}
+                        placeholder="Summary of Dandy Agreement"
+                        className={`mt-1 ${textareaCls}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground">Subheadline</label>
+                      <textarea
+                        value={agreementSubheadline}
+                        rows={3}
+                        onChange={e => setAgreementSubheadline(e.target.value)}
+                        placeholder="With Dandy, you get a simple, hassle-free month-to-month with no surprise fees."
+                        className={`mt-1 ${textareaCls}`}
+                      />
+                    </div>
+                  </EditorSection>
+
+                  <EditorSection title="Sections" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.content} onToggle={() => toggle("content")}>
+                    <p className="text-[11px] text-muted-foreground -mt-1 mb-1">
+                      Edit each row's label and body. The PDF auto-fits font size if rows get long.
+                    </p>
+                    {agreementSections.map((sec, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Row {i + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAgreementSections(p => p.filter((_, j) => j !== i))
+                            }
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            aria-label={`Remove row ${i + 1}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={sec.label}
+                          onChange={e =>
+                            setAgreementSections(p => p.map((s, j) => j === i ? { ...s, label: e.target.value } : s))
+                          }
+                          placeholder="Label (e.g. Equipment)"
+                          className={inputCls}
+                        />
+                        <textarea
+                          value={sec.body}
+                          rows={3}
+                          onChange={e =>
+                            setAgreementSections(p => p.map((s, j) => j === i ? { ...s, body: e.target.value } : s))
+                          }
+                          placeholder="Body text…"
+                          className={textareaCls}
+                        />
+                      </div>
+                    ))}
+                    {agreementSections.length < 12 && (
+                      <button
+                        type="button"
+                        onClick={() => setAgreementSections(p => [...p, { label: "", body: "" }])}
+                        className="w-full rounded-lg border border-dashed border-border bg-background/40 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                      >
+                        + Add row
+                      </button>
+                    )}
+                  </EditorSection>
+
+                  <EditorSection title="Footer" icon={<Type className="w-4 h-4 text-muted-foreground" />} open={openSections.footer} onToggle={() => toggle("footer")}>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground">Footer Text</label>
+                      <textarea
+                        value={agreementFooter}
+                        rows={2}
+                        onChange={e => setAgreementFooter(e.target.value)}
+                        placeholder="For the full terms of agreement, please see the Dandy Practice Agreement."
+                        className={`mt-1 ${textareaCls}`}
+                      />
+                    </div>
+                  </EditorSection>
+                </>)}
+
                 {/* ═══ SHARED: Team & Footer (pilot + comparison + partner) ═══ */}
-                {editorTemplate !== "roi" && (<>
+                {editorTemplate !== "roi" && editorTemplate !== "agreement-summary" && (<>
                   <EditorSection title="Team & Contact" icon={<Users className="w-4 h-4 text-muted-foreground" />} open={openSections.team} onToggle={() => toggle("team")}>
                     <label className="flex items-center gap-2 cursor-pointer mb-2">
                       <input type="checkbox" checked={teamCfg.show} onChange={e => setTeamCfg(p => ({ ...p, show: e.target.checked }))} className="rounded border-border" />
