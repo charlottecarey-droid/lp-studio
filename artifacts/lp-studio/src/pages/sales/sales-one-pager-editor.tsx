@@ -529,6 +529,7 @@ export default function SalesOnePagerEditor() {
     partnerFeatures, partnerStats, partnerQrUrl,
     teamContacts, phoneNumber, customLinkText, customLinkUrl,
     prospectLogoData, prospectLogoDims,
+    agreementHeadline, agreementSubheadline, agreementFooter, agreementSections,
   ]);
 
   // ── Save defaults ─────────────────────────────────────────────────

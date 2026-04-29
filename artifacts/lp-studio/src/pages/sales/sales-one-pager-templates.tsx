@@ -1387,7 +1387,7 @@ export default function SalesOnePagerTemplates() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "builtin" | "custom">("all");
   const [visibility, setVisibility] = useState<Record<string, boolean>>({
-    roi: true, pilot: true, comparison: true, "new-partner": false,
+    roi: true, pilot: true, comparison: true, "new-partner": false, "agreement-summary": true,
   });
   const [deletedBuiltins, setDeletedBuiltins] = useState<Record<string, boolean>>({});
   const [cloningId, setCloningId] = useState<string | null>(null);

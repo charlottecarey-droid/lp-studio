@@ -131,10 +131,15 @@ test.describe("Agreement Summary one-pager template", () => {
     await tab.click();
 
     // Headline + subheadline fields should be populated from defaults.
-    const headlineField = page.locator("textarea").filter({ hasText: "Summary of Dandy Agreement" }).first();
+    // Controlled React textareas don't expose `value` via innerText, so locate
+    // them by their placeholder (which uniquely identifies each field) and
+    // assert on the live `value` property via toHaveValue().
+    const headlineField = page.locator('textarea[placeholder="Summary of Dandy Agreement"]');
     await expect(headlineField).toBeVisible();
-    const subheadlineField = page.locator("textarea").filter({ hasText: /month-to-month/i }).first();
+    await expect(headlineField).toHaveValue("Summary of Dandy Agreement");
+    const subheadlineField = page.locator('textarea[placeholder*="month-to-month" i]');
     await expect(subheadlineField).toBeVisible();
+    await expect(subheadlineField).toHaveValue(/month-to-month/i);
 
     // Section labels (8 default rows) should be present as text input values.
     for (const label of ["Equipment", "Minimum", "Activation Fee", "No Exit Fee", "Billing", "Training", "Warranty", "Exclusivity"]) {
@@ -147,10 +152,64 @@ test.describe("Agreement Summary one-pager template", () => {
 
     // Reset Defaults restores the original headline.
     await page.getByRole("button", { name: /Reset Defaults/i }).click();
-    await expect(page.locator("textarea").filter({ hasText: "Summary of Dandy Agreement" }).first()).toBeVisible();
+    await expect(headlineField).toHaveValue("Summary of Dandy Agreement");
 
     // Capture a screenshot for visual review.
     await page.screenshot({ path: "/tmp/agreement-editor-tab.png", fullPage: true });
+  });
+
+  test("Hiding the built-in via the templates gallery hides it from editor + generator", async ({ page }) => {
+    // The toggle is a button with a title attribute that reads either
+    // "Hide from sales reps" (when currently visible) or "Show to sales reps"
+    // (when currently hidden). We always restore visibility in `finally` so a
+    // mid-test failure can't leak a "hidden" state into later tests.
+    try {
+      // 1. Toggle visibility OFF via the visibility switch on the card.
+      await page.goto("/sales/one-pager-templates");
+      const titleP = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
+      await expect(titleP).toBeVisible({ timeout: 15000 });
+      const card = titleP.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+      // Wait for the visibility-write PUT before navigating away so the API
+      // has committed the change.
+      const hideResp = page.waitForResponse(
+        r => r.url().includes("/sales/layout-defaults/template_visibility") && r.request().method() === "PUT",
+        { timeout: 5000 },
+      );
+      await card.locator('button[title="Hide from sales reps"]').click();
+      await hideResp;
+
+      // 2. The Agreement Summary tab should no longer appear in the editor.
+      await page.goto("/sales/one-pager/editor");
+      await expect(page.getByRole("heading", { name: "Template Editor" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("button", { name: /^Agreement Summary$/i })).toHaveCount(0);
+
+      // 3. The Agreement Summary template button should also be gone from the
+      //    sales rep generator page. Wait for the visibility-loaded fade-in
+      //    (`opacity-0` → `opacity-100` transition controlled by
+      //    `visibilityLoaded` state) so the button list is stable.
+      await page.goto("/sales/one-pager");
+      await expect(page.locator(".opacity-100").first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole("button", { name: /^Agreement Summary$/ })).toHaveCount(0);
+    } finally {
+      // Always restore visibility so other tests are isolated, even when an
+      // assertion above fails. If the gallery never reached a hidden state
+      // (e.g. the first PUT failed) the toggle will already read
+      // "Hide from sales reps" and there is nothing to restore — guard with
+      // a count check so cleanup never throws.
+      await page.goto("/sales/one-pager-templates");
+      const titleP2 = page.locator("p", { hasText: /^Agreement Summary$/ }).first();
+      await expect(titleP2).toBeVisible({ timeout: 15000 });
+      const card2 = titleP2.locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+      const showBtn = card2.locator('button[title="Show to sales reps"]');
+      if (await showBtn.count()) {
+        const showResp = page.waitForResponse(
+          r => r.url().includes("/sales/layout-defaults/template_visibility") && r.request().method() === "PUT",
+          { timeout: 5000 },
+        );
+        await showBtn.click();
+        await showResp;
+      }
+    }
   });
 
   test("Download PDF triggers a file download", async ({ page }) => {
