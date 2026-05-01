@@ -330,6 +330,9 @@ export default function SalesOnePagerEditor() {
   const [agreementSubheadlineOffsetY, setAgreementSubheadlineOffsetY] = useState<number>(
     defaultAgreementSummaryContent.subheadlineOffsetY ?? 0
   );
+  const [agreementHeadlineMaxWidthPct, setAgreementHeadlineMaxWidthPct] = useState<number>(
+    defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58
+  );
   const [agreementShowDividers, setAgreementShowDividers] = useState<boolean>(
     defaultAgreementSummaryContent.showSectionDividers !== false
   );
@@ -452,6 +455,7 @@ export default function SalesOnePagerEditor() {
       setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -473,6 +477,7 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.headlineOffsetY === "number") setAgreementHeadlineOffsetY(saved.headlineOffsetY);
         if (typeof saved.subheadlineOffsetX === "number") setAgreementSubheadlineOffsetX(saved.subheadlineOffsetX);
         if (typeof saved.subheadlineOffsetY === "number") setAgreementSubheadlineOffsetY(saved.subheadlineOffsetY);
+        if (typeof saved.headlineMaxWidthPct === "number") setAgreementHeadlineMaxWidthPct(saved.headlineMaxWidthPct);
         if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
         if (typeof saved.footerLinkText === "string") setAgreementFooterLinkText(saved.footerLinkText);
         if (typeof saved.footerLinkUrl === "string") setAgreementFooterLinkUrl(saved.footerLinkUrl);
@@ -601,6 +606,7 @@ export default function SalesOnePagerEditor() {
             headlineOffsetY: agreementHeadlineOffsetY,
             subheadlineOffsetX: agreementSubheadlineOffsetX,
             subheadlineOffsetY: agreementSubheadlineOffsetY,
+            headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
             showSectionDividers: agreementShowDividers,
             footerLinkText: agreementFooterLinkText,
             footerLinkUrl: agreementFooterLinkUrl,
@@ -629,6 +635,7 @@ export default function SalesOnePagerEditor() {
     agreementHeaderHeight, agreementFooterHeight,
     agreementHeadlineOffsetX, agreementHeadlineOffsetY,
     agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
+    agreementHeadlineMaxWidthPct,
     agreementShowDividers,
     agreementFooterLinkText, agreementFooterLinkUrl,
   ]);
@@ -688,6 +695,7 @@ export default function SalesOnePagerEditor() {
           headlineOffsetY: agreementHeadlineOffsetY,
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
+          headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -729,6 +737,7 @@ export default function SalesOnePagerEditor() {
       setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -769,6 +778,7 @@ export default function SalesOnePagerEditor() {
           headlineOffsetY: agreementHeadlineOffsetY,
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
+          headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -1319,6 +1329,15 @@ export default function SalesOnePagerEditor() {
                       min={-100} max={200} step={1} unit="pt"
                       onChange={v => setAgreementSubheadlineOffsetY(v)}
                     />
+                    <SliderRow
+                      label="Header Text Width"
+                      value={agreementHeadlineMaxWidthPct}
+                      min={30} max={90} step={1} unit="%"
+                      onChange={v => setAgreementHeadlineMaxWidthPct(v)}
+                    />
+                    <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
+                      Lower this to wrap the headline and subheadline sooner so they don't overlap the scanner image.
+                    </p>
                   </EditorSection>
 
                   <EditorSection title="Sections" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.content} onToggle={() => toggle("content")}>

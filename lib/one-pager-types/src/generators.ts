@@ -139,6 +139,12 @@ export interface AgreementSummaryContent {
   headlineOffsetY?: number;        // default 0
   subheadlineOffsetX?: number;     // default 0
   subheadlineOffsetY?: number;     // default 0
+  /**
+   * Maximum width of the headline/subheadline as a percent of the page
+   * width (clamped 30–90). Lowering this forces the text to wrap sooner so
+   * it doesn't overlap the scanner image on the right. Default: 58.
+   */
+  headlineMaxWidthPct?: number;
   /** Show the thin horizontal divider beneath each section row. Default: true. */
   showSectionDividers?: boolean;
   /**
@@ -180,6 +186,7 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   headlineOffsetY: 0,
   subheadlineOffsetX: 0,
   subheadlineOffsetY: 0,
+  headlineMaxWidthPct: 58,
   showSectionDividers: true,
   footerLinkText: "Dandy Practice Agreement",
   footerLinkUrl: "https://meetdandy.com/practice-agreement",
@@ -257,7 +264,8 @@ export const generateAgreementSummaryOnePager = async (
   const headlinePt = clamp(content.headlineFontSize ?? 46, 18, 72);
   const headlineOffsetX = clamp(content.headlineOffsetX ?? 0, -margin, 200);
   const headlineOffsetY = clamp(content.headlineOffsetY ?? 0, -100, 200);
-  const headlineMaxW = w * 0.58;
+  const headlineWidthPct = clamp(content.headlineMaxWidthPct ?? 58, 30, 90);
+  const headlineMaxW = w * (headlineWidthPct / 100);
   doc.setFont(headingFont, headingStyle);
   doc.setFontSize(headlinePt);
   doc.setTextColor(...white);
