@@ -310,6 +310,29 @@ export default function SalesOnePagerEditor() {
   const [agreementFooterContacts, setAgreementFooterContacts] = useState<AgreementContact[]>(
     JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? []))
   );
+  // Agreement Summary — layout overrides (header/footer height, headline/sub
+  // X+Y offsets, divider toggle).
+  const [agreementHeaderHeight, setAgreementHeaderHeight] = useState<number>(
+    defaultAgreementSummaryContent.headerHeight ?? 290
+  );
+  const [agreementFooterHeight, setAgreementFooterHeight] = useState<number>(
+    defaultAgreementSummaryContent.footerHeight ?? 56
+  );
+  const [agreementHeadlineOffsetX, setAgreementHeadlineOffsetX] = useState<number>(
+    defaultAgreementSummaryContent.headlineOffsetX ?? 0
+  );
+  const [agreementHeadlineOffsetY, setAgreementHeadlineOffsetY] = useState<number>(
+    defaultAgreementSummaryContent.headlineOffsetY ?? 0
+  );
+  const [agreementSubheadlineOffsetX, setAgreementSubheadlineOffsetX] = useState<number>(
+    defaultAgreementSummaryContent.subheadlineOffsetX ?? 0
+  );
+  const [agreementSubheadlineOffsetY, setAgreementSubheadlineOffsetY] = useState<number>(
+    defaultAgreementSummaryContent.subheadlineOffsetY ?? 0
+  );
+  const [agreementShowDividers, setAgreementShowDividers] = useState<boolean>(
+    defaultAgreementSummaryContent.showSectionDividers !== false
+  );
 
   // Team contacts
   const [teamContacts, setTeamContacts] = useState([
@@ -417,6 +440,13 @@ export default function SalesOnePagerEditor() {
       setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
       setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
       setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
+      setAgreementHeaderHeight(defaultAgreementSummaryContent.headerHeight ?? 290);
+      setAgreementFooterHeight(defaultAgreementSummaryContent.footerHeight ?? 56);
+      setAgreementHeadlineOffsetX(defaultAgreementSummaryContent.headlineOffsetX ?? 0);
+      setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
+      setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
+      setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
       if (saved) {
         if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
@@ -429,6 +459,13 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.sectionBodyFontSize === "number") setAgreementSectionBodyFontSize(saved.sectionBodyFontSize);
         if (typeof saved.footerFontSize === "number") setAgreementFooterFontSize(saved.footerFontSize);
         if (Array.isArray(saved.footerContacts)) setAgreementFooterContacts(saved.footerContacts as AgreementContact[]);
+        if (typeof saved.headerHeight === "number") setAgreementHeaderHeight(saved.headerHeight);
+        if (typeof saved.footerHeight === "number") setAgreementFooterHeight(saved.footerHeight);
+        if (typeof saved.headlineOffsetX === "number") setAgreementHeadlineOffsetX(saved.headlineOffsetX);
+        if (typeof saved.headlineOffsetY === "number") setAgreementHeadlineOffsetY(saved.headlineOffsetY);
+        if (typeof saved.subheadlineOffsetX === "number") setAgreementSubheadlineOffsetX(saved.subheadlineOffsetX);
+        if (typeof saved.subheadlineOffsetY === "number") setAgreementSubheadlineOffsetY(saved.subheadlineOffsetY);
+        if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
       }
       return;
     }
@@ -548,6 +585,13 @@ export default function SalesOnePagerEditor() {
             sectionLabelFontSize: agreementSectionLabelFontSize,
             sectionBodyFontSize: agreementSectionBodyFontSize,
             footerFontSize: agreementFooterFontSize,
+            headerHeight: agreementHeaderHeight,
+            footerHeight: agreementFooterHeight,
+            headlineOffsetX: agreementHeadlineOffsetX,
+            headlineOffsetY: agreementHeadlineOffsetY,
+            subheadlineOffsetX: agreementSubheadlineOffsetX,
+            subheadlineOffsetY: agreementSubheadlineOffsetY,
+            showSectionDividers: agreementShowDividers,
           });
         } else {
           doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
@@ -570,6 +614,10 @@ export default function SalesOnePagerEditor() {
     agreementHeadline, agreementSubheadline, agreementFooter, agreementSections,
     agreementFooterContacts, agreementHeadlineFontSize, agreementSubheadlineFontSize,
     agreementSectionLabelFontSize, agreementSectionBodyFontSize, agreementFooterFontSize,
+    agreementHeaderHeight, agreementFooterHeight,
+    agreementHeadlineOffsetX, agreementHeadlineOffsetY,
+    agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
+    agreementShowDividers,
   ]);
 
   // ── Save defaults ─────────────────────────────────────────────────
@@ -621,6 +669,13 @@ export default function SalesOnePagerEditor() {
           sectionLabelFontSize: agreementSectionLabelFontSize,
           sectionBodyFontSize: agreementSectionBodyFontSize,
           footerFontSize: agreementFooterFontSize,
+          headerHeight: agreementHeaderHeight,
+          footerHeight: agreementFooterHeight,
+          headlineOffsetX: agreementHeadlineOffsetX,
+          headlineOffsetY: agreementHeadlineOffsetY,
+          subheadlineOffsetX: agreementSubheadlineOffsetX,
+          subheadlineOffsetY: agreementSubheadlineOffsetY,
+          showSectionDividers: agreementShowDividers,
         });
       }
       setSavedIndicator(true);
@@ -653,6 +708,13 @@ export default function SalesOnePagerEditor() {
       setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
       setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
       setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
+      setAgreementHeaderHeight(defaultAgreementSummaryContent.headerHeight ?? 290);
+      setAgreementFooterHeight(defaultAgreementSummaryContent.footerHeight ?? 56);
+      setAgreementHeadlineOffsetX(defaultAgreementSummaryContent.headlineOffsetX ?? 0);
+      setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
+      setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
+      setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
+      setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
     }
   };
 
@@ -684,6 +746,13 @@ export default function SalesOnePagerEditor() {
           sectionLabelFontSize: agreementSectionLabelFontSize,
           sectionBodyFontSize: agreementSectionBodyFontSize,
           footerFontSize: agreementFooterFontSize,
+          headerHeight: agreementHeaderHeight,
+          footerHeight: agreementFooterHeight,
+          headlineOffsetX: agreementHeadlineOffsetX,
+          headlineOffsetY: agreementHeadlineOffsetY,
+          subheadlineOffsetX: agreementSubheadlineOffsetX,
+          subheadlineOffsetY: agreementSubheadlineOffsetY,
+          showSectionDividers: agreementShowDividers,
         });
         doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
@@ -1169,6 +1238,12 @@ export default function SalesOnePagerEditor() {
                 {/* ═══ AGREEMENT SUMMARY ═══ */}
                 {editorTemplate === "agreement-summary" && (<>
                   <EditorSection title="Header" icon={<Type className="w-4 h-4 text-muted-foreground" />} open={openSections.header} onToggle={() => toggle("header")}>
+                    <SliderRow
+                      label="Header Height"
+                      value={agreementHeaderHeight}
+                      min={140} max={480} step={2} unit="pt"
+                      onChange={v => setAgreementHeaderHeight(v)}
+                    />
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Headline</label>
                       <textarea
@@ -1185,6 +1260,18 @@ export default function SalesOnePagerEditor() {
                       min={18} max={72} step={1} unit="pt"
                       onChange={v => setAgreementHeadlineFontSize(v)}
                     />
+                    <SliderRow
+                      label="Headline X Offset"
+                      value={agreementHeadlineOffsetX}
+                      min={-40} max={200} step={1} unit="pt"
+                      onChange={v => setAgreementHeadlineOffsetX(v)}
+                    />
+                    <SliderRow
+                      label="Headline Y Offset"
+                      value={agreementHeadlineOffsetY}
+                      min={-100} max={200} step={1} unit="pt"
+                      onChange={v => setAgreementHeadlineOffsetY(v)}
+                    />
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Subheadline</label>
                       <textarea
@@ -1200,6 +1287,18 @@ export default function SalesOnePagerEditor() {
                       value={agreementSubheadlineFontSize}
                       min={8} max={24} step={0.5} unit="pt"
                       onChange={v => setAgreementSubheadlineFontSize(v)}
+                    />
+                    <SliderRow
+                      label="Subheadline X Offset"
+                      value={agreementSubheadlineOffsetX}
+                      min={-40} max={200} step={1} unit="pt"
+                      onChange={v => setAgreementSubheadlineOffsetX(v)}
+                    />
+                    <SliderRow
+                      label="Subheadline Y Offset"
+                      value={agreementSubheadlineOffsetY}
+                      min={-100} max={200} step={1} unit="pt"
+                      onChange={v => setAgreementSubheadlineOffsetY(v)}
                     />
                   </EditorSection>
 
@@ -1219,6 +1318,15 @@ export default function SalesOnePagerEditor() {
                       min={7} max={14} step={0.5} unit="pt"
                       onChange={v => setAgreementSectionBodyFontSize(v)}
                     />
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={agreementShowDividers}
+                        onChange={e => setAgreementShowDividers(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      <span className="text-xs text-muted-foreground">Show divider line between sections</span>
+                    </label>
                     {agreementSections.map((sec, i) => (
                       <div key={i} className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -1282,6 +1390,15 @@ export default function SalesOnePagerEditor() {
                       min={7} max={18} step={0.5} unit="pt"
                       onChange={v => setAgreementFooterFontSize(v)}
                     />
+                    <SliderRow
+                      label="Footer Height (min)"
+                      value={agreementFooterHeight}
+                      min={32} max={200} step={2} unit="pt"
+                      onChange={v => setAgreementFooterHeight(v)}
+                    />
+                    <p className="text-[10px] text-muted-foreground -mt-1">
+                      Acts as a minimum — footer auto-grows when contacts are added.
+                    </p>
 
                     <div className="pt-2 border-t border-border">
                       <div className="flex items-center justify-between mb-2">

@@ -218,17 +218,28 @@ test.describe("Agreement Summary one-pager template", () => {
     // Switch to the Agreement Summary tab.
     await page.getByRole("button", { name: /^Agreement Summary$/i }).click();
 
-    // Header section exposes Headline + Subheadline font-size sliders.
+    // Header section exposes height + font-size + X/Y offset sliders.
+    await expect(page.getByText("Header Height", { exact: true })).toBeVisible();
     await expect(page.getByText("Headline Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText("Headline X Offset", { exact: true })).toBeVisible();
+    await expect(page.getByText("Headline Y Offset", { exact: true })).toBeVisible();
     await expect(page.getByText("Subheadline Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText("Subheadline X Offset", { exact: true })).toBeVisible();
+    await expect(page.getByText("Subheadline Y Offset", { exact: true })).toBeVisible();
 
-    // Sections section exposes Label + Body font-size sliders.
+    // Sections section exposes Label + Body font-size sliders + divider toggle.
     await expect(page.getByText("Section Label Font Size", { exact: true })).toBeVisible();
     await expect(page.getByText("Section Body Font Size", { exact: true })).toBeVisible();
+    const dividerToggle = page.getByLabel(/Show divider line between sections/i);
+    await expect(dividerToggle).toBeVisible();
+    await expect(dividerToggle).toBeChecked();
+    await dividerToggle.uncheck();
+    await expect(dividerToggle).not.toBeChecked();
 
     // Footer section is collapsed by default — expand it before asserting.
     await page.getByRole("button", { name: /^Footer$/ }).click();
     await expect(page.getByText("Footer Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText("Footer Height (min)", { exact: true })).toBeVisible();
     await expect(page.getByText(/Contact Info \(phone \/ email\)/i)).toBeVisible();
 
     // The contact list starts empty; "Add contact" inserts a row with all three

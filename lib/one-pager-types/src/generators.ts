@@ -126,6 +126,21 @@ export interface AgreementSummaryContent {
   sectionLabelFontSize?: number;   // default 15
   sectionBodyFontSize?: number;    // default 9.5 (auto-shrinks to 8.5 on overflow)
   footerFontSize?: number;         // default 11
+  /**
+   * Optional layout overrides (in pt). All fall back to historical defaults
+   * when omitted so previously-saved layouts render identically.
+   *
+   * X/Y offsets shift the headline / subheadline relative to their default
+   * anchor (left margin / standard Y) — positive moves right / down.
+   */
+  headerHeight?: number;           // default 290
+  footerHeight?: number;           // default 56 (a soft minimum — band still grows for contacts)
+  headlineOffsetX?: number;        // default 0
+  headlineOffsetY?: number;        // default 0
+  subheadlineOffsetX?: number;     // default 0
+  subheadlineOffsetY?: number;     // default 0
+  /** Show the thin horizontal divider beneath each section row. Default: true. */
+  showSectionDividers?: boolean;
 }
 
 export const defaultAgreementSummaryContent: AgreementSummaryContent = {
@@ -148,6 +163,13 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   sectionLabelFontSize: 15,
   sectionBodyFontSize: 9.5,
   footerFontSize: 11,
+  headerHeight: 290,
+  footerHeight: 56,
+  headlineOffsetX: 0,
+  headlineOffsetY: 0,
+  subheadlineOffsetX: 0,
+  subheadlineOffsetY: 0,
+  showSectionDividers: true,
 };
 
 export const generateAgreementSummaryOnePager = async (
@@ -177,7 +199,8 @@ export const generateAgreementSummaryOnePager = async (
   // ── Header band ──────────────────────────────────────────────────────
   // Match the v6 PDF: tall dark-green header (~36% of page), big serif
   // headline on the left, scanner image bleeding off the top-right.
-  const headerH = 290;
+  // Height is user-tunable; clamped to keep the page useable.
+  const headerH = clamp(content.headerHeight ?? 290, 140, 480);
   doc.setFillColor(...darkGreen);
   doc.rect(0, 0, w, headerH, "F");
 
@@ -216,32 +239,42 @@ export const generateAgreementSummaryOnePager = async (
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%
   // of page so it doesn't run into the scanner image on the right.
   // Font sizes are user-tunable via the editor; clamp to a sane range so a
-  // bad value can't blow out the page layout.
+  // bad value can't blow out the page layout. X/Y offsets nudge the
+  // anchor relative to its default position.
   const headlinePt = clamp(content.headlineFontSize ?? 46, 18, 72);
+  const headlineOffsetX = clamp(content.headlineOffsetX ?? 0, -margin, 200);
+  const headlineOffsetY = clamp(content.headlineOffsetY ?? 0, -100, 200);
   const headlineMaxW = w * 0.58;
   doc.setFont(headingFont, headingStyle);
   doc.setFontSize(headlinePt);
   doc.setTextColor(...white);
   const headlineLines = doc.splitTextToSize(content.headline, headlineMaxW);
   const headlineLineH = headlinePt * 1.09;
-  const headlineY = 130;
-  doc.text(headlineLines, margin, headlineY);
+  const headlineX = margin + headlineOffsetX;
+  const headlineY = 130 + headlineOffsetY;
+  doc.text(headlineLines, headlineX, headlineY);
   const headlineBottom = headlineY + (headlineLines.length - 1) * headlineLineH;
 
   // Subheadline — sans-serif, lighter, just below the headline.
   const subheadlinePt = clamp(content.subheadlineFontSize ?? 13, 8, 24);
+  const subheadlineOffsetX = clamp(content.subheadlineOffsetX ?? 0, -margin, 200);
+  const subheadlineOffsetY = clamp(content.subheadlineOffsetY ?? 0, -100, 200);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(subheadlinePt);
   doc.setTextColor(225, 232, 228);
-  const subY = headlineBottom + 32;
+  const subX = margin + subheadlineOffsetX;
+  const subY = headlineBottom + 32 + subheadlineOffsetY;
   const subLines = doc.splitTextToSize(content.subheadline, headlineMaxW);
-  doc.text(subLines, margin, subY, { lineHeightFactor: 1.35 });
+  doc.text(subLines, subX, subY, { lineHeightFactor: 1.35 });
 
   // ── Footer geometry (computed up-front) ─────────────────────────────
   // The footer band can grow when the user adds contacts and/or bumps the
   // footer text size, so we need to know its final height *before* laying
   // out the section rows — otherwise rows can paint underneath the footer.
-  const baseFooterH = 56;
+  // The user-configurable footer height acts as a *minimum* — the band
+  // still grows beyond it when contacts / a long footer text need more
+  // space (so the rep can't accidentally clip their own contact rows).
+  const baseFooterH = clamp(content.footerHeight ?? 56, 32, 200);
   const footerPt = clamp(content.footerFontSize ?? 11, 7, 18);
   const contacts = (content.footerContacts ?? []).filter(
     c => (c?.phone && c.phone.trim()) || (c?.email && c.email.trim()) || (c?.label && c.label.trim()),
@@ -316,9 +349,11 @@ export const generateAgreementSummaryOnePager = async (
     const bodyStartY = rowMidY - bodyBlockH / 2 + (fontPt - 0.5);
     doc.text(bodyLines.slice(0, maxLines), bodyX, bodyStartY, { lineHeightFactor: 1.22 });
 
-    // Thin horizontal separator at the bottom of each row.
-    const sepY = ry + rowH - 0.5;
-    drawSep(doc, margin, sepY, w - margin * 2, [220, 224, 220]);
+    // Thin horizontal separator at the bottom of each row (toggleable).
+    if (content.showSectionDividers !== false) {
+      const sepY = ry + rowH - 0.5;
+      drawSep(doc, margin, sepY, w - margin * 2, [220, 224, 220]);
+    }
   });
 
   // ── Footer band ──────────────────────────────────────────────────────
