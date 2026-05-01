@@ -145,6 +145,12 @@ export interface AgreementSummaryContent {
    * it doesn't overlap the scanner image on the right. Default: 58.
    */
   headlineMaxWidthPct?: number;
+  /**
+   * Width (in pt) of the Dandy wordmark in the top-left of the header.
+   * Height auto-derives from the original 78×28 aspect ratio so the logo
+   * is never distorted. Clamped 30–200. Default: 78.
+   */
+  logoWidth?: number;
   /** Show the thin horizontal divider beneath each section row. Default: true. */
   showSectionDividers?: boolean;
   /**
@@ -187,6 +193,7 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   subheadlineOffsetX: 0,
   subheadlineOffsetY: 0,
   headlineMaxWidthPct: 58,
+  logoWidth: 78,
   showSectionDividers: true,
   footerLinkText: "Dandy Practice Agreement",
   footerLinkUrl: "https://meetdandy.com/practice-agreement",
@@ -244,16 +251,24 @@ export const generateAgreementSummaryOnePager = async (
   }
 
   // Dandy wordmark top-left (use logoPng if provided, else fall back to
-  // typed "dandy" in the heading font).
+  // typed "dandy" in the heading font). Width is user-tunable; height
+  // auto-derives from the original 78×28 aspect ratio so the logo never
+  // gets stretched. The fallback "dandy" text scales proportionally too.
+  const logoW = clamp(content.logoWidth ?? 78, 30, 200);
+  const logoH = logoW * (28 / 78);
   if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", margin, 38, 78, 28); }
+    try { doc.addImage(logoPng, "PNG", margin, 38, logoW, logoH); }
     catch {
-      doc.setFont(headingFont, headingStyle); doc.setFontSize(26); doc.setTextColor(...white);
-      doc.text("dandy", margin, 60);
+      doc.setFont(headingFont, headingStyle);
+      doc.setFontSize(26 * (logoW / 78));
+      doc.setTextColor(...white);
+      doc.text("dandy", margin, 38 + logoH * 0.78);
     }
   } else {
-    doc.setFont(headingFont, headingStyle); doc.setFontSize(26); doc.setTextColor(...white);
-    doc.text("dandy", margin, 60);
+    doc.setFont(headingFont, headingStyle);
+    doc.setFontSize(26 * (logoW / 78));
+    doc.setTextColor(...white);
+    doc.text("dandy", margin, 38 + logoH * 0.78);
   }
 
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%

@@ -333,6 +333,9 @@ export default function SalesOnePagerEditor() {
   const [agreementHeadlineMaxWidthPct, setAgreementHeadlineMaxWidthPct] = useState<number>(
     defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58
   );
+  const [agreementLogoWidth, setAgreementLogoWidth] = useState<number>(
+    defaultAgreementSummaryContent.logoWidth ?? 78
+  );
   const [agreementShowDividers, setAgreementShowDividers] = useState<boolean>(
     defaultAgreementSummaryContent.showSectionDividers !== false
   );
@@ -456,6 +459,7 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
+      setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -478,6 +482,7 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.subheadlineOffsetX === "number") setAgreementSubheadlineOffsetX(saved.subheadlineOffsetX);
         if (typeof saved.subheadlineOffsetY === "number") setAgreementSubheadlineOffsetY(saved.subheadlineOffsetY);
         if (typeof saved.headlineMaxWidthPct === "number") setAgreementHeadlineMaxWidthPct(saved.headlineMaxWidthPct);
+        if (typeof saved.logoWidth === "number") setAgreementLogoWidth(saved.logoWidth);
         if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
         if (typeof saved.footerLinkText === "string") setAgreementFooterLinkText(saved.footerLinkText);
         if (typeof saved.footerLinkUrl === "string") setAgreementFooterLinkUrl(saved.footerLinkUrl);
@@ -607,6 +612,7 @@ export default function SalesOnePagerEditor() {
             subheadlineOffsetX: agreementSubheadlineOffsetX,
             subheadlineOffsetY: agreementSubheadlineOffsetY,
             headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
+            logoWidth: agreementLogoWidth,
             showSectionDividers: agreementShowDividers,
             footerLinkText: agreementFooterLinkText,
             footerLinkUrl: agreementFooterLinkUrl,
@@ -635,7 +641,7 @@ export default function SalesOnePagerEditor() {
     agreementHeaderHeight, agreementFooterHeight,
     agreementHeadlineOffsetX, agreementHeadlineOffsetY,
     agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
-    agreementHeadlineMaxWidthPct,
+    agreementHeadlineMaxWidthPct, agreementLogoWidth,
     agreementShowDividers,
     agreementFooterLinkText, agreementFooterLinkUrl,
   ]);
@@ -696,6 +702,7 @@ export default function SalesOnePagerEditor() {
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
+          logoWidth: agreementLogoWidth,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -738,6 +745,7 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
       setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
+      setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
       setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
       setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
@@ -779,6 +787,7 @@ export default function SalesOnePagerEditor() {
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
           headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
+          logoWidth: agreementLogoWidth,
           showSectionDividers: agreementShowDividers,
           footerLinkText: agreementFooterLinkText,
           footerLinkUrl: agreementFooterLinkUrl,
@@ -1337,6 +1346,15 @@ export default function SalesOnePagerEditor() {
                     />
                     <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
                       Lower this to wrap the headline and subheadline sooner so they don't overlap the scanner image.
+                    </p>
+                    <SliderRow
+                      label="Dandy Logo Size"
+                      value={agreementLogoWidth}
+                      min={30} max={200} step={1} unit="pt"
+                      onChange={v => setAgreementLogoWidth(v)}
+                    />
+                    <p className="text-[10px] text-muted-foreground -mt-2 leading-snug">
+                      Width of the Dandy wordmark in the top-left. Height auto-adjusts to keep the original aspect ratio.
                     </p>
                   </EditorSection>
 
