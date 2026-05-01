@@ -237,10 +237,35 @@ export const generateAgreementSummaryOnePager = async (
   const subLines = doc.splitTextToSize(content.subheadline, headlineMaxW);
   doc.text(subLines, margin, subY, { lineHeightFactor: 1.35 });
 
+  // ── Footer geometry (computed up-front) ─────────────────────────────
+  // The footer band can grow when the user adds contacts and/or bumps the
+  // footer text size, so we need to know its final height *before* laying
+  // out the section rows — otherwise rows can paint underneath the footer.
+  const baseFooterH = 56;
+  const footerPt = clamp(content.footerFontSize ?? 11, 7, 18);
+  const contacts = (content.footerContacts ?? []).filter(
+    c => (c?.phone && c.phone.trim()) || (c?.email && c.email.trim()) || (c?.label && c.label.trim()),
+  );
+  const footerLineH = footerPt * 1.27;
+  const contactPt = Math.max(7, footerPt - 1);
+  const contactLineH = contactPt * 1.27;
+  const footerTextW = w - margin * 2;
+  // Pre-measure with the right font so splitTextToSize uses correct widths.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(footerPt);
+  const footerLines = doc.splitTextToSize(content.footer || "", footerTextW);
+  const footerTextH = footerLines.length * footerLineH;
+  const contactsBlockH = contacts.length > 0 ? contactLineH + 4 : 0;
+  // Cap the footer at ~18% of the page so rows always have breathing room
+  // even if a user pastes a giant footer paragraph.
+  const dynamicFooterH = Math.min(
+    h * 0.18,
+    Math.max(baseFooterH, footerTextH + contactsBlockH + 22),
+  );
+
   // ── Section rows (single column, 8 rows) ────────────────────────────
-  const footerH = 56;
   const rowsTop = headerH + 28;
-  const rowsBottom = h - footerH - 12;
+  const rowsBottom = h - dynamicFooterH - 12;
   const rowsAvailableH = rowsBottom - rowsTop;
   const rowCount = sections.length;
   const rowH = rowsAvailableH / rowCount;
@@ -297,23 +322,8 @@ export const generateAgreementSummaryOnePager = async (
   });
 
   // ── Footer band ──────────────────────────────────────────────────────
-  // The footer renders the legal text on top and (optionally) a row of
-  // contact entries (label / phone / email) below it. When contacts are
-  // present the band auto-grows so nothing overlaps the rows above.
-  const footerPt = clamp(content.footerFontSize ?? 11, 7, 18);
-  const contacts = (content.footerContacts ?? []).filter(
-    c => (c?.phone && c.phone.trim()) || (c?.email && c.email.trim()) || (c?.label && c.label.trim()),
-  );
-  const footerLineH = footerPt * 1.27;
-  const contactPt = Math.max(7, footerPt - 1);
-  const contactLineH = contactPt * 1.27;
-
-  const footerTextW = w - margin * 2;
-  const footerLines = doc.splitTextToSize(content.footer || "", footerTextW);
-  const footerTextH = footerLines.length * footerLineH;
-  const contactsBlockH = contacts.length > 0 ? contactLineH + 4 : 0;
-  const dynamicFooterH = Math.max(footerH, footerTextH + contactsBlockH + 22);
-
+  // Geometry was computed up-front so the section row layout reserved
+  // exactly this much space — here we just paint the band and text.
   doc.setFillColor(...darkGreen);
   doc.rect(0, h - dynamicFooterH, w, dynamicFooterH, "F");
 

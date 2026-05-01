@@ -226,7 +226,8 @@ test.describe("Agreement Summary one-pager template", () => {
     await expect(page.getByText("Section Label Font Size", { exact: true })).toBeVisible();
     await expect(page.getByText("Section Body Font Size", { exact: true })).toBeVisible();
 
-    // Footer section exposes the Footer Font Size slider AND the contacts UI.
+    // Footer section is collapsed by default — expand it before asserting.
+    await page.getByRole("button", { name: /^Footer$/ }).click();
     await expect(page.getByText("Footer Font Size", { exact: true })).toBeVisible();
     await expect(page.getByText(/Contact Info \(phone \/ email\)/i)).toBeVisible();
 
