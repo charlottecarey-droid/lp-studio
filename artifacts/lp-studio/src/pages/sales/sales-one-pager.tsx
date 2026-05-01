@@ -27,6 +27,7 @@ import {
   type NewPartnerOpts,
   type AgreementSummaryContent,
   type AgreementSection,
+  type AgreementContact,
 } from "@workspace/one-pager-types/generators";
 
 // =============================================
@@ -373,7 +374,7 @@ export const generateAgreementSummaryOnePager = async (content: AgreementSummary
 };
 
 export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;
-export type { AgreementSummaryContent, AgreementSection };
+export type { AgreementSummaryContent, AgreementSection, AgreementContact };
 
 // =============================================
 // COMPONENT
@@ -568,7 +569,15 @@ const SalesOnePager = () => {
         doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || "https://meetdandy.com");
         doc.save(`Dandy_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
-        doc = await generateAgreementSummaryOnePager(sharedDefaultAgreementSummaryContent);
+        // Pull admin-saved overrides (headline/subheadline/sections/footer +
+        // optional font sizes & footer contacts) so reps generate the version
+        // configured in the Template Editor.
+        const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout").catch(() => null);
+        const content: AgreementSummaryContent = {
+          ...sharedDefaultAgreementSummaryContent,
+          ...(saved ?? {}),
+        };
+        doc = await generateAgreementSummaryOnePager(content);
         doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
         doc = await generateROIOnePager(dsoName.trim(), numPractices);

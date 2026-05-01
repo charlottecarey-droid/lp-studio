@@ -100,11 +100,32 @@ export interface AgreementSection {
   body: string;
 }
 
+export interface AgreementContact {
+  /** Optional label shown before the contact (e.g. "Sales", "Support"). */
+  label?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface AgreementSummaryContent {
   headline: string;
   subheadline: string;
   sections: AgreementSection[];
   footer: string;
+  /**
+   * Optional contact rows rendered inside the footer band (phone / email).
+   * Empty / undefined means the footer renders only the legal text.
+   */
+  footerContacts?: AgreementContact[];
+  /**
+   * Optional font-size overrides (in pt). Each falls back to the historical
+   * default when omitted, so existing saved layouts keep rendering identically.
+   */
+  headlineFontSize?: number;       // default 46
+  subheadlineFontSize?: number;    // default 13
+  sectionLabelFontSize?: number;   // default 15
+  sectionBodyFontSize?: number;    // default 9.5 (auto-shrinks to 8.5 on overflow)
+  footerFontSize?: number;         // default 11
 }
 
 export const defaultAgreementSummaryContent: AgreementSummaryContent = {
@@ -121,6 +142,12 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
     { label: "Exclusivity", body: "For scans you take with our scanner, please use our lab. That's all we ask!" },
   ],
   footer: "For the full terms and agreement, please see the Dandy Practice Agreement.",
+  footerContacts: [],
+  headlineFontSize: 46,
+  subheadlineFontSize: 13,
+  sectionLabelFontSize: 15,
+  sectionBodyFontSize: 9.5,
+  footerFontSize: 11,
 };
 
 export const generateAgreementSummaryOnePager = async (
@@ -137,6 +164,7 @@ export const generateAgreementSummaryOnePager = async (
   const hasBagoss = ensureBagoss(doc);
   const headingFont = hasBagoss ? "Bagoss" : "helvetica";
   const headingStyle = hasBagoss ? "normal" : "bold";
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
   // Defensive: never let an empty / over-long sections array destabilize the
   // single-page row layout. The Agreement Summary template ships with 8 rows
@@ -187,19 +215,23 @@ export const generateAgreementSummaryOnePager = async (
 
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%
   // of page so it doesn't run into the scanner image on the right.
+  // Font sizes are user-tunable via the editor; clamp to a sane range so a
+  // bad value can't blow out the page layout.
+  const headlinePt = clamp(content.headlineFontSize ?? 46, 18, 72);
   const headlineMaxW = w * 0.58;
   doc.setFont(headingFont, headingStyle);
-  doc.setFontSize(46);
+  doc.setFontSize(headlinePt);
   doc.setTextColor(...white);
   const headlineLines = doc.splitTextToSize(content.headline, headlineMaxW);
-  const headlineLineH = 50;
+  const headlineLineH = headlinePt * 1.09;
   const headlineY = 130;
   doc.text(headlineLines, margin, headlineY);
   const headlineBottom = headlineY + (headlineLines.length - 1) * headlineLineH;
 
   // Subheadline — sans-serif, lighter, just below the headline.
+  const subheadlinePt = clamp(content.subheadlineFontSize ?? 13, 8, 24);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(13);
+  doc.setFontSize(subheadlinePt);
   doc.setTextColor(225, 232, 228);
   const subY = headlineBottom + 32;
   const subLines = doc.splitTextToSize(content.subheadline, headlineMaxW);
@@ -221,35 +253,40 @@ export const generateAgreementSummaryOnePager = async (
   const bodyX = margin + labelColW + 14;
   const bodyW = w - bodyX - margin;
 
+  // User-tunable section font sizes (clamped to keep the row layout sane).
+  const labelPt = clamp(content.sectionLabelFontSize ?? 15, 9, 22);
+  const bodyPtPref = clamp(content.sectionBodyFontSize ?? 9.5, 7, 14);
+
   sections.forEach((section, i) => {
     const ry = rowsTop + i * rowH;
     const rowMidY = ry + rowH / 2;
 
     // Label (heading font, dark)
     doc.setFont(headingFont, headingStyle);
-    doc.setFontSize(15);
+    doc.setFontSize(labelPt);
     doc.setTextColor(...textDark);
     const labelLines = doc.splitTextToSize(section.label || "", labelColW);
-    const labelBlockH = labelLines.length * 17;
-    const labelStartY = rowMidY - labelBlockH / 2 + 12;
+    const labelLineH = labelPt * 1.13;
+    const labelBlockH = labelLines.length * labelLineH;
+    const labelStartY = rowMidY - labelBlockH / 2 + labelPt * 0.8;
     doc.text(labelLines, labelX, labelStartY);
 
-    // Body (sans-serif, smaller, dark gray). Auto-fit: shrink to 8.5pt if the
-    // text would overflow the row at the default 9.5pt size.
+    // Body (sans-serif, smaller, dark gray). Auto-fit: shrink by 1pt if the
+    // text would overflow the row at the user's preferred size.
     doc.setFont("helvetica", "normal");
     doc.setTextColor(60, 70, 65);
-    const bodyLineH = 11.5;
+    const bodyLineH = bodyPtPref * 1.21;
     const maxLines = Math.max(2, Math.floor((rowH - 12) / bodyLineH));
 
-    let fontPt = 9.5;
+    let fontPt = bodyPtPref;
     doc.setFontSize(fontPt);
     let bodyLines = doc.splitTextToSize(section.body || "", bodyW);
     if (bodyLines.length > maxLines) {
-      fontPt = 8.5;
+      fontPt = Math.max(7, bodyPtPref - 1);
       doc.setFontSize(fontPt);
       bodyLines = doc.splitTextToSize(section.body || "", bodyW);
     }
-    const lineH = fontPt === 8.5 ? 10.5 : bodyLineH;
+    const lineH = fontPt * 1.21;
     const bodyBlockH = bodyLines.length * lineH;
     const bodyStartY = rowMidY - bodyBlockH / 2 + (fontPt - 0.5);
     doc.text(bodyLines.slice(0, maxLines), bodyX, bodyStartY, { lineHeightFactor: 1.22 });
@@ -260,18 +297,50 @@ export const generateAgreementSummaryOnePager = async (
   });
 
   // ── Footer band ──────────────────────────────────────────────────────
-  doc.setFillColor(...darkGreen);
-  doc.rect(0, h - footerH, w, footerH, "F");
+  // The footer renders the legal text on top and (optionally) a row of
+  // contact entries (label / phone / email) below it. When contacts are
+  // present the band auto-grows so nothing overlaps the rows above.
+  const footerPt = clamp(content.footerFontSize ?? 11, 7, 18);
+  const contacts = (content.footerContacts ?? []).filter(
+    c => (c?.phone && c.phone.trim()) || (c?.email && c.email.trim()) || (c?.label && c.label.trim()),
+  );
+  const footerLineH = footerPt * 1.27;
+  const contactPt = Math.max(7, footerPt - 1);
+  const contactLineH = contactPt * 1.27;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(...white);
   const footerTextW = w - margin * 2;
   const footerLines = doc.splitTextToSize(content.footer || "", footerTextW);
-  const footerLineH = 14;
-  const footerBlockH = footerLines.length * footerLineH;
-  const footerStartY = h - footerH + (footerH - footerBlockH) / 2 + 11;
+  const footerTextH = footerLines.length * footerLineH;
+  const contactsBlockH = contacts.length > 0 ? contactLineH + 4 : 0;
+  const dynamicFooterH = Math.max(footerH, footerTextH + contactsBlockH + 22);
+
+  doc.setFillColor(...darkGreen);
+  doc.rect(0, h - dynamicFooterH, w, dynamicFooterH, "F");
+
+  // Legal text — centred near the top of the band.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(footerPt);
+  doc.setTextColor(...white);
+  const footerStartY = h - dynamicFooterH + 14 + footerPt;
   doc.text(footerLines, w / 2, footerStartY, { align: "center", lineHeightFactor: 1.3 });
+
+  // Contacts row — centred below the legal text. Each entry renders as
+  // "Label · phone · email" with the dot separators omitted around any
+  // empty field so partial entries still look clean.
+  if (contacts.length > 0) {
+    doc.setFontSize(contactPt);
+    doc.setTextColor(225, 232, 228);
+    const formatted = contacts.map(c => {
+      const parts: string[] = [];
+      if (c.label && c.label.trim()) parts.push(c.label.trim());
+      if (c.phone && c.phone.trim()) parts.push(c.phone.trim());
+      if (c.email && c.email.trim()) parts.push(c.email.trim());
+      return parts.join("  ·  ");
+    });
+    const joined = formatted.join("     |     ");
+    const contactsY = footerStartY + footerTextH + 2;
+    doc.text(joined, w / 2, contactsY, { align: "center" });
+  }
 
   return doc;
 };

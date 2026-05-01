@@ -19,6 +19,7 @@ import {
   generateAgreementSummaryOnePager,
   defaultAgreementSummaryContent,
   type AgreementSection,
+  type AgreementContact,
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 
@@ -290,6 +291,25 @@ export default function SalesOnePagerEditor() {
   const [agreementSections, setAgreementSections] = useState<AgreementSection[]>(
     JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections))
   );
+  // Agreement Summary — typography overrides (in pt) and footer contacts.
+  const [agreementHeadlineFontSize, setAgreementHeadlineFontSize] = useState<number>(
+    defaultAgreementSummaryContent.headlineFontSize ?? 46
+  );
+  const [agreementSubheadlineFontSize, setAgreementSubheadlineFontSize] = useState<number>(
+    defaultAgreementSummaryContent.subheadlineFontSize ?? 13
+  );
+  const [agreementSectionLabelFontSize, setAgreementSectionLabelFontSize] = useState<number>(
+    defaultAgreementSummaryContent.sectionLabelFontSize ?? 15
+  );
+  const [agreementSectionBodyFontSize, setAgreementSectionBodyFontSize] = useState<number>(
+    defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5
+  );
+  const [agreementFooterFontSize, setAgreementFooterFontSize] = useState<number>(
+    defaultAgreementSummaryContent.footerFontSize ?? 11
+  );
+  const [agreementFooterContacts, setAgreementFooterContacts] = useState<AgreementContact[]>(
+    JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? []))
+  );
 
   // Team contacts
   const [teamContacts, setTeamContacts] = useState([
@@ -391,12 +411,24 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
       setAgreementFooter(defaultAgreementSummaryContent.footer);
       setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
+      setAgreementHeadlineFontSize(defaultAgreementSummaryContent.headlineFontSize ?? 46);
+      setAgreementSubheadlineFontSize(defaultAgreementSummaryContent.subheadlineFontSize ?? 13);
+      setAgreementSectionLabelFontSize(defaultAgreementSummaryContent.sectionLabelFontSize ?? 15);
+      setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
+      setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
+      setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
       const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
       if (saved) {
         if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
         if (typeof saved.subheadline === "string") setAgreementSubheadline(saved.subheadline);
         if (typeof saved.footer === "string") setAgreementFooter(saved.footer);
         if (Array.isArray(saved.sections)) setAgreementSections(saved.sections as AgreementSection[]);
+        if (typeof saved.headlineFontSize === "number") setAgreementHeadlineFontSize(saved.headlineFontSize);
+        if (typeof saved.subheadlineFontSize === "number") setAgreementSubheadlineFontSize(saved.subheadlineFontSize);
+        if (typeof saved.sectionLabelFontSize === "number") setAgreementSectionLabelFontSize(saved.sectionLabelFontSize);
+        if (typeof saved.sectionBodyFontSize === "number") setAgreementSectionBodyFontSize(saved.sectionBodyFontSize);
+        if (typeof saved.footerFontSize === "number") setAgreementFooterFontSize(saved.footerFontSize);
+        if (Array.isArray(saved.footerContacts)) setAgreementFooterContacts(saved.footerContacts as AgreementContact[]);
       }
       return;
     }
@@ -510,6 +542,12 @@ export default function SalesOnePagerEditor() {
             subheadline: agreementSubheadline,
             footer: agreementFooter,
             sections: agreementSections,
+            footerContacts: agreementFooterContacts,
+            headlineFontSize: agreementHeadlineFontSize,
+            subheadlineFontSize: agreementSubheadlineFontSize,
+            sectionLabelFontSize: agreementSectionLabelFontSize,
+            sectionBodyFontSize: agreementSectionBodyFontSize,
+            footerFontSize: agreementFooterFontSize,
           });
         } else {
           doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
@@ -530,6 +568,8 @@ export default function SalesOnePagerEditor() {
     teamContacts, phoneNumber, customLinkText, customLinkUrl,
     prospectLogoData, prospectLogoDims,
     agreementHeadline, agreementSubheadline, agreementFooter, agreementSections,
+    agreementFooterContacts, agreementHeadlineFontSize, agreementSubheadlineFontSize,
+    agreementSectionLabelFontSize, agreementSectionBodyFontSize, agreementFooterFontSize,
   ]);
 
   // ── Save defaults ─────────────────────────────────────────────────
@@ -575,6 +615,12 @@ export default function SalesOnePagerEditor() {
           subheadline: agreementSubheadline,
           footer: agreementFooter,
           sections: agreementSections,
+          footerContacts: agreementFooterContacts,
+          headlineFontSize: agreementHeadlineFontSize,
+          subheadlineFontSize: agreementSubheadlineFontSize,
+          sectionLabelFontSize: agreementSectionLabelFontSize,
+          sectionBodyFontSize: agreementSectionBodyFontSize,
+          footerFontSize: agreementFooterFontSize,
         });
       }
       setSavedIndicator(true);
@@ -601,6 +647,12 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
       setAgreementFooter(defaultAgreementSummaryContent.footer);
       setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
+      setAgreementHeadlineFontSize(defaultAgreementSummaryContent.headlineFontSize ?? 46);
+      setAgreementSubheadlineFontSize(defaultAgreementSummaryContent.subheadlineFontSize ?? 13);
+      setAgreementSectionLabelFontSize(defaultAgreementSummaryContent.sectionLabelFontSize ?? 15);
+      setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
+      setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
+      setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
     }
   };
 
@@ -626,6 +678,12 @@ export default function SalesOnePagerEditor() {
           subheadline: agreementSubheadline,
           footer: agreementFooter,
           sections: agreementSections,
+          footerContacts: agreementFooterContacts,
+          headlineFontSize: agreementHeadlineFontSize,
+          subheadlineFontSize: agreementSubheadlineFontSize,
+          sectionLabelFontSize: agreementSectionLabelFontSize,
+          sectionBodyFontSize: agreementSectionBodyFontSize,
+          footerFontSize: agreementFooterFontSize,
         });
         doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
@@ -1121,6 +1179,12 @@ export default function SalesOnePagerEditor() {
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
+                    <SliderRow
+                      label="Headline Font Size"
+                      value={agreementHeadlineFontSize}
+                      min={18} max={72} step={1} unit="pt"
+                      onChange={v => setAgreementHeadlineFontSize(v)}
+                    />
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground">Subheadline</label>
                       <textarea
@@ -1131,12 +1195,30 @@ export default function SalesOnePagerEditor() {
                         className={`mt-1 ${textareaCls}`}
                       />
                     </div>
+                    <SliderRow
+                      label="Subheadline Font Size"
+                      value={agreementSubheadlineFontSize}
+                      min={8} max={24} step={0.5} unit="pt"
+                      onChange={v => setAgreementSubheadlineFontSize(v)}
+                    />
                   </EditorSection>
 
                   <EditorSection title="Sections" icon={<Ruler className="w-4 h-4 text-muted-foreground" />} open={openSections.content} onToggle={() => toggle("content")}>
                     <p className="text-[11px] text-muted-foreground -mt-1 mb-1">
-                      Edit each row's label and body. The PDF auto-fits font size if rows get long.
+                      Edit each row's label and body. The PDF auto-fits body font size if rows get long.
                     </p>
+                    <SliderRow
+                      label="Section Label Font Size"
+                      value={agreementSectionLabelFontSize}
+                      min={9} max={22} step={0.5} unit="pt"
+                      onChange={v => setAgreementSectionLabelFontSize(v)}
+                    />
+                    <SliderRow
+                      label="Section Body Font Size"
+                      value={agreementSectionBodyFontSize}
+                      min={7} max={14} step={0.5} unit="pt"
+                      onChange={v => setAgreementSectionBodyFontSize(v)}
+                    />
                     {agreementSections.map((sec, i) => (
                       <div key={i} className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -1193,6 +1275,67 @@ export default function SalesOnePagerEditor() {
                         placeholder="For the full terms of agreement, please see the Dandy Practice Agreement."
                         className={`mt-1 ${textareaCls}`}
                       />
+                    </div>
+                    <SliderRow
+                      label="Footer Font Size"
+                      value={agreementFooterFontSize}
+                      min={7} max={18} step={0.5} unit="pt"
+                      onChange={v => setAgreementFooterFontSize(v)}
+                    />
+
+                    <div className="pt-2 border-t border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-[11px] font-medium text-muted-foreground">Contact Info (phone / email)</label>
+                        <span className="text-[10px] text-muted-foreground">{agreementFooterContacts.length}/4</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        Optional contacts shown beneath the footer text. Leave label blank to hide it.
+                      </p>
+                      {agreementFooterContacts.map((c, i) => (
+                        <div key={i} className="rounded-lg border border-border bg-background/40 p-3 space-y-2 mb-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Contact {i + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => setAgreementFooterContacts(p => p.filter((_, j) => j !== i))}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              aria-label={`Remove contact ${i + 1}`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={c.label ?? ""}
+                            onChange={e => setAgreementFooterContacts(p => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                            placeholder="Label (e.g. Sales)"
+                            className={inputCls}
+                          />
+                          <input
+                            type="tel"
+                            value={c.phone ?? ""}
+                            onChange={e => setAgreementFooterContacts(p => p.map((x, j) => j === i ? { ...x, phone: e.target.value } : x))}
+                            placeholder="Phone (e.g. +1 555 123 4567)"
+                            className={inputCls}
+                          />
+                          <input
+                            type="email"
+                            value={c.email ?? ""}
+                            onChange={e => setAgreementFooterContacts(p => p.map((x, j) => j === i ? { ...x, email: e.target.value } : x))}
+                            placeholder="Email (e.g. sales@meetdandy.com)"
+                            className={inputCls}
+                          />
+                        </div>
+                      ))}
+                      {agreementFooterContacts.length < 4 && (
+                        <button
+                          type="button"
+                          onClick={() => setAgreementFooterContacts(p => [...p, { label: "", phone: "", email: "" }])}
+                          className="w-full rounded-lg border border-dashed border-border bg-background/40 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                        >
+                          + Add contact
+                        </button>
+                      )}
                     </div>
                   </EditorSection>
                 </>)}
