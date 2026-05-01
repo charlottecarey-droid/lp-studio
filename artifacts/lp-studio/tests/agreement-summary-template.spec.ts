@@ -242,6 +242,18 @@ test.describe("Agreement Summary one-pager template", () => {
     await expect(page.getByText("Footer Height (min)", { exact: true })).toBeVisible();
     await expect(page.getByText(/Contact Info \(phone \/ email\)/i)).toBeVisible();
 
+    // Footer Link inputs (text + URL) — round-trip a value to confirm wiring.
+    const linkTextInput = page.getByPlaceholder(/Link text \(must match/i);
+    const linkUrlInput = page.getByPlaceholder(/^https:\/\/meetdandy\.com\/practice-agreement$/);
+    await expect(linkTextInput).toBeVisible();
+    await expect(linkUrlInput).toBeVisible();
+    // Defaults pre-populated from the template.
+    await expect(linkTextInput).toHaveValue("Dandy Practice Agreement");
+    await expect(linkUrlInput).toHaveValue("https://meetdandy.com/practice-agreement");
+    await linkTextInput.fill("Dandy Practice Agreement");
+    await linkUrlInput.fill("https://example.com/legal");
+    await expect(linkUrlInput).toHaveValue("https://example.com/legal");
+
     // The contact list starts empty; "Add contact" inserts a row with all three
     // inputs (label / phone / email).
     const addBtn = page.getByRole("button", { name: /^\+ Add contact$/ });

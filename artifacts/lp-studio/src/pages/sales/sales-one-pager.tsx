@@ -36,7 +36,7 @@ import {
 
 const API_BASE = "/api";
 
-async function loadLayoutDefault(key: string): Promise<Record<string, any> | null> {
+export async function loadLayoutDefault(key: string): Promise<Record<string, any> | null> {
   // The API is the source of truth — sales reps must always see the freshest
   // template-editor saves, never a stale browser/HTTP cache or stale data left
   // in localStorage from a previous tenant or session.

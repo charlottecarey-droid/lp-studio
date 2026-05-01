@@ -333,6 +333,12 @@ export default function SalesOnePagerEditor() {
   const [agreementShowDividers, setAgreementShowDividers] = useState<boolean>(
     defaultAgreementSummaryContent.showSectionDividers !== false
   );
+  const [agreementFooterLinkText, setAgreementFooterLinkText] = useState<string>(
+    defaultAgreementSummaryContent.footerLinkText ?? ""
+  );
+  const [agreementFooterLinkUrl, setAgreementFooterLinkUrl] = useState<string>(
+    defaultAgreementSummaryContent.footerLinkUrl ?? ""
+  );
 
   // Team contacts
   const [teamContacts, setTeamContacts] = useState([
@@ -447,6 +453,8 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
+      setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
+      setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
       const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
       if (saved) {
         if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
@@ -466,6 +474,8 @@ export default function SalesOnePagerEditor() {
         if (typeof saved.subheadlineOffsetX === "number") setAgreementSubheadlineOffsetX(saved.subheadlineOffsetX);
         if (typeof saved.subheadlineOffsetY === "number") setAgreementSubheadlineOffsetY(saved.subheadlineOffsetY);
         if (typeof saved.showSectionDividers === "boolean") setAgreementShowDividers(saved.showSectionDividers);
+        if (typeof saved.footerLinkText === "string") setAgreementFooterLinkText(saved.footerLinkText);
+        if (typeof saved.footerLinkUrl === "string") setAgreementFooterLinkUrl(saved.footerLinkUrl);
       }
       return;
     }
@@ -592,6 +602,8 @@ export default function SalesOnePagerEditor() {
             subheadlineOffsetX: agreementSubheadlineOffsetX,
             subheadlineOffsetY: agreementSubheadlineOffsetY,
             showSectionDividers: agreementShowDividers,
+            footerLinkText: agreementFooterLinkText,
+            footerLinkUrl: agreementFooterLinkUrl,
           });
         } else {
           doc = await generateROIOnePager(dsoName, numPractices, { headerCfg });
@@ -618,6 +630,7 @@ export default function SalesOnePagerEditor() {
     agreementHeadlineOffsetX, agreementHeadlineOffsetY,
     agreementSubheadlineOffsetX, agreementSubheadlineOffsetY,
     agreementShowDividers,
+    agreementFooterLinkText, agreementFooterLinkUrl,
   ]);
 
   // ── Save defaults ─────────────────────────────────────────────────
@@ -676,6 +689,8 @@ export default function SalesOnePagerEditor() {
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
           showSectionDividers: agreementShowDividers,
+          footerLinkText: agreementFooterLinkText,
+          footerLinkUrl: agreementFooterLinkUrl,
         });
       }
       setSavedIndicator(true);
@@ -715,6 +730,8 @@ export default function SalesOnePagerEditor() {
       setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
       setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
       setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
+      setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
+      setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
     }
   };
 
@@ -753,6 +770,8 @@ export default function SalesOnePagerEditor() {
           subheadlineOffsetX: agreementSubheadlineOffsetX,
           subheadlineOffsetY: agreementSubheadlineOffsetY,
           showSectionDividers: agreementShowDividers,
+          footerLinkText: agreementFooterLinkText,
+          footerLinkUrl: agreementFooterLinkUrl,
         });
         doc.save("Summary_of_Dandy_Agreement.pdf");
       } else {
@@ -1399,6 +1418,27 @@ export default function SalesOnePagerEditor() {
                     <p className="text-[10px] text-muted-foreground -mt-1">
                       Acts as a minimum — footer auto-grows when contacts are added.
                     </p>
+
+                    <div className="pt-2 border-t border-border space-y-2">
+                      <label className="text-[11px] font-medium text-muted-foreground">Footer Link</label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Make a phrase inside the footer text clickable (e.g. "Dandy Practice Agreement"). The phrase must appear verbatim in the footer text above.
+                      </p>
+                      <input
+                        type="text"
+                        value={agreementFooterLinkText}
+                        onChange={e => setAgreementFooterLinkText(e.target.value)}
+                        placeholder="Link text (must match a phrase in the footer)"
+                        className={inputCls}
+                      />
+                      <input
+                        type="url"
+                        value={agreementFooterLinkUrl}
+                        onChange={e => setAgreementFooterLinkUrl(e.target.value)}
+                        placeholder="https://meetdandy.com/practice-agreement"
+                        className={inputCls}
+                      />
+                    </div>
 
                     <div className="pt-2 border-t border-border">
                       <div className="flex items-center justify-between mb-2">

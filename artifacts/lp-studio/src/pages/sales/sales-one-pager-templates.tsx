@@ -21,6 +21,7 @@ import {
   generateAgreementSummaryOnePager,
   defaultAudienceContent,
   defaultAgreementSummaryContent,
+  loadLayoutDefault,
   type AgreementSummaryContent,
   type AgreementSection,
 } from "./sales-one-pager";
@@ -458,13 +459,30 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   const [qrUrl, setQrUrl] = useState("https://meetdandy.com");
   const [audience, setAudience] = useState<"executive" | "clinical" | "practice-manager">("executive");
   const [generating, setGenerating] = useState(false);
-  // Agreement-summary editable content (defaults from PDF source)
+  // Agreement-summary editable content. Spread the *full* default so all
+  // optional fields (font sizes, footer contacts, header/footer height,
+  // headline/sub offsets, divider toggle, footer link) flow through to the
+  // PDF — the dialog only exposes a subset of these for editing, but we
+  // preserve everything else from the admin-saved layout below.
   const [agreement, setAgreement] = useState<AgreementSummaryContent>(() => ({
-    headline: defaultAgreementSummaryContent.headline,
-    subheadline: defaultAgreementSummaryContent.subheadline,
+    ...defaultAgreementSummaryContent,
     sections: defaultAgreementSummaryContent.sections.map(s => ({ ...s })),
-    footer: defaultAgreementSummaryContent.footer,
   }));
+
+  // On mount, fetch the admin-saved Template-Editor layout and merge it on
+  // top of defaults so reps see the version configured for their tenant
+  // (font sizes, footer contacts, footer link, etc.).
+  useEffect(() => {
+    if (!isAgreement) return;
+    let cancelled = false;
+    loadLayoutDefault("dandy_agreement_summary_template_layout")
+      .then(saved => {
+        if (cancelled || !saved) return;
+        setAgreement(p => ({ ...p, ...saved }));
+      })
+      .catch(() => { /* fall back to defaults */ });
+    return () => { cancelled = true; };
+  }, [isAgreement]);
 
   const updateAgreementSection = (idx: number, updates: Partial<AgreementSection>) => {
     setAgreement(p => ({
@@ -475,10 +493,8 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
 
   const resetAgreementDefaults = () => {
     setAgreement({
-      headline: defaultAgreementSummaryContent.headline,
-      subheadline: defaultAgreementSummaryContent.subheadline,
+      ...defaultAgreementSummaryContent,
       sections: defaultAgreementSummaryContent.sections.map(s => ({ ...s })),
-      footer: defaultAgreementSummaryContent.footer,
     });
   };
 

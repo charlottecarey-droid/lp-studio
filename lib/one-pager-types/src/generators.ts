@@ -141,6 +141,17 @@ export interface AgreementSummaryContent {
   subheadlineOffsetY?: number;     // default 0
   /** Show the thin horizontal divider beneath each section row. Default: true. */
   showSectionDividers?: boolean;
+  /**
+   * Optional clickable link inside the footer text. When both fields are set
+   * AND `footerLinkText` is found inside `footer`, that substring is
+   * rendered underlined and made clickable. If the link text wraps across
+   * lines, only the portion on each line that matches is linked.
+   *
+   * Contact phones / emails are auto-linked (tel: / mailto:) regardless of
+   * these fields.
+   */
+  footerLinkText?: string;
+  footerLinkUrl?: string;
 }
 
 export const defaultAgreementSummaryContent: AgreementSummaryContent = {
@@ -170,6 +181,8 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
   subheadlineOffsetX: 0,
   subheadlineOffsetY: 0,
   showSectionDividers: true,
+  footerLinkText: "Dandy Practice Agreement",
+  footerLinkUrl: "https://meetdandy.com/practice-agreement",
 };
 
 export const generateAgreementSummaryOnePager = async (
@@ -363,28 +376,94 @@ export const generateAgreementSummaryOnePager = async (
   doc.rect(0, h - dynamicFooterH, w, dynamicFooterH, "F");
 
   // Legal text — centred near the top of the band.
+  // If footerLinkText is set and present in a wrapped line, render that
+  // line in three pieces (pre / link / post) so the link span can be
+  // underlined and made clickable. Other lines render plain.
   doc.setFont("helvetica", "normal");
   doc.setFontSize(footerPt);
   doc.setTextColor(...white);
   const footerStartY = h - dynamicFooterH + 14 + footerPt;
-  doc.text(footerLines, w / 2, footerStartY, { align: "center", lineHeightFactor: 1.3 });
+  const linkText = (content.footerLinkText ?? "").trim();
+  const linkUrl = (content.footerLinkUrl ?? "").trim();
+  const hasLink = linkText.length > 0 && linkUrl.length > 0;
+
+  footerLines.forEach((line: string, i: number) => {
+    const lineY = footerStartY + i * (footerPt * 1.3);
+    const idx = hasLink ? line.indexOf(linkText) : -1;
+    if (idx === -1) {
+      // Plain centred line.
+      doc.text(line, w / 2, lineY, { align: "center" });
+      return;
+    }
+    // Pre / link / post pieces, centred as a unit.
+    const pre = line.slice(0, idx);
+    const linkPart = line.slice(idx, idx + linkText.length);
+    const post = line.slice(idx + linkText.length);
+    const preW = pre ? doc.getTextWidth(pre) : 0;
+    const linkW = doc.getTextWidth(linkPart);
+    const postW = post ? doc.getTextWidth(post) : 0;
+    const totalW = preW + linkW + postW;
+    const startX = (w - totalW) / 2;
+    if (pre) doc.text(pre, startX, lineY);
+    const linkX = startX + preW;
+    // jsPDF's textWithLink draws text and adds a clickable link region.
+    doc.textWithLink(linkPart, linkX, lineY, { url: linkUrl });
+    // Underline the link span (1pt below baseline).
+    doc.setDrawColor(...white);
+    doc.setLineWidth(0.5);
+    doc.line(linkX, lineY + 1.5, linkX + linkW, lineY + 1.5);
+    if (post) doc.text(post, linkX + linkW, lineY);
+  });
 
   // Contacts row — centred below the legal text. Each entry renders as
-  // "Label · phone · email" with the dot separators omitted around any
-  // empty field so partial entries still look clean.
+  // "Label · phone · email" with phone/email auto-linked (tel: / mailto:).
   if (contacts.length > 0) {
     doc.setFontSize(contactPt);
     doc.setTextColor(225, 232, 228);
-    const formatted = contacts.map(c => {
-      const parts: string[] = [];
-      if (c.label && c.label.trim()) parts.push(c.label.trim());
-      if (c.phone && c.phone.trim()) parts.push(c.phone.trim());
-      if (c.email && c.email.trim()) parts.push(c.email.trim());
-      return parts.join("  ·  ");
-    });
-    const joined = formatted.join("     |     ");
     const contactsY = footerStartY + footerTextH + 2;
-    doc.text(joined, w / 2, contactsY, { align: "center" });
+    const sepEntry = "     |     ";
+    const sepField = "  ·  ";
+
+    // Build a flat token list across all contacts so we can centre the
+    // whole row, then walk it again to actually paint each piece (with
+    // tel:/mailto: links on phones / emails).
+    type Token = { text: string; url?: string };
+    const tokens: Token[] = [];
+    contacts.forEach((c, ci) => {
+      if (ci > 0) tokens.push({ text: sepEntry });
+      const fields: Token[] = [];
+      if (c.label && c.label.trim()) fields.push({ text: c.label.trim() });
+      if (c.phone && c.phone.trim()) {
+        const p = c.phone.trim();
+        // tel: URLs strip spaces and most punctuation per RFC 3966.
+        const telHref = `tel:${p.replace(/[^\d+]/g, "")}`;
+        fields.push({ text: p, url: telHref });
+      }
+      if (c.email && c.email.trim()) {
+        const e = c.email.trim();
+        fields.push({ text: e, url: `mailto:${e}` });
+      }
+      fields.forEach((f, fi) => {
+        if (fi > 0) tokens.push({ text: sepField });
+        tokens.push(f);
+      });
+    });
+
+    const totalW = tokens.reduce((sum, t) => sum + doc.getTextWidth(t.text), 0);
+    let cx = (w - totalW) / 2;
+    tokens.forEach(t => {
+      const tw = doc.getTextWidth(t.text);
+      if (t.url) {
+        doc.textWithLink(t.text, cx, contactsY, { url: t.url });
+        // Underline the linked text.
+        doc.setDrawColor(225, 232, 228);
+        doc.setLineWidth(0.4);
+        doc.line(cx, contactsY + 1.2, cx + tw, contactsY + 1.2);
+      } else {
+        doc.text(t.text, cx, contactsY);
+      }
+      cx += tw;
+    });
   }
 
   return doc;
