@@ -212,6 +212,44 @@ test.describe("Agreement Summary one-pager template", () => {
     }
   });
 
+  test("Editor exposes font-size sliders and footer contact fields", async ({ page }) => {
+    await page.goto("/sales/one-pager/editor");
+    await expect(page.getByRole("heading", { name: "Template Editor" })).toBeVisible({ timeout: 15000 });
+    // Switch to the Agreement Summary tab.
+    await page.getByRole("button", { name: /^Agreement Summary$/i }).click();
+
+    // Header section exposes Headline + Subheadline font-size sliders.
+    await expect(page.getByText("Headline Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText("Subheadline Font Size", { exact: true })).toBeVisible();
+
+    // Sections section exposes Label + Body font-size sliders.
+    await expect(page.getByText("Section Label Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText("Section Body Font Size", { exact: true })).toBeVisible();
+
+    // Footer section exposes the Footer Font Size slider AND the contacts UI.
+    await expect(page.getByText("Footer Font Size", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Contact Info \(phone \/ email\)/i)).toBeVisible();
+
+    // The contact list starts empty; "Add contact" inserts a row with all three
+    // inputs (label / phone / email).
+    const addBtn = page.getByRole("button", { name: /^\+ Add contact$/ });
+    await expect(addBtn).toBeVisible();
+    await addBtn.click();
+
+    const labelInput = page.getByPlaceholder(/^Label \(e\.g\. Sales\)$/).first();
+    const phoneInput = page.getByPlaceholder(/^Phone \(e\.g\./).first();
+    const emailInput = page.getByPlaceholder(/^Email \(e\.g\./).first();
+    await expect(labelInput).toBeVisible();
+    await expect(phoneInput).toBeVisible();
+    await expect(emailInput).toBeVisible();
+
+    // Round-trip a value to confirm the inputs are wired to state.
+    await phoneInput.fill("+1 555 123 4567");
+    await emailInput.fill("sales@meetdandy.com");
+    await expect(phoneInput).toHaveValue("+1 555 123 4567");
+    await expect(emailInput).toHaveValue("sales@meetdandy.com");
+  });
+
   test("Download PDF triggers a file download", async ({ page }) => {
     await page.goto("/sales/one-pager-templates");
     await openAgreementGenerateDialog(page);
