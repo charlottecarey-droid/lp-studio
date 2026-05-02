@@ -672,6 +672,7 @@ function Nav({
 
   return (
     <div
+      data-st-nav="1"
       style={{
         position: "sticky",
         top: 0,
@@ -760,7 +761,11 @@ function SectionBadge({
       style={{
         position: "absolute",
         top: topOffset,
-        right: 56,
+        // Align with the centered max-1180 content container's left edge so
+        // the badge sits directly above the section's eyebrow text. On wide
+        // viewports this matches `(100vw - 1180px) / 2`; on narrow viewports
+        // it clamps to the section's 56px outer padding.
+        left: "max(56px, calc((100vw - 1180px) / 2))",
         zIndex: 5,
         display: "inline-flex",
         alignItems: "center",
@@ -938,7 +943,10 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
         position: "relative",
         background: FOREST_DEEP,
         color: WHITE,
-        padding: "120px 56px 140px",
+        // Tightened top padding (was 120) — without the REC + Vision Pro
+        // chips occupying the upper HUD strip, the hero copy can sit higher
+        // and read with more presence.
+        padding: "60px 56px 140px",
         overflow: "hidden",
         minHeight: 820,
       }}
@@ -962,88 +970,19 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       {/* Tech-HUD frame around the whole hero */}
       <CornerFrame color="rgba(197,241,197,0.55)" size={22} inset={28} />
 
-      {/* REC indicator — present whenever a video is actually playing */}
-      {hasVideo && (
-        <div
-          style={{
-            position: "absolute",
-            top: 80,
-            left: 56,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "8px 14px",
-            borderRadius: 999,
-            background: "rgba(0,0,0,0.42)",
-            border: "1px solid rgba(255,255,255,0.18)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            fontFamily: SANS,
-            fontSize: 10.5,
-            letterSpacing: "0.24em",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            color: WHITE,
-            zIndex: 2,
-          }}
-        >
-          <span
-            className="st-anim-rec"
-            style={{
-              width: 9,
-              height: 9,
-              borderRadius: "50%",
-              background: "#ff4d4f",
-              boxShadow: "0 0 10px #ff4d4f",
-              animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",
-            }}
-          />
-          REC · TOUR LIVE-FEED
-        </div>
-      )}
-
-      {/* Telemetry strip pinned to the top — pushed right when REC is shown */}
+      {/* Telemetry strip pinned to the top-right. The REC and Apple Vision
+          Pro chips that used to bracket it have been removed for a cleaner
+          hero — the LAT/LON/ALT/LIVE telemetry alone reads as the live-frame
+          HUD without competing with the headline. */}
       <div
         style={{
           position: "absolute",
-          top: hasVideo ? 80 : 60,
-          left: hasVideo ? "auto" : 56,
+          top: 60,
           right: 56,
           zIndex: 2,
-          minWidth: hasVideo ? 320 : undefined,
         }}
       >
         <TelemetryStrip />
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          top: hasVideo ? 130 : 110,
-          right: 56,
-          padding: "10px 16px",
-          background: "rgba(0,0,0,0.40)",
-          border: "1px solid rgba(197,241,197,0.40)",
-          borderRadius: 999,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          backdropFilter: "blur(8px)",
-          zIndex: 2,
-        }}
-      >
-        <VisionGlyph width={28} color={MINT} />
-        <span
-          style={{
-            fontSize: 10.5,
-            fontWeight: 600,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: MINT,
-          }}
-        >
-          {p.heroVisionChipText}
-        </span>
       </div>
 
       <motion.div
@@ -1053,7 +992,9 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
           margin: "0 auto",
           opacity: contentOpacity,
           y: contentY,
-          paddingTop: hasVideo ? 100 : 60,
+          // No HUD pills above the headline anymore — only the slim telemetry
+          // strip — so the headline can start much higher in the frame.
+          paddingTop: 24,
         }}
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
@@ -2342,8 +2283,21 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
     return () => io.disconnect();
   }, []);
 
-  // Track which section is most-visible. Scoped to this block's subtree via
-  // querySelector so we don't accidentally observe sibling blocks.
+  // Track which section is currently behind the sticky nav. We pick whichever
+  // section's top has crossed the probe line (just below the nav) most
+  // recently — i.e., the LAST section in document order whose top edge is at
+  // or above the probe. This is deterministic and works for tall sections.
+  //
+  // We previously used `IntersectionObserver` with thresholds [0.25, 0.5,
+  // 0.75], but that has two bugs against this layout:
+  //   1) The Tour section stacks 5 station cards (~5000px). At a 720px
+  //      viewport, the maximum possible intersection ratio is ~0.14 — it
+  //      never reaches the 0.25 threshold, so the observer never fires for
+  //      Tour and the nav never flips dark for it.
+  //   2) Where two sections briefly intersect simultaneously around a
+  //      boundary, the "highest ratio" winner can fluctuate by a fraction of
+  //      a percent and flip the theme back and forth on tiny scrolls.
+  // The scroll-based probe below has neither problem.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -2353,19 +2307,49 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
       el: root.querySelector<HTMLElement>(`#${sectionId(meta.kind)}`),
     })).filter((x): x is { meta: StSection; el: HTMLElement } => !!x.el);
     if (els.length === 0) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) return;
-        const match = els.find((x) => x.el === visible.target);
-        if (match) setActiveSection(match.meta);
-      },
-      { threshold: [0.25, 0.5, 0.75] }
-    );
-    els.forEach((x) => io.observe(x.el));
-    return () => io.disconnect();
+
+    // Probe sits just below the bottom edge of the sticky nav so the theme
+    // flips exactly as a section's top slides under the bar — matching what
+    // the eye sees behind it. We MEASURE the nav each tick rather than
+    // hardcoding a height so the probe stays correct at narrow widths where
+    // the nav can wrap and become taller.
+    const navEl = root.querySelector<HTMLElement>('[data-st-nav="1"]');
+    const measureProbe = () => {
+      const navH = navEl?.getBoundingClientRect().height ?? 64;
+      return navH + 16; // small buffer past the nav's bottom edge
+    };
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const probeY = measureProbe();
+      // Sections are in document order; the active one is the LAST whose
+      // top edge has scrolled at-or-above the probe line.
+      let active = els[0];
+      for (const x of els) {
+        const r = x.el.getBoundingClientRect();
+        if (r.top <= probeY) {
+          active = x;
+        } else {
+          break;
+        }
+      }
+      setActiveSection((prev) => (prev.kind === active.meta.kind ? prev : active.meta));
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [sectionId]);
 
   // Scroll-progress hairline width (0% → 100% over the first ~1800px of scroll).
@@ -2399,9 +2383,9 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
 
       <Nav p={props} activeSection={activeSection} />
       <div id={sectionId("hero")} style={{ position: "relative" }}>
-        {/* Hero badge sits above the REC/Telemetry/VisionGlyph HUD strip
-            (top:60–167) — using top:24 keeps it in clear corner space. */}
-        <SectionBadge num="01" label="TOUR" theme="dark" topOffset={24} />
+        {/* No SectionBadge in the hero — the Apple Vision Pro chip already
+            sits in the top-right HUD strip and a second pill there reads as
+            redundant. Section badges resume from "02 / PROOF" downward. */}
         <Hero p={props} />
       </div>
       <div id={sectionId("marquee")} style={{ position: "relative" }}>

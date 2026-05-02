@@ -2981,7 +2981,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heroPrimaryCta: "Reserve your visit",
       heroSecondaryCta: "Watch the trailer",
       heroImageUrl: "/event-assets/carousel-lab-machine.png",
-      heroVideoUrl: "/videos/dandy-lab-video.mp4",
+      heroVideoUrl: "/videos/dandy-broll.mp4",
       heroVisionChipText: "Apple Vision Pro · 6–8 min",
       heroScrollLabel: "The tour begins",
 
