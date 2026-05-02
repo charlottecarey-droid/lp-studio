@@ -15,7 +15,7 @@ import spatialHeadsetImg from "@assets/image_1777179519607.png";
 // and the RSVP/Calendar are all dark; Marquee, Manifesto, and Ways are light.
 const ST_SECTIONS = [
   { kind: "hero", num: "01", label: "TOUR", theme: "dark" },
-  { kind: "marquee", num: "02", label: "PROOF", theme: "light" },
+  { kind: "marquee", num: "02", label: "PROOF", theme: "dark" },
   { kind: "manifesto", num: "03", label: "WHY", theme: "light" },
   { kind: "tour", num: "04", label: "STATIONS", theme: "dark" },
   { kind: "callout", num: "05", label: "SPATIAL", theme: "dark" },
@@ -637,6 +637,12 @@ function QRPlaceholder({ size = 84, bg = WHITE, fg = FOREST }: { size?: number; 
 }
 
 // ─── Section: Nav ──────────────────────────────────────────────
+// Nav transition timings — defined once so every animated property (bg,
+// border, color, divider, brand pill) flips with the same rhythm and never
+// drifts out of sync. Surface flips first; foreground "warms up" right after.
+const NAV_TX_SURFACE = "background 320ms ease 0ms, border-color 320ms ease 0ms";
+const NAV_TX_FG = "color 320ms ease 140ms, background 320ms ease 140ms";
+
 function Nav({
   p,
   activeSection,
@@ -648,33 +654,21 @@ function Nav({
   // palette as the user crosses a section boundary so the brand mark + links
   // are always readable against whatever surface is currently behind them.
   //
-  // To get a "lights on / lights off" feel, the background swaps first
-  // (~500ms, no delay) and the foreground colors (logo, text, border, chip)
-  // catch up ~200ms later (~600ms total). This staggered handoff makes it
-  // feel like a switch was thrown rather than a single uniform crossfade.
+  // For the "lights on / lights off" feel, the background swaps first
+  // (320ms, no delay) and the foreground colors catch up 140ms later (also
+  // 320ms). Total ~460ms — fast enough to keep up with quick scrolls, slow
+  // enough to read as an intentional handoff.
   const isDark = activeSection.theme === "dark";
 
   // Background / surface
   const navBg = isDark ? "rgba(0, 35, 29, 0.92)" : "rgba(255, 255, 255, 0.94)";
   const navBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,58,48,0.10)";
 
-  // Foreground (logo / text / divider)
+  // Foreground (logo / text / divider / brand pill)
   const fg = isDark ? WHITE : FOREST;
   const linkColor = isDark ? "rgba(255,255,255,0.72)" : "rgba(0,58,48,0.72)";
   const dividerColor = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,58,48,0.18)";
   const brandColor = isDark ? MINT : FOREST;
-
-  // Center chip — glassy on dark, soft mint-tint on light. Inner label uses
-  // the same fg color so number + slug stay in sync with the theme.
-  const chipBg = isDark ? "rgba(0,0,0,0.32)" : "rgba(0,58,48,0.06)";
-  const chipBorder = isDark ? "rgba(197,241,197,0.32)" : "rgba(0,58,48,0.18)";
-  const chipNum = isDark ? MINT : KELLY;
-
-  // Lights on/off staggering. Background snaps first, foreground catches up.
-  const fgTransition =
-    "color 600ms ease 200ms, background 600ms ease 200ms, border-color 600ms ease 200ms";
-  const bgTransition =
-    "background 500ms ease 0ms, border-color 500ms ease 0ms";
 
   return (
     <div
@@ -691,7 +685,7 @@ function Nav({
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
         borderBottom: `1px solid ${navBorder}`,
-        transition: `${bgTransition}, color 600ms ease 200ms`,
+        transition: `${NAV_TX_SURFACE}, color 320ms ease 140ms`,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
@@ -701,55 +695,16 @@ function Nav({
             width: 1,
             height: 18,
             background: dividerColor,
-            transition: "background 600ms ease 200ms",
+            transition: NAV_TX_FG,
           }}
         />
         <BracketPill
           color={brandColor}
-          style={{ transition: "color 600ms ease 200ms" }}
+          style={{ transition: "color 320ms ease 140ms" }}
         >
           {p.navBrand}
         </BracketPill>
       </div>
-
-      {/* Section-aware center chip — animates each time the active section changes */}
-      <motion.div
-        key={activeSection.num}
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: "easeOut" }}
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -50%)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "8px 14px",
-          borderRadius: 999,
-          border: `1px solid ${chipBorder}`,
-          background: chipBg,
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          fontFamily: SANS,
-          fontSize: 10.5,
-          letterSpacing: "0.22em",
-          fontWeight: 600,
-          textTransform: "uppercase",
-          color: chipNum,
-          pointerEvents: "none",
-          transition: fgTransition,
-        }}
-      >
-        <span style={{ opacity: 0.55 }}>[</span>
-        {activeSection.num}
-        <span style={{ opacity: 0.55 }}>/</span>
-        <span style={{ color: fg, opacity: 0.92, transition: "color 600ms ease 200ms" }}>
-          {activeSection.label}
-        </span>
-        <span style={{ opacity: 0.55 }}>]</span>
-      </motion.div>
 
       <div
         style={{
@@ -759,7 +714,7 @@ function Nav({
           fontSize: 13,
           color: linkColor,
           fontFamily: SANS,
-          transition: "color 600ms ease 200ms",
+          transition: "color 320ms ease 140ms",
         }}
       >
         {p.navLinks.map((l) => (
@@ -769,6 +724,67 @@ function Nav({
         ))}
         <PrimaryCTA label={p.navCtaText} href={p.navCtaUrl} />
       </div>
+    </div>
+  );
+}
+
+// ─── Section badge ─────────────────────────────────────────────
+// The "[ NN / LABEL ]" pill that used to live in the center of the Nav. It
+// now sits in the top-right corner of each section, themed to whatever surface
+// the section is rendered on. Because it lives inside the section wrapper, it
+// scrolls naturally with content — no more flickering chip-remount when the
+// active section changes mid-scroll.
+function SectionBadge({
+  num,
+  label,
+  theme,
+  topOffset = 110,
+}: {
+  num: string;
+  label: string;
+  theme: "dark" | "light";
+  topOffset?: number;
+}) {
+  const isDark = theme === "dark";
+  const bg = isDark ? "rgba(0,0,0,0.32)" : "rgba(0,58,48,0.06)";
+  const border = isDark ? "rgba(197,241,197,0.32)" : "rgba(0,58,48,0.18)";
+  const numColor = isDark ? MINT : KELLY;
+  const labelColor = isDark ? WHITE : FOREST;
+  // Static (no entrance animation): framer-motion's `whileInView` can fail
+  // to trigger reliably for badges that are already in view at mount, which
+  // led to missing badges on first paint. The pill is small + decorative,
+  // so a plain styled div is more predictable and equally effective.
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        top: topOffset,
+        right: 56,
+        zIndex: 5,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 14px",
+        borderRadius: 999,
+        border: `1px solid ${border}`,
+        background: bg,
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        fontFamily: SANS,
+        fontSize: 10.5,
+        letterSpacing: "0.22em",
+        fontWeight: 600,
+        textTransform: "uppercase",
+        color: numColor,
+        pointerEvents: "none",
+      }}
+    >
+      <span style={{ opacity: 0.55 }}>[</span>
+      {num}
+      <span style={{ opacity: 0.55 }}>/</span>
+      <span style={{ color: labelColor, opacity: 0.92 }}>{label}</span>
+      <span style={{ opacity: 0.55 }}>]</span>
     </div>
   );
 }
@@ -2382,10 +2398,22 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
       )}
 
       <Nav p={props} activeSection={activeSection} />
-      <div id={sectionId("hero")}><Hero p={props} /></div>
-      <div id={sectionId("marquee")}><Marquee p={props} /></div>
-      <div id={sectionId("manifesto")}><Manifesto p={props} /></div>
-      <div id={sectionId("tour")}>
+      <div id={sectionId("hero")} style={{ position: "relative" }}>
+        {/* Hero badge sits above the REC/Telemetry/VisionGlyph HUD strip
+            (top:60–167) — using top:24 keeps it in clear corner space. */}
+        <SectionBadge num="01" label="TOUR" theme="dark" topOffset={24} />
+        <Hero p={props} />
+      </div>
+      <div id={sectionId("marquee")} style={{ position: "relative" }}>
+        <SectionBadge num="02" label="PROOF" theme="dark" topOffset={8} />
+        <Marquee p={props} />
+      </div>
+      <div id={sectionId("manifesto")} style={{ position: "relative" }}>
+        <SectionBadge num="03" label="WHY" theme="light" />
+        <Manifesto p={props} />
+      </div>
+      <div id={sectionId("tour")} style={{ position: "relative" }}>
+        <SectionBadge num="04" label="STATIONS" theme="dark" />
         <TourIntro p={props} />
         {stations.map((s, i) => (
           <StationCard
@@ -2396,9 +2424,18 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
           />
         ))}
       </div>
-      <div id={sectionId("callout")}><SpatialCallout p={props} /></div>
-      <div id={sectionId("ways")}><FourWays p={props} /></div>
-      <div id={sectionId("calendar")}><Calendar p={props} /></div>
+      <div id={sectionId("callout")} style={{ position: "relative" }}>
+        <SectionBadge num="05" label="SPATIAL" theme="dark" />
+        <SpatialCallout p={props} />
+      </div>
+      <div id={sectionId("ways")} style={{ position: "relative" }}>
+        <SectionBadge num="06" label="WAYS" theme="light" />
+        <FourWays p={props} />
+      </div>
+      <div id={sectionId("calendar")} style={{ position: "relative" }}>
+        <SectionBadge num="07" label="RSVP" theme="dark" />
+        <Calendar p={props} />
+      </div>
       <Footer p={props} />
     </div>
   );
