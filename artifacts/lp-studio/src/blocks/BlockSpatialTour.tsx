@@ -1,7 +1,79 @@
-import { useMemo, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
+
+// ─── Dynamic-nav + video-hero shared bits ─────────────────────
+// Section "kinds" used by the scroll-progress hairline and the section chip
+// in the nav. The actual DOM `id` used per section is namespaced per block
+// instance via `useId()` so multiple SpatialTour blocks on one page do not
+// collide on global IDs.
+const ST_SECTIONS = [
+  { kind: "hero", num: "01", label: "TOUR" },
+  { kind: "marquee", num: "02", label: "PROOF" },
+  { kind: "manifesto", num: "03", label: "WHY" },
+  { kind: "tour", num: "04", label: "STATIONS" },
+  { kind: "callout", num: "05", label: "SPATIAL" },
+  { kind: "ways", num: "06", label: "WAYS" },
+  { kind: "calendar", num: "07", label: "RSVP" },
+] as const;
+
+type StSection = (typeof ST_SECTIONS)[number];
+
+// Keyframes for the hero video stage + REC indicator. Injected once into
+// document <head> the first time *any* SpatialTour block mounts so multiple
+// instances on a page don't duplicate <style> tags. The `st-` prefix keeps
+// these from clashing with anything else on the page.
+const ST_KEYFRAMES_CSS = `
+@keyframes st-rec-blink { 0%, 60% { opacity: 1 } 70%, 100% { opacity: 0.3 } }
+@keyframes st-glow-drift {
+  0% { transform: translate3d(0,0,0); opacity: 0.20 }
+  50% { transform: translate3d(40px,-22px,0); opacity: 0.34 }
+  100% { transform: translate3d(0,0,0); opacity: 0.20 }
+}
+@keyframes st-scanline { 0% { transform: translateY(-100%) } 100% { transform: translateY(100%) } }
+@keyframes st-ken-burns {
+  0% { transform: scale(1.04) translate3d(0,0,0) }
+  50% { transform: scale(1.12) translate3d(-1.5%,-1%,0) }
+  100% { transform: scale(1.04) translate3d(0,0,0) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-anim-rec, .st-anim-glow, .st-anim-scan, .st-anim-kb { animation: none !important }
+}
+`;
+
+const ST_STYLE_ID = "st-spatial-tour-keyframes";
+let stKeyframesInjected = false;
+function ensureStKeyframes() {
+  if (typeof document === "undefined" || stKeyframesInjected) return;
+  if (document.getElementById(ST_STYLE_ID)) {
+    stKeyframesInjected = true;
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = ST_STYLE_ID;
+  style.textContent = ST_KEYFRAMES_CSS;
+  document.head.appendChild(style);
+  stKeyframesInjected = true;
+}
+
+// Honors prefers-reduced-motion for video autoplay + Ken-Burns fallback.
+function useStReducedMotion() {
+  const [prefers, setPrefers] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefers(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefers(e.matches);
+    if (mq.addEventListener) mq.addEventListener("change", handler);
+    else mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", handler);
+      else mq.removeListener(handler);
+    };
+  }, []);
+  return prefers;
+}
 
 // ─── Brand palette ──────────────────────────────────────────────
 const FOREST = "var(--brand-primary, #003A30)";
@@ -560,21 +632,38 @@ function QRPlaceholder({ size = 84, bg = WHITE, fg = FOREST }: { size?: number; 
 }
 
 // ─── Section: Nav ──────────────────────────────────────────────
-function Nav({ p }: { p: SpatialTourBlockProps }) {
+function Nav({
+  p,
+  scrollProgress,
+  activeSection,
+}: {
+  p: SpatialTourBlockProps;
+  scrollProgress: number;
+  activeSection: StSection;
+}) {
+  // Nav cross-fades from transparent (over the dark hero) → solid forest_deep
+  // (past the hero). Both work in light + dark contexts because the hero is
+  // always dark.
+  const navOpacity = Math.min(1, scrollProgress * 8);
+  const navBlur = Math.min(14, scrollProgress * 60);
+  const borderOpacity = Math.min(0.18, scrollProgress * 1.4);
+
   return (
     <div
       style={{
-        background: FOREST_DEEP,
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
         color: WHITE,
         padding: "20px 56px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        backdropFilter: "blur(12px)",
+        background: `rgba(0, 35, 29, ${navOpacity * 0.92})`,
+        backdropFilter: `blur(${navBlur}px) saturate(140%)`,
+        WebkitBackdropFilter: `blur(${navBlur}px) saturate(140%)`,
+        borderBottom: `1px solid rgba(255,255,255,${borderOpacity})`,
+        transition: "background 120ms linear, border-color 120ms linear",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
@@ -582,13 +671,50 @@ function Nav({ p }: { p: SpatialTourBlockProps }) {
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
         <BracketPill color={MINT}>{p.navBrand}</BracketPill>
       </div>
+
+      {/* Section-aware center chip — animates each time the active section changes */}
+      <motion.div
+        key={activeSection.num}
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, ease: "easeOut" }}
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 14px",
+          borderRadius: 999,
+          border: "1px solid rgba(197,241,197,0.32)",
+          background: "rgba(0,0,0,0.32)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          fontFamily: SANS,
+          fontSize: 10.5,
+          letterSpacing: "0.22em",
+          fontWeight: 600,
+          textTransform: "uppercase",
+          color: MINT,
+          pointerEvents: "none",
+        }}
+      >
+        <span style={{ opacity: 0.55 }}>[</span>
+        {activeSection.num}
+        <span style={{ opacity: 0.55 }}>/</span>
+        <span style={{ color: WHITE, opacity: 0.92 }}>{activeSection.label}</span>
+        <span style={{ opacity: 0.55 }}>]</span>
+      </motion.div>
+
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 28,
           fontSize: 13,
-          color: "rgba(255,255,255,0.7)",
+          color: "rgba(255,255,255,0.72)",
           fontFamily: SANS,
         }}
       >
@@ -604,63 +730,227 @@ function Nav({ p }: { p: SpatialTourBlockProps }) {
 }
 
 // ─── Section: Hero ─────────────────────────────────────────────
+// "Video stage" — the ambient layer behind the hero copy. Renders a real
+// looping <video> when `videoUrl` is set, and falls back to a Ken-Burns image
+// when it is not (or when the user prefers reduced motion). Either way it
+// stamps a vignette + drift glow + faint scanline on top so the hero feels
+// like a live frame, not a flat poster.
+function HeroVideoStage({
+  videoUrl,
+  posterUrl,
+  reducedMotion,
+}: {
+  videoUrl?: string;
+  posterUrl?: string;
+  reducedMotion: boolean;
+}) {
+  const useVideo = !!videoUrl && !reducedMotion;
+  return (
+    <>
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {useVideo ? (
+          <video
+            key={videoUrl}
+            src={videoUrl}
+            poster={posterUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            // disable PiP / download UI and stop browsers from offering controls
+            controls={false}
+            disablePictureInPicture
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 40%",
+              filter: "brightness(0.62) saturate(0.95) contrast(1.05)",
+            }}
+          />
+        ) : posterUrl ? (
+          <img
+            src={posterUrl}
+            alt=""
+            className="st-anim-kb"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center 40%",
+              filter: "brightness(0.6) saturate(0.95) contrast(1.05)",
+              animation: reducedMotion ? "none" : "st-ken-burns 18s ease-in-out infinite",
+            }}
+          />
+        ) : null}
+        {/* Drifting mint glow — lifts an otherwise flat frame */}
+        <div
+          className="st-anim-glow"
+          style={{
+            position: "absolute",
+            top: "-15%",
+            left: "10%",
+            width: "60%",
+            height: "80%",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(197,241,197,0.32) 0%, transparent 65%)",
+            filter: "blur(60px)",
+            animation: reducedMotion ? "none" : "st-glow-drift 12s ease-in-out infinite",
+            mixBlendMode: "screen",
+          }}
+        />
+        <div
+          className="st-anim-glow"
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "8%",
+            width: "50%",
+            height: "70%",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(21,137,21,0.28) 0%, transparent 60%)",
+            filter: "blur(70px)",
+            animation: reducedMotion ? "none" : "st-glow-drift 16s ease-in-out infinite reverse",
+            mixBlendMode: "screen",
+          }}
+        />
+        {/* Faint vertical scanline drifting top→bottom */}
+        <div
+          className="st-anim-scan"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, transparent 0%, rgba(197,241,197,0.05) 50%, transparent 100%)",
+            backgroundSize: "100% 200px",
+            animation: reducedMotion ? "none" : "st-scanline 9s linear infinite",
+            mixBlendMode: "screen",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+      {/* Vignette — heavy edges, clean center */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.65) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      {/* Color wash on top so the headline stays readable over any frame */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(100deg, rgb(var(--brand-primary-rgb, 0 35 29) / 0.55) 0%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.30) 45%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.10) 100%)",
+        }}
+      />
+      <DotGrid opacity={0.45} />
+    </>
+  );
+}
+
 function Hero({ p }: { p: SpatialTourBlockProps }) {
   const ref = useRef<HTMLDivElement>(null);
+  const reducedMotion = useStReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 120]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.4]);
+  // Scroll-ducking: the video stage fades + scales as the user scrolls past
+  // the hero so it never competes with the copy below.
+  const stageOpacity = useTransform(scrollYProgress, [0, 0.55, 0.9], [1, 0.65, 0.15]);
+  const stageScale = useTransform(scrollYProgress, [0, 1], [1, 1.06]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0.4]);
+  const contentY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const hasVideo = !!p.heroVideoUrl && !reducedMotion;
 
   return (
     <div
       ref={ref}
       style={{
         position: "relative",
-        background: FOREST,
+        background: FOREST_DEEP,
         color: WHITE,
         padding: "120px 56px 140px",
         overflow: "hidden",
         minHeight: 820,
       }}
     >
-      {p.heroImageUrl && (
-        <motion.img
-          src={p.heroImageUrl}
-          alt=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center 40%",
-            filter: "brightness(0.55) saturate(0.85)",
-            y,
-          }}
-        />
-      )}
-      <div
+      <motion.div
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(100deg, rgb(var(--brand-primary-rgb, 0 35 29) / 0.92) 0%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.78) 35%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.40) 70%, rgb(var(--brand-primary-rgb, 0 58 48) / 0.20) 100%)",
+          opacity: stageOpacity,
+          scale: stageScale,
+          transformOrigin: "center 40%",
         }}
-      />
-      <DotGrid opacity={0.6} />
-      <Glow size={900} x={-300} y={-200} opacity={0.18} />
-      <Glow size={500} x={1080} y={400} opacity={0.1} />
+      >
+        <HeroVideoStage
+          videoUrl={p.heroVideoUrl}
+          posterUrl={p.heroImageUrl}
+          reducedMotion={reducedMotion}
+        />
+      </motion.div>
 
       {/* Tech-HUD frame around the whole hero */}
-      <CornerFrame color="rgba(197,241,197,0.45)" size={22} inset={28} />
+      <CornerFrame color="rgba(197,241,197,0.55)" size={22} inset={28} />
 
-      {/* Telemetry strip pinned to the top */}
+      {/* REC indicator — present whenever a video is actually playing */}
+      {hasVideo && (
+        <div
+          style={{
+            position: "absolute",
+            top: 80,
+            left: 56,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "8px 14px",
+            borderRadius: 999,
+            background: "rgba(0,0,0,0.42)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            fontFamily: SANS,
+            fontSize: 10.5,
+            letterSpacing: "0.24em",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            color: WHITE,
+            zIndex: 2,
+          }}
+        >
+          <span
+            className="st-anim-rec"
+            style={{
+              width: 9,
+              height: 9,
+              borderRadius: "50%",
+              background: "#ff4d4f",
+              boxShadow: "0 0 10px #ff4d4f",
+              animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",
+            }}
+          />
+          REC · TOUR LIVE-FEED
+        </div>
+      )}
+
+      {/* Telemetry strip pinned to the top — pushed right when REC is shown */}
       <div
         style={{
           position: "absolute",
-          top: 60,
-          left: 56,
+          top: hasVideo ? 80 : 60,
+          left: hasVideo ? "auto" : 56,
           right: 56,
           zIndex: 2,
+          minWidth: hasVideo ? 320 : undefined,
         }}
       >
         <TelemetryStrip />
@@ -669,7 +959,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       <div
         style={{
           position: "absolute",
-          top: 110,
+          top: hasVideo ? 130 : 110,
           right: 56,
           padding: "10px 16px",
           background: "rgba(0,0,0,0.40)",
@@ -697,7 +987,14 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
       </div>
 
       <motion.div
-        style={{ position: "relative", maxWidth: 1180, margin: "0 auto", opacity, paddingTop: 60 }}
+        style={{
+          position: "relative",
+          maxWidth: 1180,
+          margin: "0 auto",
+          opacity: contentOpacity,
+          y: contentY,
+          paddingTop: hasVideo ? 100 : 60,
+        }}
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: "easeOut" }}
@@ -717,6 +1014,7 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             margin: 0,
             color: WHITE,
             maxWidth: 1100,
+            textShadow: hasVideo ? "0 2px 24px rgba(0,0,0,0.35)" : undefined,
           }}
         >
           {p.heroHeadlineLine1}
@@ -739,9 +1037,10 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
             marginBottom: 0,
             fontSize: 19,
             lineHeight: 1.55,
-            color: "rgba(255,255,255,0.82)",
+            color: hasVideo ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.82)",
             maxWidth: 540,
             fontFamily: SANS,
+            textShadow: hasVideo ? "0 1px 12px rgba(0,0,0,0.45)" : undefined,
           }}
         >
           {p.heroBody}
@@ -765,35 +1064,69 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
         <FileCode text="ID-LP-01 · LANDING / HERO / REV 2026.07" />
       </div>
 
-      <div
-        style={{
-          position: "absolute",
-          right: 56,
-          bottom: 40,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          gap: 14,
-          opacity: 0.85,
-          zIndex: 2,
-        }}
-      >
+      {/* Frame-rate stamp bottom-right (only when actually playing video) */}
+      {hasVideo ? (
         <div
           style={{
-            fontSize: 10,
-            letterSpacing: "0.24em",
+            position: "absolute",
+            right: 56,
+            bottom: 40,
+            fontFamily: SANS,
+            fontSize: 10.5,
+            letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: MINT,
-            fontWeight: 600,
+            color: "rgba(197,241,197,0.7)",
+            fontWeight: 500,
+            zIndex: 2,
             display: "inline-flex",
             alignItems: "center",
             gap: 10,
           }}
         >
-          {p.heroScrollLabel} <span>↓</span>
+          <span
+            className="st-anim-rec"
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: MINT,
+              boxShadow: `0 0 8px ${MINT}`,
+              animation: reducedMotion ? "none" : "st-rec-blink 1.4s ease-in-out infinite",
+            }}
+          />
+          2160P · 60FPS · LOOP
         </div>
-        <div style={{ width: 1, height: 36, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
-      </div>
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            right: 56,
+            bottom: 40,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 14,
+            opacity: 0.85,
+            zIndex: 2,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+              color: MINT,
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            {p.heroScrollLabel} <span>↓</span>
+          </div>
+          <div style={{ width: 1, height: 36, background: `linear-gradient(180deg, ${MINT}, transparent)` }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1911,24 +2244,124 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
   // Memoize stations so the alternating layout is stable
   const stations = useMemo(() => props.tourStations || [], [props.tourStations]);
 
+  // Stable per-instance prefix so multiple SpatialTour blocks on the same page
+  // don't collide on section IDs.
+  const reactId = useId();
+  const sectionId = useMemo(() => {
+    const safe = reactId.replace(/[^a-zA-Z0-9_-]/g, "-");
+    return (kind: StSection["kind"]) => `st-${safe}-${kind}`;
+  }, [reactId]);
+
+  // Inject keyframes once per app session (not per block instance).
+  useEffect(() => {
+    ensureStKeyframes();
+  }, []);
+
+  // Scroll-progress hairline + section observer feed the dynamic nav.
+  // We use the document's natural scroll (no custom container) so behavior is
+  // identical between the live page and the builder preview.
+  const { scrollY } = useScroll();
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<StSection>(ST_SECTIONS[0]);
+  const [blockInView, setBlockInView] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return scrollY.on("change", (v) => {
+      // 500px feels right for the nav-tint trigger — past the dark hero,
+      // before the first cream section.
+      setScrollProgress(Math.min(1, v / 500));
+    });
+  }, [scrollY]);
+
+  // Only show the global hairline while this block is actually in the
+  // viewport. Without this, the hairline would appear on every page (even
+  // ones without a SpatialTour block above the fold) and could overlap
+  // global chrome like the builder header.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setBlockInView(!!entry?.isIntersecting),
+      { threshold: 0 }
+    );
+    io.observe(root);
+    return () => io.disconnect();
+  }, []);
+
+  // Track which section is most-visible. Scoped to this block's subtree via
+  // querySelector so we don't accidentally observe sibling blocks.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const els = ST_SECTIONS.map((meta) => ({
+      meta,
+      // sectionId() output is sanitized to [a-zA-Z0-9_-], so no CSS.escape needed.
+      el: root.querySelector<HTMLElement>(`#${sectionId(meta.kind)}`),
+    })).filter((x): x is { meta: StSection; el: HTMLElement } => !!x.el);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const match = els.find((x) => x.el === visible.target);
+        if (match) setActiveSection(match.meta);
+      },
+      { threshold: [0.25, 0.5, 0.75] }
+    );
+    els.forEach((x) => io.observe(x.el));
+    return () => io.disconnect();
+  }, [sectionId]);
+
+  // Scroll-progress hairline width (0% → 100% over the first ~1800px of scroll).
+  const progressWidth = useSpring(useTransform(scrollY, [0, 1800], ["0%", "100%"]), {
+    stiffness: 200,
+    damping: 30,
+    mass: 0.4,
+  });
+
   return (
-    <div style={{ width: "100%", position: "relative", fontFamily: SANS, background: WHITE, color: FOREST }}>
-      <Nav p={props} />
-      <Hero p={props} />
-      <Marquee p={props} />
-      <Manifesto p={props} />
-      <TourIntro p={props} />
-      {stations.map((s, i) => (
-        <StationCard
-          key={s.number || i}
-          station={s}
-          flip={i % 2 === 1}
-          isLast={i === stations.length - 1}
+    <div ref={rootRef} style={{ width: "100%", position: "relative", fontFamily: SANS, background: WHITE, color: FOREST }}>
+      {/* Scroll-progress hairline — only rendered while this block is in view
+          so it doesn't appear on pages that don't include a SpatialTour
+          block, and doesn't fight any global app chrome. */}
+      {blockInView && (
+        <motion.div
+          aria-hidden
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            height: 2,
+            width: progressWidth,
+            background: `linear-gradient(90deg, ${MINT} 0%, ${KELLY} 100%)`,
+            boxShadow: `0 0 8px rgba(197,241,197,0.55)`,
+            zIndex: 100,
+            pointerEvents: "none",
+          }}
         />
-      ))}
-      <SpatialCallout p={props} />
-      <FourWays p={props} />
-      <Calendar p={props} />
+      )}
+
+      <Nav p={props} scrollProgress={scrollProgress} activeSection={activeSection} />
+      <div id={sectionId("hero")}><Hero p={props} /></div>
+      <div id={sectionId("marquee")}><Marquee p={props} /></div>
+      <div id={sectionId("manifesto")}><Manifesto p={props} /></div>
+      <div id={sectionId("tour")}>
+        <TourIntro p={props} />
+        {stations.map((s, i) => (
+          <StationCard
+            key={s.number || i}
+            station={s}
+            flip={i % 2 === 1}
+            isLast={i === stations.length - 1}
+          />
+        ))}
+      </div>
+      <div id={sectionId("callout")}><SpatialCallout p={props} /></div>
+      <div id={sectionId("ways")}><FourWays p={props} /></div>
+      <div id={sectionId("calendar")}><Calendar p={props} /></div>
       <Footer p={props} />
     </div>
   );

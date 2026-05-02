@@ -978,6 +978,12 @@ export interface SpatialTourBlockProps {
   heroPrimaryCta: string;
   heroSecondaryCta: string;
   heroImageUrl: string;
+  /** Optional looping video URL (e.g. "/videos/dandy-lab-video.mp4"). When set,
+   *  the hero swaps the static parallax for an autoplaying muted video stage
+   *  with a vignette, REC indicator, and scroll-ducking. The `heroImageUrl`
+   *  doubles as the poster + reduced-motion fallback. Leave blank to use the
+   *  classic static hero. */
+  heroVideoUrl?: string;
   heroVisionChipText: string;
   heroScrollLabel: string;
 

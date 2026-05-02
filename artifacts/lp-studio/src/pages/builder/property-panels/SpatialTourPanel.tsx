@@ -162,8 +162,11 @@ export function SpatialTourPanel({ props: p, onChange, brandVoiceSet }: Props) {
       <SectionHeader label="Hero" open={open.hero} onToggle={() => toggle("hero")} />
       {open.hero && (
         <div className="space-y-3 pt-3 pb-4">
-          <Field label="Hero Image" hint="Background photo behind the headline">
+          <Field label="Hero Image" hint="Background photo behind the headline. Also used as the video poster + reduced-motion fallback.">
             <ImagePicker value={p.heroImageUrl} onChange={v => set({ heroImageUrl: v })} />
+          </Field>
+          <Field label="Hero Video URL" hint="Optional looping mp4/webm. When set, replaces the static hero with a Ken-Burns video stage + vignette + REC indicator. Leave blank to use the static hero. e.g. /videos/dandy-lab-video.mp4">
+            <Input value={p.heroVideoUrl ?? ""} onChange={e => set({ heroVideoUrl: e.target.value })} className="text-xs h-8" placeholder="/videos/dandy-lab-video.mp4" />
           </Field>
           <Field label="Eyebrow" hint="Small uppercase text above the headline">
             <AiTextField type="input" value={p.heroEyebrow} onChange={v => set({ heroEyebrow: v })} fieldLabel="Hero Eyebrow" brandVoiceSet={brandVoiceSet}
