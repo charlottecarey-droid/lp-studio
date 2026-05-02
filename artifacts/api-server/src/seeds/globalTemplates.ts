@@ -95,7 +95,9 @@ function genericNav(brand: string, n: number) {
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 
-export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
+import { INDUSTRY_TEMPLATE_SEEDS } from "./industryTemplates";
+
+const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   // 1. SaaS Product Landing
   {
     slug: "global-saas-landing",
@@ -1241,4 +1243,9 @@ export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       genericFooter("Vantage", 9),
     ],
   },
+];
+
+export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
+  ...GENERIC_TEMPLATE_SEEDS,
+  ...INDUSTRY_TEMPLATE_SEEDS,
 ];
