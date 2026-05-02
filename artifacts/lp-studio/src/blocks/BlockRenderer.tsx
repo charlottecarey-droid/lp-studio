@@ -85,6 +85,10 @@ import { BlockDandyCtaBlock } from "./BlockDandyCtaBlock";
 import { BlockScrollAssembly } from "./BlockScrollAssembly";
 import { BlockHorizontalShowcase } from "./BlockHorizontalShowcase";
 import { BlockStickyStack } from "./BlockStickyStack";
+import { BlockMagazineHero } from "./BlockMagazineHero";
+import { BlockBoldStatement } from "./BlockBoldStatement";
+import { BlockBentoShowcase } from "./BlockBentoShowcase";
+import { BlockGradientPricing } from "./BlockGradientPricing";
 import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
 import { useRef } from "react";
@@ -671,6 +675,26 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             onCtaClick={onCtaClick}
           />
         );
+      case "magazine-hero":
+        return (
+          <BlockMagazineHero
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+          />
+        );
+      case "bold-statement":
+        return (
+          <BlockBoldStatement
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick && block.props.ctaUrl ? () => onCtaClick(block.props.ctaUrl!) : undefined}
+          />
+        );
+      case "bento-showcase":
+        return <BlockBentoShowcase props={block.props} brand={brand} />;
+      case "gradient-pricing":
+        return <BlockGradientPricing props={block.props} brand={brand} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

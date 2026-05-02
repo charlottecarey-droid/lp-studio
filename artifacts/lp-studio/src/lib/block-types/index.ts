@@ -68,6 +68,14 @@ export type {
   HorizontalShowcasePanel,
   StickyStackBlockProps,
   StickyStackCard,
+  MagazineHeroBlockProps,
+  BoldStatementBlockProps,
+  BentoShowcaseBlockProps,
+  BentoShowcaseTile,
+  BentoTileKind,
+  BentoTileSize,
+  GradientPricingBlockProps,
+  GradientPricingTier,
 } from "./generic-blocks";
 
 // DSO block types

@@ -39,6 +39,10 @@ import type {
   ScrollAssemblyBlockProps,
   HorizontalShowcaseBlockProps,
   StickyStackBlockProps,
+  MagazineHeroBlockProps,
+  BoldStatementBlockProps,
+  BentoShowcaseBlockProps,
+  GradientPricingBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -176,7 +180,11 @@ export type BlockVariant =
   | { type: "sticky-stack"; props: StickyStackBlockProps }
   | { type: "one-pager-hero"; props: OnePagerHeroBlockProps }
   | { type: "event-page"; props: EventPageBlockProps }
-  | { type: "spatial-tour"; props: SpatialTourBlockProps };
+  | { type: "spatial-tour"; props: SpatialTourBlockProps }
+  | { type: "magazine-hero"; props: MagazineHeroBlockProps }
+  | { type: "bold-statement"; props: BoldStatementBlockProps }
+  | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
+  | { type: "gradient-pricing"; props: GradientPricingBlockProps };
 
 export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
 

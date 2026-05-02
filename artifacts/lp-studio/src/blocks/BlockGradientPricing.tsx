@@ -1,0 +1,134 @@
+import { Check, ArrowRight } from "lucide-react";
+import type { BrandConfig } from "@/lib/brand-config";
+import type { GradientPricingBlockProps } from "@/lib/block-types";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  props: GradientPricingBlockProps;
+  brand: BrandConfig;
+}
+
+export function BlockGradientPricing({ props, brand }: Props) {
+  const accent = props.accentColor || brand.accentColor || "#A78BFA";
+  const from = props.gradientFrom || "#0B0B1A";
+  const to = props.gradientTo || "#1F1147";
+
+  return (
+    <section
+      className="relative overflow-hidden font-sans text-white"
+      style={{
+        background: `radial-gradient(120% 80% at 0% 0%, ${to} 0%, ${from} 60%, ${from} 100%)`,
+      }}
+    >
+      {/* Soft glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] rounded-full blur-3xl"
+        style={{ backgroundColor: accent, opacity: 0.15 }}
+      />
+
+      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
+        <div className="text-center max-w-2xl mx-auto mb-14 lg:mb-20">
+          {props.eyebrow && (
+            <div
+              className="text-[11px] uppercase tracking-[0.28em] font-semibold mb-4"
+              style={{ color: accent }}
+            >
+              {props.eyebrow}
+            </div>
+          )}
+          <h2
+            className="font-bold tracking-tight leading-[1.05]"
+            style={{ fontSize: "clamp(2.25rem, 5vw, 4rem)" }}
+          >
+            {props.headline}
+          </h2>
+          {props.subheadline && (
+            <p className="text-base lg:text-lg text-white/70 mt-4 leading-relaxed">
+              {props.subheadline}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch">
+          {props.tiers.map((tier, i) => {
+            const featured = !!tier.featured;
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "relative rounded-3xl p-8 lg:p-10 flex flex-col",
+                  featured ? "lg:-my-4" : "",
+                )}
+                style={{
+                  background: featured
+                    ? `linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))`
+                    : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${featured ? accent : "rgba(255,255,255,0.08)"}`,
+                  boxShadow: featured ? `0 30px 80px -30px ${accent}66` : undefined,
+                }}
+              >
+                {tier.badge && featured && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] uppercase tracking-[0.22em] font-semibold px-3 py-1 rounded-full"
+                    style={{ backgroundColor: accent, color: "#0A0A0A" }}
+                  >
+                    {tier.badge}
+                  </div>
+                )}
+                <div className="text-sm font-semibold uppercase tracking-widest text-white/60">
+                  {tier.name}
+                </div>
+                <div className="mt-6 flex items-baseline gap-1">
+                  <span
+                    className="font-bold leading-none"
+                    style={{ fontSize: "clamp(2.5rem, 4vw, 3.75rem)" }}
+                  >
+                    {tier.price}
+                  </span>
+                  {tier.period && (
+                    <span className="text-white/50 text-base">{tier.period}</span>
+                  )}
+                </div>
+                {tier.description && (
+                  <p className="text-sm text-white/65 mt-3 leading-relaxed">
+                    {tier.description}
+                  </p>
+                )}
+                <ul className="mt-6 space-y-3 flex-1">
+                  {tier.features.map((f, j) => (
+                    <li key={j} className="flex items-start gap-3 text-sm text-white/85">
+                      <Check
+                        className="w-4 h-4 mt-0.5 shrink-0"
+                        style={{ color: accent }}
+                      />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={tier.ctaUrl || "#"}
+                  className={cn(
+                    "mt-8 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-semibold transition-transform hover:-translate-y-0.5",
+                  )}
+                  style={
+                    featured
+                      ? { backgroundColor: accent, color: "#0A0A0A" }
+                      : {
+                          backgroundColor: "rgba(255,255,255,0.08)",
+                          color: "#FFFFFF",
+                          border: "1px solid rgba(255,255,255,0.16)",
+                        }
+                  }
+                >
+                  {tier.ctaText}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}

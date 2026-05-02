@@ -1245,7 +1245,10 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   },
 ];
 
+import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
+
 export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
+  ...DISTINCTIVE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS,
 ];

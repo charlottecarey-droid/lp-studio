@@ -4362,6 +4362,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             brandVoiceSet={brandVoiceSet}
           />
         );
+      case "magazine-hero":
+      case "bold-statement":
+      case "bento-showcase":
+      case "gradient-pricing":
+        return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

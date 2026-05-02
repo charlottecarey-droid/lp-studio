@@ -41,6 +41,10 @@ import type {
   ScrollAssemblyBlockProps,
   HorizontalShowcaseBlockProps,
   StickyStackBlockProps,
+  MagazineHeroBlockProps,
+  BoldStatementBlockProps,
+  BentoShowcaseBlockProps,
+  GradientPricingBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -3253,6 +3257,217 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "magazine-hero",
+    label: "Magazine Hero",
+    category: "Layout",
+    defaultProps: () => ({
+      eyebrow: "ISSUE 04 / FEATURE",
+      headline: "The quiet revolution in how teams ship work.",
+      subheadline:
+        "An editorial-style intro for product launches, brand stories, and long-form landing pages.",
+      ctaText: "Read the story",
+      ctaUrl: "#",
+      bylineLabel: "By the editors",
+      bylineValue: "12 min read",
+      imageUrl:
+        "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?q=80&w=900&h=1100&fit=crop",
+      accentColor: "#FF6B35",
+      bgColor: "#FAF7F2",
+      textColor: "#0A0A0A",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAF7F2" rx="4" />
+        <rect x="10" y="14" width="14" height="2" fill="#FF6B35" />
+        <rect x="26" y="13" width="22" height="3" rx="0.5" fill="#0A0A0A" opacity="0.7" />
+        <text x="10" y="34" fontSize="14" fontWeight="bold" fill="#0A0A0A" fontFamily="Georgia, serif">Editorial</text>
+        <rect x="10" y="40" width="60" height="2.5" rx="1" fill="#0A0A0A" opacity="0.4" />
+        <rect x="10" y="46" width="48" height="2.5" rx="1" fill="#0A0A0A" opacity="0.3" />
+        <rect x="10" y="56" width="22" height="6" rx="3" fill="#0A0A0A" />
+        <rect x="78" y="10" width="34" height="50" rx="2" fill="#FF6B35" opacity="0.55" transform="rotate(2 95 35)" />
+        <circle cx="76" cy="14" r="6" fill="#FF6B35" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "bold-statement",
+    label: "Bold Statement",
+    category: "Content",
+    defaultProps: () => ({
+      eyebrow: "MANIFESTO",
+      statement: "We don't make <em>tools</em>. We make <em>momentum</em>.",
+      footnote:
+        "Every product decision starts with one question: does this make our customers move faster today than yesterday?",
+      ctaText: "Read the manifesto",
+      ctaUrl: "#",
+      bgColor: "#0A0A0A",
+      textColor: "#FFFFFF",
+      accentColor: "#C7E738",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0A0A" rx="4" />
+        <rect x="10" y="10" width="3" height="2" fill="#C7E738" />
+        <rect x="16" y="9" width="20" height="3" rx="0.5" fill="#C7E738" opacity="0.9" />
+        <text x="10" y="34" fontSize="13" fontWeight="900" fill="#FFFFFF" fontFamily="sans-serif" letterSpacing="-0.5">BOLD</text>
+        <text x="46" y="34" fontSize="13" fontWeight="900" fontStyle="italic" fill="#C7E738" fontFamily="Georgia, serif">moves</text>
+        <text x="10" y="48" fontSize="13" fontWeight="900" fill="#FFFFFF" fontFamily="sans-serif" letterSpacing="-0.5">win.</text>
+        <rect x="10" y="58" width="60" height="2" rx="1" fill="#FFFFFF" opacity="0.4" />
+        <rect x="86" y="56" width="24" height="7" rx="3.5" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "bento-showcase",
+    label: "Bento Showcase",
+    category: "Content",
+    defaultProps: () => ({
+      eyebrow: "WHAT YOU GET",
+      headline: "A toolkit, not a tool.",
+      subheadline:
+        "A grid of mixed-content tiles — images, stats, quotes, and features — for showing range without repetition.",
+      tiles: [
+        {
+          kind: "stat",
+          size: "md",
+          primary: "12×",
+          secondary: "Faster cycle time",
+          tertiary: "Across 4,000+ teams",
+          bgColor: "#0A0A0A",
+          textColor: "#FFFFFF",
+        },
+        {
+          kind: "image",
+          size: "lg",
+          primary:
+            "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=900&h=600&fit=crop",
+          secondary: "Designed for the way modern teams actually work",
+          tertiary: "Workflow",
+        },
+        {
+          kind: "feature",
+          size: "md",
+          primary: "Automations that run themselves",
+          secondary: "Trigger any action from any event in 200+ apps.",
+          icon: "Zap",
+          bgColor: "#FFFFFF",
+        },
+        {
+          kind: "feature",
+          size: "md",
+          primary: "Real numbers, not vanity dashboards",
+          secondary: "Live metrics on the things that move the needle.",
+          icon: "BarChart2",
+          bgColor: "#FFFFFF",
+        },
+        {
+          kind: "quote",
+          size: "md",
+          primary:
+            "We replaced six tools in our first quarter and got our nights back.",
+          secondary: "Maya Patel",
+          tertiary: "VP Operations · Aperture",
+          bgColor: "#FFFFFF",
+        },
+      ],
+      bgColor: "#F4F4F5",
+      textColor: "#0A0A0A",
+      accentColor: "#3B82F6",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F4F5" rx="4" />
+        <rect x="6" y="6" width="34" height="28" rx="3" fill="#0A0A0A" />
+        <text x="10" y="24" fontSize="11" fontWeight="bold" fill="#3B82F6">12×</text>
+        <rect x="42" y="6" width="50" height="28" rx="3" fill="#3B82F6" opacity="0.7" />
+        <rect x="94" y="6" width="20" height="28" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="6" y="36" width="22" height="28" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="30" y="36" width="40" height="28" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="72" y="36" width="42" height="28" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      </svg>
+    ),
+  },
+  {
+    type: "gradient-pricing",
+    label: "Gradient Pricing",
+    category: "Content",
+    defaultProps: () => ({
+      eyebrow: "PRICING",
+      headline: "Pricing built for momentum.",
+      subheadline:
+        "Start free. Scale when you're ready. No surprises, no annual lock-in.",
+      tiers: [
+        {
+          name: "Starter",
+          price: "$0",
+          period: "/mo",
+          description: "Everything you need to ship your first project.",
+          features: [
+            "Up to 3 projects",
+            "Community support",
+            "Core integrations",
+            "1 GB storage",
+          ],
+          ctaText: "Start free",
+          ctaUrl: "#",
+        },
+        {
+          name: "Growth",
+          price: "$29",
+          period: "/seat/mo",
+          description: "For teams shipping every week.",
+          features: [
+            "Unlimited projects",
+            "Priority email support",
+            "All 200+ integrations",
+            "100 GB storage",
+            "Advanced analytics",
+            "SSO & audit log",
+          ],
+          ctaText: "Start 14-day trial",
+          ctaUrl: "#",
+          featured: true,
+          badge: "Most popular",
+        },
+        {
+          name: "Scale",
+          price: "Custom",
+          description: "For organizations with custom security and SLAs.",
+          features: [
+            "Everything in Growth",
+            "Dedicated success manager",
+            "Custom contracts & DPA",
+            "99.99% uptime SLA",
+            "On-prem deploy options",
+          ],
+          ctaText: "Talk to sales",
+          ctaUrl: "#",
+        },
+      ],
+      gradientFrom: "#0B0B1A",
+      gradientTo: "#1F1147",
+      accentColor: "#A78BFA",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="gp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1F1147" />
+            <stop offset="100%" stopColor="#0B0B1A" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#gp-grad)" rx="4" />
+        <rect x="8" y="14" width="32" height="46" rx="3" fill="#FFFFFF" opacity="0.06" stroke="#FFFFFF" strokeOpacity="0.12" />
+        <rect x="44" y="9" width="32" height="56" rx="3" fill="#FFFFFF" opacity="0.10" stroke="#A78BFA" strokeOpacity="0.9" />
+        <rect x="80" y="14" width="32" height="46" rx="3" fill="#FFFFFF" opacity="0.06" stroke="#FFFFFF" strokeOpacity="0.12" />
+        <text x="60" y="32" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FFFFFF">$29</text>
+        <rect x="50" y="48" width="20" height="6" rx="3" fill="#A78BFA" />
+        <rect x="14" y="48" width="20" height="6" rx="3" fill="#FFFFFF" opacity="0.18" />
+        <rect x="86" y="48" width="20" height="6" rx="3" fill="#FFFFFF" opacity="0.18" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {
@@ -3263,6 +3478,10 @@ function makeId(type: BlockType): string {
   return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+export function createBlock(type: "magazine-hero"): Extract<PageBlock, { type: "magazine-hero" }>;
+export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
+export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
+export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
 export function createBlock(type: "hero"): Extract<PageBlock, { type: "hero" }>;
 export function createBlock(type: "trust-bar"): Extract<PageBlock, { type: "trust-bar" }>;
 export function createBlock(type: "pas-section"): Extract<PageBlock, { type: "pas-section" }>;
@@ -3439,6 +3658,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
     case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };
     case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };
+    case "magazine-hero": return { id, type: "magazine-hero", props: props as MagazineHeroBlockProps };
+    case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
+    case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
+    case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
   }
 }
 

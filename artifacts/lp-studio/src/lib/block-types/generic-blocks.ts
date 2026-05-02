@@ -659,3 +659,116 @@ export interface StickyStackBlockProps {
   /** Section-level email-capture / modal config shared by every card. */
   email?: EmailCaptureConfig;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Magazine Hero — editorial-style hero with serif display type, asymmetric  */
+/*  photo, eyebrow tag and byline. Designed to look like a print magazine    */
+/*  feature article, not a SaaS landing.                                     */
+/* ------------------------------------------------------------------------- */
+
+export interface MagazineHeroBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  ctaText: string;
+  ctaUrl: string;
+  bylineLabel?: string;
+  bylineValue?: string;
+  imageUrl?: string;
+  /** Accent color for the eyebrow rule, divider, and decorative orb. */
+  accentColor?: string;
+  /** Surface color (page background). */
+  bgColor?: string;
+  /** Text color for headline + body. */
+  textColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Bold Statement — brutalist full-bleed manifesto block. Massive typography,*/
+/*  one accented word, optional small footer line. Built to make the page    */
+/*  feel like a campaign, not a product page.                                */
+/* ------------------------------------------------------------------------- */
+
+export interface BoldStatementBlockProps {
+  eyebrow?: string;
+  /** Main statement. Use HTML <em>...</em> around the word(s) you want
+   *  rendered in the accent color. */
+  statement: string;
+  /** Small line of copy under the statement (optional). */
+  footnote?: string;
+  ctaText?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Bento Showcase — asymmetric grid of mixed-content tiles (image, stat,    */
+/*  quote, feature). Visually distinct from benefits-grid / product-grid     */
+/*  because each tile can be its own size and background.                    */
+/* ------------------------------------------------------------------------- */
+
+export type BentoTileKind = "image" | "stat" | "quote" | "feature";
+export type BentoTileSize = "sm" | "md" | "lg" | "xl";
+
+export interface BentoShowcaseTile {
+  kind: BentoTileKind;
+  size: BentoTileSize;
+  /** image kind: image url. stat kind: the big number. quote kind: the
+   *  quote body. feature kind: the headline. */
+  primary: string;
+  /** Supporting text below `primary` (label/caption/byline/description). */
+  secondary?: string;
+  /** Tertiary line (used for quote attribution or feature subtitle). */
+  tertiary?: string;
+  /** Tile background color. Defaults to the section background. */
+  bgColor?: string;
+  /** Text color override for the tile. */
+  textColor?: string;
+  /** Lucide icon name shown above feature-kind tiles. */
+  icon?: string;
+}
+
+export interface BentoShowcaseBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  tiles: BentoShowcaseTile[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Gradient Pricing — dark-mode pricing tiers with a gradient backdrop and  */
+/*  a featured (raised) middle card. Designed for SaaS landings.             */
+/* ------------------------------------------------------------------------- */
+
+export interface GradientPricingTier {
+  name: string;
+  price: string;
+  /** Period appended after the price (e.g. "/mo", "/seat"). */
+  period?: string;
+  description?: string;
+  features: string[];
+  ctaText: string;
+  ctaUrl: string;
+  /** When true, this card is rendered raised, with a glow border and the
+   *  accent color as its CTA. Use exactly one. */
+  featured?: boolean;
+  /** Pill label rendered above featured cards (e.g. "Most popular"). */
+  badge?: string;
+}
+
+export interface GradientPricingBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  tiers: GradientPricingTier[];
+  /** Two colors used in the section gradient. */
+  gradientFrom?: string;
+  gradientTo?: string;
+  /** Accent color for featured card border, badge, and CTA. */
+  accentColor?: string;
+}
