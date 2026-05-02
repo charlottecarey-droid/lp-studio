@@ -984,6 +984,11 @@ export interface SpatialTourBlockProps {
    *  doubles as the poster + reduced-motion fallback. Leave blank to use the
    *  classic static hero. */
   heroVideoUrl?: string;
+  /** Optional URL of a separate trailer video shown in a modal when the
+   *  user clicks the secondary CTA ("Watch the trailer"). When omitted,
+   *  the modal falls back to `heroVideoUrl`. Supports native video files
+   *  (.mp4/.webm/.mov) and YouTube/Vimeo/Loom share URLs. */
+  heroTrailerUrl?: string;
   heroVisionChipText: string;
   heroScrollLabel: string;
 

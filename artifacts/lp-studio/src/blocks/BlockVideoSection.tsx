@@ -1,14 +1,14 @@
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
+import { useState, useRef, useCallback } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
+import { VideoModal } from "@/components/VideoModal";
 import { ChiliPiperModal } from "./ChiliPiperModal";
 import { safeNavigate } from "@/lib/safe-url";
 
@@ -100,18 +100,6 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     if (!el) return;
     el.play().catch(() => {});
   };
-
-  useEffect(() => {
-    if (!modalOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setModalOpen(false); };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [modalOpen]);
 
   const isChiliPiper = props.ctaAction === "chilipiper" && !!props.chilipiperUrl;
 
@@ -420,58 +408,14 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
     />
   ) : null;
 
-  const videoModal = typeof document !== "undefined" ? createPortal(
-    <AnimatePresence>
-      {modalOpen && hasVideo && (
-        <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
-          style={{ background: "rgba(0,0,0,0.85)" }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setModalOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={() => setModalOpen(false)}
-            aria-label="Close video"
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <motion.div
-            className="relative w-full max-w-5xl"
-            initial={{ scale: 0.94, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.94, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black">
-              {isNativeVideo ? (
-                <video
-                  src={props.videoUrl}
-                  className="w-full h-full"
-                  autoPlay
-                  controls
-                  playsInline
-                />
-              ) : (
-                <iframe
-                  src={toAutoEmbedUrl(props.videoUrl, true, false)}
-                  className="absolute inset-0 w-full h-full border-0"
-                  title="Video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
-    document.body
-  ) : null;
+  const videoModal = (
+    <VideoModal
+      open={modalOpen && !!hasVideo}
+      onClose={() => setModalOpen(false)}
+      videoUrl={props.videoUrl}
+      ariaLabel={props.headline || "Video"}
+    />
+  );
 
   if (isSplit) {
     return (

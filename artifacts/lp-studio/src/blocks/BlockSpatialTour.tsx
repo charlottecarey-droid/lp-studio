@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import type { SpatialTourBlockProps, SpatialTourStation } from "@/lib/block-types";
+import { VideoModal } from "@/components/VideoModal";
 import spatialHeadsetImg from "@assets/image_1777179519607.png";
 
 // ─── Dynamic-nav + video-hero shared bits ─────────────────────
@@ -164,16 +165,24 @@ function PrimaryCTA({
 function SecondaryCTA({
   label,
   href,
+  onClick,
   style = {},
 }: {
   label: string;
   href?: string;
+  onClick?: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
 }) {
-  const Tag = href ? "a" : "button";
+  // If an onClick handler is provided we always render a <button> (so the
+  // handler runs cleanly without triggering navigation), even when an href
+  // is also passed. Without onClick we keep the link semantics for SEO and
+  // right-click "open in new tab" support.
+  const Tag = onClick ? "button" : href ? "a" : "button";
   return (
     <Tag
-      href={href}
+      href={onClick ? undefined : href}
+      onClick={onClick}
+      type={Tag === "button" ? "button" : undefined}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -729,71 +738,6 @@ function Nav({
   );
 }
 
-// ─── Section badge ─────────────────────────────────────────────
-// The "[ NN / LABEL ]" pill that used to live in the center of the Nav. It
-// now sits in the top-right corner of each section, themed to whatever surface
-// the section is rendered on. Because it lives inside the section wrapper, it
-// scrolls naturally with content — no more flickering chip-remount when the
-// active section changes mid-scroll.
-function SectionBadge({
-  num,
-  label,
-  theme,
-  topOffset = 110,
-}: {
-  num: string;
-  label: string;
-  theme: "dark" | "light";
-  topOffset?: number;
-}) {
-  const isDark = theme === "dark";
-  const bg = isDark ? "rgba(0,0,0,0.32)" : "rgba(0,58,48,0.06)";
-  const border = isDark ? "rgba(197,241,197,0.32)" : "rgba(0,58,48,0.18)";
-  const numColor = isDark ? MINT : KELLY;
-  const labelColor = isDark ? WHITE : FOREST;
-  // Static (no entrance animation): framer-motion's `whileInView` can fail
-  // to trigger reliably for badges that are already in view at mount, which
-  // led to missing badges on first paint. The pill is small + decorative,
-  // so a plain styled div is more predictable and equally effective.
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "absolute",
-        top: topOffset,
-        // Align with the centered max-1180 content container's left edge so
-        // the badge sits directly above the section's eyebrow text. On wide
-        // viewports this matches `(100vw - 1180px) / 2`; on narrow viewports
-        // it clamps to the section's 56px outer padding.
-        left: "max(56px, calc((100vw - 1180px) / 2))",
-        zIndex: 5,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 14px",
-        borderRadius: 999,
-        border: `1px solid ${border}`,
-        background: bg,
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        fontFamily: SANS,
-        fontSize: 10.5,
-        letterSpacing: "0.22em",
-        fontWeight: 600,
-        textTransform: "uppercase",
-        color: numColor,
-        pointerEvents: "none",
-      }}
-    >
-      <span style={{ opacity: 0.55 }}>[</span>
-      {num}
-      <span style={{ opacity: 0.55 }}>/</span>
-      <span style={{ color: labelColor, opacity: 0.92 }}>{label}</span>
-      <span style={{ opacity: 0.55 }}>]</span>
-    </div>
-  );
-}
-
 // ─── Section: Hero ─────────────────────────────────────────────
 // "Video stage" — the ambient layer behind the hero copy. Renders a real
 // looping <video> when `videoUrl` is set, and falls back to a Ken-Burns image
@@ -927,6 +871,11 @@ function HeroVideoStage({
 function Hero({ p }: { p: SpatialTourBlockProps }) {
   const ref = useRef<HTMLDivElement>(null);
   const reducedMotion = useStReducedMotion();
+  const [trailerOpen, setTrailerOpen] = useState(false);
+  // Trailer falls back to the looping hero b-roll when no dedicated trailer
+  // URL is configured. This keeps the "Watch the trailer" CTA functional out
+  // of the box while letting tenants override with a longer cut later.
+  const trailerUrl = p.heroTrailerUrl || p.heroVideoUrl;
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   // Scroll-ducking: the video stage fades + scales as the user scrolls past
   // the hero so it never competes with the copy below.
@@ -1049,9 +998,20 @@ function Hero({ p }: { p: SpatialTourBlockProps }) {
 
         <div style={{ marginTop: 44, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
           <PrimaryCTA label={p.heroPrimaryCta} href={p.navCtaUrl} />
-          <SecondaryCTA label={p.heroSecondaryCta} />
+          <SecondaryCTA
+            label={p.heroSecondaryCta}
+            onClick={trailerUrl ? () => setTrailerOpen(true) : undefined}
+          />
         </div>
       </motion.div>
+
+      <VideoModal
+        open={trailerOpen}
+        onClose={() => setTrailerOpen(false)}
+        videoUrl={trailerUrl}
+        posterUrl={p.heroImageUrl}
+        ariaLabel={p.heroSecondaryCta || "Trailer"}
+      />
 
       {/* File-code stamp, bottom-left */}
       <div
@@ -2382,22 +2342,20 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
       )}
 
       <Nav p={props} activeSection={activeSection} />
+      {/* Section "[ NN / LABEL ]" pills were removed — they read as
+          decorative chrome that fought with the rest of the page's copy
+          hierarchy. The eyebrow text in each section already establishes
+          the section name, so the pills were redundant. */}
       <div id={sectionId("hero")} style={{ position: "relative" }}>
-        {/* No SectionBadge in the hero — the Apple Vision Pro chip already
-            sits in the top-right HUD strip and a second pill there reads as
-            redundant. Section badges resume from "02 / PROOF" downward. */}
         <Hero p={props} />
       </div>
       <div id={sectionId("marquee")} style={{ position: "relative" }}>
-        <SectionBadge num="02" label="PROOF" theme="dark" topOffset={8} />
         <Marquee p={props} />
       </div>
       <div id={sectionId("manifesto")} style={{ position: "relative" }}>
-        <SectionBadge num="03" label="WHY" theme="light" />
         <Manifesto p={props} />
       </div>
       <div id={sectionId("tour")} style={{ position: "relative" }}>
-        <SectionBadge num="04" label="STATIONS" theme="dark" />
         <TourIntro p={props} />
         {stations.map((s, i) => (
           <StationCard
@@ -2409,15 +2367,12 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
         ))}
       </div>
       <div id={sectionId("callout")} style={{ position: "relative" }}>
-        <SectionBadge num="05" label="SPATIAL" theme="dark" />
         <SpatialCallout p={props} />
       </div>
       <div id={sectionId("ways")} style={{ position: "relative" }}>
-        <SectionBadge num="06" label="WAYS" theme="light" />
         <FourWays p={props} />
       </div>
       <div id={sectionId("calendar")} style={{ position: "relative" }}>
-        <SectionBadge num="07" label="RSVP" theme="dark" />
         <Calendar p={props} />
       </div>
       <Footer p={props} />
