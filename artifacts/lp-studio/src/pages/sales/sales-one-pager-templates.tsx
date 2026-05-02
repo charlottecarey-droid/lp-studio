@@ -111,16 +111,35 @@ const generatePresetBg = (presetId: string, orientation = "portrait", headerImgU
     }
   });
 
-const pdfToImageBlob = async (file: File): Promise<Blob> => {
+// Returns the number of pages in a PDF file. Used to drive the multi-page
+// picker in the background importer.
+const pdfPageCount = async (file: File): Promise<number> => {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  const page = await pdf.getPage(1);
+  return pdf.numPages;
+};
+
+// Renders a single PDF page (1-indexed) to a PNG blob.
+// Also returns viewport dimensions so callers can detect orientation mismatch.
+const pdfToImageBlob = async (
+  file: File,
+  pageNum = 1,
+): Promise<{ blob: Blob; width: number; height: number }> => {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const safePage = Math.min(Math.max(1, pageNum), pdf.numPages);
+  const page = await pdf.getPage(safePage);
   const vp = page.getViewport({ scale: 2 });
   const canvas = document.createElement("canvas"); canvas.width = vp.width; canvas.height = vp.height;
   await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
-  return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"));
+  const blob = await new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"),
+  );
+  return { blob, width: vp.width, height: vp.height };
 };
 
 // ── Built-in templates ─────────────────────────────────────────────────
@@ -194,8 +213,67 @@ const FIELD_TYPES: { type: OverlayField["type"]; label: string; icon: React.Reac
   { type: "dandy_logo", label: "Dandy Logo", icon: <FileText className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", logoScale: 13, bold: true } },
 ];
 
+// ── Coordinate rulers (top + left) ────────────────────────────────────
+// Tiny visual aid that shows percent + inch markers along the page edges so
+// marketing can position fields against physical coordinates without doing
+// math. Page width: 8.5" portrait / 11" landscape; height the inverse.
+function Rulers({ orientation, hoverPct }: {
+  orientation: "portrait" | "landscape";
+  hoverPct?: { x?: number; y?: number };
+}) {
+  const widthIn = orientation === "portrait" ? 8.5 : 11;
+  const heightIn = orientation === "portrait" ? 11 : 8.5;
+  const xInchTicks: number[] = [];
+  for (let i = 0; i <= Math.floor(widthIn); i++) xInchTicks.push((i / widthIn) * 100);
+  const yInchTicks: number[] = [];
+  for (let i = 0; i <= Math.floor(heightIn); i++) yInchTicks.push((i / heightIn) * 100);
+
+  return (
+    <>
+      {/* Top ruler */}
+      <div className="absolute top-0 left-0 right-0 h-4 pointer-events-none z-30 bg-background/70 backdrop-blur-sm border-b border-border/50">
+        {[0, 25, 50, 75, 100].map(p => (
+          <div key={`x-${p}`} className="absolute top-0 h-full text-[8px] text-muted-foreground/80 font-mono leading-4"
+            style={{ left: `${p}%`, transform: "translateX(-50%)" }}>
+            <div className="absolute top-0 left-1/2 w-px h-2 bg-muted-foreground/40" />
+            <span className="absolute top-1.5 left-1/2 -translate-x-1/2">{p}</span>
+          </div>
+        ))}
+        {xInchTicks.map((p, i) => (
+          <div key={`xi-${i}`} className="absolute bottom-0 w-px h-1 bg-fuchsia-500/40" style={{ left: `${p}%` }} />
+        ))}
+        {hoverPct?.x !== undefined && (
+          <div className="absolute top-0 h-full px-1 rounded text-[8px] font-mono font-bold text-fuchsia-700 bg-fuchsia-100 border border-fuchsia-300 leading-4"
+            style={{ left: `${hoverPct.x}%`, transform: "translateX(-50%)" }}>
+            {hoverPct.x.toFixed(0)}%
+          </div>
+        )}
+      </div>
+      {/* Left ruler */}
+      <div className="absolute top-0 left-0 bottom-0 w-4 pointer-events-none z-30 bg-background/70 backdrop-blur-sm border-r border-border/50">
+        {[0, 25, 50, 75, 100].map(p => (
+          <div key={`y-${p}`} className="absolute left-0 w-full text-[8px] text-muted-foreground/80 font-mono leading-none"
+            style={{ top: `${p}%`, transform: "translateY(-50%)" }}>
+            <div className="absolute left-0 top-1/2 h-px w-2 bg-muted-foreground/40" />
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2">{p}</span>
+          </div>
+        ))}
+        {yInchTicks.map((p, i) => (
+          <div key={`yi-${i}`} className="absolute right-0 h-px w-1 bg-fuchsia-500/40" style={{ top: `${p}%` }} />
+        ))}
+        {hoverPct?.y !== undefined && (
+          <div className="absolute left-0 w-full px-0.5 rounded text-[8px] font-mono font-bold text-fuchsia-700 bg-fuchsia-100 border border-fuchsia-300 text-center leading-none py-0.5"
+            style={{ top: `${hoverPct.y}%`, transform: "translateY(-50%)" }}>
+            {hoverPct.y.toFixed(0)}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ── Draggable field overlay ───────────────────────────────────────────
-function DraggableField({ field, containerRef, selected, onSelect, onMove, onDuplicate, onDelete }: {
+function DraggableField({ field, containerRef, selected, onSelect, onMove, onDuplicate, onDelete, siblings, onDragChange }: {
   field: OverlayField;
   containerRef: React.RefObject<HTMLDivElement>;
   selected: boolean;
@@ -203,6 +281,8 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
   onMove: (x: number, y: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  siblings: OverlayField[];
+  onDragChange: (guides: { x?: number; y?: number } | null) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
@@ -215,53 +295,98 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    let x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    let y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+    // T004 — snap-to-grid + alignment guides. Default: 1% grid + soft snap
+    // to other fields' x/y and the page center (50). Shift disables snap.
+    const guides: { x?: number; y?: number } = {};
+    if (!e.shiftKey) {
+      const tol = 1.0; // %
+      const xTargets = [50, ...siblings.map(s => s.x)];
+      const yTargets = [50, ...siblings.map(s => s.y)];
+      let bestX: { v: number; d: number } | null = null;
+      let bestY: { v: number; d: number } | null = null;
+      for (const t of xTargets) {
+        const d = Math.abs(x - t);
+        if (d <= tol && (!bestX || d < bestX.d)) bestX = { v: t, d };
+      }
+      for (const t of yTargets) {
+        const d = Math.abs(y - t);
+        if (d <= tol && (!bestY || d < bestY.d)) bestY = { v: t, d };
+      }
+      if (bestX) { x = bestX.v; guides.x = bestX.v; }
+      else x = Math.round(x); // fall back to 1% grid
+      if (bestY) { y = bestY.v; guides.y = bestY.v; }
+      else y = Math.round(y);
+    }
+
+    onDragChange(guides.x !== undefined || guides.y !== undefined ? guides : null);
     onMove(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
   };
-  const handlePointerUp = () => setDragging(false);
+  const handlePointerUp = () => { setDragging(false); onDragChange(null); };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation(); onSelect();
     setCtx({ x: e.clientX, y: e.clientY });
   };
 
-  const displayText =
-    field.type === "dso_name" ? `${field.prefix || ""}{DSO Name}${field.suffix || ""}` :
-    field.type === "phone" ? "{Phone}" :
-    field.type === "qr_code" ? "{QR}" :
-    field.type === "logo" ? "{Logo}" :
-    field.type === "dandy_logo" ? "{Dandy Logo}" :
-    field.type === "divider" ? `— divider (${field.width ?? 80}% wide) —` :
-    field.type === "meet_the_team" ? `👥 ${field.sectionTitle || "Meet The Team"} (${field.teamMembers?.length ?? 0} members)` :
-    (field.defaultValue || field.label || "{Text}");
-
-  const scaledSize = Math.max(10, (field.fontSize / 612) * 500);
+  // Live mode: the actual styled text now lives in the PDF canvas behind us.
+  // We render a lightweight handle chip with just an icon + short label so the
+  // preview text isn't doubled. Click/drag the chip to reposition.
+  const shortLabel =
+    field.type === "dso_name" ? "DSO" :
+    field.type === "phone" ? "Phone" :
+    field.type === "qr_code" ? "QR" :
+    field.type === "logo" ? "Logo" :
+    field.type === "dandy_logo" ? "Dandy" :
+    field.type === "divider" ? "Divider" :
+    field.type === "meet_the_team" ? "Team" :
+    field.type === "heading" ? "Heading" :
+    field.type === "footer" ? "Footer" :
+    field.type === "link" ? "Link" :
+    "Text";
 
   const fieldIcon =
-    field.type === "qr_code" ? <QrCode className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    (field.type === "logo" || field.type === "dandy_logo") ? <ImageIcon className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    field.type === "divider" ? <Minus className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    field.type === "meet_the_team" ? <Users className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    field.type === "link" ? <Link className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    field.type === "heading" ? <Heading1 className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    field.type === "footer" ? <AlignJustify className="w-3 h-3 shrink-0" style={{ color: field.color }} /> :
-    <Move className="w-3 h-3 shrink-0" style={{ color: field.color }} />;
+    field.type === "qr_code" ? <QrCode className="w-3 h-3 shrink-0" /> :
+    (field.type === "logo" || field.type === "dandy_logo") ? <ImageIcon className="w-3 h-3 shrink-0" /> :
+    field.type === "divider" ? <Minus className="w-3 h-3 shrink-0" /> :
+    field.type === "meet_the_team" ? <Users className="w-3 h-3 shrink-0" /> :
+    field.type === "link" ? <Link className="w-3 h-3 shrink-0" /> :
+    field.type === "heading" ? <Heading1 className="w-3 h-3 shrink-0" /> :
+    field.type === "footer" ? <AlignJustify className="w-3 h-3 shrink-0" /> :
+    field.type === "phone" ? <Phone className="w-3 h-3 shrink-0" /> :
+    field.type === "dso_name" ? <User className="w-3 h-3 shrink-0" /> :
+    <Type className="w-3 h-3 shrink-0" />;
 
   return (
     <>
+      {/* Anchor crosshair at the field's exact anchor point (top-left of the
+          rendered text in jsPDF baseline space). */}
+      {selected && (
+        <div
+          className="absolute pointer-events-none z-20"
+          style={{ left: `${field.x}%`, top: `${field.y}%`, transform: "translate(-50%, -50%)" }}
+        >
+          <div className="w-3 h-3 rounded-full border-2 border-primary bg-background/80" />
+        </div>
+      )}
       <div
-        className={`absolute select-none touch-none ${dragging ? "z-30" : "z-20"}`}
-        style={{ left: `${field.x}%`, top: `${field.y}%`, transform: "translate(-4px, -50%)" }}
+        className={`absolute select-none touch-none ${dragging ? "z-40" : "z-30"}`}
+        style={{ left: `${field.x}%`, top: `${field.y}%`, transform: "translate(4px, -110%)" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleContextMenu}
       >
-        <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 cursor-grab active:cursor-grabbing whitespace-nowrap ${selected ? "ring-2 ring-primary shadow-lg" : "hover:ring-1 hover:ring-primary/50"} ${dragging ? "opacity-80 scale-105" : ""}`}
-          style={{ backgroundColor: selected ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)" }}>
+        <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium cursor-grab active:cursor-grabbing whitespace-nowrap shadow-sm ${selected ? "bg-primary text-primary-foreground ring-2 ring-primary" : "bg-background/90 text-foreground/80 ring-1 ring-border hover:ring-primary/50"} ${dragging ? "opacity-90 scale-105" : ""}`}>
           {fieldIcon}
-          <span style={{ color: field.color, fontSize: `${Math.min(scaledSize, 18)}px`, fontWeight: field.bold ? 700 : 400, fontStyle: field.italic ? "italic" : "normal", fontFamily: getFontCss(field.fontFamily), lineHeight: field.lineHeight ?? 1.2 }}>{displayText}</span>
+          <span>{shortLabel}</span>
+          {field.editableBySales && (
+            <span className={`ml-0.5 rounded px-1 py-px text-[8px] font-bold uppercase ${selected ? "bg-primary-foreground/30" : "bg-primary/15 text-primary"}`} title="Sales reps can edit this field">
+              S
+            </span>
+          )}
         </div>
       </div>
       {ctx && (
@@ -459,6 +584,20 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
   const [qrUrl, setQrUrl] = useState("https://meetdandy.com");
   const [audience, setAudience] = useState<"executive" | "clinical" | "practice-manager">("executive");
   const [generating, setGenerating] = useState(false);
+
+  // Auto-form for custom templates: collect a value per field marketing
+  // marked `editableBySales`, keyed by field.id. Initialize from each field's
+  // default value so unchanged inputs ship the marketing default.
+  const editableFields = tpl?.fields.filter(f => f.editableBySales) ?? [];
+  const [customValues, setCustomValues] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    editableFields.forEach(f => { init[f.id] = f.defaultValue || ""; });
+    return init;
+  });
+  // If template has no flagged fields, fall back to legacy generic inputs
+  // so existing templates (created before the flag existed) still work.
+  const hasAnyFlag = editableFields.length > 0;
+  const showLegacyInputs = !!tpl && !hasAnyFlag;
   // Agreement-summary editable content. Spread the *full* default so all
   // optional fields (font sizes, footer contacts, header/footer height,
   // headline/sub offsets, divider toggle, footer link) flow through to the
@@ -511,9 +650,19 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
         const baseName = isAgreement ? (agreement.headline || "Agreement_Summary") : (dsoName || builtinId);
         doc.save(`${baseName.replace(/\s+/g, "_")}_OnePager.pdf`);
       } else if (tpl) {
-        const values: Record<string, string> = { dso_name: dsoName, phone, qr_url: qrUrl };
+        // Build values: per-field-id from auto-generated form, plus legacy
+        // generic keys for backward compatibility with templates that haven't
+        // flagged any fields editableBySales yet.
+        const values: Record<string, string> = { ...customValues };
+        if (showLegacyInputs) {
+          values.dso_name = dsoName;
+          values.phone = phone;
+          values.qr_url = qrUrl;
+        }
         const doc = await generateCustomTemplatePdf(tpl, values, dandyLogoWhiteUrl);
-        doc.save(`${(dsoName || tpl.name).replace(/\s+/g, "_")}_OnePager.pdf`);
+        // Use a sensible filename: prefer DSO-name-like value, fall back to template name
+        const dsoLike = values.dso_name || Object.values(customValues).find(v => v && v.length < 60) || tpl.name;
+        doc.save(`${dsoLike.replace(/\s+/g, "_")}_OnePager.pdf`);
       }
       toast({ title: "PDF downloaded" });
       onClose();
@@ -621,35 +770,72 @@ function GeneratePdfDialog({ tpl, onClose, isBuiltin, builtinId }: {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-3">
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">DSO / Practice Name</label>
-            <input type="text" value={dsoName} onChange={e => setDsoName(e.target.value)} placeholder="e.g. Acme DSO" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
-          </div>
-          {/* Audience picker — only relevant for Pilot template */}
-          {builtinId === "pilot" && (
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Audience</label>
-              <div className="inline-flex w-full rounded-lg border border-border overflow-hidden">
-                {PILOT_AUDIENCES.map(a => (
-                  <button
-                    key={a.value}
-                    onClick={() => setAudience(a.value)}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${audience === a.value ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Custom templates with explicit editable-by-sales fields:
+              auto-render one input per flagged field, keyed by field.id.
+              Marketing's salesLabel/salesHelpText surface here. */}
+          {tpl && hasAnyFlag && (
+            <>
+              {editableFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  No fields are exposed to sales. Click any field in the editor and toggle "Editable by sales".
+                </p>
+              ) : null}
+              {editableFields.map(f => (
+                <div key={f.id}>
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+                    {f.salesLabel || f.label}
+                  </label>
+                  <input
+                    type={f.type === "qr_code" || f.type === "link" ? "url" : "text"}
+                    value={customValues[f.id] ?? ""}
+                    onChange={e => setCustomValues(p => ({ ...p, [f.id]: e.target.value }))}
+                    placeholder={f.defaultValue || ""}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  />
+                  {f.salesHelpText && (
+                    <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
+                  )}
+                </div>
+              ))}
+            </>
           )}
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Phone Number</label>
-            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. (555) 123-4567" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">QR Code URL</label>
-            <input type="url" value={qrUrl} onChange={e => setQrUrl(e.target.value)} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
-          </div>
+
+          {/* Builtin templates and legacy custom templates (no fields flagged):
+              keep the original DSO / Phone / QR inputs so existing templates
+              keep working unchanged. */}
+          {(isBuiltin || showLegacyInputs) && (
+            <>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">DSO / Practice Name</label>
+                <input type="text" value={dsoName} onChange={e => setDsoName(e.target.value)} placeholder="e.g. Acme DSO" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+              </div>
+              {/* Audience picker — only relevant for Pilot template */}
+              {builtinId === "pilot" && (
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Audience</label>
+                  <div className="inline-flex w-full rounded-lg border border-border overflow-hidden">
+                    {PILOT_AUDIENCES.map(a => (
+                      <button
+                        key={a.value}
+                        onClick={() => setAudience(a.value)}
+                        className={`flex-1 py-2 text-xs font-medium transition-colors ${audience === a.value ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                      >
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Phone Number</label>
+                <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. (555) 123-4567" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">QR Code URL</label>
+                <input type="url" value={qrUrl} onChange={e => setQrUrl(e.target.value)} placeholder="https://meetdandy.com" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+              </div>
+            </>
+          )}
         </div>
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
@@ -685,6 +871,13 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   const headerImgRef = useRef<HTMLInputElement>(null);
   const memberPhotoRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTokenRef = useRef(0);
+  const [pdfRendering, setPdfRendering] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  // T004 — alignment guides shown while a field is actively being dragged.
+  // Children call onDragChange to publish the snap targets; cleared on release.
+  const [dragGuides, setDragGuides] = useState<{ x?: number; y?: number } | null>(null);
 
   const selectedField = tpl.fields.find(f => f.id === selectedId) ?? null;
 
@@ -704,6 +897,57 @@ function TemplateEditor({ initial, onSave, onCancel }: {
       .finally(() => setUploading(false));
   }, [tpl.orientation, activePresetId, tpl.headerImageUrl]);
 
+  // ── Live PDF preview ─────────────────────────────────────────────────
+  // Render the actual jsPDF output via pdf.js inside the editor canvas, so
+  // what marketing sees is byte-for-byte what sales will download. Debounced
+  // 250ms; uses a render token to discard stale renders if the template
+  // changes mid-render.
+  useEffect(() => {
+    if (!bgPreview && tpl.fields.length === 0) return;
+    const token = ++renderTokenRef.current;
+    const handle = window.setTimeout(async () => {
+      setPdfRendering(true);
+      setPdfError(null);
+      try {
+        // Build placeholder values so empty text fields still show in preview
+        const previewValues: Record<string, string> = {};
+        for (const f of tpl.fields) {
+          const isText = f.type === "heading" || f.type === "footer" || f.type === "custom_text" || f.type === "dso_name" || f.type === "phone" || f.type === "link";
+          if (isText && !f.defaultValue) {
+            previewValues[f.id] = `{${f.salesLabel || f.label}}`;
+          }
+        }
+        const doc = await generateCustomTemplatePdf(tpl, previewValues, dandyLogoWhiteUrl);
+        if (token !== renderTokenRef.current) return;
+        const buf = doc.output("arraybuffer");
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+        if (token !== renderTokenRef.current) return;
+        const page = await pdfDoc.getPage(1);
+        const canvas = pdfCanvasRef.current;
+        if (!canvas || token !== renderTokenRef.current) return;
+        const containerW = canvas.parentElement?.clientWidth ?? 600;
+        const vp1 = page.getViewport({ scale: 1 });
+        const dpr = window.devicePixelRatio || 1;
+        const cssScale = containerW / vp1.width;
+        const vp = page.getViewport({ scale: cssScale * dpr });
+        canvas.width = vp.width;
+        canvas.height = vp.height;
+        canvas.style.width = `${vp1.width * cssScale}px`;
+        canvas.style.height = `${vp1.height * cssScale}px`;
+        await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+      } catch (err) {
+        if (token === renderTokenRef.current) {
+          setPdfError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (token === renderTokenRef.current) setPdfRendering(false);
+      }
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [tpl, bgPreview]);
+
   const updateField = (id: string, updates: Partial<OverlayField>) =>
     setTpl(p => ({ ...p, fields: p.fields.map(f => f.id === id ? { ...f, ...updates } : f) }));
   const removeField = (id: string) => { setTpl(p => ({ ...p, fields: p.fields.filter(f => f.id !== id) })); setSelectedId(null); };
@@ -717,32 +961,125 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     e.target.value = ""; // reset so the same file can be re-selected
+
+    // T007 — file size limit. Anything larger than 10MB will either OOM the
+    // PDF rasterizer or blow past the upload-bg endpoint's body limit, so
+    // reject up-front with a clear message instead of silently failing later.
+    const MAX_BG_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_BG_BYTES) {
+      toast({
+        title: "File too large",
+        description: `Background must be under 10MB (yours is ${(file.size / 1024 / 1024).toFixed(1)}MB).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setUploading(true);
     let uploadFile = file;
+    let renderedW = 0;
+    let renderedH = 0;
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (isPdf) {
       try {
-        const blob = await pdfToImageBlob(file);
+        // Multi-page PDFs: prompt the user to pick a page (defaults to 1).
+        // Using window.prompt keeps this scoped to the importer flow without
+        // requiring a full modal — the editor itself will then re-render the
+        // chosen page as the background image.
+        let pageNum = 1;
+        const total = await pdfPageCount(file);
+        if (total > 1) {
+          const answer = window.prompt(
+            `This PDF has ${total} pages. Which page do you want to use as the background?`,
+            "1",
+          );
+          if (answer === null) {
+            // user cancelled
+            setUploading(false);
+            return;
+          }
+          const parsed = parseInt(answer, 10);
+          if (!Number.isFinite(parsed) || parsed < 1 || parsed > total) {
+            toast({
+              title: "Invalid page",
+              description: `Enter a number between 1 and ${total}.`,
+              variant: "destructive",
+            });
+            setUploading(false);
+            return;
+          }
+          pageNum = parsed;
+        }
+        const { blob, width, height } = await pdfToImageBlob(file, pageNum);
         uploadFile = new File([blob], file.name.replace(/\.pdf$/i, ".png"), { type: "image/png" });
+        renderedW = width;
+        renderedH = height;
+      } catch (err) {
+        toast({
+          title: "PDF conversion failed",
+          description: err instanceof Error ? err.message : String(err),
+          variant: "destructive",
+        });
+        setUploading(false);
+        return;
+      }
+    } else {
+      // For images, sniff dimensions so we can still detect orientation mismatch.
+      try {
+        const dims = await new Promise<{ w: number; h: number }>((res, rej) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = () => { res({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(url); };
+          img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Could not read image")); };
+          img.src = url;
+        });
+        renderedW = dims.w;
+        renderedH = dims.h;
       } catch {
-        toast({ title: "PDF conversion failed", variant: "destructive" }); setUploading(false); return;
+        // Non-fatal: skip the orientation hint if we can't read dimensions.
       }
     }
+
+    // T007 — surface the real upload error instead of silently writing a
+    // multi-MB data URL into the database row (which would bloat the saved
+    // template, break thumbnails, and hide the actual server problem).
     try {
       const formData = new FormData(); formData.append("file", uploadFile);
       const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        let detail = `${res.status} ${res.statusText}`;
+        try {
+          const body = await res.text();
+          if (body) detail = body.slice(0, 240);
+        } catch { /* keep status text */ }
+        throw new Error(detail);
+      }
       const { url } = await res.json();
       setBgPreview(url); setTpl(p => ({ ...p, background_url: url }));
-    } catch {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const dataUrl = ev.target?.result as string;
-        setBgPreview(dataUrl); setTpl(p => ({ ...p, background_url: dataUrl }));
-      };
-      reader.readAsDataURL(uploadFile);
+
+      // T007 — orientation-mismatch hint. If the source page is clearly
+      // landscape but the template is portrait (or vice versa), offer to swap.
+      if (renderedW > 0 && renderedH > 0) {
+        const sourceLandscape = renderedW > renderedH;
+        const templateLandscape = tpl.orientation === "landscape";
+        if (sourceLandscape !== templateLandscape) {
+          const want = sourceLandscape ? "landscape" : "portrait";
+          if (window.confirm(
+            `This file is ${want} but the template is ${tpl.orientation}. Switch the template to ${want}?`,
+          )) {
+            setTpl(p => ({ ...p, orientation: want }));
+          }
+        }
+      }
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -993,16 +1330,50 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                 style={{ aspectRatio: isLandscape ? "11/8.5" : "8.5/11", maxHeight: "calc(100vh - 220px)", width: "auto", maxWidth: "100%" }}
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
-                onClick={e => { if (e.target === previewRef.current || (e.target as HTMLElement).tagName === "IMG") setSelectedId(null); }}
+                onClick={e => { const tag = (e.target as HTMLElement).tagName; if (e.target === previewRef.current || tag === "CANVAS") setSelectedId(null); }}
               >
-                <img src={bgPreview} alt="Background" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                {/* Live PDF preview canvas — same render code as the export */}
+                <canvas ref={pdfCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none bg-white" />
+                {pdfRendering && (
+                  <div className="absolute top-2 left-2 z-40 flex items-center gap-1.5 rounded-full bg-background/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm pointer-events-none">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Rendering…
+                  </div>
+                )}
+                {pdfError && (
+                  <div className="absolute top-2 left-2 z-40 flex items-center gap-1.5 rounded-full bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive shadow-sm pointer-events-none">
+                    <AlertCircle className="w-3 h-3" /> Preview error: {pdfError}
+                  </div>
+                )}
                 {tpl.fields.map(f => (
                   <DraggableField key={f.id} field={f} containerRef={previewRef as React.RefObject<HTMLDivElement>}
                     selected={selectedId === f.id} onSelect={() => setSelectedId(f.id)}
                     onMove={(x, y) => updateField(f.id, { x, y })}
                     onDuplicate={() => duplicateField(f.id)}
-                    onDelete={() => removeField(f.id)} />
+                    onDelete={() => removeField(f.id)}
+                    siblings={tpl.fields.filter(s => s.id !== f.id)}
+                    onDragChange={setDragGuides} />
                 ))}
+
+                {/* T004 — alignment guide lines drawn while dragging.
+                    Vertical guide on the snapped X, horizontal on snapped Y. */}
+                {dragGuides?.x !== undefined && (
+                  <div
+                    className="absolute top-0 bottom-0 pointer-events-none z-50 border-l border-dashed border-fuchsia-500/80"
+                    style={{ left: `${dragGuides.x}%` }}
+                  />
+                )}
+                {dragGuides?.y !== undefined && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none z-50 border-t border-dashed border-fuchsia-500/80"
+                    style={{ top: `${dragGuides.y}%` }}
+                  />
+                )}
+
+                {/* T004 — coordinate rulers (% on the bar, ~inch ticks below).
+                    Page is 8.5" wide portrait / 11" wide landscape; height
+                    is the inverse. Ticks are evenly spaced at the proper
+                    fraction so users can eyeball physical inches. */}
+                <Rulers orientation={(tpl.orientation === "landscape" ? "landscape" : "portrait")} hoverPct={dragGuides ?? undefined} />
                 {tpl.fields.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <p className="bg-black/40 text-white text-xs px-3 py-1.5 rounded-full">Drag field types from the left panel to place them</p>
@@ -1093,6 +1464,47 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                   <option value="logo">Logo</option>
                   <option value="dandy_logo">Dandy Logo</option>
                 </select>
+              </div>
+
+              {/* Sales-rep editability — when on, this field appears as an
+                  input in the sales rep's PDF generation form. */}
+              <div className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-2">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold text-foreground uppercase tracking-wider">Editable by sales</span>
+                    <span className="text-[10px] text-muted-foreground leading-tight">{selectedField.editableBySales ? "Sales reps can override this field" : "Locked to default value"}</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!selectedField.editableBySales}
+                    onChange={e => updateField(selectedField.id, { editableBySales: e.target.checked })}
+                    className="ml-2 shrink-0"
+                  />
+                </label>
+                {selectedField.editableBySales && (
+                  <div className="space-y-1.5 pt-1 border-t border-border/50">
+                    <div>
+                      <label className="text-[9px] text-muted-foreground uppercase block mb-1">Sales label (optional)</label>
+                      <input
+                        type="text"
+                        value={selectedField.salesLabel || ""}
+                        onChange={e => updateField(selectedField.id, { salesLabel: e.target.value })}
+                        placeholder={selectedField.label}
+                        className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground uppercase block mb-1">Help text (optional)</label>
+                      <input
+                        type="text"
+                        value={selectedField.salesHelpText || ""}
+                        onChange={e => updateField(selectedField.id, { salesHelpText: e.target.value })}
+                        placeholder="Shown under the input"
+                        className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

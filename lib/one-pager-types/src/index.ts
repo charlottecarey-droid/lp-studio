@@ -47,6 +47,15 @@ export interface OverlayField {
   teamMembers?: TeamMember[];
   cardBg?: string;       // hex bg color for each card (default "rgba(0,0,0,0)")
   photoSize?: number;    // % of page width per photo circle (default 7)
+  // ── Sales-rep editability (set by marketing in the template editor) ──
+  /** When true, this field is shown as an editable input in the sales rep's
+   *  PDF generation form. When false/undefined, the field is locked to its
+   *  defaultValue and only marketing can change it. */
+  editableBySales?: boolean;
+  /** Optional override label shown to the sales rep (defaults to `label`). */
+  salesLabel?: string;
+  /** Optional help text shown under the input in the sales rep's form. */
+  salesHelpText?: string;
 }
 
 export interface CustomTemplate {

@@ -418,6 +418,32 @@ const SalesOnePager = () => {
   const [selectedCustomId, setSelectedCustomId] = useState<number | null>(null);
   const [customTemplateError, setCustomTemplateError] = useState<string | null>(null);
   const [visibilityLoaded, setVisibilityLoaded] = useState(false);
+  // Per-field values for the currently selected custom template, keyed by
+  // field.id so values survive across template switches without colliding.
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+
+  // When the active custom template changes, seed the form with each
+  // editable-by-sales field's defaultValue so empty inputs still ship the
+  // marketing default (matches resolveValue() in pdf.ts).
+  useEffect(() => {
+    if (selectedCustomId === null) return;
+    const ct = customTemplates.find(t => t.id === selectedCustomId);
+    if (!ct) return;
+    setCustomFieldValues(prev => {
+      const next: Record<string, string> = { ...prev };
+      ct.fields.forEach(f => {
+        if (f.editableBySales && next[f.id] === undefined) {
+          next[f.id] = f.defaultValue || "";
+        }
+      });
+      return next;
+    });
+  }, [selectedCustomId, customTemplates]);
+
+  const selectedCustomTemplate = selectedCustomId !== null
+    ? customTemplates.find(t => t.id === selectedCustomId) ?? null
+    : null;
+  const customEditableFields = selectedCustomTemplate?.fields.filter(f => f.editableBySales) ?? [];
 
   const loadCustomTemplates = useCallback(async () => {
     setCustomTemplateError(null);
@@ -541,8 +567,17 @@ const SalesOnePager = () => {
       if (selectedCustomId !== null) {
         const ct = customTemplates.find(t => t.id === selectedCustomId);
         if (ct) {
-          doc = await generateCustomTemplatePdf(ct, { dso_name: dsoName.trim(), phone: phoneNumber, qr_url: customLinkUrl });
-          doc.save(`${ct.name.replace(/\s+/g, "_")}_${dsoName.trim().replace(/\s+/g, "_")}.pdf`);
+          // Build values: per-field-id from auto-rendered inputs PLUS
+          // legacy generic keys (dso_name/phone/qr_url) so templates that
+          // haven't flagged any fields editableBySales still pick up the
+          // form's DSO Name + (when shown) phone/link inputs.
+          const values: Record<string, string> = { ...customFieldValues };
+          values.dso_name = values.dso_name || dsoName.trim();
+          values.phone = values.phone || phoneNumber;
+          values.qr_url = values.qr_url || customLinkUrl;
+          doc = await generateCustomTemplatePdf(ct, values);
+          const dsoLabel = (values.dso_name || dsoName.trim() || ct.name).replace(/\s+/g, "_");
+          doc.save(`${ct.name.replace(/\s+/g, "_")}_${dsoLabel}.pdf`);
         }
       } else if (template === "pilot") {
         // Load the freshest saved audienceContent from the API so edits made in the
@@ -755,6 +790,40 @@ const SalesOnePager = () => {
                 </div>
               )}
             </div>
+
+            {/* Custom-template fields exposed to sales by marketing.
+                Each input is auto-rendered from the field's editableBySales
+                flag and keyed by field.id, so values flow straight into
+                generateCustomTemplatePdf via resolveValue() in pdf.ts. */}
+            {selectedCustomTemplate && customEditableFields.length > 0 && (
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                    {selectedCustomTemplate.name} — editable fields
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {customEditableFields.map(f => (
+                    <div key={f.id}>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                        {f.salesLabel || f.label}
+                      </label>
+                      <input
+                        type={f.type === "qr_code" || f.type === "link" ? "url" : "text"}
+                        value={customFieldValues[f.id] ?? ""}
+                        onChange={(e) => setCustomFieldValues(p => ({ ...p, [f.id]: e.target.value }))}
+                        placeholder={f.defaultValue || ""}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      {f.salesHelpText && (
+                        <p className="text-[10px] text-muted-foreground mt-1">{f.salesHelpText}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {(template === "pilot" || template === "comparison" || template === "new-partner" || template === "partner2") && (
               <div>

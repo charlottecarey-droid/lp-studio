@@ -94,13 +94,30 @@ export async function generateCustomTemplatePdf(
     doc.setFillColor(240, 240, 240); doc.rect(0, 0, w, h, "F");
   }
 
+  // Resolve a value for a field. Lookup order:
+  //   1. values[field.id]  (per-field-id, used by the auto-generated sales form)
+  //   2. legacy type-keyed key (values.dso_name / values.phone / values.qr_url)
+  //   3. field.defaultValue
+  //   4. ""
+  // This keeps existing callers (which pass {dso_name, phone, qr_url}) working
+  // while letting the new sales form key per-field by id for templates that
+  // expose heading/custom_text/footer/link/etc. fields.
+  const resolveValue = (field: OverlayField): string => {
+    if (values[field.id] !== undefined && values[field.id] !== "") return values[field.id];
+    if (field.type === "dso_name" && values.dso_name) return values.dso_name;
+    if (field.type === "phone" && values.phone) return values.phone;
+    if (field.type === "qr_code" && values.qr_url) return values.qr_url;
+    if (field.type === "logo" && values.logo_url) return values.logo_url;
+    return field.defaultValue || "";
+  };
+
   for (const field of tpl.fields) {
     const fx = w * (field.x / 100);
     const fy = h * (field.y / 100);
 
     // ── QR Code ───────────────────────────────────────────────────────
     if (field.type === "qr_code") {
-      const url = values.qr_url || field.defaultValue || "https://meetdandy.com";
+      const url = resolveValue(field) || "https://meetdandy.com";
       try {
         const qrDataUrl = await QRCode.toDataURL(url, { width: 400, margin: 1 });
         const sz = w * ((field.qrSize || 12) / 100);
@@ -211,14 +228,15 @@ export async function generateCustomTemplatePdf(
 
     let text = "";
     if (field.type === "dso_name") {
-      text = `${field.prefix || ""}${values.dso_name || field.defaultValue || ""}${field.suffix || ""}`;
-    } else if (field.type === "phone") {
-      text = values.phone || field.defaultValue || "";
-    } else if (field.type === "link") {
-      text = field.defaultValue || "";
+      const inner = resolveValue(field);
+      text = `${field.prefix || ""}${inner}${field.suffix || ""}`;
+    } else if (field.type === "heading" || field.type === "footer" || field.type === "custom_text") {
+      // For these, fall back to label when no defaultValue+value, so empty
+      // marketing-only fields still show something in the PDF.
+      text = resolveValue(field) || field.label || "";
     } else {
-      // heading, footer, custom_text
-      text = field.defaultValue || field.label || "";
+      // phone, link
+      text = resolveValue(field);
     }
 
     if (text) {
