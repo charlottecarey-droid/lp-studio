@@ -90,6 +90,16 @@ test.describe("Marketo → Chili Piper handoff", () => {
     await purgeStaleRoyalTenants(pool);
     tenant = await createRoyalTenant(pool);
 
+    // Refresh the API server's in-process tenant-host cache so the freshly
+    // inserted Royal tenant (with domain='localhost') is visible to
+    // findTenantByHost without waiting out the 60s TTL — otherwise the
+    // public /api/lp/page/:slug live-URL lookup below resolves no tenant
+    // and 404s our just-published page. Mirrors the pattern in
+    // draft-preview-gating.spec.ts. Dev-only endpoint (gated on NODE_ENV).
+    // purgeStaleRoyalTenants() above can also delete a previously-cached
+    // localhost mapping, so invalidating here covers both cases.
+    await request.post("/api/_test/invalidate-host-cache").catch(() => undefined);
+
     // Insert an lp_forms row with chili_piper_config set. Done via SQL so the
     // test stays focused on the viewer behaviour rather than the editor UI
     // (which has its own coverage in tests/forms-editor.spec or similar).
