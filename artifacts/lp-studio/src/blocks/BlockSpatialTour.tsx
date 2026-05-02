@@ -8,14 +8,19 @@ import spatialHeadsetImg from "@assets/image_1777179519607.png";
 // in the nav. The actual DOM `id` used per section is namespaced per block
 // instance via `useId()` so multiple SpatialTour blocks on one page do not
 // collide on global IDs.
+// `theme` drives the dynamic Nav palette: "dark" sections render the nav with
+// a forest_deep bg + white logo/text; "light" sections flip it to a near-white
+// bg + dark forest logo/text. Keep this in sync with the actual section
+// backgrounds rendered below — Hero, the Tour stations, the Spatial callout,
+// and the RSVP/Calendar are all dark; Marquee, Manifesto, and Ways are light.
 const ST_SECTIONS = [
-  { kind: "hero", num: "01", label: "TOUR" },
-  { kind: "marquee", num: "02", label: "PROOF" },
-  { kind: "manifesto", num: "03", label: "WHY" },
-  { kind: "tour", num: "04", label: "STATIONS" },
-  { kind: "callout", num: "05", label: "SPATIAL" },
-  { kind: "ways", num: "06", label: "WAYS" },
-  { kind: "calendar", num: "07", label: "RSVP" },
+  { kind: "hero", num: "01", label: "TOUR", theme: "dark" },
+  { kind: "marquee", num: "02", label: "PROOF", theme: "light" },
+  { kind: "manifesto", num: "03", label: "WHY", theme: "light" },
+  { kind: "tour", num: "04", label: "STATIONS", theme: "dark" },
+  { kind: "callout", num: "05", label: "SPATIAL", theme: "dark" },
+  { kind: "ways", num: "06", label: "WAYS", theme: "light" },
+  { kind: "calendar", num: "07", label: "RSVP", theme: "dark" },
 ] as const;
 
 type StSection = (typeof ST_SECTIONS)[number];
@@ -634,19 +639,42 @@ function QRPlaceholder({ size = 84, bg = WHITE, fg = FOREST }: { size?: number; 
 // ─── Section: Nav ──────────────────────────────────────────────
 function Nav({
   p,
-  scrollProgress,
   activeSection,
 }: {
   p: SpatialTourBlockProps;
-  scrollProgress: number;
   activeSection: StSection;
 }) {
-  // Nav cross-fades from transparent (over the dark hero) → solid forest_deep
-  // (past the hero). Both work in light + dark contexts because the hero is
-  // always dark.
-  const navOpacity = Math.min(1, scrollProgress * 8);
-  const navBlur = Math.min(14, scrollProgress * 60);
-  const borderOpacity = Math.min(0.18, scrollProgress * 1.4);
+  // Theme is declared per-section on ST_SECTIONS. The nav swaps its entire
+  // palette as the user crosses a section boundary so the brand mark + links
+  // are always readable against whatever surface is currently behind them.
+  //
+  // To get a "lights on / lights off" feel, the background swaps first
+  // (~500ms, no delay) and the foreground colors (logo, text, border, chip)
+  // catch up ~200ms later (~600ms total). This staggered handoff makes it
+  // feel like a switch was thrown rather than a single uniform crossfade.
+  const isDark = activeSection.theme === "dark";
+
+  // Background / surface
+  const navBg = isDark ? "rgba(0, 35, 29, 0.92)" : "rgba(255, 255, 255, 0.94)";
+  const navBorder = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,58,48,0.10)";
+
+  // Foreground (logo / text / divider)
+  const fg = isDark ? WHITE : FOREST;
+  const linkColor = isDark ? "rgba(255,255,255,0.72)" : "rgba(0,58,48,0.72)";
+  const dividerColor = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,58,48,0.18)";
+  const brandColor = isDark ? MINT : FOREST;
+
+  // Center chip — glassy on dark, soft mint-tint on light. Inner label uses
+  // the same fg color so number + slug stay in sync with the theme.
+  const chipBg = isDark ? "rgba(0,0,0,0.32)" : "rgba(0,58,48,0.06)";
+  const chipBorder = isDark ? "rgba(197,241,197,0.32)" : "rgba(0,58,48,0.18)";
+  const chipNum = isDark ? MINT : KELLY;
+
+  // Lights on/off staggering. Background snaps first, foreground catches up.
+  const fgTransition =
+    "color 600ms ease 200ms, background 600ms ease 200ms, border-color 600ms ease 200ms";
+  const bgTransition =
+    "background 500ms ease 0ms, border-color 500ms ease 0ms";
 
   return (
     <div
@@ -654,22 +682,34 @@ function Nav({
         position: "sticky",
         top: 0,
         zIndex: 50,
-        color: WHITE,
+        color: fg,
         padding: "20px 56px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: `rgba(0, 35, 29, ${navOpacity * 0.92})`,
-        backdropFilter: `blur(${navBlur}px) saturate(140%)`,
-        WebkitBackdropFilter: `blur(${navBlur}px) saturate(140%)`,
-        borderBottom: `1px solid rgba(255,255,255,${borderOpacity})`,
-        transition: "background 120ms linear, border-color 120ms linear",
+        background: navBg,
+        backdropFilter: "blur(14px) saturate(140%)",
+        WebkitBackdropFilter: "blur(14px) saturate(140%)",
+        borderBottom: `1px solid ${navBorder}`,
+        transition: `${bgTransition}, color 600ms ease 200ms`,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        <DandyWordmark color={WHITE} height={20} logoSrc={p.logoUrl} logoSrcDark={p.logoUrlDark} alt={p.logoAlt || p.navBrand || "Logo"} />
-        <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.18)" }} />
-        <BracketPill color={MINT}>{p.navBrand}</BracketPill>
+        <DandyWordmark color={fg} height={20} logoSrc={p.logoUrl} logoSrcDark={p.logoUrlDark} alt={p.logoAlt || p.navBrand || "Logo"} />
+        <div
+          style={{
+            width: 1,
+            height: 18,
+            background: dividerColor,
+            transition: "background 600ms ease 200ms",
+          }}
+        />
+        <BracketPill
+          color={brandColor}
+          style={{ transition: "color 600ms ease 200ms" }}
+        >
+          {p.navBrand}
+        </BracketPill>
       </div>
 
       {/* Section-aware center chip — animates each time the active section changes */}
@@ -688,8 +728,8 @@ function Nav({
           gap: 10,
           padding: "8px 14px",
           borderRadius: 999,
-          border: "1px solid rgba(197,241,197,0.32)",
-          background: "rgba(0,0,0,0.32)",
+          border: `1px solid ${chipBorder}`,
+          background: chipBg,
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
           fontFamily: SANS,
@@ -697,14 +737,17 @@ function Nav({
           letterSpacing: "0.22em",
           fontWeight: 600,
           textTransform: "uppercase",
-          color: MINT,
+          color: chipNum,
           pointerEvents: "none",
+          transition: fgTransition,
         }}
       >
         <span style={{ opacity: 0.55 }}>[</span>
         {activeSection.num}
         <span style={{ opacity: 0.55 }}>/</span>
-        <span style={{ color: WHITE, opacity: 0.92 }}>{activeSection.label}</span>
+        <span style={{ color: fg, opacity: 0.92, transition: "color 600ms ease 200ms" }}>
+          {activeSection.label}
+        </span>
         <span style={{ opacity: 0.55 }}>]</span>
       </motion.div>
 
@@ -714,8 +757,9 @@ function Nav({
           alignItems: "center",
           gap: 28,
           fontSize: 13,
-          color: "rgba(255,255,255,0.72)",
+          color: linkColor,
           fontFamily: SANS,
+          transition: "color 600ms ease 200ms",
         }}
       >
         {p.navLinks.map((l) => (
@@ -2260,19 +2304,12 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
   // Scroll-progress hairline + section observer feed the dynamic nav.
   // We use the document's natural scroll (no custom container) so behavior is
   // identical between the live page and the builder preview.
+  // The nav theme is now driven entirely by `activeSection` (hero = dark,
+  // every other section = light), so no separate scroll-progress is needed.
   const { scrollY } = useScroll();
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [activeSection, setActiveSection] = useState<StSection>(ST_SECTIONS[0]);
   const [blockInView, setBlockInView] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    return scrollY.on("change", (v) => {
-      // 500px feels right for the nav-tint trigger — past the dark hero,
-      // before the first cream section.
-      setScrollProgress(Math.min(1, v / 500));
-    });
-  }, [scrollY]);
 
   // Only show the global hairline while this block is actually in the
   // viewport. Without this, the hairline would appear on every page (even
@@ -2344,7 +2381,7 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
         />
       )}
 
-      <Nav p={props} scrollProgress={scrollProgress} activeSection={activeSection} />
+      <Nav p={props} activeSection={activeSection} />
       <div id={sectionId("hero")}><Hero p={props} /></div>
       <div id={sectionId("marquee")}><Marquee p={props} /></div>
       <div id={sectionId("manifesto")}><Manifesto p={props} /></div>
