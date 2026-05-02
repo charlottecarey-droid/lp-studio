@@ -66,13 +66,22 @@ function getImagePurpose(img: MediaImage): string {
   return "";
 }
 
-/** Fetch all images from the media library, separated by purpose for AI context */
-async function fetchMediaCatalog(): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
+/** Fetch all images from the media library, separated by purpose for AI context.
+ *
+ * Tenant isolation: when a tenantId is supplied, ONLY images owned by that
+ * tenant are returned. Shared / starter library rows (tenant_id IS NULL or
+ * is_shared=true) are intentionally excluded so generated pages cannot leak
+ * Dandy (or any other tenant's) imagery into a Royal / non-Dandy instance.
+ */
+async function fetchMediaCatalog(tenantId?: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
   try {
+    const where = tenantId != null
+      ? and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId))
+      : eq(lpMediaTable.mediaType, "image");
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
       .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"))
+      .where(where)
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(500);
 
