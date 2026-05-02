@@ -197,6 +197,10 @@ export async function purgeStaleRoyalTenants(pool: pg.Pool): Promise<void> {
     for (const row of rows) {
       await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [row.id]);
       await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [row.id]);
+      // lp_forms.tenant_id has a FK on tenants — must be cleared before the
+      // tenant row itself, otherwise DELETE FROM tenants raises a 23503 and
+      // poisons every subsequent test in the same run.
+      await client.query(`DELETE FROM lp_forms WHERE tenant_id = $1`, [row.id]);
       await client.query(`DELETE FROM app_users WHERE tenant_id = $1`, [row.id]);
       await client.query(`DELETE FROM tenants WHERE id = $1`, [row.id]);
     }
