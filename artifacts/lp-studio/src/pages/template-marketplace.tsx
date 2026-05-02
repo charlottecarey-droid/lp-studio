@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Search,
@@ -19,7 +19,11 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { DEFAULT_BRAND } from "@/lib/brand-config";
+import type { PageBlock } from "@/lib/block-types";
 
 // Matches the enriched response from GET /api/lp/templates/enriched
 interface TemplatePage {
@@ -68,6 +72,14 @@ export default function TemplateMarketplace() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Newest");
   const [cloningId, setCloningId] = useState<number | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<TemplatePage | null>(null);
+  const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  // Monotonic request token: when the user rapidly switches templates or
+  // closes the modal mid-fetch, only the most recent request is allowed to
+  // write state. Prevents stale-response-A from overwriting newer-response-B.
+  const previewRequestRef = useRef(0);
 
   // Fetch real templates from the database
   useEffect(() => {
@@ -149,9 +161,41 @@ export default function TemplateMarketplace() {
     }
   };
 
-  // Preview a template's live landing page
-  const handlePreview = (template: TemplatePage) => {
-    window.open(`/lp/${template.slug}`, "_blank");
+  // Open the in-app preview modal. Templates aren't published as public /lp
+  // pages, so opening one in a new tab 404s — instead we fetch the block JSON
+  // and render it inside a scrollable modal using the same BlockRenderer the
+  // builder & viewer use, so the preview matches the live result.
+  const handlePreview = async (template: TemplatePage) => {
+    const requestId = ++previewRequestRef.current;
+    setPreviewTemplate(template);
+    setPreviewBlocks(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/lp/templates/${template.id}/preview`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { blocks: PageBlock[] };
+      if (previewRequestRef.current !== requestId) return; // stale
+      setPreviewBlocks(Array.isArray(data.blocks) ? data.blocks : []);
+    } catch (err) {
+      if (previewRequestRef.current !== requestId) return; // stale
+      const message = err instanceof Error ? err.message : "Failed to load preview";
+      setPreviewError(message);
+    } finally {
+      if (previewRequestRef.current === requestId) {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
+  const closePreview = () => {
+    // Bump the token so any in-flight request becomes stale and can't
+    // resurrect modal state after the user has closed it.
+    previewRequestRef.current++;
+    setPreviewTemplate(null);
+    setPreviewBlocks(null);
+    setPreviewError(null);
+    setPreviewLoading(false);
   };
 
   return (
@@ -338,6 +382,88 @@ export default function TemplateMarketplace() {
           </>
         )}
       </div>
+
+      {/* Preview Modal — fetches the template's full block JSON and renders it
+          with BlockRenderer inside a scrollable container so users can browse
+          every starter without cloning. The "Use this template" CTA at the
+          bottom delegates back to handleUseTemplate to keep one clone path. */}
+      <Dialog open={previewTemplate !== null} onOpenChange={(open) => { if (!open) closePreview(); }}>
+        <DialogContent
+          className="max-w-6xl w-[95vw] h-[92vh] p-0 gap-0 flex flex-col overflow-hidden"
+        >
+          <DialogTitle className="sr-only">
+            {previewTemplate?.templateLabel ?? "Template preview"}
+          </DialogTitle>
+
+          {/* Header bar */}
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b bg-background shrink-0">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-base truncate">
+                  {previewTemplate?.templateLabel}
+                </h2>
+                {previewTemplate?.isGlobal && (
+                  <Badge variant="outline" className="text-[10px]">Starter</Badge>
+                )}
+              </div>
+              {previewTemplate?.templateDescription && (
+                <p className="text-xs text-muted-foreground truncate">
+                  {previewTemplate.templateDescription}
+                </p>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="gap-1 shrink-0"
+              disabled={!previewTemplate || cloningId === previewTemplate.id}
+              onClick={() => previewTemplate && handleUseTemplate(previewTemplate)}
+            >
+              {previewTemplate && cloningId === previewTemplate.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              Use this template
+            </Button>
+          </div>
+
+          {/* Scrollable preview body. The inner wrapper uses a white background
+              so blocks designed for a real landing page (which assume a page
+              background) render correctly inside the dialog. */}
+          <div className="flex-1 overflow-y-auto bg-white">
+            {previewLoading && (
+              <div className="h-full grid place-items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {previewError && !previewLoading && (
+              <div className="h-full grid place-items-center p-8 text-center">
+                <div>
+                  <p className="text-destructive font-medium mb-2">Preview failed to load</p>
+                  <p className="text-sm text-muted-foreground">{previewError}</p>
+                </div>
+              </div>
+            )}
+            {!previewLoading && !previewError && previewBlocks && previewBlocks.length === 0 && (
+              <div className="h-full grid place-items-center p-8 text-center">
+                <p className="text-sm text-muted-foreground">This template has no blocks yet.</p>
+              </div>
+            )}
+            {!previewLoading && !previewError && previewBlocks && previewBlocks.length > 0 && (
+              <div className="template-preview-root">
+                {previewBlocks.map((block, i) => (
+                  <BlockRenderer
+                    key={(block as { id?: string }).id ?? i}
+                    block={block}
+                    brand={DEFAULT_BRAND}
+                    animationsEnabled={false}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

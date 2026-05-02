@@ -70,4 +70,52 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
   }
 });
 
+// GET /lp/templates/:id/preview — full block JSON for a single template the
+// caller is allowed to see (their own, or a global one matching their industry).
+// Used by the marketplace preview modal so users can scroll through a rendered
+// template before cloning it. Read-only: never returns drafts the caller does
+// not own and never returns non-template pages.
+router.get("/lp/templates/:id/preview", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+    const industry = await getTenantIndustry(tenantId);
+    const [template] = await db
+      .select()
+      .from(lpPagesTable)
+      .where(
+        and(
+          eq(lpPagesTable.id, id),
+          eq(lpPagesTable.isTemplate, true),
+          or(
+            eq(lpPagesTable.tenantId, tenantId),
+            and(
+              eq(lpPagesTable.isGlobal, true),
+              or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, industry)),
+            ),
+          ),
+        ),
+      );
+    if (!template) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+    res.json({
+      id: template.id,
+      title: template.title,
+      templateLabel: template.templateLabel || template.title,
+      templateDescription: template.templateDescription || "",
+      blocks: Array.isArray(template.blocks) ? template.blocks : [],
+    });
+  } catch (err) {
+    console.error("GET /lp/templates/:id/preview error:", String(err));
+    res.status(500).json({ error: "Failed to load template preview" });
+  }
+});
+
 export default router;
