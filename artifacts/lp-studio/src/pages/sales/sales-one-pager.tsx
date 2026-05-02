@@ -825,6 +825,52 @@ const SalesOnePager = () => {
               </div>
             )}
 
+            {/* Legacy fallback for custom templates with NO fields flagged
+                editableBySales: marketing may still have generic phone/QR
+                fields in the template that read from values.phone /
+                values.qr_url. The custom-template path forces template="roi"
+                (so the built-in Phone/QR conditionals below don't render),
+                which would leave reps with no way to set those values.
+                Render a minimal Phone + QR card here so resolveValue's legacy
+                key fallback still has something to read. DSO Name is always
+                shown above for every template, so we don't repeat it here. */}
+            {selectedCustomTemplate && customEditableFields.length === 0 && (
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                    {selectedCustomTemplate.name} — optional fields
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Phone (optional)</label>
+                    <input
+                      type="tel"
+                      placeholder="(555) 123-4567"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">QR / Link URL (optional)</label>
+                    <input
+                      type="url"
+                      placeholder="https://meetdandy.com"
+                      value={customLinkUrl}
+                      onChange={(e) => setCustomLinkUrl(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  This template has no fields flagged "editable by sales" — these
+                  values only fill in if marketing left a generic phone/QR field on the layout.
+                </p>
+              </div>
+            )}
+
             {(template === "pilot" || template === "comparison" || template === "new-partner" || template === "partner2") && (
               <div>
                 <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">Prospect Logo (optional)</label>

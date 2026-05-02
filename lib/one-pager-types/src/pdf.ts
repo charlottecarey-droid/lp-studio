@@ -108,6 +108,9 @@ export async function generateCustomTemplatePdf(
     if (field.type === "phone" && values.phone) return values.phone;
     if (field.type === "qr_code" && values.qr_url) return values.qr_url;
     if (field.type === "logo" && values.logo_url) return values.logo_url;
+    // Logo fields don't have a meaningful defaultValue (logoUrl lives separately),
+    // so fall through with "" rather than returning the label/empty defaultValue.
+    if (field.type === "logo") return "";
     return field.defaultValue || "";
   };
 
@@ -143,7 +146,10 @@ export async function generateCustomTemplatePdf(
 
     // ── Logo (prospect) ───────────────────────────────────────────────
     if (field.type === "logo") {
-      const logoUrl = values.logo_url || field.logoUrl;
+      // resolveValue() honors values[field.id] first (per-field-id from the
+      // auto-generated sales form), then falls back to legacy values.logo_url.
+      // If both are empty, fall back to the field's stored logoUrl.
+      const logoUrl = resolveValue(field) || field.logoUrl;
       if (logoUrl) {
         try {
           const imgData = await loadImg(logoUrl);
