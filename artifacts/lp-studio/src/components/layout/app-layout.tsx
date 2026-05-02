@@ -101,7 +101,6 @@ function UserFooter() {
 }
 
 const OPTIMIZE_ITEMS = [
-  { label: "Templates", href: "/templates", icon: Store },
   { label: "Conversion Scoring", href: "/conversion-scoring", icon: Target },
   { label: "Page Speed", href: "/page-speed", icon: Gauge },
   { label: "AdMap", href: "/ad-map", icon: Link2 },
@@ -232,6 +231,16 @@ export function AppSidebar() {
                       <Link href="/pages" className="font-medium">
                         <LayoutGrid className="w-4 h-4" />
                         <span>Pages</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {hasPerm("pages") && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/templates"}>
+                      <Link href="/templates" className="font-medium">
+                        <Store className="w-4 h-4" />
+                        <span>Templates</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

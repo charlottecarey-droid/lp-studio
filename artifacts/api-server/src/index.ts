@@ -880,9 +880,16 @@ async function runMigrations(): Promise<void> {
     // generic-industry tenants. Owned by the lowest-id tenant (Dandy) by
     // default — `is_global=true` makes ownership irrelevant for visibility.
     // Marker-gated so we only attempt once per database.
+    // Global templates seed — runs on every boot until the latest marker is
+    // present. We bumped from v1 → v2 when the starter library was rewritten
+    // with real BLOCK_REGISTRY block types and ogImage thumbnails. The upsert
+    // below replaces blocks/labels/og_image on existing rows so older seeded
+    // entries (v1) get their bogus block types fixed, but tenant edits to
+    // titles or new template additions remain untouched.
     try {
+      const SEED_MARKER = "global_templates_seed_v3";
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'global_templates_seed_v1'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
       if (marker.rows.length === 0) {
         const ownerRow = await db.execute<{ id: number }>(
@@ -893,28 +900,35 @@ async function runMigrations(): Promise<void> {
           logger.warn("Skipping global_templates seed — no tenants exist yet");
         } else {
           const { GLOBAL_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
-          let inserted = 0;
+          let upserted = 0;
           for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
             const blocksJson = JSON.stringify(tpl.blocks);
             const result = await db.execute<{ "?column?": number }>(sql`
               INSERT INTO lp_pages (
                 tenant_id, title, slug, blocks, status,
                 is_template, template_label, template_description,
-                is_global, industry, mode
+                is_global, industry, mode, og_image
               ) VALUES (
                 ${ownerId}, ${tpl.title}, ${tpl.slug}, ${blocksJson}::jsonb, 'draft',
                 true, ${tpl.templateLabel}, ${tpl.templateDescription},
-                true, ${tpl.industry}, 'marketing'
+                true, ${tpl.industry}, 'marketing', ${tpl.ogImage}
               )
-              ON CONFLICT (tenant_id, slug) DO NOTHING
+              ON CONFLICT (tenant_id, slug) DO UPDATE SET
+                blocks               = EXCLUDED.blocks,
+                template_label       = EXCLUDED.template_label,
+                template_description = EXCLUDED.template_description,
+                og_image             = EXCLUDED.og_image,
+                is_template          = true,
+                is_global            = true,
+                industry             = EXCLUDED.industry
               RETURNING 1
             `);
-            if (result.rows.length > 0) inserted++;
+            if (result.rows.length > 0) upserted++;
           }
           await db.execute(sql`
-            INSERT INTO _schema_migration_markers (key) VALUES ('global_templates_seed_v1') ON CONFLICT DO NOTHING
+            INSERT INTO _schema_migration_markers (key) VALUES (${SEED_MARKER}) ON CONFLICT DO NOTHING
           `);
-          logger.info({ inserted, total: GLOBAL_TEMPLATE_SEEDS.length }, "global_templates seed applied");
+          logger.info({ upserted, total: GLOBAL_TEMPLATE_SEEDS.length }, "global_templates seed applied");
         }
       }
     } catch (seedErr) {

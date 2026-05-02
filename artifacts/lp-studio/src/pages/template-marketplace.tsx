@@ -32,6 +32,9 @@ interface TemplatePage {
   status: string;
   mode: string;
   ogImage: string;
+  /** True for built-in starter templates seeded by the platform. Sorted to the
+   * bottom so a tenant's own custom templates always appear first. */
+  isGlobal: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,14 +97,25 @@ export default function TemplateMarketplace() {
       );
     }
 
+    // Two-stage sort: tenant-owned templates always appear first, then the
+    // user-selected sort breaks ties inside each group. This keeps a tenant's
+    // own custom templates above the generic starter library, even after the
+    // tenant has been using the product for a while.
     const sorted = [...result];
-    if (sortBy === "Newest") {
-      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    } else if (sortBy === "Name") {
-      sorted.sort((a, b) => a.templateLabel.localeCompare(b.templateLabel));
-    } else if (sortBy === "Most Blocks") {
-      sorted.sort((a, b) => b.blockCount - a.blockCount);
-    }
+    const compare = (a: TemplatePage, b: TemplatePage) => {
+      if (a.isGlobal !== b.isGlobal) return a.isGlobal ? 1 : -1;
+      if (sortBy === "Newest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortBy === "Name") {
+        return a.templateLabel.localeCompare(b.templateLabel);
+      }
+      if (sortBy === "Most Blocks") {
+        return b.blockCount - a.blockCount;
+      }
+      return 0;
+    };
+    sorted.sort(compare);
 
     return sorted;
   }, [templates, searchQuery, sortBy]);
@@ -258,6 +272,11 @@ export default function TemplateMarketplace() {
                     {template.status === "published" && (
                       <Badge className="absolute top-2 right-2 bg-green-600 text-white text-[10px]">
                         Live
+                      </Badge>
+                    )}
+                    {template.isGlobal && (
+                      <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
+                        Starter
                       </Badge>
                     )}
                   </div>
