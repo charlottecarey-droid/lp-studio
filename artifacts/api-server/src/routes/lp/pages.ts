@@ -356,9 +356,12 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  const [page] = await db.select().from(lpPagesTable).where(
-    and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id))
-  );
+  // Superadmins can read any page (incl. global templates owned by other tenants).
+  const isSuper = await isAppSuperadmin(req.authUser?.userId);
+  const where = isSuper
+    ? eq(lpPagesTable.id, id)
+    : and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id));
+  const [page] = await db.select().from(lpPagesTable).where(where);
   if (!page) {
     res.status(404).json({ error: "Page not found" });
     return;
@@ -562,6 +565,12 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
+  // Superadmins can edit any page (incl. global starter templates owned by
+  // other tenants). For everyone else, ownership is enforced by tenantId.
+  const isSuper = await isAppSuperadmin(req.authUser?.userId);
+  const ownershipWhere = isSuper
+    ? eq(lpPagesTable.id, id)
+    : and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id));
   // Validate blocks array size
   if (Array.isArray(req.body.blocks) && req.body.blocks.length > 1000) {
     res.status(400).json({ error: "blocks array cannot exceed 1000 items" });
@@ -612,7 +621,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     const [current] = await db
       .select({ status: lpPagesTable.status })
       .from(lpPagesTable)
-      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)));
+      .where(ownershipWhere);
     if (current && current.status !== status) {
       const allowed = await userCanPublish(req.authUser, tenantId);
       if (!allowed) {
@@ -636,7 +645,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     const [page] = await db
       .update(lpPagesTable)
       .set(updates)
-      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id)))
+      .where(ownershipWhere)
       .returning();
     if (!page) {
       res.status(404).json({ error: "Page not found" });

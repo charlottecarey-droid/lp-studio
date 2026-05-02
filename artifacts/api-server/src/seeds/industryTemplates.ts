@@ -120,17 +120,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Bright Smiles Family Dental",
-        [
-          { label: "Services", url: "#services" },
-          { label: "Our Team", url: "#team" },
-          { label: "New Patients", url: "#new-patients" },
-          { label: "Reviews", url: "#reviews" },
-        ],
-        { label: "Book online", url: "#book" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -428,17 +417,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "TinyTooth Pediatric Dentistry",
-        [
-          { label: "First Visit", url: "#first-visit" },
-          { label: "Services", url: "#services" },
-          { label: "Our Team", url: "#team" },
-          { label: "Parents", url: "#parents" },
-        ],
-        { label: "Book online", url: "#book" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -769,17 +747,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1559136555-9303baea8ebd?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Crestwood Dental Partners",
-        [
-          { label: "Why Crestwood", url: "#why" },
-          { label: "Our Model", url: "#model" },
-          { label: "Partner Stories", url: "#stories" },
-          { label: "Leadership", url: "#leadership" },
-        ],
-        { label: "Talk to a partner", url: "#contact" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -917,17 +884,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Sage Primary Care",
-        [
-          { label: "Services", url: "#services" },
-          { label: "Our Doctors", url: "#doctors" },
-          { label: "Membership", url: "#membership" },
-          { label: "Locations", url: "#locations" },
-        ],
-        { label: "Become a patient", url: "#join" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -1065,17 +1021,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1631815587646-b85a1bb027e1?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Lumen Dermatology",
-        [
-          { label: "Medical", url: "#medical" },
-          { label: "Cosmetic", url: "#cosmetic" },
-          { label: "Skin Cancer", url: "#cancer" },
-          { label: "Our Doctors", url: "#doctors" },
-        ],
-        { label: "Book online", url: "#book" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -1206,17 +1151,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Anchor Therapy Group",
-        [
-          { label: "How it works", url: "#how" },
-          { label: "Our therapists", url: "#therapists" },
-          { label: "Specialties", url: "#specialties" },
-          { label: "FAQ", url: "#faq" },
-        ],
-        { label: "Find your therapist", url: "#match" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -1483,17 +1417,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Serene Aesthetics",
-        [
-          { label: "Treatments", url: "#treatments" },
-          { label: "Membership", url: "#membership" },
-          { label: "Our Team", url: "#team" },
-          { label: "Results", url: "#results" },
-        ],
-        { label: "Book a consult", url: "#book" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -1631,17 +1554,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1545205597-3d9d02c29597?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Stillpoint Yoga",
-        [
-          { label: "Schedule", url: "#schedule" },
-          { label: "Teachers", url: "#teachers" },
-          { label: "Pricing", url: "#pricing" },
-          { label: "About", url: "#about" },
-        ],
-        { label: "$49 intro month", url: "#intro" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -1934,17 +1846,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Forge Athletics",
-        [
-          { label: "Schedule", url: "#schedule" },
-          { label: "Coaches", url: "#coaches" },
-          { label: "Programs", url: "#programs" },
-          { label: "Drop-in", url: "#dropin" },
-        ],
-        { label: "Free week trial", url: "#trial" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -2505,17 +2406,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "The Mara Chen Group",
-        [
-          { label: "About Mara", url: "#about" },
-          { label: "Recent Sales", url: "#sales" },
-          { label: "Reviews", url: "#reviews" },
-          { label: "Neighborhoods", url: "#neighborhoods" },
-        ],
-        { label: "Free home valuation", url: "#valuation" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -2912,17 +2802,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1554995207-c18c203602cb?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Anchor Property Management",
-        [
-          { label: "Services", url: "#services" },
-          { label: "Pricing", url: "#pricing" },
-          { label: "Owners", url: "#owners" },
-          { label: "Reviews", url: "#reviews" },
-        ],
-        { label: "Get a free quote", url: "#quote" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -3067,17 +2946,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1589994965851-a8f479c573a9?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Hartley & Coe",
-        [
-          { label: "Practice Areas", url: "#practices" },
-          { label: "Attorneys", url: "#attorneys" },
-          { label: "Results", url: "#results" },
-          { label: "About", url: "#about" },
-        ],
-        { label: "Confidential consult", url: "#consult" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -3241,17 +3109,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "North Compass CPA",
-        [
-          { label: "Services", url: "#services" },
-          { label: "Pricing", url: "#pricing" },
-          { label: "Industries", url: "#industries" },
-          { label: "About", url: "#about" },
-        ],
-        { label: "Get a quote", url: "#quote" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -3549,17 +3406,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1554224155-cfa08c2a758f?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Rivermark Wealth",
-        [
-          { label: "Approach", url: "#approach" },
-          { label: "Services", url: "#services" },
-          { label: "Pricing", url: "#pricing" },
-          { label: "Team", url: "#team" },
-        ],
-        { label: "Schedule a call", url: "#call" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
@@ -3716,17 +3562,6 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1200&h=630&fit=crop",
     industry: null,
     blocks: [
-      nav(
-        "Halcyon Strategy",
-        [
-          { label: "Engagements", url: "#engagements" },
-          { label: "Industries", url: "#industries" },
-          { label: "Case Studies", url: "#cases" },
-          { label: "Team", url: "#team" },
-        ],
-        { label: "Schedule a call", url: "#contact" },
-        1,
-      ),
       {
         id: id("hero", 2),
         type: "hero",
