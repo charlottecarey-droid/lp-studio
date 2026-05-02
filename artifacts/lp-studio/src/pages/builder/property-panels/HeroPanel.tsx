@@ -17,10 +17,13 @@ interface Props {
   props: HeroBlockProps;
   onChange: (props: HeroBlockProps) => void;
   brandVoiceSet?: boolean;
+  /** Brand-aware background dropdown options. Falls back to Dandy labels. */
+  bgOptions?: typeof BG_OPTIONS;
   onApplyCtaToAll?: () => void;
 }
 
-export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll }: Props) {
+export function HeroPanel({ blockType, props, onChange, brandVoiceSet, bgOptions, onApplyCtaToAll }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof HeroBlockProps>(k: K, v: HeroBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -249,7 +252,7 @@ export function HeroPanel({ blockType, props, onChange, brandVoiceSet, onApplyCt
         <Select value={props.backgroundStyle} onValueChange={v => set("backgroundStyle", v as BackgroundStyle)}>
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

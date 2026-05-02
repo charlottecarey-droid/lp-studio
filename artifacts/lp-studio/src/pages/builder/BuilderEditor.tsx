@@ -1835,6 +1835,7 @@ export default function BuilderEditor() {
               onChange={updateBlock}
               onDelete={() => deleteBlock(selectedBlock.id)}
               brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
+              brand={brand}
               pageId={parseInt(pageId, 10) || undefined}
               onApplyCtaToAll={applyCtaToAll}
             />

@@ -1,4 +1,5 @@
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ interface Props {
   props: PopupBlockProps;
   onChange: (props: PopupBlockProps) => void;
   onApplyCtaToAll?: () => void;
+  bgOptions?: BgOpts;
 }
 
 const TRIGGERS = [
@@ -31,7 +33,8 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
+export function PopupPanel({ props: p, onChange, onApplyCtaToAll, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof PopupBlockProps>(key: K, val: PopupBlockProps[K]) =>
     onChange({ ...p, [key]: val });
 
@@ -272,7 +275,7 @@ export function PopupPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+              {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

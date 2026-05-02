@@ -32,6 +32,7 @@ import type {
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont } from "@/lib/font-catalog";
+import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
@@ -1511,6 +1512,52 @@ export default function BrandSettings() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          {/* Background Presets — lets a tenant rename the section background
+              dropdown labels (e.g. "Dandy green" → "Royal brand color"). The
+              underlying preset keys stay the same so existing pages keep
+              rendering correctly; only the user-visible label changes. Each
+              field shows the auto-derived default as its placeholder so the
+              user only has to type to override. */}
+          <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Palette className="w-4 h-4 text-primary" />
+              <h2 className="font-display font-semibold text-lg">Background Presets</h2>
+            </div>
+            <Separator />
+            <p className="text-sm text-muted-foreground -mt-2">
+              Rename the section background options shown in the page builder.
+              Leave a field blank to use the auto-derived default
+              (your brand name is filled in for the brand-color and gradient presets).
+            </p>
+            {(() => {
+              const autoOptions = getBgOptions({ brandName: config.brandName });
+              const overrides: BackgroundPresetLabels = config.backgroundPresetLabels ?? {};
+              const setLabel = (key: BackgroundStyle, val: string) => {
+                const next: BackgroundPresetLabels = { ...overrides };
+                if (val.trim()) next[key] = val;
+                else delete next[key];
+                update("backgroundPresetLabels", Object.keys(next).length ? next : undefined);
+              };
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {autoOptions.map((opt) => (
+                    <div key={opt.value}>
+                      <Label className="text-sm font-medium mb-1.5 block capitalize">
+                        {opt.value.replace(/-/g, " ")}
+                      </Label>
+                      <Input
+                        value={overrides[opt.value] ?? ""}
+                        onChange={(e) => setLabel(opt.value, e.target.value)}
+                        placeholder={opt.label}
+                        className="h-9"
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Card>
 
           {/* SECTION 4 — VOICE & MESSAGING */}

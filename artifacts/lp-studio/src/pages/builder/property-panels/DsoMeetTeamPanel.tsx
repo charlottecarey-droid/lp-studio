@@ -10,6 +10,7 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import type { PageBlock, CtaMode } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 
@@ -28,9 +29,11 @@ interface DsoMeetTeamPanelProps {
   block: PageBlock & { type: "dso-meet-team" };
   onChange: (block: PageBlock) => void;
   brandVoiceSet?: boolean;
+  bgOptions?: BgOpts;
 }
 
-export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeamPanelProps) {
+export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet, bgOptions }: DsoMeetTeamPanelProps) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [savingIdx, setSavingIdx] = useState<number | null>(null);
   const [savedIdx, setSavedIdx] = useState<number | null>(null);
@@ -98,7 +101,7 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet }: DsoMeetTeam
       <div className="space-y-1.5"><Label className="text-xs">Section CTA URL</Label><Input value={p.ctaUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, ctaUrl: e.target.value || undefined } })} placeholder="https://..." className="h-8 text-xs" /></div>
       <div className="space-y-1.5"><Label className="text-xs">Section CTA Mode</Label><Select value={p.ctaMode ?? "link"} onValueChange={v => onChange({ ...block, props: { ...p, ctaMode: v as CtaMode } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="link" className="text-xs">Link / Redirect</SelectItem><SelectItem value="chilipiper" className="text-xs">Chili Piper (popup)</SelectItem></SelectContent></Select></div>
       <div className="space-y-1.5"><Label className="text-xs">Section CTA Style</Label><Select value={p.ctaVariant ?? "primary"} onValueChange={v => onChange({ ...block, props: { ...p, ctaVariant: v as "primary" | "secondary" | "link" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="primary" className="text-xs">Primary</SelectItem><SelectItem value="secondary" className="text-xs">Outline</SelectItem><SelectItem value="link" className="text-xs">Link →</SelectItem></SelectContent></Select></div>
-      <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{BG_OPTIONS.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+      <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{bgOpts.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
 
       <div className="border-t pt-3">
         <div className="flex items-center justify-between mb-2">

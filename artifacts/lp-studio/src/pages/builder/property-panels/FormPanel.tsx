@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, Link2, Link2Off, X } from "lucide-react";
 import type { FormBlockProps, FormField, FormFieldType, FormStep } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
@@ -433,9 +434,11 @@ interface Props {
   props: FormBlockProps;
   onChange: (props: FormBlockProps) => void;
   pageId?: number;
+  bgOptions?: BgOpts;
 }
 
-export function FormPanel({ props, onChange, pageId }: Props) {
+export function FormPanel({ props, onChange, pageId, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof FormBlockProps>(k: K, v: FormBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -562,7 +565,7 @@ export function FormPanel({ props, onChange, pageId }: Props) {
           <Select value={props.backgroundStyle} onValueChange={v => set("backgroundStyle", v as FormBlockProps["backgroundStyle"])}>
             <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+              {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

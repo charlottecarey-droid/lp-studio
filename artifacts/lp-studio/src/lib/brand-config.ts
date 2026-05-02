@@ -1,5 +1,8 @@
 import type { CSSProperties } from "react";
 import { toFontFamilyValue } from "./font-catalog";
+import type { BackgroundPresetLabels } from "./bg-styles";
+
+export type { BackgroundPresetLabels };
 
 export type ButtonRadius = "pill" | "rounded" | "slight" | "square";
 export type ButtonShadow = "none" | "sm" | "md" | "lg";
@@ -128,6 +131,10 @@ export interface BrandConfig {
   chilipiperUrl?: string;
   logoUrl?: string;
   logoAutoRecolor?: boolean;
+  /** Per-brand label overrides for the section background dropdown shown on
+   *  hero/cta/popup/etc property panels. Unset keys fall back to auto-derived
+   *  labels (brand-name interpolated). See `getBgOptions` in `bg-styles.ts`. */
+  backgroundPresetLabels?: BackgroundPresetLabels;
 }
 
 export const DEFAULT_BRAND: BrandConfig = {

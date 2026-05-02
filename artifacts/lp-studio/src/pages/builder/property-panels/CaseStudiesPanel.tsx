@@ -1,5 +1,6 @@
 import type { CaseStudiesBlockProps, CaseStudyItem } from "../../../lib/block-types";
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,9 +13,11 @@ import { Switch } from "@/components/ui/switch";
 interface Props {
   props: CaseStudiesBlockProps;
   onChange: (next: CaseStudiesBlockProps) => void;
+  bgOptions?: BgOpts;
 }
 
-export default function CaseStudiesPanel({ props, onChange }: Props) {
+export default function CaseStudiesPanel({ props, onChange, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const safeItems = props.items ?? [];
 
   const updateItem = (idx: number, patch: Partial<CaseStudyItem>) => {
@@ -111,7 +114,7 @@ export default function CaseStudiesPanel({ props, onChange }: Props) {
         <Select value={props.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...props, backgroundStyle: v as CaseStudiesBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

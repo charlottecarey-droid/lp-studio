@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { ResourcesBlockProps, ResourceItem } from "../../../lib/block-types";
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPic
 interface Props {
   props: ResourcesBlockProps;
   onChange: (next: ResourcesBlockProps) => void;
+  bgOptions?: BgOpts;
 }
 
 interface PdfUploadResponse {
@@ -123,7 +125,8 @@ function PdfUploadButton({ item, onPatch }: { item: ResourceItem; onPatch: (patc
   );
 }
 
-export default function ResourcesPanel({ props, onChange }: Props) {
+export default function ResourcesPanel({ props, onChange, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const updateItem = (idx: number, patch: Partial<ResourceItem>) => {
     const items = [...props.items];
     items[idx] = { ...items[idx], ...patch };
@@ -206,7 +209,7 @@ export default function ResourcesPanel({ props, onChange }: Props) {
         <Select value={props.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...props, backgroundStyle: v as ResourcesBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

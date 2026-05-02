@@ -1,4 +1,5 @@
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,9 +12,11 @@ interface Props {
   props: StickyBarBlockProps;
   onChange: (props: StickyBarBlockProps) => void;
   onApplyCtaToAll?: () => void;
+  bgOptions?: BgOpts;
 }
 
-export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
+export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof StickyBarBlockProps>(key: K, val: StickyBarBlockProps[K]) =>
     onChange({ ...p, [key]: val });
 
@@ -113,7 +116,7 @@ export function StickyBarPanel({ props: p, onChange, onApplyCtaToAll }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             <SelectItem value="brand">Brand Color</SelectItem>
           </SelectContent>
         </Select>

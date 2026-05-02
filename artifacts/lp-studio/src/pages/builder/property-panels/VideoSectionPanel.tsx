@@ -1,5 +1,6 @@
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { BG_OPTIONS, type BackgroundStyle } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,9 +17,11 @@ interface Props {
   onChange: (props: VideoSectionBlockProps) => void;
   brandVoiceSet?: boolean;
   onApplyCtaToAll?: () => void;
+  bgOptions?: BgOpts;
 }
 
-export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll }: Props) {
+export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof VideoSectionBlockProps>(k: K, v: VideoSectionBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -212,7 +215,7 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
         <Select value={props.backgroundStyle} onValueChange={v => set("backgroundStyle", v as BackgroundStyle)}>
           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

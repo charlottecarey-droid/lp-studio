@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BG_OPTIONS } from "@/lib/bg-styles";
+type BgOpts = typeof BG_OPTIONS;
 import type { RoiCalculatorBlockProps, RoiInputField, RoiOutputField } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { ROI_PRESETS } from "@/lib/roi-presets";
 interface Props {
   props: RoiCalculatorBlockProps;
   onChange: (props: RoiCalculatorBlockProps) => void;
+  bgOptions?: BgOpts;
 }
 
 function genVarId(label: string, existingIds: string[]): string {
@@ -195,7 +197,8 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   return <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-4 mb-2">{children}</p>;
 }
 
-export function RoiCalculatorPanel({ props, onChange }: Props) {
+export function RoiCalculatorPanel({ props, onChange, bgOptions }: Props) {
+  const bgOpts = bgOptions ?? BG_OPTIONS;
   const [presetOpen, setPresetOpen] = useState(false);
   const inputIds = props.inputFields.map(f => f.id);
 
@@ -303,7 +306,7 @@ export function RoiCalculatorPanel({ props, onChange }: Props) {
         <Select value={props.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...props, backgroundStyle: v as RoiCalculatorBlockProps["backgroundStyle"] })}>
           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {BG_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+            {bgOpts.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </FieldRow>
