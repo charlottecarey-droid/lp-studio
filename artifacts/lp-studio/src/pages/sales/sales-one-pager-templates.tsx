@@ -210,6 +210,11 @@ const FIELD_TYPES: { type: OverlayField["type"]; label: string; icon: React.Reac
   { type: "meet_the_team", label: "Meet the Team", icon: <Users className="w-3.5 h-3.5" />, defaultProps: { fontSize: 13, color: "#FFFFFF", bold: true, sectionTitle: "Meet The Team", width: 80, photoSize: 5, teamMembers: [{ name: "Rep Name", title: "Account Executive" }] } },
   { type: "qr_code", label: "QR Code", icon: <QrCode className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#000000", qrSize: 12, defaultValue: "https://meetdandy.com" } },
   { type: "logo", label: "Logo", icon: <ImageIcon className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#FFFFFF", logoScale: 15 } },
+  // "Image" is the same underlying field type as "Logo" (both render a bitmap
+  // via field.logoUrl) but exposed separately so marketing has a clear option
+  // for decorative / inline images that aren't the prospect's logo. Defaults
+  // sized larger than logo so dropped images aren't tiny.
+  { type: "logo", label: "Image", icon: <ImageIcon className="w-3.5 h-3.5" />, defaultProps: { fontSize: 12, color: "#FFFFFF", logoScale: 25, label: "Image" } },
   { type: "dandy_logo", label: "Dandy Logo", icon: <FileText className="w-3.5 h-3.5" />, defaultProps: { fontSize: 18, color: "#FFFFFF", logoScale: 13, bold: true } },
 ];
 
@@ -273,7 +278,7 @@ function Rulers({ orientation, hoverPct }: {
 }
 
 // ── Draggable field overlay ───────────────────────────────────────────
-function DraggableField({ field, containerRef, selected, onSelect, onMove, onDuplicate, onDelete, siblings, onDragChange }: {
+function DraggableField({ field, containerRef, selected, onSelect, onMove, onDuplicate, onDelete, siblings, onDragChange, labelsHidden }: {
   field: OverlayField;
   containerRef: React.RefObject<HTMLDivElement>;
   selected: boolean;
@@ -283,6 +288,7 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
   onDelete: () => void;
   siblings: OverlayField[];
   onDragChange: (guides: { x?: number; y?: number } | null) => void;
+  labelsHidden?: boolean;
 }) {
   const [dragging, setDragging] = useState(false);
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
@@ -290,7 +296,10 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault(); e.stopPropagation(); onSelect(); setDragging(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // Capture on currentTarget (the persistent wrapper) — not e.target — so
+    // when the chip morphs from "dot" to "chip" on drag-start the captured
+    // node isn't unmounted out from under the pointer.
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging || !containerRef.current) return;
@@ -371,23 +380,37 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
           <div className="w-3 h-3 rounded-full border-2 border-primary bg-background/80" />
         </div>
       )}
+      {/* Persistent wrapper anchored at the field's (x,y) — pointer capture
+          lives on this element so we don't lose the drag when the inner
+          dot/chip swap unmounts. The inner child carries its own transform
+          (centered dot vs. up-and-right chip) so the visual offset is
+          preserved without remounting the capture target. */}
       <div
         className={`absolute select-none touch-none ${dragging ? "z-40" : "z-30"}`}
-        style={{ left: `${field.x}%`, top: `${field.y}%`, transform: "translate(4px, -110%)" }}
+        style={{ left: `${field.x}%`, top: `${field.y}%` }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleContextMenu}
+        title={labelsHidden && !selected && !dragging ? shortLabel : undefined}
       >
-        <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium cursor-grab active:cursor-grabbing whitespace-nowrap shadow-sm ${selected ? "bg-primary text-primary-foreground ring-2 ring-primary" : "bg-background/90 text-foreground/80 ring-1 ring-border hover:ring-primary/50"} ${dragging ? "opacity-90 scale-105" : ""}`}>
-          {fieldIcon}
-          <span>{shortLabel}</span>
-          {field.editableBySales && (
-            <span className={`ml-0.5 rounded px-1 py-px text-[8px] font-bold uppercase ${selected ? "bg-primary-foreground/30" : "bg-primary/15 text-primary"}`} title="Sales reps can edit this field">
-              S
-            </span>
-          )}
-        </div>
+        {labelsHidden && !selected && !dragging ? (
+          <div
+            className="w-2.5 h-2.5 rounded-full border border-white/80 shadow-sm cursor-grab active:cursor-grabbing hover:scale-150 transition-transform"
+            style={{ backgroundColor: field.color || "#666", transform: "translate(-50%, -50%)" }}
+          />
+        ) : (
+          <div className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium cursor-grab active:cursor-grabbing whitespace-nowrap shadow-sm ${selected ? "bg-primary text-primary-foreground ring-2 ring-primary" : "bg-background/90 text-foreground/80 ring-1 ring-border hover:ring-primary/50"} ${dragging ? "opacity-90 scale-105" : ""}`}
+            style={{ transform: "translate(4px, -110%)" }}>
+            {fieldIcon}
+            <span>{shortLabel}</span>
+            {field.editableBySales && (
+              <span className={`ml-0.5 rounded px-1 py-px text-[8px] font-bold uppercase ${selected ? "bg-primary-foreground/30" : "bg-primary/15 text-primary"}`} title="Sales reps can edit this field">
+                S
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {ctx && (
         <div
@@ -422,14 +445,14 @@ function DraggableField({ field, containerRef, selected, onSelect, onMove, onDup
 }
 
 // ── Drag toolbar item ─────────────────────────────────────────────────
-function ToolbarFieldItem({ type, label, icon, onDragStart }: {
-  type: OverlayField["type"]; label: string; icon: React.ReactNode;
-  onDragStart: (type: OverlayField["type"]) => void;
+function ToolbarFieldItem({ index, label, icon, onDragStart }: {
+  index: number; label: string; icon: React.ReactNode;
+  onDragStart: (index: number) => void;
 }) {
   return (
     <div
       draggable
-      onDragStart={() => onDragStart(type)}
+      onDragStart={() => onDragStart(index)}
       className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-xs font-medium text-foreground hover:border-primary/50 hover:bg-primary/5 cursor-grab active:cursor-grabbing transition-colors"
       title={`Drag to place ${label}`}
     >
@@ -861,7 +884,10 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dragType, setDragType] = useState<OverlayField["type"] | null>(null);
+  // Index into FIELD_TYPES (not the type string) — multiple entries can share
+  // the same underlying type (e.g. "Logo" + "Image" both render via type "logo")
+  // so we need the exact entry to pull the right defaults on drop.
+  const [dragType, setDragType] = useState<number | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [headerImgUploading, setHeaderImgUploading] = useState(false);
@@ -878,6 +904,16 @@ function TemplateEditor({ initial, onSave, onCancel }: {
   // T004 — alignment guides shown while a field is actively being dragged.
   // Children call onDragChange to publish the snap targets; cleared on release.
   const [dragGuides, setDragGuides] = useState<{ x?: number; y?: number } | null>(null);
+  // Hide handle chips so marketing can preview the design without label clutter.
+  // Selected fields still show their chip so they can be edited/dragged.
+  const [labelsHidden, setLabelsHidden] = useState(false);
+  // Inline image upload spinner for the Logo / Image properties panel.
+  const [logoImgUploading, setLogoImgUploading] = useState(false);
+  // Track image-preview load failures keyed by URL so the preview can
+  // recover when the user pastes a corrected URL (instead of staying hidden
+  // via a one-shot inline style mutation).
+  const [logoImgErrorUrl, setLogoImgErrorUrl] = useState<string | null>(null);
+  const logoImgInputRef = useRef<HTMLInputElement>(null);
 
   const selectedField = tpl.fields.find(f => f.id === selectedId) ?? null;
 
@@ -1159,16 +1195,17 @@ function TemplateEditor({ initial, onSave, onCancel }: {
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!dragType || !previewRef.current) return;
+    if (dragType === null || !previewRef.current) return;
     const rect = previewRef.current.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
-    const def = FIELD_TYPES.find(f => f.type === dragType);
+    const def = FIELD_TYPES[dragType];
+    if (!def) { setDragType(null); return; }
     const newId = crypto.randomUUID();
     const newField: OverlayField = {
-      id: newId, label: def?.label || dragType, type: dragType, x: Math.max(0, Math.min(95, x)), y: Math.max(0, Math.min(95, y)),
+      id: newId, label: def.label, type: def.type, x: Math.max(0, Math.min(95, x)), y: Math.max(0, Math.min(95, y)),
       fontSize: 14, fontFamily: "helvetica", color: "#FFFFFF", bold: false, italic: false, defaultValue: "",
-      ...(def?.defaultProps || {}),
+      ...def.defaultProps,
     };
     setTpl(p => ({ ...p, fields: [...p.fields, newField] }));
     setSelectedId(newId);
@@ -1231,8 +1268,8 @@ function TemplateEditor({ initial, onSave, onCancel }: {
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Field Types</p>
           <p className="text-[10px] text-muted-foreground">Drag onto preview to place</p>
           <div className="flex flex-col gap-1.5 mt-1">
-            {FIELD_TYPES.map(ft => (
-              <ToolbarFieldItem key={ft.type} type={ft.type} label={ft.label} icon={ft.icon} onDragStart={t => setDragType(t)} />
+            {FIELD_TYPES.map((ft, i) => (
+              <ToolbarFieldItem key={`${ft.type}-${ft.label}`} index={i} label={ft.label} icon={ft.icon} onDragStart={idx => setDragType(idx)} />
             ))}
           </div>
           {tpl.fields.length > 0 && (
@@ -1351,8 +1388,24 @@ function TemplateEditor({ initial, onSave, onCancel }: {
                     onDuplicate={() => duplicateField(f.id)}
                     onDelete={() => removeField(f.id)}
                     siblings={tpl.fields.filter(s => s.id !== f.id)}
-                    onDragChange={setDragGuides} />
+                    onDragChange={setDragGuides}
+                    labelsHidden={labelsHidden} />
                 ))}
+
+                {/* Hide / show labels toggle — placed left of the
+                    clear-background "X" (top-2 right-2) so the two controls
+                    don't overlap. When labels are hidden, field chips
+                    collapse to small colored dots so the actual PDF design
+                    is unobstructed. */}
+                <button
+                  type="button"
+                  onClick={() => setLabelsHidden(h => !h)}
+                  className="absolute top-2 right-12 z-50 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground/80 ring-1 ring-border hover:ring-primary/50 hover:text-foreground shadow-sm"
+                  title={labelsHidden ? "Show field labels" : "Hide field labels for a cleaner preview"}
+                >
+                  {labelsHidden ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {labelsHidden ? "Show labels" : "Hide labels"}
+                </button>
 
                 {/* T004 — alignment guide lines drawn while dragging.
                     Vertical guide on the snapped X, horizontal on snapped Y. */}
@@ -1766,9 +1819,82 @@ function TemplateEditor({ initial, onSave, onCancel }: {
               )}
 
               {selectedField.type === "logo" && (
-                <div>
-                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Logo URL (optional)</label>
-                  <input type="url" value={selectedField.logoUrl || ""} onChange={e => updateField(selectedField.id, { logoUrl: e.target.value })} placeholder="https://…" className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                <div className="space-y-2">
+                  <label className="text-[9px] text-muted-foreground uppercase block mb-1">Image (upload or URL)</label>
+                  <input
+                    ref={logoImgInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                    className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      e.target.value = "";
+                      const MAX = 10 * 1024 * 1024;
+                      if (file.size > MAX) {
+                        toast({ title: "Image too large", description: "Max 10MB.", variant: "destructive" });
+                        return;
+                      }
+                      setLogoImgUploading(true);
+                      try {
+                        const fd = new FormData(); fd.append("file", file);
+                        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: fd });
+                        if (!res.ok) {
+                          let detail = `${res.status} ${res.statusText}`;
+                          try { const body = await res.text(); if (body) detail = body.slice(0, 240); } catch { /* */ }
+                          throw new Error(detail);
+                        }
+                        const { url } = await res.json();
+                        updateField(selectedField.id, { logoUrl: url });
+                      } catch (err) {
+                        toast({ title: "Image upload failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+                      } finally { setLogoImgUploading(false); }
+                    }}
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => logoImgInputRef.current?.click()}
+                      disabled={logoImgUploading}
+                      className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                    >
+                      {logoImgUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                      {selectedField.logoUrl ? "Replace" : "Upload"}
+                    </button>
+                    {selectedField.logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => updateField(selectedField.id, { logoUrl: "" })}
+                        className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                        title="Remove image"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={selectedField.logoUrl || ""}
+                    onChange={e => updateField(selectedField.id, { logoUrl: e.target.value })}
+                    placeholder="…or paste image URL"
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  />
+                  {selectedField.logoUrl && (
+                    <div className="rounded border border-border bg-muted/40 p-1.5">
+                      {logoImgErrorUrl === selectedField.logoUrl ? (
+                        <p className="text-[10px] text-muted-foreground text-center py-2">
+                          Could not load preview — check the URL
+                        </p>
+                      ) : (
+                        <img
+                          src={selectedField.logoUrl}
+                          alt="Image preview"
+                          className="max-h-20 w-auto mx-auto object-contain"
+                          onError={() => setLogoImgErrorUrl(selectedField.logoUrl ?? null)}
+                          onLoad={() => { if (logoImgErrorUrl) setLogoImgErrorUrl(null); }}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
