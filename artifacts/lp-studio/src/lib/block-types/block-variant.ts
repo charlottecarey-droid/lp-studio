@@ -16,6 +16,17 @@ import type {
   ResourcesBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
+  GridImageBlockProps,
+  GridHeadlineSubBlockProps,
+  GridParagraphBulletsBlockProps,
+  GridHeadlineParagraphBlockProps,
+  GridIconFeatureBlockProps,
+  GridStatBlockProps,
+  GridQuoteBlockProps,
+  GridCtaTileBlockProps,
+  GridLogoBlockProps,
+  GridVideoBlockProps,
+  CustomSchemaBlockProps,
   SpacerBlockProps,
   FormBlockProps,
   ZigzagFeaturesBlockProps,
@@ -119,6 +130,17 @@ export type BlockVariant =
   | { type: "resources"; props: ResourcesBlockProps }
   | { type: "rich-text"; props: RichTextBlockProps }
   | { type: "custom-html"; props: CustomHtmlBlockProps }
+  | { type: "grid-image"; props: GridImageBlockProps }
+  | { type: "grid-headline-sub"; props: GridHeadlineSubBlockProps }
+  | { type: "grid-paragraph-bullets"; props: GridParagraphBulletsBlockProps }
+  | { type: "grid-headline-paragraph"; props: GridHeadlineParagraphBlockProps }
+  | { type: "grid-icon-feature"; props: GridIconFeatureBlockProps }
+  | { type: "grid-stat"; props: GridStatBlockProps }
+  | { type: "grid-quote"; props: GridQuoteBlockProps }
+  | { type: "grid-cta-tile"; props: GridCtaTileBlockProps }
+  | { type: "grid-logo"; props: GridLogoBlockProps }
+  | { type: "grid-video"; props: GridVideoBlockProps }
+  | { type: "custom-schema"; props: CustomSchemaBlockProps }
   | { type: "zigzag-features"; props: ZigzagFeaturesBlockProps }
   | { type: "product-showcase"; props: ProductShowcaseBlockProps }
   | { type: "nav-header"; props: NavHeaderBlockProps }

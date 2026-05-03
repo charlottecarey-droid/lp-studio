@@ -146,3 +146,58 @@ export function templateContainsLeadershipContent(blockTypes: readonly string[] 
   if (!blockTypes?.length) return false;
   return blockTypes.some(t => LEADERSHIP_SET.has(t));
 }
+
+/* ── Grid Pieces gating (task #120) ──────────────────────────────────────
+ * Grid pieces are small drop-in tiles that go inside layout containers.
+ * They are gated to admins / superadmins / users with the `blocks` perm
+ * so that ordinary editors stick to full sections.
+ */
+
+export const GRID_PIECE_BLOCK_TYPES: readonly string[] = [
+  // New small drop-in tiles (task #120)
+  "grid-image",
+  "grid-headline-sub",
+  "grid-paragraph-bullets",
+  "grid-headline-paragraph",
+  "grid-icon-feature",
+  "grid-stat",
+  "grid-quote",
+  "grid-cta-tile",
+  "grid-logo",
+  "grid-video",
+  "custom-schema",
+  // Existing grid-oriented blocks recategorized into "Grid Pieces" (task #120
+  // review pass). Server enforcement must match client palette gating so a
+  // non-privileged editor can't inject these via a hand-crafted payload.
+  "grid",
+  "benefits-grid",
+  "product-grid",
+  "photo-strip",
+  "bento-showcase",
+];
+
+const GRID_PIECE_SET = new Set(GRID_PIECE_BLOCK_TYPES);
+
+export function isGridPieceBlockType(blockType: string | null | undefined): boolean {
+  if (!blockType) return false;
+  return GRID_PIECE_SET.has(blockType);
+}
+
+/**
+ * Minimal user shape used for grid-piece gating. Both client (AuthContext
+ * `user`) and server (AuthUser) can satisfy this without importing each
+ * other's full types.
+ */
+export interface GridPieceGateUser {
+  isAdmin?: boolean;
+  permissions?: Record<string, boolean | undefined>;
+  appUserRole?: string | null;
+}
+
+export function canUseGridPieces(user: GridPieceGateUser | null | undefined): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  if (user.permissions?.["blocks"]) return true;
+  if (user.appUserRole === "superadmin") return true;
+  return false;
+}

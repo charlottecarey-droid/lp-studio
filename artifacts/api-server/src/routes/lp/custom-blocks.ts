@@ -1,9 +1,45 @@
 import { getTenantId } from "../../middleware/requireAuth";
-import { Router } from "express";
-import { db } from "@workspace/db";
+import type { AuthUser } from "../../middleware/requireAuth";
+import { Router, type Request, type Response, type NextFunction } from "express";
+import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
+
+/**
+ * Custom-block mutation gating (task #120).
+ *
+ * Custom blocks can wrap arbitrary block_types (including the new schema
+ * authoring surface), so creating/editing/deleting them is restricted to:
+ *   - tenant Admins
+ *   - users with the explicit `blocks` permission
+ *   - Dandy super-admins (app_users.role = 'superadmin')
+ *
+ * Read access stays open to anyone with tenant context so the palette can
+ * still load the configured blocks.
+ */
+async function isAppSuperadmin(userId: number | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [userId]);
+  return r.rows[0]?.role === "superadmin";
+}
+
+async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  if (user.permissions["blocks"]) return true;
+  return isAppSuperadmin(user.userId);
+}
+
+function requireManageBlocks() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (!(await userCanManageBlocks(req.authUser))) {
+      res.status(403).json({ error: "You don't have permission to manage custom blocks." });
+      return;
+    }
+    next();
+  };
+}
 
 router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -20,7 +56,7 @@ router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks", requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
@@ -51,7 +87,7 @@ router.post("/lp/custom-blocks", async (req, res): Promise<void> => {
   }
 });
 
-router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
+router.put("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;
   const { name, block_type, props, block_settings, segment } = req.body as {
@@ -85,7 +121,7 @@ router.put("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/lp/custom-blocks/:id", async (req, res): Promise<void> => {
+router.delete("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;
   try {

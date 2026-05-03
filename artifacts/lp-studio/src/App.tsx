@@ -264,7 +264,7 @@ function AppRouter() {
         <Route path="/integrations" component={IntegrationsPage} />
         <Route path="/library" component={ContentLibrary} />
         <Route path="/block-defaults" component={BlockDefaultsPage} />
-        <Route path="/custom-blocks" component={CustomBlocksPage} />
+        <Route path="/custom-blocks">{() => <PermRoute perm="blocks" fallback="/"><CustomBlocksPage /></PermRoute>}</Route>
 
         {/* Sales Console Routes */}
         <Route path="/sales">{() => <PermRoute perm="sales_dashboard" fallback="/"><SalesDashboard /></PermRoute>}</Route>

@@ -84,6 +84,20 @@ export type {
   BentoTileSize,
   GradientPricingBlockProps,
   GradientPricingTier,
+  GridImageBlockProps,
+  GridHeadlineSubBlockProps,
+  GridParagraphBulletsBlockProps,
+  GridHeadlineParagraphBlockProps,
+  GridIconFeatureBlockProps,
+  GridStatBlockProps,
+  GridQuoteBlockProps,
+  GridCtaTileBlockProps,
+  GridLogoBlockProps,
+  GridVideoBlockProps,
+  CustomSchemaBlockProps,
+  SchemaFieldDef,
+  SchemaFieldType,
+  SchemaFieldValue,
 } from "./generic-blocks";
 
 // DSO block types

@@ -51,6 +51,62 @@ async function userCanReview(user: AuthUser | undefined): Promise<boolean> {
   return isAppSuperadmin(user.userId);
 }
 
+/**
+ * Grid-piece gating (task #120). Mirrored from
+ * `lp-studio/src/lib/audience-gating.ts` — kept in sync manually because the
+ * server can't import from artifact source.
+ */
+// Keep in sync with GRID_PIECE_BLOCK_TYPES in
+// artifacts/lp-studio/src/lib/audience-gating.ts. Server can't import the
+// client module so the list is duplicated; only the small drop-in tiles +
+// the schema-driven custom block are gated — generic content blocks like
+// rich-text / custom-html / spacer / cta-button intentionally stay open.
+const GRID_PIECE_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  // New small drop-in tiles
+  "grid-image",
+  "grid-headline-sub",
+  "grid-paragraph-bullets",
+  "grid-headline-paragraph",
+  "grid-icon-feature",
+  "grid-stat",
+  "grid-quote",
+  "grid-cta-tile",
+  "grid-logo",
+  "grid-video",
+  "custom-schema",
+  // Existing grid-oriented blocks recategorized into Grid Pieces — server
+  // enforcement must match client palette gating to prevent payload-crafted
+  // bypass.
+  "grid",
+  "benefits-grid",
+  "product-grid",
+  "photo-strip",
+  "bento-showcase",
+]);
+
+async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  if (user.permissions["blocks"]) return true;
+  return isAppSuperadmin(user.userId);
+}
+
+/** Walk a (possibly nested) blocks tree and return the first grid-piece type
+ *  found, or null when none are present. Container blocks store children at
+ *  `children: PageBlock[]`; we recurse into anything that looks like one.
+ */
+function findGridPieceInTree(blocks: unknown): string | null {
+  if (!Array.isArray(blocks)) return null;
+  for (const raw of blocks) {
+    if (!raw || typeof raw !== "object") continue;
+    const b = raw as { type?: unknown; children?: unknown };
+    if (typeof b.type === "string" && GRID_PIECE_BLOCK_TYPES.has(b.type)) return b.type;
+    const nested = findGridPieceInTree(b.children);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 function buildPreviewUrl(req: import("express").Request, slug: string): string {
   const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
   const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
@@ -253,6 +309,20 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
       sourcePageVariables = (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables))
         ? source.pageVariables as Record<string, string>
         : {};
+    }
+  }
+
+  // Task #120: gate grid pieces on the server too — a non-privileged user
+  // shouldn't be able to sneak `grid-*` / `custom-schema` blocks past the
+  // client palette by hand-crafting a request body OR by cloning a template
+  // that happens to contain them. Validate the EFFECTIVE blocks (request
+  // body wins, otherwise the cloned template's blocks).
+  {
+    const effectiveBlocks: unknown = (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks;
+    const offending = findGridPieceInTree(effectiveBlocks);
+    if (offending && !(await userCanManageBlocks(req.authUser))) {
+      res.status(403).json({ error: `Block type "${offending}" requires the blocks permission.` });
+      return;
     }
   }
 
@@ -608,7 +678,15 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     }
     updates.slug = slug;
   }
-  if (blocks !== undefined) updates.blocks = blocks;
+  if (blocks !== undefined) {
+    // Task #120: same grid-piece gate as POST.
+    const offending = findGridPieceInTree(blocks);
+    if (offending && !(await userCanManageBlocks(req.authUser))) {
+      res.status(403).json({ error: `Block type "${offending}" requires the blocks permission.` });
+      return;
+    }
+    updates.blocks = blocks;
+  }
   if (status !== undefined) {
     // Page-review gating (task #108). The PUT endpoint is only allowed to
     // change status when the caller holds publish perm — the dedicated

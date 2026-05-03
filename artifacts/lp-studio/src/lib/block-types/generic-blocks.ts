@@ -178,6 +178,97 @@ export interface CustomHtmlBlockProps {
   html: string;
 }
 
+/* ── Grid pieces (task #120) ───────────────────────────────────────────── */
+
+export interface GridImageBlockProps {
+  imageUrl: string;
+  alt: string;
+  rounded: boolean;
+  href?: string;
+}
+
+export interface GridHeadlineSubBlockProps {
+  headline: string;
+  subheadline: string;
+  align: "left" | "center" | "right";
+}
+
+export interface GridParagraphBulletsBlockProps {
+  paragraph: string;
+  bullets: string[];
+}
+
+export interface GridHeadlineParagraphBlockProps {
+  headline: string;
+  paragraph: string;
+  align: "left" | "center" | "right";
+}
+
+export interface GridIconFeatureBlockProps {
+  icon: string;
+  headline: string;
+  paragraph: string;
+}
+
+export interface GridStatBlockProps {
+  value: string;
+  label: string;
+  caption?: string;
+}
+
+export interface GridQuoteBlockProps {
+  quote: string;
+  attribution: string;
+  role?: string;
+}
+
+export interface GridCtaTileBlockProps {
+  headline: string;
+  body: string;
+  ctaText: string;
+  ctaUrl: string;
+  bgColor?: string;
+  textColor?: string;
+}
+
+export interface GridLogoBlockProps {
+  logoUrl: string;
+  alt: string;
+  href?: string;
+}
+
+export interface GridVideoBlockProps {
+  videoUrl: string;
+  posterUrl?: string;
+  caption?: string;
+}
+
+/* ── Schema-driven custom blocks (task #120) ───────────────────────────── */
+
+export type SchemaFieldType = "text" | "longText" | "number" | "color" | "image" | "url" | "boolean" | "select";
+
+export interface SchemaFieldDef {
+  id: string;
+  label: string;
+  type: SchemaFieldType;
+  defaultValue?: string | number | boolean;
+  options?: string[];
+  placeholder?: string;
+  helpText?: string;
+  /** When true, the property panel marks this field as required. */
+  required?: boolean;
+}
+
+export type SchemaFieldValue = string | number | boolean;
+
+export interface CustomSchemaBlockProps {
+  schema: SchemaFieldDef[];
+  template: string;
+  values: Record<string, SchemaFieldValue>;
+  customBlockId?: number;
+  customBlockName?: string;
+}
+
 export interface SpacerBlockProps {
   height: number;
   backgroundColor: string;

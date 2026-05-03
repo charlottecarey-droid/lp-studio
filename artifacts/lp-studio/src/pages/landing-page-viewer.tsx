@@ -27,6 +27,7 @@ import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BlockRenderer, NO_REVEAL } from "@/blocks/BlockRenderer";
 import { ChiliPiperModal } from "@/blocks/ChiliPiperModal";
@@ -388,6 +389,27 @@ export default function LandingPageViewer() {
     fetchBrandConfig()
       .then((b) => { if (!cancelled) setBrand(b); })
       .finally(() => { if (!cancelled) setBrandLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Live custom-block sources for `custom-schema` rendering (task #120).
+  // Schema-driven custom blocks store only a customBlockId reference, so
+  // the renderer needs the live schema/template to interpolate values.
+  const [customBlockSources, setCustomBlockSources] = useState<CustomBlockSource[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lp/custom-blocks")
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: Array<{ id: number; name: string; block_type?: string; props?: Record<string, unknown> | null }>) => {
+        if (cancelled) return;
+        const sources: CustomBlockSource[] = [];
+        for (const row of rows ?? []) {
+          const src = customBlockRowToSource(row);
+          if (src) sources.push(src);
+        }
+        setCustomBlockSources(sources);
+      })
+      .catch(() => { /* viewer falls back to per-instance snapshot */ });
     return () => { cancelled = true; };
   }, []);
 
@@ -792,6 +814,7 @@ export default function LandingPageViewer() {
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
   return (
+    <CustomBlocksProvider blocks={customBlockSources}>
     <div className={cn(
       "min-h-screen w-full font-sans",
       isDark ? "bg-background text-foreground" : "bg-background text-foreground"
@@ -1352,5 +1375,6 @@ export default function LandingPageViewer() {
       </footer>
 
     </div>
+    </CustomBlocksProvider>
   );
 }

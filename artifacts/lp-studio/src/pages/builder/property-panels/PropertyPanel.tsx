@@ -23,6 +23,19 @@ import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
 import { RichTextPanel } from "./RichTextPanel";
 import { CustomHtmlPanel } from "./CustomHtmlPanel";
+import {
+  GridImagePanel,
+  GridHeadlineSubPanel,
+  GridParagraphBulletsPanel,
+  GridHeadlineParagraphPanel,
+  GridIconFeaturePanel,
+  GridStatPanel,
+  GridQuotePanel,
+  GridCtaTilePanel,
+  GridLogoPanel,
+  GridVideoPanel,
+} from "./GridPiecePanels";
+import { CustomSchemaPanel } from "./CustomSchemaPanel";
 import { ZigzagFeaturesPanel } from "./ZigzagFeaturesPanel";
 import { ProductShowcasePanel } from "./ProductShowcasePanel";
 import { NavHeaderPanel } from "./NavHeaderPanel";
@@ -265,6 +278,28 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
           />
         );
+      case "grid-image":
+        return <GridImagePanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-headline-sub":
+        return <GridHeadlineSubPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-paragraph-bullets":
+        return <GridParagraphBulletsPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-headline-paragraph":
+        return <GridHeadlineParagraphPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-icon-feature":
+        return <GridIconFeaturePanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-stat":
+        return <GridStatPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-quote":
+        return <GridQuotePanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-cta-tile":
+        return <GridCtaTilePanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-logo":
+        return <GridLogoPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "grid-video":
+        return <GridVideoPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
+      case "custom-schema":
+        return <CustomSchemaPanel props={block.props} onChange={p => onChange({ ...block, props: p })} />;
       case "zigzag-features":
         return (
           <ZigzagFeaturesPanel

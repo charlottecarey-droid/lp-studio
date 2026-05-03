@@ -18,6 +18,17 @@ import type {
   ResourcesBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
+  GridImageBlockProps,
+  GridHeadlineSubBlockProps,
+  GridParagraphBulletsBlockProps,
+  GridHeadlineParagraphBlockProps,
+  GridIconFeatureBlockProps,
+  GridStatBlockProps,
+  GridQuoteBlockProps,
+  GridCtaTileBlockProps,
+  GridLogoBlockProps,
+  GridVideoBlockProps,
+  CustomSchemaBlockProps,
   SpacerBlockProps,
   FormBlockProps,
   ZigzagFeaturesBlockProps,
@@ -288,7 +299,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "benefits-grid",
     label: "Benefits Grid",
-    category: "Content",
+    category: "Grid Pieces",
     defaultProps: (): BenefitsGridBlockProps => ({
       headline: "Why 12,000+ dentists switched to Dandy",
       columns: 3,
@@ -368,7 +379,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "product-grid",
     label: "Product Grid",
-    category: "Content",
+    category: "Grid Pieces",
     defaultProps: (): ProductGridBlockProps => ({
       headline: "The better way to do lab work.",
       subheadline: "Perfect fit. Fast turnarounds. One connected system.",
@@ -394,7 +405,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "photo-strip",
     label: "Photo Strip",
-    category: "Layout",
+    category: "Grid Pieces",
     defaultProps: (): PhotoStripBlockProps => ({
       images: [
         { src: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=600&fit=crop", alt: "Dental restoration" },
@@ -3417,7 +3428,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "bento-showcase",
     label: "Bento Showcase",
-    category: "Content",
+    category: "Grid Pieces",
     defaultProps: () => ({
       eyebrow: "WHAT YOU GET",
       headline: "A toolkit, not a tool.",
@@ -3599,7 +3610,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "grid",
     label: "Grid",
-    category: "Layout",
+    category: "Grid Pieces",
     defaultProps: () => ({ columns: 3, mobileColumns: 1, gap: 1 }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -3624,6 +3635,167 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="20" y="10" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
         <rect x="20" y="28" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
         <rect x="20" y="46" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+      </svg>
+    ),
+  },
+  /* ── Grid pieces (task #120) ─────────────────────────────────────────── */
+  {
+    type: "grid-image",
+    label: "Image",
+    category: "Grid Pieces",
+    defaultProps: (): GridImageBlockProps => ({ imageUrl: "", alt: "", rounded: true }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f1f5f9" rx="4" />
+        <rect x="14" y="12" width="92" height="46" rx="4" fill="#cbd5e1" />
+        <circle cx="36" cy="32" r="6" fill="#94a3b8" />
+        <path d="M14 50 L48 30 L78 46 L106 28 L106 58 L14 58 Z" fill="#94a3b8" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-headline-sub",
+    label: "Headline + Subheadline",
+    category: "Grid Pieces",
+    defaultProps: (): GridHeadlineSubBlockProps => ({ headline: "Your headline here", subheadline: "Supporting line of copy", align: "left" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="12" y="22" width="80" height="8" rx="2" fill="#003A30" />
+        <rect x="12" y="36" width="60" height="4" rx="2" fill="#94a3b8" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-paragraph-bullets",
+    label: "Paragraph + Bullets",
+    category: "Grid Pieces",
+    defaultProps: (): GridParagraphBulletsBlockProps => ({
+      paragraph: "Short intro paragraph that frames the bullets below.",
+      bullets: ["First key point", "Second key point", "Third key point"],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="10" y="10" width="100" height="3" rx="1" fill="#94a3b8" />
+        <rect x="10" y="16" width="80" height="3" rx="1" fill="#94a3b8" opacity="0.6" />
+        {[28, 40, 52].map(y => (
+          <g key={y}>
+            <circle cx="14" cy={y + 2} r="2" fill="#C7E738" />
+            <rect x="20" y={y} width="80" height="4" rx="1" fill="#cbd5e1" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "grid-headline-paragraph",
+    label: "Headline + Paragraph",
+    category: "Grid Pieces",
+    defaultProps: (): GridHeadlineParagraphBlockProps => ({ headline: "A bold headline", paragraph: "Two-to-three sentences of supporting body copy that explains the idea in more detail.", align: "left" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="12" y="14" width="80" height="8" rx="2" fill="#003A30" />
+        <rect x="12" y="30" width="96" height="3" rx="1" fill="#94a3b8" />
+        <rect x="12" y="38" width="90" height="3" rx="1" fill="#94a3b8" opacity="0.7" />
+        <rect x="12" y="46" width="70" height="3" rx="1" fill="#94a3b8" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-icon-feature",
+    label: "Icon + Headline + Paragraph",
+    category: "Grid Pieces",
+    defaultProps: (): GridIconFeatureBlockProps => ({ icon: "✨", headline: "Feature name", paragraph: "Quick explanation of why this matters." }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="12" y="12" width="20" height="20" rx="4" fill="#C7E738" />
+        <rect x="12" y="38" width="70" height="6" rx="2" fill="#003A30" />
+        <rect x="12" y="50" width="90" height="3" rx="1" fill="#94a3b8" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-stat",
+    label: "Stat Callout",
+    category: "Grid Pieces",
+    defaultProps: (): GridStatBlockProps => ({ value: "92%", label: "of customers see results", caption: "" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <text x="60" y="36" fontSize="22" fontWeight="700" textAnchor="middle" fill="#003A30">92%</text>
+        <rect x="22" y="46" width="76" height="4" rx="1" fill="#94a3b8" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-quote",
+    label: "Quote",
+    category: "Grid Pieces",
+    defaultProps: (): GridQuoteBlockProps => ({ quote: "This product changed how we work.", attribution: "Jane Doe", role: "VP, Acme" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <text x="14" y="28" fontSize="22" fill="#C7E738" fontWeight="700">“</text>
+        <rect x="26" y="18" width="80" height="4" rx="1" fill="#94a3b8" />
+        <rect x="26" y="26" width="70" height="4" rx="1" fill="#94a3b8" />
+        <rect x="26" y="42" width="40" height="3" rx="1" fill="#003A30" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-cta-tile",
+    label: "CTA Tile",
+    category: "Grid Pieces",
+    defaultProps: (): GridCtaTileBlockProps => ({ headline: "Ready to start?", body: "Book a 15-minute walkthrough.", ctaText: "Get a demo", ctaUrl: "#", bgColor: "#003A30", textColor: "#ffffff" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#003A30" rx="4" />
+        <rect x="12" y="14" width="70" height="6" rx="2" fill="#ffffff" />
+        <rect x="12" y="26" width="80" height="4" rx="1" fill="#ffffff" opacity="0.6" />
+        <rect x="12" y="44" width="40" height="14" rx="7" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid-logo",
+    label: "Logo Tile",
+    category: "Grid Pieces",
+    defaultProps: (): GridLogoBlockProps => ({ logoUrl: "", alt: "Logo" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="30" y="22" width="60" height="26" rx="4" fill="#cbd5e1" />
+        <text x="60" y="40" textAnchor="middle" fontSize="10" fill="#475569" fontWeight="600">LOGO</text>
+      </svg>
+    ),
+  },
+  {
+    type: "grid-video",
+    label: "Video Tile",
+    category: "Grid Pieces",
+    defaultProps: (): GridVideoBlockProps => ({ videoUrl: "", posterUrl: "", caption: "" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0f172a" rx="4" />
+        <polygon points="52,24 52,46 74,35" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "custom-schema",
+    label: "Schema-Based Custom Block",
+    category: "Grid Pieces",
+    defaultProps: (): CustomSchemaBlockProps => ({ schema: [], template: "", values: {} }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#fef3c7" rx="4" />
+        <rect x="14" y="14" width="92" height="6" rx="2" fill="#92400e" />
+        <rect x="14" y="26" width="92" height="4" rx="1" fill="#b45309" opacity="0.5" />
+        <rect x="14" y="36" width="70" height="4" rx="1" fill="#b45309" opacity="0.5" />
+        <rect x="14" y="46" width="40" height="10" rx="2" fill="#f59e0b" />
       </svg>
     ),
   },
@@ -3661,6 +3833,17 @@ export function createBlock(type: "case-studies"): Extract<PageBlock, { type: "c
 export function createBlock(type: "resources"): Extract<PageBlock, { type: "resources" }>;
 export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
 export function createBlock(type: "custom-html"): Extract<PageBlock, { type: "custom-html" }>;
+export function createBlock(type: "grid-image"): Extract<PageBlock, { type: "grid-image" }>;
+export function createBlock(type: "grid-headline-sub"): Extract<PageBlock, { type: "grid-headline-sub" }>;
+export function createBlock(type: "grid-paragraph-bullets"): Extract<PageBlock, { type: "grid-paragraph-bullets" }>;
+export function createBlock(type: "grid-headline-paragraph"): Extract<PageBlock, { type: "grid-headline-paragraph" }>;
+export function createBlock(type: "grid-icon-feature"): Extract<PageBlock, { type: "grid-icon-feature" }>;
+export function createBlock(type: "grid-stat"): Extract<PageBlock, { type: "grid-stat" }>;
+export function createBlock(type: "grid-quote"): Extract<PageBlock, { type: "grid-quote" }>;
+export function createBlock(type: "grid-cta-tile"): Extract<PageBlock, { type: "grid-cta-tile" }>;
+export function createBlock(type: "grid-logo"): Extract<PageBlock, { type: "grid-logo" }>;
+export function createBlock(type: "grid-video"): Extract<PageBlock, { type: "grid-video" }>;
+export function createBlock(type: "custom-schema"): Extract<PageBlock, { type: "custom-schema" }>;
 export function createBlock(type: "zigzag-features"): Extract<PageBlock, { type: "zigzag-features" }>;
 export function createBlock(type: "product-showcase"): Extract<PageBlock, { type: "product-showcase" }>;
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
@@ -3753,6 +3936,17 @@ export function createBlock(type: BlockType): PageBlock {
     case "resources": return { id, type: "resources", props: props as ResourcesBlockProps };
     case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
     case "custom-html": return { id, type: "custom-html", props: props as CustomHtmlBlockProps };
+    case "grid-image": return { id, type: "grid-image", props: props as GridImageBlockProps };
+    case "grid-headline-sub": return { id, type: "grid-headline-sub", props: props as GridHeadlineSubBlockProps };
+    case "grid-paragraph-bullets": return { id, type: "grid-paragraph-bullets", props: props as GridParagraphBulletsBlockProps };
+    case "grid-headline-paragraph": return { id, type: "grid-headline-paragraph", props: props as GridHeadlineParagraphBlockProps };
+    case "grid-icon-feature": return { id, type: "grid-icon-feature", props: props as GridIconFeatureBlockProps };
+    case "grid-stat": return { id, type: "grid-stat", props: props as GridStatBlockProps };
+    case "grid-quote": return { id, type: "grid-quote", props: props as GridQuoteBlockProps };
+    case "grid-cta-tile": return { id, type: "grid-cta-tile", props: props as GridCtaTileBlockProps };
+    case "grid-logo": return { id, type: "grid-logo", props: props as GridLogoBlockProps };
+    case "grid-video": return { id, type: "grid-video", props: props as GridVideoBlockProps };
+    case "custom-schema": return { id, type: "custom-schema", props: props as CustomSchemaBlockProps };
     case "zigzag-features": return { id, type: "zigzag-features", props: props as ZigzagFeaturesBlockProps };
     case "product-showcase": return { id, type: "product-showcase", props: props as ProductShowcaseBlockProps };
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };

@@ -60,6 +60,19 @@ import BlockCaseStudies from "./BlockCaseStudies";
 import BlockResources from "./BlockResources";
 import { BlockRichText } from "./BlockRichText";
 import { BlockCustomHtml } from "./BlockCustomHtml";
+import {
+  BlockGridImage,
+  BlockGridHeadlineSub,
+  BlockGridParagraphBullets,
+  BlockGridHeadlineParagraph,
+  BlockGridIconFeature,
+  BlockGridStat,
+  BlockGridQuote,
+  BlockGridCtaTile,
+  BlockGridLogo,
+  BlockGridVideo,
+} from "./BlockGridPieces";
+import { BlockCustomSchema } from "./BlockCustomSchema";
 import { BlockZigzagFeatures } from "./BlockZigzagFeatures";
 import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
@@ -460,6 +473,28 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockRichText props={block.props} brand={brand} />;
       case "custom-html":
         return <BlockCustomHtml props={block.props} brand={brand} />;
+      case "grid-image":
+        return <BlockGridImage props={block.props} brand={brand} />;
+      case "grid-headline-sub":
+        return <BlockGridHeadlineSub props={block.props} brand={brand} />;
+      case "grid-paragraph-bullets":
+        return <BlockGridParagraphBullets props={block.props} brand={brand} />;
+      case "grid-headline-paragraph":
+        return <BlockGridHeadlineParagraph props={block.props} brand={brand} />;
+      case "grid-icon-feature":
+        return <BlockGridIconFeature props={block.props} brand={brand} />;
+      case "grid-stat":
+        return <BlockGridStat props={block.props} brand={brand} />;
+      case "grid-quote":
+        return <BlockGridQuote props={block.props} brand={brand} />;
+      case "grid-cta-tile":
+        return <BlockGridCtaTile props={block.props} brand={brand} />;
+      case "grid-logo":
+        return <BlockGridLogo props={block.props} brand={brand} />;
+      case "grid-video":
+        return <BlockGridVideo props={block.props} brand={brand} />;
+      case "custom-schema":
+        return <BlockCustomSchema props={block.props} brand={brand} />;
       case "zigzag-features":
         return (
           <BlockZigzagFeatures

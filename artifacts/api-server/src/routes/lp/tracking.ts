@@ -11,6 +11,7 @@ import { revealAccountName } from "../../lib/apollo-reveal";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { SESSION_COOKIE, type AuthUser } from "../../middleware/requireAuth";
+import { hydrateCustomSchemaBlocks } from "./hydrate-custom-schema";
 
 /**
  * Resolve tenant id for a public, slug-based request from the request host.
@@ -68,13 +69,19 @@ async function enrichVariantWithPage(variant: LpVariant) {
       .from(lpPagesTable)
       .where(eq(lpPagesTable.id, variant.builderPageId));
     if (linkedPage) {
+      let blocks: unknown = linkedPage.blocks;
+      try {
+        blocks = await hydrateCustomSchemaBlocks(linkedPage.blocks, linkedPage.tenantId);
+      } catch (err) {
+        console.warn("hydrateCustomSchemaBlocks failed for variant page", linkedPage.id, ":", err);
+      }
       return {
         ...variant,
         linkedPage: {
           id: linkedPage.id,
           title: linkedPage.title,
           slug: linkedPage.slug,
-          blocks: linkedPage.blocks,
+          blocks,
           customCss: linkedPage.customCss ?? "",
           animationsEnabled: linkedPage.animationsEnabled !== false,
           smoothScroll: linkedPage.smoothScroll !== false,
@@ -97,13 +104,19 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
   const mergedBlocks = hasOverrides
     ? applyBlockOverrides(page.blocks as unknown[], blockOverrides as Record<string, unknown>)
     : page.blocks as unknown[];
+  let blocks: unknown = mergedBlocks;
+  try {
+    blocks = await hydrateCustomSchemaBlocks(mergedBlocks, page.tenantId);
+  } catch (err) {
+    console.warn("hydrateCustomSchemaBlocks failed for AB-test page", page.id, ":", err);
+  }
   return {
     ...variant,
     linkedPage: {
       id: page.id,
       title: page.title,
       slug: page.slug,
-      blocks: mergedBlocks,
+      blocks,
       animationsEnabled: page.animationsEnabled !== false,
       smoothScroll: page.smoothScroll !== false,
     },
@@ -327,9 +340,21 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         res.set("Cache-Control", "no-store");
       }
 
+      // Hydrate custom-schema blocks with the live schema/template from the
+      // tenant's lp_custom_blocks rows (task #120). Public viewers can't
+      // fetch /api/lp/custom-blocks themselves (auth-protected), so the
+      // server stamps the latest values on the response. Failures fall back
+      // to whatever is stored on the page block itself.
+      let hydratedBlocks: unknown = builderPage.blocks;
+      try {
+        hydratedBlocks = await hydrateCustomSchemaBlocks(builderPage.blocks, builderPage.tenantId);
+      } catch (err) {
+        console.warn("hydrateCustomSchemaBlocks failed for page", builderPage.id, ":", err);
+      }
+
       // Apollo IP reveal — only called when the page uses {{accountNameApollo}}
       // so pages without the placeholder have zero extra latency.
-      const blocksJson = JSON.stringify(builderPage.blocks ?? []);
+      const blocksJson = JSON.stringify(hydratedBlocks ?? []);
       const needsApollo = blocksJson.includes("{{accountNameApollo}}");
       const accountNameApollo = needsApollo
         ? await revealAccountName(getClientIp(req))
@@ -346,7 +371,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         id: builderPage.id,
         title: builderPage.title,
         slug: builderPage.slug,
-        blocks: builderPage.blocks,
+        blocks: hydratedBlocks,
         status: builderPage.status,
         customCss: builderPage.customCss ?? "",
         animationsEnabled: builderPage.animationsEnabled,
@@ -597,12 +622,18 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
   // Preview responses are never cached — they're authenticated and the page
   // content can change as the editor saves between previews.
   res.set("Cache-Control", "no-store");
+  let previewBlocks: unknown = page.blocks;
+  try {
+    previewBlocks = await hydrateCustomSchemaBlocks(page.blocks, page.tenantId);
+  } catch (err) {
+    console.warn("hydrateCustomSchemaBlocks failed for preview page", page.id, ":", err);
+  }
   res.json({
     pageType: "builder",
     id: page.id,
     title: page.title,
     slug: page.slug,
-    blocks: page.blocks,
+    blocks: previewBlocks,
     status: page.status,
     customCss: page.customCss ?? "",
     animationsEnabled: page.animationsEnabled,

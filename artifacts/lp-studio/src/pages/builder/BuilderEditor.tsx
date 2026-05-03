@@ -32,7 +32,8 @@ import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
-import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, type PageBlock, type BlockType } from "@/lib/block-types";
+import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
+import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import {
   type BlockPath,
   collectIds,
@@ -58,7 +59,7 @@ import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
-import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience } from "@/lib/audience-gating";
+import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import {
@@ -169,7 +170,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces"] as const;
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
 
   return (
@@ -543,7 +544,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, nestedTarget }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Events"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -870,15 +871,26 @@ export default function BuilderEditor() {
   // pages and "DSO Practices" from leadership pages. Preserves the custom
   // getDef fallback so renderers for legacy blocks on a page keep working
   // even after the block type is filtered from the palette.
+  // Task #120: gate the "Grid Pieces" category to admins / superadmins / users
+  // with the `blocks` perm so ordinary editors stick to full sections. We
+  // call `useAuth()` here (in addition to L941) because the memos below run
+  // before the main `user` destructure further down.
+  const { user: gridGateUser } = useAuth();
+  const canGridPieces = canUseGridPieces(gridGateUser);
   const catalogBlocks = useMemo<ResolvedBlockDef[]>(
-    () => allCatalogBlocks.filter(b => isBlockVisibleForAudience(b.category, pageAudienceType)),
-    [allCatalogBlocks, pageAudienceType],
+    () => allCatalogBlocks
+      .filter(b => isBlockVisibleForAudience(b.category, pageAudienceType))
+      .filter(b => canGridPieces || b.category !== "Grid Pieces"),
+    [allCatalogBlocks, pageAudienceType, canGridPieces],
   );
   // Custom blocks wrap a base block_type; gate them by that wrapped type so a
   // saved "Dandy Insights Snapshot" custom block stays hidden on practice pages.
+  // Schema-driven custom blocks are also gated by the grid-pieces perm.
   const visibleCustomBlocks = useMemo(
-    () => customBlocks.filter(cb => isBlockTypeAllowedForAudience(cb.block_type, pageAudienceType)),
-    [customBlocks, pageAudienceType],
+    () => customBlocks
+      .filter(cb => isBlockTypeAllowedForAudience(cb.block_type, pageAudienceType))
+      .filter(cb => canGridPieces || cb.block_type !== "schema"),
+    [customBlocks, pageAudienceType, canGridPieces],
   );
   const [appliedSegment, setAppliedSegment] = useState<AudienceSegment | null>(() => {
     const ctx = getBriefContext();
@@ -1164,6 +1176,25 @@ export default function BuilderEditor() {
       const customId = Number(type.slice(7));
       const customBlock = customBlocks.find(b => b.id === customId);
       if (!customBlock) return;
+      // Schema-driven custom blocks (task #120) materialize as a `custom-schema`
+      // PageBlock that carries the schema/template/values from the custom block.
+      if (customBlock.block_type === "schema") {
+        // Schema-driven custom blocks store ONLY a reference + per-instance
+        // values. Schema/template are looked up live from the source block
+        // at render time (CustomBlocksContext) so existing instances pick
+        // up template/schema edits automatically.
+        const cbProps = (customBlock.props ?? {}) as { sample?: Record<string, SchemaFieldValue> };
+        const newBlock = createBlock("custom-schema");
+        newBlock.props = {
+          schema: [],
+          template: "",
+          values: cbProps.sample ?? {},
+          customBlockId: customBlock.id,
+          customBlockName: customBlock.name,
+        };
+        insertBlock(newBlock, atIndex);
+        return;
+      }
       const bt = customBlock.block_type as BlockType;
       const newBlock = {
         id: genBlockId(bt),
@@ -1219,15 +1250,28 @@ export default function BuilderEditor() {
         const customId = Number(type.slice(7));
         const custom = customBlocks.find(b => b.id === customId);
         if (custom) {
-          const bt = custom.block_type as BlockType;
-          newBlock = {
-            id: genBlockId(bt),
-            type: bt,
-            props: custom.props ?? {},
-            ...(custom.block_settings && Object.keys(custom.block_settings).length > 0
-              ? { blockSettings: custom.block_settings }
-              : {}),
-          } as PageBlock;
+          if (custom.block_type === "schema") {
+            const cbProps = (custom.props ?? {}) as { sample?: Record<string, SchemaFieldValue> };
+            const cs = createBlock("custom-schema");
+            cs.props = {
+              schema: [],
+              template: "",
+              values: cbProps.sample ?? {},
+              customBlockId: custom.id,
+              customBlockName: custom.name,
+            };
+            newBlock = cs;
+          } else {
+            const bt = custom.block_type as BlockType;
+            newBlock = {
+              id: genBlockId(bt),
+              type: bt,
+              props: custom.props ?? {},
+              ...(custom.block_settings && Object.keys(custom.block_settings).length > 0
+                ? { blockSettings: custom.block_settings }
+                : {}),
+            } as PageBlock;
+          }
         }
       } else if (isBlockType(type)) {
         const savedDefault = blockDefaults[type] as { props?: unknown; blockSettings?: unknown } | undefined;
@@ -1711,7 +1755,20 @@ export default function BuilderEditor() {
     );
   }
 
+  // Map raw custom-block rows into the live source map consumed by
+  // BlockCustomSchema / CustomSchemaPanel via CustomBlocksContext. Only
+  // schema-typed rows participate.
+  const customBlockSources: CustomBlockSource[] = useMemo(() => {
+    const out: CustomBlockSource[] = [];
+    for (const row of customBlocks) {
+      const src = customBlockRowToSource(row);
+      if (src) out.push(src);
+    }
+    return out;
+  }, [customBlocks]);
+
   return (
+    <CustomBlocksProvider blocks={customBlockSources}>
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Top Bar */}
@@ -2397,6 +2454,7 @@ export default function BuilderEditor() {
       </div>
     </div>
     </DndContext>
+    </CustomBlocksProvider>
   );
 }
 
