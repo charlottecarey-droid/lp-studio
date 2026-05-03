@@ -1243,6 +1243,377 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       genericFooter("Vantage", 9),
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9. Atelier Studio — Premium Brand Hero (mirrors the "Video Hero" /
+  //    Crowns flagship layout: hero → trust-bar → photo-strip → stat-callout
+  //    → benefits-grid → product-grid → testimonial → bottom-cta)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-premium-brand-hero",
+    title: "Premium Brand Hero",
+    templateLabel: "Premium Brand Hero",
+    templateDescription:
+      "Editorial, gallery-led layout for premium brands. Big hero, social-proof bar, scrolling photo strip, hero stat, six-up benefits, product grid, and a closing testimonial.",
+    ogImage:
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Atelier", 1),
+      {
+        id: blockId("hero", 2),
+        type: "hero",
+        props: {
+          headline: "Crafted with care. Delivered with confidence.",
+          subheadline:
+            "Atelier is a small studio with an outsized obsession for detail. We design and ship work the world's most discerning brands trust in front of their best customers.",
+          ctaText: "Start a project",
+          ctaUrl: "#cta",
+          ctaColor: ACCENT_BLUE,
+          heroType: "static-image",
+          layout: "centered",
+          backgroundStyle: "white",
+          showSocialProof: true,
+          socialProofText: "Featured work for global brands across 14 countries",
+          imageUrl:
+            "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1600&h=900&fit=crop",
+          mediaUrl: "",
+        },
+      },
+      {
+        id: blockId("trust-bar", 3),
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "120+", label: "Brands Shipped" },
+            { value: "4.9★", label: "Client Satisfaction" },
+            { value: "14", label: "Countries Served" },
+            { value: "10 yrs", label: "In Practice" },
+          ],
+        },
+      },
+      {
+        id: blockId("photo-strip", 4),
+        type: "photo-strip",
+        props: {
+          images: [
+            { src: "https://images.unsplash.com/photo-1493612276216-ee3925520721?q=80&w=600&fit=crop", alt: "Editorial brand identity" },
+            { src: "https://images.unsplash.com/photo-1481487196290-c152efe083f5?q=80&w=600&fit=crop", alt: "Print collateral" },
+            { src: "https://images.unsplash.com/photo-1542744095-291d1f67b221?q=80&w=600&fit=crop", alt: "Studio workspace" },
+            { src: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=600&fit=crop", alt: "Design in progress" },
+            { src: "https://images.unsplash.com/photo-1558655146-9f40138edfeb?q=80&w=600&fit=crop", alt: "Color study" },
+            { src: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600&fit=crop", alt: "Product photography" },
+            { src: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?q=80&w=600&fit=crop", alt: "Brand portrait" },
+          ],
+        },
+      },
+      {
+        id: blockId("stat-callout", 5),
+        type: "stat-callout",
+        props: {
+          stat: "98%",
+          description: "of Atelier clients rebook us for their next launch",
+          footnote: "Across the last three years of engagements — measured by signed renewals.",
+        },
+      },
+      {
+        id: blockId("benefits-grid", 6),
+        type: "benefits-grid",
+        props: {
+          headline: "Why teams keep coming back",
+          columns: 3,
+          items: [
+            { icon: "Sparkles", title: "Editorial-grade craft", description: "Every line, type weight, and pixel is considered. Work that holds up next to the best in the world." },
+            { icon: "Clock", title: "Honest timelines", description: "We commit to dates and we hit them. No surprise scope creep, no quiet weekends to recover lost ground." },
+            { icon: "Users", title: "A senior team, every meeting", description: "You work with the people doing the work — never a junior handoff after the kickoff call." },
+            { icon: "Layers", title: "Systems, not one-offs", description: "Identity, web, and product designed as a coherent system that scales as your team grows." },
+            { icon: "ShieldCheck", title: "Confident delivery", description: "Production files, brand guidelines, and developer-ready specs handed off in formats your team actually uses." },
+            { icon: "MessageCircle", title: "A real partnership", description: "Direct Slack channels, weekly demos, and honest feedback from people invested in your success." },
+          ],
+        },
+      },
+      {
+        id: blockId("product-grid", 7),
+        type: "product-grid",
+        props: {
+          headline: "What we make",
+          subheadline: "Three practices, woven into one studio. Engaged together or à la carte.",
+          items: [
+            { image: "https://images.unsplash.com/photo-1561070791-2526d30994b8?q=80&w=600&h=400&fit=crop", title: "Brand identity", description: "Naming, logo systems, type, color, and the foundational story — built to outlast a quarterly refresh." },
+            { image: "https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?q=80&w=600&h=400&fit=crop", title: "Marketing site", description: "Editorial, conversion-focused websites with the polish of a magazine and the metrics of a growth team." },
+            { image: "https://images.unsplash.com/photo-1559028012-481c04fa702d?q=80&w=600&h=400&fit=crop", title: "Product design", description: "Native, web, and embedded experiences designed alongside your engineers — shipped, not just specced." },
+            { image: "https://images.unsplash.com/photo-1542744094-3a31f272c490?q=80&w=600&h=400&fit=crop", title: "Campaigns", description: "Launch films, social systems, and OOH that turn a moment into a movement." },
+            { image: "https://images.unsplash.com/photo-1483058712412-4245e9b90334?q=80&w=600&h=400&fit=crop", title: "Editorial & content", description: "Magazines, reports, and long-form pieces with the typographic care most teams reserve for their logo." },
+            { image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=600&h=400&fit=crop", title: "Workshops & strategy", description: "Two-day intensives that align leadership on positioning, messaging, and what to do on Monday morning." },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 8),
+        type: "testimonial",
+        props: {
+          quote:
+            "Atelier shipped the most polished work our company has ever put into the world. They held the bar when we were ready to lower it — and the launch was the best in our history.",
+          author: "Camille Okafor",
+          role: "Chief Marketing Officer",
+          practiceName: "Northwind & Co.",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 9),
+        type: "bottom-cta",
+        props: {
+          headline: "Have something worth doing properly?",
+          subheadline: "We take on a small number of projects each quarter. Tell us about yours.",
+          ctaText: "Start a project",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Atelier", 10),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 10. Forge — Old Way vs New Way Pitch (mirrors the "Problem First" /
+  //     Crowns layout: hero → comparison → stat-callout → trust-bar →
+  //     benefits-grid → testimonial → bottom-cta)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-old-way-new-way",
+    title: "Old Way vs New Way Pitch",
+    templateLabel: "Old Way vs New Way Pitch",
+    templateDescription:
+      "Side-by-side comparison framework. Hero, a punchy old-way / new-way grid, headline stat, trust bar, benefits, customer quote, and CTA. Best for category-creating products.",
+    ogImage:
+      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Forge", 1),
+      {
+        id: blockId("hero", 2),
+        type: "hero",
+        props: {
+          headline: "Stop running your business on duct tape and goodwill.",
+          subheadline:
+            "Forge replaces the spreadsheets, email threads, and one-off tools your operations team has been quietly holding together — with a single platform that finally fits how you actually work.",
+          ctaText: "See the difference",
+          ctaUrl: "#comparison",
+          ctaColor: ACCENT_BLUE,
+          heroType: "static-image",
+          layout: "centered",
+          backgroundStyle: "white",
+          showSocialProof: true,
+          socialProofText: "Trusted by ops teams at 800+ growing companies",
+          imageUrl:
+            "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1600&h=900&fit=crop",
+          mediaUrl: "",
+        },
+      },
+      {
+        id: blockId("comparison", 3),
+        type: "comparison",
+        props: {
+          headline: "A different way to run operations.",
+          ctaText: "Start free trial",
+          ctaUrl: "#",
+          oldWayLabel: "The Old Way",
+          oldWayBullets: [
+            "A dozen tools that don't talk to each other",
+            "Reports rebuilt by hand every Monday morning",
+            "Approvals lost in email threads for days",
+            "No shared source of truth across teams",
+            "Quarterly audits that take three weeks of nights",
+            "Custom integrations that break every release",
+          ],
+          newWayLabel: "Forge",
+          newWayBullets: [
+            "One workspace for every operational workflow",
+            "Live dashboards that update themselves",
+            "Approvals routed in seconds with a full audit trail",
+            "A single source of truth, shared by every team",
+            "Audit-ready reports generated in one click",
+            "200+ pre-built integrations maintained for you",
+          ],
+        },
+      },
+      {
+        id: blockId("stat-callout", 4),
+        type: "stat-callout",
+        props: {
+          stat: "11x",
+          description: "faster monthly close for teams in their first 90 days on Forge",
+          footnote: "Median across 240 customers who switched from a patchwork of tools in 2025.",
+        },
+      },
+      {
+        id: blockId("trust-bar", 5),
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "800+", label: "Operating Teams" },
+            { value: "$28B", label: "Processed Annually" },
+            { value: "SOC 2", label: "Type II Certified" },
+            { value: "99.99%", label: "Uptime SLA" },
+          ],
+        },
+      },
+      {
+        id: blockId("benefits-grid", 6),
+        type: "benefits-grid",
+        props: {
+          headline: "Built for how operations teams actually work",
+          columns: 3,
+          items: [
+            { icon: "Workflow", title: "Workflows you can change yourself", description: "Drag-and-drop logic, no engineering tickets. Your ops team owns the system instead of waiting on it." },
+            { icon: "BarChart3", title: "Reporting that's never stale", description: "Live, drillable dashboards with real metrics — not screenshots pasted into a slide deck the night before." },
+            { icon: "ShieldCheck", title: "Audit-ready by default", description: "Every change is logged, attributed, and exportable. Pass SOC, HIPAA, and finance audits without scrambling." },
+            { icon: "Plug", title: "200+ integrations, maintained", description: "Connect to your stack in clicks — and stop maintaining brittle scripts on top of vendor APIs that change weekly." },
+            { icon: "Lock", title: "Permissions you can trust", description: "Granular roles, SSO, and SCIM provisioning out of the box. Built for the way enterprise security teams actually work." },
+            { icon: "Clock", title: "10-minute setup", description: "Sign up, import your data, and have a real workflow running before lunch. No 6-week implementations." },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 7),
+        type: "testimonial",
+        props: {
+          quote:
+            "We replaced six tools, two contractors, and a weekly meeting that nobody enjoyed. Our month-end close went from 11 days to under 2, and the team finally has time to do real strategy work.",
+          author: "Diego Marín",
+          role: "Director of Operations",
+          practiceName: "Quanta Logistics, Inc.",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 8),
+        type: "bottom-cta",
+        props: {
+          headline: "Ready to leave the patchwork behind?",
+          subheadline: "Free for 14 days. White-glove migration included on every annual plan.",
+          ctaText: "Start free trial",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Forge", 9),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 11. Lighthouse — Trusted Partner (mirrors the "How It Works" / Crowns
+  //     layout: hero → how-it-works → trust-bar → product-grid →
+  //     benefits-grid → testimonial → bottom-cta)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-trusted-partner",
+    title: "Trusted Partner — How It Works",
+    templateLabel: "Trusted Partner — How It Works",
+    templateDescription:
+      "Calm, confidence-building layout for high-consideration services. Hero, three-step process, social proof, service grid, benefits, and a real customer story. Great for finance, legal, and consulting.",
+    ogImage:
+      "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Lighthouse", 1),
+      {
+        id: blockId("hero", 2),
+        type: "hero",
+        props: {
+          headline: "A steadier way through complex decisions.",
+          subheadline:
+            "Lighthouse is the partner founders, finance leaders, and family offices call when the stakes are high and the answer needs to be right. Quiet, careful work — done together.",
+          ctaText: "Schedule a consultation",
+          ctaUrl: "#cta",
+          ctaColor: ACCENT_BLUE,
+          heroType: "static-image",
+          layout: "centered",
+          backgroundStyle: "white",
+          showSocialProof: true,
+          socialProofText: "Advising 200+ companies and families across three continents",
+          imageUrl:
+            "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600&h=900&fit=crop",
+          mediaUrl: "",
+        },
+      },
+      {
+        id: blockId("how-it-works", 3),
+        type: "how-it-works",
+        props: {
+          headline: "How we work together",
+          steps: [
+            { number: "01", title: "Listen", description: "We start with a no-obligation conversation. Tell us what's keeping you up. We'll tell you honestly whether we're the right partner — and if we're not, we'll point you to who is." },
+            { number: "02", title: "Diagnose", description: "A two-week deep dive: data, interviews, and a clear written assessment. You'll walk away with a sharper picture of the situation, even if you choose to stop there." },
+            { number: "03", title: "Execute, together", description: "If we move forward, you get a senior team embedded in your decisions. Weekly check-ins, transparent fees, and an exit plan from day one." },
+          ],
+        },
+      },
+      {
+        id: blockId("trust-bar", 4),
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "200+", label: "Active Engagements" },
+            { value: "$4.2B", label: "Advised in 2025" },
+            { value: "26 yrs", label: "Median Partner Experience" },
+            { value: "Direct", label: "Senior Access, Always" },
+          ],
+        },
+      },
+      {
+        id: blockId("product-grid", 5),
+        type: "product-grid",
+        props: {
+          headline: "Where we help",
+          subheadline: "Five practices, one team. Engaged à la carte or in combination.",
+          items: [
+            { image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=600&h=400&fit=crop", title: "Strategic finance", description: "Forecasting, scenario planning, and capital strategy for teams between Series B and IPO." },
+            { image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=600&h=400&fit=crop", title: "Operating partner support", description: "An embedded operator on your leadership team for 90, 180, or 365 days — no full-time hire required." },
+            { image: "https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&w=600&h=400&fit=crop", title: "Board & governance advisory", description: "Independent perspective for founders, audit committees, and family principals navigating sensitive decisions." },
+            { image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=600&h=400&fit=crop", title: "M&A & succession", description: "Sell-side preparation, succession planning, and post-close integration handled with the discretion the work demands." },
+            { image: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=600&h=400&fit=crop", title: "Crisis & turnaround", description: "When the path forward isn't obvious, we sit beside your leadership team and help you find it — quickly and without drama." },
+            { image: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=600&h=400&fit=crop", title: "Family enterprise", description: "Multi-generational planning, governance design, and the quiet conversations that protect both the family and the business." },
+          ],
+        },
+      },
+      {
+        id: blockId("benefits-grid", 6),
+        type: "benefits-grid",
+        props: {
+          headline: "What it's like to work with us",
+          columns: 3,
+          items: [
+            { icon: "Users", title: "Senior, every meeting", description: "Our partners do the work. You'll never be passed to a junior analyst after the kickoff call." },
+            { icon: "Lock", title: "Discretion, always", description: "We work under NDA by default and decline engagements that conflict with our existing clients. Your information stays inside the room." },
+            { icon: "ScrollText", title: "Transparent fees", description: "Flat retainers and clear scopes. No surprise invoices, no nickel-and-diming for emails or weekend calls." },
+            { icon: "Compass", title: "Independent counsel", description: "We don't sell products and we don't take referral fees. Our only incentive is the quality of our advice." },
+            { icon: "Clock", title: "Built-in exit", description: "Every engagement has a defined end. We measure success by your independence — not by how long we stay." },
+            { icon: "MessageCircle", title: "Direct access", description: "Your partner's mobile, weekly working sessions, and async updates between. No client portal required." },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 7),
+        type: "testimonial",
+        props: {
+          quote:
+            "Lighthouse helped us through the hardest year in our company's history with a steadiness I haven't found anywhere else. They told us what we needed to hear, not what was easy — and the business is here today because of it.",
+          author: "Aarav Joshi",
+          role: "Chief Executive Officer",
+          practiceName: "Helia Industries",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 8),
+        type: "bottom-cta",
+        props: {
+          headline: "Have something worth talking through?",
+          subheadline: "First conversations are confidential and free. We'll tell you honestly whether we can help.",
+          ctaText: "Schedule a consultation",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Lighthouse", 9),
+    ],
+  },
 ];
 
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";

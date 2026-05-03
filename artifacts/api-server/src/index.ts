@@ -918,7 +918,7 @@ async function runMigrations(): Promise<void> {
     // entries (v1) get their bogus block types fixed, but tenant edits to
     // titles or new template additions remain untouched.
     try {
-      const SEED_MARKER = "global_templates_seed_v6";
+      const SEED_MARKER = "global_templates_seed_v7";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
