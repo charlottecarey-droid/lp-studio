@@ -97,26 +97,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const host = window.location.hostname;
     const params = new URLSearchParams({ host });
-    fetch(`/api/auth/domain-context?${params}`)
-      .then((r) => {
-        if (!r.ok) {
-          setDomainContextError("Failed to load domain context");
-          return null;
+    const url = `/api/auth/domain-context?${params}`;
+
+    // Retry transient failures so a single flaky fetch doesn't leave the
+    // app stuck on the loading spinner (perceived as a white page that
+    // only resolves after a manual refresh). Up to 4 attempts with
+    // exponential backoff: ~0ms, 400ms, 1200ms, 2800ms.
+    const fetchWithRetry = async () => {
+      const delays = [0, 400, 800, 1600];
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (cancelled) return;
+        if (delays[attempt]) {
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+          if (cancelled) return;
         }
-        return r.json() as Promise<DomainContext>;
-      })
-      .then((data: DomainContext | null) => {
-        if (data) {
+        try {
+          const r = await fetch(url, { credentials: "include" });
+          if (!r.ok) {
+            lastErr = new Error(`HTTP ${r.status}`);
+            continue;
+          }
+          const data = (await r.json()) as DomainContext;
+          if (cancelled) return;
           setDomainContext(data);
           setDomainContextError(null);
+          return;
+        } catch (err) {
+          lastErr = err;
         }
-      })
-      .catch((err) => {
-        setDomainContextError(err instanceof Error ? err.message : "Failed to load domain context");
-        setDomainContext(null);
-      });
+      }
+      if (cancelled) return;
+      setDomainContextError(
+        lastErr instanceof Error ? lastErr.message : "Failed to load domain context",
+      );
+      setDomainContext(null);
+    };
+    void fetchWithRetry();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
