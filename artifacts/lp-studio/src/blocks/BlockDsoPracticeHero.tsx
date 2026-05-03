@@ -11,19 +11,23 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoPracticeHeroBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoPracticeHeroBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoPracticeHero({ props, brand }: Props) {
+export function BlockDsoPracticeHero({ props, brand, onFieldChange }: Props) {
+  const field = (key: keyof DsoPracticeHeroBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPracticeHeroBlockProps[typeof key] }) : undefined;
   const {
     eyebrow,
     headline,
@@ -80,7 +84,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
           padding: "0.35rem 1rem",
         }}
       >
-        {eyebrow}
+        <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
       </span>
     </motion.div>
   ) : null;
@@ -101,7 +105,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
         marginBottom: "1.25rem",
       }}
     >
-      {headline || "Your practice. Elevated."}
+      <InlineText as="span" value={headline || "Your practice. Elevated."} onUpdate={field("headline")} multiline />
     </motion.h1>
   );
 
@@ -121,7 +125,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
         marginRight: align === "center" ? "auto" : undefined,
       }}
     >
-      {subheadline}
+      <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
     </motion.p>
   ) : null;
 
@@ -140,7 +144,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
             className={getButtonClasses(brand, "inline-flex items-center")}
             style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
           >
-            {primaryCtaText}
+            <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
           </ChiliPiperButton>
         ) : (
           <motion.a
@@ -151,7 +155,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
           >
-            {primaryCtaText}
+            <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} />
           </motion.a>
         )
       )}
@@ -163,7 +167,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
             className={getSecondaryButtonClasses(brand)}
             style={{ borderColor: dark ? "hsl(42,18%,96%)" : BRAND, color: dark ? "hsl(42,18%,96%)" : BRAND, background: dark ? "rgba(255,255,255,0.5)" : "rgb(var(--brand-primary-rgb, 0 58 48) / 0.5)" }}
           >
-            {secondaryCtaText}
+            <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
           </ChiliPiperButton>
         ) : (
           <motion.a
@@ -174,7 +178,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
           >
-            {secondaryCtaText}
+            <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
           </motion.a>
         )
       )}
@@ -198,7 +202,7 @@ export function BlockDsoPracticeHero({ props, brand }: Props) {
       }}
     >
       <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
-      {trustLine}
+      <InlineText as="span" value={trustLine} onUpdate={field("trustLine")} />
       <span style={{ display: "inline-block", width: 32, height: 1, background: divC }} />
     </motion.p>
   ) : null;

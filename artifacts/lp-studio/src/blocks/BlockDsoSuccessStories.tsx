@@ -2,10 +2,12 @@ import { motion } from "framer-motion";
 import type { DsoSuccessStoriesBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoSuccessStoriesBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoSuccessStoriesBlockProps) => void;
 }
 
 const P   = "hsl(152,42%,12%)";
@@ -44,8 +46,16 @@ const DEFAULT_CASES = [
   },
 ];
 
-export function BlockDsoSuccessStories({ props }: Props) {
+export function BlockDsoSuccessStories({ props, onFieldChange }: Props) {
   const { eyebrow, headline, cases, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
+  const field = (key: keyof DsoSuccessStoriesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoSuccessStoriesBlockProps[typeof key] }) : undefined;
+  const updateCase = onFieldChange
+    ? (idx: number, patch: Partial<DsoSuccessStoriesBlockProps["cases"][number]>) => {
+        const list = (cases && cases.length > 0) ? cases : DEFAULT_CASES;
+        onFieldChange({ ...props, cases: list.map((c, i) => i === idx ? { ...c, ...patch } : c) });
+      }
+    : undefined;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
@@ -85,7 +95,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -102,7 +112,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
               letterSpacing: "-0.015em",
             }}
           >
-            {headline || "Teams that switched and never looked back."}
+            <InlineText as="span" value={headline || "Teams that switched and never looked back."} onUpdate={field("headline")} multiline />
           </motion.h2>
         </div>
 
@@ -185,7 +195,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                         color: "rgba(255,255,255,0.85)",
                       }}
                     >
-                      {s.name}
+                      <InlineText as="span" value={s.name} onUpdate={updateCase ? (v) => updateCase(i, { name: v }) : undefined} />
                     </p>
                   </div>
                   {/* Lime accent line at bottom of image */}
@@ -221,7 +231,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                       padding: "1.5rem 2rem 0",
                     }}
                   >
-                    {s.name}
+                    <InlineText as="span" value={s.name} onUpdate={updateCase ? (v) => updateCase(i, { name: v }) : undefined} />
                   </p>
                 </div>
               )}
@@ -246,7 +256,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                     lineHeight: 1,
                   }}
                 >
-                  {s.stat}
+                  <InlineText as="span" value={s.stat} onUpdate={updateCase ? (v) => updateCase(i, { stat: v }) : undefined} />
                 </p>
                 <p
                   style={{
@@ -257,7 +267,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                     lineHeight: 1.4,
                   }}
                 >
-                  {s.label}
+                  <InlineText as="span" value={s.label} onUpdate={updateCase ? (v) => updateCase(i, { label: v }) : undefined} />
                 </p>
 
                 {/* Divider */}
@@ -289,7 +299,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                       position: "relative",
                     }}
                   >
-                    {s.quote}
+                    <InlineText as="span" value={s.quote} onUpdate={updateCase ? (v) => updateCase(i, { quote: v }) : undefined} multiline />
                   </p>
                 </div>
 
@@ -302,7 +312,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                     color: authorColor,
                   }}
                 >
-                  — {s.author}
+                  — <InlineText as="span" value={s.author} onUpdate={updateCase ? (v) => updateCase(i, { author: v }) : undefined} />
                 </p>
               </div>
             </motion.div>
@@ -334,7 +344,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                   border: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </ChiliPiperButton>
             ) : (
               <a
@@ -352,7 +362,7 @@ export function BlockDsoSuccessStories({ props }: Props) {
                   textDecoration: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </a>
             )}
           </motion.div>

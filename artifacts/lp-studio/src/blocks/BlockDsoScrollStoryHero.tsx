@@ -3,6 +3,7 @@ import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
 import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -61,9 +62,10 @@ const DEFAULT_CHAPTERS: DsoScrollStoryHeroBlockProps["chapters"] = [
 interface Props {
   props: DsoScrollStoryHeroBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoScrollStoryHeroBlockProps) => void;
 }
 
-export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
+export function BlockDsoScrollStoryHero({ props, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow = "Why teams choose us",
     chapters,
@@ -72,6 +74,14 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
     imagePosition = "right",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoScrollStoryHeroBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoScrollStoryHeroBlockProps[typeof key] }) : undefined;
+  const updateChapter = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoScrollStoryHeroBlockProps["chapters"]>[number]>) => {
+        const list = (chapters && chapters.length > 0) ? chapters : DEFAULT_CHAPTERS;
+        onFieldChange({ ...props, chapters: list.map((c, i) => i === idx ? { ...c, ...patch } : c) });
+      }
+    : undefined;
   const imageRight = imagePosition !== "left";
   const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;
   const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
@@ -132,7 +142,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
           color: AW,
           marginBottom: "2.5rem",
         }}>
-          {eyebrow}
+          <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
         </p>
 
         {/* Animated headline + body */}
@@ -161,7 +171,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
                 lineHeight: 1.05,
                 marginBottom: "1.25rem",
               }}>
-                {ch.headline}
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
               </h1>
               <p style={{
                 fontSize: "clamp(0.9375rem, 1.1vw, 1.0625rem)",
@@ -169,7 +179,7 @@ export function BlockDsoScrollStoryHero({ props, onCtaClick }: Props) {
                 color: MUTED,
                 maxWidth: 460,
               }}>
-                {ch.body}
+                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
               </p>
             </motion.div>
           ))}

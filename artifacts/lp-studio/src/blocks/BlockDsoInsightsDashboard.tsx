@@ -20,11 +20,13 @@ import {
 import type { DsoInsightsDashboardBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoInsightsDashboardBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoInsightsDashboardBlockProps) => void;
 }
 
 /* ── Static data ─────────────────────────────────────────── */
@@ -724,12 +726,14 @@ const BG_STYLE: Record<string, React.CSSProperties> = {
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
 /* ── Main block component ───────────────────────────────── */
-export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
+export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow, headline, subheadline,
     backgroundStyle = "muted",
     dashboardVariant = "light",
   } = props;
+  const field = (key: keyof DsoInsightsDashboardBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsDashboardBlockProps[typeof key] }) : undefined;
 
   const t = getTheme(dashboardVariant);
 
@@ -823,7 +827,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -840,7 +844,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
               color: isDark ? "hsl(48,100%,96%)" : "hsl(152,40%,13%)",
             }}
           >
-            {headline}
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline />
           </motion.h2>
           {subheadline && (
             <motion.p
@@ -857,7 +861,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick }: Props) {
                 color: isDark ? "rgba(255,255,255,0.60)" : "hsl(152,8%,48%)",
               }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>

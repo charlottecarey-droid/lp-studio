@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoParticleMeshBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
@@ -29,9 +30,12 @@ function makeParticles(W: number, H: number, n: number): Particle[] {
   }));
 }
 
-interface Props { props: DsoParticleMeshBlockProps }
+interface Props {
+  props: DsoParticleMeshBlockProps;
+  onFieldChange?: (updated: DsoParticleMeshBlockProps) => void;
+}
 
-export function BlockDsoParticleMesh({ props }: Props) {
+export function BlockDsoParticleMesh({ props, onFieldChange }: Props) {
   const {
     eyebrow    = "AI-Driven Intelligence",
     headline   = "Every workflow,\nconnected.",
@@ -43,6 +47,8 @@ export function BlockDsoParticleMesh({ props }: Props) {
     imagePosition = "right",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoParticleMeshBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoParticleMeshBlockProps[typeof key] }) : undefined;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const animRef    = useRef<number>(0);
@@ -148,10 +154,10 @@ export function BlockDsoParticleMesh({ props }: Props) {
   const hasImage   = Boolean(imageUrl);
   const imgOnLeft  = imagePosition === "left";
 
-  const stats = [
-    { value: stat1Value, label: stat1Label },
-    { value: stat2Value, label: stat2Label },
-    { value: stat3Value, label: stat3Label },
+  const stats: Array<{ value: string; label: string; valueKey: keyof DsoParticleMeshBlockProps; labelKey: keyof DsoParticleMeshBlockProps }> = [
+    { value: stat1Value, label: stat1Label, valueKey: "stat1Value", labelKey: "stat1Label" },
+    { value: stat2Value, label: stat2Label, valueKey: "stat2Value", labelKey: "stat2Label" },
+    { value: stat3Value, label: stat3Label, valueKey: "stat3Value", labelKey: "stat3Label" },
   ];
 
   return (
@@ -241,7 +247,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
             transition={{ duration: 0.5, delay: 0.05 }}
             style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.75rem" }}
           >
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
@@ -255,7 +261,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
               marginBottom: "2rem", whiteSpace: "pre-line",
             }}
           >
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 16 }}
@@ -263,7 +269,7 @@ export function BlockDsoParticleMesh({ props }: Props) {
             transition={{ duration: 0.55, delay: 0.2 }}
             style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: MUTED, maxWidth: 440 }}
           >
-            {body}
+            <InlineText as="span" value={body} onUpdate={field("body")} multiline />
           </motion.p>
 
           {/* Stat strip */}
@@ -280,8 +286,8 @@ export function BlockDsoParticleMesh({ props }: Props) {
           >
             {stats.map((s, i) => (
               <div key={i}>
-                <p style={{ fontFamily: DISPLAY_FONT, fontSize: "2.25rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</p>
-                <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem" }}>{s.label}</p>
+                <InlineText as="p" value={s.value} onUpdate={field(s.valueKey)} style={{ fontFamily: DISPLAY_FONT, fontSize: "2.25rem", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1 }} />
+                <InlineText as="p" value={s.label} onUpdate={field(s.labelKey)} style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginTop: "0.4rem" }} />
               </div>
             ))}
           </motion.div>

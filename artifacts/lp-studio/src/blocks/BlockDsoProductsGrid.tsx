@@ -7,6 +7,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 // Note: product photos are no longer bundled with the lp-studio JS.
 // Pages provide imageUrl explicitly (uploaded to the tenant's media library).
@@ -17,7 +18,10 @@ const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 interface Props {
   props: DsoProductsGridBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoProductsGridBlockProps) => void;
 }
+
+const DEFAULT_PRODUCTS: DsoProductsGridBlockProps["products"] = [];
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
@@ -34,10 +38,18 @@ const PRODUCT_ICONS: Record<string, React.ElementType> = {
   shield:      Shield,
 };
 
-export function BlockDsoProductsGrid({ props, brand }: Props) {
+export function BlockDsoProductsGrid({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, products = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "muted" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
+  const field = (key: keyof DsoProductsGridBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoProductsGridBlockProps[typeof key] }) : undefined;
+  const updateProduct = onFieldChange
+    ? (idx: number, patch: Partial<DsoProductsGridBlockProps["products"][number]>) => {
+        const list = (products && products.length > 0) ? products : DEFAULT_PRODUCTS;
+        onFieldChange({ ...props, products: list.map((p, i) => i === idx ? { ...p, ...patch } : p) });
+      }
+    : undefined;
 
   const [windowWidth, setWindowWidth] = useState(() => typeof window !== "undefined" ? window.innerWidth : 1200);
   useEffect(() => {
@@ -68,7 +80,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -79,7 +91,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -90,7 +102,7 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -134,9 +146,25 @@ export function BlockDsoProductsGrid({ props, brand }: Props) {
                 )}
 
                 <div style={{ padding: "1.25rem 1.5rem 1.5rem" }}>
-                  <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}>{product.name}</p>
-                  <p style={{ fontSize: "0.9375rem", color: detailC, marginTop: 4, lineHeight: 1.55 }}>{product.detail}</p>
-                  <p style={{ fontSize: "1rem", fontWeight: 700, color: priceC, marginTop: "0.875rem" }}>{product.price}</p>
+                  <InlineText
+                    as="p"
+                    value={product.name}
+                    onUpdate={updateProduct ? (v) => updateProduct(i, { name: v }) : undefined}
+                    style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: nameC, letterSpacing: "-0.01em" }}
+                  />
+                  <InlineText
+                    as="p"
+                    value={product.detail}
+                    onUpdate={updateProduct ? (v) => updateProduct(i, { detail: v }) : undefined}
+                    multiline
+                    style={{ fontSize: "0.9375rem", color: detailC, marginTop: 4, lineHeight: 1.55 }}
+                  />
+                  <InlineText
+                    as="p"
+                    value={product.price}
+                    onUpdate={updateProduct ? (v) => updateProduct(i, { price: v }) : undefined}
+                    style={{ fontSize: "1rem", fontWeight: 700, color: priceC, marginTop: "0.875rem" }}
+                  />
                 </div>
               </motion.div>
             );

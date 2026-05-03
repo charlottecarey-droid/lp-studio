@@ -8,8 +8,16 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 380, damping: 22 };
+
+const DEFAULT_FEATURES = [
+  { icon: "zap",   label: "Live workflows, not demo magic" },
+  { icon: "check", label: "Inline checks catch errors" },
+  { icon: "clock", label: "Minutes saved per task" },
+  { icon: "bar",   label: "Real-time analytics built in" },
+];
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -25,9 +33,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
 interface Props {
   props: DsoSoftwareShowcaseBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoSoftwareShowcaseBlockProps) => void;
 }
 
-export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
+export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props) {
+  const field = (key: keyof DsoSoftwareShowcaseBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoSoftwareShowcaseBlockProps[typeof key] }) : undefined;
   const {
     eyebrow,
     headline,
@@ -89,13 +100,13 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
   const headlineC = dark ? "#fff" : BRAND;
   const bodyC     = dark ? "rgba(255,255,255,0.65)" : "#4b5563";
 
-  const defaultFeatures = [
-    { icon: "zap",   label: "Live workflows, not demo magic" },
-    { icon: "check", label: "Inline checks catch errors" },
-    { icon: "clock", label: "Minutes saved per task" },
-    { icon: "bar",   label: "Real-time analytics built in" },
-  ];
-  const displayFeatures = features.length > 0 ? features : defaultFeatures;
+  const displayFeatures = features.length > 0 ? features : DEFAULT_FEATURES;
+  const updateFeature = onFieldChange
+    ? (idx: number, patch: Partial<{ icon: string; label: string }>) => {
+        const list = features.length > 0 ? features : DEFAULT_FEATURES;
+        onFieldChange({ ...props, features: list.map((f, i) => i === idx ? { ...f, ...patch } : f) });
+      }
+    : undefined;
 
   const renderCta = () => {
     if (!ctaText) return null;
@@ -107,7 +118,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             className={getButtonClasses(brand, "inline-flex items-center")}
             style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
           >
-            {ctaText}
+            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
           </ChiliPiperButton>
         ) : (
           <motion.a
@@ -118,7 +129,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             whileTap={{ scale: 0.96 }}
             transition={SPRING}
           >
-            {ctaText}
+            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
           </motion.a>
         )}
       </div>
@@ -270,7 +281,7 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             }}
           >
             <IconComp style={{ width: 13, height: 13, color: LIME, flexShrink: 0 }} />
-            {f.label}
+            <InlineText as="span" value={f.label} onUpdate={updateFeature ? (v) => updateFeature(i, { label: v }) : undefined} />
           </div>
         );
       })}
@@ -292,17 +303,17 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
             >
               {eyebrow && (
                 <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC }}>
-                  {eyebrow}
+                  <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
                 </p>
               )}
               {headline && (
                 <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.875rem)", lineHeight: 1.12, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", margin: 0 }}>
-                  {headline}
+                  <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
                 </h2>
               )}
               {body && (
                 <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, margin: 0 }}>
-                  {body}
+                  <InlineText as="span" value={body} onUpdate={field("body")} multiline />
                 </p>
               )}
               {renderFeatures()}
@@ -329,17 +340,17 @@ export function BlockDsoSoftwareShowcase({ props, brand }: Props) {
         >
           {eyebrow && (
             <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem" }}>
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </p>
           )}
           {headline && (
             <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", marginBottom: "1rem" }}>
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </h2>
           )}
           {body && (
             <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC, marginBottom: 0 }}>
-              {body}
+              <InlineText as="span" value={body} onUpdate={field("body")} multiline />
             </p>
           )}
         </motion.div>

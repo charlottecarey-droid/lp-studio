@@ -5,6 +5,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -30,7 +31,7 @@ const DEFAULT_TILES: DsoBentoTile[] = [
   { type: "stat",    value: "4.9★",   label: "G2 rating",             description: "From 800+ verified reviews." },
 ];
 
-function StatTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "stat" }>; delay: number }) {
+function StatTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "stat" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "stat" }>>) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -67,16 +68,22 @@ function StatTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "stat" 
         marginBottom: "0.75rem",
         position: "relative",
       }}>
-        {tile.value}
+        <InlineText as="span" value={tile.value} onUpdate={onUpdate ? (v) => onUpdate({ value: v }) : undefined} />
       </p>
       <div style={{ width: "1.75rem", height: 2, background: AW, borderRadius: 1, marginBottom: "0.875rem" }} />
-      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: PFG, marginBottom: "0.375rem" }}>{tile.label}</p>
-      {tile.description && <p style={{ fontSize: "0.8rem", color: MU, lineHeight: 1.5 }}>{tile.description}</p>}
+      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: PFG, marginBottom: "0.375rem" }}>
+        <InlineText as="span" value={tile.label} onUpdate={onUpdate ? (v) => onUpdate({ label: v }) : undefined} />
+      </p>
+      {(tile.description || onUpdate) && (
+        <p style={{ fontSize: "0.8rem", color: MU, lineHeight: 1.5 }}>
+          <InlineText as="span" value={tile.description ?? ""} onUpdate={onUpdate ? (v) => onUpdate({ description: v }) : undefined} multiline />
+        </p>
+      )}
     </motion.div>
   );
 }
 
-function PhotoTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "photo" }>; delay: number }) {
+function PhotoTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "photo" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "photo" }>>) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.97 }}
@@ -95,14 +102,14 @@ function PhotoTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "photo
       />
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.02) 30%, rgba(0,0,0,0.60) 100%)" }} />
       <p style={{ position: "absolute", bottom: "1.25rem", left: "1.5rem", right: "1.5rem", fontSize: "0.8125rem", fontWeight: 600, color: "rgba(255,255,255,0.85)", letterSpacing: "0.04em" }}>
-        {tile.caption}
+        <InlineText as="span" value={tile.caption} onUpdate={onUpdate ? (v) => onUpdate({ caption: v }) : undefined} />
       </p>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, rgb(var(--brand-accent-rgb, 59 130 246) / 0), ${AW}, rgb(var(--brand-accent-rgb, 59 130 246) / 0))` }} />
     </motion.div>
   );
 }
 
-function FeatureTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "feature" }>; delay: number }) {
+function FeatureTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "feature" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "feature" }>>) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -131,14 +138,16 @@ function FeatureTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "fea
         lineHeight: 1.2,
         marginBottom: "1rem",
       }}>
-        {tile.headline}
+        <InlineText as="span" value={tile.headline} onUpdate={onUpdate ? (v) => onUpdate({ headline: v }) : undefined} multiline />
       </h3>
-      <p style={{ fontSize: "0.9375rem", color: FG_MU, lineHeight: 1.65 }}>{tile.body}</p>
+      <p style={{ fontSize: "0.9375rem", color: FG_MU, lineHeight: 1.65 }}>
+        <InlineText as="span" value={tile.body} onUpdate={onUpdate ? (v) => onUpdate({ body: v }) : undefined} multiline />
+      </p>
     </motion.div>
   );
 }
 
-function QuoteTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "quote" }>; delay: number }) {
+function QuoteTile({ tile, delay, onUpdate }: { tile: Extract<DsoBentoTile, { type: "quote" }>; delay: number; onUpdate?: (patch: Partial<Extract<DsoBentoTile, { type: "quote" }>>) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -168,30 +177,31 @@ function QuoteTile({ tile, delay }: { tile: Extract<DsoBentoTile, { type: "quote
         {"\u201C"}
       </span>
       <p style={{ fontSize: "1rem", lineHeight: 1.7, color: FG, fontStyle: "italic", position: "relative", marginTop: "1.5rem" }}>
-        {tile.quote}
+        <InlineText as="span" value={tile.quote} onUpdate={onUpdate ? (v) => onUpdate({ quote: v }) : undefined} multiline />
       </p>
       <p style={{ marginTop: "1.5rem", fontSize: "0.8125rem", fontWeight: 600, color: AW }}>
-        — {tile.author}
+        — <InlineText as="span" value={tile.author} onUpdate={onUpdate ? (v) => onUpdate({ author: v }) : undefined} />
       </p>
     </motion.div>
   );
 }
 
-function TileSwitch({ tile, delay }: { tile: DsoBentoTile; delay: number }) {
+function TileSwitch({ tile, delay, onUpdate }: { tile: DsoBentoTile; delay: number; onUpdate?: (patch: Partial<DsoBentoTile>) => void }) {
   switch (tile.type) {
-    case "stat":     return <StatTile tile={tile} delay={delay} />;
-    case "photo":    return <PhotoTile tile={tile} delay={delay} />;
-    case "feature":  return <FeatureTile tile={tile} delay={delay} />;
-    case "quote":    return <QuoteTile tile={tile} delay={delay} />;
+    case "stat":     return <StatTile tile={tile} delay={delay} onUpdate={onUpdate as ((patch: Partial<Extract<DsoBentoTile, { type: "stat" }>>) => void) | undefined} />;
+    case "photo":    return <PhotoTile tile={tile} delay={delay} onUpdate={onUpdate as ((patch: Partial<Extract<DsoBentoTile, { type: "photo" }>>) => void) | undefined} />;
+    case "feature":  return <FeatureTile tile={tile} delay={delay} onUpdate={onUpdate as ((patch: Partial<Extract<DsoBentoTile, { type: "feature" }>>) => void) | undefined} />;
+    case "quote":    return <QuoteTile tile={tile} delay={delay} onUpdate={onUpdate as ((patch: Partial<Extract<DsoBentoTile, { type: "quote" }>>) => void) | undefined} />;
   }
 }
 
 interface Props {
   props: DsoBentoOutcomesBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoBentoOutcomesBlockProps) => void;
 }
 
-export function BlockDsoBentoOutcomes({ props, brand }: Props) {
+export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow = "Outcomes",
     headline = "Every metric that matters. All in one platform.",
@@ -199,8 +209,17 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",
     backgroundStyle = "white",
   } = props;
+  const field = (key: keyof DsoBentoOutcomesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoBentoOutcomesBlockProps[typeof key] }) : undefined;
   const dark = isDarkBg(backgroundStyle ?? "white");
-  const displayTiles = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
+  const displayTiles: DsoBentoTile[] = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
+  const updateTile = onFieldChange
+    ? (idx: number, patch: Partial<DsoBentoTile>) => {
+        const next = displayTiles.slice();
+        next[idx] = { ...next[idx], ...patch } as DsoBentoTile;
+        onFieldChange({ ...props, tiles: next });
+      }
+    : undefined;
 
   return (
     <section style={{ ...getBgStyle(backgroundStyle) }} className="py-24 md:py-32">
@@ -214,7 +233,7 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: AW, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -232,7 +251,7 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
               maxWidth: 640,
             }}
           >
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
         </div>
 
@@ -241,32 +260,32 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "1rem" }}>
             {displayTiles[0] && (
               <div style={{ gridColumn: "span 3" }}>
-                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[0]} delay={0} /></div>
+                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[0]} delay={0} onUpdate={updateTile ? (p) => updateTile(0, p) : undefined} /></div>
               </div>
             )}
             {displayTiles[1] && (
               <div style={{ gridColumn: "span 5", gridRow: "span 2" }}>
-                <div style={{ height: "100%", minHeight: 580 }}><TileSwitch tile={displayTiles[1]} delay={0.06} /></div>
+                <div style={{ height: "100%", minHeight: 580 }}><TileSwitch tile={displayTiles[1]} delay={0.06} onUpdate={updateTile ? (p) => updateTile(1, p) : undefined} /></div>
               </div>
             )}
             {displayTiles[2] && (
               <div style={{ gridColumn: "span 4" }}>
-                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[2]} delay={0.1} /></div>
+                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[2]} delay={0.1} onUpdate={updateTile ? (p) => updateTile(2, p) : undefined} /></div>
               </div>
             )}
             {displayTiles[3] && (
               <div style={{ gridColumn: "span 3" }}>
-                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[3]} delay={0.14} /></div>
+                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[3]} delay={0.14} onUpdate={updateTile ? (p) => updateTile(3, p) : undefined} /></div>
               </div>
             )}
             {displayTiles[4] && (
               <div style={{ gridColumn: "span 4" }}>
-                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[4]} delay={0.18} /></div>
+                <div style={{ height: 280 }}><TileSwitch tile={displayTiles[4]} delay={0.18} onUpdate={updateTile ? (p) => updateTile(4, p) : undefined} /></div>
               </div>
             )}
             {displayTiles.slice(5).map((tile, i) => (
               <div key={i + 5} style={{ gridColumn: "span 4" }}>
-                <div style={{ height: 280 }}><TileSwitch tile={tile} delay={(i + 5) * 0.06} /></div>
+                <div style={{ height: 280 }}><TileSwitch tile={tile} delay={(i + 5) * 0.06} onUpdate={updateTile ? (p) => updateTile(i + 5, p) : undefined} /></div>
               </div>
             ))}
           </div>
@@ -276,7 +295,7 @@ export function BlockDsoBentoOutcomes({ props, brand }: Props) {
         <div className="md:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
           {displayTiles.slice(0, 6).map((tile, i) => (
             <div key={i} style={{ height: 260 }}>
-              <TileSwitch tile={tile} delay={i * 0.06} />
+              <TileSwitch tile={tile} delay={i * 0.06} onUpdate={updateTile ? (p) => updateTile(i, p) : undefined} />
             </div>
           ))}
         </div>

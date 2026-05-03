@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoCaseFlowBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P     = "var(--brand-primary, #003A30)";
@@ -79,9 +80,12 @@ const DEFAULT_STAGES = [
   },
 ];
 
-interface Props { props: DsoCaseFlowBlockProps }
+interface Props {
+  props: DsoCaseFlowBlockProps;
+  onFieldChange?: (updated: DsoCaseFlowBlockProps) => void;
+}
 
-export function BlockDsoCaseFlow({ props }: Props) {
+export function BlockDsoCaseFlow({ props, onFieldChange }: Props) {
   const {
     eyebrow = "How it works",
     headline = "From request to delivery, in days.",
@@ -89,8 +93,23 @@ export function BlockDsoCaseFlow({ props }: Props) {
     stages,
     backgroundStyle = "muted",
   } = props;
-
-  const displayStages = stages && stages.length > 0 ? stages.slice(0, 4) : DEFAULT_STAGES;
+  const field = (key: keyof DsoCaseFlowBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoCaseFlowBlockProps[typeof key] }) : undefined;
+  const baseStages = stages && stages.length > 0 ? stages : DEFAULT_STAGES;
+  const displayStages = baseStages.slice(0, 4);
+  const updateStage = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoCaseFlowBlockProps["stages"]>[number]>) => {
+        const seeded: NonNullable<DsoCaseFlowBlockProps["stages"]> = baseStages.map(s => ({
+          number: s.number,
+          label: s.label,
+          metric: s.metric,
+          metricLabel: s.metricLabel,
+          body: s.body,
+        }));
+        seeded[idx] = { ...seeded[idx], ...patch };
+        onFieldChange({ ...props, stages: seeded });
+      }
+    : undefined;
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-12%" });
 
@@ -108,7 +127,7 @@ export function BlockDsoCaseFlow({ props }: Props) {
             transition={{ duration: 0.5 }}
             style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1rem" }}
           >
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
           </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 18 }}
@@ -116,7 +135,7 @@ export function BlockDsoCaseFlow({ props }: Props) {
             transition={{ duration: 0.65, delay: 0.08 }}
             style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(2rem,4.5vw,3.5rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1rem" }}
           >
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 14 }}
@@ -124,7 +143,7 @@ export function BlockDsoCaseFlow({ props }: Props) {
             transition={{ duration: 0.55, delay: 0.15 }}
             style={{ fontSize: "1.0625rem", color: MUTED, lineHeight: 1.68, maxWidth: 540, margin: "0 auto" }}
           >
-            {subheadline}
+            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
           </motion.p>
         </div>
 
@@ -212,21 +231,21 @@ export function BlockDsoCaseFlow({ props }: Props) {
                 {/* Metric */}
                 <div>
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.75rem,3vw,2.5rem)", fontWeight: 800, color: AW, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "0.25rem" }}>
-                    {stage.metric}
+                    <InlineText as="span" value={stage.metric} onUpdate={updateStage ? (v) => updateStage(i, { metric: v }) : undefined} />
                   </p>
                   <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>
-                    {stage.metricLabel}
+                    <InlineText as="span" value={stage.metricLabel} onUpdate={updateStage ? (v) => updateStage(i, { metricLabel: v }) : undefined} />
                   </p>
                 </div>
 
                 {/* Label */}
                 <p style={{ fontFamily: DISPLAY_FONT, fontSize: "1.0625rem", fontWeight: 600, color: PFG, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                  {stage.label}
+                  <InlineText as="span" value={stage.label} onUpdate={updateStage ? (v) => updateStage(i, { label: v }) : undefined} />
                 </p>
 
                 {/* Body */}
                 <p style={{ fontSize: "0.875rem", lineHeight: 1.65, color: MUTED, flexGrow: 1 }}>
-                  {stage.body}
+                  <InlineText as="span" value={stage.body} onUpdate={updateStage ? (v) => updateStage(i, { body: v }) : undefined} multiline />
                 </p>
               </motion.div>
             ))}

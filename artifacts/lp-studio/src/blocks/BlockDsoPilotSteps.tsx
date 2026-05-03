@@ -5,11 +5,13 @@ import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers 
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { InlineText } from "@/components/InlineText";
 
 const STEP_ICONS = [Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers];
 
 interface Props {
   props: DsoPilotStepsBlockProps;
+  onFieldChange?: (updated: DsoPilotStepsBlockProps) => void;
 }
 
 // Brand-aware palette — primary/accent resolve to the wrapper's --brand-* CSS
@@ -59,8 +61,18 @@ const DEFAULT_STEPS = [
   },
 ];
 
-export function BlockDsoPilotSteps({ props }: Props) {
+export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
+  const field = (key: keyof DsoPilotStepsBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPilotStepsBlockProps[typeof key] }) : undefined;
+  const updateStep = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoPilotStepsBlockProps["steps"]>[number]>) => {
+        const list = (props.steps && props.steps.length > 0)
+          ? props.steps
+          : (DEFAULT_STEPS as unknown as NonNullable<DsoPilotStepsBlockProps["steps"]>);
+        onFieldChange({ ...props, steps: list.map((s, i) => i === idx ? { ...s, ...patch } : s) });
+      }
+    : undefined;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
@@ -111,7 +123,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -128,7 +140,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
               letterSpacing: "-0.015em",
             }}
           >
-            {headline || <>Start small. Prove it out.<br />Then scale.</>}
+            <InlineText as="span" value={headline || "Start small. Prove it out.\nThen scale."} onUpdate={field("headline")} multiline />
           </motion.h2>
           {subheadline && (
             <motion.p
@@ -145,7 +157,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                 margin: "1.5rem auto 0",
               }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -241,7 +253,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         letterSpacing: "-0.02em",
                       }}
                     >
-                      {step.title}
+                      <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} />
                     </h3>
                     <p
                       style={{
@@ -251,7 +263,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         marginTop: 4,
                       }}
                     >
-                      {step.subtitle}
+                      <InlineText as="span" value={step.subtitle} onUpdate={updateStep ? (v) => updateStep(i, { subtitle: v }) : undefined} />
                     </p>
                     <p
                       style={{
@@ -261,7 +273,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                         lineHeight: 1.7,
                       }}
                     >
-                      {step.desc}
+                      <InlineText as="span" value={step.desc} onUpdate={updateStep ? (v) => updateStep(i, { desc: v }) : undefined} multiline />
                     </p>
                     <ul style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: 8 }}>
                       {step.details.map((d) => (
@@ -329,7 +341,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                   border: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </ChiliPiperButton>
             ) : (
               <a
@@ -347,7 +359,7 @@ export function BlockDsoPilotSteps({ props }: Props) {
                   textDecoration: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </a>
             )}
           </motion.div>

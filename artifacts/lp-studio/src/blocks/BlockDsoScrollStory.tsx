@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useMotionValueEvent, useInView } from "framer-motion";
 import type { DsoScrollStoryBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -46,9 +47,10 @@ const DEFAULT_CHAPTERS: DsoScrollStoryBlockProps["chapters"] = [
 
 interface Props {
   props: DsoScrollStoryBlockProps;
+  onFieldChange?: (updated: DsoScrollStoryBlockProps) => void;
 }
 
-export function BlockDsoScrollStory({ props }: Props) {
+export function BlockDsoScrollStory({ props, onFieldChange }: Props) {
   const {
     eyebrow = "Why teams choose us",
     chapters,
@@ -57,6 +59,14 @@ export function BlockDsoScrollStory({ props }: Props) {
     sectionSubheading = "Scroll to explore each pillar of the platform.",
   } = props;
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
+  const field = (key: keyof DsoScrollStoryBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoScrollStoryBlockProps[typeof key] }) : undefined;
+  const updateChapter = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoScrollStoryBlockProps["chapters"]>[number]>) => {
+        const list = (chapters && chapters.length > 0) ? chapters : DEFAULT_CHAPTERS;
+        onFieldChange({ ...props, chapters: list.map((c, i) => i === idx ? { ...c, ...patch } : c) });
+      }
+    : undefined;
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -104,7 +114,7 @@ export function BlockDsoScrollStory({ props }: Props) {
               marginBottom: "1rem",
             }}
           >
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
           </motion.p>
         )}
         <motion.p
@@ -123,11 +133,11 @@ export function BlockDsoScrollStory({ props }: Props) {
             margin: "0 auto 1.25rem",
           }}
         >
-          {sectionHeading}
+          <InlineText as="span" value={sectionHeading} onUpdate={field("sectionHeading")} multiline />
         </motion.p>
         {sectionSubheading && (
           <p style={{ fontSize: "1.125rem", color: FG_MU, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-            {sectionSubheading}
+            <InlineText as="span" value={sectionSubheading} onUpdate={field("sectionSubheading")} multiline />
           </p>
         )}
       </div>
@@ -227,10 +237,10 @@ export function BlockDsoScrollStory({ props }: Props) {
                           marginBottom: "1.5rem",
                         }}
                       >
-                        {ch.headline}
+                        <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
                       </h3>
                       <p style={{ fontSize: "1.0625rem", lineHeight: 1.72, color: FG_MU, maxWidth: 440 }}>
-                        {ch.body}
+                        <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
                       </p>
                     </motion.div>
                   ))}
@@ -305,10 +315,10 @@ export function BlockDsoScrollStory({ props }: Props) {
                 {String(i + 1).padStart(2, "0")} / {String(displayChapters.length).padStart(2, "0")}
               </p>
               <h3 style={{ fontFamily: DISPLAY_FONT, fontSize: "1.375rem", fontWeight: 600, color: FG, letterSpacing: "-0.02em", lineHeight: 1.2, marginBottom: "0.875rem" }}>
-                {ch.headline}
+                <InlineText as="span" value={ch.headline} onUpdate={updateChapter ? (v) => updateChapter(i, { headline: v }) : undefined} multiline />
               </h3>
               <p style={{ fontSize: "0.9375rem", lineHeight: 1.68, color: FG_MU }}>
-                {ch.body}
+                <InlineText as="span" value={ch.body} onUpdate={updateChapter ? (v) => updateChapter(i, { body: v }) : undefined} multiline />
               </p>
             </motion.div>
           ))}

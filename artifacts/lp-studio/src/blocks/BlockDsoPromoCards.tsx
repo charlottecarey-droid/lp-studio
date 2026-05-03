@@ -2,10 +2,14 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoPromoCardsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoPromoCardsBlockProps;
+  onFieldChange?: (updated: DsoPromoCardsBlockProps) => void;
 }
+
+const DEFAULT_CARDS: DsoPromoCardsBlockProps["cards"] = [];
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
@@ -18,10 +22,18 @@ const BADGE_PALETTE: Record<string, { bg: string; text: string }> = {
   HOT:    { bg: "#ef4444", text: "#fff" },
 };
 
-export function BlockDsoPromoCards({ props }: Props) {
+export function BlockDsoPromoCards({ props, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, cards = [], backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
+  const field = (key: keyof DsoPromoCardsBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPromoCardsBlockProps[typeof key] }) : undefined;
+  const updateCard = onFieldChange
+    ? (idx: number, patch: Partial<DsoPromoCardsBlockProps["cards"][number]>) => {
+        const list = (cards && cards.length > 0) ? cards : DEFAULT_CARDS;
+        onFieldChange({ ...props, cards: list.map((c, i) => i === idx ? { ...c, ...patch } : c) });
+      }
+    : undefined;
 
   const eyebrowC  = dark ? LIME : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
@@ -42,7 +54,7 @@ export function BlockDsoPromoCards({ props }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -53,7 +65,7 @@ export function BlockDsoPromoCards({ props }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -64,7 +76,7 @@ export function BlockDsoPromoCards({ props }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -112,9 +124,20 @@ export function BlockDsoPromoCards({ props }: Props) {
                 )}
 
                 <div style={{ paddingRight: badge ? "3.5rem" : 0 }}>
-                  <p style={{ fontFamily: DISPLAY, fontSize: "1.25rem", fontWeight: 700, color: titleC, letterSpacing: "-0.015em", lineHeight: 1.2 }}>{card.title}</p>
+                  <InlineText
+                    as="p"
+                    value={card.title}
+                    onUpdate={updateCard ? (v) => updateCard(i, { title: v }) : undefined}
+                    style={{ fontFamily: DISPLAY, fontSize: "1.25rem", fontWeight: 700, color: titleC, letterSpacing: "-0.015em", lineHeight: 1.2 }}
+                  />
                 </div>
-                <p style={{ fontSize: "0.9375rem", color: descC, lineHeight: 1.65 }}>{card.desc}</p>
+                <InlineText
+                  as="p"
+                  value={card.desc}
+                  onUpdate={updateCard ? (v) => updateCard(i, { desc: v }) : undefined}
+                  multiline
+                  style={{ fontSize: "0.9375rem", color: descC, lineHeight: 1.65 }}
+                />
 
                 {card.ctaText && (
                   <a
@@ -132,7 +155,11 @@ export function BlockDsoPromoCards({ props }: Props) {
                       marginTop: "auto",
                     }}
                   >
-                    {card.ctaText}
+                    <InlineText
+                      as="span"
+                      value={card.ctaText}
+                      onUpdate={updateCard ? (v) => updateCard(i, { ctaText: v }) : undefined}
+                    />
                     <ArrowRight style={{ width: 14, height: 14 }} />
                   </a>
                 )}

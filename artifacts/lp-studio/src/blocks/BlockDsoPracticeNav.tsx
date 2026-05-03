@@ -5,6 +5,14 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DsoPracticeNavBlockProps } from "@/lib/block-types";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BrandLogo } from "@/components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
+
+const DEFAULT_NAV_LINKS = [
+  { label: "How it works", anchor: "#steps" },
+  { label: "Products", anchor: "#products" },
+  { label: "Partnership perks", anchor: "#perks" },
+  { label: "Meet your rep", anchor: "#team" },
+];
 
 const BG = "var(--brand-primary)";
 const BG_ALT = "#002B24";
@@ -14,22 +22,25 @@ const BORDER = "rgb(var(--brand-accent-rgb, 199 231 56) / 0.15)";
 interface Props {
   props: DsoPracticeNavBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoPracticeNavBlockProps) => void;
 }
 
-export function BlockDsoPracticeNav({ props, brand }: Props) {
+export function BlockDsoPracticeNav({ props, brand, onFieldChange }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const ctaUrl = props.ctaUrl || brand.chilipiperUrl || "#";
   const ctaMode = props.ctaMode || (brand.chilipiperUrl ? "chilipiper" : "link");
   const ctaText = props.ctaText || "Book a Demo";
-  const links = props.links?.length
-    ? props.links
-    : [
-        { label: "How it works", anchor: "#steps" },
-        { label: "Products", anchor: "#products" },
-        { label: "Partnership perks", anchor: "#perks" },
-        { label: "Meet your rep", anchor: "#team" },
-      ];
+  const links = props.links?.length ? props.links : DEFAULT_NAV_LINKS;
+
+  const field = (key: keyof DsoPracticeNavBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPracticeNavBlockProps[typeof key] }) : undefined;
+  const updateLink = onFieldChange
+    ? (idx: number, patch: Partial<DsoPracticeNavBlockProps["links"][number]>) => {
+        const list = props.links?.length ? props.links : DEFAULT_NAV_LINKS;
+        onFieldChange({ ...props, links: list.map((l, i) => i === idx ? { ...l, ...patch } : l) });
+      }
+    : undefined;
 
   const ctaBtnStyle: React.CSSProperties = {
     backgroundColor: LIME,
@@ -46,13 +57,13 @@ export function BlockDsoPracticeNav({ props, brand }: Props) {
     if (ctaMode === "chilipiper") {
       return (
         <ChiliPiperButton url={ctaUrl} className={cls} style={ctaBtnStyle}>
-          {ctaText}
+          <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
         </ChiliPiperButton>
       );
     }
     return (
       <a href={ctaUrl} className={cls} style={ctaBtnStyle} onClick={onClick}>
-        {ctaText}
+        <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
       </a>
     );
   };
@@ -69,7 +80,7 @@ export function BlockDsoPracticeNav({ props, brand }: Props) {
           {props.dsoName && (
             <>
               <span className="text-white/80 text-sm font-semibold tracking-wide whitespace-nowrap">
-                {props.dsoName}
+                <InlineText as="span" value={props.dsoName} onUpdate={field("dsoName")} />
               </span>
               <span className="text-white/30 text-sm font-light">×</span>
             </>
@@ -86,7 +97,7 @@ export function BlockDsoPracticeNav({ props, brand }: Props) {
               className="px-3 py-1.5 text-sm font-medium text-white/65 hover:text-white rounded-lg transition-colors whitespace-nowrap"
               style={{ "--tw-bg-opacity": "0.08" } as React.CSSProperties}
             >
-              {link.label}
+              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} />
             </a>
           ))}
         </nav>
@@ -120,7 +131,7 @@ export function BlockDsoPracticeNav({ props, brand }: Props) {
               onClick={() => setMobileOpen(false)}
               className="block px-3 py-2.5 text-sm font-medium text-white/75 hover:text-white rounded-lg transition-colors"
             >
-              {link.label}
+              <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, { label: v }) : undefined} />
             </a>
           ))}
           <div className="pt-2">

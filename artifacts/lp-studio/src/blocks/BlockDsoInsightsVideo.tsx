@@ -16,6 +16,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
+import { InlineText } from "@/components/InlineText";
 
 // Batch 1 (isi–isl)
 import scr_isi from "@assets/isi_1774822643018.png";
@@ -76,11 +77,21 @@ interface Props {
   props: DsoInsightsVideoBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoInsightsVideoBlockProps) => void;
 }
 
 const CALLOUT_ICONS = [LineChart, DollarSign, Stethoscope, Activity];
 
-export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
+const DEFAULT_CALLOUTS: Array<{ label: string; desc: string }> = [
+  { label: "Remake Rates",         desc: "Track quality by provider, not just practice" },
+  { label: "Spend Tracking",       desc: "Know where every dollar goes across all locations" },
+  { label: "Scan Quality",         desc: "Catch clinical issues before they become remakes" },
+  { label: "Provider Performance", desc: "Coach with data, not instinct" },
+];
+
+export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange }: Props) {
+  const field = (key: keyof DsoInsightsVideoBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsVideoBlockProps[typeof key] }) : undefined;
   // Support both new array prop and legacy named props
   const rawCallouts: Array<{ label: string; desc: string }> = props.callouts != null
     ? props.callouts
@@ -90,6 +101,13 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
         { label: props.callout3Label || "Scan Quality",         desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
         { label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
       ];
+  const updateCallout = onFieldChange
+    ? (idx: number, patch: Partial<{ label: string; desc: string }>) => {
+        const seeded = rawCallouts.map(c => ({ ...c }));
+        seeded[idx] = { ...seeded[idx], ...patch };
+        onFieldChange({ ...props, callouts: seeded });
+      }
+    : undefined;
   const callouts = rawCallouts.map((c, i) => ({ ...c, icon: CALLOUT_ICONS[i % CALLOUT_ICONS.length] }));
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -213,7 +231,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
           >
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
             <span className="text-[var(--brand-accent)] text-[10px] font-semibold tracking-[0.22em] uppercase">
-              {props.eyebrow || "Insights"}
+              <InlineText as="span" value={props.eyebrow || "Insights"} onUpdate={field("eyebrow")} />
             </span>
             <div className="h-px w-8 bg-[rgb(var(--brand-accent-rgb)/0.4)]" />
           </motion.div>
@@ -227,12 +245,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { y: 0, opacity: 1 } : { y: 60, opacity: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             >
-              {(props.title || "See everything.\nDo anything.").split("\n").map((line, i, arr) => (
-                <React.Fragment key={i}>
-                  {line}
-                  {i < arr.length - 1 && <br />}
-                </React.Fragment>
-              ))}
+              <InlineText as="span" value={props.title || "See everything.\nDo anything."} onUpdate={field("title")} multiline />
             </motion.h2>
           </div>
 
@@ -244,7 +257,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { y: 0, opacity: 1 } : { y: 30, opacity: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
-              {props.subtitle || "Before it becomes a problem."}
+              <InlineText as="span" value={props.subtitle || "Before it becomes a problem."} onUpdate={field("subtitle")} multiline />
             </motion.p>
           </div>
 
@@ -256,7 +269,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               animate={inView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 1, delay: 0.6 }}
             >
-              {props.description || "The only analytics platform purpose-built for modern dental groups."}
+              <InlineText as="span" value={props.description || "The only analytics platform purpose-built for modern dental groups."} onUpdate={field("description")} multiline />
             </motion.p>
           )}
         </div>
@@ -390,8 +403,12 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                   <callout.icon className="w-4 h-4 text-[var(--brand-accent)]" />
                 </div>
                 <div>
-                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">{callout.label}</h4>
-                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">{callout.desc}</p>
+                  <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight">
+                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} />
+                  </h4>
+                  <p className="text-[#F2EEE3]/50 text-sm leading-relaxed">
+                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline />
+                  </p>
                 </div>
               </div>
 
@@ -471,14 +488,14 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
               className="text-[#F2EEE3] text-xl md:text-2xl lg:text-3xl font-light leading-snug max-w-2xl text-center mb-8"
               style={{ letterSpacing: "-0.02em" }}
             >
-              {props.quote || "It would be insane not to use it given the data available."}
+              <InlineText as="span" value={props.quote || "It would be insane not to use it given the data available."} onUpdate={field("quote")} multiline />
             </p>
 
             {(props.quoteAttribution ?? "Dr. Eller, Clinical Leader") && (
               <div className="flex items-center gap-4">
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />
                 <p className="text-[#F2EEE3]/45 text-[11px] font-semibold tracking-[0.18em] uppercase">
-                  {props.quoteAttribution || "Dr. Eller, Clinical Leader"}
+                  <InlineText as="span" value={props.quoteAttribution || "Dr. Eller, Clinical Leader"} onUpdate={field("quoteAttribution")} />
                 </p>
                 <div className="w-10 h-px bg-[#F2EEE3]/25" />
               </div>
@@ -502,7 +519,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
-                {props.ctaLabel}
+                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} />
                 <ChevronRight className="w-4 h-4" />
               </ChiliPiperButton>
             ) : (
@@ -511,7 +528,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick }: Props) {
                 className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-[var(--brand-accent)] text-[#1B5435] text-sm font-semibold rounded-full hover:opacity-90 transition-all duration-200"
                 style={{ boxShadow: "0 8px 32px rgb(var(--brand-accent-rgb, 199 231 56) / 0.25), 0 2px 8px rgba(0,0,0,0.3)" }}
               >
-                {props.ctaLabel}
+                <InlineText as="span" value={props.ctaLabel} onUpdate={field("ctaLabel")} />
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}

@@ -3,11 +3,13 @@ import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoComparisonBlockProps;
   onCtaClick?: () => void;
   animationsEnabled?: boolean;
+  onFieldChange?: (updated: DsoComparisonBlockProps) => void;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -29,7 +31,7 @@ const DEFAULT_ROWS = [
   { need: "Change Management",       dandy: "Hands-on onboarding that respects team autonomy",            traditional: "Minimal onboarding, slow rollout" },
 ];
 
-export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true }: Props) {
+export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true, onFieldChange }: Props) {
   const {
     eyebrow = "The Difference",
     headline = "A modern stack vs. the old way.",
@@ -49,6 +51,14 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
     backgroundOverlay,
     overlayColor = "#000000",
   } = props;
+  const field = (key: keyof DsoComparisonBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoComparisonBlockProps[typeof key] }) : undefined;
+  const updateRow = onFieldChange
+    ? (idx: number, patch: Partial<{ need: string; dandy: string; traditional: string }>) => {
+        const list = (rows && rows.length > 0) ? rows : DEFAULT_ROWS;
+        onFieldChange({ ...props, rows: list.map((r, i) => i === idx ? { ...r, ...patch } : r) });
+      }
+    : undefined;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
@@ -86,7 +96,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -100,9 +110,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
               letterSpacing: "-0.015em",
             }}
           >
-            {headlineParts.length > 1 ? (
-              <>{headlineParts[0]}<br />{headlineParts.slice(1).join("\n")}</>
-            ) : headline}
+            <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline />
           </motion.h2>
           {subheadline && (
             <motion.p
@@ -116,7 +124,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 margin: "1.5rem auto 0",
               }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -150,7 +158,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 color: "hsla(48,100%,96%,0.5)",
               }}
             >
-              What {companyName} Needs
+              What <InlineText as="span" value={companyName} onUpdate={field("companyName")} /> Needs
             </div>
             <div
               style={{
@@ -163,7 +171,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              {providerLabel}
+              <InlineText as="span" value={providerLabel} onUpdate={field("providerLabel")} />
             </div>
             <div
               style={{
@@ -176,7 +184,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              {traditionalLabel}
+              <InlineText as="span" value={traditionalLabel} onUpdate={field("traditionalLabel")} />
             </div>
           </div>
 
@@ -203,7 +211,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                   letterSpacing: "-0.005em",
                 }}
               >
-                {row.need}
+                <InlineText as="span" value={row.need} onUpdate={updateRow ? (v) => updateRow(i, { need: v }) : undefined} />
               </div>
               <div
                 style={{
@@ -230,7 +238,9 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 >
                   <Check style={{ width: 11, height: 11, color: P }} strokeWidth={2.5} />
                 </div>
-                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55 }}>{row.dandy}</span>
+                <span style={{ fontSize: "0.875rem", color: tableDandyColor ?? FG, lineHeight: 1.55 }}>
+                  <InlineText as="span" value={row.dandy} onUpdate={updateRow ? (v) => updateRow(i, { dandy: v }) : undefined} multiline />
+                </span>
               </div>
               <div
                 style={{
@@ -242,7 +252,9 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 }}
               >
                 <Minus style={{ width: 16, height: 16, color: "hsla(152,8%,48%,0.25)", marginTop: 2, flexShrink: 0 }} />
-                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55 }}>{row.traditional}</span>
+                <span style={{ fontSize: "0.875rem", color: tableTraditionalColor ?? MU, lineHeight: 1.55 }}>
+                  <InlineText as="span" value={row.traditional} onUpdate={updateRow ? (v) => updateRow(i, { traditional: v }) : undefined} multiline />
+                </span>
               </div>
             </motion.div>
           ))}
@@ -281,7 +293,7 @@ export function BlockDsoComparison({ props, onCtaClick, animationsEnabled = true
                 e.currentTarget.style.boxShadow = `0 4px 16px rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`;
               }}
             >
-              {ctaText} <ArrowRight style={{ width: 16, height: 16 }} />
+              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} /> <ArrowRight style={{ width: 16, height: 16 }} />
             </button>
           </motion.div>
         )}

@@ -3,12 +3,14 @@ import { motion } from "framer-motion";
 import type { DandyProductHeroBlockProps } from "@/lib/block-types/dso-blocks";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { useBrandConfig } from "@/components/BrandSwatches";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   block: { props: DandyProductHeroBlockProps };
   onCtaClick?: (url: string, mode?: "link" | "chilipiper") => void;
   pageId?: number;
   variantId?: number;
+  onFieldChange?: (updated: DandyProductHeroBlockProps) => void;
 }
 
 const DANDY_GREEN = "var(--brand-primary)";
@@ -16,8 +18,10 @@ const DANDY_LIME = "var(--brand-accent)";
 const DISPLAY_FONT = `var(--brand-font-display, var(--app-font-display, 'Bagoss Standard')), 'Bagoss Standard', 'Reckless', Georgia, serif`;
 const SANS_FONT = `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
-export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: Props) {
+export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, onFieldChange }: Props) {
   const p = block.props;
+  const field = (key: keyof DandyProductHeroBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...p, [key]: v as DandyProductHeroBlockProps[typeof key] }) : undefined;
   const [email, setEmail] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const submitMode = p.submitMode ?? "navigate";
@@ -116,9 +120,9 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: 
           transition={{ duration: 0.6, ease: "easeOut" }}
           style={{ minWidth: 0, position: "relative", zIndex: 2 }}
         >
-          {p.eyebrow && <div style={eyebrowStyle}>{p.eyebrow}</div>}
-          <h1 style={headlineStyle}>{p.headline}</h1>
-          {p.subheadline && <p style={subStyle}>{p.subheadline}</p>}
+          {p.eyebrow && <div style={eyebrowStyle}><InlineText as="span" value={p.eyebrow} onUpdate={field("eyebrow")} /></div>}
+          <h1 style={headlineStyle}><InlineText as="span" value={p.headline || ""} onUpdate={field("headline")} multiline /></h1>
+          {p.subheadline && <p style={subStyle}><InlineText as="span" value={p.subheadline} onUpdate={field("subheadline")} multiline /></p>}
 
           <form
             onSubmit={handleSubmit}
@@ -171,7 +175,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: 
               onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.95)")}
               onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
             >
-              {p.primaryCtaText || "Get Started"}
+              <InlineText as="span" value={p.primaryCtaText || "Get Started"} onUpdate={field("primaryCtaText")} />
             </button>
           </form>
 
@@ -185,7 +189,7 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId }: 
                 maxWidth: "32rem",
               }}
             >
-              {p.disclaimer}
+              <InlineText as="span" value={p.disclaimer} onUpdate={field("disclaimer")} multiline />
             </p>
           )}
         </motion.div>

@@ -8,6 +8,7 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { AiScanReviewAnimation } from "./AiScanReviewAnimation";
 import { WordReveal } from "./WordReveal";
 import { StatCounter } from "./StatCounter";
+import { InlineText } from "@/components/InlineText";
 
 const P    = "var(--brand-primary, #0f172a)";
 const AW   = "var(--brand-accent, hsl(68,60%,52%))";
@@ -29,9 +30,10 @@ const DEFAULT_STATS = [
 
 interface Props {
   props: DsoAiFeatureBlockProps;
+  onFieldChange?: (updated: DsoAiFeatureBlockProps) => void;
 }
 
-export function BlockDsoAiFeature({ props }: Props) {
+export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
   const {
     eyebrow   = "Waste Prevention",
     headline  = "Rework is a tax. AI eliminates it.",
@@ -45,6 +47,23 @@ export function BlockDsoAiFeature({ props }: Props) {
     ctaUrl,
     ctaMode = "link",
   } = props;
+
+  const field = (key: keyof DsoAiFeatureBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoAiFeatureBlockProps[typeof key] }) : undefined;
+
+  const updateBullet = onFieldChange
+    ? (idx: number, v: string) => {
+        const list = (props.bullets && props.bullets.length > 0) ? props.bullets : DEFAULT_BULLETS.map(b => b.text);
+        onFieldChange({ ...props, bullets: list.map((b, i) => i === idx ? v : b) });
+      }
+    : undefined;
+
+  const updateStat = onFieldChange
+    ? (idx: number, patch: Partial<{ value: string; label: string }>) => {
+        const list = (props.stats && props.stats.length > 0) ? props.stats : DEFAULT_STATS;
+        onFieldChange({ ...props, stats: list.map((s, i) => i === idx ? { ...s, ...patch } : s) });
+      }
+    : undefined;
 
   const dark = isDarkBg(backgroundStyle);
   const fg   = dark ? "#fff"                    : P;
@@ -140,7 +159,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                   marginBottom: "1.25rem",
                 }}
               >
-                {eyebrow}
+                <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
               </motion.p>
             )}
             <h2
@@ -151,21 +170,30 @@ export function BlockDsoAiFeature({ props }: Props) {
                 fontWeight: 600,
                 letterSpacing: "-0.025em",
                 marginBottom: body ? "1.25rem" : 0,
+                color: fg,
               }}
             >
-              <WordReveal
-                text={headline}
-                dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.2)"}
-                brightColor={fg}
-              />
-            </h2>
-            {body && (
-              <p style={{ fontSize: "1rem", lineHeight: 1.7 }}>
+              {onFieldChange ? (
+                <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+              ) : (
                 <WordReveal
-                  text={body}
-                  dimColor={dark ? "rgba(255,255,255,0.15)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.18)"}
-                  brightColor={mu}
+                  text={headline}
+                  dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.2)"}
+                  brightColor={fg}
                 />
+              )}
+            </h2>
+            {(body || onFieldChange) && (
+              <p style={{ fontSize: "1rem", lineHeight: 1.7, color: mu }}>
+                {onFieldChange ? (
+                  <InlineText as="span" value={body} onUpdate={field("body")} multiline />
+                ) : (
+                  <WordReveal
+                    text={body}
+                    dimColor={dark ? "rgba(255,255,255,0.15)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.18)"}
+                    brightColor={mu}
+                  />
+                )}
               </p>
             )}
           </div>
@@ -187,10 +215,14 @@ export function BlockDsoAiFeature({ props }: Props) {
                   transition={{ delay: 0.1 + i * 0.08, type: "spring", stiffness: 100, damping: 16 }}
                 >
                   <p style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.5rem,2.5vw,2rem)", fontWeight: 600, letterSpacing: "-0.03em", color: fg, lineHeight: 1 }}>
-                    <StatCounter value={s.value} />
+                    {onFieldChange ? (
+                      <InlineText as="span" value={s.value} onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined} />
+                    ) : (
+                      <StatCounter value={s.value} />
+                    )}
                   </p>
                   <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: statMu, marginTop: "0.375rem" }}>
-                    {s.label}
+                    <InlineText as="span" value={s.label} onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined} />
                   </p>
                 </motion.div>
               ))}
@@ -198,11 +230,11 @@ export function BlockDsoAiFeature({ props }: Props) {
             {ctaText && (
               ctaMode === "chilipiper" ? (
                 <ChiliPiperButton url={ctaUrl ?? ""} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", cursor: "pointer", border: "none" }}>
-                  {ctaText}
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 </ChiliPiperButton>
               ) : (
                 <a href={ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem", borderRadius: "0.5rem", background: AW, color: P, fontWeight: 600, fontSize: "0.9375rem", textDecoration: "none" }}>
-                  {ctaText}
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 </a>
               )
             )}
@@ -260,7 +292,7 @@ export function BlockDsoAiFeature({ props }: Props) {
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: iconBg, border: `1px solid ${iconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon style={{ width: 13, height: 13, color: AW }} />
                   </div>
-                  <span style={{ fontSize: "0.9rem", color: mu2 }}>{text}</span>
+                  <InlineText as="span" value={text} onUpdate={updateBullet ? (v) => updateBullet(i, v) : undefined} style={{ fontSize: "0.9rem", color: mu2 }} />
                 </li>
               );
             })}

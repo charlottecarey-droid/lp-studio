@@ -3,6 +3,7 @@ import { motion, useInView, animate } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { DsoNetworkMapBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 // Brand-aware palette — resolves to the wrapper's --brand-* CSS vars (set by
@@ -157,9 +158,10 @@ function TickStat({ target, suffix, label, delay, inView }: {
 interface Props {
   props: DsoNetworkMapBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoNetworkMapBlockProps) => void;
 }
 
-export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
+export function BlockDsoNetworkMap({ props, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow    = "The Network",
     headline   = "One platform.\nEvery location.",
@@ -169,6 +171,8 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
     hubLabel   = "",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoNetworkMapBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoNetworkMapBlockProps[typeof key] }) : undefined;
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
@@ -207,7 +211,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
             transition={{ duration: 0.6 }}
             style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem" }}
           >
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
           </motion.p>
 
           <motion.h2
@@ -225,7 +229,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
               whiteSpace: "pre-line",
             }}
           >
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
 
           <motion.p
@@ -234,7 +238,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
             transition={{ duration: 0.6, delay: 0.16 }}
             style={{ fontSize: "clamp(0.9375rem,1.1vw,1.0625rem)", lineHeight: 1.72, color: MUTED, maxWidth: 440, marginBottom: "2.5rem" }}
           >
-            {body}
+            <InlineText as="span" value={body} onUpdate={field("body")} multiline />
           </motion.p>
 
           {/* Stats strip */}
@@ -286,7 +290,7 @@ export function BlockDsoNetworkMap({ props, onCtaClick }: Props) {
                 onMouseEnter={e => (e.currentTarget.style.opacity = "0.88")}
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

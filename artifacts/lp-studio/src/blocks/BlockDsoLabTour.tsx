@@ -11,10 +11,12 @@ import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoLabTourBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoLabTourBlockProps) => void;
 }
 
 const P   = "var(--brand-primary, #003A30)";
@@ -31,7 +33,7 @@ const LAB_HIGHLIGHTS = [
   { icon: MapPin,     label: "Multiple Locations"      },
 ];
 
-export function BlockDsoLabTour({ props, onCtaClick }: Props) {
+export function BlockDsoLabTour({ props, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow, headline, body,
     quote, quoteAttribution,
@@ -43,6 +45,8 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
     backgroundOverlay,
     overlayColor = "#000000",
   } = props;
+  const field = (key: keyof DsoLabTourBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoLabTourBlockProps[typeof key] }) : undefined;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
@@ -177,12 +181,12 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                             letterSpacing: "0.2em",
                           }}
                         >
-                          {imageEyebrow}
+                          <InlineText as="span" value={imageEyebrow} onUpdate={field("imageEyebrow")} />
                         </p>
                       )}
                       {imageCaption && (
                         <p style={{ marginTop: 4, fontSize: "1rem", fontWeight: 500, color: "#fff" }}>
-                          {imageCaption}
+                          <InlineText as="span" value={imageCaption} onUpdate={field("imageCaption")} multiline />
                         </p>
                       )}
                     </>
@@ -207,7 +211,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     marginBottom: "1.25rem",
                   }}
                 >
-                  {eyebrow}
+                  <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
                 </motion.p>
               )}
 
@@ -225,7 +229,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   color: headlineColor,
                 }}
               >
-                {headline}
+                <InlineText as="span" value={headline || ""} onUpdate={field("headline")} multiline />
               </motion.h2>
 
               {body && (
@@ -241,7 +245,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                     lineHeight: 1.7,
                   }}
                 >
-                  {body}
+                  <InlineText as="span" value={body} onUpdate={field("body")} multiline />
                 </motion.p>
               )}
 
@@ -283,11 +287,11 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                       position: "relative",
                     }}
                   >
-                    {quote}
+                    <InlineText as="span" value={quote} onUpdate={field("quote")} multiline />
                   </p>
                   {quoteAttribution && (
                     <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: quoteAttrColor, marginTop: 10 }}>
-                      — {quoteAttribution}
+                      — <InlineText as="span" value={quoteAttribution} onUpdate={field("quoteAttribution")} />
                     </p>
                   )}
                 </motion.blockquote>
@@ -389,7 +393,7 @@ export function BlockDsoLabTour({ props, onCtaClick }: Props) {
                   }}
                 >
                   <MapPin style={{ width: 16, height: 16 }} />
-                  {ctaText}
+                  <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 </motion.button>
               )}
             </motion.div>

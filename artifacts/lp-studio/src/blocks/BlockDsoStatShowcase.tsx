@@ -4,6 +4,7 @@ import { ScanAcross, PulseGlow } from "./SectionAmbient";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -39,12 +40,18 @@ function StatCard({
   fg,
   mu,
   borderColor,
+  onUpdateValue,
+  onUpdateLabel,
+  onUpdateDescription,
 }: {
   stat: DsoStatShowcaseBlockProps["stats"][number];
   index: number;
   fg: string;
   mu: string;
   borderColor: string;
+  onUpdateValue?: (v: string) => void;
+  onUpdateLabel?: (v: string) => void;
+  onUpdateDescription?: (v: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
@@ -84,19 +91,36 @@ function StatCard({
       }}
       className="group"
     >
-      <p
-        style={{
-          fontFamily: DISPLAY_FONT,
-          fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
-          fontWeight: 700,
-          color: fg,
-          letterSpacing: "-0.04em",
-          lineHeight: 1,
-          marginBottom: "1rem",
-        }}
-      >
-        {display}
-      </p>
+      {onUpdateValue ? (
+        <InlineText
+          as="p"
+          value={stat.value}
+          onUpdate={onUpdateValue}
+          style={{
+            fontFamily: DISPLAY_FONT,
+            fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
+            fontWeight: 700,
+            color: fg,
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            marginBottom: "1rem",
+          }}
+        />
+      ) : (
+        <p
+          style={{
+            fontFamily: DISPLAY_FONT,
+            fontSize: "clamp(2.25rem,4.5vw,3.5rem)",
+            fontWeight: 700,
+            color: fg,
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            marginBottom: "1rem",
+          }}
+        >
+          {display}
+        </p>
+      )}
 
       <motion.div
         style={{ height: 2, background: AW, marginBottom: "1rem", borderRadius: 1 }}
@@ -106,12 +130,12 @@ function StatCard({
       />
 
       <p style={{ fontSize: "0.875rem", fontWeight: 600, color: fg, marginBottom: "0.5rem", letterSpacing: "-0.01em" }}>
-        {stat.label}
+        <InlineText as="span" value={stat.label} onUpdate={onUpdateLabel} />
       </p>
 
-      {stat.description && (
+      {(stat.description || onUpdateDescription) && (
         <p style={{ fontSize: "0.8125rem", color: mu, lineHeight: 1.55 }}>
-          {stat.description}
+          <InlineText as="span" value={stat.description ?? ""} onUpdate={onUpdateDescription} multiline />
         </p>
       )}
 
@@ -135,9 +159,10 @@ function StatCard({
 
 interface Props {
   props: DsoStatShowcaseBlockProps;
+  onFieldChange?: (updated: DsoStatShowcaseBlockProps) => void;
 }
 
-export function BlockDsoStatShowcase({ props }: Props) {
+export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
   const {
     eyebrow = "By the Numbers",
     headline = "Results that compound at scale.",
@@ -147,8 +172,17 @@ export function BlockDsoStatShowcase({ props }: Props) {
     ctaUrl,
     ctaMode = "link",
   } = props;
+  const field = (key: keyof DsoStatShowcaseBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoStatShowcaseBlockProps[typeof key] }) : undefined;
   const base = stats && stats.length > 0 ? stats : DEFAULT_STATS;
   const displayStats = base.slice(0, 6);
+  const updateStat = onFieldChange
+    ? (idx: number, patch: Partial<DsoStatShowcaseBlockProps["stats"][number]>) => {
+        const seeded = base.map(s => ({ ...s }));
+        seeded[idx] = { ...seeded[idx], ...patch };
+        onFieldChange({ ...props, stats: seeded });
+      }
+    : undefined;
 
   const dark = isDarkBg(backgroundStyle);
   const fg         = dark ? "hsl(48,100%,96%)"      : P;
@@ -202,7 +236,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -220,7 +254,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
               margin: "0 auto",
             }}
           >
-            {headline}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
         </div>
 
@@ -236,7 +270,16 @@ export function BlockDsoStatShowcase({ props }: Props) {
               key={i}
               style={{ borderRight: `1px solid ${borderColor}` }}
             >
-              <StatCard stat={stat} index={i} fg={fg} mu={mu} borderColor={borderColor} />
+              <StatCard
+                stat={stat}
+                index={i}
+                fg={fg}
+                mu={mu}
+                borderColor={borderColor}
+                onUpdateValue={updateStat ? (v) => updateStat(i, { value: v }) : undefined}
+                onUpdateLabel={updateStat ? (v) => updateStat(i, { label: v }) : undefined}
+                onUpdateDescription={updateStat ? (v) => updateStat(i, { description: v }) : undefined}
+              />
             </div>
           ))}
         </div>
@@ -265,7 +308,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
                   border: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </ChiliPiperButton>
             ) : (
               <a
@@ -283,7 +326,7 @@ export function BlockDsoStatShowcase({ props }: Props) {
                   textDecoration: "none",
                 }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText ?? ""} onUpdate={field("ctaText")} />
               </a>
             )}
           </motion.div>

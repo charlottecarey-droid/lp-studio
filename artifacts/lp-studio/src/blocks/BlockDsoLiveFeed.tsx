@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { motion, useInView, animate } from "framer-motion";
 import type { DsoLiveFeedBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const P     = "var(--brand-primary, #003A30)";
@@ -144,9 +145,12 @@ function MetricRow({ metric, idx, inView }: { metric: Metric; idx: number; inVie
 }
 
 /* ── Main block ── */
-interface Props { props: DsoLiveFeedBlockProps }
+interface Props {
+  props: DsoLiveFeedBlockProps;
+  onFieldChange?: (updated: DsoLiveFeedBlockProps) => void;
+}
 
-export function BlockDsoLiveFeed({ props }: Props) {
+export function BlockDsoLiveFeed({ props, onFieldChange }: Props) {
   const {
     eyebrow = "Platform Intelligence",
     headline = "See everything.\nAct on what matters.",
@@ -155,6 +159,8 @@ export function BlockDsoLiveFeed({ props }: Props) {
     terminalLabel = "Live Insights",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoLiveFeedBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoLiveFeedBlockProps[typeof key] }) : undefined;
 
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "-10%" });
@@ -176,7 +182,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "1.5rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
@@ -184,7 +190,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
               transition={{ delay: 0.08 }}
               style={{ fontFamily: DISPLAY_FONT, fontSize: "clamp(1.875rem,3.5vw,3rem)", fontWeight: 700, color: PFG, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: "1.5rem", whiteSpace: "pre-line" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 16 }}
@@ -192,7 +198,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
               transition={{ delay: 0.16 }}
               style={{ fontSize: "1rem", lineHeight: 1.72, color: "hsla(48,100%,96%,0.5)" }}
             >
-              {body}
+              <InlineText as="span" value={body} onUpdate={field("body")} multiline />
             </motion.p>
 
           </div>
@@ -217,7 +223,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
                 ))}
               </div>
               <p style={{ fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED }}>
-                {terminalLabel}
+                <InlineText as="span" value={terminalLabel} onUpdate={field("terminalLabel")} />
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                 <div style={{
@@ -248,7 +254,7 @@ export function BlockDsoLiveFeed({ props }: Props) {
             {/* Footer */}
             <div style={{ padding: "0.75rem 1.5rem", borderTop: `1px solid ${ROW_BORDER}`, display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: AW, opacity: 0.6 }} />
-              <p style={{ fontSize: "0.6875rem", color: MUTED, fontStyle: "italic" }}>{footerNote}</p>
+              <p style={{ fontSize: "0.6875rem", color: MUTED, fontStyle: "italic" }}><InlineText as="span" value={footerNote} onUpdate={field("footerNote")} /></p>
             </div>
           </motion.div>
         </div>

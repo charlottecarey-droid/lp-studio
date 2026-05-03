@@ -6,13 +6,17 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoPartnershipPerksBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoPartnershipPerksBlockProps) => void;
 }
+
+const DEFAULT_PERKS: DsoPartnershipPerksBlockProps["perks"] = [];
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
@@ -55,10 +59,18 @@ function PerkIcon({ name, dark }: { name: string; dark: boolean }) {
   );
 }
 
-export function BlockDsoPartnershipPerks({ props, brand }: Props) {
+export function BlockDsoPartnershipPerks({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, perks = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark" } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
+  const field = (key: keyof DsoPartnershipPerksBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPartnershipPerksBlockProps[typeof key] }) : undefined;
+  const updatePerk = onFieldChange
+    ? (idx: number, patch: Partial<DsoPartnershipPerksBlockProps["perks"][number]>) => {
+        const list = (perks && perks.length > 0) ? perks : DEFAULT_PERKS;
+        onFieldChange({ ...props, perks: list.map((p, i) => i === idx ? { ...p, ...patch } : p) });
+      }
+    : undefined;
 
   const eyebrowC  = dark ? LIME : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
@@ -79,7 +91,7 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -90,7 +102,7 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -101,7 +113,7 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -126,8 +138,19 @@ export function BlockDsoPartnershipPerks({ props, brand }: Props) {
             >
               <PerkIcon name={perk.icon} dark={dark} />
               <div>
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{perk.title}</p>
-                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: 4, lineHeight: 1.6 }}>{perk.desc}</p>
+                <InlineText
+                  as="p"
+                  value={perk.title}
+                  onUpdate={updatePerk ? (v) => updatePerk(i, { title: v }) : undefined}
+                  style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}
+                />
+                <InlineText
+                  as="p"
+                  value={perk.desc}
+                  onUpdate={updatePerk ? (v) => updatePerk(i, { desc: v }) : undefined}
+                  multiline
+                  style={{ fontSize: "0.9375rem", color: descC, marginTop: 4, lineHeight: 1.6 }}
+                />
               </div>
             </motion.div>
           ))}

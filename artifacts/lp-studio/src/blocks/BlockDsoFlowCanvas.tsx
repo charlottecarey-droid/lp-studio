@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoFlowCanvasBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const PFG   = "hsl(48,100%,96%)";
@@ -27,9 +28,12 @@ const ORBS = [
   { bx: 0.68, by: 0.20, rx: 0.13, ry: 0.11, sx:-0.20, sy: 0.27, rad: 0.46, rgb: [ 5, 55, 30],  a: 0.16 },
 ];
 
-interface Props { props: DsoFlowCanvasBlockProps }
+interface Props {
+  props: DsoFlowCanvasBlockProps;
+  onFieldChange?: (updated: DsoFlowCanvasBlockProps) => void;
+}
 
-export function BlockDsoFlowCanvas({ props }: Props) {
+export function BlockDsoFlowCanvas({ props, onFieldChange }: Props) {
   const {
     eyebrow     = "What customers say",
     quote       = "It replaced three tools and freed up an FTE in the first quarter.",
@@ -39,6 +43,8 @@ export function BlockDsoFlowCanvas({ props }: Props) {
     imageUrl    = "",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoFlowCanvasBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFlowCanvasBlockProps[typeof key] }) : undefined;
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const animRef    = useRef<number>(0);
@@ -172,12 +178,15 @@ export function BlockDsoFlowCanvas({ props }: Props) {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Eyebrow */}
-          <p style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.20em",
-            textTransform: "uppercase", color: AW, marginBottom: "2.5rem",
-          }}>
-            {eyebrow}
-          </p>
+          <InlineText
+            as="p"
+            value={eyebrow}
+            onUpdate={field("eyebrow")}
+            style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.20em",
+              textTransform: "uppercase", color: AW, marginBottom: "2.5rem",
+            }}
+          />
 
           {/* Stat block */}
           <div style={{
@@ -197,15 +206,18 @@ export function BlockDsoFlowCanvas({ props }: Props) {
                 marginBottom: "0.85rem",
               }}
             >
-              {stat}
+              <InlineText as="span" value={stat} onUpdate={field("stat")} />
             </motion.p>
-            <p style={{
-              fontSize: "0.75rem", fontWeight: 700,
-              letterSpacing: "0.18em", textTransform: "uppercase",
-              color: AW,
-            }}>
-              {statLabel}
-            </p>
+            <InlineText
+              as="p"
+              value={statLabel}
+              onUpdate={field("statLabel")}
+              style={{
+                fontSize: "0.75rem", fontWeight: 700,
+                letterSpacing: "0.18em", textTransform: "uppercase",
+                color: AW,
+              }}
+            />
           </div>
 
           {/* Quote */}
@@ -222,16 +234,21 @@ export function BlockDsoFlowCanvas({ props }: Props) {
               whiteSpace: "pre-line",
               marginBottom: "2rem",
             }}>
-              {"\u201C"}{quote}{"\u201D"}
+              {"\u201C"}
+              <InlineText as="span" value={quote} onUpdate={field("quote")} multiline />
+              {"\u201D"}
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
               <div style={{ width: 24, height: 1, background: AW, opacity: 0.35, flexShrink: 0 }} />
-              <p style={{
-                fontSize: "0.6875rem", fontWeight: 700,
-                letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED,
-              }}>
-                {attribution}
-              </p>
+              <InlineText
+                as="p"
+                value={attribution}
+                onUpdate={field("attribution")}
+                style={{
+                  fontSize: "0.6875rem", fontWeight: 700,
+                  letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED,
+                }}
+              />
             </div>
           </motion.div>
         </motion.div>

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandySiteFooterBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DandySiteFooterBlockProps;
@@ -36,6 +37,23 @@ function InstagramIcon() {
 export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
   const groups = props.linkGroups ?? [];
   const copyright = props.copyrightText || `© ${new Date().getFullYear()} Dandy`;
+  const field = (key: keyof DandySiteFooterBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DandySiteFooterBlockProps[typeof key] }) : undefined;
+  const updateGroup = onFieldChange
+    ? (idx: number, patch: Partial<{ heading: string; links: Array<{ label: string; url: string }> }>) => {
+        const list = props.linkGroups ?? [];
+        onFieldChange({ ...props, linkGroups: list.map((g, i) => i === idx ? { ...g, ...patch } : g) });
+      }
+    : undefined;
+  const updateLink = onFieldChange
+    ? (gIdx: number, lIdx: number, patch: Partial<{ label: string; url: string }>) => {
+        const list = props.linkGroups ?? [];
+        const group = list[gIdx];
+        if (!group) return;
+        const newLinks = (group.links ?? []).map((l, i) => i === lIdx ? { ...l, ...patch } : l);
+        onFieldChange({ ...props, linkGroups: list.map((g, i) => i === gIdx ? { ...g, links: newLinks } : g) });
+      }
+    : undefined;
 
   return (
     <footer className="w-full bg-[#FDFCFA] border-t border-slate-200">
@@ -51,7 +69,9 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
               className="h-11 w-auto mb-5"
             />
             {props.disclaimer && (
-              <p className="text-sm text-slate-400 leading-relaxed max-w-xs">{props.disclaimer}</p>
+              <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
+                <InlineText as="span" value={props.disclaimer} onUpdate={field("disclaimer")} multiline />
+              </p>
             )}
           </div>
 
@@ -60,7 +80,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
             {groups.map((group, i) => (
               <div key={i}>
                 <span className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] block mb-5">
-                  {group.heading}
+                  <InlineText as="span" value={group.heading} onUpdate={updateGroup ? (v) => updateGroup(i, { heading: v }) : undefined} />
                 </span>
                 <ul className="space-y-3">
                   {(group.links ?? []).map((link, j) => (
@@ -69,7 +89,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
                         href={link.url || "#"}
                         className="text-base text-slate-500 hover:text-[var(--brand-primary)] transition-colors"
                       >
-                        {link.label}
+                        <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, j, { label: v }) : undefined} />
                       </a>
                     </li>
                   ))}
@@ -81,7 +101,9 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
 
         {/* Bottom bar */}
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-slate-400">{copyright}</p>
+          <p className="text-sm text-slate-400">
+            <InlineText as="span" value={copyright} onUpdate={field("copyrightText")} />
+          </p>
           <div className="flex items-center gap-3">
             {props.facebookUrl && (
               <a href={props.facebookUrl} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">

@@ -5,25 +5,35 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoActivationStepsBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoActivationStepsBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoActivationSteps({ props, brand }: Props) {
+export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow, headline, subheadline, steps = [],
     ctaText, ctaUrl, ctaMode = "link", backgroundStyle = "dark",
   } = props;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
+
+  const field = (key: keyof DsoActivationStepsBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoActivationStepsBlockProps[typeof key] }) : undefined;
+  const updateStep = onFieldChange && steps.length > 0
+    ? (idx: number, patch: Partial<DsoActivationStepsBlockProps["steps"][number]>) => {
+        onFieldChange({ ...props, steps: steps.map((s, i) => i === idx ? { ...s, ...patch } : s) });
+      }
+    : undefined;
 
   const eyebrowC  = dark ? LIME : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
@@ -46,7 +56,7 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -57,7 +67,7 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -68,7 +78,7 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -124,8 +134,12 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
                   backdropFilter: dark ? "blur(12px)" : "none",
                 }}
               >
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{step.title}</p>
-                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.5rem", lineHeight: 1.65 }}>{step.desc}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>
+                  <InlineText as="span" value={step.title} onUpdate={updateStep ? (v) => updateStep(i, { title: v }) : undefined} />
+                </p>
+                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.5rem", lineHeight: 1.65 }}>
+                  <InlineText as="span" value={step.desc} onUpdate={updateStep ? (v) => updateStep(i, { desc: v }) : undefined} multiline />
+                </p>
               </div>
             </motion.div>
           ))}
@@ -145,7 +159,7 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
                 className={getButtonClasses(brand, "inline-flex items-center gap-2")}
                 style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 <ArrowRight style={{ width: 16, height: 16 }} />
               </ChiliPiperButton>
             ) : (
@@ -159,7 +173,7 @@ export function BlockDsoActivationSteps({ props, brand }: Props) {
                 whileTap={{ scale: 0.96 }}
                 transition={SPRING}
               >
-                {ctaText}
+                <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
                 <ArrowRight style={{ width: 16, height: 16 }} />
               </motion.a>
             )}
