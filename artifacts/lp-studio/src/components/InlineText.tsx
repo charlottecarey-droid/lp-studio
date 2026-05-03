@@ -21,8 +21,6 @@ import {
   sanitizeInlineHtml,
   isLikelyHtml,
 } from "@/lib/sanitize-inline-html";
-import { InlineLinkPopover } from "@/components/InlineLinkPopover";
-
 interface InternalPageRef {
   id: number;
   title: string;
@@ -245,6 +243,12 @@ export function InlineText({
   // popover opens (focus moves out of the contentEditable).
   const savedRangeRef = useRef<Range | null>(null);
   const [linkPopover, setLinkPopover] = useState<{ url: string; newTab: boolean } | null>(null);
+  const [internalPages, setInternalPages] = useState<InternalPageRef[]>([]);
+  useEffect(() => {
+    if (linkPopover && internalPages.length === 0) {
+      fetchInternalPages().then(setInternalPages).catch(() => {});
+    }
+  }, [linkPopover, internalPages.length]);
 
   const openLinkPopover = () => {
     const sel = window.getSelection();
@@ -576,9 +580,42 @@ export function InlineText({
                   setLinkPopover(null);
                 }
               }}
-              placeholder="https://, mailto:, tel:, /page, #anchor"
+              placeholder="https://, /slug, mailto:, tel:, #anchor — or search a page"
               className="text-xs px-2 py-1.5 rounded border border-border bg-background text-foreground"
             />
+            {(() => {
+              const q = linkPopover.url.trim().toLowerCase();
+              const isExternal = /^(https?:|mailto:|tel:|#)/i.test(q);
+              if (q.length === 0 || isExternal) return null;
+              const matches = internalPages
+                .filter(
+                  (p) =>
+                    p.title.toLowerCase().includes(q) ||
+                    p.slug.toLowerCase().includes(q),
+                )
+                .slice(0, 5);
+              if (matches.length === 0) return null;
+              return (
+                <div className="border border-border rounded-md max-h-40 overflow-y-auto">
+                  {matches.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() =>
+                        setLinkPopover({ ...linkPopover, url: `/${p.slug}` })
+                      }
+                      className="w-full text-left px-2 py-1.5 hover:bg-accent text-[11px] flex items-center justify-between gap-2"
+                    >
+                      <span className="truncate">{p.title}</span>
+                      <span className="text-muted-foreground/70 text-[10px] shrink-0">
+                        /{p.slug}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             <label className="flex items-center gap-1.5 text-[11px] text-popover-foreground">
               <input
                 type="checkbox"
