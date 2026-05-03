@@ -7,6 +7,7 @@ import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BlockForm } from "./BlockForm";
+import { isLikelyHtml, sanitizeInlineHtml } from "@/lib/sanitize-inline-html";
 
 interface Props {
   props: EventLandingHeroBlockProps;
@@ -560,6 +561,13 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                                 eventDetailsBullets: (eventDetailsBullets ?? []).map((b, idx) => idx === i ? v : b),
                               })}
                             />
+                          ) : isLikelyHtml(bullet) ? (
+                            // Render through the same allowlist sanitizer as
+                            // InlineText so inline formatting (`<b>`, `<em>`,
+                            // links) the user added in the builder appears
+                            // formatted in the live viewer instead of as
+                            // literal `<b>…</b>` text.
+                            <span dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(bullet) }} />
                           ) : (
                             bullet
                           )}
