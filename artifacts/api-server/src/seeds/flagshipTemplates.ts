@@ -20,7 +20,7 @@ const aiProductLaunch: GlobalTemplateSeed = {
   templateLabel: "AI Product Launch",
   templateDescription:
     "A confident, modern launch page for an AI product — bold magazine hero, animated bento showcase of capabilities, and conversion-focused gradient pricing.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&q=80",
   industry: "saas",
   premiumRank: 1,
   blocks: [
@@ -72,7 +72,43 @@ const aiProductLaunch: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("editorial-carousel", 4),
+      id: id("sticky-stack", 4),
+      type: "sticky-stack",
+      props: {
+        eyebrow: "HOW IT WORKS",
+        headline: "Three reasons teams pick Vela.",
+        bgColor: "#0A0A0B",
+        cardScrollVh: 110,
+        cards: [
+          { tag: "CONTEXT", title: "Reads your codebase. Writes the PR.", body: "Vela ingests every doc, decision, and commit — then proposes pull requests with reasoning, tests, and changelog notes you can review in seconds.", imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", imageSide: "right", bgColor: "#0F0B2A", textColor: "#F5F5F7", accentColor: "#7B5BFF" },
+          { tag: "FAST", title: "Triage in minutes, not days.", body: "Vela auto-categorizes incoming tickets, suggests owners, and drafts the first reply — so your team starts every Monday with an empty inbox.", imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80", imageSide: "left", bgColor: "#1a1a1f", textColor: "#F5F5F7", accentColor: "#7B5BFF" },
+          { tag: "SAFE", title: "Your data, your boundary.", body: "VPC deploy, customer-managed keys, and full audit logging. Vela never trains on your data — and you can prove it on day one.", imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", imageSide: "right", bgColor: "#0B0B0F", textColor: "#F5F5F7", accentColor: "#7B5BFF" },
+        ],
+      },
+    },
+    {
+      id: id("dso-stat-showcase", 5),
+      type: "dso-stat-showcase",
+      props: {
+        eyebrow: "By the numbers",
+        headline: "What teams ship with Vela.",
+        stats: [
+          { value: "12x",  label: "Faster ticket triage", description: "Avg. across 200+ pilot teams in 2025." },
+          { value: "40%",  label: "Faster PR cycle time", description: "From draft to merge with auto-generated review notes." },
+          { value: "99.9%", label: "Uptime",              description: "Globally distributed, region-pinned for compliance." },
+          { value: "SOC 2", label: "Type II",             description: "Plus HIPAA, ISO 27001, and EU data residency." },
+          { value: "0",     label: "Training on your data", description: "Customer-managed keys. Always." },
+          { value: "60d",   label: "Avg. payback period",   description: "Most teams break even before quarter-end." },
+        ],
+      },
+    },
+    {
+      id: id("dandy-versus", 6),
+      type: "dandy-versus",
+      props: {},
+    },
+    {
+      id: id("editorial-carousel", 7),
       type: "editorial-carousel",
       props: {
         eyebrow: "In production at",
@@ -89,7 +125,7 @@ const aiProductLaunch: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("gradient-pricing", 5),
+      id: id("gradient-pricing", 8),
       type: "gradient-pricing",
       props: {
         eyebrow: "Pricing",
@@ -105,7 +141,7 @@ const aiProductLaunch: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("bottom-cta", 6),
+      id: id("bottom-cta", 9),
       type: "bottom-cta",
       props: {
         headline: "Ship the future. Starting today.",
@@ -129,7 +165,7 @@ const enterprisePlatform: GlobalTemplateSeed = {
   templateLabel: "Enterprise Platform",
   templateDescription:
     "A polished, IT-buyer-ready landing page for enterprise infrastructure — full-bleed hero, benefits grid, comparison, and a serious final CTA.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80",
   industry: "saas",
   premiumRank: 2,
   blocks: [
@@ -162,7 +198,41 @@ const enterprisePlatform: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("benefits-grid", 3),
+      id: id("sticky-stack", 3),
+      type: "sticky-stack",
+      props: {
+        eyebrow: "THE PLATFORM",
+        headline: "One control plane. Every cloud.",
+        bgColor: "#F8FAFC",
+        cardScrollVh: 110,
+        cards: [
+          { tag: "PROVISION", title: "Spin up secure environments in minutes.", body: "Pre-baked landing zones, golden VPCs, and policy-as-code from day one — across AWS, GCP, and Azure.", imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80", imageSide: "right", bgColor: "#0B1220", textColor: "#F8FAFC", accentColor: "#22D3EE" },
+          { tag: "GOVERN",    title: "Zero-trust, by default.",                  body: "RBAC + SCIM + SSO baked in. Every action gated by policy. Every access logged with full lineage.",                                  imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80", imageSide: "left",  bgColor: "#0F172A", textColor: "#F8FAFC", accentColor: "#22D3EE" },
+          { tag: "OBSERVE",   title: "Trace every request, end to end.",         body: "OTel-native traces, metrics, and logs. Anomalies surface before pages — not after the postmortem.",                                imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", imageSide: "right", bgColor: "#0B1220", textColor: "#F8FAFC", accentColor: "#22D3EE" },
+        ],
+      },
+    },
+    {
+      id: id("bento-showcase", 4),
+      type: "bento-showcase",
+      props: {
+        eyebrow: "Capabilities",
+        headline: "Everything your platform team needs.",
+        bgColor: "#0B1220",
+        textColor: "#F8FAFC",
+        accentColor: "#22D3EE",
+        tiles: [
+          { kind: "headline", size: "lg", headline: "Multi-cloud, one console.",      body: "Provision, govern, and audit AWS, GCP, Azure and on-prem identically." },
+          { kind: "stat",     size: "md", stat: "32",  statLabel: "Regions covered" },
+          { kind: "headline", size: "md", headline: "Pre-mapped compliance.",          body: "SOC 2, ISO 27001, HIPAA, FedRAMP — every control wired in on day one." },
+          { kind: "headline", size: "sm", headline: "Native integrations.",            body: "Okta, Datadog, Splunk, ServiceNow, Snowflake, Terraform Cloud." },
+          { kind: "headline", size: "sm", headline: "Policy as code.",                 body: "Versioned guardrails. Reviewable. Replayable." },
+          { kind: "stat",     size: "sm", stat: "99.99%", statLabel: "Platform SLA" },
+        ],
+      },
+    },
+    {
+      id: id("benefits-grid", 5),
       type: "benefits-grid",
       props: {
         headline: "Built for the people who actually run production.",
@@ -177,7 +247,7 @@ const enterprisePlatform: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("comparison", 4),
+      id: id("comparison", 6),
       type: "comparison",
       props: {
         headline: "Why teams replace their stack with us.",
@@ -200,12 +270,12 @@ const enterprisePlatform: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("dandy-versus", 5),
+      id: id("dandy-versus", 7),
       type: "dandy-versus",
       props: {},
     },
     {
-      id: id("testimonial", 6),
+      id: id("testimonial", 8),
       type: "testimonial",
       props: {
         quote: "We retired four tools and shipped our SOC 2 in half the time. The platform paid for itself in quarter one.",
@@ -214,7 +284,29 @@ const enterprisePlatform: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("bottom-cta", 7),
+      id: id("dandy-form-right-alt", 9),
+      type: "dandy-form-right-alt",
+      props: {
+        eyebrow: "TALK TO AN ARCHITECT",
+        headline: "Get a 30-minute platform tour.",
+        subheadline: "A senior solutions engineer will walk through your current architecture and show you exactly where the platform fits — no slides.",
+        bullets: [
+          "Tailored to your stack (AWS/GCP/Azure/on-prem)",
+          "Compliance walkthrough (SOC 2, ISO, HIPAA, FedRAMP)",
+          "Pricing and procurement options up front",
+          "References from peers in your industry",
+        ],
+        trustNote: "🔒 We never share your information. Used only to schedule your session.",
+        formHeadline: "Book your architecture review",
+        formSubheadline: "We'll respond within one business day to confirm a time.",
+        submitText: "Book a session",
+        formDisclaimer: "No purchase required.",
+        successMessage: "Thanks — a solutions engineer will reach out within one business day.",
+        bgColor: "#F8FAFC",
+      },
+    },
+    {
+      id: id("bottom-cta", 10),
       type: "bottom-cta",
       props: {
         headline: "Ready to see it in your stack?",
@@ -238,7 +330,7 @@ const premiumSaas: GlobalTemplateSeed = {
   templateLabel: "Premium SaaS",
   templateDescription:
     "An elegant, conversion-tuned SaaS landing page with a modern hero, sticky-stack story sequence, and gradient pricing.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
   industry: "saas",
   premiumRank: 3,
   blocks: [
@@ -275,12 +367,14 @@ const premiumSaas: GlobalTemplateSeed = {
       id: id("sticky-stack", 3),
       type: "sticky-stack",
       props: {
-        eyebrow: "Why it works",
+        eyebrow: "WHY IT WORKS",
         headline: "Built around the work — not around the org chart.",
+        bgColor: "#FAFAF7",
+        cardScrollVh: 110,
         cards: [
-          { headline: "Everything in one place", body: "Quotes, invoices, contacts, tasks. No more swivel-chair workflows.", accent: "#111827" },
-          { headline: "Automations that actually fire", body: "Visual rules with real previews and replay history.", accent: "#111827" },
-          { headline: "Reports leadership trusts", body: "Pre-built dashboards your CFO will actually open.", accent: "#111827" },
+          { tag: "ONE PLACE",   title: "Everything in one place.",            body: "Quotes, invoices, contacts, tasks — all attached to the customer record they belong to. No more swivel-chair workflows.", imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1200&q=80", imageSide: "right", bgColor: "#111827", textColor: "#F8FAFC", accentColor: "#22D3EE" },
+          { tag: "AUTOMATIONS", title: "Automations that actually fire.",     body: "Visual rules with real previews and a complete replay history. If it ran, you can prove it ran.",                              imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", imageSide: "left",  bgColor: "#0F172A", textColor: "#F8FAFC", accentColor: "#22D3EE" },
+          { tag: "REPORTS",     title: "Dashboards leadership trusts.",       body: "Pre-built reports your CFO will actually open — pipeline, cash, margin, and burn — refreshed live.",                            imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", imageSide: "right", bgColor: "#111827", textColor: "#F8FAFC", accentColor: "#22D3EE" },
         ],
       },
     },
@@ -333,7 +427,7 @@ const restaurant: GlobalTemplateSeed = {
   templateLabel: "Restaurant",
   templateDescription:
     "A warm, editorial restaurant page — moody hero photography, a real menu, hours & location with map embed, and a chef-led story.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80",
   industry: "restaurant",
   premiumRank: 4,
   blocks: [
@@ -429,7 +523,48 @@ const restaurant: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("bottom-cta", 5),
+      id: id("form", 5),
+      type: "form",
+      props: {
+        headline: "Reserve a table",
+        subheadline: "Tell us a date, time, and party size — we'll confirm by email within an hour.",
+        multiStep: false,
+        steps: [
+          {
+            title: "Reservation request",
+            fields: [
+              { id: "field-name",   type: "text",     label: "Full Name",       placeholder: "Your name",                  required: true },
+              { id: "field-email",  type: "email",    label: "Email",            placeholder: "you@example.com",            required: true },
+              { id: "field-phone",  type: "phone",    label: "Phone",            placeholder: "(212) 555-0142",             required: true },
+              { id: "field-date",   type: "text",     label: "Preferred date",   placeholder: "e.g. Friday, Aug 22",        required: true },
+              { id: "field-time",   type: "text",     label: "Preferred time",   placeholder: "e.g. 7:30 PM",               required: true },
+              { id: "field-party",  type: "select",   label: "Party size",       placeholder: "Select…",                    required: true, options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"] },
+              { id: "field-notes",  type: "textarea", label: "Allergies / notes", placeholder: "Anything we should know?",   required: false },
+            ],
+          },
+        ],
+        submitButtonText: "Request reservation",
+        successMessage: "Thanks — we'll confirm by email within the hour.",
+        redirectUrl: "",
+        backgroundStyle: "white",
+      },
+    },
+    {
+      id: id("sticky-bar", 6),
+      type: "sticky-bar",
+      props: {
+        text: "Reservations open 30 days out at midnight ET — book yours now.",
+        ctaText: "Reserve",
+        ctaUrl: "#reservations",
+        ctaColor: "#C7A664",
+        position: "top",
+        backgroundStyle: "dark",
+        showAfterScroll: 200,
+        dismissible: true,
+      },
+    },
+    {
+      id: id("bottom-cta", 7),
       type: "bottom-cta",
       props: {
         headline: "Book a table",
@@ -453,7 +588,7 @@ const creatorPortfolio: GlobalTemplateSeed = {
   templateLabel: "Creator / Portfolio",
   templateDescription:
     "A confident solo-creator portfolio — bold statement hero, editorial carousel of work, and a quiet, elegant about + contact.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1561070791-2526d30994b8?w=1200&q=80",
   industry: "creator",
   premiumRank: 5,
   blocks: [
@@ -529,7 +664,7 @@ const localServices: GlobalTemplateSeed = {
   templateLabel: "Local Services",
   templateDescription:
     "A trustworthy local service business page — friendly hero, real before/after photos, hours & service area, and a quote-request CTA.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1200&q=80",
   industry: "local-services",
   premiumRank: 6,
   blocks: [
@@ -628,7 +763,34 @@ const localServices: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("bottom-cta", 7),
+      id: id("form", 7),
+      type: "form",
+      props: {
+        headline: "Get a free quote",
+        subheadline: "Tell us about your project. We'll come measure for free and send a fixed-price quote within 48 hours.",
+        multiStep: false,
+        steps: [
+          {
+            title: "Project details",
+            fields: [
+              { id: "field-name",    type: "text",     label: "Full Name",       placeholder: "Your name",          required: true },
+              { id: "field-email",   type: "email",    label: "Email",            placeholder: "you@example.com",    required: true },
+              { id: "field-phone",   type: "phone",    label: "Phone",            placeholder: "(512) 555-0199",     required: true },
+              { id: "field-zip",     type: "text",     label: "ZIP code",         placeholder: "78704",              required: true },
+              { id: "field-project", type: "select",   label: "Project type",     placeholder: "Select…",            required: true, options: ["Kitchen", "Bath", "Whole home", "Outdoor / hardscape", "Other"] },
+              { id: "field-budget",  type: "select",   label: "Approx. budget",   placeholder: "Select…",            required: false, options: ["Under $25k", "$25k–$75k", "$75k–$150k", "$150k+"] },
+              { id: "field-notes",   type: "textarea", label: "Tell us more",     placeholder: "Anything we should know?", required: false },
+            ],
+          },
+        ],
+        submitButtonText: "Request my free quote",
+        successMessage: "Thanks — we'll be in touch within 48 hours to schedule your free in-home measurement.",
+        redirectUrl: "",
+        backgroundStyle: "white",
+      },
+    },
+    {
+      id: id("bottom-cta", 8),
       type: "bottom-cta",
       props: {
         headline: "Get your free quote",
@@ -652,7 +814,7 @@ const eventLanding: GlobalTemplateSeed = {
   templateLabel: "Event Landing",
   templateDescription:
     "A high-energy event landing page — bold hero with date, speaker grid, agenda highlights, and a pricing-style ticketing section.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80",
   industry: "events",
   premiumRank: 7,
   blocks: [
@@ -730,7 +892,45 @@ const eventLanding: GlobalTemplateSeed = {
       },
     },
     {
-      id: id("bottom-cta", 6),
+      id: id("photo-strip", 6),
+      type: "photo-strip",
+      props: {
+        images: [
+          { src: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80", alt: "Sponsor / Northwind" },
+          { src: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80", alt: "Sponsor / Latticework" },
+          { src: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&q=80", alt: "Sponsor / Veridian" },
+          { src: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=80", alt: "Sponsor / Helix" },
+          { src: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80", alt: "Sponsor / Atlas" },
+          { src: "https://images.unsplash.com/photo-1611605698323-b1e99cfd37ea?w=400&q=80", alt: "Sponsor / Fieldnotes" },
+        ],
+      },
+    },
+    {
+      id: id("form", 7),
+      type: "form",
+      props: {
+        headline: "RSVP for early access",
+        subheadline: "Tickets release in waves. Drop your details and we'll email you the moment your tier opens.",
+        multiStep: false,
+        steps: [
+          {
+            title: "Your details",
+            fields: [
+              { id: "field-name",    type: "text",   label: "Full Name", placeholder: "Your name",          required: true },
+              { id: "field-email",   type: "email",  label: "Email",      placeholder: "you@example.com",    required: true },
+              { id: "field-company", type: "text",   label: "Company",    placeholder: "Where you work",     required: false },
+              { id: "field-pass",    type: "select", label: "Interested pass", placeholder: "Select…",       required: true, options: ["Day pass ($299)", "Full conference ($799)", "Team of 5 ($2,995)"] },
+            ],
+          },
+        ],
+        submitButtonText: "Reserve my spot",
+        successMessage: "You're on the list — watch your inbox for your early-access link.",
+        redirectUrl: "",
+        backgroundStyle: "white",
+      },
+    },
+    {
+      id: id("bottom-cta", 8),
       type: "bottom-cta",
       props: {
         headline: "We'll save you a seat.",
@@ -754,7 +954,7 @@ const productizedAgency: GlobalTemplateSeed = {
   templateLabel: "Productized Agency",
   templateDescription:
     "A premium productized-service landing page — clear positioning, bento-style service tiles, transparent pricing, and a quiet portfolio carousel.",
-  ogImage: "",
+  ogImage: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80",
   industry: "agency",
   premiumRank: 8,
   blocks: [

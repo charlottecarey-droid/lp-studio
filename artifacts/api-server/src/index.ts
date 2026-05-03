@@ -923,7 +923,7 @@ async function runMigrations(): Promise<void> {
       // select field stored options as {label,value} objects and crashed
       // BlockForm with a minified "objects are not valid as a React
       // child" error in production.
-      const SEED_MARKER = "global_templates_seed_v15";
+      const SEED_MARKER = "global_templates_seed_v16";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
