@@ -6,12 +6,14 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoPromisesBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoPromisesBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
@@ -39,8 +41,17 @@ const ICON_MAP: Record<string, React.ElementType> = {
   gift: Gift,
 };
 
-export function BlockDsoPromises({ props, brand }: Props) {
+export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, promises = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary", backgroundStyle = "dark" } = props;
+  const field = (key: keyof DsoPromisesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPromisesBlockProps[typeof key] }) : undefined;
+  const updatePromise = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoPromisesBlockProps["promises"]>[number]>) =>
+        onFieldChange({
+          ...props,
+          promises: promises.map((p, i) => (i === idx ? { ...p, ...patch } : p)),
+        })
+    : undefined;
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -63,7 +74,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -82,7 +93,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
                 whiteSpace: "pre-line",
               }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -93,7 +104,7 @@ export function BlockDsoPromises({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 600, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -131,8 +142,21 @@ export function BlockDsoPromises({ props, brand }: Props) {
                 >
                   <Icon style={{ width: 24, height: 24, color: dark ? LIME : BRAND }} />
                 </div>
-                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>{promise.title}</p>
-                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.625rem", lineHeight: 1.65 }}>{promise.desc}</p>
+                <p style={{ fontFamily: DISPLAY, fontSize: "1.0625rem", fontWeight: 600, color: titleC, letterSpacing: "-0.01em" }}>
+                  <InlineText
+                    as="span"
+                    value={promise.title}
+                    onUpdate={updatePromise ? (v) => updatePromise(i, { title: v }) : undefined}
+                  />
+                </p>
+                <p style={{ fontSize: "0.9375rem", color: descC, marginTop: "0.625rem", lineHeight: 1.65 }}>
+                  <InlineText
+                    as="span"
+                    value={promise.desc}
+                    onUpdate={updatePromise ? (v) => updatePromise(i, { desc: v }) : undefined}
+                    multiline
+                  />
+                </p>
               </motion.div>
             );
           })}

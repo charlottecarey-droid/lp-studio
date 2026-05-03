@@ -7,20 +7,31 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoFaqBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoFaqBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoFaq({ props, brand }: Props) {
+export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "white" } = props;
+  const field = (key: keyof DsoFaqBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFaqBlockProps[typeof key] }) : undefined;
+  const updateItem = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoFaqBlockProps["items"]>[number]>) =>
+        onFieldChange({
+          ...props,
+          items: items.map((it, i) => (i === idx ? { ...it, ...patch } : it)),
+        })
+    : undefined;
   const [open, setOpen] = useState<number | null>(0);
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -45,7 +56,7 @@ export function BlockDsoFaq({ props, brand }: Props) {
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           {headline && (
@@ -56,7 +67,7 @@ export function BlockDsoFaq({ props, brand }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             >
-              {headline}
+              <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
           {subheadline && (
@@ -67,7 +78,7 @@ export function BlockDsoFaq({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7 }}
             >
-              {subheadline}
+              <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -111,7 +122,11 @@ export function BlockDsoFaq({ props, brand }: Props) {
                     flex: 1,
                   }}
                 >
-                  {item.question}
+                  <InlineText
+                    as="span"
+                    value={item.question}
+                    onUpdate={updateItem ? (v) => updateItem(i, { question: v }) : undefined}
+                  />
                 </span>
                 <motion.span
                   animate={{ rotate: open === i ? 180 : 0 }}
@@ -139,7 +154,12 @@ export function BlockDsoFaq({ props, brand }: Props) {
                         lineHeight: 1.75,
                       }}
                     >
-                      {item.answer}
+                      <InlineText
+                        as="span"
+                        value={item.answer}
+                        onUpdate={updateItem ? (v) => updateItem(i, { answer: v }) : undefined}
+                        multiline
+                      />
                     </p>
                   </motion.div>
                 )}

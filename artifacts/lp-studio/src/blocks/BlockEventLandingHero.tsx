@@ -4,11 +4,13 @@ import { ChevronDown } from "lucide-react";
 import type { EventLandingHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: EventLandingHeroBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: EventLandingHeroBlockProps) => void;
 }
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
@@ -27,7 +29,10 @@ function readableOn(hex: string): string {
   return lum > 0.6 ? "#0f172a" : "#ffffff";
 }
 
-export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
+export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+  const field = (key: keyof EventLandingHeroBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as EventLandingHeroBlockProps[typeof key] }) : undefined;
+
   const {
     backgroundImage,
     backgroundImageAlt,
@@ -173,7 +178,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
               textShadow: "0 1px 12px rgba(0,0,0,0.4)",
             }}
           >
-            {eyebrow}
+            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
           </motion.p>
         )}
 
@@ -193,7 +198,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
             maxWidth: "18ch",
           }}
         >
-          {headline}
+          <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
         </motion.h1>
 
         {(dateText || locationText) && (
@@ -218,7 +223,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
                   textShadow: "0 1px 8px rgba(0,0,0,0.4)",
                 }}
               >
-                {dateText}
+                <InlineText as="span" value={dateText} onUpdate={field("dateText")} />
               </p>
             )}
             {locationText && (
@@ -232,7 +237,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
                   color: "rgba(255,255,255,0.78)",
                 }}
               >
-                {locationText}
+                <InlineText as="span" value={locationText} onUpdate={field("locationText")} />
               </p>
             )}
           </motion.div>
@@ -273,7 +278,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick }: Props) {
               e.currentTarget.style.color = ctaFg;
             }}
           >
-            {ctaText}
+            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
           </motion.button>
         )}
       </motion.div>

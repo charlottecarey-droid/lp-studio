@@ -2,9 +2,11 @@ import { motion } from "framer-motion";
 import { TrendingDown, BarChart3, Scale, Wallet } from "lucide-react";
 import type { DsoChallengesBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoChallengesBlockProps;
+  onFieldChange?: (updated: DsoChallengesBlockProps) => void;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -36,8 +38,21 @@ const DEFAULT_CHALLENGES = [
   },
 ];
 
-export function BlockDsoChallenges({ props }: Props) {
+export function BlockDsoChallenges({ props, onFieldChange }: Props) {
   const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges, backgroundImage, backgroundOverlay, overlayColor = "#000000" } = props;
+  const field = (key: keyof DsoChallengesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoChallengesBlockProps[typeof key] }) : undefined;
+  const updateChallenge = onFieldChange
+    ? (idx: number, patch: Partial<NonNullable<DsoChallengesBlockProps["challenges"]>[number]>) => {
+        const list = (challenges && challenges.length > 0)
+          ? challenges
+          : (DEFAULT_CHALLENGES as NonNullable<DsoChallengesBlockProps["challenges"]>);
+        onFieldChange({
+          ...props,
+          challenges: list.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+        });
+      }
+    : undefined;
   const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayChallenges = (challenges && challenges.length > 0) ? challenges : DEFAULT_CHALLENGES;
@@ -77,7 +92,7 @@ export function BlockDsoChallenges({ props }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
           <motion.h2
@@ -94,7 +109,12 @@ export function BlockDsoChallenges({ props }: Props) {
               letterSpacing: "-0.015em",
             }}
           >
-            {headline || "At scale — even small inefficiencies compound fast."}
+            <InlineText
+              as="span"
+              value={headline || "At scale — even small inefficiencies compound fast."}
+              onUpdate={field("headline")}
+              multiline
+            />
           </motion.h2>
         </div>
 
@@ -158,7 +178,11 @@ export function BlockDsoChallenges({ props }: Props) {
                     lineHeight: 1.4,
                   }}
                 >
-                  {c.title}
+                  <InlineText
+                    as="span"
+                    value={c.title}
+                    onUpdate={updateChallenge ? (v) => updateChallenge(i, { title: v }) : undefined}
+                  />
                 </h3>
                 <p
                   style={{
@@ -167,7 +191,12 @@ export function BlockDsoChallenges({ props }: Props) {
                     lineHeight: 1.7,
                   }}
                 >
-                  {c.desc}
+                  <InlineText
+                    as="span"
+                    value={c.desc}
+                    onUpdate={updateChallenge ? (v) => updateChallenge(i, { desc: v }) : undefined}
+                    multiline
+                  />
                 </p>
               </motion.div>
             );

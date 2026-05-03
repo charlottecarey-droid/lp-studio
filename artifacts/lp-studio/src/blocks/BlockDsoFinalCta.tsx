@@ -5,10 +5,12 @@ import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoFinalCtaBlockProps;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: DsoFinalCtaBlockProps) => void;
 }
 
 const P     = "hsl(152,42%,12%)";
@@ -16,7 +18,10 @@ const PFG   = "hsl(48,100%,96%)";
 const AW    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
+export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange }: Props) {
+  const field = (key: keyof DsoFinalCtaBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFinalCtaBlockProps[typeof key] }) : undefined;
+
   const {
     eyebrow = "Next Steps",
     headline = "Prove ROI. Then scale.",
@@ -157,7 +162,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
                 marginBottom: "1.25rem",
               }}
             >
-              {eyebrow}
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
             </motion.p>
           </>
         )}
@@ -176,9 +181,11 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
             letterSpacing: "-0.025em",
           }}
         >
-          {headlineLines.length > 1 ? (
-            <>{headlineLines[0]}<br />{headlineLines[1]}</>
-          ) : headline}
+          {onFieldChange ? (
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+          ) : (
+            headlineLines.length > 1 ? (<>{headlineLines[0]}<br />{headlineLines[1]}</>) : headline
+          )}
         </motion.h2>
 
         {subheadline && (
@@ -194,7 +201,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
               lineHeight: 1.7,
             }}
           >
-            {subheadline}
+            <InlineText as="span" value={subheadline} onUpdate={field("subheadline")} multiline />
           </motion.p>
         )}
 
@@ -243,7 +250,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
                 e.currentTarget.style.boxShadow = `0 4px 20px rgb(var(--brand-accent-rgb, 199 231 56) / 0.314)`;
               }}
             >
-              {primaryCtaText} <ArrowRight style={{ width: 16, height: 16 }} />
+              <InlineText as="span" value={primaryCtaText} onUpdate={field("primaryCtaText")} /> <ArrowRight style={{ width: 16, height: 16 }} />
             </button>
           )}
           {secondaryCtaText && (
@@ -275,7 +282,7 @@ export function BlockDsoFinalCta({ props, onCtaClick }: Props) {
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              {secondaryCtaText}
+              <InlineText as="span" value={secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>
           )}
         </motion.div>

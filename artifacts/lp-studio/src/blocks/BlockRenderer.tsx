@@ -522,7 +522,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-success-stories":
         return <BlockDsoSuccessStories props={block.props} />;
       case "dso-challenges":
-        return <BlockDsoChallenges props={block.props} />;
+        return <BlockDsoChallenges props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-pilot-steps":
         return <BlockDsoPilotSteps props={block.props} />;
       case "dso-final-cta":
@@ -530,6 +530,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockDsoFinalCta
             props={block.props}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveDsoCtaUrl(block.props.primaryCtaUrl, block.props.primaryCtaMode)) : undefined}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "dso-comparison":
@@ -607,7 +608,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-activation-steps":
         return <BlockDsoActivationSteps props={block.props} brand={brand} />;
       case "dso-promises":
-        return <BlockDsoPromises props={block.props} brand={brand} />;
+        return <BlockDsoPromises props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} brand={brand} />;
       case "dso-practice-nav":
@@ -617,7 +618,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-stat-row":
         return <BlockDsoStatRow props={block.props} brand={brand} />;
       case "dso-faq":
-        return <BlockDsoFaq props={block.props} brand={brand} />;
+        return <BlockDsoFaq props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-split-feature":
         return <BlockDsoSplitFeature props={block.props} brand={brand} />;
       case "dso-software-showcase":
@@ -667,6 +668,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "") : undefined}
+            onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "spatial-tour":
