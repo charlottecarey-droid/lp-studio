@@ -68,6 +68,7 @@ import { DandyConversionPanel1Panel } from "./DandyConversionPanel1Panel";
 import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { EventPagePanel } from "./EventPagePanel";
+import { BentoShowcasePanel } from "./BentoShowcasePanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -4981,9 +4982,15 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             brandVoiceSet={brandVoiceSet}
           />
         );
+      case "bento-showcase":
+        return (
+          <BentoShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
       case "magazine-hero":
       case "bold-statement":
-      case "bento-showcase":
       case "gradient-pricing":
         return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
       case "event-landing-hero":
