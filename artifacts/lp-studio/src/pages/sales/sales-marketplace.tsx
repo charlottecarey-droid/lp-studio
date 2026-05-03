@@ -28,6 +28,12 @@ interface TemplatePage {
   status: string;
   mode: string;
   ogImage: string;
+  /** True for global starter templates shared across tenants; false (or
+   *  missing on legacy responses) for templates owned by the caller's
+   *  tenant. Used to keep tenant-owned templates ahead of global starters
+   *  in every sort order, so DSO templates and other internal designs
+   *  always appear first. */
+  isGlobal?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,12 +95,28 @@ export default function SalesMarketplace() {
     }
 
     const sorted = [...result];
+    // Primary sort key — tenant-owned templates always appear before
+    // global starter templates, regardless of the user-selected sort.
+    // Secondary sort is the user-selected option.
+    const ownedRank = (t: TemplatePage) => (t.isGlobal ? 1 : 0);
     if (sortBy === "Newest") {
-      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      sorted.sort((a, b) => {
+        const r = ownedRank(a) - ownedRank(b);
+        if (r !== 0) return r;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
     } else if (sortBy === "Name") {
-      sorted.sort((a, b) => a.templateLabel.localeCompare(b.templateLabel));
+      sorted.sort((a, b) => {
+        const r = ownedRank(a) - ownedRank(b);
+        if (r !== 0) return r;
+        return a.templateLabel.localeCompare(b.templateLabel);
+      });
     } else if (sortBy === "Most Blocks") {
-      sorted.sort((a, b) => b.blockCount - a.blockCount);
+      sorted.sort((a, b) => {
+        const r = ownedRank(a) - ownedRank(b);
+        if (r !== 0) return r;
+        return b.blockCount - a.blockCount;
+      });
     }
 
     return sorted;
