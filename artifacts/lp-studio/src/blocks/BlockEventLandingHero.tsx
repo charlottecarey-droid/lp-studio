@@ -36,6 +36,20 @@ function readableOn(hex: string): string {
   return lum > 0.6 ? "#0f172a" : "#ffffff";
 }
 
+/** Convert a `#rrggbb` (or `#rgb`) hex into an `rgba()` string with the given
+ *  alpha. Used to build the CTA box-shadow + shine gradient from a
+ *  user-picked color while keeping the original alpha curve. */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = (hex || "#000000").replace("#", "").trim();
+  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+  const num = parseInt(full.slice(0, 6), 16);
+  if (Number.isNaN(num)) return `rgba(0,0,0,${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /** Clamp a font-scale multiplier so users can't blow up the layout. */
 function clampScale(v: unknown, fallback = 1): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -69,7 +83,11 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     ctaText,
     ctaUrl,
     ctaDropShadow = false,
+    ctaDropShadowColor = "#000000",
+    ctaDropShadowIntensity = 1,
     ctaShine = false,
+    ctaShineColor = "#ffffff",
+    ctaShineIntensity = 1,
     showScrollIndicator = true,
     scrollLabel = "SCROLL DOWN",
     scrollTargetId,
@@ -362,9 +380,15 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                 // When `ctaDropShadow` is on, layer a tighter inner shadow with
                 // a wider, softer outer halo so the button reads as elevated
                 // off the hero photo. Otherwise keep the original subtle one.
-                boxShadow: ctaDropShadow
-                  ? "0 2px 6px rgba(0,0,0,0.25), 0 18px 42px rgba(0,0,0,0.55)"
-                  : "0 8px 28px rgba(0,0,0,0.35)",
+                // Color + intensity are user-editable; defaults reproduce the
+                // original black `rgba(0,0,0,…)` look exactly when intensity=1.
+                boxShadow: (() => {
+                  const k = Math.max(0, Math.min(2, ctaDropShadowIntensity));
+                  if (k === 0) return "none";
+                  return ctaDropShadow
+                    ? `0 2px 6px ${hexToRgba(ctaDropShadowColor, 0.25 * k)}, 0 18px 42px ${hexToRgba(ctaDropShadowColor, 0.55 * k)}`
+                    : `0 8px 28px ${hexToRgba(ctaDropShadowColor, 0.35 * k)}`;
+                })(),
                 transition: "background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease",
               }}
               onMouseEnter={(e) => {
@@ -378,10 +402,12 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
             >
               <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
               {ctaShine && (
-                // Diagonal white sheen sweeping across the button every few
-                // seconds. `pointer-events: none` so it never intercepts the
-                // click, and `mix-blend-mode: screen` keeps the sheen visible
-                // on both light- and dark-tinted button backgrounds.
+                // Diagonal sheen sweeping across the button every few seconds.
+                // `pointer-events: none` so it never intercepts the click, and
+                // `mix-blend-mode: screen` keeps the sheen visible on both
+                // light- and dark-tinted button backgrounds. Color + opacity
+                // are user-editable; defaults (white, intensity=1) reproduce
+                // the original look exactly.
                 <motion.span
                   aria-hidden
                   initial={{ x: "-120%" }}
@@ -394,8 +420,8 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     width: "55%",
                     height: "100%",
                     pointerEvents: "none",
-                    background:
-                      "linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)",
+                    background: `linear-gradient(115deg, ${hexToRgba(ctaShineColor, 0)} 0%, ${hexToRgba(ctaShineColor, 0.55)} 50%, ${hexToRgba(ctaShineColor, 0)} 100%)`,
+                    opacity: Math.max(0, Math.min(1, ctaShineIntensity)),
                     mixBlendMode: "screen",
                     transform: "skewX(-20deg)",
                   }}

@@ -300,19 +300,62 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
             />
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">Premium drop shadow on CTA</Label>
-          <Switch
-            checked={props.ctaDropShadow ?? false}
-            onCheckedChange={(v) => set("ctaDropShadow", v)}
+        <div className="space-y-2 border rounded-md p-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Premium drop shadow on CTA</Label>
+            <Switch
+              checked={props.ctaDropShadow ?? false}
+              onCheckedChange={(v) => set("ctaDropShadow", v)}
+            />
+          </div>
+          <ColorField
+            label="Shadow color"
+            value={props.ctaDropShadowColor}
+            onChange={(v) => set("ctaDropShadowColor", v)}
           />
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Shadow intensity — {((props.ctaDropShadowIntensity ?? 1) * 100).toFixed(0)}%
+            </Label>
+            <Slider
+              min={0}
+              max={2}
+              step={0.05}
+              value={[props.ctaDropShadowIntensity ?? 1]}
+              onValueChange={(v) => set("ctaDropShadowIntensity", v[0])}
+            />
+            <p className="text-[11px] text-muted-foreground">100% = original look. 0 hides the shadow; up to 200% boosts it.</p>
+          </div>
         </div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">Animated shine on CTA</Label>
-          <Switch
-            checked={props.ctaShine ?? false}
-            onCheckedChange={(v) => set("ctaShine", v)}
-          />
+        <div className="space-y-2 border rounded-md p-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Animated shine on CTA</Label>
+            <Switch
+              checked={props.ctaShine ?? false}
+              onCheckedChange={(v) => set("ctaShine", v)}
+            />
+          </div>
+          {(props.ctaShine ?? false) && (
+            <>
+              <ColorField
+                label="Shine color"
+                value={props.ctaShineColor}
+                onChange={(v) => set("ctaShineColor", v)}
+              />
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Shine intensity — {((props.ctaShineIntensity ?? 1) * 100).toFixed(0)}%
+                </Label>
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={[props.ctaShineIntensity ?? 1]}
+                  onValueChange={(v) => set("ctaShineIntensity", v[0])}
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <Label className="text-xs">Show "Scroll down" indicator</Label>

@@ -1085,9 +1085,20 @@ export interface EventLandingHeroBlockProps {
   /** When true, the CTA button gets a stronger drop shadow to lift it off
    *  the background. Default false (subtle shadow only). */
   ctaDropShadow?: boolean;
+  /** Color of the CTA drop shadow. Defaults to `#000000`. Applies whether
+   *  or not `ctaDropShadow` is on (the toggle controls the layered "premium"
+   *  shape; this controls the tint of those shadows). */
+  ctaDropShadowColor?: string;
+  /** Multiplier on the shadow alpha. 1 = original look, 0 = no shadow,
+   *  values up to 2 boost it. Defaults to 1. */
+  ctaDropShadowIntensity?: number;
   /** When true, the CTA button gets an animated "shine" sweep across its
    *  surface every few seconds to draw the eye. Default false. */
   ctaShine?: boolean;
+  /** Tint color of the animated shine sweep. Defaults to `#ffffff`. */
+  ctaShineColor?: string;
+  /** Opacity multiplier on the shine sweep, 0–1. Defaults to 1. */
+  ctaShineIntensity?: number;
   /** Show the "SCROLL DOWN" indicator at the bottom. Default true. */
   showScrollIndicator?: boolean;
   /** Label rendered above the scroll-down chevron. Default "SCROLL DOWN". */
