@@ -1625,6 +1625,454 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       genericFooter("Lighthouse", 9),
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 12. Halo Insights — Data Visibility Platform (visibility-inspired:
+  //     tight hero → trust-bar → "by the numbers" stat → product-grid of
+  //     dashboards → benefits → testimonial → bottom-cta)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-data-platform",
+    title: "Data Visibility Platform",
+    templateLabel: "Data Visibility Platform",
+    templateDescription:
+      "Editorial layout for analytics, observability, and BI products. Tight hero, by-the-numbers stat strip, dashboard product grid, benefits, customer quote, and CTA.",
+    ogImage:
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Halo Insights", 1),
+      {
+        id: blockId("hero", 2),
+        type: "hero",
+        props: {
+          headlineSize: "lg",
+          headline: "Finally see what's actually happening across your business.",
+          subheadline:
+            "Halo unifies the metrics buried in your warehouse, your CRM, and your billing system into one live picture every team can act on. No more screenshots in Slack.",
+          ctaText: "See a live demo",
+          ctaUrl: "#cta",
+          ctaColor: ACCENT_BLUE,
+          heroType: "static-image",
+          layout: "centered",
+          backgroundStyle: "white",
+          showSocialProof: true,
+          socialProofText: "Trusted by data teams at 1,200+ growing companies",
+          imageUrl:
+            "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1600&h=900&fit=crop",
+          mediaUrl: "",
+        },
+      },
+      {
+        id: blockId("trust-bar", 3),
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "1,200+", label: "Companies" },
+            { value: "240B", label: "Events Indexed Daily" },
+            { value: "<2s", label: "Median Query Time" },
+            { value: "SOC 2", label: "Type II Certified" },
+          ],
+        },
+      },
+      {
+        id: blockId("stat-callout", 4),
+        type: "stat-callout",
+        props: {
+          stat: "By the numbers",
+          description: "Teams switching to Halo cut weekly reporting time by an average of 14 hours and answer 3× more ad-hoc questions in the first quarter.",
+          footnote: "Median across 380 customers surveyed in their first 90 days, 2025.",
+        },
+      },
+      {
+        id: blockId("product-grid", 5),
+        type: "product-grid",
+        props: {
+          headline: "One platform. Every view your team needs.",
+          subheadline: "Pre-built for the metrics modern operating teams actually live in — and fully customizable for the ones you'll invent next.",
+          items: [
+            { image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&h=400&fit=crop", title: "Revenue intelligence", description: "Pipeline, win-rate, and cohort views that update in real time as deals move through your CRM." },
+            { image: "https://images.unsplash.com/photo-1543286386-713bdd548da4?q=80&w=600&h=400&fit=crop", title: "Product analytics", description: "Funnels, retention, and feature adoption — without the eight-week instrumentation project." },
+            { image: "https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=600&h=400&fit=crop", title: "Operations dashboards", description: "SLAs, throughput, and queue health for every team that runs on tickets, calls, or shifts." },
+            { image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=600&h=400&fit=crop", title: "Financial close", description: "Live P&L, burn, and runway pulled straight from your ledger — never a quarter behind again." },
+            { image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&h=400&fit=crop", title: "Executive briefings", description: "Auto-generated weekly snapshots delivered to Slack, email, or your boardroom on the morning you need them." },
+            { image: "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?q=80&w=600&h=400&fit=crop", title: "Custom workspaces", description: "Build any view with drag-and-drop. Save it, share it, and let your team riff on it without breaking the source." },
+          ],
+        },
+      },
+      {
+        id: blockId("benefits-grid", 6),
+        type: "benefits-grid",
+        props: {
+          headline: "Why teams pick Halo over the legacy stack",
+          columns: 3,
+          items: [
+            { icon: "Zap", title: "Live, not lagged", description: "Streaming refresh on every chart. No more dashboards that explain what was true 36 hours ago." },
+            { icon: "Layers", title: "Connect everything", description: "200+ native sources — warehouses, SaaS apps, files, APIs — wired up in minutes by anyone, no SQL required." },
+            { icon: "ShieldCheck", title: "Trust by default", description: "Row-level permissions, full audit trail, and a single semantic layer so two charts never disagree on the same number." },
+            { icon: "Sparkles", title: "AI that actually helps", description: "Ask a question in plain English and get back the chart, the SQL, and the citation. Edit either if you don't trust it yet." },
+            { icon: "Workflow", title: "Embed anywhere", description: "Drop any Halo view into your product, your CRM, or your wiki — with the same permissions visitors already have." },
+            { icon: "Users", title: "Built for the whole team", description: "Analysts get the depth they need. Operators get the buttons they want. Executives get the picture they trust." },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 7),
+        type: "testimonial",
+        props: {
+          quote:
+            "We replaced three BI tools and a quarterly snapshot deck nobody read. Now leadership opens Halo before standup — and the conversations have changed completely.",
+          author: "Renata Suzuki",
+          role: "VP Data & Analytics",
+          practiceName: "Northpath Logistics",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 8),
+        type: "bottom-cta",
+        props: {
+          headline: "Stop guessing. Start seeing.",
+          subheadline: "30-minute walkthrough on your own data. No slideware, no procurement. Just a working environment by the end of the call.",
+          ctaText: "See a live demo",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Halo Insights", 9),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 13. Aperture — Modern Product Launch (sizzle-inspired: full-bleed
+  //     hero → photo-strip → benefits → comparison → stat → CTA)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-modern-launch",
+    title: "Modern Product Launch",
+    templateLabel: "Modern Product Launch",
+    templateDescription:
+      "Cinematic launch page for new products. Full-bleed hero, scrolling photo strip, benefits row, side-by-side comparison, headline stat, and a single decisive CTA.",
+    ogImage:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Aperture", 1),
+      {
+        id: blockId("full-bleed-hero", 2),
+        type: "full-bleed-hero",
+        props: {
+          headlineSize: "lg",
+          headline: "A camera that thinks the way photographers do.",
+          subheadline:
+            "Three years in the lab. One sensor that finally reads light the way your eye does. Pre-orders open today — first 5,000 ship before the holidays.",
+          ctaText: "Reserve yours — $1,499",
+          ctaUrl: "#cta",
+          backgroundType: "image",
+          backgroundImageUrl:
+            "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1920&h=1080&fit=crop",
+          overlayOpacity: 45,
+        },
+      },
+      {
+        id: blockId("photo-strip", 3),
+        type: "photo-strip",
+        props: {
+          images: [
+            { src: "https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?q=80&w=600&fit=crop", alt: "Camera body close-up" },
+            { src: "https://images.unsplash.com/photo-1452780212940-6f5c0d14d848?q=80&w=600&fit=crop", alt: "Sensor detail" },
+            { src: "https://images.unsplash.com/photo-1500051638674-ff996a0ec29e?q=80&w=600&fit=crop", alt: "Field photography" },
+            { src: "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=600&fit=crop", alt: "Studio shot" },
+            { src: "https://images.unsplash.com/photo-1495121605193-b116b5b9c5fe?q=80&w=600&fit=crop", alt: "Behind the scenes" },
+            { src: "https://images.unsplash.com/photo-1510127034890-ba27508e9f1c?q=80&w=600&fit=crop", alt: "Lifestyle shot" },
+            { src: "https://images.unsplash.com/photo-1452457436173-5cf72d65d6f3?q=80&w=600&fit=crop", alt: "Architecture frame" },
+          ],
+        },
+      },
+      {
+        id: blockId("benefits-grid", 4),
+        type: "benefits-grid",
+        props: {
+          headline: "Designed for the moments you don't get a second take at.",
+          columns: 3,
+          items: [
+            { icon: "Camera", title: "47 megapixels, full frame", description: "A sensor built around dynamic range, not just headline numbers. The shadows hold detail. The highlights don't blow out." },
+            { icon: "Zap", title: "Instant on", description: "From shoulder strap to first frame in under 200ms. The shot you almost missed is the one you actually take." },
+            { icon: "Eye", title: "Subject-aware autofocus", description: "On-chip neural focus tracks eyes, animals, and vehicles across the frame at 30 fps without breaking a sweat." },
+            { icon: "Battery", title: "All-day stamina", description: "1,800 shots per charge. Two USB-C ports so you can shoot tethered while you keep filling up." },
+            { icon: "Move", title: "In-body stabilization", description: "Eight stops. Hand-holdable at one second. The tripod stays in the bag more often than you'd think." },
+            { icon: "Sliders", title: "Color you'll trust", description: "A color science built with cinematographers, not committees. The skin tones come out of the box looking right." },
+          ],
+        },
+      },
+      {
+        id: blockId("comparison", 5),
+        type: "comparison",
+        props: {
+          headline: "What changes when the camera works with you.",
+          ctaText: "Reserve yours",
+          ctaUrl: "#",
+          oldWayLabel: "The Old Way",
+          oldWayBullets: [
+            "Menus that take 14 taps to change one setting",
+            "Autofocus that hunts, especially indoors",
+            "Battery that taps out before lunch",
+            "RAW files that need an hour of color work",
+            "Firmware that ages out within a single body",
+          ],
+          newWayLabel: "Aperture",
+          newWayBullets: [
+            "Customizable shortcuts on every dial and button",
+            "Subject-aware focus that locks before you do",
+            "1,800 frames per charge — and a hot-swap door",
+            "Color profiles that ship-ready straight out of camera",
+            "Quarterly firmware updates for the life of the body",
+          ],
+        },
+      },
+      {
+        id: blockId("stat-callout", 6),
+        type: "stat-callout",
+        props: {
+          stat: "5,000",
+          description: "first-edition bodies hand-numbered and shipping before the holidays",
+          footnote: "Reservations open globally today. Production scales to standard supply in Q2.",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 7),
+        type: "bottom-cta",
+        props: {
+          headline: "The first 5,000 ship before the holidays.",
+          subheadline: "Reserve with $99. Charged in full only when your body ships. Cancel any time before then.",
+          ctaText: "Reserve yours — $1,499",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Aperture", 8),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 14. Loomwell — Quality Operating System (lab-inspired: hero →
+  //     how-it-works → comparison → product-grid → testimonial → CTA)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-quality-os",
+    title: "Quality Operating System",
+    templateLabel: "Quality Operating System",
+    templateDescription:
+      "Sophisticated layout for AI, quality, and platform products. Hero, three-step how-it-works, old-way / new-way comparison, capability grid, customer quote, and CTA.",
+    ogImage:
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Loomwell", 1),
+      {
+        id: blockId("hero", 2),
+        type: "hero",
+        props: {
+          headlineSize: "lg",
+          headline: "Ship the quality bar your customers expect — without slowing the team down.",
+          subheadline:
+            "Loomwell is the quality OS modern engineering teams run on. Eval suites, regression checks, and human review woven through your delivery pipeline so nothing ships that shouldn't.",
+          ctaText: "Book a working session",
+          ctaUrl: "#cta",
+          ctaColor: ACCENT_BLUE,
+          heroType: "static-image",
+          layout: "centered",
+          backgroundStyle: "white",
+          showSocialProof: true,
+          socialProofText: "Powering quality at 600+ engineering teams",
+          imageUrl:
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1600&h=900&fit=crop",
+          mediaUrl: "",
+        },
+      },
+      {
+        id: blockId("how-it-works", 3),
+        type: "how-it-works",
+        props: {
+          headline: "Quality, woven through every release",
+          steps: [
+            { number: "01", title: "Define what good looks like", description: "Capture the rubric your team already argues about — accuracy, tone, latency, safety — into versioned eval suites you can actually run." },
+            { number: "02", title: "Run it on every change", description: "Loomwell wires into your CI and your model gateway. Every PR, every deploy, every prompt change is graded automatically before it merges." },
+            { number: "03", title: "Close the loop with humans", description: "Edge cases route to the right reviewer with full context. Their decisions feed back into the suite, so the bar gets sharper every week." },
+          ],
+        },
+      },
+      {
+        id: blockId("comparison", 4),
+        type: "comparison",
+        props: {
+          headline: "A different relationship with quality.",
+          ctaText: "Book a working session",
+          ctaUrl: "#",
+          oldWayLabel: "The Old Way",
+          oldWayBullets: [
+            "Spot-checks in a Google Sheet nobody trusts",
+            "Regressions discovered by customers, not engineers",
+            "Eval scripts that rot a week after the launch",
+            "Reviewers staring at JSON in a side window",
+            "No way to prove the model actually got better",
+          ],
+          newWayLabel: "Loomwell",
+          newWayBullets: [
+            "Versioned eval suites tied to every prompt and model",
+            "Regressions caught in CI before the PR merges",
+            "Suites maintained by the platform, not your interns",
+            "Reviewers see the prompt, the response, and the diff",
+            "Every release ships with a quality report you can show the board",
+          ],
+        },
+      },
+      {
+        id: blockId("product-grid", 5),
+        type: "product-grid",
+        props: {
+          headline: "Everything you'd build yourself, finally in one place.",
+          subheadline: "Open standards, your data stays yours, and a clean exit any time. Built by people who've shipped this stuff at scale.",
+          items: [
+            { image: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=600&h=400&fit=crop", title: "Eval suites", description: "Versioned, sharable, and runnable from your laptop or your CI. Mix human, model-graded, and rule-based scorers in one harness." },
+            { image: "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600&h=400&fit=crop", title: "Regression guard", description: "Block any PR that drops a tracked metric. Wire it up in 10 minutes — every major CI provider supported out of the box." },
+            { image: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=600&h=400&fit=crop", title: "Trace explorer", description: "Search, filter, and replay every production trace. Click any span to see the prompt, the response, the timing, and the cost." },
+            { image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=600&h=400&fit=crop", title: "Human review queues", description: "Route the cases your evals are uncertain about to the right person, with the right context, and an SLA you actually hit." },
+            { image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=600&h=400&fit=crop", title: "Prompt registry", description: "Source-controlled prompts with diffs, A/B routing, and one-click rollback. Stop pasting them from Notion at 11pm on a Friday." },
+            { image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=600&h=400&fit=crop", title: "Quality reports", description: "Auto-generated release notes that answer the only question that matters: is this version actually better than the last one?" },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 6),
+        type: "testimonial",
+        props: {
+          quote:
+            "Loomwell turned quality from a quarterly fire drill into a habit. Our regression rate dropped 70% in the first month, and our launch reviews went from two-hour debates to a five-minute readout.",
+          author: "Priya Vasanth",
+          role: "Head of Engineering",
+          practiceName: "Cardinal AI",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 7),
+        type: "bottom-cta",
+        props: {
+          headline: "Make quality a system, not a hope.",
+          subheadline: "Working session with one of our engineers. We'll wire Loomwell into one repo and leave you with a working setup before the call ends.",
+          ctaText: "Book a working session",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Loomwell", 8),
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 15. Pasture & Stone — Craft Consumer Experience (ice-cream-inspired:
+  //     full-bleed photo hero → trust-bar → photo-strip → stat → benefits
+  //     → testimonial → bottom-cta)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    slug: "global-craft-experience",
+    title: "Craft Consumer Experience",
+    templateLabel: "Craft Consumer Experience",
+    templateDescription:
+      "Warm, photo-led layout for craft consumer brands — food, beauty, hospitality, retail. Full-bleed hero, social proof bar, scrolling gallery, hero stat, story benefits, customer quote, and CTA.",
+    ogImage:
+      "https://images.unsplash.com/photo-1488900128323-21503983a07e?q=80&w=1200&h=630&fit=crop",
+    industry: "generic",
+    blocks: [
+      genericNav("Pasture & Stone", 1),
+      {
+        id: blockId("full-bleed-hero", 2),
+        type: "full-bleed-hero",
+        props: {
+          headlineSize: "lg",
+          headline: "Ice cream, made the way it used to be.",
+          subheadline:
+            "Hand-churned in small batches with milk from a single farm two valleys over. Twelve flavors, rotated weekly, served in two shops and a roaming cart you'll find by following your nose.",
+          ctaText: "Find this week's flavors",
+          ctaUrl: "#cta",
+          backgroundType: "image",
+          backgroundImageUrl:
+            "https://images.unsplash.com/photo-1488900128323-21503983a07e?q=80&w=1920&h=1080&fit=crop",
+          overlayOpacity: 40,
+        },
+      },
+      {
+        id: blockId("trust-bar", 3),
+        type: "trust-bar",
+        props: {
+          items: [
+            { value: "Est. 2014", label: "Family Owned" },
+            { value: "1 Farm", label: "Single Source Dairy" },
+            { value: "12", label: "Flavors Weekly" },
+            { value: "★★★★★", label: "Two Bib Gourmand Mentions" },
+          ],
+        },
+      },
+      {
+        id: blockId("photo-strip", 4),
+        type: "photo-strip",
+        props: {
+          images: [
+            { src: "https://images.unsplash.com/photo-1576506295286-5cda18df43e7?q=80&w=600&fit=crop", alt: "Hand-scooped cone" },
+            { src: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?q=80&w=600&fit=crop", alt: "Strawberry sorbet" },
+            { src: "https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?q=80&w=600&fit=crop", alt: "Pistachio pint" },
+            { src: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?q=80&w=600&fit=crop", alt: "Counter scene" },
+            { src: "https://images.unsplash.com/photo-1472552944129-b035e9ea3744?q=80&w=600&fit=crop", alt: "Chocolate swirl" },
+            { src: "https://images.unsplash.com/photo-1567206563064-6f60f40a2b57?q=80&w=600&fit=crop", alt: "Sundae plate" },
+            { src: "https://images.unsplash.com/photo-1486427944299-d1955d23e34d?q=80&w=600&fit=crop", alt: "Cone in hand at sunset" },
+          ],
+        },
+      },
+      {
+        id: blockId("stat-callout", 5),
+        type: "stat-callout",
+        props: {
+          stat: "48 hours",
+          description: "from the morning milking to the first scoop you'll taste at the counter",
+          footnote: "Single-herd dairy from Vesper Hill Farm, churned the same afternoon it arrives.",
+        },
+      },
+      {
+        id: blockId("benefits-grid", 6),
+        type: "benefits-grid",
+        props: {
+          headline: "What goes in. What stays out.",
+          columns: 3,
+          items: [
+            { icon: "Heart", title: "One farm, one herd", description: "Every pint starts with milk from the same 60 cows in Vesper Hill — pasture-raised, hand-milked, never blended with anyone else's." },
+            { icon: "Sun", title: "Real fruit, in season", description: "Strawberries in June. Stone fruit in August. Persimmons in November. If it's not in season, it's not on the menu that week." },
+            { icon: "Wheat", title: "Five ingredients or fewer", description: "Cream, sugar, eggs, salt, and whatever it's flavored with. No stabilizers, no gums, no shelf-life chemistry." },
+            { icon: "Leaf", title: "Local everything", description: "Vanilla from a co-op in Madagascar we've worked with since 2016. Honey from two beekeepers down the road. Salt from the bay outside the window." },
+            { icon: "Clock", title: "Made this morning", description: "Each batch is churned by hand the day before it sells. What's left at close goes home with the staff. Nothing waits." },
+            { icon: "Users", title: "Family-run, on purpose", description: "Started by two sisters in a converted dairy. Still made by them, their kids, and a small crew that knows your order." },
+          ],
+        },
+      },
+      {
+        id: blockId("testimonial", 7),
+        type: "testimonial",
+        props: {
+          quote:
+            "I have driven across three counties for an ice cream cone exactly once in my life — and that was the day I found Pasture & Stone. The strawberry tasted like a strawberry. I had forgotten that was allowed.",
+          author: "Jordan Whitfield",
+          role: "Food Critic",
+          practiceName: "The Valley Review",
+        },
+      },
+      {
+        id: blockId("bottom-cta", 8),
+        type: "bottom-cta",
+        props: {
+          headline: "This week's flavors are up.",
+          subheadline: "Twelve rotating flavors, two shops, and a roaming cart on weekends. Come early — the good ones go before lunch.",
+          ctaText: "Find this week's flavors",
+          ctaUrl: "#",
+        },
+      },
+      genericFooter("Pasture & Stone", 9),
+    ],
+  },
 ];
 
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
