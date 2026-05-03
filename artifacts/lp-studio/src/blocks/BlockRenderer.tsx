@@ -778,6 +778,10 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           <BlockEventLandingHero
             props={block.props}
             brand={brand}
+            pageId={pageId}
+            testId={testId}
+            variantId={variantId}
+            sessionId={sessionId}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "") : undefined}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />

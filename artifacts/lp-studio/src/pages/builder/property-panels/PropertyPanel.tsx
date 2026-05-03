@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,6 +94,375 @@ interface Props {
   brand?: BrandConfig;
   pageId?: number;
   onApplyCtaToAll?: () => void;
+}
+
+interface EventLandingHeroPanelProps {
+  props: Extract<PageBlock, { type: "event-landing-hero" }>["props"];
+  onChange: (props: Extract<PageBlock, { type: "event-landing-hero" }>["props"]) => void;
+}
+
+interface GlobalFormSummaryLite { id: number; name: string }
+
+/**
+ * Property panel for the "Dandy Events Page" hero block. Exposes:
+ *   - Background image (with focal-point hint) + overlay color/opacity
+ *   - Headline width (in `ch`) + headline/date font-size scale sliders
+ *   - Optional details/RSVP section toggle, with copy fields and a global
+ *     form picker for the right-column form embed.
+ *
+ * Kept inline (rather than its own file) to match the convention used by
+ * other small Events-category panels in this file.
+ */
+function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) {
+  const set = <K extends keyof typeof props>(k: K, v: typeof props[K]) =>
+    onChange({ ...props, [k]: v });
+
+  const [forms, setForms] = useState<GlobalFormSummaryLite[]>([]);
+  useEffect(() => {
+    fetch("/api/lp/forms")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: GlobalFormSummaryLite[]) => {
+        if (Array.isArray(data)) setForms(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const bullets = props.eventDetailsBullets ?? [];
+  const updateBullet = (i: number, v: string) =>
+    set("eventDetailsBullets", bullets.map((b, idx) => (idx === i ? v : b)));
+  const addBullet = () => set("eventDetailsBullets", [...bullets, "New detail"]);
+  const removeBullet = (i: number) =>
+    set("eventDetailsBullets", bullets.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-5 p-4">
+      {/* Background ----------------------------------------------------- */}
+      <div className="space-y-3">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background</Label>
+        <ImagePicker
+          label="Hero image"
+          value={props.backgroundImage ?? ""}
+          onChange={(v) => set("backgroundImage", v)}
+          placeholder="https://images.unsplash.com/…"
+        />
+        <div className="space-y-1.5">
+          <Label className="text-xs">Image alt text</Label>
+          <Input
+            value={props.backgroundImageAlt ?? ""}
+            onChange={(e) => set("backgroundImageAlt", e.target.value)}
+            className="h-8 text-xs"
+            placeholder="City skyline at dusk"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Focal point (e.g. "50% 30%")</Label>
+          <Input
+            value={props.backgroundFocalPoint ?? ""}
+            onChange={(e) => set("backgroundFocalPoint", e.target.value)}
+            className="h-8 text-xs"
+            placeholder="50% 50%"
+          />
+          <p className="text-[11px] text-muted-foreground">CSS object-position. Tip: drag the focal pin on the live image.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField
+            label="Overlay color"
+            value={props.overlayColor ?? "#000000"}
+            onChange={(v) => set("overlayColor", v)}
+          />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Overlay opacity ({(props.backgroundOverlay ?? 0.5).toFixed(2)})</Label>
+            <Slider
+              min={0}
+              max={1}
+              step={0.05}
+              value={[props.backgroundOverlay ?? 0.5]}
+              onValueChange={(v) => set("backgroundOverlay", v[0])}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Headline ------------------------------------------------------- */}
+      <div className="space-y-3 border-t pt-4">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Headline</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Headline</Label>
+          <Textarea
+            value={props.headline ?? ""}
+            onChange={(e) => set("headline", e.target.value)}
+            rows={2}
+            className="text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Eyebrow (optional)</Label>
+          <Input
+            value={props.eyebrow ?? ""}
+            onChange={(e) => set("eyebrow", e.target.value)}
+            className="h-8 text-xs"
+            placeholder="*Limited spots*"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Headline width — {props.headlineMaxWidthCh ?? 18} ch</Label>
+          <Slider
+            min={10}
+            max={40}
+            step={1}
+            value={[props.headlineMaxWidthCh ?? 18]}
+            onValueChange={(v) => set("headlineMaxWidthCh", v[0])}
+          />
+          <p className="text-[11px] text-muted-foreground">Controls when the headline wraps. Lower = narrower column, more line breaks.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Headline size — {(props.headlineFontScale ?? 1).toFixed(2)}×</Label>
+          <Slider
+            min={0.6}
+            max={1.6}
+            step={0.05}
+            value={[props.headlineFontScale ?? 1]}
+            onValueChange={(v) => set("headlineFontScale", v[0])}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Alignment</Label>
+          <Select value={props.align ?? "center"} onValueChange={(v) => set("align", v as "center" | "left")}>
+            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="center">Center</SelectItem>
+              <SelectItem value="left">Left</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Date / Location ------------------------------------------------ */}
+      <div className="space-y-3 border-t pt-4">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date & location</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Date text</Label>
+          <Input
+            value={props.dateText ?? ""}
+            onChange={(e) => set("dateText", e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Wednesday June 10 & Thursday June 11, 2026"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Date size — {(props.dateFontScale ?? 1).toFixed(2)}×</Label>
+          <Slider
+            min={0.6}
+            max={1.6}
+            step={0.05}
+            value={[props.dateFontScale ?? 1]}
+            onValueChange={(v) => set("dateFontScale", v[0])}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Location text (optional)</Label>
+          <Input
+            value={props.locationText ?? ""}
+            onChange={(e) => set("locationText", e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Manhattan rooftop venue"
+          />
+        </div>
+      </div>
+
+      {/* CTA + scroll --------------------------------------------------- */}
+      <div className="space-y-3 border-t pt-4">
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA & scroll indicator</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">CTA label</Label>
+            <Input
+              value={props.ctaText ?? ""}
+              onChange={(e) => set("ctaText", e.target.value)}
+              className="h-8 text-xs"
+              placeholder="Save Your Spot"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">CTA URL or #anchor</Label>
+            <Input
+              value={props.ctaUrl ?? ""}
+              onChange={(e) => set("ctaUrl", e.target.value)}
+              className="h-8 text-xs"
+              placeholder="#rsvp"
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Show "Scroll down" indicator</Label>
+          <Switch
+            checked={props.showScrollIndicator ?? true}
+            onCheckedChange={(v) => set("showScrollIndicator", v)}
+          />
+        </div>
+        {(props.showScrollIndicator ?? true) && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Scroll label</Label>
+              <Input
+                value={props.scrollLabel ?? "SCROLL DOWN"}
+                onChange={(e) => set("scrollLabel", e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Scroll target id</Label>
+              <Input
+                value={props.scrollTargetId ?? ""}
+                onChange={(e) => set("scrollTargetId", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="rsvp"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Details / RSVP section ---------------------------------------- */}
+      <div className="space-y-3 border-t pt-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Details & RSVP section</Label>
+          <Switch
+            checked={props.showDetailsSection ?? false}
+            onCheckedChange={(v) => set("showDetailsSection", v)}
+          />
+        </div>
+
+        {props.showDetailsSection && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Background</Label>
+                <Select
+                  value={props.detailsBackgroundStyle ?? "light-gray"}
+                  onValueChange={(v) => set("detailsBackgroundStyle", v as NonNullable<typeof props.detailsBackgroundStyle>)}
+                >
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="white">White</SelectItem>
+                    <SelectItem value="light-gray">Light gray</SelectItem>
+                    <SelectItem value="muted">Muted (cream)</SelectItem>
+                    <SelectItem value="dark">Dark (brand)</SelectItem>
+                    <SelectItem value="dandy-green">Dandy green</SelectItem>
+                    <SelectItem value="black">Black</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Anchor id</Label>
+                <Input
+                  value={props.detailsAnchorId ?? "rsvp"}
+                  onChange={(e) => set("detailsAnchorId", e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="rsvp"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Left column · What to expect</Label>
+              <Input
+                value={props.whatToExpectHeading ?? ""}
+                onChange={(e) => set("whatToExpectHeading", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="What to expect"
+              />
+              <Textarea
+                value={props.whatToExpectBody ?? ""}
+                onChange={(e) => set("whatToExpectBody", e.target.value)}
+                rows={3}
+                className="text-xs"
+                placeholder="Join us for an evening of conversation…"
+              />
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Left column · Event Details</Label>
+              <Input
+                value={props.eventDetailsHeading ?? ""}
+                onChange={(e) => set("eventDetailsHeading", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Event Details"
+              />
+              <Textarea
+                value={props.eventDetailsBody ?? ""}
+                onChange={(e) => set("eventDetailsBody", e.target.value)}
+                rows={2}
+                className="text-xs"
+                placeholder="Two nights of curated programming…"
+              />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Bullets</Label>
+                  <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 px-2" onClick={addBullet}>
+                    <Plus className="w-3 h-3" /> Add
+                  </Button>
+                </div>
+                {bullets.map((b, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <Input
+                      value={b}
+                      onChange={(e) => updateBullet(i, e.target.value)}
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeBullet(i)}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                ))}
+                {bullets.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">No bullets yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Right column · RSVP form</Label>
+              <Input
+                value={props.formHeading ?? ""}
+                onChange={(e) => set("formHeading", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Save your spot"
+              />
+              <Textarea
+                value={props.formSubheading ?? ""}
+                onChange={(e) => set("formSubheading", e.target.value)}
+                rows={2}
+                className="text-xs"
+                placeholder="Spots are limited — RSVP to confirm your seat."
+              />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Linked global form</Label>
+                <Select
+                  value={props.formId != null ? String(props.formId) : "__none__"}
+                  onValueChange={(v) => set("formId", v === "__none__" ? undefined : parseInt(v, 10))}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pick a form" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {forms.map((f) => (
+                      <SelectItem key={f.id} value={String(f.id)}>{f.name} (#{f.id})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Manage forms in <span className="underline">/forms</span>. Submissions inherit Marketo / notification config from the global form.</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll }: Props) {
@@ -4416,8 +4785,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "bold-statement":
       case "bento-showcase":
       case "gradient-pricing":
-      case "event-landing-hero":
         return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
+      case "event-landing-hero":
+        return (
+          <EventLandingHeroPanel
+            props={block.props}
+            onChange={(props) => onChange({ ...block, props })}
+          />
+        );
       case "section": {
         const p = block.props;
         const update = (patch: Partial<typeof p>) =>

@@ -1090,4 +1090,35 @@ export interface EventLandingHeroBlockProps {
   minHeight?: string;
   /** Content alignment. Default `center`. */
   align?: "center" | "left";
+  /** Headline max-width in characters (ch). Default 18. */
+  headlineMaxWidthCh?: number;
+  /** Headline font-size multiplier (1 = default). Range ~0.6–1.6. */
+  headlineFontScale?: number;
+  /** Date subtext font-size multiplier (1 = default). Range ~0.6–1.6. */
+  dateFontScale?: number;
+
+  /** When true, render the second details/RSVP section under the hero. */
+  showDetailsSection?: boolean;
+  /** Background style for the details section. Default `"light-gray"`. */
+  detailsBackgroundStyle?: "white" | "light-gray" | "muted" | "dark" | "dandy-green" | "black";
+  /** Anchor id for the details section (for scroll-down target). Default `"rsvp"`. */
+  detailsAnchorId?: string;
+
+  /** Left column: "What to expect" heading. */
+  whatToExpectHeading?: string;
+  /** Left column: "What to expect" body paragraph. */
+  whatToExpectBody?: string;
+  /** Left column: "Event Details" heading. */
+  eventDetailsHeading?: string;
+  /** Left column: "Event Details" body paragraph (shown above bullets). */
+  eventDetailsBody?: string;
+  /** Left column: bullet list under "Event Details". */
+  eventDetailsBullets?: string[];
+
+  /** Right column: form heading shown above the embedded form. */
+  formHeading?: string;
+  /** Right column: short subheading shown under `formHeading`. */
+  formSubheading?: string;
+  /** Right column: id of a global form (from /api/lp/forms) to embed. */
+  formId?: number;
 }

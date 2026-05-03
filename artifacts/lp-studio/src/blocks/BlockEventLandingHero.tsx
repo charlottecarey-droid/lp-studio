@@ -1,15 +1,20 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import type { EventLandingHeroBlockProps } from "@/lib/block-types";
+import type { EventLandingHeroBlockProps, FormBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import { BlockForm } from "./BlockForm";
 
 interface Props {
   props: EventLandingHeroBlockProps;
   brand: BrandConfig;
+  pageId?: number;
+  testId?: number;
+  variantId?: number;
+  sessionId?: string;
   onCtaClick?: () => void;
   onFieldChange?: (updated: EventLandingHeroBlockProps) => void;
 }
@@ -30,7 +35,23 @@ function readableOn(hex: string): string {
   return lum > 0.6 ? "#0f172a" : "#ffffff";
 }
 
-export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange }: Props) {
+/** Clamp a font-scale multiplier so users can't blow up the layout. */
+function clampScale(v: unknown, fallback = 1): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0.6, Math.min(1.8, n));
+}
+
+const DETAILS_BG: Record<NonNullable<EventLandingHeroBlockProps["detailsBackgroundStyle"]>, { bg: string; fg: string; muted: string; rule: string }> = {
+  "white":       { bg: "#ffffff",                fg: "#0a1f1a", muted: "#475569", rule: "rgba(0,0,0,0.08)" },
+  "light-gray":  { bg: "#f6f6f5",                fg: "#0a1f1a", muted: "#475569", rule: "rgba(0,0,0,0.08)" },
+  "muted":       { bg: "hsl(42, 18%, 96%)",      fg: "#0a1f1a", muted: "#475569", rule: "rgba(0,0,0,0.08)" },
+  "dark":        { bg: "var(--brand-primary)",   fg: "#ffffff", muted: "rgba(255,255,255,0.78)", rule: "rgba(255,255,255,0.14)" },
+  "dandy-green": { bg: "var(--brand-primary)",   fg: "#ffffff", muted: "rgba(255,255,255,0.78)", rule: "rgba(255,255,255,0.14)" },
+  "black":       { bg: "#000000",                fg: "#ffffff", muted: "rgba(255,255,255,0.78)", rule: "rgba(255,255,255,0.14)" },
+};
+
+export function BlockEventLandingHero({ props, brand, pageId, testId, variantId, sessionId, onCtaClick, onFieldChange }: Props) {
   const field = (key: keyof EventLandingHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as EventLandingHeroBlockProps[typeof key] }) : undefined;
 
@@ -48,6 +69,16 @@ export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange 
     showScrollIndicator = true,
     scrollLabel = "SCROLL DOWN",
     scrollTargetId,
+    showDetailsSection = false,
+    detailsAnchorId = "rsvp",
+    whatToExpectHeading,
+    whatToExpectBody,
+    eventDetailsHeading,
+    eventDetailsBody,
+    eventDetailsBullets,
+    formHeading,
+    formSubheading,
+    formId,
   } = props;
   // Runtime normalization — defends against malformed persisted JSON.
   const overlayRaw = props.backgroundOverlay;
@@ -58,6 +89,14 @@ export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange 
   const minHeight = typeof props.minHeight === "string" && props.minHeight.trim().length > 0
     ? props.minHeight
     : "100vh";
+  const headlineMaxWidthCh = Math.max(8, Math.min(60, Number(props.headlineMaxWidthCh) || 18));
+  const headlineScale = clampScale(props.headlineFontScale);
+  const dateScale = clampScale(props.dateFontScale);
+
+  // If the scroll-down indicator has no explicit target but the details section
+  // is shown, default-scroll into the details anchor so the chevron is useful.
+  const effectiveScrollTarget = scrollTargetId
+    ?? (showDetailsSection ? detailsAnchorId : undefined);
 
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
@@ -77,258 +116,509 @@ export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange 
   };
 
   const handleScrollClick = () => {
-    if (scrollTargetId) {
-      const el = document.getElementById(scrollTargetId);
+    if (effectiveScrollTarget) {
+      const el = document.getElementById(effectiveScrollTarget);
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     }
     window.scrollBy({ top: window.innerHeight, behavior: "smooth" });
   };
 
+  // Compose font-size clamps from the user-provided scales. Original defaults
+  // come from the reference (after-hours/new-york). Scaling the max bound
+  // keeps the responsive lower bound untouched on small screens.
+  const headlineFontSize = `clamp(${(2.5 * headlineScale).toFixed(2)}rem, ${(7.5 * headlineScale).toFixed(2)}vw, ${(5.75 * headlineScale).toFixed(2)}rem)`;
+  const dateFontSize = `clamp(${(1 * dateScale).toFixed(2)}rem, ${(2.2 * dateScale).toFixed(2)}vw, ${(1.375 * dateScale).toFixed(2)}rem)`;
+
+  const detailsTheme = DETAILS_BG[props.detailsBackgroundStyle ?? "light-gray"] ?? DETAILS_BG["light-gray"];
+
+  // Synthesize a FormBlockProps shim so we can reuse <BlockForm> for the
+  // RSVP column. The visible heading/subheading are rendered above the
+  // embedded form, so we leave the inner headline blank — formId points
+  // at a global form, whose fields/submit/marketo/notification config all
+  // live server-side and load via /api/lp/forms/:id.
+  const embeddedForm: FormBlockProps = {
+    headline: "",
+    subheadline: "",
+    multiStep: false,
+    steps: [],
+    submitButtonText: "Submit",
+    successMessage: "Thanks — you're on the list!",
+    redirectUrl: "",
+    backgroundStyle: "white",
+    formId,
+    cardStyle: "flat",
+  };
+
   return (
-    <section
-      ref={sectionRef}
-      style={{
-        position: "relative",
-        minHeight,
-        width: "100%",
-        overflow: "hidden",
-        backgroundColor: "#000",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: align === "center" ? "center" : "flex-start",
-        justifyContent: "center",
-        textAlign: align === "center" ? "center" : "left",
-      }}
-    >
-      {/* Background image with parallax. In edit mode (onFieldChange present)
-          we wrap with InlineImage so users can hover-replace, drag-drop, set
-          alt text, and adjust the focal point inline. In published mode it
-          renders as a plain <img> with no chrome. */}
-      {backgroundImage && (
-        <motion.div
-          style={{
-            position: "absolute",
-            inset: "-10% 0 -10% 0",
-            width: "100%",
-            height: "120%",
-            y: bgY,
-            zIndex: 0,
-          }}
-        >
-          <InlineImage
-            src={backgroundImage}
-            alt={backgroundImageAlt ?? ""}
-            onUpdate={field("backgroundImage")}
-            onAltUpdate={field("backgroundImageAlt")}
-            focalPoint={backgroundFocalPoint}
-            onFocalUpdate={field("backgroundFocalPoint")}
-            wrapperClassName="block w-full h-full"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-            loading="eager"
-            decoding="async"
-          />
-        </motion.div>
-      )}
-
-      {/* Dark overlay */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundColor: overlayColor,
-          opacity: backgroundOverlay,
-          zIndex: 1,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Foreground content */}
-      <motion.div
+    <>
+      <section
+        ref={sectionRef}
         style={{
           position: "relative",
-          zIndex: 2,
-          opacity: contentOpacity,
+          minHeight,
           width: "100%",
-          maxWidth: 1100,
-          padding: "clamp(5rem, 12vh, 9rem) clamp(1.25rem, 5vw, 3rem) clamp(6rem, 14vh, 9rem)",
+          overflow: "hidden",
+          backgroundColor: "#000",
+          color: "#fff",
           display: "flex",
           flexDirection: "column",
           alignItems: align === "center" ? "center" : "flex-start",
-          gap: "clamp(1.25rem, 3vh, 2rem)",
+          justifyContent: "center",
+          textAlign: align === "center" ? "center" : "left",
         }}
       >
-        {eyebrow && (
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            style={{
-              margin: 0,
-              fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)",
-              fontStyle: "italic",
-              fontWeight: 500,
-              letterSpacing: "0.04em",
-              color: A,
-              textShadow: "0 1px 12px rgba(0,0,0,0.4)",
-            }}
-          >
-            <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
-          </motion.p>
-        )}
-
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            margin: 0,
-            fontFamily: DISPLAY_FONT,
-            fontSize: "clamp(2.5rem, 7.5vw, 5.75rem)",
-            lineHeight: 1.05,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            color: "#fff",
-            textShadow: "0 2px 24px rgba(0,0,0,0.35)",
-            maxWidth: "18ch",
-          }}
-        >
-          <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
-        </motion.h1>
-
-        {(dateText || locationText) && (
+        {/* Background image with parallax. In edit mode (onFieldChange present)
+            we wrap with InlineImage so users can hover-replace, drag-drop, set
+            alt text, and adjust the focal point inline. In published mode it
+            renders as a plain <img> with no chrome. */}
+        {backgroundImage && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.35rem",
-              alignItems: align === "center" ? "center" : "flex-start",
+              position: "absolute",
+              inset: "-10% 0 -10% 0",
+              width: "100%",
+              height: "120%",
+              y: bgY,
+              zIndex: 0,
             }}
           >
-            {dateText && (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(1rem, 2.2vw, 1.375rem)",
-                  fontWeight: 400,
-                  color: "rgba(255,255,255,0.92)",
-                  textShadow: "0 1px 8px rgba(0,0,0,0.4)",
-                }}
-              >
-                <InlineText as="span" value={dateText} onUpdate={field("dateText")} />
-              </p>
-            )}
-            {locationText && (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(0.875rem, 1.6vw, 1rem)",
-                  fontWeight: 500,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.78)",
-                }}
-              >
-                <InlineText as="span" value={locationText} onUpdate={field("locationText")} />
-              </p>
-            )}
+            <InlineImage
+              src={backgroundImage}
+              alt={backgroundImageAlt ?? ""}
+              onUpdate={field("backgroundImage")}
+              onAltUpdate={field("backgroundImageAlt")}
+              focalPoint={backgroundFocalPoint}
+              onFocalUpdate={field("backgroundFocalPoint")}
+              wrapperClassName="block w-full h-full"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+              loading="eager"
+              decoding="async"
+            />
           </motion.div>
         )}
 
-        {ctaText && (
-          <motion.button
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            onClick={handleCtaClick}
-            whileHover={{ y: -2 }}
-            style={{
-              marginTop: "clamp(0.5rem, 2vh, 1rem)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              borderRadius: 9999,
-              background: P,
-              color: ctaFg,
-              padding: "0.95rem 2rem",
-              fontSize: "clamp(0.8125rem, 1.4vw, 0.9375rem)",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              border: "none",
-              cursor: "pointer",
-              boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
-              transition: "background-color 0.25s ease, box-shadow 0.25s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = A;
-              e.currentTarget.style.color = accentFg;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = P;
-              e.currentTarget.style.color = ctaFg;
-            }}
-          >
-            <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
-          </motion.button>
-        )}
-      </motion.div>
-
-      {/* Scroll-down indicator */}
-      {showScrollIndicator && (
-        <motion.button
-          type="button"
-          onClick={handleScrollClick}
-          aria-label={scrollLabel}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
+        {/* Dark overlay */}
+        <div
+          aria-hidden
           style={{
             position: "absolute",
-            bottom: "clamp(1.5rem, 5vh, 3rem)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 3,
+            inset: 0,
+            backgroundColor: overlayColor,
+            opacity: backgroundOverlay,
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Foreground content */}
+        <motion.div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            opacity: contentOpacity,
+            width: "100%",
+            maxWidth: 1100,
+            padding: "clamp(5rem, 12vh, 9rem) clamp(1.25rem, 5vw, 3rem) clamp(6rem, 14vh, 9rem)",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            gap: 8,
-            background: "transparent",
-            border: "none",
-            color: "#fff",
-            cursor: "pointer",
-            padding: "0.5rem 1rem",
+            alignItems: align === "center" ? "center" : "flex-start",
+            gap: "clamp(1.25rem, 3vh, 2rem)",
           }}
         >
-          <span
+          {eyebrow && (
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              style={{
+                margin: 0,
+                fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)",
+                fontStyle: "italic",
+                fontWeight: 500,
+                letterSpacing: "0.04em",
+                color: A,
+                textShadow: "0 1px 12px rgba(0,0,0,0.4)",
+              }}
+            >
+              <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} />
+            </motion.p>
+          )}
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              fontSize: 11,
+              margin: 0,
+              fontFamily: DISPLAY_FONT,
+              fontSize: headlineFontSize,
+              lineHeight: 1.05,
               fontWeight: 600,
-              letterSpacing: "0.18em",
-              textShadow: "0 1px 8px rgba(0,0,0,0.4)",
+              letterSpacing: "-0.02em",
+              color: "#fff",
+              textShadow: "0 2px 24px rgba(0,0,0,0.35)",
+              maxWidth: `${headlineMaxWidthCh}ch`,
             }}
           >
-            {scrollLabel}
-          </span>
-          <motion.span
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            style={{ display: "inline-flex" }}
+            <InlineText as="span" value={headline} onUpdate={field("headline")} multiline />
+          </motion.h1>
+
+          {(dateText || locationText) && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.15 }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.35rem",
+                alignItems: align === "center" ? "center" : "flex-start",
+              }}
+            >
+              {dateText && (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: dateFontSize,
+                    fontWeight: 400,
+                    color: "rgba(255,255,255,0.92)",
+                    textShadow: "0 1px 8px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <InlineText as="span" value={dateText} onUpdate={field("dateText")} />
+                </p>
+              )}
+              {locationText && (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "clamp(0.875rem, 1.6vw, 1rem)",
+                    fontWeight: 500,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.78)",
+                  }}
+                >
+                  <InlineText as="span" value={locationText} onUpdate={field("locationText")} />
+                </p>
+              )}
+            </motion.div>
+          )}
+
+          {ctaText && (
+            <motion.button
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              onClick={handleCtaClick}
+              whileHover={{ y: -2 }}
+              style={{
+                marginTop: "clamp(0.5rem, 2vh, 1rem)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                borderRadius: 9999,
+                background: P,
+                color: ctaFg,
+                padding: "0.95rem 2rem",
+                fontSize: "clamp(0.8125rem, 1.4vw, 0.9375rem)",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+                transition: "background-color 0.25s ease, box-shadow 0.25s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = A;
+                e.currentTarget.style.color = accentFg;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = P;
+                e.currentTarget.style.color = ctaFg;
+              }}
+            >
+              <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+            </motion.button>
+          )}
+        </motion.div>
+
+        {/* Scroll-down indicator */}
+        {showScrollIndicator && (
+          <motion.button
+            type="button"
+            onClick={handleScrollClick}
+            aria-label={scrollLabel}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            style={{
+              position: "absolute",
+              bottom: "clamp(1.5rem, 5vh, 3rem)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 3,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              background: "transparent",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              padding: "0.5rem 1rem",
+            }}
           >
-            <ChevronDown style={{ width: 18, height: 18 }} />
-          </motion.span>
-        </motion.button>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.18em",
+                textShadow: "0 1px 8px rgba(0,0,0,0.4)",
+              }}
+            >
+              {scrollLabel}
+            </span>
+            <motion.span
+              animate={{ y: [0, 6, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              style={{ display: "inline-flex" }}
+            >
+              <ChevronDown style={{ width: 18, height: 18 }} />
+            </motion.span>
+          </motion.button>
+        )}
+      </section>
+
+      {/* Details + RSVP section */}
+      {showDetailsSection && (
+        <section
+          id={detailsAnchorId || undefined}
+          style={{
+            background: detailsTheme.bg,
+            color: detailsTheme.fg,
+            padding: "clamp(3.5rem, 9vh, 6.5rem) clamp(1.25rem, 5vw, 3rem)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1180,
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+              gap: "clamp(2rem, 5vw, 4rem)",
+              alignItems: "start",
+            }}
+            className="evlh-details-grid"
+          >
+            {/* Left column: copy */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "clamp(1.75rem, 4vh, 2.5rem)" }}>
+              {(whatToExpectHeading || whatToExpectBody) && (
+                <div>
+                  {whatToExpectHeading && (
+                    <h2
+                      style={{
+                        margin: "0 0 0.85rem 0",
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: "clamp(1.5rem, 3.4vw, 2.25rem)",
+                        lineHeight: 1.15,
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      <InlineText as="span" value={whatToExpectHeading} onUpdate={field("whatToExpectHeading")} />
+                    </h2>
+                  )}
+                  {whatToExpectBody && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "clamp(0.9375rem, 1.6vw, 1.0625rem)",
+                        lineHeight: 1.6,
+                        color: detailsTheme.muted,
+                      }}
+                    >
+                      <InlineText as="span" value={whatToExpectBody} onUpdate={field("whatToExpectBody")} multiline />
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {(eventDetailsHeading || eventDetailsBody || (eventDetailsBullets && eventDetailsBullets.length > 0)) && (
+                <div
+                  style={{
+                    borderTop: `1px solid ${detailsTheme.rule}`,
+                    paddingTop: "clamp(1.25rem, 3vh, 1.75rem)",
+                  }}
+                >
+                  {eventDetailsHeading && (
+                    <h3
+                      style={{
+                        margin: "0 0 0.85rem 0",
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: "clamp(1.25rem, 2.6vw, 1.625rem)",
+                        lineHeight: 1.2,
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      <InlineText as="span" value={eventDetailsHeading} onUpdate={field("eventDetailsHeading")} />
+                    </h3>
+                  )}
+                  {eventDetailsBody && (
+                    <p
+                      style={{
+                        margin: "0 0 1rem 0",
+                        fontSize: "clamp(0.9375rem, 1.6vw, 1rem)",
+                        lineHeight: 1.6,
+                        color: detailsTheme.muted,
+                      }}
+                    >
+                      <InlineText as="span" value={eventDetailsBody} onUpdate={field("eventDetailsBody")} multiline />
+                    </p>
+                  )}
+                  {eventDetailsBullets && eventDetailsBullets.length > 0 && (
+                    <ul
+                      style={{
+                        margin: 0,
+                        padding: 0,
+                        listStyle: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      {eventDetailsBullets.map((bullet, i) => (
+                        <li
+                          key={i}
+                          style={{
+                            position: "relative",
+                            paddingLeft: "1.5rem",
+                            fontSize: "clamp(0.9375rem, 1.5vw, 1rem)",
+                            lineHeight: 1.55,
+                            color: detailsTheme.fg,
+                          }}
+                        >
+                          <span
+                            aria-hidden
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              top: "0.55em",
+                              width: 8,
+                              height: 8,
+                              borderRadius: 9999,
+                              background: A,
+                              display: "inline-block",
+                            }}
+                          />
+                          {onFieldChange ? (
+                            <InlineText
+                              as="span"
+                              value={bullet}
+                              onUpdate={(v) => onFieldChange({
+                                ...props,
+                                eventDetailsBullets: (eventDetailsBullets ?? []).map((b, idx) => idx === i ? v : b),
+                              })}
+                            />
+                          ) : (
+                            bullet
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right column: RSVP form */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1.25rem",
+              }}
+            >
+              {(formHeading || formSubheading) && (
+                <div>
+                  {formHeading && (
+                    <h3
+                      style={{
+                        margin: "0 0 0.5rem 0",
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: "clamp(1.5rem, 3vw, 2rem)",
+                        lineHeight: 1.15,
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                        color: detailsTheme.fg,
+                      }}
+                    >
+                      <InlineText as="span" value={formHeading} onUpdate={field("formHeading")} />
+                    </h3>
+                  )}
+                  {formSubheading && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "clamp(0.9375rem, 1.5vw, 1rem)",
+                        lineHeight: 1.5,
+                        color: detailsTheme.muted,
+                      }}
+                    >
+                      <InlineText as="span" value={formSubheading} onUpdate={field("formSubheading")} multiline />
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {formId ? (
+                <div className="evlh-form-slot">
+                  <BlockForm
+                    props={embeddedForm}
+                    brand={brand}
+                    pageId={pageId}
+                    testId={testId}
+                    variantId={variantId}
+                    sessionId={sessionId}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    border: `1px dashed ${detailsTheme.rule}`,
+                    borderRadius: 16,
+                    padding: "1.25rem 1.5rem",
+                    fontSize: 13,
+                    color: detailsTheme.muted,
+                    background: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  Pick a form in the right panel to embed your RSVP form here.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stack the two columns on narrow viewports. Scoped via a class so
+              we don't need to add Tailwind config or a global stylesheet. */}
+          <style>{`
+            @media (max-width: 820px) {
+              .evlh-details-grid { grid-template-columns: 1fr !important; }
+            }
+            /* Trim BlockForm's outer section padding when nested inside the
+               details column so it visually aligns with the left column. */
+            .evlh-form-slot > section { padding: 0 !important; background: transparent !important; }
+          `}</style>
+        </section>
       )}
-    </section>
+    </>
   );
 }

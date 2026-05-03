@@ -3014,7 +3014,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "event-landing-hero" as const,
-    label: "Event Landing Hero",
+    label: "Dandy Events Page",
     category: "Events" as BlockCategory,
     defaultProps: (): EventLandingHeroBlockProps => ({
       backgroundImage:
@@ -3028,7 +3028,28 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaUrl: "#rsvp",
       showScrollIndicator: true,
       scrollLabel: "SCROLL DOWN",
+      scrollTargetId: "rsvp",
       align: "center",
+      headlineMaxWidthCh: 18,
+      headlineFontScale: 1,
+      dateFontScale: 1,
+      showDetailsSection: true,
+      detailsBackgroundStyle: "light-gray",
+      detailsAnchorId: "rsvp",
+      whatToExpectHeading: "What to expect",
+      whatToExpectBody:
+        "Join us for an evening of conversation, cocktails, and connection with Dandy leadership and fellow practice owners. Hear how leading DSOs are scaling their lab spend with Dandy and what's next on the product roadmap.",
+      eventDetailsHeading: "Event Details",
+      eventDetailsBody:
+        "Two nights of curated programming at one of New York's most iconic rooftop venues.",
+      eventDetailsBullets: [
+        "Wednesday June 10 — 6:00pm Welcome reception",
+        "Thursday June 11 — 6:30pm Dinner & program",
+        "Cocktail attire",
+        "Manhattan venue (address shared after RSVP)",
+      ],
+      formHeading: "Save your spot",
+      formSubheading: "Spots are limited — RSVP to confirm your seat.",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
