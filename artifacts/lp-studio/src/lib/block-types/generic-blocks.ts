@@ -912,15 +912,22 @@ export interface EditorialCarouselBlockProps {
   /** Optional subheadline body copy under the headline. */
   subheadline?: string;
   slides: EditorialCarouselSlide[];
-  /** Section background. Defaults to a deep luxury near-black. */
+  /** Section background. Defaults to the brand primary color. */
   bgColor?: string;
-  /** Heading + caption color. Defaults to a warm cream. */
+  /** Heading + caption color. Defaults to a warm cream so it reads on
+   *  the dark default background; override to follow brand text color. */
   textColor?: string;
   /** Accent / brand color for the caption underline, dot indicator,
-   *  corner accents and prev/next button hover. */
+   *  corner accents and prev/next button hover. Defaults to brand accent. */
   accentColor?: string;
-  /** Border color for the prev/next buttons. */
+  /** Border color for the prev/next buttons. Defaults to brand border. */
   borderColor?: string;
+  /** Headline font family. Leave blank to inherit the brand display font
+   *  (falls back to Instrument Serif). */
+  headlineFont?: string;
+  /** Body font family for eyebrow / subheadline / captions. Leave blank
+   *  to inherit the brand body font (falls back to Inter). */
+  bodyFont?: string;
   /** Aspect ratio of each slide. */
   aspect?: "16/9" | "4/3" | "3/2" | "1/1";
   /** Width each slide takes up on desktop, as a percentage. Smaller

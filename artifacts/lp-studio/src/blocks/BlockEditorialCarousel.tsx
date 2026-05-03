@@ -19,23 +19,27 @@ interface Props {
 
 const EASE_SPRING = { type: "spring", stiffness: 400, damping: 17 } as const;
 
-function hexToRgb(hex: string): [number, number, number] {
-  const m = hex.replace("#", "").trim();
-  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
-  const num = parseInt(full.slice(0, 6), 16);
-  if (Number.isNaN(num)) return [0, 0, 0];
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-}
-function rgba(hex: string, alpha: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${alpha})`;
+/** Mix any CSS color (hex, rgb, var(--brand-accent), …) with transparent.
+ *  Replaces the old hex-only `alpha()` helper so callers can pass brand CSS
+ *  variables and not just literal hex codes. */
+function alpha(color: string, a: number): string {
+  const pct = Math.max(0, Math.min(1, a)) * 100;
+  return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 }
 
 export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: Props) {
-  const bg = props.bgColor || "#0c0f12";
-  const text = props.textColor || "#eeeae3";
-  const accent = props.accentColor || "#b59a6e";
-  const border = props.borderColor || "#262a2f";
+  // Defaults flow from brand tokens so the block follows brand settings out of
+  // the box. Authors can still override per-block via the property panel.
+  const bg = props.bgColor || "var(--brand-primary, #0c0f12)";
+  // Default text uses on-primary (auto-contrasted against the brand primary
+  // background) so the warm cream isn't burned in when a tenant has, say,
+  // a white brand primary. Authors can still override.
+  const text = props.textColor || "var(--brand-on-primary, #eeeae3)";
+  const accent = props.accentColor || "var(--brand-accent, #b59a6e)";
+  const border = props.borderColor || "var(--brand-border, #262a2f)";
+  const headlineFont =
+    props.headlineFont || "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
+  const bodyFont = props.bodyFont || "var(--brand-font-body, 'Inter', sans-serif)";
   const aspect = props.aspect || "16/9";
   const slideWidthPct = Math.max(30, Math.min(95, props.slideWidthPct ?? 60));
   const autoplay = props.autoplay !== false;
@@ -87,12 +91,12 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
 
   const aspectStyle: CSSProperties = { aspectRatio: aspect };
   const radius = rounded ? "0.75rem" : "0";
-  const dotInactive = rgba(border, 0.7);
+  const dotInactive = alpha(border, 0.7);
 
   const hasHeader = !!(props.eyebrow || props.headline || props.subheadline || onFieldChange);
 
   return (
-    <section style={{ backgroundColor: bg, color: text, padding: "5rem 0", overflow: "hidden", fontFamily: "'Inter', sans-serif" }}>
+    <section style={{ backgroundColor: bg, color: text, padding: "5rem 0", overflow: "hidden", fontFamily: bodyFont }}>
       {hasHeader && (
         <div style={{ maxWidth: "56rem", margin: "0 auto 3.5rem", padding: "0 1.5rem", textAlign: "center" }}>
           {(props.eyebrow || onFieldChange) && (
@@ -112,7 +116,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
           {(props.headline || onFieldChange) && (
             <h2
               style={{
-                fontFamily: "'Instrument Serif', 'EB Garamond', Georgia, serif",
+                fontFamily: headlineFont,
                 fontWeight: 400,
                 fontSize: "clamp(1.875rem, 5vw, 3rem)",
                 lineHeight: 1.1,
@@ -130,7 +134,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                 fontWeight: 300,
                 fontSize: "0.95rem",
                 lineHeight: 1.7,
-                color: rgba(text, 0.65),
+                color: alpha(text, 0.65),
                 maxWidth: "32rem",
                 margin: "0 auto",
               }}
@@ -200,7 +204,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                     style={{
                       position: "absolute",
                       inset: 0,
-                      background: `linear-gradient(to top, ${rgba(bg, 0.85)}, ${rgba(bg, 0.1)} 40%, transparent)`,
+                      background: `linear-gradient(to top, ${alpha(bg, 0.85)}, ${alpha(bg, 0.1)} 40%, transparent)`,
                       pointerEvents: "none",
                     }}
                   />
@@ -214,7 +218,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                           fontSize: "0.7rem",
                           letterSpacing: "0.2em",
                           textTransform: "uppercase",
-                          color: rgba(text, 0.85),
+                          color: alpha(text, 0.85),
                           margin: 0,
                         }}
                         animate={{ y: hovered === i ? -4 : 0, opacity: hovered === i ? 1 : 0.85 }}
@@ -229,7 +233,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       <motion.div
                         style={{
                           height: "1px",
-                          backgroundColor: rgba(accent, 0.6),
+                          backgroundColor: alpha(accent, 0.6),
                           marginTop: "0.75rem",
                           transformOrigin: "left",
                         }}
@@ -251,7 +255,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       borderRight: "1px solid",
                       pointerEvents: "none",
                     }}
-                    animate={{ borderColor: hovered === i ? rgba(accent, 0.7) : rgba(accent, 0) }}
+                    animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
                     transition={{ duration: 0.4 }}
                   />
                   <motion.div
@@ -265,7 +269,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       borderLeft: "1px solid",
                       pointerEvents: "none",
                     }}
-                    animate={{ borderColor: hovered === i ? rgba(accent, 0.7) : rgba(accent, 0) }}
+                    animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
                     transition={{ duration: 0.4, delay: 0.1 }}
                   />
                 </motion.div>
@@ -288,12 +292,12 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                 alignItems: "center",
                 justifyContent: "center",
                 border: `1px solid ${border}`,
-                color: rgba(text, 0.6),
+                color: alpha(text, 0.6),
                 background: "transparent",
                 cursor: "pointer",
                 borderRadius: rounded ? "999px" : "0",
               }}
-              whileHover={{ scale: 1.1, borderColor: rgba(accent, 0.6), color: accent }}
+              whileHover={{ scale: 1.1, borderColor: alpha(accent, 0.6), color: accent }}
               whileTap={{ scale: 0.9 }}
               transition={EASE_SPRING}
             >
@@ -336,12 +340,12 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                 alignItems: "center",
                 justifyContent: "center",
                 border: `1px solid ${border}`,
-                color: rgba(text, 0.6),
+                color: alpha(text, 0.6),
                 background: "transparent",
                 cursor: "pointer",
                 borderRadius: rounded ? "999px" : "0",
               }}
-              whileHover={{ scale: 1.1, borderColor: rgba(accent, 0.6), color: accent }}
+              whileHover={{ scale: 1.1, borderColor: alpha(accent, 0.6), color: accent }}
               whileTap={{ scale: 0.9 }}
               transition={EASE_SPRING}
             >

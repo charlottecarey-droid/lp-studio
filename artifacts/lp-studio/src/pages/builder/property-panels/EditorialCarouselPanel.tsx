@@ -151,6 +151,9 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colors</div>
+        <p className="text-[11px] text-muted-foreground -mt-2">
+          Leave blank to inherit your brand colors (primary / accent / text / border).
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <ColorField
             label="Background"
@@ -171,6 +174,32 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
             label="Border"
             value={props.borderColor ?? ""}
             onChange={(v) => update({ borderColor: v || undefined })}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fonts</div>
+        <p className="text-[11px] text-muted-foreground -mt-2">
+          Leave blank to inherit your brand display + body fonts. Type any
+          font-family value, e.g. <code>"Playfair Display", serif</code>.
+        </p>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Headline font</Label>
+          <Input
+            value={props.headlineFont ?? ""}
+            onChange={(e) => update({ headlineFont: e.target.value || undefined })}
+            placeholder="Inherit from brand (Instrument Serif)"
+            className="h-8 text-xs"
+          />
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Body font (eyebrow, copy, captions)</Label>
+          <Input
+            value={props.bodyFont ?? ""}
+            onChange={(e) => update({ bodyFont: e.target.value || undefined })}
+            placeholder="Inherit from brand (Inter)"
+            className="h-8 text-xs"
           />
         </div>
       </div>

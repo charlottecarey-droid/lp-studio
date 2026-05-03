@@ -3632,10 +3632,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
           caption: "Stillness, mid-afternoon",
         },
       ],
-      bgColor: "#0c0f12",
-      textColor: "#eeeae3",
-      accentColor: "#b59a6e",
-      borderColor: "#262a2f",
+      // Colors and fonts intentionally omitted so new carousels inherit the
+      // tenant's brand tokens (primary / accent / text / border + display /
+      // body fonts). Authors can override per-block via the property panel.
       aspect: "16/9",
       slideWidthPct: 60,
       autoplay: true,
