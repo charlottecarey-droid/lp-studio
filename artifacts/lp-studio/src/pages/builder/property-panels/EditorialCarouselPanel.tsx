@@ -18,6 +18,47 @@ import {
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { FONT_CATALOG } from "@/lib/font-catalog";
+
+// Group catalog fonts by category for the panel's font dropdowns. Display
+// fonts come first since headline pickers usually want them.
+const FONT_GROUPS: Array<{ label: string; fonts: typeof FONT_CATALOG }> = [
+  { label: "Display", fonts: FONT_CATALOG.filter((f) => f.category === "display") },
+  { label: "Serif", fonts: FONT_CATALOG.filter((f) => f.category === "serif") },
+  { label: "Sans-serif", fonts: FONT_CATALOG.filter((f) => f.category === "sans") },
+  { label: "Monospace", fonts: FONT_CATALOG.filter((f) => f.category === "mono") },
+];
+
+function FontSelect({
+  value,
+  onChange,
+  inheritLabel,
+}: {
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  inheritLabel: string;
+}) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || undefined)}
+      className="w-full h-8 text-xs rounded-md border border-border bg-background px-2"
+    >
+      <option value="">{inheritLabel}</option>
+      {FONT_GROUPS.map((group) =>
+        group.fonts.length === 0 ? null : (
+          <optgroup key={group.label} label={group.label}>
+            {group.fonts.map((f) => (
+              <option key={f.family} value={f.family} style={{ fontFamily: f.family }}>
+                {f.label || f.family}
+              </option>
+            ))}
+          </optgroup>
+        ),
+      )}
+    </select>
+  );
+}
 
 interface Props {
   props: EditorialCarouselBlockProps;
@@ -276,25 +317,24 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fonts</div>
         <p className="text-[11px] text-muted-foreground -mt-2">
-          Leave blank to inherit your brand display + body fonts. Type any
-          font-family value, e.g. <code>"Playfair Display", serif</code>.
+          Pick a font from the curated catalog. Selected Google Fonts are
+          loaded automatically. Leave on "Inherit from brand" to follow the
+          tenant's brand fonts.
         </p>
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline font</Label>
-          <Input
-            value={props.headlineFont ?? ""}
-            onChange={(e) => update({ headlineFont: e.target.value || undefined })}
-            placeholder="Inherit from brand (Instrument Serif)"
-            className="h-8 text-xs"
+          <FontSelect
+            value={props.headlineFont}
+            onChange={(v) => update({ headlineFont: v })}
+            inheritLabel="Inherit from brand (display)"
           />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Body font (eyebrow, copy, captions)</Label>
-          <Input
-            value={props.bodyFont ?? ""}
-            onChange={(e) => update({ bodyFont: e.target.value || undefined })}
-            placeholder="Inherit from brand (Inter)"
-            className="h-8 text-xs"
+          <FontSelect
+            value={props.bodyFont}
+            onChange={(v) => update({ bodyFont: v })}
+            inheritLabel="Inherit from brand (body)"
           />
         </div>
       </div>

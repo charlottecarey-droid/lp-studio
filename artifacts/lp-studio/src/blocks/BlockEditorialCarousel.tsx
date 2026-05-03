@@ -10,6 +10,11 @@ import type {
 } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
+import {
+  buildGoogleFontsUrl,
+  isSelfHostedFont,
+  toFontFamilyValue,
+} from "@/lib/font-catalog";
 
 interface Props {
   props: EditorialCarouselBlockProps;
@@ -37,9 +42,35 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
   const text = props.textColor || "var(--brand-on-primary, #eeeae3)";
   const accent = props.accentColor || "var(--brand-accent, #b59a6e)";
   const border = props.borderColor || "var(--brand-border, #262a2f)";
+  // Resolve the per-block font overrides through the catalog so we get a
+  // properly-quoted family name + sensible system fallback. When the author
+  // hasn't picked an override we fall back to the brand-token CSS variable.
   const headlineFont =
-    props.headlineFont || "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
-  const bodyFont = props.bodyFont || "var(--brand-font-body, 'Inter', sans-serif)";
+    toFontFamilyValue(props.headlineFont, "display") ||
+    "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
+  const bodyFont =
+    toFontFamilyValue(props.bodyFont, "sans") ||
+    "var(--brand-font-body, 'Inter', sans-serif)";
+
+  // Inject the Google Fonts <link> for any catalog font the author selected
+  // via the property panel. Without this the browser silently falls back to
+  // a system font and the override appears to do nothing.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const families: string[] = [];
+    if (props.headlineFont && !isSelfHostedFont(props.headlineFont)) families.push(props.headlineFont);
+    if (props.bodyFont && !isSelfHostedFont(props.bodyFont)) families.push(props.bodyFont);
+    const url = buildGoogleFontsUrl(families);
+    if (!url) return;
+    const TAG = "data-editorial-carousel-fonts";
+    const existing = document.head.querySelector(`link[${TAG}][href="${url}"]`);
+    if (existing) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = url;
+    link.setAttribute(TAG, "");
+    document.head.appendChild(link);
+  }, [props.headlineFont, props.bodyFont]);
   const aspect = props.aspect || "16/9";
   const slideWidthPct = Math.max(30, Math.min(95, props.slideWidthPct ?? 60));
   const autoplay = props.autoplay !== false;
