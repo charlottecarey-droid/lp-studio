@@ -542,6 +542,11 @@ export default function PagesGallery() {
   const [personalizedLinksPage, setPersonalizedLinksPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
+  // AI mode: optional template-as-starting-point. When set, the AI only
+  // rewrites copy for the template's predefined blocks instead of choosing
+  // its own block layout. "" means "Generate from scratch". The picker
+  // reuses the already-loaded `visibleApiTemplates` list (audience-gated).
+  const [aiTemplateId, setAiTemplateId] = useState<string>("");
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [cloningPageId, setCloningPageId] = useState<number | null>(null);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
@@ -730,7 +735,7 @@ export default function PagesGallery() {
     }
   };
 
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
     const segmentContext = activeSeg ? {
       name: activeSeg.name,
@@ -748,6 +753,7 @@ export default function PagesGallery() {
       body: JSON.stringify({
         prompt: prompt.trim(),
         ...(segmentContext ? { segmentContext } : {}),
+        ...(templateId ? { templateId } : {}),
       }),
     });
     if (!genRes.ok) {
@@ -790,9 +796,11 @@ export default function PagesGallery() {
     setAiGenerating(true);
     setCreateError(null);
     try {
-      await generatePageFromPrompt(aiPrompt, selectedSegment);
+      const tplId = aiTemplateId ? Number(aiTemplateId) : null;
+      await generatePageFromPrompt(aiPrompt, selectedSegment, tplId);
       setShowCreateModal(false);
       setAiPrompt("");
+      setAiTemplateId("");
       setCreateMode("template");
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to generate page");
@@ -1550,11 +1558,38 @@ export default function PagesGallery() {
               </div>
 
               <div>
+                <Label className="text-sm font-medium">Starting Point</Label>
+                <select
+                  className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={aiTemplateId}
+                  onChange={e => setAiTemplateId(e.target.value)}
+                >
+                  <option value="">Generate from scratch (AI chooses blocks)</option>
+                  {visibleApiTemplates.length > 0 && (
+                    <optgroup label="Use a template (AI fills copy only)">
+                      {visibleApiTemplates.map(t => (
+                        <option key={t.id} value={String(t.id)}>
+                          {t.templateLabel || t.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {aiTemplateId
+                    ? "AI will preserve the template's block layout and only rewrite copy to match your prompt."
+                    : "AI will design the page structure from scratch based on your prompt."}
+                </p>
+              </div>
+
+              <div>
                 <Label className="text-sm font-medium">Your Prompt</Label>
                 <textarea
                   className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                   rows={4}
-                  placeholder={"e.g. A landing page for our new dental crown service targeting general dentists. Emphasize 5-day turnaround, digital workflow, and free remakes. Include a lead capture form asking for practice name, email, and number of chairs."}
+                  placeholder={aiTemplateId
+                    ? "e.g. Promote our new clear aligner service to general dentists. Emphasize speed, support, and proven case outcomes."
+                    : "e.g. A landing page for our new dental crown service targeting general dentists. Emphasize 5-day turnaround, digital workflow, and free remakes. Include a lead capture form asking for practice name, email, and number of chairs."}
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
                   autoFocus

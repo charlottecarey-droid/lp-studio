@@ -586,7 +586,10 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
   const [loadingTemplates, setLoadingTemplates] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/lp/templates`)
+    // Sales reps only see templates owned by their own tenant — global
+    // starter templates are hidden so reps can't accidentally generate
+    // microsites with off-brand or non-vetted designs.
+    fetch(`${API_BASE}/lp/templates?ownedOnly=true`)
       .then(r => r.json())
       .then((data: MarketingTemplate[]) => setMarketingTemplates(data))
       .catch(() => {})

@@ -202,19 +202,28 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
 //   1. The caller's tenant-owned templates
 //   2. All global templates (isGlobal=true), regardless of industry — every
 //      tenant has access to the full global template library.
+//
+// When `?ownedOnly=true` is passed, the global template library is excluded
+// and only the caller's tenant-owned templates are returned. Used by the
+// sales-rep microsite generator so reps only see brand-vetted internal
+// templates (no off-brand global starters).
 router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const ownedOnly = String(req.query.ownedOnly ?? "").toLowerCase() === "true";
+    const visibility = ownedOnly
+      ? eq(lpPagesTable.tenantId, tenantId)
+      : or(
+          eq(lpPagesTable.tenantId, tenantId),
+          eq(lpPagesTable.isGlobal, true),
+        );
     const templates = await db
       .select()
       .from(lpPagesTable)
       .where(
         and(
           eq(lpPagesTable.isTemplate, true),
-          or(
-            eq(lpPagesTable.tenantId, tenantId),
-            eq(lpPagesTable.isGlobal, true),
-          ),
+          visibility,
         ),
       )
       .orderBy(asc(lpPagesTable.templateLabel));

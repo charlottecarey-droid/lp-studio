@@ -1,8 +1,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { lpBrandSettingsTable, lpMediaTable, lpPagesTable } from "@workspace/db";
+import { eq, desc, and, or } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 
 const router = Router();
@@ -696,7 +696,11 @@ function buildSegmentSection(seg: SegmentContext): string {
 }
 
 router.post("/lp/generate-page", async (req, res): Promise<void> => {
-  const { prompt, segmentContext } = req.body as { prompt?: string; segmentContext?: SegmentContext };
+  const { prompt, segmentContext, templateId } = req.body as {
+    prompt?: string;
+    segmentContext?: SegmentContext;
+    templateId?: number;
+  };
 
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     res.status(400).json({ error: "prompt is required" });
@@ -714,6 +718,194 @@ router.post("/lp/generate-page", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId ?? null;
   const [brand, mediaCatalog] = await Promise.all([fetchBrand(tenantId), fetchMediaCatalog()]);
   const brandContext = buildBrandContext(brand);
+
+  // ── Template-driven mode ──────────────────────────────────────────────
+  // When the caller picks a template as the starting point, we skip the
+  // "AI chooses block layout" path entirely. The template's block structure
+  // is locked in; the AI only rewrites copy fields (headlines, body text,
+  // CTA labels, list items, etc.) to match the user's prompt. Block ids,
+  // types, and non-text props (colors, layout flags, image URLs) are
+  // preserved verbatim. The route returns early after this branch.
+  if (templateId !== undefined && templateId !== null) {
+    const tplIdNum = Number(templateId);
+    if (!Number.isFinite(tplIdNum)) {
+      res.status(400).json({ error: "templateId must be a number" });
+      return;
+    }
+    try {
+      const visibility = tenantId !== null
+        ? or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true))
+        : eq(lpPagesTable.isGlobal, true);
+      const rows = await db
+        .select()
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, tplIdNum), eq(lpPagesTable.isTemplate, true), visibility))
+        .limit(1);
+      const tpl = rows[0];
+      if (!tpl) {
+        res.status(404).json({ error: "Template not found or not accessible" });
+        return;
+      }
+      const tplBlocks = Array.isArray(tpl.blocks) ? tpl.blocks : [];
+      if (tplBlocks.length === 0) {
+        res.status(400).json({ error: "Template has no blocks" });
+        return;
+      }
+
+      const segmentSection = segmentContext && typeof segmentContext === "object"
+        ? buildSegmentSection(segmentContext)
+        : "";
+
+      const templateSystemPrompt = [
+        "You are a senior landing-page copywriter.",
+        "You will be given a JSON array of pre-designed page blocks. Your job is to rewrite the COPY (text content) inside each block so it matches the user's request, while preserving the block STRUCTURE exactly.",
+        "",
+        "STRICT RULES:",
+        "1. Return JSON only. No prose, no markdown fences.",
+        "2. Output shape: { \"title\": string, \"slug\": string, \"blocks\": [...] }.",
+        "3. The `blocks` array MUST have the same length and same block ORDER as the input.",
+        "4. For each block, preserve `id`, `type`, and the SHAPE of `props` (same keys, same nesting, same array lengths). Do not add or remove blocks. Do not add or remove keys.",
+        "5. Only rewrite human-readable text values: headlines, eyebrows, subheadlines, body, descriptions, button/CTA labels, list item text, stat labels, eyebrow text, quote text, attribution names/titles, FAQ questions/answers, etc.",
+        "6. DO NOT change: image URLs, video URLs, link/CTA URLs, color hex values, anchor ids/hrefs, boolean flags, layout/style enum values (e.g. backgroundStyle, alignment, columns, variant), numeric counts/sizes, icon names, or any non-text technical field.",
+        "7. If a text field in the template is empty string, you may leave it empty or fill it with appropriate copy — your choice based on context.",
+        "8. Tailor every piece of copy to the user's prompt and (if provided) the audience segment. Avoid generic filler.",
+        "9. The top-level `slug` must be lowercase letters/numbers/hyphens only.",
+      ].join("\n");
+
+      const templateUserPromptParts: string[] = [];
+      if (brandContext) templateUserPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
+      if (segmentSection) {
+        templateUserPromptParts.push(
+          `AUDIENCE SEGMENT — IMPORTANT: Tailor all copy to this segment. Do NOT use generic messaging.\n${segmentSection}`
+        );
+      }
+      templateUserPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
+      templateUserPromptParts.push(
+        `TEMPLATE BLOCKS (preserve structure, rewrite copy only):\n${JSON.stringify(tplBlocks)}`
+      );
+      templateUserPromptParts.push(
+        "Now return the JSON object { title, slug, blocks } where blocks is the same array with all copy rewritten to match the user's request."
+      );
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.7,
+        max_completion_tokens: 8192,
+        messages: [
+          { role: "system", content: templateSystemPrompt },
+          { role: "user", content: templateUserPromptParts.join("\n\n") },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      let parsed: { title?: string; slug?: string; blocks?: unknown[] };
+      try {
+        const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        parsed = JSON.parse(cleaned);
+      } catch {
+        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        return;
+      }
+
+      if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
+        res.status(500).json({ error: "AI response missing required fields (title, slug, blocks)" });
+        return;
+      }
+
+      // Safety net: if the AI returned the wrong number of blocks, fall back
+      // to the original template block at that index so the page still
+      // renders with a correct structure.
+      if (parsed.blocks.length !== tplBlocks.length) {
+        logger.warn(
+          { templateId: tplIdNum, expected: tplBlocks.length, got: parsed.blocks.length },
+          "[generate-page] template block count mismatch — padding/truncating",
+        );
+      }
+
+      // Merge each AI block onto the original template block so we
+      // GUARANTEE id/type and any non-text props the AI may have dropped
+      // are preserved. Strategy: start with the template block, then
+      // overlay top-level scalar props from the AI block (which carry the
+      // new copy). Nested arrays of objects are aligned by index.
+      const mergedBlocks = tplBlocks.map((origRaw, i) => {
+        const orig = origRaw as Record<string, unknown>;
+        const aiBlock = (parsed.blocks?.[i] ?? {}) as Record<string, unknown>;
+        const origProps = (orig.props && typeof orig.props === "object")
+          ? orig.props as Record<string, unknown>
+          : {};
+        const aiProps = (aiBlock.props && typeof aiBlock.props === "object")
+          ? aiBlock.props as Record<string, unknown>
+          : {};
+        const mergedProps: Record<string, unknown> = { ...origProps };
+        for (const [k, v] of Object.entries(aiProps)) {
+          if (!(k in origProps)) continue; // drop hallucinated keys
+          const origVal = origProps[k];
+          // Preserve URLs / colors / non-text technical fields verbatim.
+          if (
+            /url$/i.test(k) ||
+            /color$/i.test(k) ||
+            k === "id" ||
+            k === "anchor" ||
+            k === "href" ||
+            k === "src"
+          ) {
+            continue;
+          }
+          // Align array-of-objects by index; copy text fields, keep technical fields.
+          if (Array.isArray(origVal) && Array.isArray(v)) {
+            mergedProps[k] = origVal.map((origItem, idx) => {
+              const aiItem = v[idx];
+              if (
+                origItem && typeof origItem === "object" && !Array.isArray(origItem) &&
+                aiItem && typeof aiItem === "object" && !Array.isArray(aiItem)
+              ) {
+                const oi = origItem as Record<string, unknown>;
+                const ai = aiItem as Record<string, unknown>;
+                const merged: Record<string, unknown> = { ...oi };
+                for (const [ik, iv] of Object.entries(ai)) {
+                  if (!(ik in oi)) continue;
+                  if (/url$/i.test(ik) || /color$/i.test(ik) || ik === "id" || ik === "anchor" || ik === "href" || ik === "src") continue;
+                  if (typeof iv === "string") merged[ik] = iv;
+                }
+                return merged;
+              }
+              // arrays of strings (bullet lists) — accept AI value if it's a string
+              if (typeof aiItem === "string") return aiItem;
+              return origItem;
+            });
+            continue;
+          }
+          if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+            mergedProps[k] = v;
+          }
+        }
+        return {
+          ...orig,
+          props: mergedProps,
+          // Force id/type from template — never trust AI here.
+          id: orig.id,
+          type: orig.type,
+        };
+      });
+
+      const slug = String(parsed.slug)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      res.json({
+        title: parsed.title,
+        slug,
+        blocks: mergedBlocks,
+      });
+      return;
+    } catch (err) {
+      logger.error({ err: String(err) }, "[generate-page] template-mode generation failed");
+      res.status(500).json({ error: String(err) });
+      return;
+    }
+  }
+  // ── End template-driven mode ─────────────────────────────────────────
 
   const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
