@@ -10,6 +10,7 @@ import {
   ChevronUp, ChevronDown, Eye, EyeOff, RotateCcw, Loader2, Pencil, Check, X,
 } from "lucide-react";
 import type { ResolvedBlockDef } from "@/hooks/use-block-catalog";
+import type { BlockCategory } from "@/lib/block-types";
 import {
   EMPTY_PREFS,
   applyCategoryOrder,

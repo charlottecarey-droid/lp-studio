@@ -181,10 +181,17 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 
 function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs; onCustomize: () => void }) {
   const defaultCoreOrder = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "Showcase"] as const;
-  const coreSet = new Set<string>(defaultCoreOrder);
-  // Honor the tenant's category order — but only for categories that are
-  // "core" (rendered in this tab). Non-core categories belong to SegmentLibrary.
-  const categories = applyCategoryOrder(defaultCoreOrder, prefs).filter(c => coreSet.has(c));
+  // Any category that exists in the catalog but is neither a known core nor a
+  // known non-core (SegmentLibrary) category is a tenant-created shelf — a
+  // user moved a block into a new bucket via the Customize dialog. Surface
+  // those in the Blocks tab so the block is reachable.
+  const knownNonCore = new Set(["DSO", "DSO Practices", "Events"]);
+  const tenantExtras = Array.from(new Set(
+    visibleBlocks
+      .map(b => b.category)
+      .filter(c => !defaultCoreOrder.includes(c as (typeof defaultCoreOrder)[number]) && !knownNonCore.has(c)),
+  ));
+  const categories = applyCategoryOrder([...defaultCoreOrder, ...tenantExtras], prefs);
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
   const [search, setSearch] = useState("");
   const filteredCustom = search.trim()
