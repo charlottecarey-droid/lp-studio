@@ -21,6 +21,8 @@ import {
   sanitizeInlineHtml,
   isLikelyHtml,
 } from "@/lib/sanitize-inline-html";
+import { InlineColorPopover } from "@/components/InlineColorPopover";
+
 interface InternalPageRef {
   id: number;
   title: string;
@@ -513,40 +515,23 @@ export function InlineText({
                 </div>
               )}
             </div>
-            <div className="relative">
+            <InlineColorPopover
+              open={openMenu === "color"}
+              onOpenChange={(o) => setOpenMenu(o ? "color" : null)}
+              onPick={(value) => handleColor(value)}
+              brandSwatches={COLOR_SWATCHES.filter((c) => c.value !== "").map(
+                (c) => ({ name: c.name, value: c.value }),
+              )}
+            >
               <button
                 type="button"
                 onMouseDown={onToolbarMouseDown}
-                onClick={() => setOpenMenu(openMenu === "color" ? null : "color")}
                 title="Text color"
                 className="p-1.5 rounded hover:bg-accent text-popover-foreground"
               >
                 <Palette className="w-3.5 h-3.5" />
               </button>
-              {openMenu === "color" && (
-                <div
-                  className="absolute top-full left-0 mt-1 rounded-md border border-border bg-popover p-1.5 shadow-lg grid grid-cols-5 gap-1"
-                  onMouseDown={onToolbarMouseDown}
-                >
-                  {COLOR_SWATCHES.map(c => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      title={c.name}
-                      onMouseDown={onToolbarMouseDown}
-                      onClick={() => handleColor(c.value)}
-                      className="w-5 h-5 rounded border border-border"
-                      style={{
-                        background: c.value || "transparent",
-                        backgroundImage: c.value
-                          ? undefined
-                          : "linear-gradient(45deg, transparent 45%, currentColor 45%, currentColor 55%, transparent 55%)",
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            </InlineColorPopover>
           </div>,
           document.body
         )}

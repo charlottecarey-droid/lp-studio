@@ -468,21 +468,64 @@ function LayersPanel({ blocks, selectedBlockId, onSelect, onDelete }: LayersPane
     );
   }
 
+  // Use the full collected id list (top-level + nested children) so that
+  // dragging a Layers row maps to the same SortableContext the canvas uses
+  // and nested moves are reflected here automatically.
   return (
-    <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+    <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
       <div className="p-2 space-y-0.5">
         {blocks.map((block, i) => (
-          <SortableLayerItem
+          <LayerRow
             key={block.id}
             block={block}
             index={i}
-            isSelected={selectedBlockId === block.id}
-            onSelect={() => onSelect(block.id)}
-            onDelete={() => onDelete(block.id)}
+            depth={0}
+            selectedBlockId={selectedBlockId}
+            onSelect={onSelect}
+            onDelete={onDelete}
           />
         ))}
       </div>
     </SortableContext>
+  );
+}
+
+interface LayerRowProps {
+  block: PageBlock;
+  index: number;
+  depth: number;
+  selectedBlockId: string | null;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function LayerRow({ block, index, depth, selectedBlockId, onSelect, onDelete }: LayerRowProps) {
+  const children = block.children ?? [];
+  return (
+    <div style={{ paddingLeft: depth * 12 }}>
+      <SortableLayerItem
+        block={block}
+        index={index}
+        isSelected={selectedBlockId === block.id}
+        onSelect={() => onSelect(block.id)}
+        onDelete={() => onDelete(block.id)}
+      />
+      {children.length > 0 && (
+        <div className="mt-0.5 space-y-0.5 border-l border-border/60 ml-2">
+          {children.map((c, ci) => (
+            <LayerRow
+              key={c.id}
+              block={c}
+              index={ci}
+              depth={depth + 1}
+              selectedBlockId={selectedBlockId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

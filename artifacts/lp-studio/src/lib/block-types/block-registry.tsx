@@ -3538,9 +3538,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     label: "Section",
     category: "Layout",
     defaultProps: () => ({
-      background: "transparent",
-      paddingY: "py-16",
-      maxWidth: "max-w-6xl",
+      maxWidth: "default" as const,
+      paddingY: "default" as const,
+      align: "stretch" as const,
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -3554,7 +3554,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     type: "columns",
     label: "Columns",
     category: "Layout",
-    defaultProps: () => ({ columns: 2, gap: "gap-6" }),
+    defaultProps: () => ({ columns: 2 as const, gap: 1.5, align: "stretch" as const }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
         <rect width="120" height="70" fill="#F4F4F5" rx="4" />
@@ -3567,7 +3567,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     type: "grid",
     label: "Grid",
     category: "Layout",
-    defaultProps: () => ({ columns: 3, gap: "gap-4" }),
+    defaultProps: () => ({ columns: 3, mobileColumns: 1, gap: 1 }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
         <rect width="120" height="70" fill="#F4F4F5" rx="4" />
@@ -3584,7 +3584,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     type: "stack",
     label: "Stack",
     category: "Layout",
-    defaultProps: () => ({ direction: "vertical", gap: "gap-4", align: "stretch" }),
+    defaultProps: () => ({ gap: 1, align: "stretch" as const }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
         <rect width="120" height="70" fill="#F4F4F5" rx="4" />

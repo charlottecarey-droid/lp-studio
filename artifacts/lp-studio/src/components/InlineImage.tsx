@@ -16,6 +16,11 @@ interface InlineImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "on
   onUpdate?: (url: string) => void;
   /** Optional alt-text setter. When provided, the popover shows an alt-text editor. */
   onAltUpdate?: (alt: string) => void;
+  /** Current focal-point as `"x% y%"` (CSS object-position). Default `"50% 50%"`. */
+  focalPoint?: string;
+  /** Optional focal-point setter. When provided, the popover shows a focal-point picker
+   *  and the image is rendered with `object-position: <focalPoint>`. */
+  onFocalUpdate?: (focal: string) => void;
   className?: string;
   style?: CSSProperties;
   /** Optional wrapper className applied to the relative positioning shell. */
@@ -33,11 +38,17 @@ export function InlineImage({
   alt,
   onUpdate,
   onAltUpdate,
+  focalPoint,
+  onFocalUpdate,
   className,
   style,
   wrapperClassName,
   ...imgProps
 }: InlineImageProps) {
+  const focal = focalPoint ?? "50% 50%";
+  const mergedStyle: CSSProperties = onFocalUpdate
+    ? { ...style, objectPosition: focal }
+    : style ?? {};
   const [open, setOpen] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -45,7 +56,7 @@ export function InlineImage({
 
   if (!onUpdate) {
     return (
-      <img src={src} alt={alt} className={className} style={style} {...imgProps} />
+      <img src={src} alt={alt} className={className} style={mergedStyle} {...imgProps} />
     );
   }
 
@@ -109,7 +120,7 @@ export function InlineImage({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <img src={src} alt={alt} className={className} style={style} {...imgProps} />
+      <img src={src} alt={alt} className={className} style={mergedStyle} {...imgProps} />
       {isDraggingFile && (
         <span
           className="absolute inset-0 z-20 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/10 text-xs font-semibold text-primary pointer-events-none"
@@ -158,6 +169,13 @@ export function InlineImage({
               />
             </div>
           )}
+          {onFocalUpdate && (
+            <FocalPointEditor
+              src={src}
+              focal={focal}
+              onChange={onFocalUpdate}
+            />
+          )}
           {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
           <p className="text-[10px] text-muted-foreground">
             Tip: drop an image file onto the picture to replace it instantly.
@@ -166,4 +184,60 @@ export function InlineImage({
       </Popover>
     </span>
   );
+}
+
+/**
+ * Click-to-set focal point editor. Renders a thumbnail of the image with a
+ * crosshair marker; click anywhere on the image to set
+ * `object-position: <x>% <y>%` for the live <img>.
+ */
+function FocalPointEditor({
+  src,
+  focal,
+  onChange,
+}: {
+  src: string;
+  focal: string;
+  onChange: (next: string) => void;
+}) {
+  const [x, y] = parseFocal(focal);
+  return (
+    <div className="space-y-1.5 pt-1 border-t">
+      <Label className="text-xs font-semibold">Focal point</Label>
+      <button
+        type="button"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const px = ((e.clientX - rect.left) / rect.width) * 100;
+          const py = ((e.clientY - rect.top) / rect.height) * 100;
+          onChange(`${clamp01(px).toFixed(0)}% ${clamp01(py).toFixed(0)}%`);
+        }}
+        className="relative block w-full overflow-hidden rounded border border-border"
+        style={{ aspectRatio: "16 / 9" }}
+        title="Click to set focal point"
+      >
+        <img
+          src={src}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+        <span
+          className="absolute z-10 w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white bg-primary shadow"
+          style={{ left: `${x}%`, top: `${y}%` }}
+        />
+      </button>
+      <p className="text-[10px] text-muted-foreground">
+        Sets <code>object-position: {focal}</code>.
+      </p>
+    </div>
+  );
+}
+
+function parseFocal(s: string): [number, number] {
+  const m = s.match(/(-?\d+(?:\.\d+)?)\s*%\s+(-?\d+(?:\.\d+)?)\s*%/);
+  if (!m) return [50, 50];
+  return [clamp01(Number(m[1])), clamp01(Number(m[2]))];
+}
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(100, n));
 }
