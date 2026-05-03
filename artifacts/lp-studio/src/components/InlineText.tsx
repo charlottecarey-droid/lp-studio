@@ -21,6 +21,39 @@ import {
   sanitizeInlineHtml,
   isLikelyHtml,
 } from "@/lib/sanitize-inline-html";
+import { InlineLinkPopover } from "@/components/InlineLinkPopover";
+
+interface InternalPageRef {
+  id: number;
+  title: string;
+  slug: string;
+}
+
+// Cached promise for the internal-page list — fetched once per session and
+// reused by every InlineText link popover. Keeps the autocomplete fast and
+// avoids hammering /api/lp/pages on each link edit.
+let pagesCache: Promise<InternalPageRef[]> | null = null;
+function fetchInternalPages(): Promise<InternalPageRef[]> {
+  if (!pagesCache) {
+    pagesCache = fetch("/api/lp/pages")
+      .then((r) => (r.ok ? (r.json() as Promise<unknown>) : []))
+      .then((rows) => {
+        if (!Array.isArray(rows)) return [];
+        return rows
+          .map((r) => {
+            const o = r as Record<string, unknown>;
+            return {
+              id: Number(o.id ?? 0),
+              title: String(o.title ?? ""),
+              slug: String(o.slug ?? ""),
+            };
+          })
+          .filter((p) => p.id > 0 && p.slug !== "");
+      })
+      .catch(() => []);
+  }
+  return pagesCache;
+}
 
 interface InlineTextProps {
   value: string;

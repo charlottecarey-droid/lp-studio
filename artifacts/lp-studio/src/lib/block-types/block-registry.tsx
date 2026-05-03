@@ -3531,6 +3531,69 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  // ── Container blocks (Phase 2 — nested children). They render a single
+  //    drop slot in the builder so users can nest other blocks inside.
+  {
+    type: "section",
+    label: "Section",
+    category: "Layout",
+    defaultProps: () => ({
+      background: "transparent",
+      paddingY: "py-16",
+      maxWidth: "max-w-6xl",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F4F5" rx="4" />
+        <rect x="10" y="10" width="100" height="50" rx="3" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <text x="60" y="40" textAnchor="middle" fontSize="10" fill="#3B82F6" fontWeight="600">SECTION</text>
+      </svg>
+    ),
+  },
+  {
+    type: "columns",
+    label: "Columns",
+    category: "Layout",
+    defaultProps: () => ({ columns: 2, gap: "gap-6" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F4F5" rx="4" />
+        <rect x="10" y="10" width="48" height="50" rx="3" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="62" y="10" width="48" height="50" rx="3" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+      </svg>
+    ),
+  },
+  {
+    type: "grid",
+    label: "Grid",
+    category: "Layout",
+    defaultProps: () => ({ columns: 3, gap: "gap-4" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F4F5" rx="4" />
+        <rect x="10" y="10" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="45" y="10" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="80" y="10" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="10" y="38" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="45" y="38" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="80" y="38" width="30" height="22" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+      </svg>
+    ),
+  },
+  {
+    type: "stack",
+    label: "Stack",
+    category: "Layout",
+    defaultProps: () => ({ direction: "vertical", gap: "gap-4", align: "stretch" }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F4F5" rx="4" />
+        <rect x="20" y="10" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="20" y="28" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+        <rect x="20" y="46" width="80" height="14" rx="2" fill="none" stroke="#3B82F6" strokeDasharray="3 2" />
+      </svg>
+    ),
+  },
 ];
 
 export function getBlockDef(type: string): BlockDefinition | undefined {

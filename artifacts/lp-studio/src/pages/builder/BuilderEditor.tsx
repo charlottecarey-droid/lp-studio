@@ -456,21 +456,10 @@ interface LayersPanelProps {
   onReorder: (blocks: PageBlock[]) => void;
 }
 
-function LayersPanel({ blocks, selectedBlockId, onSelect, onDelete, onReorder }: LayersPanelProps) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIdx = blocks.findIndex(b => b.id === active.id);
-      const newIdx = blocks.findIndex(b => b.id === over.id);
-      onReorder(arrayMove(blocks, oldIdx, newIdx));
-    }
-  };
-
+function LayersPanel({ blocks, selectedBlockId, onSelect, onDelete }: LayersPanelProps) {
+  // No DndContext here: the entire BuilderEditor is wrapped in a single root
+  // DndContext (Phase 2 single-root architecture) so this panel just plugs
+  // into a SortableContext that shares the same sensors and drag handler.
   if (blocks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center gap-2 text-muted-foreground">
@@ -481,22 +470,20 @@ function LayersPanel({ blocks, selectedBlockId, onSelect, onDelete, onReorder }:
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-        <div className="p-2 space-y-0.5">
-          {blocks.map((block, i) => (
-            <SortableLayerItem
-              key={block.id}
-              block={block}
-              index={i}
-              isSelected={selectedBlockId === block.id}
-              onSelect={() => onSelect(block.id)}
-              onDelete={() => onDelete(block.id)}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+      <div className="p-2 space-y-0.5">
+        {blocks.map((block, i) => (
+          <SortableLayerItem
+            key={block.id}
+            block={block}
+            index={i}
+            isSelected={selectedBlockId === block.id}
+            onSelect={() => onSelect(block.id)}
+            onDelete={() => onDelete(block.id)}
+          />
+        ))}
+      </div>
+    </SortableContext>
   );
 }
 
@@ -1356,6 +1343,12 @@ export default function BuilderEditor() {
           setNestedInsertTarget({ parentPath, index: index + 1 });
           setInsertDialogOpen(true);
         }}
+        onInsertBefore={() => {
+          // Top-of-container insert chip — only the first child renders this
+          // (NestedChild gates on index===0 internally).
+          setNestedInsertTarget({ parentPath, index: 0 });
+          setInsertDialogOpen(true);
+        }}
         onBlockChange={updateBlock}
         renderChild={renderNestedChild}
         renderEmptySlot={renderEmptySlot}
@@ -1658,6 +1651,7 @@ export default function BuilderEditor() {
   }
 
   return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Top Bar */}
       <BuilderTopBar
@@ -1989,12 +1983,7 @@ export default function BuilderEditor() {
                   .animate-marquee { animation: marquee 40s linear infinite; }
                   .animate-marquee:hover { animation-play-state: paused; }
                 `}</style>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
                     <InsertionBar onClick={() => openInsertAt(0)} />
                     {blocks.map((block, index) => (
                       <div key={block.id}>
@@ -2022,7 +2011,6 @@ export default function BuilderEditor() {
                       </div>
                     ))}
                   </SortableContext>
-                </DndContext>
               </div>
             )}
           </div>
@@ -2339,6 +2327,7 @@ export default function BuilderEditor() {
         </aside>
       </div>
     </div>
+    </DndContext>
   );
 }
 

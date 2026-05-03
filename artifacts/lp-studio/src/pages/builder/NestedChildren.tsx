@@ -32,6 +32,9 @@ interface NestedChildProps {
   onSelect: () => void;
   onDelete: () => void;
   onInsertAfter: () => void;
+  /** Called when the user clicks the top-of-container insert chip. Only the
+   *  child at index 0 renders this chip; pass undefined to skip. */
+  onInsertBefore?: () => void;
   onBlockChange: (updated: PageBlock) => void;
   renderChild: (c: PageBlock, i: number, parentPath: BlockPath) => ReactNode;
   renderEmptySlot: (parentPath: BlockPath) => ReactNode;
@@ -46,6 +49,7 @@ export function NestedChild({
   onSelect,
   onDelete,
   onInsertAfter,
+  onInsertBefore,
   onBlockChange,
   renderChild,
   renderEmptySlot,
@@ -62,6 +66,9 @@ export function NestedChild({
 
   return (
     <>
+      {index === 0 && onInsertBefore && (
+        <NestedInsertChip onClick={onInsertBefore} />
+      )}
       <div
         ref={setNodeRef}
         style={style}
@@ -117,7 +124,7 @@ export function NestedChild({
 
 function NestedInsertChip({ onClick }: { onClick: () => void }) {
   return (
-    <div className="flex items-center justify-center py-1 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity">
+    <div className="flex items-center justify-center py-1 opacity-30 hover:opacity-100 focus-within:opacity-100 transition-opacity">
       <button
         type="button"
         onClick={(e) => {
