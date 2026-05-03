@@ -23,7 +23,15 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
     <section className="w-full py-20 md:py-28 bg-[#FDFCFA]">
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline || props.subheadline) && (
-          <div className="mb-14 max-w-2xl">
+          // `headerAlign` defaults to "left" so existing pages render unchanged.
+          // When centered, `mx-auto` + `text-center` recentres the whole header
+          // block (and its narrower max-width) over the 3-column grid below.
+          <div
+            className={cn(
+              "mb-14 max-w-2xl",
+              props.headerAlign === "center" ? "mx-auto text-center" : "",
+            )}
+          >
             {props.eyebrow && (
               <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3">
                 <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} />

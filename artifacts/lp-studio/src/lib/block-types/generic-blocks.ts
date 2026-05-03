@@ -429,6 +429,9 @@ export interface DandyColumnsV3BlockProps {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
+  /** Horizontal alignment of the eyebrow / headline / subheadline block
+   *  above the columns. Defaults to "left" to preserve the original layout. */
+  headerAlign?: "left" | "center";
   items: DandyColumnsV3Item[];
 }
 

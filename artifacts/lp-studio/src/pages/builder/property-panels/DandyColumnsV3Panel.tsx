@@ -38,6 +38,27 @@ export function DandyColumnsV3Panel({ props: p, onChange }: Props) {
         <Label className="text-xs">Subheadline</Label>
         <Input value={p.subheadline ?? ""} onChange={e => set("subheadline", e.target.value || undefined)} className="h-8 text-xs" />
       </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Header alignment</Label>
+        <div className="flex gap-1">
+          {(["left", "center"] as const).map((opt) => {
+            const active = (p.headerAlign ?? "left") === opt;
+            return (
+              <Button
+                key={opt}
+                type="button"
+                size="sm"
+                variant={active ? "default" : "outline"}
+                className="h-7 text-xs flex-1 capitalize"
+                onClick={() => set("headerAlign", opt)}
+              >
+                {opt}
+              </Button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Centers the eyebrow, headline and subheadline over the columns.</p>
+      </div>
 
       <div className="border-t pt-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Steps / Features</p>
