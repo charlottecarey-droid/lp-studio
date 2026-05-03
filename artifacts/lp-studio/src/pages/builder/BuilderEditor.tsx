@@ -1432,9 +1432,13 @@ export default function BuilderEditor() {
       if (overId.startsWith("container:")) {
         const seg = overId.slice("container:".length);
         const toParent: BlockPath = seg === "" ? [] : seg.split(".").map(Number);
-        // Append at the end of the destination container.
-        const dest = getAtPath(prev, toParent);
-        const childCount = (dest?.children ?? []).length;
+        // Append at the end of the destination container. For root
+        // (toParent === []), getAtPath returns undefined intentionally — use
+        // the top-level array length as the append index.
+        const childCount =
+          toParent.length === 0
+            ? prev.length
+            : (getAtPath(prev, toParent)?.children ?? []).length;
         return moveBlock(prev, fromPath, toParent, childCount);
       }
 
