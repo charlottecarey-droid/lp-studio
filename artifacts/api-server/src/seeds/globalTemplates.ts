@@ -2563,11 +2563,22 @@ function defaultPremiumRank(slug: string): number {
   return 200;
 }
 
+// Industry templates are always pinned beneath flagships, distinctives,
+// and generic starters. We assign explicit premiumRank values per
+// industry seed (rather than relying on the slug-prefix default) so the
+// ordering is deterministic and obvious from the data, and so any single
+// industry seed can opt out by setting its own `premiumRank`.
+const INDUSTRY_TEMPLATE_SEEDS_RANKED: GlobalTemplateSeed[] =
+  INDUSTRY_TEMPLATE_SEEDS.map((t, i) => ({
+    ...t,
+    premiumRank: t.premiumRank ?? 100 + i,
+  }));
+
 const COMBINED: GlobalTemplateSeed[] = [
   ...FLAGSHIP_TEMPLATE_SEEDS,
   ...DISTINCTIVE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
-  ...INDUSTRY_TEMPLATE_SEEDS,
+  ...INDUSTRY_TEMPLATE_SEEDS_RANKED,
 ];
 
 export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = COMBINED.map((t) => ({

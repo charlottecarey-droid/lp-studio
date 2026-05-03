@@ -182,23 +182,35 @@ export default function TemplateMarketplace() {
     return sorted;
   }, [templates, searchQuery, sortBy, selectedIndustries]);
 
-  // Build display groups for the Featured sort. Premium ranks 1-10 are the
-  // hand-picked flagship templates; everything else flows into "All
-  // templates". For non-Featured sorts we render a single ungrouped list.
+  // Build display groups for the Featured sort. Tenant-owned templates
+  // ALWAYS render first ("Your templates") so a tenant's own work stays
+  // above the starter library even after we surface curated flagships.
+  // Then global premium ranks 1-10 are the hand-picked flagships,
+  // followed by "All templates" for everything else. For non-Featured
+  // sorts we render a single ungrouped list.
   const displayGroups = useMemo(() => {
     if (sortBy !== "Featured") {
       return [{ label: null as string | null, items: filteredAndSorted }];
     }
+    const tenant: TemplatePage[] = [];
     const featured: TemplatePage[] = [];
     const rest: TemplatePage[] = [];
     for (const t of filteredAndSorted) {
-      const rank = t.premiumRank ?? (t.isGlobal ? 200 : 0);
-      if (t.isGlobal && rank <= 10) featured.push(t);
+      if (!t.isGlobal) {
+        tenant.push(t);
+        continue;
+      }
+      const rank = t.premiumRank ?? 200;
+      if (rank <= 10) featured.push(t);
       else rest.push(t);
     }
     const groups: { label: string | null; items: TemplatePage[] }[] = [];
+    if (tenant.length > 0) groups.push({ label: "Your templates", items: tenant });
     if (featured.length > 0) groups.push({ label: "Featured", items: featured });
-    if (rest.length > 0) groups.push({ label: featured.length > 0 ? "All templates" : null, items: rest });
+    if (rest.length > 0) {
+      const restLabel = tenant.length > 0 || featured.length > 0 ? "All templates" : null;
+      groups.push({ label: restLabel, items: rest });
+    }
     return groups;
   }, [filteredAndSorted, sortBy]);
 
