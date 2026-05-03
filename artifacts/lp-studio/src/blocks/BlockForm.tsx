@@ -201,6 +201,24 @@ function FieldInput({
   }
 
   if (field.type === "select" && field.options) {
+    // FormField.options is typed as `string[]`, but historical seed data
+    // (and any future hand-edited templates) may store entries as
+    // `{label, value}` objects. Coerce both shapes to a uniform
+    // `{value, label}` so a stray object never reaches React as a child
+    // — that's what produced the minified "objects are not valid as a
+    // React child" crash on the Conversion Capture Page template.
+    const normalizedOptions = (field.options as Array<unknown>)
+      .map((raw): { value: string; label: string } | null => {
+        if (typeof raw === "string") return { value: raw, label: raw };
+        if (raw && typeof raw === "object") {
+          const o = raw as { value?: unknown; label?: unknown };
+          const v = typeof o.value === "string" ? o.value : typeof o.label === "string" ? o.label : null;
+          const l = typeof o.label === "string" ? o.label : v;
+          if (v !== null && l !== null) return { value: v, label: l };
+        }
+        return null;
+      })
+      .filter((o): o is { value: string; label: string } => o !== null);
     return (
       <select
         value={value}
@@ -212,8 +230,8 @@ function FieldInput({
         aria-invalid={!!error}
       >
         <option value="">Select an option…</option>
-        {field.options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
+        {normalizedOptions.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
     );

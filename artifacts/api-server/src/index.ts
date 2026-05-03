@@ -919,7 +919,11 @@ async function runMigrations(): Promise<void> {
     // entries (v1) get their bogus block types fixed, but tenant edits to
     // titles or new template additions remain untouched.
     try {
-      const SEED_MARKER = "global_templates_seed_v12";
+      // v13: re-seed to fix the Conversion Capture Page template, whose
+      // select field stored options as {label,value} objects and crashed
+      // BlockForm with a minified "objects are not valid as a React
+      // child" error in production.
+      const SEED_MARKER = "global_templates_seed_v13";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );

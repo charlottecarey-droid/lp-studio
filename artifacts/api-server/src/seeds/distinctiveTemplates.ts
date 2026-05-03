@@ -729,12 +729,12 @@ export const DISTINCTIVE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
                   label: "Monthly paid spend",
                   placeholder: "Pick a range",
                   required: false,
-                  options: [
-                    { label: "Under $5k", value: "under-5k" },
-                    { label: "$5k–$25k", value: "5-25" },
-                    { label: "$25k–$100k", value: "25-100" },
-                    { label: "$100k+", value: "100-plus" },
-                  ],
+                  // FormField.options is `string[]` — the inline form editor
+                  // stores newline-separated strings, and BlockForm renders
+                  // each option as a React child. Object options crash with
+                  // a minified "objects are not valid as a React child"
+                  // error in production.
+                  options: ["Under $5k", "$5k–$25k", "$25k–$100k", "$100k+"],
                 },
               ],
             },
