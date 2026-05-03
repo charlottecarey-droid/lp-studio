@@ -22,8 +22,31 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, navLinks });
   };
 
+  // Inline background/text/font overrides. Falls back to the historical
+  // white bar with slate-900 text when unset.
+  const headerBg = props.backgroundColor ?? "#ffffff";
+  const headerFg = props.textColor;
+  const overlay = Math.max(0, Math.min(1, props.backgroundOverlay ?? 0));
+  const headerStyle: React.CSSProperties = {
+    background: props.backgroundImage
+      ? `linear-gradient(rgba(0,0,0,${overlay}), rgba(0,0,0,${overlay})), url("${props.backgroundImage}") center/cover no-repeat, ${headerBg}`
+      : headerBg,
+    color: headerFg || undefined,
+    fontFamily: props.fontFamily || undefined,
+  };
+  // Drop the hard-coded bg/text classes when an override is in play so the
+  // user's color isn't fighting tailwind's `bg-white` / `text-slate-*`.
+  const hasBgOverride = !!(props.backgroundColor || props.backgroundImage);
+  const hasFgOverride = !!props.textColor;
+
   return (
-    <header className="w-full bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+    <header
+      className={cn(
+        "w-full border-b border-slate-200 shadow-sm sticky top-0 z-50",
+        !hasBgOverride && "bg-white",
+      )}
+      style={headerStyle}
+    >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
         <div className="shrink-0">
           <BrandLogo
@@ -41,7 +64,13 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
               <a
                 key={i}
                 href={link.url || "#"}
-                className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
+                className={cn(
+                  "text-sm font-medium transition-colors whitespace-nowrap",
+                  // Drop the slate palette when the user has set their own
+                  // text color so it actually takes effect (the slate classes
+                  // would otherwise win over inherited `color`).
+                  hasFgOverride ? "hover:opacity-80" : "text-slate-600 hover:text-slate-900",
+                )}
               >
                 <InlineText
                   value={link.label}
@@ -56,7 +85,10 @@ export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
           {props.phone && (
             <a
               href={`tel:${props.phone.replace(/\s/g, "")}`}
-              className="hidden lg:flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className={cn(
+                "hidden lg:flex items-center gap-1.5 text-sm font-medium transition-colors",
+                hasFgOverride ? "hover:opacity-80" : "text-slate-600 hover:text-slate-900",
+              )}
             >
               <Phone className="w-4 h-4" />
               <InlineText

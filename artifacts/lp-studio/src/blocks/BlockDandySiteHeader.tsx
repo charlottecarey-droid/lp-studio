@@ -1,4 +1,6 @@
+import type React from "react";
 import { Phone } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
@@ -21,8 +23,25 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, navLinks });
   };
 
+  // Compose inline overrides. When unset, fall back to the original
+  // brand-primary background + white text via the existing tailwind class.
+  // `textColor` is also exposed as a CSS variable so descendant elements
+  // (nav links, phone, CTAs) can inherit it without per-element edits.
+  const headerBg = props.backgroundColor ?? `var(--brand-primary, ${brand.primaryColor})`;
+  const headerFg = props.textColor ?? "#ffffff";
+  const overlay = Math.max(0, Math.min(1, props.backgroundOverlay ?? 0));
+  const headerStyle: React.CSSProperties = {
+    background: props.backgroundImage
+      ? `linear-gradient(rgba(0,0,0,${overlay}), rgba(0,0,0,${overlay})), url("${props.backgroundImage}") center/cover no-repeat, ${headerBg}`
+      : headerBg,
+    color: headerFg,
+    fontFamily: props.fontFamily || undefined,
+    ["--header-fg" as string]: headerFg,
+  };
+  const hasFgOverride = !!props.textColor;
+
   return (
-    <header className="w-full bg-[var(--brand-primary)] shadow-sm">
+    <header className="w-full shadow-sm" style={headerStyle}>
       {/* Main header */}
       <div className="max-w-7xl mx-auto px-6 md:px-10 h-20 flex items-center gap-8">
         {/* Logo */}
@@ -43,7 +62,12 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
               <a
                 key={i}
                 href={link.url || "#"}
-                className="text-sm font-medium text-white/75 hover:text-white transition-colors whitespace-nowrap"
+                className={cn(
+                  "text-sm font-medium transition-colors whitespace-nowrap",
+                  // Use the inherited header color when the user supplied a
+                  // textColor; otherwise keep the original white/75 ramp.
+                  hasFgOverride ? "opacity-80 hover:opacity-100" : "text-white/75 hover:text-white",
+                )}
               >
                 <InlineText
                   value={link.label}
@@ -59,7 +83,10 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           {props.phoneNumber && (
             <a
               href={`tel:${props.phoneNumber}`}
-              className="hidden md:flex items-center gap-2 text-sm text-white/65 hover:text-white transition-colors"
+              className={cn(
+                "hidden md:flex items-center gap-2 text-sm transition-colors",
+                hasFgOverride ? "opacity-70 hover:opacity-100" : "text-white/65 hover:text-white",
+              )}
             >
               <Phone className="w-4 h-4" />
               <InlineText value={props.phoneLabel || props.phoneNumber} onUpdate={field("phoneLabel")} />
@@ -70,7 +97,12 @@ export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
           {props.secondaryCtaText && (
             <button
               onClick={() => safeNavigate(props.secondaryCtaUrl)}
-              className="hidden md:block text-sm font-semibold text-white border border-white/30 rounded-xl px-5 py-2.5 hover:bg-white/10 transition-colors"
+              className={cn(
+                "hidden md:block text-sm font-semibold border rounded-xl px-5 py-2.5 transition-colors",
+                hasFgOverride
+                  ? "border-current/30 hover:bg-black/5"
+                  : "text-white border-white/30 hover:bg-white/10",
+              )}
             >
               <InlineText value={props.secondaryCtaText} onUpdate={field("secondaryCtaText")} />
             </button>

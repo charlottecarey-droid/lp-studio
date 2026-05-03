@@ -8,6 +8,22 @@ export interface NavHeaderBlockProps {
   phone: string;
   cta1: { label: string; url: string };
   cta2: { label: string; url: string };
+  /** Optional CSS background color for the header bar. Falls back to white
+   *  when unset. Accepts any CSS color (`#hex`, `rgb()`, `var(--brand-…)`). */
+  backgroundColor?: string;
+  /** Optional background image URL layered behind the bar contents. Sized
+   *  with `cover` and centered. Combine with `backgroundOverlay` to dim. */
+  backgroundImage?: string;
+  /** 0–1 dark overlay applied on top of `backgroundImage` so logo + text
+   *  remain legible. Default 0 (no overlay). */
+  backgroundOverlay?: number;
+  /** Override for header text/logo/nav color. When unset, falls back to the
+   *  historical slate-900 / slate-600 palette. */
+  textColor?: string;
+  /** Optional CSS `font-family` stack applied to header text (logo, nav
+   *  links, CTAs). Accepts any valid CSS font stack. When unset, inherits
+   *  from the page. */
+  fontFamily?: string;
 }
 
 export interface CtaButtonBlockProps {

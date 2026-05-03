@@ -477,6 +477,23 @@ export interface DandySiteHeaderBlockProps {
   secondaryCtaText: string;
   secondaryCtaUrl: string;
   navLinks: DandySiteHeaderNavLink[];
+  /** Optional CSS background color for the header bar. Falls back to the
+   *  brand primary color when unset. Accepts any CSS color (`#hex`,
+   *  `rgb()`, `var(--brand-…)`). */
+  backgroundColor?: string;
+  /** Optional background image URL layered behind the bar contents. Sized
+   *  with `cover` and centered. Combine with `backgroundOverlay` to dim. */
+  backgroundImage?: string;
+  /** 0–1 dark overlay applied on top of `backgroundImage` so logo + text
+   *  remain legible. Default 0 (no overlay). */
+  backgroundOverlay?: number;
+  /** Override for header text/logo color. When unset, falls back to white
+   *  (the historical look on the brand-primary background). */
+  textColor?: string;
+  /** Optional CSS `font-family` stack applied to header text (logo wordmark,
+   *  nav links, CTAs). Accepts any valid CSS font stack. When unset,
+   *  inherits from the page. */
+  fontFamily?: string;
 }
 
 export interface DandySiteFooterLinkGroup {

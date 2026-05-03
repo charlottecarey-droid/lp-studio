@@ -2,7 +2,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
+import { ColorField } from "./BlockSettingsPanel";
+import { HEADER_FONT_OPTIONS } from "./header-fonts";
 import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -23,6 +26,57 @@ export function DandySiteHeaderPanel({ props: p, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="border rounded-lg p-3 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background & typography</p>
+        <ColorField
+          label="Background color (overrides brand primary)"
+          value={p.backgroundColor}
+          onChange={v => set("backgroundColor", v)}
+        />
+        <ImagePicker
+          label="Background image (optional)"
+          value={p.backgroundImage ?? ""}
+          onChange={v => set("backgroundImage", v || undefined)}
+          placeholder="https://…"
+        />
+        {p.backgroundImage && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Image overlay — {((p.backgroundOverlay ?? 0) * 100).toFixed(0)}%</Label>
+            <Slider
+              min={0}
+              max={1}
+              step={0.05}
+              value={[p.backgroundOverlay ?? 0]}
+              onValueChange={(v) => set("backgroundOverlay", v[0])}
+            />
+            <p className="text-[11px] text-muted-foreground">Darkens the image so text/logo stay legible.</p>
+          </div>
+        )}
+        <ColorField
+          label="Text color (logo, nav, phone)"
+          value={p.textColor}
+          onChange={v => set("textColor", v)}
+        />
+        <div className="space-y-1.5">
+          <Label className="text-xs">Font family</Label>
+          <select
+            value={p.fontFamily ?? ""}
+            onChange={(e) => set("fontFamily", e.target.value || undefined)}
+            className="w-full h-8 text-xs rounded-md border border-border bg-background px-2"
+          >
+            <option value="">Inherit from page</option>
+            {HEADER_FONT_OPTIONS.map((f) => (
+              <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
+            ))}
+          </select>
+          <Input
+            value={p.fontFamily ?? ""}
+            onChange={(e) => set("fontFamily", e.target.value || undefined)}
+            placeholder='Custom CSS font stack, e.g. "Inter", sans-serif'
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+      </div>
       <ImagePicker label="Logo" value={p.logoUrl ?? ""} onChange={v => set("logoUrl", v || undefined)} />
 
       <div className="border-t pt-3 space-y-3">
