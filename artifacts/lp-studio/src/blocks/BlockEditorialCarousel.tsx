@@ -46,6 +46,14 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
   const interval = Math.max(1500, props.autoplayInterval ?? 5000);
   const rounded = props.rounded ?? false;
   const slides = props.slides ?? [];
+  const mode = props.mode || "image";
+  const layout = props.layout || "overlay-scrim";
+  const headlineSize = props.headlineSize ?? 2.25;
+  const subheadlineSize = props.subheadlineSize ?? 1;
+  // Lift the text card off the section background so split slides have a
+  // visible card edge by default. Authors can override.
+  const cardBg = props.cardBgColor || `color-mix(in srgb, ${bg} 88%, white 12%)`;
+  const isEditor = !!onFieldChange;
 
   const field = (key: keyof EditorialCarouselBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -157,48 +165,55 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
           ref={emblaRef}
         >
           <div style={{ display: "flex" }}>
-            {slides.map((slide, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: `0 0 85%`,
-                  minWidth: 0,
-                  padding: "0 0.75rem",
-                }}
-                className="md:!flex-[var(--ec-flex)]"
-                // Custom property so the className-only desktop override
-                // can read the configured slide width without re-rendering
-                // a giant style sheet.
-                ref={(el) => {
-                  if (el) el.style.setProperty("--ec-flex", `0 0 ${slideWidthPct}%`);
-                }}
-              >
-                <motion.div
-                  style={{ position: "relative", overflow: "hidden", borderRadius: radius, ...aspectStyle }}
-                  onHoverStart={() => setHovered(i)}
-                  onHoverEnd={() => setHovered(null)}
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                >
-                  {onFieldChange ? (
-                    <InlineImage
-                      src={slide.src}
-                      alt={slide.alt || ""}
-                      wrapperClassName="absolute inset-0"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onUpdate={(url) => updateSlide(i, { src: url })}
-                      onAltUpdate={(alt) => updateSlide(i, { alt })}
-                    />
-                  ) : (
-                    <motion.img
-                      src={slide.src}
-                      alt={slide.alt || ""}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
-                      loading="lazy"
-                      animate={{ scale: hovered === i ? 1.08 : 1 }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                    />
-                  )}
+            {slides.map((slide, i) => {
+              // Whole-slide link is only active in the live view — the editor
+              // stays a non-navigating div so the author can edit inline text
+              // without the click being swallowed by the anchor.
+              const Wrapper: "a" | "div" =
+                slide.linkUrl && !isEditor ? "a" : "div";
+              const wrapperProps =
+                Wrapper === "a"
+                  ? { href: slide.linkUrl, target: "_blank", rel: "noopener noreferrer" }
+                  : {};
+
+              // Image element — InlineImage in the editor, motion.img live.
+              // Reused across all three layouts.
+              const imageEl = isEditor ? (
+                <InlineImage
+                  src={slide.src}
+                  alt={slide.alt || ""}
+                  wrapperClassName={
+                    layout === "split" && mode === "case-study"
+                      ? "relative w-full h-full"
+                      : "absolute inset-0"
+                  }
+                  className={
+                    layout === "split" && mode === "case-study"
+                      ? "w-full h-full object-cover"
+                      : "absolute inset-0 w-full h-full object-cover"
+                  }
+                  onUpdate={(url) => updateSlide(i, { src: url })}
+                  onAltUpdate={(alt) => updateSlide(i, { alt })}
+                />
+              ) : (
+                <motion.img
+                  src={slide.src}
+                  alt={slide.alt || ""}
+                  style={
+                    layout === "split" && mode === "case-study"
+                      ? { width: "100%", height: "100%", objectFit: "cover" }
+                      : { width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }
+                  }
+                  loading="lazy"
+                  animate={{ scale: hovered === i ? 1.08 : 1 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                />
+              );
+
+              // ── Image carousel mode (legacy) ────────────────────────────
+              const imageModeContent = (
+                <>
+                  {imageEl}
                   {/* Bottom gradient scrim for caption legibility */}
                   <div
                     style={{
@@ -208,9 +223,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       pointerEvents: "none",
                     }}
                   />
-
-                  {/* Caption */}
-                  {(slide.caption || onFieldChange) && (
+                  {(slide.caption || isEditor) && (
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "1.25rem", zIndex: 2 }}>
                       <motion.p
                         style={{
@@ -227,7 +240,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                         <InlineText
                           as="span"
                           value={slide.caption ?? ""}
-                          onUpdate={onFieldChange ? (v) => updateSlide(i, { caption: v }) : undefined}
+                          onUpdate={isEditor ? (v) => updateSlide(i, { caption: v }) : undefined}
                         />
                       </motion.p>
                       <motion.div
@@ -242,39 +255,228 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       />
                     </div>
                   )}
+                </>
+              );
 
-                  {/* Corner accents — top-right + bottom-left */}
+              // ── Case-study text block (headline / sub / CTA) ────────────
+              const renderCaseStudyText = (variant: "overlay" | "card") => {
+                const isCard = variant === "card";
+                const onCard = isCard; // text sits on a solid card vs over an image
+                const headlineColor = onCard ? text : "#ffffff";
+                const subColor = onCard ? alpha(text, 0.75) : alpha("#ffffff", 0.85);
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                      maxWidth: "32rem",
+                    }}
+                  >
+                    {(slide.headline || isEditor) && (
+                      <h3
+                        style={{
+                          fontFamily: headlineFont,
+                          fontWeight: 400,
+                          fontSize: `${headlineSize}rem`,
+                          lineHeight: 1.1,
+                          letterSpacing: "-0.01em",
+                          color: headlineColor,
+                          margin: 0,
+                        }}
+                      >
+                        <InlineText
+                          as="span"
+                          value={slide.headline ?? ""}
+                          onUpdate={isEditor ? (v) => updateSlide(i, { headline: v }) : undefined}
+                          multiline
+                        />
+                      </h3>
+                    )}
+                    {(slide.subheadline || isEditor) && (
+                      <p
+                        style={{
+                          fontWeight: 300,
+                          fontSize: `${subheadlineSize}rem`,
+                          lineHeight: 1.6,
+                          color: subColor,
+                          margin: 0,
+                        }}
+                      >
+                        <InlineText
+                          as="span"
+                          value={slide.subheadline ?? ""}
+                          onUpdate={isEditor ? (v) => updateSlide(i, { subheadline: v }) : undefined}
+                          multiline
+                        />
+                      </p>
+                    )}
+                    {(slide.ctaText || isEditor) && (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          marginTop: "0.5rem",
+                          paddingBottom: "0.25rem",
+                          width: "fit-content",
+                          fontSize: "0.8rem",
+                          fontWeight: 500,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: accent,
+                          borderBottom: `1px solid ${alpha(accent, 0.6)}`,
+                        }}
+                      >
+                        <InlineText
+                          as="span"
+                          value={slide.ctaText ?? ""}
+                          onUpdate={isEditor ? (v) => updateSlide(i, { ctaText: v }) : undefined}
+                        />
+                        <span aria-hidden="true">→</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              };
+
+              // ── Case-study mode content ─────────────────────────────────
+              let caseStudyContent: React.ReactNode = null;
+              if (mode === "case-study") {
+                if (layout === "split") {
+                  // Image left, text card right (stacks on mobile via class).
+                  caseStudyContent = (
+                    <div
+                      className="flex flex-col md:flex-row"
+                      style={{ width: "100%", height: "100%" }}
+                    >
+                      <div style={{ flex: "1 1 50%", position: "relative", overflow: "hidden", minHeight: 0 }}>
+                        {imageEl}
+                      </div>
+                      <div
+                        style={{
+                          flex: "1 1 50%",
+                          backgroundColor: cardBg,
+                          padding: "clamp(1.5rem, 3vw, 2.5rem)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {renderCaseStudyText("card")}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  // Full-bleed image with text overlaid (with or without scrim).
+                  caseStudyContent = (
+                    <>
+                      {imageEl}
+                      {layout === "overlay-scrim" && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background:
+                              "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.15) 70%, rgba(0,0,0,0) 100%)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          padding: "clamp(1.5rem, 3vw, 2.5rem)",
+                          zIndex: 2,
+                        }}
+                      >
+                        {renderCaseStudyText("overlay")}
+                      </div>
+                    </>
+                  );
+                }
+              }
+
+              return (
+                <div
+                  key={i}
+                  style={{
+                    flex: `0 0 85%`,
+                    minWidth: 0,
+                    padding: "0 0.75rem",
+                  }}
+                  className="md:!flex-[var(--ec-flex)]"
+                  // Custom property so the className-only desktop override
+                  // can read the configured slide width without re-rendering
+                  // a giant style sheet.
+                  ref={(el) => {
+                    if (el) el.style.setProperty("--ec-flex", `0 0 ${slideWidthPct}%`);
+                  }}
+                >
                   <motion.div
                     style={{
-                      position: "absolute",
-                      top: "1rem",
-                      right: "1rem",
-                      width: "1.5rem",
-                      height: "1.5rem",
-                      borderTop: "1px solid",
-                      borderRight: "1px solid",
-                      pointerEvents: "none",
+                      position: "relative",
+                      overflow: "hidden",
+                      borderRadius: radius,
+                      ...aspectStyle,
                     }}
-                    animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
-                    transition={{ duration: 0.4 }}
-                  />
-                  <motion.div
-                    style={{
-                      position: "absolute",
-                      bottom: "1rem",
-                      left: "1rem",
-                      width: "1.5rem",
-                      height: "1.5rem",
-                      borderBottom: "1px solid",
-                      borderLeft: "1px solid",
-                      pointerEvents: "none",
-                    }}
-                    animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
-                    transition={{ duration: 0.4, delay: 0.1 }}
-                  />
-                </motion.div>
-              </div>
-            ))}
+                    onHoverStart={() => setHovered(i)}
+                    onHoverEnd={() => setHovered(null)}
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  >
+                    <Wrapper
+                      {...wrapperProps}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "block",
+                        color: "inherit",
+                        textDecoration: "none",
+                        cursor: Wrapper === "a" ? "pointer" : undefined,
+                      }}
+                    >
+                      {mode === "case-study" ? caseStudyContent : imageModeContent}
+                    </Wrapper>
+
+                    {/* Corner accents — top-right + bottom-left */}
+                    <motion.div
+                      style={{
+                        position: "absolute",
+                        top: "1rem",
+                        right: "1rem",
+                        width: "1.5rem",
+                        height: "1.5rem",
+                        borderTop: "1px solid",
+                        borderRight: "1px solid",
+                        pointerEvents: "none",
+                        zIndex: 3,
+                      }}
+                      animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
+                      transition={{ duration: 0.4 }}
+                    />
+                    <motion.div
+                      style={{
+                        position: "absolute",
+                        bottom: "1rem",
+                        left: "1rem",
+                        width: "1.5rem",
+                        height: "1.5rem",
+                        borderBottom: "1px solid",
+                        borderLeft: "1px solid",
+                        pointerEvents: "none",
+                        zIndex: 3,
+                      }}
+                      animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
+                      transition={{ duration: 0.4, delay: 0.1 }}
+                    />
+                  </motion.div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

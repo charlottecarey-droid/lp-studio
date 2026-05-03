@@ -907,7 +907,18 @@ export interface BentoShowcaseBlockProps {
 export interface EditorialCarouselSlide {
   src: string;
   alt: string;
+  /** Small uppercase caption shown on the slide in image-carousel mode. */
   caption?: string;
+  /** Case-study mode: large headline rendered on the slide. */
+  headline?: string;
+  /** Case-study mode: supporting copy under the headline. */
+  subheadline?: string;
+  /** Case-study mode: optional CTA chip label rendered on the slide. */
+  ctaText?: string;
+  /** Optional URL the entire slide links to. When set, the slide becomes a
+   *  clickable anchor (live view only — editor stays non-navigating so the
+   *  author can edit inline text). */
+  linkUrl?: string;
 }
 
 export interface EditorialCarouselBlockProps {
@@ -946,6 +957,26 @@ export interface EditorialCarouselBlockProps {
   autoplayInterval?: number;
   /** Round slide corners. */
   rounded?: boolean;
+  /** Slide content mode.
+   *  - "image"      : original image-with-caption treatment (default).
+   *  - "case-study" : per-slide headline / subheadline / CTA + clickable
+   *                   slide, suitable for a premium case-study carousel. */
+  mode?: "image" | "case-study";
+  /** Layout for case-study slides.
+   *  - "overlay"        : full-bleed image with text overlaid directly
+   *                       (use when the image is dark/quiet enough).
+   *  - "overlay-scrim"  : full-bleed image with a dark gradient scrim
+   *                       behind the text for legibility (default).
+   *  - "split"          : image on one half, text on a solid card on the
+   *                       other half. Use when the image is too busy. */
+  layout?: "overlay" | "overlay-scrim" | "split";
+  /** Per-slide headline font size in rem (case-study mode). */
+  headlineSize?: number;
+  /** Per-slide subheadline font size in rem (case-study mode). */
+  subheadlineSize?: number;
+  /** Background color for the text card in `split` layout. Defaults to a
+   *  slightly raised version of the section background. */
+  cardBgColor?: string;
 }
 
 /* ------------------------------------------------------------------------- */

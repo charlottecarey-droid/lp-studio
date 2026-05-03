@@ -32,6 +32,8 @@ const BLANK_SLIDE: EditorialCarouselSlide = {
 
 export function EditorialCarouselPanel({ props, onChange }: Props) {
   const slides = props.slides ?? [];
+  const mode = props.mode || "image";
+  const isCaseStudy = mode === "case-study";
   const update = (patch: Partial<EditorialCarouselBlockProps>) => onChange({ ...props, ...patch });
 
   const updateSlide = (i: number, patch: Partial<EditorialCarouselSlide>) =>
@@ -45,7 +47,21 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
     update({ slides: next });
   };
   const removeSlide = (i: number) => update({ slides: slides.filter((_, idx) => idx !== i) });
-  const addSlide = () => update({ slides: [...slides, { ...BLANK_SLIDE }] });
+  const addSlide = () =>
+    update({
+      slides: [
+        ...slides,
+        isCaseStudy
+          ? {
+              ...BLANK_SLIDE,
+              caption: undefined,
+              headline: "New case study",
+              subheadline: "Short supporting line about the result.",
+              ctaText: "Read the story",
+            }
+          : { ...BLANK_SLIDE },
+      ],
+    });
 
   return (
     <div className="space-y-5">
@@ -81,6 +97,85 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
             className="text-xs"
           />
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Slide content</div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Mode</Label>
+          <Select
+            value={mode}
+            onValueChange={(v) => update({ mode: v as EditorialCarouselBlockProps["mode"] })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="image" className="text-xs">Image carousel (caption only)</SelectItem>
+              <SelectItem value="case-study" className="text-xs">Case study (headline + CTA)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+            Image mode shows the small uppercase caption. Case-study mode adds
+            a headline, subheadline, optional CTA chip and a clickable slide.
+          </p>
+        </div>
+        {isCaseStudy && (
+          <>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Layout</Label>
+              <Select
+                value={props.layout || "overlay-scrim"}
+                onValueChange={(v) => update({ layout: v as EditorialCarouselBlockProps["layout"] })}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="overlay" className="text-xs">Full-bleed image, text overlay</SelectItem>
+                  <SelectItem value="overlay-scrim" className="text-xs">Full-bleed image, text overlay + readability scrim</SelectItem>
+                  <SelectItem value="split" className="text-xs">Split — image one side, text card on the other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-[11px] text-muted-foreground">Headline size</Label>
+                  <span className="text-[10px] text-muted-foreground">{(props.headlineSize ?? 2.25).toFixed(2)}rem</span>
+                </div>
+                <Slider
+                  min={1}
+                  max={5}
+                  step={0.125}
+                  value={[props.headlineSize ?? 2.25]}
+                  onValueChange={([v]) => update({ headlineSize: v })}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-[11px] text-muted-foreground">Subheadline size</Label>
+                  <span className="text-[10px] text-muted-foreground">{(props.subheadlineSize ?? 1).toFixed(2)}rem</span>
+                </div>
+                <Slider
+                  min={0.625}
+                  max={2}
+                  step={0.0625}
+                  value={[props.subheadlineSize ?? 1]}
+                  onValueChange={([v]) => update({ subheadlineSize: v })}
+                />
+              </div>
+            </div>
+            {props.layout === "split" && (
+              <div>
+                <ColorField
+                  label="Text card background"
+                  value={props.cardBgColor ?? ""}
+                  onChange={(v) => update({ cardBgColor: v || undefined })}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                  Leave blank to derive from the section background.
+                </p>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -236,12 +331,47 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
                 placeholder="Alt text (accessibility)"
                 className="h-8 text-xs"
               />
-              <Input
-                value={slide.caption ?? ""}
-                onChange={(e) => updateSlide(i, { caption: e.target.value })}
-                placeholder="Caption (small uppercase)"
-                className="h-8 text-xs"
-              />
+              {isCaseStudy ? (
+                <>
+                  <Input
+                    value={slide.headline ?? ""}
+                    onChange={(e) => updateSlide(i, { headline: e.target.value })}
+                    placeholder="Headline"
+                    className="h-8 text-xs"
+                  />
+                  <Textarea
+                    value={slide.subheadline ?? ""}
+                    onChange={(e) => updateSlide(i, { subheadline: e.target.value })}
+                    placeholder="Subheadline"
+                    rows={2}
+                    className="text-xs"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={slide.ctaText ?? ""}
+                      onChange={(e) => updateSlide(i, { ctaText: e.target.value })}
+                      placeholder="CTA text (optional)"
+                      className="h-8 text-xs"
+                    />
+                    <Input
+                      value={slide.linkUrl ?? ""}
+                      onChange={(e) => updateSlide(i, { linkUrl: e.target.value })}
+                      placeholder="Slide link URL"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug">
+                    The whole slide becomes clickable when a link URL is set.
+                  </p>
+                </>
+              ) : (
+                <Input
+                  value={slide.caption ?? ""}
+                  onChange={(e) => updateSlide(i, { caption: e.target.value })}
+                  placeholder="Caption (small uppercase)"
+                  className="h-8 text-xs"
+                />
+              )}
             </div>
           ))}
           {slides.length === 0 && (
