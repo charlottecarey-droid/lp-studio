@@ -38,6 +38,9 @@ interface BuilderPage {
   status: "draft" | "published";
   blocks: unknown[];
   updatedAt: string;
+  isTemplate?: boolean;
+  createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 function useRecentPages() {
@@ -68,8 +71,8 @@ function getGreeting() {
 }
 
 type RecentWorkItem =
-  | { kind: "experiment"; id: number; name: string; status: string; testType: string; variantCount: number; slug: string; updatedAt: string }
-  | { kind: "page"; id: number; name: string; status: string; blocks: unknown[]; slug: string; updatedAt: string };
+  | { kind: "experiment"; id: number; name: string; status: string; testType: string; variantCount: number; slug: string; updatedAt: string; isTemplate?: false; author?: string | null }
+  | { kind: "page"; id: number; name: string; status: string; blocks: unknown[]; slug: string; updatedAt: string; isTemplate?: boolean; author?: string | null };
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
@@ -142,17 +145,29 @@ export default function Dashboard() {
       blocks: p.blocks,
       slug: p.slug,
       updatedAt: p.updatedAt,
+      isTemplate: p.isTemplate ?? false,
+      author: p.createdByName ?? p.updatedByName ?? null,
     })),
   ];
+
+  // Templates are project-wide assets, not in-flight work — surface them
+  // AFTER real Dandy-employee pages and experiments so the team's recent
+  // work isn't buried beneath seeded templates. Within each group we sort
+  // by most-recently-updated.
+  const sortRecent = (a: RecentWorkItem, b: RecentWorkItem) => {
+    const aT = a.kind === "page" && a.isTemplate ? 1 : 0;
+    const bT = b.kind === "page" && b.isTemplate ? 1 : 0;
+    if (aT !== bT) return aT - bT;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  };
 
   const recentWork: RecentWorkItem[] = hasPersonalHistory
     ? personalHistory
         .map(entry => allWorkItems.find(w => w.kind === entry.kind && w.id === entry.id))
         .filter((w): w is RecentWorkItem => w !== undefined)
+        .sort(sortRecent)
         .slice(0, 6)
-    : allWorkItems
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 6);
+    : allWorkItems.sort(sortRecent).slice(0, 6);
 
   const recentWorkLoading = isLoading || pagesLoading;
 

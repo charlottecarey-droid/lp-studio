@@ -64,6 +64,7 @@ interface Test {
 }
 
 type FilterStatus = "All" | "Draft" | "Published" | "Running" | "Templates";
+type SortBy = "recent" | "author";
 
 function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -547,6 +548,7 @@ export default function PagesGallery() {
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
   const [, navigate] = useLocation();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
+  const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -854,7 +856,11 @@ export default function PagesGallery() {
     });
   };
 
-  // Filter pages based on selected status, sorted newest first
+  // Filter pages, then sort. Templates always sort BELOW real pages so the
+  // Dandy-employee-authored work surfaces first; within each group we honour
+  // the user's chosen sort (recent updated, or by author name A→Z). Switching
+  // the explicit "Templates" filter shows only templates and skips the
+  // template-last grouping (since there's only one group).
   const filteredPages = pages
     .filter(page => {
       if (filterStatus === "Draft" && page.status !== "draft") return false;
@@ -863,11 +869,37 @@ export default function PagesGallery() {
       if (filterStatus === "Templates" && !page.isTemplate) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        return page.title.toLowerCase().includes(q) || page.slug.toLowerCase().includes(q);
+        const author = (page.createdByName ?? page.updatedByName ?? "").toLowerCase();
+        return (
+          page.title.toLowerCase().includes(q) ||
+          page.slug.toLowerCase().includes(q) ||
+          author.includes(q)
+        );
       }
       return true;
     })
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) => {
+      // Templates last (except when explicitly viewing the Templates tab).
+      if (filterStatus !== "Templates") {
+        const aT = a.isTemplate ? 1 : 0;
+        const bT = b.isTemplate ? 1 : 0;
+        if (aT !== bT) return aT - bT;
+      }
+      if (sortBy === "author") {
+        const aAuthor = (a.createdByName ?? a.updatedByName ?? "").toLowerCase();
+        const bAuthor = (b.createdByName ?? b.updatedByName ?? "").toLowerCase();
+        // Authored pages first, then unattributed; alphabetical within.
+        if (!aAuthor && bAuthor) return 1;
+        if (aAuthor && !bAuthor) return -1;
+        const cmp = aAuthor.localeCompare(bAuthor);
+        if (cmp !== 0) return cmp;
+      }
+      // Default + tiebreaker: most recently updated first (falls back to
+      // createdAt for legacy rows that never got an updatedAt stamp).
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
 
   const pagesPag = usePagination(filteredPages, 12);
 
@@ -912,11 +944,26 @@ export default function PagesGallery() {
                 </button>
               ))}
             </div>
-            <div className="relative sm:ml-auto w-full sm:w-56">
+            <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
+              <label className="text-[12px] text-muted-foreground shrink-0" htmlFor="pages-sort-by">
+                Sort
+              </label>
+              <select
+                id="pages-sort-by"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as SortBy)}
+                className="text-[13px] border border-border rounded-lg bg-background py-1.5 pl-2.5 pr-7 outline-none focus:ring-1 focus:ring-ring"
+                title="Sort pages"
+              >
+                <option value="recent">Recent</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div className="relative w-full sm:w-56">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search pages…"
+                placeholder="Search pages or authors…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-8 py-1.5 text-[13px] border border-border rounded-lg bg-background outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
