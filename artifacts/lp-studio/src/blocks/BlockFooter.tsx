@@ -2,15 +2,36 @@ import { cn } from "@/lib/utils";
 import type { FooterBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BrandLogo } from "@/components/BrandLogo";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: FooterBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: FooterBlockProps) => void;
 }
 
-export function BlockFooter({ props, brand }: Props) {
+export function BlockFooter({ props, brand, onFieldChange }: Props) {
   const bg = props.backgroundColor || "var(--brand-primary)";
   const accent = props.accentColor || brand.accentColor || "var(--brand-accent)";
+  const field = (key: keyof FooterBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as FooterBlockProps[typeof key] }) : undefined;
+  const cols = props.columns ?? [];
+  const updateColumn = onFieldChange
+    ? (ci: number, patch: Partial<NonNullable<FooterBlockProps["columns"]>[number]>) =>
+        onFieldChange({
+          ...props,
+          columns: cols.map((c, i) => (i === ci ? { ...c, ...patch } : c)),
+        })
+    : undefined;
+  const updateLink = onFieldChange
+    ? (ci: number, li: number, patch: Partial<NonNullable<FooterBlockProps["columns"]>[number]["links"][number]>) =>
+        onFieldChange({
+          ...props,
+          columns: cols.map((c, i) =>
+            i === ci ? { ...c, links: c.links.map((l, j) => (j === li ? { ...l, ...patch } : l)) } : c,
+          ),
+        })
+    : undefined;
 
   return (
     <footer style={{ backgroundColor: bg }} className="w-full text-white">
@@ -34,25 +55,39 @@ export function BlockFooter({ props, brand }: Props) {
               (props.columns ?? []).length === 3 ? "grid-cols-2 md:grid-cols-3" :
               "grid-cols-2 md:grid-cols-4"
             )}>
-              {(props.columns ?? []).map((col, ci) => (
+              {cols.map((col, ci) => (
                 <div key={ci}>
                   <p
                     className="text-xs font-semibold tracking-widest uppercase mb-4"
                     style={{ color: accent }}
                   >
-                    {col.title}
+                    <InlineText
+                      as="span"
+                      value={col.title}
+                      onUpdate={updateColumn ? (v) => updateColumn(ci, { title: v }) : undefined}
+                    />
                   </p>
                   <ul className="space-y-2.5">
                     {col.links.map((link, li) => (
                       <li key={li}>
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-white/50 text-sm hover:text-white/80 transition-colors"
-                        >
-                          {link.label}
-                        </a>
+                        {onFieldChange ? (
+                          <span className="text-white/50 text-sm cursor-text">
+                            <InlineText
+                              as="span"
+                              value={link.label}
+                              onUpdate={updateLink ? (v) => updateLink(ci, li, { label: v }) : undefined}
+                            />
+                          </span>
+                        ) : (
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white/50 text-sm hover:text-white/80 transition-colors"
+                          >
+                            {link.label}
+                          </a>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -64,11 +99,25 @@ export function BlockFooter({ props, brand }: Props) {
 
         <div className="mt-14 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-white/40 text-xs">
-            {props.copyrightText
-              ? props.copyrightText
-              : brand.copyrightName
-                ? `© ${new Date().getFullYear()} ${brand.copyrightName}. All rights reserved.`
-                : `© ${new Date().getFullYear()} All rights reserved.`}
+            {onFieldChange ? (
+              <InlineText
+                as="span"
+                value={
+                  props.copyrightText
+                    ? props.copyrightText
+                    : brand.copyrightName
+                      ? `© ${new Date().getFullYear()} ${brand.copyrightName}. All rights reserved.`
+                      : `© ${new Date().getFullYear()} All rights reserved.`
+                }
+                onUpdate={field("copyrightText")}
+              />
+            ) : (
+              props.copyrightText
+                ? props.copyrightText
+                : brand.copyrightName
+                  ? `© ${new Date().getFullYear()} ${brand.copyrightName}. All rights reserved.`
+                  : `© ${new Date().getFullYear()} All rights reserved.`
+            )}
           </p>
 
           {props.showSocialLinks && (

@@ -445,7 +445,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "footer":
-        return <BlockFooter props={block.props} brand={brand} />;
+        return <BlockFooter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "form":
         return <BlockForm props={block.props} brand={brand} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "popup":
@@ -735,9 +735,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "bento-showcase":
-        return <BlockBentoShowcase props={block.props} brand={brand} />;
+        return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "gradient-pricing":
-        return <BlockGradientPricing props={block.props} brand={brand} />;
+        return <BlockGradientPricing props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

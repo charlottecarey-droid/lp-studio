@@ -2,10 +2,13 @@ import * as Icons from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { BentoShowcaseBlockProps, BentoShowcaseTile } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
+import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: BentoShowcaseBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: BentoShowcaseBlockProps) => void;
 }
 
 const SIZE_SPAN: Record<BentoShowcaseTile["size"], string> = {
@@ -20,14 +23,18 @@ function Tile({
   sectionBg,
   sectionText,
   accent,
+  onUpdate,
 }: {
   tile: BentoShowcaseTile;
   sectionBg: string;
   sectionText: string;
   accent: string;
+  onUpdate?: (patch: Partial<BentoShowcaseTile>) => void;
 }) {
   const bg = tile.bgColor || sectionBg;
   const text = tile.textColor || sectionText;
+  const setField = (key: keyof BentoShowcaseTile) =>
+    onUpdate ? (v: string) => onUpdate({ [key]: v } as Partial<BentoShowcaseTile>) : undefined;
 
   if (tile.kind === "image") {
     return (
@@ -38,17 +45,21 @@ function Tile({
         )}
         style={{ backgroundColor: bg }}
       >
-        <img
+        <InlineImage
           src={tile.primary}
           alt={tile.secondary || ""}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          wrapperClassName="absolute inset-0"
+          onUpdate={onUpdate ? (url) => onUpdate({ primary: url }) : undefined}
         />
-        {tile.secondary && (
-          <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/70 to-transparent">
-            <div className="text-white font-medium text-base">{tile.secondary}</div>
-            {tile.tertiary && (
+        {(tile.secondary || onUpdate) && (
+          <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/70 to-transparent z-10">
+            <div className="text-white font-medium text-base">
+              <InlineText as="span" value={tile.secondary || ""} onUpdate={setField("secondary")} />
+            </div>
+            {(tile.tertiary || onUpdate) && (
               <div className="text-white/70 text-xs uppercase tracking-widest mt-1">
-                {tile.tertiary}
+                <InlineText as="span" value={tile.tertiary || ""} onUpdate={setField("tertiary")} />
               </div>
             )}
           </div>
@@ -74,16 +85,16 @@ function Tile({
             letterSpacing: "-0.04em",
           }}
         >
-          {tile.primary}
+          <InlineText as="span" value={tile.primary || ""} onUpdate={setField("primary")} />
         </div>
-        {tile.secondary && (
+        {(tile.secondary || onUpdate) && (
           <div className="text-base lg:text-lg font-medium mt-3" style={{ opacity: 0.9 }}>
-            {tile.secondary}
+            <InlineText as="span" value={tile.secondary || ""} onUpdate={setField("secondary")} />
           </div>
         )}
-        {tile.tertiary && (
+        {(tile.tertiary || onUpdate) && (
           <div className="text-xs uppercase tracking-widest mt-2" style={{ opacity: 0.55 }}>
-            {tile.tertiary}
+            <InlineText as="span" value={tile.tertiary || ""} onUpdate={setField("tertiary")} />
           </div>
         )}
       </div>
@@ -103,15 +114,17 @@ function Tile({
           className="font-serif text-2xl lg:text-3xl leading-snug"
           style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
         >
-          &ldquo;{tile.primary}&rdquo;
+          &ldquo;<InlineText as="span" value={tile.primary} onUpdate={setField("primary")} multiline />&rdquo;
         </div>
         <div className="mt-6">
-          {tile.secondary && (
-            <div className="font-semibold text-sm">{tile.secondary}</div>
+          {(tile.secondary || onUpdate) && (
+            <div className="font-semibold text-sm">
+              <InlineText as="span" value={tile.secondary || ""} onUpdate={setField("secondary")} />
+            </div>
           )}
-          {tile.tertiary && (
+          {(tile.tertiary || onUpdate) && (
             <div className="text-xs mt-0.5" style={{ opacity: 0.65 }}>
-              {tile.tertiary}
+              <InlineText as="span" value={tile.tertiary || ""} onUpdate={setField("tertiary")} />
             </div>
           )}
         </div>
@@ -137,11 +150,11 @@ function Tile({
       </div>
       <div className="mt-6">
         <div className="font-semibold text-xl lg:text-2xl leading-tight">
-          {tile.primary}
+          <InlineText as="span" value={tile.primary} onUpdate={setField("primary")} multiline />
         </div>
-        {tile.secondary && (
+        {(tile.secondary || onUpdate) && (
           <div className="text-sm lg:text-base mt-2" style={{ opacity: 0.75 }}>
-            {tile.secondary}
+            <InlineText as="span" value={tile.secondary || ""} onUpdate={setField("secondary")} multiline />
           </div>
         )}
       </div>
@@ -149,10 +162,19 @@ function Tile({
   );
 }
 
-export function BlockBentoShowcase({ props, brand }: Props) {
+export function BlockBentoShowcase({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor || "#F4F4F5";
   const text = props.textColor || "#0A0A0A";
   const accent = props.accentColor || brand.accentColor || "#3B82F6";
+  const field = (key: keyof BentoShowcaseBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as BentoShowcaseBlockProps[typeof key] }) : undefined;
+  const updateTile = onFieldChange
+    ? (i: number, patch: Partial<BentoShowcaseTile>) =>
+        onFieldChange({
+          ...props,
+          tiles: props.tiles.map((t, idx) => (idx === i ? ({ ...t, ...patch } as BentoShowcaseTile) : t)),
+        })
+    : undefined;
 
   return (
     <section
@@ -167,7 +189,7 @@ export function BlockBentoShowcase({ props, brand }: Props) {
                 className="text-[11px] uppercase tracking-[0.28em] font-semibold mb-4"
                 style={{ color: accent }}
               >
-                {props.eyebrow}
+                <InlineText as="span" value={props.eyebrow} onUpdate={field("eyebrow")} />
               </div>
             )}
             {props.headline && (
@@ -175,7 +197,7 @@ export function BlockBentoShowcase({ props, brand }: Props) {
                 className="font-bold tracking-tight leading-[1.05]"
                 style={{ fontSize: "clamp(2rem, 4.5vw, 3.5rem)" }}
               >
-                {props.headline}
+                <InlineText as="span" value={props.headline} onUpdate={field("headline")} multiline />
               </h2>
             )}
             {props.subheadline && (
@@ -183,7 +205,7 @@ export function BlockBentoShowcase({ props, brand }: Props) {
                 className="text-base lg:text-lg leading-relaxed mt-4 max-w-2xl"
                 style={{ opacity: 0.7 }}
               >
-                {props.subheadline}
+                <InlineText as="span" value={props.subheadline} onUpdate={field("subheadline")} multiline />
               </p>
             )}
           </div>
@@ -197,6 +219,7 @@ export function BlockBentoShowcase({ props, brand }: Props) {
               sectionBg="#FFFFFF"
               sectionText={text}
               accent={accent}
+              onUpdate={updateTile ? (patch) => updateTile(i, patch) : undefined}
             />
           ))}
         </div>
