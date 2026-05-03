@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LP_TEMPLATES } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { DEFAULT_BRAND } from "@/lib/brand-config";
+import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
 
 export default function TemplatePreview() {
   const params = useParams<{ templateId: string }>();
@@ -25,9 +25,11 @@ export default function TemplatePreview() {
 
   return (
     <Suspense fallback={null}>
-      {blocks.map((block, i) => (
-        <BlockRenderer key={block.id ?? i} block={block as never} brand={DEFAULT_BRAND} />
-      ))}
+      <div style={getBrandStyleVars(DEFAULT_BRAND)}>
+        {blocks.map((block, i) => (
+          <BlockRenderer key={block.id ?? i} block={block as never} brand={DEFAULT_BRAND} />
+        ))}
+      </div>
     </Suspense>
   );
 }

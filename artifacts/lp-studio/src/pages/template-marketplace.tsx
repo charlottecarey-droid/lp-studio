@@ -24,7 +24,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
-import { DEFAULT_BRAND } from "@/lib/brand-config";
+import { DEFAULT_BRAND, getBrandStyleVars } from "@/lib/brand-config";
 import type { PageBlock } from "@/lib/block-types";
 
 // Matches the enriched response from GET /api/lp/templates/enriched
@@ -566,7 +566,11 @@ export default function TemplateMarketplace() {
               </div>
             )}
             {!previewLoading && !previewError && previewBlocks && previewBlocks.length > 0 && (
-              <div className="template-preview-root">
+              // Apply DEFAULT_BRAND CSS vars on a wrapper so blocks that read
+              // `var(--brand-primary)`, `var(--brand-accent)`, etc. resolve to
+              // the neutral default palette. Without this, vars are unset and
+              // backgrounds/text fall back to white-on-white in the modal.
+              <div className="template-preview-root" style={getBrandStyleVars(DEFAULT_BRAND)}>
                 {previewBlocks.map((block, i) => (
                   <BlockRenderer
                     key={(block as { id?: string }).id ?? i}
