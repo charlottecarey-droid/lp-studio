@@ -1,0 +1,166 @@
+Prompt:
+Can you upgrade the global template system using newer, higher-end layout blocks (e.g., horizontal showcase, sticky stack, immersive hero sections, etc.) to create a more polished, differentiated, and production-ready set of templates?
+
+Objectives
+
+
+Reduce duplication: Consolidate industry templates that currently feel like minor variations of the same layout. Each template should be visually and structurally distinct.
+
+
+Use-case specificity: Ensure each template includes blocks that match its real-world purpose:
+
+
+SaaS/software: pricing tables, feature breakdowns, integrations, product UI sections
+
+
+Restaurants: menu sections, hours/location, reservations, gallery
+
+
+Apply this thinking across all industries
+
+
+
+
+Production-ready quality: Templates should feel like real, launchable websites—not placeholders
+
+
+Leverage premium blocks: Prioritize newer components (horizontal scroll sections, sticky stacks, layered storytelling sections, etc.)
+
+
+Template organization:
+
+
+Surface the most premium, differentiated templates at the top of the global template list
+
+
+Move generic/repetitive templates (e.g., the 5-per-industry variants) to the bottom
+
+
+
+
+
+Reference + Inspiration
+Use the structure, quality, and storytelling approach from the following (do not copy directly):
+
+
+lp.meetdandy.com/crowns
+
+
+partners.meetdandy.com/lab
+
+
+partners.meetdandy.com/visibility
+
+
+
+Execution
+
+
+Create a set of new, premium templates inspired by these references
+
+
+Introduce net-new concepts beyond the current system (not just variations)
+
+
+Each template should feel distinct, intentional, and tailored to a specific use case
+
+
+
+Specific Templates to Include
+
+
+AI Product Launch Page: immersive hero, product demo, feature storytelling, proof metrics, strong CTA
+
+
+Enterprise Platform Page: sticky stack narrative, customer proof, integrations, security/trust, demo CTA
+
+
+Premium SaaS Homepage: modern hero, horizontal showcase, feature grid, testimonials, pricing, FAQ
+
+
+Restaurant Page: full-bleed hero, menu block, hours/location, reservations, gallery
+
+
+Creator/Portfolio Page: bold hero, case study showcase, services, testimonials, contact CTA
+
+
+Local Services Page: service cards, before/after gallery, reviews, booking CTA, service area
+
+
+Event Landing Page: agenda, speaker cards, venue/travel, RSVP, sponsor/proof
+
+
+Productized Agency Page: packages/pricing, process, portfolio, client proof, lead form
+
+
+
+Design Direction (Important)
+
+
+Overall style: Modern, minimal, Apple-inspired. Clean, confident, not cluttered
+
+
+Spacing: Generous whitespace, clear section separation, strong visual hierarchy
+
+
+Typography: Large, bold headlines paired with minimal supporting copy (avoid long paragraphs)
+
+
+Color: Use restrained palettes with occasional high-contrast sections for emphasis
+
+
+Imagery: High-quality, editorial-style visuals or product-focused UI—not generic stock
+
+
+
+Motion & Interaction
+
+
+Subtle, smooth animations (no overuse)
+
+
+Scroll-based storytelling (especially with sticky stack sections)
+
+
+Light parallax or depth where appropriate
+
+
+Hover states that feel responsive and intentional
+
+
+Avoid anything that feels gimmicky or distracting
+
+
+
+Component Quality Bar
+
+
+Each section/block should feel like it could stand alone as a premium component
+
+
+Avoid filler sections or repeated patterns across templates
+
+
+Every block should have a clear purpose (conversion, storytelling, or proof)
+
+
+
+Important
+Each template must use category-specific blocks, not generic placeholders.
+
+
+Restaurant → real menu layout
+
+
+SaaS → pricing, integrations, product features
+
+
+Event → agenda + speakers
+
+
+etc.
+
+
+
+Goal
+Shift from a high-volume template library to a curated, high-quality system where each template feels modern, differentiated, and immediately usable out of the box.
