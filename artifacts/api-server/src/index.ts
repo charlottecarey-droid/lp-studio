@@ -849,11 +849,39 @@ async function runMigrations(): Promise<void> {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS _schema_migration_markers (key text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
       `);
+      // v3: cleans up the 21 dandy-*/dso-* rows that v2 incorrectly seeded
+      // into the generic catalog (their BLOCK_REGISTRY defaults leak Dandy
+      // branding when rendered with DEFAULT_BRAND — caught by no-dandy-leak
+      // tests). Also cleans up 5 "neutral-sounding" rows whose component
+      // code hardcodes Dandy colors/copy. Then runs the standard upsert.
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v2'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v3'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
+        // Targeted cleanup of the v2 mis-seed. Only deletes the specific
+        // block_types we know we shouldn't have inserted; admin-curated
+        // entries for any other block_type are untouched.
+        const LEAKY_TYPES_TO_REMOVE = [
+          "dandy-cta-block", "dandy-form-right-alt", "dandy-product-hero",
+          "dandy-site-footer", "dandy-site-header", "dandy-switchback",
+          "dandy-versus", "dandy-vertical-tabs", "dandy-video-testimonials",
+          "dso-heartland-hero", "dso-insights-dashboard", "dso-insights-video",
+          "dso-lab-tour", "dso-partnership-perks", "dso-practice-hero",
+          "dso-practice-nav",
+          "horizontal-showcase", "bold-statement", "sticky-stack",
+          "event-page", "spatial-tour",
+        ];
+        let removed = 0;
+        for (const badType of LEAKY_TYPES_TO_REMOVE) {
+          const cleanup = await db.execute<{ block_type: string }>(sql`
+            DELETE FROM block_catalog
+             WHERE industry = 'generic' AND block_type = ${badType}
+            RETURNING block_type
+          `);
+          removed += cleanup.rows.length;
+        }
+
         const { GENERIC_BLOCK_CATALOG_SEED } = await import("./seeds/blockCatalog");
         let inserted = 0;
         for (const row of GENERIC_BLOCK_CATALOG_SEED) {
@@ -867,9 +895,12 @@ async function runMigrations(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v2') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v3') ON CONFLICT DO NOTHING
         `);
-        logger.info({ inserted, total: GENERIC_BLOCK_CATALOG_SEED.length }, "block_catalog generic seed applied");
+        logger.info(
+          { removed, inserted, total: GENERIC_BLOCK_CATALOG_SEED.length },
+          "block_catalog generic seed applied (v3 cleanup)"
+        );
       }
     } catch (seedErr) {
       // Don't block boot on seed errors — admins can re-run scripts/seed-block-catalog.cjs
