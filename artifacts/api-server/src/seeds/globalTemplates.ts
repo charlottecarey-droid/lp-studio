@@ -2525,16 +2525,39 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
 import { FLAGSHIP_TEMPLATE_SEEDS } from "./flagshipTemplates";
 
-// Default premiumRank applied when a seed doesn't carry one explicitly. Slug
-// prefix drives the bucket so the marketplace can present a stable
-// Featured / Premium / Industry order without a DB column migration:
-//   `global-flagship-*` → 1-10 (set explicitly in the flagship file)
-//   `global-distinctive-*` → 20  (the older "premium" templates)
-//   `global-*` (other)     → 50  (generic starters)
-//   `ind-*`                → 100 (industry starters, pushed to bottom)
+// Default premiumRank applied when a seed doesn't carry one explicitly.
+// The marketplace shows lower ranks first and groups rank ≤ 10 under
+// the "Featured" header. Buckets:
+//   1-10  → Featured flagships (set explicitly in flagshipTemplates.ts)
+//   11-30 → "Distinctive" premium opinionated templates
+//   31-80 → Generic starters
+//   81-150 → Industry starters
+//   151+   → fallback / unknown
+//
+// The distinctive templates predate the slug-prefix convention, so we
+// enumerate them explicitly to keep ordering deterministic. New
+// distinctive templates should add their slug here (or set
+// premiumRank explicitly on the seed).
+const DISTINCTIVE_SLUG_RANKS: Record<string, number> = {
+  "global-editorial-story":     11,
+  "global-cinematic-launch":    12,
+  "global-brutalist-manifesto": 13,
+  "global-boutique-studio":     14,
+  "global-pricing-forward-saas":15,
+  "global-conversion-capture":  16,
+  "global-premium-brand-hero":  17,
+  "global-modern-launch":       18,
+  "global-quality-os":          19,
+  "global-craft-experience":    20,
+  "global-trusted-partner":     21,
+  "global-data-platform":       22,
+  "global-old-way-new-way":     23,
+};
+
 function defaultPremiumRank(slug: string): number {
   if (slug.startsWith("global-flagship-")) return 5;
-  if (slug.startsWith("global-distinctive-")) return 20;
+  if (slug in DISTINCTIVE_SLUG_RANKS) return DISTINCTIVE_SLUG_RANKS[slug];
+  if (slug.startsWith("global-distinctive-")) return 25;
   if (slug.startsWith("global-")) return 50;
   if (slug.startsWith("ind-")) return 100;
   return 200;

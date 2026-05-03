@@ -25,10 +25,9 @@ const aiProductLaunch: GlobalTemplateSeed = {
   premiumRank: 1,
   blocks: [
     {
-      id: id("magazine-hero", 1),
-      type: "magazine-hero",
+      id: id("full-bleed-hero", 1),
+      type: "full-bleed-hero",
       props: {
-        eyebrow: "Now in beta",
         headline: "The AI partner that thinks alongside you.",
         subheadline:
           "Vela is a workspace-native model trained on your team's docs, decisions, and history. Less prompting. More work shipped.",
@@ -36,9 +35,25 @@ const aiProductLaunch: GlobalTemplateSeed = {
         ctaUrl: "#access",
         secondaryCtaText: "Watch the demo",
         secondaryCtaUrl: "#demo",
-        bgColor: "#0A0A0B",
-        textColor: "#F5F5F7",
-        accentColor: "#7B5BFF",
+        backgroundType: "image",
+        backgroundImageUrl: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1920&q=80",
+        backgroundVideoUrl: "",
+        videoAutoplay: true,
+        overlayOpacity: 65,
+        minHeight: "full",
+        contentAlignment: "left",
+        logoImageUrl: "",
+        logoUrl: "#",
+        navLinks: [
+          { label: "Product", url: "#product" },
+          { label: "Capabilities", url: "#capabilities" },
+          { label: "Pricing", url: "#pricing" },
+        ],
+        headerCtaText: "Request access",
+        headerCtaUrl: "#access",
+        headerScrolledBg: "#0A0A0B",
+        showSocialProof: true,
+        socialProofText: "Now in private beta — joining 200+ teams",
       },
     },
     {
@@ -170,12 +185,12 @@ const enterprisePlatform: GlobalTemplateSeed = {
   premiumRank: 2,
   blocks: [
     {
-      id: id("full-bleed-hero", 1),
-      type: "full-bleed-hero",
+      id: id("magazine-hero", 1),
+      type: "magazine-hero",
       props: {
-        eyebrow: "Platform",
+        eyebrow: "PLATFORM · ISSUE 04",
         headline: "Enterprise infrastructure, without the enterprise tax.",
-        subheadline: "Provision, govern, and audit every workload across every cloud — in one console.",
+        subheadline: "Provision, govern, and audit every workload across every cloud — in one console. Built for the people who actually run production.",
         ctaText: "Talk to sales",
         ctaUrl: "#sales",
         secondaryCtaText: "View architecture",
@@ -194,6 +209,20 @@ const enterprisePlatform: GlobalTemplateSeed = {
           { value: "32", label: "regions" },
           { value: "99.99%", label: "platform SLA" },
           { value: "SOC2 · ISO · HIPAA", label: "certified" },
+        ],
+      },
+    },
+    {
+      id: id("photo-strip", 25),
+      type: "photo-strip",
+      props: {
+        images: [
+          { src: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80", alt: "Customer / Northwind" },
+          { src: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80", alt: "Customer / Latticework" },
+          { src: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&q=80", alt: "Customer / Veridian" },
+          { src: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=80", alt: "Customer / Helix" },
+          { src: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80", alt: "Customer / Atlas" },
+          { src: "https://images.unsplash.com/photo-1611605698323-b1e99cfd37ea?w=400&q=80", alt: "Customer / Stratus" },
         ],
       },
     },
@@ -390,6 +419,69 @@ const premiumSaas: GlobalTemplateSeed = {
       },
     },
     {
+      id: id("horizontal-showcase", 41),
+      type: "horizontal-showcase",
+      props: {
+        eyebrow: "BUILT FOR THE WAY YOU WORK",
+        headline: "Three surfaces. One source of truth.",
+        bgColor: "#0B0B0F",
+        panelHeightVh: 90,
+        panels: [
+          { tag: "PIPELINE",   title: "Sell more without the swivel-chair.", body: "Every conversation, attachment, and next-step on one record. AI summaries on every deal.",  imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1600&q=80",  alignment: "left",  bgColor: "#0F172A", overlayColor: "rgba(0,0,0,0.6)",  accentColor: "#22D3EE", ctaText: "See it",   ctaUrl: "#" },
+          { tag: "FINANCE",    title: "Books that close themselves.",         body: "Real-time cash, auto-categorized expenses, and a one-click month-end your CFO will love.", imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1600&q=80",  alignment: "right", bgColor: "#111827", overlayColor: "rgba(0,0,0,0.55)", accentColor: "#22D3EE", ctaText: "Tour",      ctaUrl: "#" },
+          { tag: "OPERATIONS", title: "Ops that run on rails.",               body: "Templated SOPs, role-based assignments, and a calendar your team will actually follow.",   imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80", alignment: "left",  bgColor: "#0F172A", overlayColor: "rgba(0,0,0,0.55)", accentColor: "#22D3EE", ctaText: "Walkthrough", ctaUrl: "#" },
+        ],
+      },
+    },
+    {
+      id: id("dandy-switchback", 42),
+      type: "dandy-switchback",
+      props: {
+        eyebrow: "WHY TEAMS PICK US",
+        headline: "Three ways teams change their week.",
+        subheadline: "From the moment you log in, the work feels less heavy. Here's exactly how.",
+        items: [
+          { title: "From spreadsheets to one source of truth.", description: "Stop reconciling four tools. One record per customer, owned by the people closest to the work.", ctaText: "Read more", ctaUrl: "#",                imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80" },
+          { title: "From manual work to automations that fire.", description: "Visual rules with previews and replay history. If it ran, you can prove it ran.",                                                                                ctaText: "Read more", ctaUrl: "#", imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1200&q=80" },
+          { title: "From after-the-fact reports to real-time dashboards.", description: "Pre-built reports leadership trusts — pipeline, cash, margin, burn — refreshed live.",                                                                  ctaText: "Read more", ctaUrl: "#", imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80" },
+        ],
+      },
+    },
+    {
+      id: id("dandy-vertical-tabs", 43),
+      type: "dandy-vertical-tabs",
+      props: {
+        headline: "Built for the role you actually have.",
+        subheadline: "Switch lanes — see exactly how the platform works for sales, finance, or operations leaders.",
+        tabs: [
+          { title: "For founders & GMs", description: "Run weekly on a single dashboard. Cash, pipeline, and ops on one screen.",         ctaText: "See the GM view",     ctaUrl: "#", imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80" },
+          { title: "For sales leaders",  description: "Forecasts that hold up. AI deal coaching. Auto-logged calls and emails.",          ctaText: "See the sales view",   ctaUrl: "#", imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1200&q=80" },
+          { title: "For finance leads",  description: "Real-time cash, automatic expense categorization, and a one-click close.",         ctaText: "See the finance view", ctaUrl: "#", imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80" },
+        ],
+      },
+    },
+    {
+      id: id("testimonial", 44),
+      type: "testimonial",
+      props: {
+        quote: "We retired three tools and our weekly leadership meeting is now twenty minutes shorter. The team is just… happier.",
+        author: "Reese Anand",
+        role: "Founder, Northwind",
+      },
+    },
+    {
+      id: id("rich-text", 45),
+      type: "rich-text",
+      props: {
+        html:
+          "<h2>Frequently asked</h2>" +
+          "<h3>How long does setup take?</h3><p>Most teams are in production in under two hours. Importing your existing data, configuring users, and connecting your email/calendar takes the longest — and we walk you through it live if you'd like.</p>" +
+          "<h3>Can we keep using the tools we already love?</h3><p>Yes. Native, two-way integrations with Slack, Gmail, Outlook, Stripe, QuickBooks, Xero, and 60+ others. We never become the place you have to log in to — we become the place you finally see everything.</p>" +
+          "<h3>Is our data safe?</h3><p>SOC 2 Type II, GDPR, and HIPAA-ready. Your data is encrypted in transit and at rest, and you can export everything any time.</p>" +
+          "<h3>What if we outgrow the plan?</h3><p>Move up any time, prorated to the day. No re-implementation. Your data, your workflows, your reports come with you.</p>",
+      },
+    },
+    {
       id: id("gradient-pricing", 5),
       type: "gradient-pricing",
       props: {
@@ -432,19 +524,34 @@ const restaurant: GlobalTemplateSeed = {
   premiumRank: 4,
   blocks: [
     {
-      id: id("magazine-hero", 1),
-      type: "magazine-hero",
+      id: id("full-bleed-hero", 1),
+      type: "full-bleed-hero",
       props: {
-        eyebrow: "Now booking",
         headline: "Modern Italian, sourced from the field.",
         subheadline: "An intimate ten-table room serving a five-course tasting menu, six nights a week.",
         ctaText: "Reserve a table",
         ctaUrl: "#reservations",
         secondaryCtaText: "View menu",
         secondaryCtaUrl: "#menu",
-        bgColor: "#1A1610",
-        textColor: "#FAF7F2",
-        accentColor: "#C7A664",
+        backgroundType: "image",
+        backgroundImageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1920&q=80",
+        backgroundVideoUrl: "",
+        videoAutoplay: true,
+        overlayOpacity: 55,
+        minHeight: "full",
+        contentAlignment: "left",
+        logoImageUrl: "",
+        logoUrl: "#",
+        navLinks: [
+          { label: "Menu", url: "#menu" },
+          { label: "Hours", url: "#hours" },
+          { label: "Reserve", url: "#reservations" },
+        ],
+        headerCtaText: "Reserve",
+        headerCtaUrl: "#reservations",
+        headerScrolledBg: "#1A1610",
+        showSocialProof: true,
+        socialProofText: "Featured in The New York Times · Bon Appétit",
       },
     },
     {
@@ -623,11 +730,38 @@ const creatorPortfolio: GlobalTemplateSeed = {
       },
     },
     {
+      id: id("bento-showcase", 31),
+      type: "bento-showcase",
+      props: {
+        eyebrow: "Services",
+        headline: "How I work — and what you get.",
+        bgColor: "#FFFFFF",
+        textColor: "#0B0B0C",
+        accentColor: "#FF4D2E",
+        tiles: [
+          { kind: "headline", size: "lg", headline: "Brand & identity systems.",        body: "Logo, type, color, voice, and a usable guidelines doc your team will actually open." },
+          { kind: "stat",     size: "md", stat: "4–8 wks", statLabel: "Typical engagement" },
+          { kind: "headline", size: "md", headline: "Marketing sites & launches.",      body: "Conversion-tuned design + dev-ready handoff for SaaS, fintech, and consumer." },
+          { kind: "headline", size: "sm", headline: "Product UI & design systems.",     body: "Dashboards, app flows, and components in Figma — built to scale." },
+          { kind: "headline", size: "sm", headline: "Pitch & investor decks.",          body: "Decks that close rounds — narrative, layout, and slide-by-slide editing." },
+        ],
+      },
+    },
+    {
       id: id("rich-text", 3),
       type: "rich-text",
       props: {
         html:
           "<h2>About</h2><p>Independent designer with 12 years of work across consumer, fintech, and developer tools. Previously design lead at two YC companies and one Fortune 500. I take on three engagements at a time. Most last 4–8 weeks.</p>",
+      },
+    },
+    {
+      id: id("testimonial", 32),
+      type: "testimonial",
+      props: {
+        quote: "The best designer I've ever worked with — full stop. Senior thinking, fast turnaround, and the work always lands.",
+        author: "Maya Chen",
+        role: "Co-founder, Latticework",
       },
     },
     {
@@ -1005,6 +1139,21 @@ const productizedAgency: GlobalTemplateSeed = {
       },
     },
     {
+      id: id("sticky-stack", 81),
+      type: "sticky-stack",
+      props: {
+        eyebrow: "HOW IT WORKS",
+        headline: "From kickoff to live, in three predictable steps.",
+        bgColor: "#FAF7F2",
+        cardScrollVh: 110,
+        cards: [
+          { tag: "STEP 01", title: "Kickoff in your first 24 hours.",     body: "We meet, scope your roadmap, and set up your Slack channel and Trello board. You file your first request before the day is out.",                imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80", imageSide: "right", bgColor: "#0F0F10", textColor: "#F5F2EC", accentColor: "#FF6B2C" },
+          { tag: "STEP 02", title: "First draft in 48 hours.",            body: "A senior designer ships the first draft within two business days. You review in Figma, leave comments, and we iterate live.",                                imageUrl: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80", imageSide: "left",  bgColor: "#1F1F2A", textColor: "#F5F2EC", accentColor: "#FF6B2C" },
+          { tag: "STEP 03", title: "Final files. Production-ready.",      body: "Final assets, dev handoff, and a tidy file structure your team can actually maintain. Pause or resume the subscription whenever.",                            imageUrl: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", imageSide: "right", bgColor: "#0F0F10", textColor: "#F5F2EC", accentColor: "#FF6B2C" },
+        ],
+      },
+    },
+    {
       id: id("editorial-carousel", 4),
       type: "editorial-carousel",
       props: {
@@ -1019,6 +1168,31 @@ const productizedAgency: GlobalTemplateSeed = {
         bgColor: "#FAF7F2",
         textColor: "#0F0F10",
         accentColor: "#FF6B2C",
+      },
+    },
+    {
+      id: id("form", 82),
+      type: "form",
+      props: {
+        headline: "Start a project",
+        subheadline: "Tell us about your team and what you'd ship first. We respond to every inquiry within one business day.",
+        multiStep: false,
+        steps: [
+          {
+            title: "Project intake",
+            fields: [
+              { id: "field-name",    type: "text",     label: "Full Name",  placeholder: "Your name",                   required: true },
+              { id: "field-email",   type: "email",    label: "Email",       placeholder: "you@company.com",             required: true },
+              { id: "field-company", type: "text",     label: "Company",     placeholder: "Where you work",              required: true },
+              { id: "field-plan",    type: "select",   label: "Interested plan", placeholder: "Select…",                 required: true, options: ["Studio ($4,995/mo)", "Studio Pro ($8,995/mo)", "Embedded (custom)"] },
+              { id: "field-first",   type: "textarea", label: "What would you ship in the first 30 days?", placeholder: "A landing page, brand refresh, dashboard…", required: false },
+            ],
+          },
+        ],
+        submitButtonText: "Request a call",
+        successMessage: "Thanks — we'll be in touch within one business day to schedule a kickoff.",
+        redirectUrl: "",
+        backgroundStyle: "white",
       },
     },
     {
