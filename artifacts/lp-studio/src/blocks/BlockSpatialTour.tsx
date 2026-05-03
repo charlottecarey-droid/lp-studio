@@ -12,13 +12,16 @@ import spatialHeadsetImg from "@assets/image_1777179519607.png";
 // `theme` drives the dynamic Nav palette: "dark" sections render the nav with
 // a forest_deep bg + white logo/text; "light" sections flip it to a near-white
 // bg + dark forest logo/text. Keep this in sync with the actual section
-// backgrounds rendered below — Hero, the Tour stations, the Spatial callout,
-// and the RSVP/Calendar are all dark; Marquee, Manifesto, and Ways are light.
+// backgrounds rendered below — Hero, Marquee, the Spatial callout, and the
+// RSVP/Calendar are dark; Manifesto, the Tour stations, and Ways are light.
+// The Tour stations section uses a light/cream background, so the nav must
+// flip back to its light palette while it's behind the bar — otherwise the
+// dark nav text/logo are invisible on top of the cream stations.
 const ST_SECTIONS = [
   { kind: "hero", num: "01", label: "TOUR", theme: "dark" },
   { kind: "marquee", num: "02", label: "PROOF", theme: "dark" },
   { kind: "manifesto", num: "03", label: "WHY", theme: "light" },
-  { kind: "tour", num: "04", label: "STATIONS", theme: "dark" },
+  { kind: "tour", num: "04", label: "STATIONS", theme: "light" },
   { kind: "callout", num: "05", label: "SPATIAL", theme: "dark" },
   { kind: "ways", num: "06", label: "WAYS", theme: "light" },
   { kind: "calendar", num: "07", label: "RSVP", theme: "dark" },
