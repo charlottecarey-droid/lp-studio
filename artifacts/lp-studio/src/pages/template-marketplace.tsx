@@ -44,6 +44,11 @@ interface TemplatePage {
   /** Industry tag for global starter templates (e.g. "dental", "saas").
    * Null/empty for universal templates and tenant-saved templates. */
   industry: string | null;
+  /** Marketplace ordering rank derived from the seed file. Lower wins.
+   * 0 = tenant-owned, 1-10 = featured flagships, 20 = premium starters,
+   * 50 = generic starters, 100 = industry starters. Missing → fall back
+   * to a high number so unranked entries sink. */
+  premiumRank?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,7 +78,7 @@ function getGradient(index: number): string {
   return GRADIENT_PALETTE[index % GRADIENT_PALETTE.length];
 }
 
-type SortOption = "Newest" | "Name" | "Most Blocks";
+type SortOption = "Featured" | "Newest" | "Name" | "Most Blocks";
 
 export default function TemplateMarketplace() {
   const { toast } = useToast();
@@ -82,7 +87,7 @@ export default function TemplateMarketplace() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("Newest");
+  const [sortBy, setSortBy] = useState<SortOption>("Featured");
   // Industry filter: `null` means "all industries" (default). A Set means
   // only show global templates whose industry is in the set. Tenant-saved
   // templates and universal globals (no industry) always pass through so
@@ -151,9 +156,16 @@ export default function TemplateMarketplace() {
     // user-selected sort breaks ties inside each group. This keeps a tenant's
     // own custom templates above the generic starter library, even after the
     // tenant has been using the product for a while.
+    const rankOf = (t: TemplatePage) => t.premiumRank ?? (t.isGlobal ? 200 : 0);
     const sorted = [...result];
     const compare = (a: TemplatePage, b: TemplatePage) => {
       if (a.isGlobal !== b.isGlobal) return a.isGlobal ? 1 : -1;
+      if (sortBy === "Featured") {
+        const ra = rankOf(a);
+        const rb = rankOf(b);
+        if (ra !== rb) return ra - rb;
+        return a.templateLabel.localeCompare(b.templateLabel);
+      }
       if (sortBy === "Newest") {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
@@ -169,6 +181,26 @@ export default function TemplateMarketplace() {
 
     return sorted;
   }, [templates, searchQuery, sortBy, selectedIndustries]);
+
+  // Build display groups for the Featured sort. Premium ranks 1-10 are the
+  // hand-picked flagship templates; everything else flows into "All
+  // templates". For non-Featured sorts we render a single ungrouped list.
+  const displayGroups = useMemo(() => {
+    if (sortBy !== "Featured") {
+      return [{ label: null as string | null, items: filteredAndSorted }];
+    }
+    const featured: TemplatePage[] = [];
+    const rest: TemplatePage[] = [];
+    for (const t of filteredAndSorted) {
+      const rank = t.premiumRank ?? (t.isGlobal ? 200 : 0);
+      if (t.isGlobal && rank <= 10) featured.push(t);
+      else rest.push(t);
+    }
+    const groups: { label: string | null; items: TemplatePage[] }[] = [];
+    if (featured.length > 0) groups.push({ label: "Featured", items: featured });
+    if (rest.length > 0) groups.push({ label: featured.length > 0 ? "All templates" : null, items: rest });
+    return groups;
+  }, [filteredAndSorted, sortBy]);
 
   // "All" is true both for the sentinel (`null`, untouched) and for the case
   // where the user has individually re-checked every industry. This keeps the
@@ -337,13 +369,14 @@ export default function TemplateMarketplace() {
                 </PopoverContent>
               </Popover>
             )}
-            {(["Newest", "Name", "Most Blocks"] as SortOption[]).map((option) => (
+            {(["Featured", "Newest", "Name", "Most Blocks"] as SortOption[]).map((option) => (
               <Button
                 key={option}
                 variant={sortBy === option ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSortBy(option)}
               >
+                {option === "Featured" && <Star className="h-3.5 w-3.5 mr-1" />}
                 {option === "Newest" && <Clock className="h-3.5 w-3.5 mr-1" />}
                 {option}
               </Button>
@@ -411,8 +444,17 @@ export default function TemplateMarketplace() {
               {filteredAndSorted.length} template{filteredAndSorted.length !== 1 ? "s" : ""} available
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSorted.map((template, index) => (
+            {displayGroups.map((group, gi) => (
+              <div key={gi} className="space-y-4">
+                {group.label && (
+                  <div className="flex items-center gap-2 pt-2">
+                    {group.label === "Featured" && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
+                    <h2 className="text-lg font-semibold tracking-tight">{group.label}</h2>
+                    <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.items.map((template, index) => (
                 <Card
                   key={template.id}
                   className="group overflow-hidden border border-border/40 hover:border-border/80 hover:shadow-lg transition-all duration-300 flex flex-col"
@@ -493,8 +535,10 @@ export default function TemplateMarketplace() {
                     </div>
                   </div>
                 </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </>
         )}
       </div>

@@ -959,3 +959,124 @@ export interface GradientPricingBlockProps {
   /** Accent color for featured card border, badge, and CTA. */
   accentColor?: string;
 }
+
+/* ------------------------------------------------------------------------- */
+/*  Menu Section — restaurant menu with grouped courses, dish name +         */
+/*  description + price + optional dietary tags. Editorial typography.       */
+/* ------------------------------------------------------------------------- */
+
+export interface MenuSectionDish {
+  name: string;
+  description?: string;
+  price: string;
+  /** Optional dietary tags, e.g. "GF", "V", "Spicy". */
+  tags?: string[];
+}
+
+export interface MenuSectionCourse {
+  title: string;
+  description?: string;
+  dishes: MenuSectionDish[];
+}
+
+export interface MenuSectionBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  courses: MenuSectionCourse[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  /** Optional small footnote rendered under the menu (allergens etc.). */
+  footnote?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Hours & Location — operating hours table + address card with optional    */
+/*  Google Maps embed URL. Designed for restaurants & local services.        */
+/* ------------------------------------------------------------------------- */
+
+export interface HoursLocationDayHours {
+  day: string;
+  hours: string;
+  /** Visually mark this row (e.g. "Today"). */
+  highlight?: boolean;
+}
+
+export interface HoursLocationBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** Operating hours rows. */
+  hours: HoursLocationDayHours[];
+  /** Business name shown above the address. */
+  businessName: string;
+  addressLine1: string;
+  addressLine2?: string;
+  phone?: string;
+  email?: string;
+  /** Optional Google Maps embed src. When present a 16:9 map is rendered. */
+  mapEmbedUrl?: string;
+  /** Optional CTA (e.g. "Get directions"). */
+  ctaText?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Before / After Gallery — paired before+after images with captions.       */
+/*  Designed for local services (renovation, lawncare, cleaning, etc.).     */
+/* ------------------------------------------------------------------------- */
+
+export interface BeforeAfterPair {
+  beforeSrc: string;
+  beforeAlt: string;
+  afterSrc: string;
+  afterAlt: string;
+  caption?: string;
+}
+
+export interface BeforeAfterGalleryBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  pairs: BeforeAfterPair[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  /** Label for the "before" tile pill. Default "Before". */
+  beforeLabel?: string;
+  /** Label for the "after" tile pill. Default "After". */
+  afterLabel?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Speaker Grid — event speakers / presenters / hosts. Photo + name +       */
+/*  role + optional bio + social links. Designed for event landings.         */
+/* ------------------------------------------------------------------------- */
+
+export interface SpeakerGridSpeaker {
+  name: string;
+  role: string;
+  /** Company / org. Optional secondary line. */
+  company?: string;
+  photoUrl: string;
+  bio?: string;
+  /** Optional social handle URL (twitter/x, linkedin). */
+  socialUrl?: string;
+  socialLabel?: string;
+}
+
+export interface SpeakerGridBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  speakers: SpeakerGridSpeaker[];
+  /** Cards per row at md+ breakpoint. */
+  columns?: 2 | 3 | 4;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}

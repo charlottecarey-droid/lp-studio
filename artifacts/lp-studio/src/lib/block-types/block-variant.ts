@@ -55,6 +55,10 @@ import type {
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
+  MenuSectionBlockProps,
+  HoursLocationBlockProps,
+  BeforeAfterGalleryBlockProps,
+  SpeakerGridBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -217,6 +221,10 @@ export type BlockVariant =
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
   | { type: "gradient-pricing"; props: GradientPricingBlockProps }
   | { type: "editorial-carousel"; props: EditorialCarouselBlockProps }
+  | { type: "menu-section"; props: MenuSectionBlockProps }
+  | { type: "hours-location"; props: HoursLocationBlockProps }
+  | { type: "before-after-gallery"; props: BeforeAfterGalleryBlockProps }
+  | { type: "speaker-grid"; props: SpeakerGridBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

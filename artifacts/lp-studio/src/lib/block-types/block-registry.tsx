@@ -57,6 +57,10 @@ import type {
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
   EditorialCarouselBlockProps,
+  MenuSectionBlockProps,
+  HoursLocationBlockProps,
+  BeforeAfterGalleryBlockProps,
+  SpeakerGridBlockProps,
 } from "./generic-blocks";
 import type {
   SectionBlockProps,
@@ -3873,6 +3877,155 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "menu-section",
+    label: "Menu Section",
+    category: "Content",
+    defaultProps: (): MenuSectionBlockProps => ({
+      eyebrow: "Tasting menu",
+      headline: "Menu",
+      subheadline: "Sourced daily from local farms and markets.",
+      bgColor: "#FAF7F2",
+      textColor: "#1A1A1A",
+      accentColor: "#8B0000",
+      footnote: "Please inform your server of any allergies or dietary restrictions.",
+      courses: [
+        {
+          title: "Starters",
+          description: "Small plates to share",
+          dishes: [
+            { name: "Burrata", description: "Heirloom tomato, basil oil, sourdough", price: "$16", tags: ["V"] },
+            { name: "Tuna Crudo", description: "Yuzu, avocado, crispy shallot", price: "$22", tags: ["GF"] },
+          ],
+        },
+        {
+          title: "Mains",
+          dishes: [
+            { name: "Wagyu Strip", description: "48-day dry-aged, bone marrow butter", price: "$68" },
+            { name: "Roasted Halibut", description: "Brown butter, charred lemon, capers", price: "$42", tags: ["GF"] },
+            { name: "Wild Mushroom Risotto", description: "Aged parmesan, truffle oil", price: "$32", tags: ["V"] },
+          ],
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAF7F2" rx="4" />
+        <rect x="20" y="14" width="40" height="4" rx="1" fill="#8B0000" />
+        <line x1="20" y1="26" x2="100" y2="26" stroke="#1A1A1A" strokeOpacity="0.2" />
+        <rect x="20" y="32" width="50" height="3" rx="1" fill="#1A1A1A" opacity="0.7" />
+        <rect x="92" y="32" width="8" height="3" rx="1" fill="#8B0000" />
+        <rect x="20" y="42" width="50" height="3" rx="1" fill="#1A1A1A" opacity="0.7" />
+        <rect x="92" y="42" width="8" height="3" rx="1" fill="#8B0000" />
+        <rect x="20" y="52" width="50" height="3" rx="1" fill="#1A1A1A" opacity="0.7" />
+        <rect x="92" y="52" width="8" height="3" rx="1" fill="#8B0000" />
+      </svg>
+    ),
+  },
+  {
+    type: "hours-location",
+    label: "Hours & Location",
+    category: "Content",
+    defaultProps: (): HoursLocationBlockProps => ({
+      eyebrow: "Visit",
+      headline: "Hours & Location",
+      subheadline: "We can't wait to host you.",
+      bgColor: "#0F0F10",
+      textColor: "#F5F2EC",
+      accentColor: "#C7A664",
+      hours: [
+        { day: "Monday", hours: "Closed" },
+        { day: "Tuesday", hours: "5:00 PM – 10:00 PM" },
+        { day: "Wednesday", hours: "5:00 PM – 10:00 PM" },
+        { day: "Thursday", hours: "5:00 PM – 10:00 PM", highlight: true },
+        { day: "Friday", hours: "5:00 PM – 11:00 PM" },
+        { day: "Saturday", hours: "5:00 PM – 11:00 PM" },
+        { day: "Sunday", hours: "5:00 PM – 9:00 PM" },
+      ],
+      businessName: "House of Daria",
+      addressLine1: "248 Mulberry Street",
+      addressLine2: "New York, NY 10012",
+      phone: "(212) 555-0142",
+      email: "reservations@houseofdaria.com",
+      ctaText: "Get directions",
+      ctaUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0F0F10" rx="4" />
+        <rect x="14" y="16" width="42" height="38" rx="3" fill="#F5F2EC" opacity="0.08" />
+        <rect x="20" y="22" width="20" height="3" rx="1" fill="#C7A664" />
+        <rect x="20" y="30" width="30" height="2" rx="1" fill="#F5F2EC" opacity="0.6" />
+        <rect x="20" y="36" width="30" height="2" rx="1" fill="#F5F2EC" opacity="0.6" />
+        <rect x="20" y="42" width="30" height="2" rx="1" fill="#C7A664" />
+        <rect x="64" y="16" width="42" height="38" rx="3" fill="#F5F2EC" opacity="0.08" />
+        <rect x="70" y="22" width="20" height="3" rx="1" fill="#C7A664" />
+        <rect x="70" y="30" width="30" height="2" rx="1" fill="#F5F2EC" opacity="0.6" />
+        <rect x="70" y="36" width="24" height="2" rx="1" fill="#F5F2EC" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
+    type: "before-after-gallery",
+    label: "Before / After Gallery",
+    category: "Showcase",
+    defaultProps: (): BeforeAfterGalleryBlockProps => ({
+      eyebrow: "Real projects",
+      headline: "The transformation",
+      subheadline: "Honest before and after photos from recent work.",
+      bgColor: "#FFFFFF",
+      textColor: "#0B0B0C",
+      accentColor: "#0B6B3A",
+      beforeLabel: "Before",
+      afterLabel: "After",
+      pairs: [
+        { beforeSrc: "", beforeAlt: "Project 1 before", afterSrc: "", afterAlt: "Project 1 after", caption: "Kitchen renovation, completed in 4 weeks." },
+        { beforeSrc: "", beforeAlt: "Project 2 before", afterSrc: "", afterAlt: "Project 2 after", caption: "Front yard refresh." },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="14" width="42" height="42" rx="3" fill="#94A3B8" />
+        <rect x="64" y="14" width="42" height="42" rx="3" fill="#0B6B3A" />
+        <rect x="18" y="18" width="14" height="4" rx="1" fill="#0B0B0C" opacity="0.7" />
+        <rect x="68" y="18" width="14" height="4" rx="1" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "speaker-grid",
+    label: "Speaker Grid",
+    category: "Showcase",
+    defaultProps: (): SpeakerGridBlockProps => ({
+      eyebrow: "Featured speakers",
+      headline: "Meet the lineup",
+      subheadline: "Founders, builders, and operators sharing what's actually working.",
+      columns: 3,
+      bgColor: "#0A0A0B",
+      textColor: "#F5F5F7",
+      accentColor: "#7B5BFF",
+      speakers: [
+        { name: "Maya Chen", role: "Co-founder & CEO", company: "Latticework", photoUrl: "", bio: "Building developer tools used by 30k+ teams.", socialLabel: "LinkedIn" },
+        { name: "Jordan Reyes", role: "Head of Design", company: "Northwind", photoUrl: "", bio: "Previously at Stripe, Figma. Lover of small details.", socialLabel: "LinkedIn" },
+        { name: "Priya Shah", role: "VP Engineering", company: "Veridian", photoUrl: "", bio: "Scaling teams from 5 to 500 without losing the magic.", socialLabel: "LinkedIn" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0A0B" rx="4" />
+        <circle cx="30" cy="28" r="9" fill="#7B5BFF" opacity="0.7" />
+        <circle cx="60" cy="28" r="9" fill="#7B5BFF" opacity="0.7" />
+        <circle cx="90" cy="28" r="9" fill="#7B5BFF" opacity="0.7" />
+        <rect x="20" y="44" width="20" height="3" rx="1" fill="#F5F5F7" />
+        <rect x="50" y="44" width="20" height="3" rx="1" fill="#F5F5F7" />
+        <rect x="80" y="44" width="20" height="3" rx="1" fill="#F5F5F7" />
+        <rect x="22" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
+        <rect x="52" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
+        <rect x="82" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
+      </svg>
+    ),
+  },
+  {
     type: "custom-schema",
     label: "Schema-Based Custom Block",
     category: "Grid Pieces",
@@ -3902,6 +4055,10 @@ export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: 
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
 export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { type: "editorial-carousel" }>;
+export function createBlock(type: "menu-section"): Extract<PageBlock, { type: "menu-section" }>;
+export function createBlock(type: "hours-location"): Extract<PageBlock, { type: "hours-location" }>;
+export function createBlock(type: "before-after-gallery"): Extract<PageBlock, { type: "before-after-gallery" }>;
+export function createBlock(type: "speaker-grid"): Extract<PageBlock, { type: "speaker-grid" }>;
 export function createBlock(type: "section"): Extract<PageBlock, { type: "section" }>;
 export function createBlock(type: "columns"): Extract<PageBlock, { type: "columns" }>;
 export function createBlock(type: "grid"): Extract<PageBlock, { type: "grid" }>;
@@ -4111,6 +4268,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
     case "editorial-carousel": return { id, type: "editorial-carousel", props: props as EditorialCarouselBlockProps };
+    case "menu-section": return { id, type: "menu-section", props: props as MenuSectionBlockProps };
+    case "hours-location": return { id, type: "hours-location", props: props as HoursLocationBlockProps };
+    case "before-after-gallery": return { id, type: "before-after-gallery", props: props as BeforeAfterGalleryBlockProps };
+    case "speaker-grid": return { id, type: "speaker-grid", props: props as SpeakerGridBlockProps };
     case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
     case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
     case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };

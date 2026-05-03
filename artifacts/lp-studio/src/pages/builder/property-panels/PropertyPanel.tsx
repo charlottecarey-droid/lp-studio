@@ -73,6 +73,10 @@ import { MagazineHeroPanel } from "./MagazineHeroPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
 import { GradientPricingPanel } from "./GradientPricingPanel";
 import { EditorialCarouselPanel } from "./EditorialCarouselPanel";
+import { MenuSectionPanel } from "./MenuSectionPanel";
+import { HoursLocationPanel } from "./HoursLocationPanel";
+import { BeforeAfterGalleryPanel } from "./BeforeAfterGalleryPanel";
+import { SpeakerGridPanel } from "./SpeakerGridPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -5017,6 +5021,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "editorial-carousel":
         return (
           <EditorialCarouselPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "menu-section":
+        return (
+          <MenuSectionPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "hours-location":
+        return (
+          <HoursLocationPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "before-after-gallery":
+        return (
+          <BeforeAfterGalleryPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "speaker-grid":
+        return (
+          <SpeakerGridPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

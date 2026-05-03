@@ -7,6 +7,7 @@ import { eq, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
+import { PREMIUM_RANK_BY_SLUG } from "../../seeds/globalTemplates";
 
 const router = Router();
 
@@ -42,6 +43,12 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
       const blockTypes = blocks
         .map((b) => (b && typeof b === "object" ? (b as { type?: unknown }).type : null))
         .filter((t): t is string => typeof t === "string");
+      // Marketplace ordering rank — for seeded global templates we look up the
+      // value from the seed file (no DB column needed). Tenant-owned templates
+      // get rank 0 so they always appear above the global library when sorted
+      // by rank.
+      const slug = t.slug ?? "";
+      const premiumRank = t.isGlobal ? (PREMIUM_RANK_BY_SLUG[slug] ?? 200) : 0;
       return {
         id: t.id,
         title: t.title,
@@ -55,6 +62,7 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         ogImage: t.ogImage || "",
         isGlobal: t.isGlobal,
         industry: t.industry,
+        premiumRank,
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
       };

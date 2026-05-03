@@ -17,8 +17,15 @@ export interface GlobalTemplateSeed {
   templateDescription: string;
   /** Marketplace thumbnail URL. Stored on lp_pages.og_image. */
   ogImage: string;
-  industry: "dental" | "generic" | null;
+  /** Industry tag, free-form. Built-in starters use values like "dental",
+   *  "generic", "saas", "restaurant", "events", "agency", "creator",
+   *  "local-services". Null means "universal / no tag". */
+  industry: string | null;
   blocks: { id: string; type: string; props: Record<string, unknown> }[];
+  /** Marketplace ordering rank. Lower = ranked higher in "Featured".
+   *  Flagship premium templates: 1-10. Distinctive premium: 20.
+   *  Generic starters: 50. Industry starters: 100. Tenant templates: omit. */
+  premiumRank?: number;
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -2516,9 +2523,37 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
 ];
 
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
+import { FLAGSHIP_TEMPLATE_SEEDS } from "./flagshipTemplates";
 
-export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
+// Default premiumRank applied when a seed doesn't carry one explicitly. Slug
+// prefix drives the bucket so the marketplace can present a stable
+// Featured / Premium / Industry order without a DB column migration:
+//   `global-flagship-*` → 1-10 (set explicitly in the flagship file)
+//   `global-distinctive-*` → 20  (the older "premium" templates)
+//   `global-*` (other)     → 50  (generic starters)
+//   `ind-*`                → 100 (industry starters, pushed to bottom)
+function defaultPremiumRank(slug: string): number {
+  if (slug.startsWith("global-flagship-")) return 5;
+  if (slug.startsWith("global-distinctive-")) return 20;
+  if (slug.startsWith("global-")) return 50;
+  if (slug.startsWith("ind-")) return 100;
+  return 200;
+}
+
+const COMBINED: GlobalTemplateSeed[] = [
+  ...FLAGSHIP_TEMPLATE_SEEDS,
   ...DISTINCTIVE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS,
 ];
+
+export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = COMBINED.map((t) => ({
+  ...t,
+  premiumRank: t.premiumRank ?? defaultPremiumRank(t.slug),
+}));
+
+/** Lookup table the API uses to expose the seed's premiumRank to the
+ *  marketplace UI without adding a DB column. */
+export const PREMIUM_RANK_BY_SLUG: Record<string, number> = Object.fromEntries(
+  GLOBAL_TEMPLATE_SEEDS.map((t) => [t.slug, t.premiumRank ?? defaultPremiumRank(t.slug)]),
+);

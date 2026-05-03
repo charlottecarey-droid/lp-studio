@@ -104,6 +104,10 @@ import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
 import { BlockBoldStatement } from "./BlockBoldStatement";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
+import { BlockMenuSection } from "./BlockMenuSection";
+import { BlockHoursLocation } from "./BlockHoursLocation";
+import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
+import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
 import { BlockSection } from "./BlockSection";
 import { BlockColumns } from "./BlockColumns";
 import { BlockGrid } from "./BlockGrid";
@@ -856,6 +860,14 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockGradientPricing props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "editorial-carousel":
         return <BlockEditorialCarousel props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "menu-section":
+        return <BlockMenuSection props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "hours-location":
+        return <BlockHoursLocation props={block.props} brand={brand} onCtaClick={onCtaClick && block.props.ctaUrl ? () => onCtaClick(block.props.ctaUrl!) : undefined} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "before-after-gallery":
+        return <BlockBeforeAfterGallery props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "speaker-grid":
+        return <BlockSpeakerGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "section":
         return <BlockSection props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       case "columns":
