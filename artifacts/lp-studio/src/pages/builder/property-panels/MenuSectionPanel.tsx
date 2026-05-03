@@ -2,7 +2,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+
+function moveArr<T>(arr: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length) return arr;
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 import type { MenuSectionBlockProps, MenuSectionCourse, MenuSectionDish } from "@/lib/block-types";
 import { ColorField } from "./BlockSettingsPanel";
 
@@ -18,6 +26,7 @@ export function MenuSectionPanel({ props, onChange }: Props) {
     update({ courses: props.courses.map((c, i) => (i === ci ? { ...c, ...patch } : c)) });
   };
   const removeCourse = (ci: number) => update({ courses: props.courses.filter((_, i) => i !== ci) });
+  const moveCourse = (ci: number, dir: -1 | 1) => update({ courses: moveArr(props.courses, ci, ci + dir) });
   const addCourse = () => update({
     courses: [...props.courses, { title: "New course", dishes: [{ name: "Dish", price: "$0" }] }],
   });
@@ -32,6 +41,11 @@ export function MenuSectionPanel({ props, onChange }: Props) {
     const course = props.courses[ci];
     if (!course) return;
     updateCourse(ci, { dishes: course.dishes.filter((_, i) => i !== di) });
+  };
+  const moveDish = (ci: number, di: number, dir: -1 | 1) => {
+    const course = props.courses[ci];
+    if (!course) return;
+    updateCourse(ci, { dishes: moveArr(course.dishes, di, di + dir) });
   };
   const addDish = (ci: number) => {
     const course = props.courses[ci];
@@ -63,6 +77,8 @@ export function MenuSectionPanel({ props, onChange }: Props) {
           <div key={ci} className="border rounded-md p-3 space-y-2">
             <div className="flex gap-2 items-center">
               <Input value={course.title} onChange={(e) => updateCourse(ci, { title: e.target.value })} placeholder="Course title" />
+              <Button size="icon" variant="ghost" disabled={ci === 0} onClick={() => moveCourse(ci, -1)}><ChevronUp className="h-3 w-3" /></Button>
+              <Button size="icon" variant="ghost" disabled={ci === props.courses.length - 1} onClick={() => moveCourse(ci, 1)}><ChevronDown className="h-3 w-3" /></Button>
               <Button size="icon" variant="ghost" onClick={() => removeCourse(ci)}><Trash2 className="h-3 w-3" /></Button>
             </div>
             <Input value={course.description ?? ""} onChange={(e) => updateCourse(ci, { description: e.target.value })} placeholder="Course description (optional)" />
@@ -73,6 +89,8 @@ export function MenuSectionPanel({ props, onChange }: Props) {
                   <div className="flex gap-2">
                     <Input value={dish.name} onChange={(e) => updateDish(ci, di, { name: e.target.value })} placeholder="Dish" className="flex-1" />
                     <Input value={dish.price} onChange={(e) => updateDish(ci, di, { price: e.target.value })} placeholder="$0" className="w-20" />
+                    <Button size="icon" variant="ghost" disabled={di === 0} onClick={() => moveDish(ci, di, -1)}><ChevronUp className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" disabled={di === course.dishes.length - 1} onClick={() => moveDish(ci, di, 1)}><ChevronDown className="h-3 w-3" /></Button>
                     <Button size="icon" variant="ghost" onClick={() => removeDish(ci, di)}><Trash2 className="h-3 w-3" /></Button>
                   </div>
                   <Textarea value={dish.description ?? ""} onChange={(e) => updateDish(ci, di, { description: e.target.value })} placeholder="Description" rows={1} className="text-xs" />

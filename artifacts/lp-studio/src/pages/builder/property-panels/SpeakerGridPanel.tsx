@@ -3,7 +3,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+
+function moveArr<T>(arr: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length) return arr;
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 import type { SpeakerGridBlockProps, SpeakerGridSpeaker } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
@@ -19,6 +27,7 @@ export function SpeakerGridPanel({ props, onChange }: Props) {
     update({ speakers: props.speakers.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
   };
   const removeSpeaker = (i: number) => update({ speakers: props.speakers.filter((_, idx) => idx !== i) });
+  const moveSpeaker = (i: number, dir: -1 | 1) => update({ speakers: moveArr(props.speakers, i, i + dir) });
   const addSpeaker = () => update({
     speakers: [...props.speakers, { name: "New speaker", role: "Title", photoUrl: "" }],
   });
@@ -59,7 +68,11 @@ export function SpeakerGridPanel({ props, onChange }: Props) {
           <div key={i} className="border rounded-md p-3 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium">{sp.name || `Speaker ${i + 1}`}</span>
-              <Button size="icon" variant="ghost" onClick={() => removeSpeaker(i)}><Trash2 className="h-3 w-3" /></Button>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" disabled={i === 0} onClick={() => moveSpeaker(i, -1)}><ChevronUp className="h-3 w-3" /></Button>
+                <Button size="icon" variant="ghost" disabled={i === props.speakers.length - 1} onClick={() => moveSpeaker(i, 1)}><ChevronDown className="h-3 w-3" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => removeSpeaker(i)}><Trash2 className="h-3 w-3" /></Button>
+              </div>
             </div>
             <ImagePicker value={sp.photoUrl} onChange={(src) => updateSpeaker(i, { photoUrl: src })} />
             <Input value={sp.name} onChange={(e) => updateSpeaker(i, { name: e.target.value })} placeholder="Name" />

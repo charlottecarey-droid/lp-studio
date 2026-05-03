@@ -2,7 +2,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+
+function moveArr<T>(arr: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length) return arr;
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 import type { BeforeAfterGalleryBlockProps, BeforeAfterPair } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
@@ -18,6 +26,7 @@ export function BeforeAfterGalleryPanel({ props, onChange }: Props) {
     update({ pairs: props.pairs.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) });
   };
   const removePair = (i: number) => update({ pairs: props.pairs.filter((_, idx) => idx !== i) });
+  const movePair = (i: number, dir: -1 | 1) => update({ pairs: moveArr(props.pairs, i, i + dir) });
   const addPair = () => update({
     pairs: [...props.pairs, { beforeSrc: "", beforeAlt: "Before", afterSrc: "", afterAlt: "After" }],
   });
@@ -57,7 +66,11 @@ export function BeforeAfterGalleryPanel({ props, onChange }: Props) {
           <div key={i} className="border rounded-md p-3 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs font-medium">Pair {i + 1}</span>
-              <Button size="icon" variant="ghost" onClick={() => removePair(i)}><Trash2 className="h-3 w-3" /></Button>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" disabled={i === 0} onClick={() => movePair(i, -1)}><ChevronUp className="h-3 w-3" /></Button>
+                <Button size="icon" variant="ghost" disabled={i === props.pairs.length - 1} onClick={() => movePair(i, 1)}><ChevronDown className="h-3 w-3" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => removePair(i)}><Trash2 className="h-3 w-3" /></Button>
+              </div>
             </div>
             <div>
               <Label className="text-xs">Before image</Label>
