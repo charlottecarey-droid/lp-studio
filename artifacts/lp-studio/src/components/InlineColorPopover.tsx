@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -9,6 +9,26 @@ import { Input } from "@/components/ui/input";
 interface BrandSwatch {
   name: string;
   value: string;
+}
+
+/**
+ * Resolve a `var(--foo, fallback)` color string against a host element's
+ * computed style. The popover content is portaled to <body> where the brand
+ * CSS variables (set on a wrapper element, not :root) aren't visible — so
+ * brand swatches like `var(--brand-primary)` would otherwise render empty
+ * and visually overlap. We snapshot real hex values from the trigger (which
+ * IS inside the brand scope) at open time.
+ */
+function resolveSwatchValue(value: string, host: HTMLElement | null): string {
+  if (!value || !value.startsWith("var(")) return value;
+  if (!host) return value;
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  probe.style.display = "none";
+  host.appendChild(probe);
+  const resolved = window.getComputedStyle(probe).color;
+  host.removeChild(probe);
+  return resolved && resolved !== "rgba(0, 0, 0, 0)" ? resolved : value;
 }
 
 interface Props {
@@ -67,12 +87,22 @@ export function InlineColorPopover({
 }: Props) {
   const [recents, setRecents] = useState<string[]>([]);
   const [custom, setCustom] = useState("#000000");
+  const triggerRef = useRef<HTMLSpanElement | null>(null);
+  const rawSwatches = brandSwatches && brandSwatches.length > 0 ? brandSwatches : FALLBACK_SWATCHES;
+  const [resolvedSwatches, setResolvedSwatches] = useState<BrandSwatch[]>(rawSwatches);
 
   useEffect(() => {
-    if (open) setRecents(loadRecents());
-  }, [open]);
+    if (!open) return;
+    setRecents(loadRecents());
+    // Snapshot real hex for any var(--…) swatches against the trigger,
+    // which sits inside the brand-scoped subtree.
+    const host = triggerRef.current;
+    setResolvedSwatches(
+      rawSwatches.map((s) => ({ ...s, value: resolveSwatchValue(s.value, host) })),
+    );
+  }, [open, rawSwatches]);
 
-  const swatches = brandSwatches && brandSwatches.length > 0 ? brandSwatches : FALLBACK_SWATCHES;
+  const swatches = resolvedSwatches;
 
   const apply = (value: string) => {
     onPick(value);
@@ -84,9 +114,37 @@ export function InlineColorPopover({
     onOpenChange(false);
   };
 
+  // Explicit inline-grid styling so the layout is bulletproof regardless of
+  // ambient Tailwind/CSS — earlier reports of "all colors stacked on top of
+  // each other" came from grid-template-columns failing to apply in the
+  // portaled subtree.
+  const swatchGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+    gap: "0.375rem",
+  };
+  const swatchBtnStyle = (bg: string): React.CSSProperties => ({
+    width: "1.75rem",
+    height: "1.75rem",
+    borderRadius: "0.25rem",
+    border: "1px solid hsl(var(--border))",
+    background: bg || "transparent",
+    backgroundImage: bg
+      ? undefined
+      : "linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%), linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%)",
+    backgroundSize: bg ? undefined : "8px 8px",
+    backgroundPosition: bg ? undefined : "0 0, 4px 4px",
+    cursor: "pointer",
+    padding: 0,
+  });
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger asChild>
+        <span ref={triggerRef} style={{ display: "inline-flex" }}>
+          {children}
+        </span>
+      </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={6}
@@ -95,31 +153,12 @@ export function InlineColorPopover({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="space-y-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-              Brand
-            </p>
-            <div className="grid grid-cols-6 gap-1.5">
-              {swatches.map((s) => (
-                <button
-                  key={s.name + s.value}
-                  type="button"
-                  title={s.name}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => apply(s.value)}
-                  className="w-7 h-7 rounded border border-border hover:scale-110 transition-transform"
-                  style={{ background: s.value }}
-                />
-              ))}
-            </div>
-          </div>
-
           {recents.length > 0 && (
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
                 Recent
               </p>
-              <div className="grid grid-cols-6 gap-1.5">
+              <div style={swatchGridStyle}>
                 {recents.map((v) => (
                   <button
                     key={v}
@@ -127,13 +166,32 @@ export function InlineColorPopover({
                     title={v}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => apply(v)}
-                    className="w-7 h-7 rounded border border-border hover:scale-110 transition-transform"
-                    style={{ background: v }}
+                    style={swatchBtnStyle(v)}
+                    className="hover:scale-110 transition-transform"
                   />
                 ))}
               </div>
             </div>
           )}
+
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              Brand
+            </p>
+            <div style={swatchGridStyle}>
+              {swatches.map((s) => (
+                <button
+                  key={s.name + s.value}
+                  type="button"
+                  title={s.name}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => apply(s.value)}
+                  style={swatchBtnStyle(s.value)}
+                  className="hover:scale-110 transition-transform"
+                />
+              ))}
+            </div>
+          </div>
 
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">

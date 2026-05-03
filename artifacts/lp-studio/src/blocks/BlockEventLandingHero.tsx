@@ -5,6 +5,7 @@ import type { EventLandingHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: EventLandingHeroBlockProps;
@@ -36,6 +37,7 @@ export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange 
   const {
     backgroundImage,
     backgroundImageAlt,
+    backgroundFocalPoint,
     overlayColor = "#000000",
     eyebrow,
     headline,
@@ -99,41 +101,40 @@ export function BlockEventLandingHero({ props, brand, onCtaClick, onFieldChange 
         textAlign: align === "center" ? "center" : "left",
       }}
     >
-      {/* Background image with parallax. Uses a real <img> when alt text is
-          provided so screen readers can announce it; otherwise rendered as a
-          decorative aria-hidden background div. */}
-      {backgroundImage && (backgroundImageAlt ? (
-        <motion.img
-          src={backgroundImage}
-          alt={backgroundImageAlt}
-          loading="eager"
-          decoding="async"
+      {/* Background image with parallax. In edit mode (onFieldChange present)
+          we wrap with InlineImage so users can hover-replace, drag-drop, set
+          alt text, and adjust the focal point inline. In published mode it
+          renders as a plain <img> with no chrome. */}
+      {backgroundImage && (
+        <motion.div
           style={{
             position: "absolute",
             inset: "-10% 0 -10% 0",
             width: "100%",
             height: "120%",
-            objectFit: "cover",
-            objectPosition: "center",
             y: bgY,
             zIndex: 0,
           }}
-        />
-      ) : (
-        <motion.div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: "-10% 0 -10% 0",
-            backgroundImage: `url(${backgroundImage})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            y: bgY,
-            zIndex: 0,
-          }}
-        />
-      ))}
+        >
+          <InlineImage
+            src={backgroundImage}
+            alt={backgroundImageAlt ?? ""}
+            onUpdate={field("backgroundImage")}
+            onAltUpdate={field("backgroundImageAlt")}
+            focalPoint={backgroundFocalPoint}
+            onFocalUpdate={field("backgroundFocalPoint")}
+            wrapperClassName="block w-full h-full"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+            loading="eager"
+            decoding="async"
+          />
+        </motion.div>
+      )}
 
       {/* Dark overlay */}
       <div

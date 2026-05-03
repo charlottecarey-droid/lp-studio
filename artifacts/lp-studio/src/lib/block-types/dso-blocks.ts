@@ -1062,6 +1062,8 @@ export interface EventLandingHeroBlockProps {
   backgroundImage: string;
   /** Optional alt text — purely decorative by default. */
   backgroundImageAlt?: string;
+  /** Focal point of the bg image as `"x% y%"` (CSS object-position). Default `"50% 50%"`. */
+  backgroundFocalPoint?: string;
   /** 0–1 dark overlay on top of the image. Default 0.5. */
   backgroundOverlay?: number;
   /** Overlay color. Default `#000000`. */
