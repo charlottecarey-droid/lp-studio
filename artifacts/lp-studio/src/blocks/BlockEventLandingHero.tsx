@@ -133,9 +133,11 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
 
   // Synthesize a FormBlockProps shim so we can reuse <BlockForm> for the
   // RSVP column. The visible heading/subheading are rendered above the
-  // embedded form, so we leave the inner headline blank — formId points
-  // at a global form, whose fields/submit/marketo/notification config all
-  // live server-side and load via /api/lp/forms/:id.
+  // embedded form, so we leave the inner headline blank. When formMode is
+  // "marketo", the marketo* fields embed a Marketo form directly; otherwise
+  // formId points at a global form, whose fields/submit/marketo/notification
+  // config all live server-side and load via /api/lp/forms/:id.
+  const formMode = props.formMode === "marketo" ? "marketo" : "native";
   const embeddedForm: FormBlockProps = {
     headline: "",
     subheadline: "",
@@ -147,7 +149,22 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     backgroundStyle: "white",
     formId,
     cardStyle: "flat",
+    formMode,
+    marketoBaseUrl: props.marketoBaseUrl,
+    marketoMunchkinId: props.marketoMunchkinId,
+    marketoFormId: props.marketoFormId,
   };
+
+  const leftColTopPad = Math.max(0, Math.min(20, Number(props.leftColumnTopPadding) || 0));
+  const rightColTopPad = Math.max(0, Math.min(20, Number(props.rightColumnTopPadding) || 0));
+
+  // Detect whether the form column has any renderable content so we can show
+  // the dashed placeholder when neither a global form nor marketo is configured.
+  const hasMarketo = formMode === "marketo"
+    && Boolean(props.marketoBaseUrl)
+    && Boolean(props.marketoMunchkinId)
+    && Boolean(props.marketoFormId);
+  const hasForm = hasMarketo || (formMode === "native" && Boolean(formId));
 
   return (
     <>
@@ -419,7 +436,14 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
             className="evlh-details-grid"
           >
             {/* Left column: copy */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "clamp(1.75rem, 4vh, 2.5rem)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "clamp(1.75rem, 4vh, 2.5rem)",
+                paddingTop: leftColTopPad ? `${leftColTopPad}rem` : undefined,
+              }}
+            >
               {(whatToExpectHeading || whatToExpectBody) && (
                 <div>
                   {whatToExpectHeading && (
@@ -545,6 +569,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                 display: "flex",
                 flexDirection: "column",
                 gap: "1.25rem",
+                paddingTop: rightColTopPad ? `${rightColTopPad}rem` : undefined,
               }}
             >
               {(formHeading || formSubheading) && (
@@ -579,7 +604,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                 </div>
               )}
 
-              {formId ? (
+              {hasForm ? (
                 <div className="evlh-form-slot">
                   <BlockForm
                     props={embeddedForm}
@@ -601,7 +626,9 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                     background: "rgba(255,255,255,0.6)",
                   }}
                 >
-                  Pick a form in the right panel to embed your RSVP form here.
+                  {formMode === "marketo"
+                    ? "Add your Marketo instance URL, Munchkin ID, and Form ID in the right panel to embed the form here."
+                    : "Pick a form in the right panel to embed your RSVP form here."}
                 </div>
               )}
             </div>

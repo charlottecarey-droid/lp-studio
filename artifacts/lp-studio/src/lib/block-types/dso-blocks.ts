@@ -1121,4 +1121,21 @@ export interface EventLandingHeroBlockProps {
   formSubheading?: string;
   /** Right column: id of a global form (from /api/lp/forms) to embed. */
   formId?: number;
+
+  /** Form mode. "native" (default) uses the global form picked via `formId`;
+   *  "marketo" embeds a Marketo form using the marketo* fields below. */
+  formMode?: "native" | "marketo";
+  /** Marketo instance base URL, e.g. "//app-XXX.marketo.com". */
+  marketoBaseUrl?: string;
+  /** Munchkin ID, e.g. "123-ABC-456". */
+  marketoMunchkinId?: string;
+  /** Numeric Marketo form ID. */
+  marketoFormId?: number;
+
+  /** Optional top padding (rem) on the left column to vertically align with the
+   *  right column when the form is taller. Default 0. */
+  leftColumnTopPadding?: number;
+  /** Optional top padding (rem) on the right column to align with the left
+   *  column when the copy is taller. Default 0. */
+  rightColumnTopPadding?: number;
 }

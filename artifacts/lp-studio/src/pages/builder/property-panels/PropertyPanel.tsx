@@ -442,20 +442,97 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
                 placeholder="Spots are limited — RSVP to confirm your seat."
               />
               <div className="space-y-1.5">
-                <Label className="text-xs">Linked global form</Label>
+                <Label className="text-xs">Form source</Label>
                 <Select
-                  value={props.formId != null ? String(props.formId) : "__none__"}
-                  onValueChange={(v) => set("formId", v === "__none__" ? undefined : parseInt(v, 10))}
+                  value={props.formMode ?? "native"}
+                  onValueChange={(v) => set("formMode", v as "native" | "marketo")}
                 >
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pick a form" /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {forms.map((f) => (
-                      <SelectItem key={f.id} value={String(f.id)}>{f.name} (#{f.id})</SelectItem>
-                    ))}
+                    <SelectItem value="native">Linked global form</SelectItem>
+                    <SelectItem value="marketo">Embed Marketo form</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground">Manage forms in <span className="underline">/forms</span>. Submissions inherit Marketo / notification config from the global form.</p>
+              </div>
+              {(props.formMode ?? "native") === "native" ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Linked global form</Label>
+                  <Select
+                    value={props.formId != null ? String(props.formId) : "__none__"}
+                    onValueChange={(v) => set("formId", v === "__none__" ? undefined : parseInt(v, 10))}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pick a form" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {forms.map((f) => (
+                        <SelectItem key={f.id} value={String(f.id)}>{f.name} (#{f.id})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Manage forms in <span className="underline">/forms</span>. Submissions inherit Marketo / notification config from the global form.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-md border border-dashed p-2.5">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Marketo instance URL</Label>
+                    <Input
+                      value={props.marketoBaseUrl ?? ""}
+                      onChange={(e) => set("marketoBaseUrl", e.target.value)}
+                      className="h-8 text-xs font-mono"
+                      placeholder="//app-XXX.marketo.com"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Munchkin ID</Label>
+                    <Input
+                      value={props.marketoMunchkinId ?? ""}
+                      onChange={(e) => set("marketoMunchkinId", e.target.value)}
+                      className="h-8 text-xs font-mono"
+                      placeholder="123-ABC-456"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Marketo form ID</Label>
+                    <Input
+                      type="number"
+                      value={props.marketoFormId != null ? String(props.marketoFormId) : ""}
+                      onChange={(e) => {
+                        const n = parseInt(e.target.value, 10);
+                        set("marketoFormId", Number.isFinite(n) ? n : undefined);
+                      }}
+                      className="h-8 text-xs font-mono"
+                      placeholder="1234"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Find these in Marketo under Form Embed Code (the `loadForm` call shows base URL, Munchkin ID, and form ID).</p>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Column alignment</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Add top padding to either column to vertically even-out the layout when one side is taller.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Left column top padding — {(props.leftColumnTopPadding ?? 0).toFixed(1)} rem</Label>
+                <Slider
+                  min={0}
+                  max={12}
+                  step={0.5}
+                  value={[props.leftColumnTopPadding ?? 0]}
+                  onValueChange={(v) => set("leftColumnTopPadding", v[0])}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Right column top padding — {(props.rightColumnTopPadding ?? 0).toFixed(1)} rem</Label>
+                <Slider
+                  min={0}
+                  max={12}
+                  step={0.5}
+                  value={[props.rightColumnTopPadding ?? 0]}
+                  onValueChange={(v) => set("rightColumnTopPadding", v[0])}
+                />
               </div>
             </div>
           </div>
