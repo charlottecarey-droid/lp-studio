@@ -9,6 +9,7 @@ import {
 import type { DsoProblemBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
@@ -49,9 +50,10 @@ const DEFAULT_PANELS: DsoProblemBlockProps["panels"] = [
 
 interface Props {
   props: DsoProblemBlockProps;
+  onFieldChange?: (updated: DsoProblemBlockProps) => void;
 }
 
-export function BlockDsoProblem({ props }: Props) {
+export function BlockDsoProblem({ props, onFieldChange }: Props) {
   const {
     eyebrow = "The Problem",
     headline = "Consolidation shouldn't mean compromise.",
@@ -77,6 +79,17 @@ export function BlockDsoProblem({ props }: Props) {
   const imgB = imageUrls[1] || DEFAULT_IMG_B;
 
   const displayPanels = panels && panels.length > 0 ? panels.slice(0, 4) : DEFAULT_PANELS;
+  const field = (key: keyof DsoProblemBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  // Only allow inline panel edits when explicit panels are saved — otherwise
+  // edits would target the in-memory DEFAULT_PANELS and disappear on reload.
+  const panelsEditable = onFieldChange && panels && panels.length > 0;
+  const updatePanel = (i: number, patch: Partial<typeof displayPanels[number]>) => {
+    if (!panelsEditable || !panels) return;
+    const next = panels.slice();
+    next[i] = { ...next[i], ...patch };
+    onFieldChange!({ ...props, panels: next });
+  };
 
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "end start"] });
@@ -206,11 +219,11 @@ export function BlockDsoProblem({ props }: Props) {
 
           {/* ── Right: Copy + problem list ── */}
           <motion.div style={{ y: textY }}>
-            {eyebrow && (
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+            {(eyebrow || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={eyebrow ?? ""}
+                onUpdate={field("eyebrow")}
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
@@ -219,16 +232,13 @@ export function BlockDsoProblem({ props }: Props) {
                   color: AW,
                   marginBottom: "1.25rem",
                 }}
-              >
-                {eyebrow}
-              </motion.p>
+              />
             )}
 
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
+            <InlineText
+              as="h2"
+              value={headline}
+              onUpdate={field("headline")}
               style={{
                 fontFamily: DISPLAY_FONT,
                 fontSize: "clamp(1.875rem,3.5vw,2.875rem)",
@@ -238,20 +248,16 @@ export function BlockDsoProblem({ props }: Props) {
                 letterSpacing: "-0.015em",
                 marginBottom: body ? "1.25rem" : "2.75rem",
               }}
-            >
-              {headline}
-            </motion.h2>
+            />
 
-            {body && (
-              <motion.p
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.08 }}
+            {(body || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={body ?? ""}
+                onUpdate={field("body")}
+                multiline
                 style={{ fontSize: "1rem", lineHeight: 1.7, color: mu, marginBottom: "2.75rem" }}
-              >
-                {body}
-              </motion.p>
+              />
             )}
 
             <div>
@@ -293,7 +299,10 @@ export function BlockDsoProblem({ props }: Props) {
                     </div>
 
                     <div>
-                      <p
+                      <InlineText
+                        as="p"
+                        value={panel.title}
+                        onUpdate={panelsEditable ? (v) => updatePanel(i, { title: v }) : undefined}
                         style={{
                           fontFamily: DISPLAY_FONT,
                           fontSize: "1rem",
@@ -303,12 +312,14 @@ export function BlockDsoProblem({ props }: Props) {
                           letterSpacing: "-0.01em",
                           transition: "color 0.2s",
                         }}
-                      >
-                        {panel.title}
-                      </p>
-                      <p style={{ fontSize: "0.9rem", lineHeight: 1.65, color: mu }}>
-                        {panel.desc}
-                      </p>
+                      />
+                      <InlineText
+                        as="p"
+                        value={panel.desc}
+                        onUpdate={panelsEditable ? (v) => updatePanel(i, { desc: v }) : undefined}
+                        multiline
+                        style={{ fontSize: "0.9rem", lineHeight: 1.65, color: mu }}
+                      />
                     </div>
                   </motion.div>
                 );

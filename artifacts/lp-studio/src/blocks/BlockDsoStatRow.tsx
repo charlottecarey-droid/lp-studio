@@ -3,15 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import type { DsoStatRowBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getButtonClasses } from "@/lib/brand-config";
-import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
-
-const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoStatRowBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoStatRowBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
@@ -56,8 +54,16 @@ function parseStatValue(value: string): { prefix: string; num: number; suffix: s
   return { prefix: m[1], num: parseFloat(m[2]), suffix: m[3] };
 }
 
-export function BlockDsoStatRow({ props, brand }: Props) {
+export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark", animateNumbers = true } = props;
+  const field = (key: keyof DsoStatRowBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateItem = (i: number, patch: Partial<typeof items[number]>) => {
+    if (!onFieldChange) return;
+    const next = items.slice();
+    next[i] = { ...next[i], ...patch };
+    onFieldChange({ ...props, items: next });
+  };
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -73,15 +79,21 @@ export function BlockDsoStatRow({ props, brand }: Props) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         {(eyebrow || headline) && (
           <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-            {eyebrow && (
-              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem" }}>
-                {eyebrow}
-              </p>
+            {(eyebrow || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={eyebrow ?? ""}
+                onUpdate={field("eyebrow")}
+                style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "0.75rem" }}
+              />
             )}
-            {headline && (
-              <h2 style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", fontWeight: 600, color: headlineC, lineHeight: 1.15, letterSpacing: "-0.015em" }}>
-                {headline}
-              </h2>
+            {(headline || onFieldChange) && (
+              <InlineText
+                as="h2"
+                value={headline ?? ""}
+                onUpdate={field("headline")}
+                style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", fontWeight: 600, color: headlineC, lineHeight: 1.15, letterSpacing: "-0.015em" }}
+              />
             )}
           </div>
         )}
@@ -112,26 +124,54 @@ export function BlockDsoStatRow({ props, brand }: Props) {
                   background: dark ? "rgba(255,255,255,0.03)" : "#fff",
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: DISPLAY,
-                    fontSize: "clamp(2.25rem,4vw,3rem)",
-                    fontWeight: 700,
-                    color: valC,
-                    lineHeight: 1,
-                    marginBottom: "0.625rem",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {parsed && animateNumbers ? (
-                    <CountUp prefix={parsed.prefix} target={parsed.num} suffix={parsed.suffix} />
-                  ) : item.value}
-                </div>
-                <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: labelC, marginBottom: item.detail ? "0.25rem" : 0 }}>
-                  {item.label}
-                </p>
-                {item.detail && (
-                  <p style={{ fontSize: "0.8125rem", color: detailC, lineHeight: 1.5 }}>{item.detail}</p>
+                {/* CountUp animates parsed-number values during read-only render.
+                    In edit mode (onFieldChange present), swap to InlineText so the
+                    raw string is editable; the count animation is suppressed there. */}
+                {onFieldChange ? (
+                  <InlineText
+                    as="div"
+                    value={item.value}
+                    onUpdate={(v) => updateItem(i, { value: v })}
+                    style={{
+                      fontFamily: DISPLAY,
+                      fontSize: "clamp(2.25rem,4vw,3rem)",
+                      fontWeight: 700,
+                      color: valC,
+                      lineHeight: 1,
+                      marginBottom: "0.625rem",
+                      letterSpacing: "-0.02em",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      fontFamily: DISPLAY,
+                      fontSize: "clamp(2.25rem,4vw,3rem)",
+                      fontWeight: 700,
+                      color: valC,
+                      lineHeight: 1,
+                      marginBottom: "0.625rem",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {parsed && animateNumbers ? (
+                      <CountUp prefix={parsed.prefix} target={parsed.num} suffix={parsed.suffix} />
+                    ) : item.value}
+                  </div>
+                )}
+                <InlineText
+                  as="p"
+                  value={item.label}
+                  onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
+                  style={{ fontSize: "0.9375rem", fontWeight: 600, color: labelC, marginBottom: item.detail ? "0.25rem" : 0 }}
+                />
+                {(item.detail || onFieldChange) && (
+                  <InlineText
+                    as="p"
+                    value={item.detail ?? ""}
+                    onUpdate={onFieldChange ? (v) => updateItem(i, { detail: v }) : undefined}
+                    style={{ fontSize: "0.8125rem", color: detailC, lineHeight: 1.5 }}
+                  />
                 )}
               </motion.div>
             );

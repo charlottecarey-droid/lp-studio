@@ -3,23 +3,29 @@ import { Quote, User } from "lucide-react";
 import type { DsoTestimonialsBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getButtonClasses } from "@/lib/brand-config";
-import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
-
-const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoTestimonialsBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoTestimonialsBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoTestimonials({ props, brand }: Props) {
+export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, testimonials = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "dark" } = props;
+  const field = (key: keyof DsoTestimonialsBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateT = (i: number, patch: Partial<typeof testimonials[number]>) => {
+    if (!onFieldChange) return;
+    const next = testimonials.slice();
+    next[i] = { ...next[i], ...patch };
+    onFieldChange({ ...props, testimonials: next });
+  };
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
 
@@ -37,37 +43,30 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
     <section style={sectionBg} className="py-24 md:py-32">
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-          {eyebrow && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+          {(eyebrow || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={eyebrow ?? ""}
+              onUpdate={field("eyebrow")}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
-            >
-              {eyebrow}
-            </motion.p>
+            />
           )}
-          {headline && (
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
+          {(headline || onFieldChange) && (
+            <InlineText
+              as="h2"
+              value={headline ?? ""}
+              onUpdate={field("headline")}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
-            >
-              {headline}
-            </motion.h2>
+            />
           )}
-          {subheadline && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+          {(subheadline || onFieldChange) && (
+            <InlineText
+              as="p"
+              value={subheadline ?? ""}
+              onUpdate={field("subheadline")}
+              multiline
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
-            >
-              {subheadline}
-            </motion.p>
+            />
           )}
         </div>
 
@@ -92,7 +91,11 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
             >
               <Quote style={{ width: 24, height: 24, color: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.502)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`, flexShrink: 0 }} />
 
-              <p
+              <InlineText
+                as="p"
+                value={t.quote}
+                onUpdate={onFieldChange ? (v) => updateT(i, { quote: v }) : undefined}
+                multiline
                 style={{
                   fontSize: "0.9375rem",
                   color: quoteC,
@@ -100,9 +103,7 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
                   fontStyle: "italic",
                   flex: 1,
                 }}
-              >
-                "{t.quote}"
-              </p>
+              />
 
               <div style={{ borderTop: `1px solid ${divC}`, paddingTop: "1rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                 <div
@@ -120,9 +121,19 @@ export function BlockDsoTestimonials({ props, brand }: Props) {
                   <User style={{ width: 16, height: 16, color: dark ? "rgba(255,255,255,0.5)" : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.439)` }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: authorC, lineHeight: 1.2 }}>{t.author}</p>
-                  {t.location && (
-                    <p style={{ fontSize: "0.8125rem", color: locC, marginTop: 2 }}>{t.location}</p>
+                  <InlineText
+                    as="p"
+                    value={t.author}
+                    onUpdate={onFieldChange ? (v) => updateT(i, { author: v }) : undefined}
+                    style={{ fontSize: "0.9375rem", fontWeight: 600, color: authorC, lineHeight: 1.2 }}
+                  />
+                  {(t.location || onFieldChange) && (
+                    <InlineText
+                      as="p"
+                      value={t.location ?? ""}
+                      onUpdate={onFieldChange ? (v) => updateT(i, { location: v }) : undefined}
+                      style={{ fontSize: "0.8125rem", color: locC, marginTop: 2 }}
+                    />
                   )}
                 </div>
               </div>

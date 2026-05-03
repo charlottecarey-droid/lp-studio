@@ -5,19 +5,21 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
+import { InlineText } from "@/components/InlineText";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
 interface Props {
   props: DsoSplitFeatureBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoSplitFeatureBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoSplitFeature({ props, brand }: Props) {
+export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow,
     headline,
@@ -33,6 +35,14 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
+  const field = (key: keyof DsoSplitFeatureBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
+  const updateBullet = (i: number, v: string) => {
+    if (!onFieldChange) return;
+    const next = bullets.slice();
+    next[i] = v;
+    onFieldChange({ ...props, bullets: next });
+  };
 
   const eyebrowC  = dark ? LIME : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
@@ -50,14 +60,20 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
       transition={{ duration: 0.6 }}
       style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "1.25rem" }}
     >
-      {eyebrow && (
-        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC }}>
-          {eyebrow}
-        </p>
+      {(eyebrow || onFieldChange) && (
+        <InlineText
+          as="p"
+          value={eyebrow ?? ""}
+          onUpdate={field("eyebrow")}
+          style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC }}
+        />
       )}
 
-      {headline && (
-        <h2
+      {(headline || onFieldChange) && (
+        <InlineText
+          as="h2"
+          value={headline ?? ""}
+          onUpdate={field("headline")}
           style={{
             fontFamily: DISPLAY,
             fontSize: "clamp(1.875rem,3.5vw,2.75rem)",
@@ -66,15 +82,17 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
             color: headlineC,
             letterSpacing: "-0.015em",
           }}
-        >
-          {headline}
-        </h2>
+        />
       )}
 
-      {body && (
-        <p style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC }}>
-          {body}
-        </p>
+      {(body || onFieldChange) && (
+        <InlineText
+          as="p"
+          value={body ?? ""}
+          onUpdate={field("body")}
+          multiline
+          style={{ fontSize: "1.0625rem", lineHeight: 1.75, color: bodyC }}
+        />
       )}
 
       {bullets.length > 0 && (
@@ -82,7 +100,12 @@ export function BlockDsoSplitFeature({ props, brand }: Props) {
           {bullets.map((b, i) => (
             <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}>
               <CheckCircle2 style={{ width: 18, height: 18, color: checkC, flexShrink: 0, marginTop: 2 }} />
-              <span style={{ fontSize: "0.9375rem", color: bulletC, lineHeight: 1.55 }}>{b}</span>
+              <InlineText
+                as="span"
+                value={b}
+                onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined}
+                style={{ fontSize: "0.9375rem", color: bulletC, lineHeight: 1.55 }}
+              />
             </li>
           ))}
         </ul>

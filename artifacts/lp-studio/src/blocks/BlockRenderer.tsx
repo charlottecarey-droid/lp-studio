@@ -518,7 +518,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "dso-stat-bar":
-        return <BlockDsoStatBar props={block.props} />;
+        return <BlockDsoStatBar props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-success-stories":
         return <BlockDsoSuccessStories props={block.props} />;
       case "dso-challenges":
@@ -562,7 +562,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "dso-problem":
-        return <BlockDsoProblem props={block.props} />;
+        return <BlockDsoProblem props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-ai-feature":
         return <BlockDsoAiFeature props={block.props} />;
       case "dso-stat-showcase":
@@ -610,17 +610,17 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-promises":
         return <BlockDsoPromises props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-testimonials":
-        return <BlockDsoTestimonials props={block.props} brand={brand} />;
+        return <BlockDsoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-nav":
         return <BlockDsoPracticeNav props={block.props} brand={brand} />;
       case "dso-practice-hero":
         return <BlockDsoPracticeHero props={block.props} brand={brand} />;
       case "dso-stat-row":
-        return <BlockDsoStatRow props={block.props} brand={brand} />;
+        return <BlockDsoStatRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-faq":
         return <BlockDsoFaq props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-split-feature":
-        return <BlockDsoSplitFeature props={block.props} brand={brand} />;
+        return <BlockDsoSplitFeature props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-software-showcase":
         return <BlockDsoSoftwareShowcase props={block.props} brand={brand} />;
       case "dso-insights-video":
