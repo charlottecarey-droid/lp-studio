@@ -34,6 +34,18 @@ import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
+import {
+  type BlockPath,
+  collectIds,
+  findPathById,
+  getAtPath,
+  insertAtPath,
+  moveBlock,
+  normalizeTree,
+  removeAtPath,
+  setAtPath,
+} from "@/lib/block-tree";
+import { NestedChild, EmptyContainerSlot } from "./NestedChildren";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
@@ -686,7 +698,61 @@ export default function BuilderEditor() {
   const { domainContext, canPublish, canReview, reviewWorkflowEnabled } = useAuth();
   const micrositeDomain = domainContext?.micrositeDomain ?? null;
 
-  const [blocks, setBlocks] = useState<PageBlock[]>([]);
+  const [blocks, setBlocksRaw] = useState<PageBlock[]>([]);
+  // 50-entry undo/redo. We snapshot blocks BEFORE every mutation. Loads from
+  // the server bypass history (use setBlocksRaw directly).
+  const historyPastRef = useRef<PageBlock[][]>([]);
+  const historyFutureRef = useRef<PageBlock[][]>([]);
+  const HISTORY_LIMIT = 50;
+  const setBlocks = useCallback<typeof setBlocksRaw>((updater) => {
+    setBlocksRaw((prev) => {
+      const next = typeof updater === "function"
+        ? (updater as (p: PageBlock[]) => PageBlock[])(prev)
+        : updater;
+      if (next === prev) return prev;
+      historyPastRef.current.push(prev);
+      if (historyPastRef.current.length > HISTORY_LIMIT) historyPastRef.current.shift();
+      historyFutureRef.current = [];
+      return next;
+    });
+  }, []);
+  const undo = useCallback(() => {
+    setBlocksRaw((prev) => {
+      const past = historyPastRef.current.pop();
+      if (past === undefined) return prev;
+      historyFutureRef.current.push(prev);
+      if (historyFutureRef.current.length > HISTORY_LIMIT) historyFutureRef.current.shift();
+      return past;
+    });
+  }, []);
+  const redo = useCallback(() => {
+    setBlocksRaw((prev) => {
+      const next = historyFutureRef.current.pop();
+      if (next === undefined) return prev;
+      historyPastRef.current.push(prev);
+      if (historyPastRef.current.length > HISTORY_LIMIT) historyPastRef.current.shift();
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+      const target = e.target as HTMLElement | null;
+      // Ignore keystrokes that originate inside an editable surface — the
+      // surface owns its own undo stack.
+      if (target && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undo, redo]);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "pending_review" | "published">("draft");
@@ -733,6 +799,11 @@ export default function BuilderEditor() {
 
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
+  // When set, the next "Insert Block" dialog confirmation drops the new block
+  // into the given nested container slot instead of the page root.
+  const [nestedInsertTarget, setNestedInsertTarget] = useState<
+    { parentPath: BlockPath; index: number } | null
+  >(null);
   const [saveToLibraryBlock, setSaveToLibraryBlock] = useState<PageBlock | null>(null);
 
   const { toast } = useToast();
@@ -889,7 +960,10 @@ export default function BuilderEditor() {
         setIsTemplate(p.isTemplate ?? false);
         setTemplateLabel(p.templateLabel ?? p.title);
         setTemplateDescription(p.templateDescription ?? "");
-        setBlocks(p.blocks ?? []);
+        // Server load: bypass undo history.
+        setBlocksRaw(normalizeTree(p.blocks ?? []));
+        historyPastRef.current = [];
+        historyFutureRef.current = [];
         setCustomCss(p.customCss ?? "");
         setAnimationsEnabled(p.animationsEnabled !== false);
         setSmoothScroll(p.smoothScroll !== false);
@@ -1100,9 +1174,49 @@ export default function BuilderEditor() {
   };
 
   const handleInsertBlock = (type: string) => {
-    addBlock(type, insertAtIndex ?? undefined);
+    if (nestedInsertTarget) {
+      // Build the block via the same code path as addBlock so saved/catalog
+      // defaults are honored, then insert at the nested target.
+      let newBlock: PageBlock | null = null;
+      if (type.startsWith("custom:")) {
+        const customId = Number(type.slice(7));
+        const custom = customBlocks.find(b => b.id === customId);
+        if (custom) {
+          const bt = custom.block_type as BlockType;
+          newBlock = {
+            id: genBlockId(bt),
+            type: bt,
+            props: custom.props ?? {},
+            ...(custom.block_settings && Object.keys(custom.block_settings).length > 0
+              ? { blockSettings: custom.block_settings }
+              : {}),
+          } as PageBlock;
+        }
+      } else if (isBlockType(type)) {
+        const savedDefault = blockDefaults[type] as { props?: unknown; blockSettings?: unknown } | undefined;
+        if (savedDefault?.props) {
+          newBlock = {
+            id: genBlockId(type),
+            type,
+            props: savedDefault.props,
+            ...(savedDefault.blockSettings && Object.keys(savedDefault.blockSettings as object).length > 0
+              ? { blockSettings: savedDefault.blockSettings }
+              : {}),
+          } as PageBlock;
+        } else {
+          const catalogDef = catalogGetDef(type);
+          newBlock = catalogDef && catalogDef.source === "catalog"
+            ? ({ id: genBlockId(type), type, props: catalogDef.defaultProps() } as PageBlock)
+            : createBlock(type);
+        }
+      }
+      if (newBlock) insertBlockAt(nestedInsertTarget.parentPath, nestedInsertTarget.index, newBlock);
+    } else {
+      addBlock(type, insertAtIndex ?? undefined);
+    }
     setInsertDialogOpen(false);
     setInsertAtIndex(null);
+    setNestedInsertTarget(null);
   };
 
   const applyTemplate = (templateId: string) => {
@@ -1134,12 +1248,34 @@ export default function BuilderEditor() {
   };
 
   const deleteBlock = (id: string) => {
-    setBlocks(prev => prev.filter(b => b.id !== id));
+    setBlocks(prev => {
+      const path = findPathById(prev, id);
+      if (!path) return prev.filter(b => b.id !== id);
+      const { tree } = removeAtPath(prev, path);
+      return tree;
+    });
     if (selectedBlockId === id) setSelectedBlockId(null);
   };
 
   const updateBlock = (updated: PageBlock) => {
-    setBlocks(prev => prev.map(b => b.id === updated.id ? updated : b));
+    setBlocks(prev => {
+      const path = findPathById(prev, updated.id);
+      if (!path) return prev.map(b => b.id === updated.id ? updated : b);
+      // Preserve children when prop edits don't include them.
+      return setAtPath(prev, path, (cur) => ({
+        ...updated,
+        ...(cur.children !== undefined && updated.children === undefined
+          ? { children: cur.children }
+          : {}),
+      }));
+    });
+  };
+
+  // Insert into a specific container slot (used by the canvas insert chips
+  // inside nested containers). `parentPath = []` is the page root.
+  const insertBlockAt = (parentPath: BlockPath, index: number, newBlock: PageBlock) => {
+    setBlocks(prev => insertAtPath(prev, parentPath, index, newBlock));
+    setSelectedBlockId(newBlock.id);
   };
 
   const applyCtaToAll = () => {
@@ -1201,15 +1337,73 @@ export default function BuilderEditor() {
     }));
   };
 
+  // Recursive renderers for nested children of container blocks. Defined here
+  // (not in a child component) so they share the BuilderEditor closure for
+  // selection state and undo-tracked mutations.
+  const renderNestedChild = useCallback(
+    (child: PageBlock, index: number, parentPath: BlockPath): ReactNode => (
+      <NestedChild
+        key={child.id}
+        child={child}
+        parentPath={parentPath}
+        index={index}
+        brand={brand}
+        isSelected={selectedBlockId === child.id}
+        onSelect={() => setSelectedBlockId(child.id)}
+        onDelete={() => deleteBlock(child.id)}
+        onInsertAfter={() => {
+          // Open the insert dialog targeted at this nested slot.
+          setNestedInsertTarget({ parentPath, index: index + 1 });
+          setInsertDialogOpen(true);
+        }}
+        onBlockChange={updateBlock}
+        renderChild={renderNestedChild}
+        renderEmptySlot={renderEmptySlot}
+      />
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [brand, selectedBlockId],
+  );
+  const renderEmptySlot = useCallback(
+    (parentPath: BlockPath): ReactNode => (
+      <EmptyContainerSlot
+        parentPath={parentPath}
+        onInsert={() => {
+          setNestedInsertTarget({ parentPath, index: 0 });
+          setInsertDialogOpen(true);
+        }}
+      />
+    ),
+    [],
+  );
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setBlocks(prev => {
-        const oldIdx = prev.findIndex(b => b.id === active.id);
-        const newIdx = prev.findIndex(b => b.id === over.id);
-        return arrayMove(prev, oldIdx, newIdx);
-      });
-    }
+    if (!over || active.id === over.id) return;
+    setBlocks(prev => {
+      const fromPath = findPathById(prev, String(active.id));
+      if (!fromPath) return prev;
+
+      const overId = String(over.id);
+      // Drops onto an empty/nested container slot are encoded as
+      // "container:<parentPath joined by .>"
+      if (overId.startsWith("container:")) {
+        const seg = overId.slice("container:".length);
+        const toParent: BlockPath = seg === "" ? [] : seg.split(".").map(Number);
+        // Append at the end of the destination container.
+        const dest = getAtPath(prev, toParent);
+        const childCount = (dest?.children ?? []).length;
+        return moveBlock(prev, fromPath, toParent, childCount);
+      }
+
+      // Default: dropped onto another block — insert immediately before it,
+      // in its parent container.
+      const toPath = findPathById(prev, overId);
+      if (!toPath) return prev;
+      const toParent = toPath.slice(0, -1);
+      const toIndex = toPath[toPath.length - 1];
+      return moveBlock(prev, fromPath, toParent, toIndex);
+    });
   };
 
   const getPageData = (overrides: Partial<SavePageData> = {}): SavePageData => ({
@@ -1626,7 +1820,7 @@ export default function BuilderEditor() {
       {/* Insert Block Dialog */}
       <InsertBlockDialog
         open={insertDialogOpen}
-        onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); }}
+        onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); setNestedInsertTarget(null); }}
         onInsert={handleInsertBlock}
         customBlocks={visibleCustomBlocks}
         visibleBlocks={catalogBlocks}
@@ -1800,7 +1994,7 @@ export default function BuilderEditor() {
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
-                  <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
                     <InsertionBar onClick={() => openInsertAt(0)} />
                     {blocks.map((block, index) => (
                       <div key={block.id}>
@@ -1820,6 +2014,9 @@ export default function BuilderEditor() {
                           onAddComment={addComment}
                           onResolveComment={resolveComment}
                           currentUserName={authDisplayName || undefined}
+                          path={[index]}
+                          renderChild={renderNestedChild}
+                          renderEmptySlot={renderEmptySlot}
                         />
                         <InsertionBar onClick={() => openInsertAt(index + 1)} />
                       </div>
@@ -2559,9 +2756,15 @@ interface SortableCanvasBlockProps {
   onAddComment: (params: { blockIndex: number; authorName: string; message: string; parentId?: number }) => Promise<void>;
   onResolveComment: (commentId: number) => Promise<void>;
   currentUserName?: string;
+  /** Path of THIS block within the page tree (top-level paths are `[index]`). */
+  path?: BlockPath;
+  /** Recursive child renderer (BuilderEditor closure). */
+  renderChild?: (c: PageBlock, i: number, parentPath: BlockPath) => ReactNode;
+  /** Empty-container droppable renderer (BuilderEditor closure). */
+  renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -2777,7 +2980,16 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
       ) : (
         <div className="cursor-pointer" onClick={e => { e.stopPropagation(); onSelect(); }}>
           <BuilderBlockErrorBoundary blockType={block.type}>
-            <BlockRenderer block={block} brand={brand} onBlockChange={onBlockChange} animationsEnabled={false} isBuilder />
+            <BlockRenderer
+              block={block}
+              brand={brand}
+              onBlockChange={onBlockChange}
+              animationsEnabled={false}
+              isBuilder
+              path={path ?? [blockIndex]}
+              renderChild={renderChild}
+              renderEmptySlot={renderEmptySlot}
+            />
           </BuilderBlockErrorBoundary>
         </div>
       )}

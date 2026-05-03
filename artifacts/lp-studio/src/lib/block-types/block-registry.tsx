@@ -47,6 +47,12 @@ import type {
   GradientPricingBlockProps,
 } from "./generic-blocks";
 import type {
+  SectionBlockProps,
+  ColumnsBlockProps,
+  GridBlockProps,
+  StackBlockProps,
+} from "./container-blocks";
+import type {
   DsoInsightsDashboardBlockProps,
   DsoLabTourBlockProps,
   DsoStatBarBlockProps,
@@ -3539,6 +3545,10 @@ export function createBlock(type: "magazine-hero"): Extract<PageBlock, { type: "
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
+export function createBlock(type: "section"): Extract<PageBlock, { type: "section" }>;
+export function createBlock(type: "columns"): Extract<PageBlock, { type: "columns" }>;
+export function createBlock(type: "grid"): Extract<PageBlock, { type: "grid" }>;
+export function createBlock(type: "stack"): Extract<PageBlock, { type: "stack" }>;
 export function createBlock(type: "hero"): Extract<PageBlock, { type: "hero" }>;
 export function createBlock(type: "trust-bar"): Extract<PageBlock, { type: "trust-bar" }>;
 export function createBlock(type: "pas-section"): Extract<PageBlock, { type: "pas-section" }>;
@@ -3721,6 +3731,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
+    case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
+    case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
+    case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };
+    case "stack": return { id, type: "stack", props: props as StackBlockProps, children: [] };
   }
 }
 

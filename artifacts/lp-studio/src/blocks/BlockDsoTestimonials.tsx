@@ -91,19 +91,27 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
             >
               <Quote style={{ width: 24, height: 24, color: dark ? `rgb(var(--brand-accent-rgb, 199 231 56) / 0.502)` : `rgb(var(--brand-primary-rgb, 0 58 48) / 0.251)`, flexShrink: 0 }} />
 
-              <InlineText
-                as="p"
-                value={t.quote}
-                onUpdate={onFieldChange ? (v) => updateT(i, { quote: v }) : undefined}
-                multiline
+              {/* Wrap with literal quote marks to match the prior render output;
+                  InlineText edits only the quote body itself. */}
+              <p
                 style={{
                   fontSize: "0.9375rem",
                   color: quoteC,
                   lineHeight: 1.7,
                   fontStyle: "italic",
                   flex: 1,
+                  margin: 0,
                 }}
-              />
+              >
+                "
+                <InlineText
+                  as="span"
+                  value={t.quote}
+                  onUpdate={onFieldChange ? (v) => updateT(i, { quote: v }) : undefined}
+                  multiline
+                />
+                "
+              </p>
 
               <div style={{ borderTop: `1px solid ${divC}`, paddingTop: "1rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                 <div

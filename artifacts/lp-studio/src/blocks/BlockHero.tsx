@@ -9,6 +9,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
+import type { ReactNode } from "react";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -19,9 +20,11 @@ interface Props {
   onFieldChange?: (updated: HeroBlockProps) => void;
   animationsEnabled?: boolean;
   contentPaddingX?: string;
+  /** Pre-rendered nested blocks (overlay slot at the bottom of the hero). */
+  childrenSlot?: ReactNode;
 }
 
-export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, contentPaddingX }: Props) {
+export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, contentPaddingX, childrenSlot }: Props) {
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
   const CTA_TEXT_COLOR = props.ctaTextColor || FOREST;
@@ -183,6 +186,15 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             </div>
           ) : (
             <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">{textContent}</div>
+          )}
+          {childrenSlot && (
+            <div
+              data-hero-overlay
+              className="relative z-20 w-full max-w-7xl mx-auto mt-12"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {childrenSlot}
+            </div>
           )}
           <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none">
             <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[rgb(var(--brand-primary-rgb)/0.15)]")} />

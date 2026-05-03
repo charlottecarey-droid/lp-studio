@@ -1,0 +1,44 @@
+#117 - WYSIWYG Phase 2 — Nested Blocks & Drop-Anywhere
+What & Why
+Phase 1 made text and images editable in place on existing fixed-shape blocks. Phase 2 unlocks free-form composition: any block can be dropped inside a container block, not just appended at the page root. Containers (Section, Columns, Grid, Stack) expose children slots that accept any block — including more containers — so users compose novel layouts out of the existing library instead of waiting for new bespoke block types.
+
+Phase 2 also rounds out the inline-editing primitives Phase 1 introduced: a real link-picker popover, a brand-aware color swatch picker, image alt + focal-point editing, drag-to-replace images, and a unified selection toolbar that works the same on text, image, and container blocks. Undo/redo is added because nested moves are easy to misdrop.
+
+Done looks like
+Container blocks (Section, Columns, Grid, Stack) appear in the block library and accept any block as a child via drag-and-drop on the canvas.
+Between every pair of child blocks (and at the top/bottom of every container), the user sees an insert indicator and a + Add block here chip on hover; clicking the chip opens the block library scoped to that slot.
+Existing fixed-shape blocks load and edit unchanged — pages saved before Phase 2 keep working.
+Two existing blocks are upgraded to host arbitrary children as a proof point: BentoShowcase tiles and Hero overlay area.
+The drag handle in a block's selection chrome lets the user drag that block into any other container's slot, on the canvas itself (not just in the Layers panel).
+The Layers panel renders the same tree, fully nested, and stays in sync with canvas drags.
+Inline link editing uses a popover with URL field, "open in new tab" toggle, and internal-page autocomplete.
+Color picker shows swatches from the page's brand palette plus recents, replacing the native color input.
+InlineImage Replace popover gains an alt-text field and a focal-point picker; users can also drag a file directly onto an image to replace it.
+Cmd/Ctrl-Z and Shift-Cmd/Ctrl-Z undo/redo the last 50 page edits (block adds, moves, deletes, prop edits).
+A page composed of nested containers saves, reloads, and renders identically in the live /lp/:slug viewer.
+Out of scope
+Slot constraints UI for block authors beyond a simple allowedTypes list (no visual schema editor).
+Multiplayer/collaborative editing.
+Migration tooling that rewrites old pages into nested form — old pages stay flat unless the user manually wraps blocks in a container.
+New container layouts beyond Section / Columns / Grid / Stack.
+Inline editing for fields that aren't text or images (no inline number/toggle scrubbing).
+Block-level animation timeline editing.
+Steps
+Schema & renderer foundations — Extend the block type model with an optional children: PageBlock[] slot for container blocks, plus a ContainerBlock marker and a slotConstraints field on the registry. Update the renderer to recurse into children and pass a path: number[] plus onChildrenChange(path, fn) so nested edits know where they live. Add a one-time client-side normalizer that fills children: [] on container types when loading older pages.
+
+Container block primitives — Ship four containers: Section (full-bleed wrapper, background image/color, vertical stack), Columns (N equal/auto columns, each its own drop zone), Grid (responsive CSS grid with configurable cols/gap), and Stack (vertical stack with gap + alignment). Each is a thin layout shell over the renderer's renderChildren helper. Register them in the block library under a new "Layout" category.
+
+Promote two existing blocks to host children — Add an optional children overlay slot to Hero / FullBleedHero so users can drop CTA cards or badges over the hero image. Refactor BentoShowcase so each tile is a child slot instead of a fixed panels[] shape, keeping a back-compat reader for old saved data.
+
+Tree-aware drag-and-drop on the canvas — Replace the single list-only SortableContext in the Layers panel with a recursive sortable tree keyed by path. Hoist a single DndContext to the BuilderEditor root so the same DnD instance drives both the Layers panel and the canvas. Render thin insert indicators between every child of every container (top, between siblings, bottom), an empty-state "Drop a block here" target for empty containers, and a + Add block here chip between every child slot that opens the block library scoped to that slot's slotConstraints. The block library palette items become draggable into any slot, and every block's selection chrome gains a drag handle that lets the user drag the block to a new parent.
+
+Inline editing polish — Replace the prompt-style URL input in the floating toolbar with a popover (URL field, open-in-new-tab toggle, internal-page autocomplete from the page list). Replace the native color input with a swatch popover seeded from the page's brand palette plus recents. Extend the InlineImage Replace popover with an alt-text field and focal-point picker, and accept files dragged directly onto an image to replace it. Unify the floating toolbar so text, image, and container blocks all share one selection-chrome surface (delete, duplicate, drag handle, settings).
+
+Path-based persistence + undo/redo — Wire onBlockChange(path, partial) and onChildrenChange(path, fn) through BuilderEditor so the nested tree updates immutably. Add a 50-entry snapshot ring buffer with Cmd/Ctrl-Z and Shift-Cmd/Ctrl-Z keyboard shortcuts. The existing PUT /api/lp/pages/:id save flow keeps working — the recursive blocks tree serializes naturally as JSON, so no API changes are needed.
+
+Verify — Manual smoke: build a page with a Columns nested inside a Section nested under the Hero overlay, drag blocks across containers, save, reload, confirm the tree is preserved and the live /lp/:slug viewer renders it identically. Architect review on Steps 1 and 4 (the structural ones). Add one Playwright e2e: drag a Benefits block into a Columns slot, save, reload, assert the nested structure is intact.
+
+Architectural constraints
+The children field is optional and only present on container block types — fixed-shape blocks keep their current shape so old pages don't migrate or break.
+The save payload remains one JSON blob on lp_pages.blocks. No DB schema or API changes are introduced by this phase.
+A single root-level DndContext must drive both the Layers panel and the canvas; do not maintain two parallel DnD instances.

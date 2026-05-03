@@ -90,6 +90,11 @@ import { BlockMagazineHero } from "./BlockMagazineHero";
 import { BlockBoldStatement } from "./BlockBoldStatement";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
+import { BlockSection } from "./BlockSection";
+import { BlockColumns } from "./BlockColumns";
+import { BlockGrid } from "./BlockGrid";
+import { BlockStack } from "./BlockStack";
+import type { BlockPath } from "@/lib/block-tree";
 import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
 import { useRef } from "react";
@@ -101,6 +106,20 @@ interface Props {
   onCtaClick?: (url: string) => void;
   onBlockChange?: (updated: PageBlock) => void;
   animationsEnabled?: boolean;
+  /** Path to this block in the page tree (defaults to []). */
+  path?: BlockPath;
+  /**
+   * Optional override for rendering child blocks of container/overlay blocks.
+   * If absent, container blocks recursively render children via BlockRenderer
+   * with no chrome (used by viewer/published pages). The builder supplies a
+   * version that wraps each child in selection/drag chrome and insert chips.
+   */
+  renderChild?: (child: PageBlock, index: number, parentPath: BlockPath) => ReactNode;
+  /**
+   * Optional callback for "drop block here" zones inside empty containers.
+   * Builder uses this to register a useDroppable target. Viewer ignores it.
+   */
+  renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
   pageId?: number;
   /**
    * Active A/B test id when the page is being rendered as a test variant.
@@ -248,7 +267,39 @@ export const NO_REVEAL = new Set<string>([
   "spacer",
 ]);
 
-export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder }: Props) {
+export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot }: Props) {
+  // Helper: render the children slot for container/overlay blocks. Uses the
+  // caller-supplied renderChild (builder chrome) when provided, otherwise
+  // recurses into BlockRenderer directly (viewer/published pages).
+  const childrenArr: PageBlock[] = Array.isArray((rawBlock as PageBlock).children)
+    ? ((rawBlock as PageBlock).children as PageBlock[])
+    : [];
+  const renderChildren = (parentPath: BlockPath, kids: PageBlock[]): ReactNode => {
+    if (kids.length === 0) {
+      return renderEmptySlot ? renderEmptySlot(parentPath) : null;
+    }
+    if (renderChild) {
+      return kids.map((c, i) => renderChild(c, i, parentPath));
+    }
+    return kids.map((c, i) => (
+      <BlockRenderer
+        key={c.id}
+        block={c}
+        brand={brand}
+        onCtaClick={onCtaClick}
+        animationsEnabled={animationsEnabled}
+        pageId={pageId}
+        testId={testId}
+        variantId={variantId}
+        sessionId={sessionId}
+        pageVars={pageVars}
+        isBuilder={isBuilder}
+        path={[...parentPath, i]}
+      />
+    ));
+  };
+  const childrenSlot = renderChildren(path, childrenArr);
+
   // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
   // Ensure `block.props` always exists so child components don't crash on prop access.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -274,6 +325,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
               : undefined}
             animationsEnabled={animationsEnabled}
             contentPaddingX={heroContentPaddingX}
+            childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null}
           />
         );
       case "trust-bar":
@@ -735,9 +787,17 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "bento-showcase":
-        return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null} />;
       case "gradient-pricing":
         return <BlockGradientPricing props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "section":
+        return <BlockSection props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
+      case "columns":
+        return <BlockColumns props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
+      case "grid":
+        return <BlockGrid props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
+      case "stack":
+        return <BlockStack props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

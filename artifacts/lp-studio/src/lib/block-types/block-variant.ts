@@ -95,6 +95,12 @@ import type {
   StickyBarBlockProps,
   StickyHeaderBlockProps,
 } from "./utility-blocks";
+import type {
+  SectionBlockProps,
+  ColumnsBlockProps,
+  GridBlockProps,
+  StackBlockProps,
+} from "./container-blocks";
 
 export type BlockVariant =
   | { type: "hero"; props: HeroBlockProps }
@@ -186,8 +192,21 @@ export type BlockVariant =
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
-  | { type: "gradient-pricing"; props: GradientPricingBlockProps };
+  | { type: "gradient-pricing"; props: GradientPricingBlockProps }
+  | { type: "section"; props: SectionBlockProps }
+  | { type: "columns"; props: ColumnsBlockProps }
+  | { type: "grid"; props: GridBlockProps }
+  | { type: "stack"; props: StackBlockProps };
 
-export type PageBlock = { id: string; blockSettings?: BlockSettings } & BlockVariant;
+/**
+ * A page block, optionally with a `children` slot for nested blocks. The
+ * `children` field is only meaningful for container/overlay block types
+ * (Section/Columns/Grid/Stack, plus Hero & BentoShowcase overlay/tile slots).
+ * Other block types may carry an empty/undefined children safely — the
+ * renderer ignores it.
+ */
+export type PageBlock =
+  & { id: string; blockSettings?: BlockSettings; children?: PageBlock[] }
+  & BlockVariant;
 
 export type BlockType = PageBlock["type"];

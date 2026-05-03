@@ -77,7 +77,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
   return (
     <section style={sectionBg} className="py-16 md:py-20">
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
-        {(eyebrow || headline) && (
+        {(eyebrow || headline || onFieldChange) && (
           <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             {(eyebrow || onFieldChange) && (
               <InlineText

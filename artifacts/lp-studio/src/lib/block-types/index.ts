@@ -1,3 +1,11 @@
+// Container blocks (nested children slots)
+export type {
+  SectionBlockProps,
+  ColumnsBlockProps,
+  GridBlockProps,
+  StackBlockProps,
+} from "./container-blocks";
+
 // Common types and utilities
 export type { BlockCategory, CtaMode, FormFieldType, BlockSettings } from "./common";
 export type { StepCondition, FormField, FormStep } from "./common";

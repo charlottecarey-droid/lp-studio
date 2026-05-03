@@ -5,10 +5,18 @@ import { cn } from "@/lib/utils";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 
+import type { ReactNode } from "react";
+
 interface Props {
   props: BentoShowcaseBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: BentoShowcaseBlockProps) => void;
+  /**
+   * Optional nested children rendered below the tiles grid. Phase 2
+   * back-compat for treating bento blocks as containers — when children are
+   * present they appear as a secondary section under the existing tile grid.
+   */
+  childrenSlot?: ReactNode;
 }
 
 const SIZE_SPAN: Record<BentoShowcaseTile["size"], string> = {
@@ -162,7 +170,7 @@ function Tile({
   );
 }
 
-export function BlockBentoShowcase({ props, brand, onFieldChange }: Props) {
+export function BlockBentoShowcase({ props, brand, onFieldChange, childrenSlot }: Props) {
   const bg = props.bgColor || "#F4F4F5";
   const text = props.textColor || "#0A0A0A";
   const accent = props.accentColor || brand.accentColor || "#3B82F6";
@@ -223,6 +231,11 @@ export function BlockBentoShowcase({ props, brand, onFieldChange }: Props) {
             />
           ))}
         </div>
+        {childrenSlot && (
+          <div className="mt-12" data-bento-children onClick={(e) => e.stopPropagation()}>
+            {childrenSlot}
+          </div>
+        )}
       </div>
     </section>
   );

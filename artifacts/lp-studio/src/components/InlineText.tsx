@@ -208,10 +208,15 @@ export function InlineText({
   const handleBold = () => execCmd("bold");
   const handleItalic = () => execCmd("italic");
 
-  const handleLink = () => {
+  // Saved Range for the link popover so we don't lose the selection when the
+  // popover opens (focus moves out of the contentEditable).
+  const savedRangeRef = useRef<Range | null>(null);
+  const [linkPopover, setLinkPopover] = useState<{ url: string; newTab: boolean } | null>(null);
+
+  const openLinkPopover = () => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-    // Detect existing anchor in selection
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    savedRangeRef.current = sel.getRangeAt(0).cloneRange();
     let node: Node | null = sel.anchorNode;
     let existing: HTMLAnchorElement | null = null;
     while (node && node !== editableRef.current) {
@@ -221,21 +226,45 @@ export function InlineText({
       }
       node = node.parentNode;
     }
-    const current = existing?.getAttribute("href") ?? "";
-    const url = window.prompt("Link URL (https://, mailto:, tel:, /, #...)", current);
-    if (url == null) return;
-    if (url.trim() === "") {
-      execCmd("unlink");
-      return;
-    }
-    execCmd("createLink", url.trim());
-    // Decorate the freshly-created link with target/rel.
-    const refreshed = sel.anchorNode?.parentElement?.closest("a");
-    if (refreshed) {
-      refreshed.setAttribute("target", "_blank");
-      refreshed.setAttribute("rel", "noopener noreferrer");
-    }
+    setLinkPopover({
+      url: existing?.getAttribute("href") ?? "",
+      newTab: existing?.getAttribute("target") === "_blank",
+    });
   };
+
+  const restoreSelection = () => {
+    const r = savedRangeRef.current;
+    if (!r) return;
+    const sel = window.getSelection();
+    if (!sel) return;
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+
+  const applyLink = () => {
+    if (!linkPopover) return;
+    restoreSelection();
+    const url = linkPopover.url.trim();
+    if (url === "") {
+      execCmd("unlink");
+    } else {
+      execCmd("createLink", url);
+      const sel = window.getSelection();
+      const refreshed = sel?.anchorNode?.parentElement?.closest("a");
+      if (refreshed) {
+        if (linkPopover.newTab) {
+          refreshed.setAttribute("target", "_blank");
+          refreshed.setAttribute("rel", "noopener noreferrer");
+        } else {
+          refreshed.removeAttribute("target");
+          refreshed.removeAttribute("rel");
+        }
+      }
+    }
+    setLinkPopover(null);
+  };
+
+  const handleLink = openLinkPopover;
 
   const handleUnlink = () => execCmd("unlink");
 
@@ -480,6 +509,66 @@ export function InlineText({
                   ))}
                 </div>
               )}
+            </div>
+          </div>,
+          document.body
+        )}
+      {linkPopover &&
+        toolbarPos &&
+        createPortal(
+          <div
+            data-inline-toolbar
+            onMouseDown={onToolbarMouseDown}
+            style={{
+              position: "fixed",
+              top: toolbarPos.top + 36,
+              left: toolbarPos.left,
+              transform: "translate(-50%, 0)",
+              zIndex: 10000,
+            }}
+            className="flex flex-col gap-1.5 rounded-md border border-border bg-popover p-2 shadow-xl min-w-[18rem]"
+          >
+            <input
+              autoFocus
+              type="text"
+              value={linkPopover.url}
+              onChange={(e) => setLinkPopover({ ...linkPopover, url: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyLink();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setLinkPopover(null);
+                }
+              }}
+              placeholder="https://, mailto:, tel:, /page, #anchor"
+              className="text-xs px-2 py-1.5 rounded border border-border bg-background text-foreground"
+            />
+            <label className="flex items-center gap-1.5 text-[11px] text-popover-foreground">
+              <input
+                type="checkbox"
+                checked={linkPopover.newTab}
+                onChange={(e) => setLinkPopover({ ...linkPopover, newTab: e.target.checked })}
+              />
+              Open in new tab
+            </label>
+            <div className="flex justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLinkPopover(null)}
+                className="text-[11px] px-2 py-1 rounded hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyLink}
+                className="text-[11px] px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Apply
+              </button>
             </div>
           </div>,
           document.body
