@@ -850,7 +850,7 @@ async function runMigrations(): Promise<void> {
         CREATE TABLE IF NOT EXISTS _schema_migration_markers (key text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
       `);
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v1'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v2'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
@@ -867,7 +867,7 @@ async function runMigrations(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v1') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v2') ON CONFLICT DO NOTHING
         `);
         logger.info({ inserted, total: GENERIC_BLOCK_CATALOG_SEED.length }, "block_catalog generic seed applied");
       }

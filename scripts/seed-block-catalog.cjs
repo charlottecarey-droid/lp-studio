@@ -681,6 +681,44 @@ const GENERIC_SEED = [
       ],
       whyItMatters: { heading: "Why It Matters", body: "Tie the result back to a broader business outcome — revenue, capacity, or efficiency at scale." },
     } },
+
+  // ── Backfill: blocks that exist in BLOCK_REGISTRY but were missing from the
+  // generic catalog, so non-Dandy tenants couldn't see them in the builder
+  // palette and templates that use them rendered as "Unknown block type".
+  // Empty default_props means we inherit BLOCK_REGISTRY defaults — adequate
+  // to make them visible/usable; tenants can edit per-block.
+  // force: false — never overwrite admin tweaks if these get curated later.
+  { block_type: "magazine-hero",            label: "Magazine Hero",            category: "Layout",       sort_order: 100, default_props: {} },
+  { block_type: "horizontal-showcase",      label: "Horizontal Showcase",      category: "Hero",         sort_order: 101, default_props: {} },
+  { block_type: "scroll-assembly",          label: "Scroll Assembly",          category: "Hero",         sort_order: 102, default_props: {} },
+  { block_type: "one-pager-hero",           label: "One-Pager Hero",           category: "Hero",         sort_order: 103, default_props: {} },
+  { block_type: "bold-statement",           label: "Bold Statement",           category: "Content",      sort_order: 110, default_props: {} },
+  { block_type: "bento-showcase",           label: "Bento Showcase",           category: "Content",      sort_order: 111, default_props: {} },
+  { block_type: "sticky-stack",             label: "Sticky Stack",             category: "Content",      sort_order: 112, default_props: {} },
+  { block_type: "gradient-pricing",         label: "Gradient Pricing",         category: "Content",      sort_order: 113, default_props: {} },
+  { block_type: "event-page",               label: "Event Page",               category: "Events",       sort_order: 120, default_props: {} },
+  { block_type: "event-landing-hero",       label: "Event Landing Hero",       category: "Events",       sort_order: 121, default_props: {} },
+  { block_type: "spatial-tour",             label: "Spatial Tour",             category: "Events",       sort_order: 122, default_props: {} },
+
+  // Dandy-flavored / DSO blocks. They keep their Dandy defaults in BLOCK_REGISTRY,
+  // but seeding them here makes them visible to generic tenants too — useful for
+  // any tenant that wants to start from the Dandy template family and replace copy.
+  { block_type: "dso-lab-tour",             label: "Lab Tour",                 category: "Showcase",     sort_order: 130, default_props: {} },
+  { block_type: "dso-insights-dashboard",   label: "Insights Dashboard",       category: "Showcase",     sort_order: 131, default_props: {} },
+  { block_type: "dso-insights-video",       label: "Insights Video",           category: "Showcase",     sort_order: 132, default_props: {} },
+  { block_type: "dso-heartland-hero",       label: "Heartland Hero",           category: "Hero",         sort_order: 133, default_props: {} },
+  { block_type: "dso-practice-hero",        label: "Practice Hero",            category: "Hero",         sort_order: 134, default_props: {} },
+  { block_type: "dso-practice-nav",         label: "Practice Nav",             category: "Layout",       sort_order: 135, default_props: {} },
+  { block_type: "dso-partnership-perks",    label: "Partnership Perks",        category: "Content",      sort_order: 136, default_props: {} },
+  { block_type: "dandy-product-hero",       label: "Product Hero",             category: "Hero",         sort_order: 140, default_props: {} },
+  { block_type: "dandy-site-header",        label: "Site Header",              category: "Layout",       sort_order: 141, default_props: {} },
+  { block_type: "dandy-site-footer",        label: "Site Footer",              category: "Layout",       sort_order: 142, default_props: {} },
+  { block_type: "dandy-versus",             label: "2-Column Comparison",      category: "Content",      sort_order: 143, default_props: {} },
+  { block_type: "dandy-vertical-tabs",      label: "Vertical Tabs",            category: "Content",      sort_order: 144, default_props: {} },
+  { block_type: "dandy-switchback",         label: "Switchback",               category: "Content",      sort_order: 145, default_props: {} },
+  { block_type: "dandy-video-testimonials", label: "Video Testimonials",       category: "Social Proof", sort_order: 146, default_props: {} },
+  { block_type: "dandy-cta-block",          label: "CTA Block",                category: "CTA",          sort_order: 147, default_props: {} },
+  { block_type: "dandy-form-right-alt",     label: "Form (Right-Align Alt)",   category: "Lead Capture", sort_order: 148, default_props: {} },
 ];
 
 module.exports = { GENERIC_SEED };
