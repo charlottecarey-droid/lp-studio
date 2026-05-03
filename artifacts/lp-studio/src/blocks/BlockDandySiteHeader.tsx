@@ -6,6 +6,7 @@ import type { DandySiteHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
 import { safeNavigate } from "@/lib/safe-url";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 interface Props {
   props: DandySiteHeaderBlockProps;
@@ -14,6 +15,11 @@ interface Props {
 }
 
 export function BlockDandySiteHeader({ props, brand, onFieldChange }: Props) {
+  // Load any catalog Google Font referenced by the per-header font override.
+  // Without this, picking "Geist" or "Playfair Display" from the dropdown
+  // does nothing — the browser falls back to the next family in the stack.
+  useBlockFonts(props.fontFamily);
+
   const field = (key: keyof DandySiteHeaderBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 

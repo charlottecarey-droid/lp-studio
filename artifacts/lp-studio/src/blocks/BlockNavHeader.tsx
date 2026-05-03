@@ -5,6 +5,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 import { motion } from "framer-motion";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
@@ -16,6 +17,11 @@ interface Props {
 }
 
 export function BlockNavHeader({ props, brand, onFieldChange }: Props) {
+  // Load any catalog Google Font referenced by the per-header font override.
+  // Without this, picking "Geist" or "Playfair Display" from the dropdown
+  // does nothing — the browser falls back to the next family in the stack.
+  useBlockFonts(props.fontFamily);
+
   const updateLink = (i: number, key: string, value: string) => {
     if (!onFieldChange) return;
     const navLinks = (props.navLinks ?? []).map((l, idx) => idx === i ? { ...l, [key]: value } : l);

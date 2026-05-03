@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -10,11 +10,8 @@ import type {
 } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
-import {
-  buildGoogleFontsUrl,
-  isSelfHostedFont,
-  toFontFamilyValue,
-} from "@/lib/font-catalog";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 interface Props {
   props: EditorialCarouselBlockProps;
@@ -52,25 +49,10 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
     toFontFamilyValue(props.bodyFont, "sans") ||
     "var(--brand-font-body, 'Inter', sans-serif)";
 
-  // Inject the Google Fonts <link> for any catalog font the author selected
-  // via the property panel. Without this the browser silently falls back to
-  // a system font and the override appears to do nothing.
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const families: string[] = [];
-    if (props.headlineFont && !isSelfHostedFont(props.headlineFont)) families.push(props.headlineFont);
-    if (props.bodyFont && !isSelfHostedFont(props.bodyFont)) families.push(props.bodyFont);
-    const url = buildGoogleFontsUrl(families);
-    if (!url) return;
-    const TAG = "data-editorial-carousel-fonts";
-    const existing = document.head.querySelector(`link[${TAG}][href="${url}"]`);
-    if (existing) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = url;
-    link.setAttribute(TAG, "");
-    document.head.appendChild(link);
-  }, [props.headlineFont, props.bodyFont]);
+  // Load any catalog fonts the author selected. Without this the browser
+  // would silently fall back to a system font and the override would appear
+  // to do nothing.
+  useBlockFonts(props.headlineFont, props.bodyFont);
   const aspect = props.aspect || "16/9";
   const slideWidthPct = Math.max(30, Math.min(95, props.slideWidthPct ?? 60));
   const autoplay = props.autoplay !== false;

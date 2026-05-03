@@ -85,23 +85,9 @@ function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
 
 const EASE_SPRING = { type: "spring", stiffness: 400, damping: 17 } as const;
 
-// Inject the requested Google Fonts (display + body). Re-runs when families change.
-function useGoogleFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families = Array.from(new Set([displayFamily, bodyFamily].filter(Boolean)));
-    if (families.length === 0) return;
-    const id = `event-page-fonts-${families.join("|").replace(/\s+/g, "_")}`;
-    if (document.getElementById(id)) return;
-    const params = families
-      .map(f => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:ital,wght@0,300;0,400;0,500;1,400`)
-      .join("&");
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = `https://fonts.googleapis.com/css2?${params}&display=swap`;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
-}
+// Note: font loading is handled via the shared `useBlockFonts` hook below.
+// Italic + light weights are baked into each Google Fonts URL the catalog
+// emits, so the same italic blockquote / 300-weight body styles still work.
 
 // Shared Framer Motion variants
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
@@ -202,7 +188,7 @@ interface Props {
 
 export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId }: Props) {
   const C = useMemo(() => resolveTheme(p.theme), [p.theme]);
-  useGoogleFonts(
+  useBlockFonts(
     p.theme?.displayFontFamily ?? DEFAULT_THEME.displayFontFamily,
     p.theme?.bodyFontFamily ?? DEFAULT_THEME.bodyFontFamily,
   );
