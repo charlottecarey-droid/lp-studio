@@ -157,6 +157,9 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
 
   const leftColTopPad = Math.max(0, Math.min(20, Number(props.leftColumnTopPadding) || 0));
   const rightColTopPad = Math.max(0, Math.min(20, Number(props.rightColumnTopPadding) || 0));
+  const copyColWidth = Math.max(0.5, Math.min(2.5, Number(props.copyColumnWidth) || 1.05));
+  const swapColumns = props.swapColumns === true;
+  const { extraSectionHeading, extraSectionBody } = props;
 
   // Detect whether the form column has any renderable content so we can show
   // the dashed placeholder when neither a global form nor marketo is configured.
@@ -429,19 +432,24 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               maxWidth: 1180,
               margin: "0 auto",
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+              gridTemplateColumns: swapColumns
+                ? `minmax(0, 1fr) minmax(0, ${copyColWidth.toFixed(2)}fr)`
+                : `minmax(0, ${copyColWidth.toFixed(2)}fr) minmax(0, 1fr)`,
               gap: "clamp(2rem, 5vw, 4rem)",
               alignItems: "start",
             }}
             className="evlh-details-grid"
           >
-            {/* Left column: copy */}
+            {/* Copy column (visually left by default; swappable). Uses `order`
+                so the DOM stays semantic (copy first, then form) while the
+                grid renders the requested visual order. */}
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 gap: "clamp(1.75rem, 4vh, 2.5rem)",
                 paddingTop: leftColTopPad ? `${leftColTopPad}rem` : undefined,
+                order: swapColumns ? 2 : 1,
               }}
             >
               {(whatToExpectHeading || whatToExpectBody) && (
@@ -561,15 +569,56 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                   )}
                 </div>
               )}
+
+              {/* Optional extra section — third row in the copy column. Hidden
+                  when both heading and body are empty so existing pages render
+                  unchanged. */}
+              {(extraSectionHeading || extraSectionBody) && (
+                <div
+                  style={{
+                    borderTop: `1px solid ${detailsTheme.rule}`,
+                    paddingTop: "clamp(1.25rem, 3vh, 1.75rem)",
+                  }}
+                >
+                  {extraSectionHeading && (
+                    <h3
+                      style={{
+                        margin: "0 0 0.85rem 0",
+                        fontFamily: DISPLAY_FONT,
+                        fontSize: "clamp(1.25rem, 2.6vw, 1.625rem)",
+                        lineHeight: 1.2,
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      <InlineText as="span" value={extraSectionHeading} onUpdate={field("extraSectionHeading")} />
+                    </h3>
+                  )}
+                  {extraSectionBody && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "clamp(0.9375rem, 1.6vw, 1rem)",
+                        lineHeight: 1.6,
+                        color: detailsTheme.muted,
+                      }}
+                    >
+                      <InlineText as="span" value={extraSectionBody} onUpdate={field("extraSectionBody")} multiline />
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Right column: RSVP form */}
+            {/* Form column (visually right by default; swaps to left when
+                `swapColumns` is true). */}
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 gap: "1.25rem",
                 paddingTop: rightColTopPad ? `${rightColTopPad}rem` : undefined,
+                order: swapColumns ? 1 : 2,
               }}
             >
               {(formHeading || formSubheading) && (

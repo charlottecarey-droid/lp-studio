@@ -1138,4 +1138,17 @@ export interface EventLandingHeroBlockProps {
   /** Optional top padding (rem) on the right column to align with the left
    *  column when the copy is taller. Default 0. */
   rightColumnTopPadding?: number;
+
+  /** Width ratio (fr) for the copy column relative to the form column. Default
+   *  1.05. Range ~0.5–2.5. (Form column is fixed at 1fr.) */
+  copyColumnWidth?: number;
+  /** When true, the form column appears on the LEFT and the copy column on
+   *  the RIGHT. Default false (copy left, form right). */
+  swapColumns?: boolean;
+
+  /** Optional third section under the existing two left-column sections, for
+   *  additional details (e.g. parking, dress code, sponsors). Hidden when
+   *  both heading and body are empty. */
+  extraSectionHeading?: string;
+  extraSectionBody?: string;
 }

@@ -510,10 +510,43 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
             </div>
 
             <div className="border-t pt-3 space-y-2">
-              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Column alignment</Label>
-              <p className="text-[11px] text-muted-foreground">
-                Add top padding to either column to vertically even-out the layout when one side is taller.
-              </p>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Left column · Extra section (optional)</Label>
+              <Input
+                value={props.extraSectionHeading ?? ""}
+                onChange={(e) => set("extraSectionHeading", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Parking & venue"
+              />
+              <Textarea
+                value={props.extraSectionBody ?? ""}
+                onChange={(e) => set("extraSectionBody", e.target.value)}
+                rows={3}
+                className="text-xs"
+                placeholder="Valet parking is available on-site. Business casual attire suggested."
+              />
+              <p className="text-[11px] text-muted-foreground">Hidden when both fields are empty.</p>
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Layout</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Swap columns (form on left)</Label>
+                <Switch
+                  checked={props.swapColumns ?? false}
+                  onCheckedChange={(v) => set("swapColumns", v)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Copy column width — {(props.copyColumnWidth ?? 1.05).toFixed(2)}× the form column</Label>
+                <Slider
+                  min={0.5}
+                  max={2.5}
+                  step={0.05}
+                  value={[props.copyColumnWidth ?? 1.05]}
+                  onValueChange={(v) => set("copyColumnWidth", v[0])}
+                />
+                <p className="text-[11px] text-muted-foreground">Form column stays at 1×. Lower = narrower copy column, more space for the form.</p>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Left column top padding — {(props.leftColumnTopPadding ?? 0).toFixed(1)} rem</Label>
                 <Slider
