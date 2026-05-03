@@ -87,6 +87,7 @@ import type {
   DsoCaseStudyBlockProps,
   OnePagerHeroBlockProps,
   EventPageBlockProps,
+  EventLandingHeroBlockProps,
   SpatialTourBlockProps,
 } from "./dso-blocks";
 import type {
@@ -2962,6 +2963,62 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "event-landing-hero" as const,
+    label: "Event Landing Hero",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventLandingHeroBlockProps => ({
+      backgroundImage:
+        "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=2400&auto=format&fit=crop",
+      backgroundImageAlt: "City skyline at dusk",
+      backgroundOverlay: 0.5,
+      overlayColor: "#000000",
+      headline: "Dandy After Hours: New York",
+      dateText: "Wednesday June 10 & Thursday June 11, 2026",
+      ctaText: "Save Your Spot",
+      ctaUrl: "#rsvp",
+      showScrollIndicator: true,
+      scrollLabel: "SCROLL DOWN",
+      align: "center",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="evlh-sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#1a2540" />
+            <stop offset="1" stopColor="#0a1124" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="url(#evlh-sky)" rx="4" />
+        {/* skyline silhouette */}
+        <g fill="#000" opacity="0.55">
+          <rect x="0" y="38" width="14" height="32" />
+          <rect x="14" y="30" width="10" height="40" />
+          <rect x="24" y="34" width="8" height="36" />
+          <rect x="32" y="22" width="12" height="48" />
+          <rect x="44" y="32" width="9" height="38" />
+          <rect x="53" y="26" width="11" height="44" />
+          <rect x="64" y="34" width="8" height="36" />
+          <rect x="72" y="20" width="14" height="50" />
+          <rect x="86" y="30" width="10" height="40" />
+          <rect x="96" y="34" width="9" height="36" />
+          <rect x="105" y="28" width="15" height="42" />
+        </g>
+        {/* dark overlay */}
+        <rect width="120" height="70" fill="#000" opacity="0.35" rx="4" />
+        {/* headline */}
+        <rect x="22" y="22" width="76" height="6" rx="1" fill="#fff" />
+        <rect x="34" y="32" width="52" height="5" rx="1" fill="#fff" opacity="0.92" />
+        {/* date */}
+        <rect x="40" y="42" width="40" height="2.5" rx="1" fill="#fff" opacity="0.7" />
+        {/* CTA pill */}
+        <rect x="44" y="50" width="32" height="9" rx="4.5" fill="#003A30" />
+        <rect x="50" y="53" width="20" height="3" rx="1" fill="#C7E738" />
+        {/* scroll-down dot */}
+        <circle cx="60" cy="65" r="1.2" fill="#fff" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
     type: "spatial-tour" as const,
     label: "Spatial Lab Tour",
     category: "Events" as BlockCategory,
@@ -3562,6 +3619,7 @@ export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
+export function createBlock(type: "event-landing-hero"): Extract<PageBlock, { type: "event-landing-hero" }>;
 export function createBlock(type: "spatial-tour"): Extract<PageBlock, { type: "spatial-tour" }>;
 export function createBlock(type: "scroll-assembly"): Extract<PageBlock, { type: "scroll-assembly" }>;
 export function createBlock(type: "horizontal-showcase"): Extract<PageBlock, { type: "horizontal-showcase" }>;
@@ -3654,6 +3712,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "dandy-cta-block": return { id, type: "dandy-cta-block", props: props as DandyCtaBlockProps };
     case "one-pager-hero": return { id, type: "one-pager-hero", props: props as OnePagerHeroBlockProps };
     case "event-page": return { id, type: "event-page", props: props as EventPageBlockProps };
+    case "event-landing-hero": return { id, type: "event-landing-hero", props: props as EventLandingHeroBlockProps };
     case "spatial-tour": return { id, type: "spatial-tour", props: props as SpatialTourBlockProps };
     case "scroll-assembly": return { id, type: "scroll-assembly", props: props as ScrollAssemblyBlockProps };
     case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };

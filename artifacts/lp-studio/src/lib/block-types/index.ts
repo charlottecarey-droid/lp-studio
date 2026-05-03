@@ -140,6 +140,7 @@ export type {
   EventPageDetail,
   EventPageNavLink,
   EventPageTheme,
+  EventLandingHeroBlockProps,
   OnePagerHeroBlockProps,
   SpatialTourBlockProps,
   SpatialTourNavLink,

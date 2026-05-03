@@ -41,6 +41,7 @@ import { BlockDsoInsightsVideo } from "./BlockDsoInsightsVideo";
 import { BlockDsoCaseStudy } from "./BlockDsoCaseStudy";
 import { BlockOnePagerHero } from "./BlockOnePagerHero";
 import { BlockEventPage } from "./BlockEventPage";
+import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockHero } from "./BlockHero";
@@ -243,7 +244,7 @@ export const NO_REVEAL = new Set<string>([
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "dandy-hero-v7-s3", "dandy-product-hero",
-  "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page",
+  "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero",
   "spacer",
 ]);
 
@@ -634,6 +635,14 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
+      case "event-landing-hero":
+        return (
+          <BlockEventLandingHero
+            props={block.props}
+            brand={brand}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "") : undefined}
+          />
+        );
       case "spatial-tour":
         return <BlockSpatialTour props={block.props} />;
       case "scroll-assembly":

@@ -1045,3 +1045,47 @@ export interface SpatialTourBlockProps {
   footerEyebrow: string;
   footerInfo: string;
 }
+
+/**
+ * Full-bleed cinematic event landing hero — modeled on
+ * `meetdandy.com/learning-center/events/after-hours-new-york`. Pairs with the
+ * tenant's existing nav-header (separate block); this block is just the hero
+ * canvas.
+ *
+ * All colors derive from the tenant brand via CSS vars (`--brand-primary`,
+ * `--brand-accent`) and the `brand` prop passed by `BlockRenderer`, so Dandy
+ * tenants get dark-green / lime parity while other tenants get their own
+ * palette without any prop edits.
+ */
+export interface EventLandingHeroBlockProps {
+  /** Full-bleed background image (city skyline, venue exterior, etc). */
+  backgroundImage: string;
+  /** Optional alt text — purely decorative by default. */
+  backgroundImageAlt?: string;
+  /** 0–1 dark overlay on top of the image. Default 0.5. */
+  backgroundOverlay?: number;
+  /** Overlay color. Default `#000000`. */
+  overlayColor?: string;
+  /** Optional small eyebrow above the headline (e.g. "*Limited spots*"). */
+  eyebrow?: string;
+  /** Main headline (e.g. "Dandy After Hours: New York"). */
+  headline: string;
+  /** Date / location subtext shown under the headline. */
+  dateText?: string;
+  /** Optional secondary line under the date (e.g. venue name). */
+  locationText?: string;
+  /** Primary CTA pill button label. Hidden when empty. */
+  ctaText?: string;
+  ctaUrl?: string;
+  /** Show the "SCROLL DOWN" indicator at the bottom. Default true. */
+  showScrollIndicator?: boolean;
+  /** Label rendered above the scroll-down chevron. Default "SCROLL DOWN". */
+  scrollLabel?: string;
+  /** Optional anchor id (without `#`) to smooth-scroll into when the indicator
+   *  is clicked. When unset, falls back to scrolling one viewport down. */
+  scrollTargetId?: string;
+  /** Min hero height. Default `100vh`. */
+  minHeight?: string;
+  /** Content alignment. Default `center`. */
+  align?: "center" | "left";
+}
