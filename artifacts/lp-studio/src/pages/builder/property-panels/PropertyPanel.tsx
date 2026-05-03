@@ -4382,6 +4382,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "bento-showcase":
       case "gradient-pricing":
       case "event-landing-hero":
+      case "section":
+      case "columns":
+      case "grid":
+      case "stack":
         return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
       default: {
         const _exhaustive: never = block;
