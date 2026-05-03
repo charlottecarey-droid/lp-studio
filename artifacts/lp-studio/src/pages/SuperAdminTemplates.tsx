@@ -14,8 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Loader2, RefreshCw, Pencil, Search, Globe2, Building2, AlertCircle,
+  Loader2, RefreshCw, Pencil, Search, Globe2, Building2, AlertCircle, PenSquare,
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -204,6 +205,7 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
   const [filter, setFilter] = useState<IndustryFilter>("all");
   const [search, setSearch] = useState("");
   const [editingInitial, setEditingInitial] = useState<EditState | null>(null);
+  const [, setLocation] = useLocation();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -282,6 +284,10 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
           Templates marked <strong>global</strong> are visible to every tenant whose industry matches
           (or every tenant if industry is left blank). Tenant-owned templates are only visible to their owner.
           To create a new global template, save a page as a template inside any tenant&apos;s builder, then promote it here.
+          <br />
+          Click <strong>Open in builder</strong> to edit a template&apos;s blocks. Edits are live immediately
+          in the marketplace and apply to <strong>all future</strong> tenant clones — pages tenants already
+          cloned aren&apos;t retroactively updated.
         </div>
       </div>
 
@@ -329,7 +335,7 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
               <TableHead className="w-[14%]">Industry</TableHead>
               <TableHead className="w-[8%] text-right">Blocks</TableHead>
               <TableHead className="w-[12%]">Updated</TableHead>
-              <TableHead className="w-[6%]" />
+              <TableHead className="w-[12%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -384,10 +390,27 @@ export default function SuperAdminTemplates({ adminKey }: { adminKey: string }) 
                 <TableCell className="text-right text-sm font-mono">{row.block_count}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{formatDate(row.updated_at)}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edit"
-                    onClick={() => openEdit(row)}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      title="Open this template's blocks in the builder"
+                      onClick={() => setLocation(`/builder/${row.id}`)}
+                    >
+                      <PenSquare className="w-3.5 h-3.5 mr-1" />
+                      Open in builder
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      title="Edit metadata (label, visibility, industry)"
+                      onClick={() => openEdit(row)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
