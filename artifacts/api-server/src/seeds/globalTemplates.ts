@@ -2073,6 +2073,446 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       genericFooter("Pasture & Stone", 9),
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Crowns flagship trio — brand-aware (colors driven by tenant brand vars)
+  //
+  // Three templates that mirror the Dandy Crowns flagship section order
+  // (hero → trust-bar → photo-strip → stat-callout → benefits-grid →
+  //  product-grid → testimonial → bottom-cta) but with generic copy for
+  // B2B SaaS, Professional Services, and Marketing Agency verticals.
+  //
+  // Color props are intentionally omitted on the hero/CTA so blocks fall
+  // back to `brand.accentColor` (BlockHero.tsx line 25) and the footer
+  // omits backgroundColor / accentColor so it picks up `var(--brand-primary)`
+  // and `var(--brand-accent)` from the tenant's brand config.
+  // ─────────────────────────────────────────────────────────────────────────
+  ...((): GlobalTemplateSeed[] => {
+    function brandFooter(brand: string, n: number) {
+      return {
+        id: blockId("footer", n),
+        type: "footer",
+        props: {
+          // backgroundColor omitted -> falls back to var(--brand-primary)
+          // accentColor omitted     -> falls back to var(--brand-accent)
+          copyrightText: `© ${new Date().getFullYear()} ${brand}. All rights reserved.`,
+          showSocialLinks: true,
+          facebookUrl: "#",
+          instagramUrl: "#",
+          linkedinUrl: "#",
+          columns: [
+            {
+              title: "Product",
+              links: [
+                { label: "Features", url: "#features" },
+                { label: "Pricing", url: "#pricing" },
+                { label: "Integrations", url: "#" },
+                { label: "Changelog", url: "#" },
+              ],
+            },
+            {
+              title: "Company",
+              links: [
+                { label: "About", url: "#" },
+                { label: "Customers", url: "#" },
+                { label: "Careers", url: "#" },
+                { label: "Contact", url: "#contact" },
+              ],
+            },
+            {
+              title: "Resources",
+              links: [
+                { label: "Blog", url: "#" },
+                { label: "Help Center", url: "#" },
+                { label: "Privacy", url: "#" },
+                { label: "Terms", url: "#" },
+              ],
+            },
+          ],
+        },
+      };
+    }
+
+    // ── 1. B2B SaaS — Northstream ────────────────────────────────────────
+    const saas: GlobalTemplateSeed = {
+      slug: "global-crowns-b2b-saas",
+      title: "B2B SaaS — Crowns Flagship",
+      templateLabel: "B2B SaaS Flagship",
+      templateDescription:
+        "Crowns-style flagship layout for B2B SaaS. Hero, social-proof bar, product gallery strip, hero stat, six-up benefits, product grid, customer quote, closing CTA. Brand-aware colors.",
+      ogImage:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&h=630&fit=crop",
+      industry: "generic",
+      blocks: [
+        genericNav("Northstream", 1),
+        {
+          id: blockId("hero", 2),
+          type: "hero",
+          props: {
+            headlineSize: "lg",
+            headline: "The platform your operations team will actually use.",
+            subheadline:
+              "Northstream replaces the dozen tools, brittle scripts, and spreadsheet exports your team has been holding together — with one workspace built for the way modern operators actually work.",
+            ctaText: "Start free trial",
+            ctaUrl: "#cta",
+            // ctaColor omitted -> uses brand.accentColor
+            heroType: "static-image",
+            layout: "centered",
+            backgroundStyle: "white",
+            showSocialProof: true,
+            socialProofText: "Trusted by operations teams at 1,400+ growing companies",
+            imageUrl:
+              "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1600&h=900&fit=crop",
+            mediaUrl: "",
+          },
+        },
+        {
+          id: blockId("trust-bar", 3),
+          type: "trust-bar",
+          props: {
+            items: [
+              { value: "1,400+", label: "Companies" },
+              { value: "99.99%", label: "Uptime SLA" },
+              { value: "200+", label: "Integrations" },
+              { value: "4.8★", label: "G2 Rating" },
+            ],
+          },
+        },
+        {
+          id: blockId("photo-strip", 4),
+          type: "photo-strip",
+          props: {
+            images: [
+              { src: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&fit=crop", alt: "Analytics dashboard" },
+              { src: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&fit=crop", alt: "Team workspace" },
+              { src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600&fit=crop", alt: "Workflow automation" },
+              { src: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=600&fit=crop", alt: "Operations review" },
+              { src: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=600&fit=crop", alt: "Engineering team" },
+              { src: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?q=80&w=600&fit=crop", alt: "Product strategy" },
+              { src: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=600&fit=crop", alt: "Cross-functional sync" },
+            ],
+          },
+        },
+        {
+          id: blockId("stat-callout", 5),
+          type: "stat-callout",
+          props: {
+            stat: "62%",
+            description: "less time spent on manual reporting in the first quarter on Northstream",
+            footnote: "Average across 200+ customers measured 90 days post-onboarding.",
+          },
+        },
+        {
+          id: blockId("benefits-grid", 6),
+          type: "benefits-grid",
+          props: {
+            headline: "Why operations teams switch to Northstream",
+            columns: 3,
+            items: [
+              { icon: "Zap", title: "Ship workflows in hours", description: "Drag-and-drop automation that replaces brittle scripts. New workflows go live the same day, not the same quarter." },
+              { icon: "Layers", title: "One source of truth", description: "Customers, deals, accounts, and tickets unified in a single workspace your whole company can read from." },
+              { icon: "ShieldCheck", title: "SOC 2 + HIPAA ready", description: "Audit-grade logging, granular roles, and SSO included on every plan — no enterprise upgrade required." },
+              { icon: "Clock", title: "Live, not stale", description: "Dashboards refresh in seconds. No more rebuilding the same Monday-morning report by hand every week." },
+              { icon: "Users", title: "Built for teams of teams", description: "Org-wide visibility with team-level permissions. Finance, RevOps, and CX work in the same system without stepping on each other." },
+              { icon: "MessageCircle", title: "Real humans in the loop", description: "Dedicated implementation managers, weekly office hours, and a Slack channel staffed by people who built the product." },
+            ],
+          },
+        },
+        {
+          id: blockId("product-grid", 7),
+          type: "product-grid",
+          props: {
+            headline: "One platform. Every operational workflow.",
+            subheadline: "Modules designed to work together — adopt one, layer in the rest as you grow.",
+            items: [
+              { image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&h=400&fit=crop", title: "Workflow Automation", description: "Visual builder, 200+ pre-built integrations, and a runtime that handles millions of events per day." },
+              { image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&h=400&fit=crop", title: "Live Dashboards", description: "Self-updating reports your CFO can actually trust. Schedule, share, and embed in seconds." },
+              { image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600&h=400&fit=crop", title: "Approvals & Routing", description: "Multi-step approvals with full audit trails. Route by amount, region, or any field — without engineering." },
+              { image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=600&h=400&fit=crop", title: "Customer 360", description: "A unified record across every system. Built-in deduping and identity resolution out of the box." },
+              { image: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=600&h=400&fit=crop", title: "Audit & Compliance", description: "Immutable logs, automated evidence collection, and SOC 2 / HIPAA control mapping ready for your auditor." },
+              { image: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?q=80&w=600&h=400&fit=crop", title: "AI Copilot", description: "Natural-language queries over your operational data. Ask a question, get a chart and a saved workflow." },
+            ],
+          },
+        },
+        {
+          id: blockId("testimonial", 8),
+          type: "testimonial",
+          props: {
+            quote:
+              "Northstream replaced four separate tools and a stack of spreadsheets in our first 90 days. Our ops team now ships in hours what used to take a sprint, and finance trusts the numbers for the first time in years.",
+            author: "Priya Anand",
+            role: "VP of Revenue Operations",
+            practiceName: "Latitude Software",
+          },
+        },
+        {
+          id: blockId("bottom-cta", 9),
+          type: "bottom-cta",
+          props: {
+            headline: "Ready to retire the spreadsheets?",
+            subheadline: "Free 14-day trial. No credit card. White-glove onboarding included.",
+            ctaText: "Start free trial",
+            ctaUrl: "#",
+          },
+        },
+        brandFooter("Northstream", 10),
+      ],
+    };
+
+    // ── 2. Professional Services — Meridian Partners ────────────────────
+    const services: GlobalTemplateSeed = {
+      slug: "global-crowns-professional-services",
+      title: "Professional Services — Crowns Flagship",
+      templateLabel: "Professional Services Flagship",
+      templateDescription:
+        "Crowns-style flagship layout for advisory and professional services firms. Authoritative hero, credibility bar, gallery, headline stat, six-up advantages, practice areas, client quote, and a clear CTA. Brand-aware colors.",
+      ogImage:
+        "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1200&h=630&fit=crop",
+      industry: "generic",
+      blocks: [
+        genericNav("Meridian Partners", 1),
+        {
+          id: blockId("hero", 2),
+          type: "hero",
+          props: {
+            headlineSize: "lg",
+            headline: "Senior advisors. Decisive answers. Measurable outcomes.",
+            subheadline:
+              "Meridian Partners is a boutique advisory firm helping operators, founders, and executive teams make the consequential decisions — with the rigor of a top-tier firm and the responsiveness of a small one.",
+            ctaText: "Request a consultation",
+            ctaUrl: "#cta",
+            // ctaColor omitted -> uses brand.accentColor
+            heroType: "static-image",
+            layout: "centered",
+            backgroundStyle: "white",
+            showSocialProof: true,
+            socialProofText: "Trusted advisor to 300+ leadership teams across North America and EMEA",
+            imageUrl:
+              "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600&h=900&fit=crop",
+            mediaUrl: "",
+          },
+        },
+        {
+          id: blockId("trust-bar", 3),
+          type: "trust-bar",
+          props: {
+            items: [
+              { value: "300+", label: "Engagements" },
+              { value: "22 yrs", label: "In Practice" },
+              { value: "$14B", label: "Capital Advised" },
+              { value: "96%", label: "Client Retention" },
+            ],
+          },
+        },
+        {
+          id: blockId("photo-strip", 4),
+          type: "photo-strip",
+          props: {
+            images: [
+              { src: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600&fit=crop", alt: "Boardroom strategy session" },
+              { src: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=600&fit=crop", alt: "Leadership working session" },
+              { src: "https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=600&fit=crop", alt: "Client meeting" },
+              { src: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=600&fit=crop", alt: "Strategy whiteboard" },
+              { src: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=600&fit=crop", alt: "Executive portrait" },
+              { src: "https://images.unsplash.com/photo-1606857521015-7f9fcf423740?q=80&w=600&fit=crop", alt: "Office environment" },
+              { src: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=600&fit=crop", alt: "Team review" },
+            ],
+          },
+        },
+        {
+          id: blockId("stat-callout", 5),
+          type: "stat-callout",
+          props: {
+            stat: "3.4×",
+            description: "average return on engagement value, measured 12 months after delivery",
+            footnote: "Independent client survey of 180 engagements completed between 2021 and 2024.",
+          },
+        },
+        {
+          id: blockId("benefits-grid", 6),
+          type: "benefits-grid",
+          props: {
+            headline: "Why leadership teams choose Meridian",
+            columns: 3,
+            items: [
+              { icon: "Users", title: "Partner-led, every engagement", description: "You work directly with the partner who scoped the work. No bait-and-switch to a junior team after the kickoff." },
+              { icon: "ShieldCheck", title: "Independent and conflict-free", description: "We don't sell software, take referral fees, or work for your competitors. Our advice serves your interests, full stop." },
+              { icon: "Clock", title: "Decisive timelines", description: "Most engagements deliver in 4–8 weeks. We commit to a date and we hit it — written into every statement of work." },
+              { icon: "Layers", title: "Operator experience", description: "Every partner has run a P&L, closed a transaction, or built a function. Our advice is grounded in having done the job." },
+              { icon: "Sparkles", title: "Clear, written deliverables", description: "Memos, models, and recommendations you can actually act on — not 80-slide decks of frameworks and stock photos." },
+              { icon: "MessageCircle", title: "Available when it matters", description: "Direct partner phone numbers, weekend coverage during critical moments, and follow-up at no additional charge for 90 days." },
+            ],
+          },
+        },
+        {
+          id: blockId("product-grid", 7),
+          type: "product-grid",
+          props: {
+            headline: "Where we do our best work",
+            subheadline: "Four practice areas, deeply connected. Engaged on their own or as a coordinated program.",
+            items: [
+              { image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=600&h=400&fit=crop", title: "Strategy & Operating Model", description: "Three- and five-year strategy, operating-model design, org structure, and the priorities that turn plans into execution." },
+              { image: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=600&h=400&fit=crop", title: "Mergers & Transactions", description: "Buy-side and sell-side support: diligence, valuation, integration planning, and post-close value capture." },
+              { image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=600&h=400&fit=crop", title: "Performance Improvement", description: "Cost transformation, pricing optimization, and commercial effectiveness work that pays for itself in-quarter." },
+              { image: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=600&h=400&fit=crop", title: "Leadership & Org Effectiveness", description: "Executive coaching, succession planning, and organizational design for teams entering their next stage of growth." },
+              { image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=600&h=400&fit=crop", title: "Board Advisory", description: "Independent advisory to boards on CEO transitions, strategic review, governance, and crisis response." },
+              { image: "https://images.unsplash.com/photo-1606857521015-7f9fcf423740?q=80&w=600&h=400&fit=crop", title: "Interim Leadership", description: "Senior interim placements — CFO, COO, Chief of Staff — when you need an experienced hand in the seat right now." },
+            ],
+          },
+        },
+        {
+          id: blockId("testimonial", 8),
+          type: "testimonial",
+          props: {
+            quote:
+              "Meridian gave us the clearest, most actionable strategic review we've ever received. Six weeks of work that reshaped how the board, the executive team, and the investors talk about the next three years.",
+            author: "Daniel Whitcomb",
+            role: "Chief Executive Officer",
+            practiceName: "Harborline Industries",
+          },
+        },
+        {
+          id: blockId("bottom-cta", 9),
+          type: "bottom-cta",
+          props: {
+            headline: "Have a decision worth getting right?",
+            subheadline: "We take on a small number of engagements each quarter. A 30-minute conversation will tell us both whether we're the right fit.",
+            ctaText: "Request a consultation",
+            ctaUrl: "#",
+          },
+        },
+        brandFooter("Meridian Partners", 10),
+      ],
+    };
+
+    // ── 3. Marketing Agency — Studio Vox ────────────────────────────────
+    const agency: GlobalTemplateSeed = {
+      slug: "global-crowns-marketing-agency",
+      title: "Marketing Agency — Crowns Flagship",
+      templateLabel: "Marketing Agency Flagship",
+      templateDescription:
+        "Crowns-style flagship layout for full-service brand and growth agencies. Editorial hero, credibility bar, work gallery, hero stat, six-up capabilities, services grid, client quote, and project CTA. Brand-aware colors.",
+      ogImage:
+        "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=1200&h=630&fit=crop",
+      industry: "generic",
+      blocks: [
+        genericNav("Studio Vox", 1),
+        {
+          id: blockId("hero", 2),
+          type: "hero",
+          props: {
+            headlineSize: "lg",
+            headline: "Brand and growth, made by the same room.",
+            subheadline:
+              "Studio Vox is a brand-and-performance studio for ambitious companies. We design the story, build the system, and run the campaigns — all under one roof, all by the same senior team.",
+            ctaText: "Start a project",
+            ctaUrl: "#cta",
+            // ctaColor omitted -> uses brand.accentColor
+            heroType: "static-image",
+            layout: "centered",
+            backgroundStyle: "white",
+            showSocialProof: true,
+            socialProofText: "Selected work for 80+ brands across consumer, B2B SaaS, and fintech",
+            imageUrl:
+              "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=1600&h=900&fit=crop",
+            mediaUrl: "",
+          },
+        },
+        {
+          id: blockId("trust-bar", 3),
+          type: "trust-bar",
+          props: {
+            items: [
+              { value: "80+", label: "Brands Launched" },
+              { value: "4.9★", label: "Client NPS" },
+              { value: "12 yrs", label: "In Practice" },
+              { value: "3×", label: "Avg. Lift Y1" },
+            ],
+          },
+        },
+        {
+          id: blockId("photo-strip", 4),
+          type: "photo-strip",
+          props: {
+            images: [
+              { src: "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=600&fit=crop", alt: "Brand identity board" },
+              { src: "https://images.unsplash.com/photo-1561070791-2526d30994b8?q=80&w=600&fit=crop", alt: "Campaign photography" },
+              { src: "https://images.unsplash.com/photo-1481487196290-c152efe083f5?q=80&w=600&fit=crop", alt: "Print collateral" },
+              { src: "https://images.unsplash.com/photo-1542744095-291d1f67b221?q=80&w=600&fit=crop", alt: "Studio workspace" },
+              { src: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=600&fit=crop", alt: "Design exploration" },
+              { src: "https://images.unsplash.com/photo-1558655146-9f40138edfeb?q=80&w=600&fit=crop", alt: "Color study" },
+              { src: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600&fit=crop", alt: "Product photography" },
+            ],
+          },
+        },
+        {
+          id: blockId("stat-callout", 5),
+          type: "stat-callout",
+          props: {
+            stat: "92%",
+            description: "of Studio Vox clients renew or expand their engagement after the first project",
+            footnote: "Trailing-three-year average across all brand and performance retainers.",
+          },
+        },
+        {
+          id: blockId("benefits-grid", 6),
+          type: "benefits-grid",
+          props: {
+            headline: "Why brand teams keep coming back",
+            columns: 3,
+            items: [
+              { icon: "Sparkles", title: "Editorial-grade craft", description: "Type, color, photography, and motion treated like the brand assets they are. Work that holds up next to the best in the world." },
+              { icon: "Zap", title: "Brand and growth, together", description: "Strategists, designers, copywriters, and media buyers in the same room — so the brand work and the campaign work tell the same story." },
+              { icon: "Users", title: "Senior team, every meeting", description: "You work with the people doing the work — never a junior handoff after the pitch. Direct Slack with the lead designer and strategist." },
+              { icon: "Clock", title: "Honest timelines", description: "We commit to milestones and we hit them. No surprise scope creep, no quiet weekends to recover lost ground." },
+              { icon: "Layers", title: "Systems, not one-offs", description: "Identity, web, and campaign assets shipped as a coherent system — production-ready files your in-house team can extend on day one." },
+              { icon: "MessageCircle", title: "Honest about what works", description: "We measure what we ship and we tell you what didn't land. Quarterly reviews with real numbers, not vanity slides." },
+            ],
+          },
+        },
+        {
+          id: blockId("product-grid", 7),
+          type: "product-grid",
+          props: {
+            headline: "What we make",
+            subheadline: "Six services, woven into one studio. Engaged together or à la carte.",
+            items: [
+              { image: "https://images.unsplash.com/photo-1561070791-2526d30994b8?q=80&w=600&h=400&fit=crop", title: "Brand Identity", description: "Naming, logo systems, type, color, voice, and the foundational story — built to outlast a quarterly refresh." },
+              { image: "https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?q=80&w=600&h=400&fit=crop", title: "Marketing Site", description: "Editorial, conversion-focused websites with the polish of a magazine and the metrics of a growth team." },
+              { image: "https://images.unsplash.com/photo-1559028012-481c04fa702d?q=80&w=600&h=400&fit=crop", title: "Performance Media", description: "Paid search, paid social, and lifecycle — managed by senior buyers with the creative team in the same room." },
+              { image: "https://images.unsplash.com/photo-1542744094-3a31f272c490?q=80&w=600&h=400&fit=crop", title: "Campaigns", description: "Launch films, social systems, and OOH that turn a moment into a movement and a movement into pipeline." },
+              { image: "https://images.unsplash.com/photo-1483058712412-4245e9b90334?q=80&w=600&h=400&fit=crop", title: "Content & Editorial", description: "Long-form, podcasts, and reports with the typographic care most teams reserve for their logo." },
+              { image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=600&h=400&fit=crop", title: "Workshops & Strategy", description: "Two-day intensives that align leadership on positioning, messaging, and what to do on Monday morning." },
+            ],
+          },
+        },
+        {
+          id: blockId("testimonial", 8),
+          type: "testimonial",
+          props: {
+            quote:
+              "Studio Vox shipped the most polished work our company has ever put into the world — and the launch was the best in our history. They held the bar when we were ready to lower it.",
+            author: "Camille Okafor",
+            role: "Chief Marketing Officer",
+            practiceName: "Northwind & Co.",
+          },
+        },
+        {
+          id: blockId("bottom-cta", 9),
+          type: "bottom-cta",
+          props: {
+            headline: "Have something worth doing properly?",
+            subheadline: "We take on a small number of projects each quarter. Tell us about yours.",
+            ctaText: "Start a project",
+            ctaUrl: "#",
+          },
+        },
+        brandFooter("Studio Vox", 10),
+      ],
+    };
+
+    return [saas, services, agency];
+  })(),
 ];
 
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
