@@ -18,6 +18,40 @@ export function isSafeUrl(url: string | undefined | null): boolean {
 }
 
 /**
+ * Normalize a user-entered URL for use as an href.
+ * - Leaves http(s)/mailto/tel/anchors/relative paths alone.
+ * - Prepends "https://" to bare domains (e.g. "meetdandy.com/pricing")
+ *   so the browser doesn't treat them as relative paths.
+ * Returns "#" for empty/invalid input so the link is still clickable but harmless.
+ */
+export function normalizeHref(url: string | undefined | null): string {
+  if (!url) return "#";
+  const trimmed = url.trim();
+  if (!trimmed) return "#";
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    lower.startsWith("mailto:") ||
+    lower.startsWith("tel:") ||
+    lower.startsWith("//") ||
+    lower.startsWith("/") ||
+    lower.startsWith("#") ||
+    lower.startsWith("?")
+  ) {
+    return trimmed;
+  }
+  // If it looks like a domain (contains a dot before any slash), assume https://
+  const firstSlash = trimmed.indexOf("/");
+  const hostPart = firstSlash === -1 ? trimmed : trimmed.slice(0, firstSlash);
+  if (hostPart.includes(".")) {
+    return `https://${trimmed}`;
+  }
+  // Otherwise treat as relative path (rare; preserve original)
+  return trimmed;
+}
+
+/**
  * Safe navigation helper. Only navigates if URL passes protocol validation.
  */
 export function safeNavigate(url: string | undefined | null, target?: string): void {

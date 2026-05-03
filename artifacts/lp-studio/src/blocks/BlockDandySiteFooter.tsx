@@ -3,6 +3,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { DandySiteFooterBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
+import { normalizeHref } from "@/lib/safe-url";
 
 interface Props {
   props: DandySiteFooterBlockProps;
@@ -86,7 +87,7 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
                   {(group.links ?? []).map((link, j) => (
                     <li key={j}>
                       <a
-                        href={link.url || "#"}
+                        href={normalizeHref(link.url)}
                         className="text-base text-slate-500 hover:text-[var(--brand-primary)] transition-colors"
                       >
                         <InlineText as="span" value={link.label} onUpdate={updateLink ? (v) => updateLink(i, j, { label: v }) : undefined} />
@@ -106,17 +107,17 @@ export function BlockDandySiteFooter({ props, brand, onFieldChange }: Props) {
           </p>
           <div className="flex items-center gap-3">
             {props.facebookUrl && (
-              <a href={props.facebookUrl} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
+              <a href={normalizeHref(props.facebookUrl)} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
                 <FacebookIcon />
               </a>
             )}
             {props.instagramUrl && (
-              <a href={props.instagramUrl} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
+              <a href={normalizeHref(props.instagramUrl)} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
                 <InstagramIcon />
               </a>
             )}
             {props.linkedinUrl && (
-              <a href={props.linkedinUrl} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
+              <a href={normalizeHref(props.linkedinUrl)} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:border-[var(--brand-primary)] transition-colors">
                 <LinkedInIcon />
               </a>
             )}
