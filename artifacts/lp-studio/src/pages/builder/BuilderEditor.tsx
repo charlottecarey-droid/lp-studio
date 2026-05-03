@@ -1730,6 +1730,23 @@ export default function BuilderEditor() {
     if (title.trim()) handleSave();
   };
 
+  // Map raw custom-block rows into the live source map consumed by
+  // BlockCustomSchema / CustomSchemaPanel via CustomBlocksContext. Only
+  // schema-typed rows participate.
+  // IMPORTANT: this hook must run unconditionally on every render, so it
+  // sits ABOVE the loading / error early-returns below. Moving it after a
+  // conditional return triggers React error #310 ("Rendered more hooks
+  // than during the previous render") on the very first transition out of
+  // the loading state.
+  const customBlockSources: CustomBlockSource[] = useMemo(() => {
+    const out: CustomBlockSource[] = [];
+    for (const row of customBlocks) {
+      const src = customBlockRowToSource(row);
+      if (src) out.push(src);
+    }
+    return out;
+  }, [customBlocks]);
+
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -1754,18 +1771,6 @@ export default function BuilderEditor() {
       </div>
     );
   }
-
-  // Map raw custom-block rows into the live source map consumed by
-  // BlockCustomSchema / CustomSchemaPanel via CustomBlocksContext. Only
-  // schema-typed rows participate.
-  const customBlockSources: CustomBlockSource[] = useMemo(() => {
-    const out: CustomBlockSource[] = [];
-    for (const row of customBlocks) {
-      const src = customBlockRowToSource(row);
-      if (src) out.push(src);
-    }
-    return out;
-  }, [customBlocks]);
 
   return (
     <CustomBlocksProvider blocks={customBlockSources}>
