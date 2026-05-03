@@ -554,7 +554,10 @@ export default function LandingPageViewer() {
   if (isLoading || !brandLoaded || (!isPreviewMode && !sessionId)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-8 h-8 animate-spin text-foreground" />
+        {/* Use an explicit dark color rather than `text-foreground` — public LP
+         *  routes don't always inherit tenant theme tokens, which previously
+         *  made the spinner invisible (page appeared all-white). */}
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#0A0A0A" }} />
       </div>
     );
   }

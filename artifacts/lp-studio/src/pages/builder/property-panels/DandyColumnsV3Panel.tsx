@@ -1,9 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import type { DandyColumnsV3BlockProps } from "@/lib/block-types";
 
 interface Props {
@@ -58,6 +60,59 @@ export function DandyColumnsV3Panel({ props: p, onChange }: Props) {
           })}
         </div>
         <p className="text-[11px] text-muted-foreground">Centers the eyebrow, headline and subheadline over the columns.</p>
+      </div>
+
+      <div className="border-t pt-3 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Numbers</p>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Show numbers (01., 02., 03.)</Label>
+          <Switch
+            checked={p.showNumbers ?? true}
+            onCheckedChange={(v) => set("showNumbers", v)}
+          />
+        </div>
+        {(p.showNumbers ?? true) && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Number color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={p.numberColor ?? "#000000"}
+                  onChange={(e) => set("numberColor", e.target.value)}
+                  className="w-9 h-9 rounded border cursor-pointer flex-shrink-0"
+                />
+                <BrandSwatches className="ml-1" current={p.numberColor} onPick={(hex) => set("numberColor", hex)} />
+                <Input
+                  value={p.numberColor ?? ""}
+                  placeholder="var(--brand-accent)"
+                  onChange={(e) => set("numberColor", e.target.value || undefined)}
+                  className="text-xs font-mono h-8"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Spacing to title</Label>
+              <div className="flex gap-1">
+                {(["tight", "normal", "loose"] as const).map((opt) => {
+                  const active = (p.numberGap ?? "normal") === opt;
+                  return (
+                    <Button
+                      key={opt}
+                      type="button"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      className="h-7 text-xs flex-1 capitalize"
+                      onClick={() => set("numberGap", opt)}
+                    >
+                      {opt}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="border-t pt-3">

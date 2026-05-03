@@ -61,8 +61,20 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
                   loading="lazy"
                 />
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-[var(--brand-accent)] font-bold text-2xl leading-none">{String(i + 1).padStart(2, "0")}.</span>
+              <div
+                className={cn(
+                  "flex items-center",
+                  props.numberGap === "tight" ? "gap-1" : props.numberGap === "loose" ? "gap-6" : "gap-4",
+                )}
+              >
+                {(props.showNumbers ?? true) && (
+                  <span
+                    className="font-bold text-2xl leading-none"
+                    style={{ color: props.numberColor ?? "var(--brand-accent)" }}
+                  >
+                    {String(i + 1).padStart(2, "0")}.
+                  </span>
+                )}
                 <h3 className="text-xl font-bold text-[var(--brand-primary)] leading-tight">
                   <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} />
                 </h3>

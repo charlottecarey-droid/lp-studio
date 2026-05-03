@@ -432,6 +432,13 @@ export interface DandyColumnsV3BlockProps {
   /** Horizontal alignment of the eyebrow / headline / subheadline block
    *  above the columns. Defaults to "left" to preserve the original layout. */
   headerAlign?: "left" | "center";
+  /** Show the leading "01.", "02.", … numbers next to each item title.
+   *  Defaults to true to preserve the original layout. */
+  showNumbers?: boolean;
+  /** Color of the leading number. Defaults to var(--brand-accent). */
+  numberColor?: string;
+  /** Horizontal gap between the number and the adjacent title. */
+  numberGap?: "tight" | "normal" | "loose";
   items: DandyColumnsV3Item[];
 }
 
