@@ -6,9 +6,10 @@ export interface BuilderPageResponse {
   title: string;
   slug: string;
   blocks: PageBlock[];
-  status: "draft" | "published";
+  status: "draft" | "pending_review" | "published";
   customCss?: string;
   animationsEnabled?: boolean;
+  smoothScroll?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;

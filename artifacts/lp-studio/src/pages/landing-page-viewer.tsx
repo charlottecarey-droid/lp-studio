@@ -547,7 +547,7 @@ export default function LandingPageViewer() {
       : rawBlocks;
     const customCss = builderPage.customCss ?? "";
     const animationsEnabled = builderPage.animationsEnabled !== false;
-    const smoothScroll = (builderPage as { smoothScroll?: boolean }).smoothScroll !== false;
+    const smoothScroll = builderPage.smoothScroll !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       if (ctaUrl.startsWith("chilipiper:")) {
@@ -560,7 +560,7 @@ export default function LandingPageViewer() {
       if (dest.startsWith("#") && dest.length > 1) {
         const target = document.getElementById(dest.slice(1));
         if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          target.scrollIntoView({ behavior: smoothScroll ? "smooth" : "auto", block: "start" });
           history.replaceState(null, "", dest);
           return;
         }
@@ -678,7 +678,7 @@ export default function LandingPageViewer() {
       if (dest.startsWith("#") && dest.length > 1) {
         const target = document.getElementById(dest.slice(1));
         if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          target.scrollIntoView({ behavior: linkedSmoothScroll ? "smooth" : "auto", block: "start" });
           history.replaceState(null, "", dest);
           return;
         }

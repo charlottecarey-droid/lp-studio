@@ -76,6 +76,8 @@ async function enrichVariantWithPage(variant: LpVariant) {
           slug: linkedPage.slug,
           blocks: linkedPage.blocks,
           customCss: linkedPage.customCss ?? "",
+          animationsEnabled: linkedPage.animationsEnabled !== false,
+          smoothScroll: linkedPage.smoothScroll !== false,
         },
       };
     }
@@ -102,6 +104,8 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
       title: page.title,
       slug: page.slug,
       blocks: mergedBlocks,
+      animationsEnabled: page.animationsEnabled !== false,
+      smoothScroll: page.smoothScroll !== false,
     },
   };
 }
