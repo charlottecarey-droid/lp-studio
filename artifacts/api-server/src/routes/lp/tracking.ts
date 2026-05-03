@@ -178,8 +178,11 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
   try {
     // Slugs are unique per (tenant_id, slug). Resolve the tenant from the
     // request host so we never serve another tenant's page metadata.
-    const tenantId = await resolveTenantIdFromRequest(req);
-    if (tenantId == null) { res.status(404).send("Not found"); return; }
+    const host = getRequestHost(req);
+    if (!host) { res.status(404).send("Not found"); return; }
+    const tenantMatch = await findTenantByHost(host);
+    if (!tenantMatch) { res.status(404).send("Not found"); return; }
+    const tenantId = tenantMatch.tenantId;
 
     const [page] = await db.select({
       title: lpPagesTable.title,
@@ -198,14 +201,16 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
       return;
     }
 
-    const pageTitle = page.metaTitle || "Meet Dandy | The Modern Operating System for Dentistry";
-    const pageDesc = page.metaDescription || "See what Dandy can do for your dental practice.";
+    // Tenant-aware fallback chain: explicit metaTitle → page title → tenant
+    // name. Never fall back to Dandy-specific copy on non-Dandy tenants.
+    const pageTitle = page.metaTitle || page.title || tenantMatch.tenantName;
+    const pageDesc = page.metaDescription || `${page.title || tenantMatch.tenantName}`;
     const pageImage = page.ogImage || "";
 
-    // Derive canonical public URL from request origin
-    const host = getRequestHost(req) || "partners.meetdandy.com";
-    const proto = req.headers["x-forwarded-proto"] || "https";
-    const canonicalUrl = `${proto}://${host}/lp/${slug}`;
+    // Derive canonical public URL from request origin. Pages are served at
+    // root (`/<slug>`) on tenant landing-page domains.
+    const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim() || "https";
+    const canonicalUrl = `${proto}://${host}/${slug}`;
 
     res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     res.set("Content-Type", "text/html; charset=utf-8");
