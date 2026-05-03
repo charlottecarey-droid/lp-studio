@@ -8,6 +8,7 @@ import videoRouter from "./video";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import blockCatalogRouter from "./blockCatalog";
+import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import webhooksRouter from "./webhooks";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -62,6 +63,7 @@ router.use(videoRouter);
 // blockCatalogRouter first lets its specific routes match before
 // adminRouter gets a chance to swallow the request.
 router.use(blockCatalogRouter);
+router.use(tenantBlockLibraryRouter);
 router.use("/admin", adminRouter);
 router.use("/webhooks", webhooksRouter);
 

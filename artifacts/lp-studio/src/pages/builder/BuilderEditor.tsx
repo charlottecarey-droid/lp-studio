@@ -59,6 +59,16 @@ import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
+import { useTenantBlockLibraryPrefs } from "@/hooks/use-tenant-block-library-prefs";
+import {
+  applyBlockLibraryPrefs,
+  applyCategoryOrder,
+  categoryLabel as resolveCategoryLabel,
+  matchesSearch as matchesBlockSearch,
+  type BlockLibraryPrefs,
+} from "@/lib/block-library-prefs";
+import { CustomizeBlockLibraryDialog } from "@/components/CustomizeBlockLibraryDialog";
+import { Settings2 } from "lucide-react";
 import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
@@ -169,23 +179,53 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
   );
 }
 
-function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "Showcase"] as const;
+function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs; onCustomize: () => void }) {
+  const defaultCoreOrder = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "Showcase"] as const;
+  const coreSet = new Set<string>(defaultCoreOrder);
+  // Honor the tenant's category order — but only for categories that are
+  // "core" (rendered in this tab). Non-core categories belong to SegmentLibrary.
+  const categories = applyCategoryOrder(defaultCoreOrder, prefs).filter(c => coreSet.has(c));
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
+  const [search, setSearch] = useState("");
+  const filteredCustom = search.trim()
+    ? coreCustomBlocks.filter(b => b.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : coreCustomBlocks;
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-4">
+      <div className="flex items-center gap-1.5">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search blocks…"
+            className="h-8 pl-7 text-xs"
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          title="Customize block library (hide, rename, reorder)"
+          onClick={onCustomize}
+        >
+          <Settings2 className="w-4 h-4" />
+        </Button>
+      </div>
+
       {categories.map(cat => {
         // Render from the resolved catalog list so admin label/category/sortOrder
         // overrides actually surface in the palette UI, falling back to registry
         // metadata when no override exists.
         const blocks = visibleBlocks
           .filter(b => b.category === cat)
-          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
+          .filter(b => matchesBlockSearch(b, search));
         if (blocks.length === 0) return null;
+        const label = resolveCategoryLabel(cat, prefs);
         return (
           <div key={cat}>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{cat}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{label}</p>
             <div className="grid grid-cols-2 gap-2">
               {blocks.map(block => (
                 <button
@@ -208,11 +248,11 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: st
           </div>
         );
       })}
-      {coreCustomBlocks.length > 0 && (
+      {filteredCustom.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Custom</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{resolveCategoryLabel("Custom", prefs)}</p>
           <div className="grid grid-cols-2 gap-2">
-            {coreCustomBlocks.map(block => (
+            {filteredCustom.map(block => (
               <button
                 key={block.id}
                 onClick={() => onAdd(`custom:${block.id}`)}
@@ -238,7 +278,7 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: st
 
 const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 
-function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[] }) {
+function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs }) {
   // Group catalog-resolved blocks by their (catalog-overriding) category, keeping
   // only non-core categories. Catalog rows can re-shelve a block by setting a
   // different category — that change is honored here.
@@ -248,11 +288,11 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks }: { onAd
     acc[block.category].push(block);
     return acc;
   }, {} as Record<string, typeof visibleBlocks>);
-  // Sort each group by sortOrder then label for deterministic ordering
-  for (const k of Object.keys(segmentGroupMap)) {
-    segmentGroupMap[k].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
-  }
-  const segmentGroupEntries = Object.entries(segmentGroupMap);
+  // Tenant prefs already applied upstream (block hide / reorder / re-shelve),
+  // but re-derive a stable order using prefs.categoryOrder for non-core groups.
+  const orderedGroupNames = applyCategoryOrder(Object.keys(segmentGroupMap), prefs)
+    .filter(k => segmentGroupMap[k]);
+  const segmentGroupEntries = orderedGroupNames.map(k => [k, segmentGroupMap[k]] as const);
 
   const renderBlockButton = (key: string, label: string, thumbnail: ReactNode, onClick: () => void) => (
     <button
@@ -277,7 +317,7 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks }: { onAd
       {/* Built-in segment blocks — grouped by category */}
       {segmentGroupEntries.map(([categoryName, blocks]) => (
         <div key={categoryName}>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{categoryName}</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{resolveCategoryLabel(categoryName, prefs)}</p>
           <div className="grid grid-cols-2 gap-2">
             {blocks.map(block =>
               renderBlockButton(block.type, block.label, <BlockThumbnail type={block.type} />, () => onAdd(block.type))
@@ -538,13 +578,25 @@ interface InsertBlockDialogProps {
   onInsert: (type: string) => void;
   customBlocks: CustomBlock[];
   visibleBlocks: ResolvedBlockDef[];
+  prefs: BlockLibraryPrefs;
   /** When true, hide blocks that are not allowed as nested children
    *  (chrome blocks like nav-header/footer/popup/sticky-bar). */
   nestedTarget?: boolean;
 }
 
-function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, nestedTarget }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
+function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget }: InsertBlockDialogProps) {
+  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
+  // Append any extra categories that exist in the (prefs-applied) catalog but
+  // aren't in the default list, then sort the whole thing per tenant prefs.
+  const seen = new Set<string>(defaultCategories);
+  const extras = visibleBlocks.map(b => b.category).filter(c => !seen.has(c));
+  for (const c of extras) seen.add(c);
+  const categories = applyCategoryOrder([...defaultCategories, ...new Set(extras)], prefs);
+  const [search, setSearch] = useState("");
+  useEffect(() => { if (open) setSearch(""); }, [open]);
+  const filteredCustom = search.trim()
+    ? customBlocks.filter(b => b.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : customBlocks;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">
@@ -554,6 +606,16 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlock
             Insert Block
           </DialogTitle>
         </DialogHeader>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search blocks…"
+            className="h-8 pl-7 text-xs"
+            autoFocus
+          />
+        </div>
         <div className="overflow-y-auto flex-1 space-y-5 pr-1">
           {categories.map(cat => {
             // Render from catalog-resolved entries so admin label/category/sortOrder
@@ -566,11 +628,11 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlock
                 const reg = BLOCK_REGISTRY.find(r => r.type === b.type);
                 return reg ? isAllowedAsChild(reg) : true;
               })
-              .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
+              .filter(b => matchesBlockSearch(b, search));
             if (catBlocks.length === 0) return null;
             return (
               <div key={cat}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{cat}</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{resolveCategoryLabel(cat, prefs)}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {catBlocks.map(block => {
                     const reg = BLOCK_REGISTRY.find(r => r.type === block.type);
@@ -591,11 +653,11 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlock
               </div>
             );
           })}
-          {customBlocks.length > 0 && (
+          {filteredCustom.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Custom</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{resolveCategoryLabel("Custom", prefs)}</p>
               <div className="grid grid-cols-3 gap-2">
-                {customBlocks.map(block => (
+                {filteredCustom.map(block => (
                   <button
                     key={block.id}
                     onClick={() => onInsert(`custom:${block.id}`)}
@@ -815,6 +877,8 @@ export default function BuilderEditor() {
   // brief windows where the palette showed catalog labels while insertion still
   // used registry/dental defaults.
   const { blocks: allCatalogBlocks, getDef: catalogGetDef } = useBlockCatalog();
+  const { prefs: libraryPrefs, save: saveLibraryPrefs, saving: librarySaving } = useTenantBlockLibraryPrefs();
+  const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -882,6 +946,14 @@ export default function BuilderEditor() {
       .filter(b => isBlockVisibleForAudience(b.category, pageAudienceType))
       .filter(b => canGridPieces || b.category !== "Grid Pieces"),
     [allCatalogBlocks, pageAudienceType, canGridPieces],
+  );
+  // Apply tenant block-library prefs (hide / rename / re-shelve / reorder) on
+  // top of the audience-filtered catalog. The unfiltered `catalogBlocks` is
+  // still passed to the customize dialog so users can toggle hidden items
+  // back on.
+  const tenantCatalogBlocks = useMemo<ResolvedBlockDef[]>(
+    () => applyBlockLibraryPrefs(catalogBlocks, libraryPrefs),
+    [catalogBlocks, libraryPrefs],
   );
   // Custom blocks wrap a base block_type; gate them by that wrapped type so a
   // saved "Dandy Insights Snapshot" custom block stays hidden on practice pages.
@@ -1941,8 +2013,18 @@ export default function BuilderEditor() {
         onClose={() => { setInsertDialogOpen(false); setInsertAtIndex(null); setNestedInsertTarget(null); }}
         onInsert={handleInsertBlock}
         customBlocks={visibleCustomBlocks}
-        visibleBlocks={catalogBlocks}
+        visibleBlocks={tenantCatalogBlocks}
+        prefs={libraryPrefs}
         nestedTarget={nestedInsertTarget !== null}
+      />
+
+      <CustomizeBlockLibraryDialog
+        open={customizeLibraryOpen}
+        onClose={() => setCustomizeLibraryOpen(false)}
+        catalogBlocks={catalogBlocks}
+        prefs={libraryPrefs}
+        saving={librarySaving}
+        onSave={saveLibraryPrefs}
       />
 
       {/* Share for Review Modal */}
@@ -2051,10 +2133,22 @@ export default function BuilderEditor() {
               </TabsList>
             </div>
             <TabsContent value="blocks" className="mt-0">
-              <BlockLibrary onAdd={addBlock} customBlocks={visibleCustomBlocks} visibleBlocks={catalogBlocks} />
+              <BlockLibrary
+                onAdd={addBlock}
+                customBlocks={visibleCustomBlocks}
+                visibleBlocks={tenantCatalogBlocks}
+                prefs={libraryPrefs}
+                onCustomize={() => setCustomizeLibraryOpen(true)}
+              />
             </TabsContent>
             <TabsContent value="segment" className="mt-0">
-              <SegmentLibrary onAdd={addBlock} customBlocks={visibleCustomBlocks} segments={brand.segments ?? []} visibleBlocks={catalogBlocks} />
+              <SegmentLibrary
+                onAdd={addBlock}
+                customBlocks={visibleCustomBlocks}
+                segments={brand.segments ?? []}
+                visibleBlocks={tenantCatalogBlocks}
+                prefs={libraryPrefs}
+              />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">
               <LayersPanel
