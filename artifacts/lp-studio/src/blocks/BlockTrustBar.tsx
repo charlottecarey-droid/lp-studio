@@ -3,11 +3,13 @@ import type { TrustBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { useCountUp } from "@/hooks/use-count-up";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: TrustBarBlockProps;
   brand: BrandConfig;
   animationsEnabled?: boolean;
+  onFieldChange?: (updated: TrustBarBlockProps) => void;
 }
 
 function parseNumeric(value: string): { num: number; prefix: string; suffix: string } | null {
@@ -30,8 +32,13 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
   return <span ref={countRef}>{display}</span>;
 }
 
-export function BlockTrustBar({ props, brand, animationsEnabled = true }: Props) {
+export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
   const items = props.items ?? [];
+  const updateItem = (i: number, patch: Partial<{ value: string; label: string }>) => {
+    if (!onFieldChange) return;
+    const next = items.map((it, idx) => (idx === i ? { ...it, ...patch } : it));
+    onFieldChange({ ...props, items: next });
+  };
   const bg = props.bgColor ?? "#F8FAF9";
   const statColor = props.statColor ?? "var(--brand-primary)";
   const labelColor = props.labelColor ?? "#4A6358";
@@ -53,11 +60,22 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true }: Props)
               className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
               style={{ color: statColor }}
             >
-              <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
+              {onFieldChange ? (
+                <InlineText
+                  value={item.value}
+                  onUpdate={(v) => updateItem(i, { value: v })}
+                />
+              ) : (
+                <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
+              )}
             </span>
-            <span className="text-sm font-medium uppercase tracking-wider" style={{ color: labelColor }}>
-              {item.label}
-            </span>
+            <InlineText
+              as="span"
+              value={item.label}
+              onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
+              className="text-sm font-medium uppercase tracking-wider"
+              style={{ color: labelColor }}
+            />
           </div>
         ))}
       </div>

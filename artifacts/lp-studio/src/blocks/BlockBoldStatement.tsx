@@ -1,11 +1,13 @@
 import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { BoldStatementBlockProps } from "@/lib/block-types";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: BoldStatementBlockProps;
   brand: BrandConfig;
   onCtaClick?: () => void;
+  onFieldChange?: (updated: BoldStatementBlockProps) => void;
 }
 
 function renderStatement(html: string, accent: string): React.ReactNode {
@@ -23,10 +25,12 @@ function renderStatement(html: string, accent: string): React.ReactNode {
   });
 }
 
-export function BlockBoldStatement({ props, brand, onCtaClick }: Props) {
+export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: Props) {
   const bg = props.bgColor || "#0A0A0A";
   const text = props.textColor || "#FFFFFF";
   const accent = props.accentColor || brand.accentColor || "#C7E738";
+  const field = (key: keyof BoldStatementBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
   return (
     <section
@@ -34,7 +38,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick }: Props) {
       style={{ backgroundColor: bg, color: text }}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-36">
-        {props.eyebrow && (
+        {(props.eyebrow || onFieldChange) && (
           <div
             className="inline-flex items-center gap-3 text-[11px] uppercase tracking-[0.28em] font-semibold mb-10"
             style={{ color: accent }}
@@ -43,7 +47,11 @@ export function BlockBoldStatement({ props, brand, onCtaClick }: Props) {
               className="inline-block w-10 h-px"
               style={{ backgroundColor: accent }}
             />
-            {props.eyebrow}
+            <InlineText
+              as="span"
+              value={props.eyebrow ?? ""}
+              onUpdate={field("eyebrow")}
+            />
           </div>
         )}
 
@@ -62,15 +70,17 @@ export function BlockBoldStatement({ props, brand, onCtaClick }: Props) {
             className="mt-14 lg:mt-20 flex flex-col lg:flex-row gap-6 lg:items-end lg:justify-between border-t pt-8"
             style={{ borderColor: `${text}1A` }}
           >
-            {props.footnote && (
-              <p
+            {(props.footnote || onFieldChange) && (
+              <InlineText
+                as="p"
+                multiline
+                value={props.footnote ?? ""}
+                onUpdate={field("footnote")}
                 className="text-base lg:text-lg max-w-xl leading-relaxed"
                 style={{ opacity: 0.7 }}
-              >
-                {props.footnote}
-              </p>
+              />
             )}
-            {props.ctaText && (
+            {(props.ctaText || onFieldChange) && (
               <button
                 type="button"
                 onClick={() => {
@@ -82,7 +92,11 @@ export function BlockBoldStatement({ props, brand, onCtaClick }: Props) {
                 className="inline-flex items-center gap-2 px-7 py-4 font-semibold rounded-full transition-transform hover:-translate-y-0.5 self-start lg:self-auto"
                 style={{ backgroundColor: accent, color: bg }}
               >
-                {props.ctaText}
+                <InlineText
+                  as="span"
+                  value={props.ctaText ?? ""}
+                  onUpdate={field("ctaText")}
+                />
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}

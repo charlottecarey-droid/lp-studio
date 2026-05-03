@@ -277,7 +277,16 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "trust-bar":
-        return <BlockTrustBar props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
+        return (
+          <BlockTrustBar
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
       case "pas-section":
         return (
           <BlockPasSection
@@ -690,6 +699,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
           />
         );
       case "bold-statement":
@@ -698,6 +710,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
             props={block.props}
             brand={brand}
             onCtaClick={onCtaClick && block.props.ctaUrl ? () => onCtaClick(block.props.ctaUrl!) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
           />
         );
       case "bento-showcase":

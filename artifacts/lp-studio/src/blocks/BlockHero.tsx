@@ -4,6 +4,7 @@ import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, 
 import type { HeroBlockProps } from "@/lib/block-types";
 import { BrandLogo } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
@@ -80,10 +81,12 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
     if (!resolvedImage) return null;
     return (
       <div className="relative w-full z-10">
-        <img
+        <InlineImage
           src={resolvedImage}
           alt="Product showcase"
           className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
+          wrapperClassName="block w-full"
+          onUpdate={field("imageUrl")}
           loading="lazy"
         />
       </div>
