@@ -170,7 +170,7 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks, visibleBlocks }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[] }) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "Showcase"] as const;
   const coreCustomBlocks = customBlocks.filter(b => !b.segment || b.segment === "core");
 
   return (
@@ -544,7 +544,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, nestedTarget }: InsertBlockDialogProps) {
-  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Events"] as const;
+  const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md max-h-[70vh] flex flex-col">

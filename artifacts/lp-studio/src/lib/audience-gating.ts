@@ -172,8 +172,12 @@ export const GRID_PIECE_BLOCK_TYPES: readonly string[] = [
   "grid",
   "benefits-grid",
   "product-grid",
-  "photo-strip",
-  "bento-showcase",
+  // Container blocks (Phase 2 — nested children) recategorized into
+  // "Grid Pieces" so non-privileged editors can't inject raw layout
+  // primitives via a hand-crafted payload.
+  "section",
+  "columns",
+  "stack",
 ];
 
 const GRID_PIECE_SET = new Set(GRID_PIECE_BLOCK_TYPES);

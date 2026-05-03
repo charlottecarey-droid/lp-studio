@@ -405,7 +405,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "photo-strip",
     label: "Photo Strip",
-    category: "Grid Pieces",
+    category: "Layout",
     defaultProps: (): PhotoStripBlockProps => ({
       images: [
         { src: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=600&fit=crop", alt: "Dental restoration" },
@@ -3294,7 +3294,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "sticky-stack" as const,
     label: "Sticky Stack",
-    category: "Content" as BlockCategory,
+    category: "Showcase" as BlockCategory,
     defaultProps: (): StickyStackBlockProps => ({
       eyebrow: "WHY US",
       headline: "Three reasons teams choose us.",
@@ -3367,7 +3367,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "magazine-hero",
     label: "Magazine Hero",
-    category: "Layout",
+    category: "Showcase",
     defaultProps: () => ({
       eyebrow: "ISSUE 04 / FEATURE",
       headline: "The quiet revolution in how teams ship work.",
@@ -3428,7 +3428,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "bento-showcase",
     label: "Bento Showcase",
-    category: "Grid Pieces",
+    category: "Showcase",
     defaultProps: () => ({
       eyebrow: "WHAT YOU GET",
       headline: "A toolkit, not a tool.",
@@ -3498,7 +3498,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "gradient-pricing",
     label: "Gradient Pricing",
-    category: "Content",
+    category: "Showcase",
     defaultProps: () => ({
       eyebrow: "PRICING",
       headline: "Pricing built for momentum.",
@@ -3580,7 +3580,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "section",
     label: "Section",
-    category: "Layout",
+    category: "Grid Pieces",
     defaultProps: () => ({
       maxWidth: "default" as const,
       paddingY: "default" as const,
@@ -3597,7 +3597,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "columns",
     label: "Columns",
-    category: "Layout",
+    category: "Grid Pieces",
     defaultProps: () => ({ columns: 2 as const, gap: 1.5, align: "stretch" as const }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -3627,7 +3627,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "stack",
     label: "Stack",
-    category: "Layout",
+    category: "Grid Pieces",
     defaultProps: () => ({ gap: 1, align: "stretch" as const }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
