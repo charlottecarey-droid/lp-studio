@@ -287,6 +287,20 @@ test.describe("Marketo → Chili Piper handoff", () => {
     // and the catch block in BlockForm swallowed it, dropping the
     // conversion from analytics. At least one track call must have fired
     // (the form_submit) so an empty list is also a failure.
+    //
+    // The track POST is fire-and-forget from BlockForm.onSubmit and races
+    // with the React state update that mounts ChiliPiperModal. The iframe
+    // can become visible *before* the track response lands, which made this
+    // assertion flaky. Wait explicitly for at least one track response
+    // before reading trackStatuses.
+    if (trackStatuses.length === 0) {
+      await page
+        .waitForResponse(
+          (r) => r.request().method() === "POST" && r.url().includes("/api/lp/track"),
+          { timeout: 5_000 },
+        )
+        .catch(() => undefined);
+    }
     expect(
       trackStatuses.length,
       "expected at least one /api/lp/track POST during the flow",

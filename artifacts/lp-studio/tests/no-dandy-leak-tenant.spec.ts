@@ -235,6 +235,14 @@ test.describe("Royal-tenant no-Dandy-leak end-to-end", () => {
     await purgeStaleRoyalTenants(pool);
     tenant = await createRoyalTenant(pool);
 
+    // The api-server caches tenants by host for 60s. By the time this spec
+    // runs (after 50+ earlier specs warm the cache), a freshly-inserted
+    // tenants.domain="localhost" row is invisible to findTenantByHost — which
+    // makes the public viewer below resolve to no tenant and 404. Other
+    // tenant-seeding specs (draft-preview-gating, chili-piper-handoff, …)
+    // already invalidate via this dev-only endpoint; do the same here.
+    await request.post("/api/_test/invalidate-host-cache").catch(() => undefined);
+
     // Smoke-check the live API path: read /api/block-catalog as the seeded
     // tenant. This both warms the api-server and gives us the exact set of
     // blocks the tenant's builder will see.
