@@ -20,6 +20,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { DEFAULT_BRAND } from "@/lib/brand-config";
@@ -39,8 +41,18 @@ interface TemplatePage {
   /** True for built-in starter templates seeded by the platform. Sorted to the
    * bottom so a tenant's own custom templates always appear first. */
   isGlobal: boolean;
+  /** Industry tag for global starter templates (e.g. "dental", "saas").
+   * Null/empty for universal templates and tenant-saved templates. */
+  industry: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+function formatIndustry(slug: string): string {
+  return slug
+    .split(/[-_\s]+/)
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
+    .join(" ");
 }
 
 // Color palette for template thumbnails (when no ogImage)
@@ -71,6 +83,11 @@ export default function TemplateMarketplace() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("Newest");
+  // Industry filter: `null` means "all industries" (default). A Set means
+  // only show global templates whose industry is in the set. Tenant-saved
+  // templates and universal globals (no industry) always pass through so
+  // the user never loses access to their own work.
+  const [selectedIndustries, setSelectedIndustries] = useState<Set<string> | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<TemplatePage | null>(null);
   const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
@@ -95,6 +112,16 @@ export default function TemplateMarketplace() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Unique industry tags present across the loaded templates, sorted
+  // alphabetically. Used to populate the filter checkbox list.
+  const availableIndustries = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of templates) {
+      if (t.industry && t.industry.trim()) set.add(t.industry.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [templates]);
+
   const filteredAndSorted = useMemo(() => {
     let result = templates;
 
@@ -107,6 +134,17 @@ export default function TemplateMarketplace() {
           t.templateDescription.toLowerCase().includes(q) ||
           t.slug.toLowerCase().includes(q)
       );
+    }
+
+    // Industry filter: only restricts global, industry-tagged templates.
+    // Tenant-owned templates and untagged globals always remain visible.
+    if (selectedIndustries !== null) {
+      result = result.filter((t) => {
+        if (!t.isGlobal) return true;
+        const tag = t.industry?.trim();
+        if (!tag) return true;
+        return selectedIndustries.has(tag);
+      });
     }
 
     // Two-stage sort: tenant-owned templates always appear first, then the
@@ -130,7 +168,41 @@ export default function TemplateMarketplace() {
     sorted.sort(compare);
 
     return sorted;
-  }, [templates, searchQuery, sortBy]);
+  }, [templates, searchQuery, sortBy, selectedIndustries]);
+
+  // "All" is true both for the sentinel (`null`, untouched) and for the case
+  // where the user has individually re-checked every industry. This keeps the
+  // Select-All checkbox and label honest after individual toggles.
+  const allIndustriesSelected =
+    selectedIndustries === null ||
+    (availableIndustries.length > 0 && selectedIndustries.size === availableIndustries.length);
+  const someIndustriesSelected =
+    !allIndustriesSelected && selectedIndustries !== null && selectedIndustries.size > 0;
+  const filterButtonLabel = allIndustriesSelected
+    ? "All industries"
+    : selectedIndustries && selectedIndustries.size === 0
+      ? "No industries"
+      : selectedIndustries && selectedIndustries.size === 1
+        ? formatIndustry(Array.from(selectedIndustries)[0])
+        : `${selectedIndustries?.size ?? 0} industries`;
+
+  const toggleIndustry = (industry: string, checked: boolean) => {
+    setSelectedIndustries((prev) => {
+      // Materialize "all" into a concrete set on first interaction so the
+      // user can deselect a single industry without nuking the rest.
+      const base = prev === null ? new Set(availableIndustries) : new Set(prev);
+      if (checked) base.add(industry);
+      else base.delete(industry);
+      // Collapse back to the "all" sentinel when every industry is checked,
+      // so the Select-All control and label stay in their natural state.
+      if (base.size === availableIndustries.length) return null;
+      return base;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIndustries(checked ? null : new Set<string>());
+  };
 
   // Clone a template using the real pages clone endpoint
   const handleUseTemplate = async (template: TemplatePage) => {
@@ -220,7 +292,51 @@ export default function TemplateMarketplace() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {availableIndustries.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Filter className="h-3.5 w-3.5" />
+                    {filterButtonLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="end">
+                  <div className="p-3 border-b">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-medium">
+                      <Checkbox
+                        checked={
+                          allIndustriesSelected
+                            ? true
+                            : someIndustriesSelected
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={(c) => toggleSelectAll(c === true || c === "indeterminate")}
+                      />
+                      Select all
+                    </label>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto p-2">
+                    {availableIndustries.map((industry) => {
+                      const checked = allIndustriesSelected || (selectedIndustries?.has(industry) ?? false);
+                      return (
+                        <label
+                          key={industry}
+                          className="flex items-center gap-2 cursor-pointer select-none text-sm px-2 py-1.5 rounded hover:bg-muted"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(c) => toggleIndustry(industry, c === true)}
+                          />
+                          {formatIndustry(industry)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             {(["Newest", "Name", "Most Blocks"] as SortOption[]).map((option) => (
               <Button
                 key={option}
