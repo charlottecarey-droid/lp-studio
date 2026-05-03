@@ -547,6 +547,7 @@ export default function LandingPageViewer() {
       : rawBlocks;
     const customCss = builderPage.customCss ?? "";
     const animationsEnabled = builderPage.animationsEnabled !== false;
+    const smoothScroll = (builderPage as { smoothScroll?: boolean }).smoothScroll !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       if (ctaUrl.startsWith("chilipiper:")) {
@@ -570,7 +571,7 @@ export default function LandingPageViewer() {
     const scopedCss = customCss ? scopeCustomCss(customCss, "[data-lp-page]") : "";
 
     return (
-      <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: smoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
@@ -580,6 +581,7 @@ export default function LandingPageViewer() {
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
+        {!smoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {scopedCss && <style>{scopedCss}</style>}
         {isPreviewRoute && (
           <div data-testid="preview-banner" className="bg-card text-foreground py-2 px-4 flex items-center justify-between z-50 relative">
@@ -652,6 +654,7 @@ export default function LandingPageViewer() {
     const linkedPageCss = linkedPage?.customCss ?? "";
     const linkedPageScopedCss = linkedPageCss ? scopeCustomCss(linkedPageCss, "[data-lp-page]") : "";
     const linkedAnimationsEnabled = (linkedPage as { animationsEnabled?: boolean })?.animationsEnabled !== false;
+    const linkedSmoothScroll = (linkedPage as { smoothScroll?: boolean })?.smoothScroll !== false;
 
     const handleBuilderCtaClick = (ctaUrl: string) => {
       if (ctaUrl.startsWith("chilipiper:")) {
@@ -684,7 +687,7 @@ export default function LandingPageViewer() {
     };
 
     return (
-      <div className="min-h-screen w-full font-sans" data-lp-page style={getBrandStyleVars(brand)}>
+      <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(brand), scrollBehavior: linkedSmoothScroll ? undefined : "auto" }}>
         <BrandFontLoader brand={brand} />
         <style>{`
           @keyframes marquee {
@@ -694,6 +697,7 @@ export default function LandingPageViewer() {
           .animate-marquee { animation: marquee 40s linear infinite; }
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
+        {!linkedSmoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
           <div className="bg-card text-foreground py-2 px-4 flex items-center justify-between z-50 relative">
@@ -791,7 +795,7 @@ export default function LandingPageViewer() {
     <div className={cn(
       "min-h-screen w-full font-sans",
       isDark ? "bg-background text-foreground" : "bg-background text-foreground"
-    )} style={getBrandStyleVars(brand)} data-lp-page>
+    )} style={getBrandStyleVars(brand)} data-lp-page data-smooth-scroll>
       <BrandFontLoader brand={brand} />
       <style>{`
         @keyframes marquee {

@@ -114,6 +114,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "Ship faster with the modern operations platform",
           subheadline:
             "Northstar replaces five disconnected tools with one unified workspace your whole team will actually use. Free for the first 14 days.",
@@ -220,6 +221,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 1),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "The 2026 B2B Buyer Report",
           subheadline:
             "Two hundred pages of original research on how today's buyers evaluate software. Free download, no fluff.",
@@ -366,6 +368,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("full-bleed-hero", 1),
         type: "full-bleed-hero",
         props: {
+          headlineSize: "lg",
           headline: "Live: How modern teams ship 3× faster in 2026",
           subheadline:
             "A 45-minute live session with operators from Linear, Vercel, and Ramp. Free to attend, recording sent to all registrants.",
@@ -506,6 +509,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("full-bleed-hero", 1),
         type: "full-bleed-hero",
         props: {
+          headlineSize: "lg",
           headline: "Introducing Halo",
           subheadline:
             "The first device built around how you actually use one. Three years in the making. Available to order today.",
@@ -639,6 +643,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "Brand and product design that actually moves the metric",
           subheadline:
             "Atelier is a 12-person studio that partners with growth-stage companies on naming, identity, and product UX. Selectively. For about 8 clients a year.",
@@ -824,6 +829,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 1),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "Wood-fired pizza, made the way it's supposed to be",
           subheadline:
             "Family-owned since 2008. 72-hour fermented dough, San Marzano tomatoes, and a 900° oven. Open seven nights a week in the Mission.",
@@ -1017,6 +1023,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 1),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "A weekly read for people building things on the internet",
           subheadline:
             "One essay every Sunday, written by the founders, designers, and engineers actually doing the work. No ads, no sponsors, no recycled hot takes.",
@@ -1117,6 +1124,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline:
             '"We replaced four tools and saved $80k in the first quarter."',
           subheadline:
@@ -1264,6 +1272,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "Crafted with care. Delivered with confidence.",
           subheadline:
             "Atelier is a small studio with an outsized obsession for detail. We design and ship work the world's most discerning brands trust in front of their best customers.",
@@ -1393,6 +1402,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "Stop running your business on duct tape and goodwill.",
           subheadline:
             "Forge replaces the spreadsheets, email threads, and one-off tools your operations team has been quietly holding together — with a single platform that finally fits how you actually work.",
@@ -1518,6 +1528,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: blockId("hero", 2),
         type: "hero",
         props: {
+          headlineSize: "lg",
           headline: "A steadier way through complex decisions.",
           subheadline:
             "Lighthouse is the partner founders, finance leaders, and family offices call when the stakes are high and the answer needs to be right. Quiet, careful work — done together.",

@@ -346,6 +346,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         status: builderPage.status,
         customCss: builderPage.customCss ?? "",
         animationsEnabled: builderPage.animationsEnabled,
+        smoothScroll: builderPage.smoothScroll,
         metaTitle: builderPage.metaTitle || "",
         metaDescription: builderPage.metaDescription || "",
         ogImage: builderPage.ogImage || "",
@@ -467,7 +468,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
   // If the variant has no linked page, check if there's a builder page with this slug
   // This covers the case where a test was created on a builder page without linking variants
   const enrichedHasPage = "linkedPage" in enrichedVariant && enrichedVariant.linkedPage != null;
-  let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean } | null = null;
+  let basePage: { id: number; title: string; slug: string; blocks: unknown; customCss: string | null; status: string; animationsEnabled: boolean; smoothScroll: boolean } | null = null;
   if (!enrichedHasPage) {
     const tenantId = await resolveTenantIdFromRequest(req);
     if (tenantId != null) {
@@ -507,6 +508,7 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
       status: basePage.status,
       customCss: basePage.customCss ?? "",
       animationsEnabled: basePage.animationsEnabled !== false,
+      smoothScroll: basePage.smoothScroll !== false,
       // Embed A/B test info for tracking
       testId: test.id,
       testName: test.name,
@@ -600,6 +602,7 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     status: page.status,
     customCss: page.customCss ?? "",
     animationsEnabled: page.animationsEnabled,
+    smoothScroll: page.smoothScroll,
     metaTitle: page.metaTitle || "",
     metaDescription: page.metaDescription || "",
     ogImage: page.ogImage || "",

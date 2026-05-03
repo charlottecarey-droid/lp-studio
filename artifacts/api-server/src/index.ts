@@ -60,6 +60,7 @@ async function runMigrations(): Promise<void> {
       ALTER TABLE lp_custom_blocks ADD COLUMN IF NOT EXISTS segment text NOT NULL DEFAULT 'core';
 
       ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS animations_enabled boolean NOT NULL DEFAULT true;
+      ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS smooth_scroll boolean NOT NULL DEFAULT true;
 
       -- Page review workflow (task #108). All columns are nullable; only populated
       -- while a review is in flight or right after a decision is recorded.
@@ -918,7 +919,7 @@ async function runMigrations(): Promise<void> {
     // entries (v1) get their bogus block types fixed, but tenant edits to
     // titles or new template additions remain untouched.
     try {
-      const SEED_MARKER = "global_templates_seed_v7";
+      const SEED_MARKER = "global_templates_seed_v8";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );

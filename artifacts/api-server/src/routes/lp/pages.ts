@@ -178,7 +178,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
-    ogImage, animationsEnabled, pageVariables, fromTemplateId, audienceType, segmentId,
+    ogImage, animationsEnabled, smoothScroll, pageVariables, fromTemplateId, audienceType, segmentId,
   } = req.body as {
     title?: unknown;
     slug?: unknown;
@@ -189,6 +189,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     metaDescription?: unknown;
     ogImage?: unknown;
     animationsEnabled?: unknown;
+    smoothScroll?: unknown;
     pageVariables?: unknown;
     fromTemplateId?: unknown;
     audienceType?: unknown;
@@ -226,6 +227,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   let sourceBlocks: unknown[] = [];
   let sourceCss = "";
   let sourceAnimationsEnabled = true;
+  let sourceSmoothScroll = true;
   let sourceMetaTitle = "";
   let sourceMetaDescription = "";
   let sourceOgImage = "";
@@ -251,6 +253,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
       sourceBlocks = Array.isArray(source.blocks) ? source.blocks : [];
       sourceCss = source.customCss ?? "";
       sourceAnimationsEnabled = source.animationsEnabled ?? true;
+      sourceSmoothScroll = source.smoothScroll ?? true;
       sourceMetaTitle = source.metaTitle ?? "";
       sourceMetaDescription = source.metaDescription ?? "";
       sourceOgImage = source.ogImage ?? "";
@@ -292,6 +295,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         metaDescription: typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription,
         ogImage: typeof ogImage === "string" && ogImage.length > 0 ? ogImage : sourceOgImage,
         animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : sourceAnimationsEnabled,
+        smoothScroll: typeof smoothScroll === "boolean" ? smoothScroll : sourceSmoothScroll,
         pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables))
           ? pageVariables as Record<string, string>
           : sourcePageVariables,
@@ -582,7 +586,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, pageVariables, audienceType, segmentId } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -592,12 +596,13 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     metaDescription?: string;
     ogImage?: string;
     animationsEnabled?: boolean;
+    smoothScroll?: boolean;
     pageVariables?: Record<string, string>;
     audienceType?: string | null;
     segmentId?: string | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -636,6 +641,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (metaDescription !== undefined) updates.metaDescription = metaDescription;
   if (ogImage !== undefined) updates.ogImage = ogImage;
   if (animationsEnabled !== undefined) updates.animationsEnabled = animationsEnabled;
+  if (smoothScroll !== undefined) updates.smoothScroll = smoothScroll;
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
   if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
@@ -753,6 +759,7 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         metaDescription: source.metaDescription ?? "",
         ogImage: source.ogImage ?? "",
         animationsEnabled: source.animationsEnabled ?? true,
+        smoothScroll: source.smoothScroll ?? true,
         pageVariables: (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables)) ? source.pageVariables as Record<string, string> : {},
         createdBy: req.authUser?.email ?? null,
         ...(linkAccountId ? { accountId: linkAccountId } : {}),

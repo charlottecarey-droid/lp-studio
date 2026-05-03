@@ -16,6 +16,7 @@ export const lpPagesTable = pgTable("lp_pages", {
   metaDescription: text("meta_description").notNull().default(""),
   ogImage: text("og_image").notNull().default(""),
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
+  smoothScroll: boolean("smooth_scroll").notNull().default(true),
   pageVariables: jsonb("page_variables").default({}),
   accountId: integer("account_id"),           // internal FK (may be null after re-sync)
   sfdcAccountId: text("sfdc_account_id"),     // stable SFDC Account ID (e.g. 001xxx)

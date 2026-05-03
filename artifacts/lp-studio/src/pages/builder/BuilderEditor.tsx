@@ -91,6 +91,7 @@ interface FetchedPage {
   metaDescription?: string;
   ogImage?: string;
   animationsEnabled?: boolean;
+  smoothScroll?: boolean;
   pageVariables?: Record<string, string>;
   isTemplate?: boolean;
   templateLabel?: string | null;
@@ -122,6 +123,7 @@ interface SavePageData {
   status: "draft" | "pending_review" | "published";
   customCss?: string;
   animationsEnabled?: boolean;
+  smoothScroll?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
@@ -695,6 +697,7 @@ export default function BuilderEditor() {
   const [templateSaving, setTemplateSaving] = useState(false);
   const [customCss, setCustomCss] = useState("");
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [smoothScroll, setSmoothScroll] = useState(true);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
@@ -889,6 +892,7 @@ export default function BuilderEditor() {
         setBlocks(p.blocks ?? []);
         setCustomCss(p.customCss ?? "");
         setAnimationsEnabled(p.animationsEnabled !== false);
+        setSmoothScroll(p.smoothScroll !== false);
         setMetaTitle(p.metaTitle ?? "");
         setMetaDescription(p.metaDescription ?? "");
         setOgImage(p.ogImage ?? "");
@@ -1215,6 +1219,7 @@ export default function BuilderEditor() {
     status,
     customCss,
     animationsEnabled,
+    smoothScroll,
     metaTitle,
     metaDescription,
     ogImage,
@@ -2073,6 +2078,29 @@ export default function BuilderEditor() {
                         className={cn(
                           "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
                           animationsEnabled ? "translate-x-4" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Smooth Scroll</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">Animate jumps to anchor links instead of snapping</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={smoothScroll}
+                      onClick={() => { setSmoothScroll(v => !v); setTimeout(handleSave, 50); }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none",
+                        smoothScroll ? "bg-[var(--brand-primary)]" : "bg-slate-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform",
+                          smoothScroll ? "translate-x-4" : "translate-x-0"
                         )}
                       />
                     </button>
