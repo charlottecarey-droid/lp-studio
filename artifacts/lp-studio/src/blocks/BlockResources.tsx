@@ -5,21 +5,31 @@ import { getHeadlineSizeClass } from "../lib/typography";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: ResourcesBlockProps;
   brand: BrandConfig;
   animationsEnabled?: boolean;
+  onFieldChange?: (updated: ResourcesBlockProps) => void;
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export default function BlockResources({ props, brand, animationsEnabled = true }: Props) {
+export default function BlockResources({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
   const { headline, subheadline, columns, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
   const isDark = isDarkBg(backgroundStyle);
   const cardBg = isDark ? "bg-white/10" : "bg-white";
+
+  const field = (key: keyof ResourcesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as ResourcesBlockProps[typeof key] }) : undefined;
+  const updateItem = onFieldChange
+    ? (i: number, patch: Partial<ResourcesBlockProps["items"][number]>) =>
+        onFieldChange({ ...props, items: items.map((it, idx) => idx === i ? { ...it, ...patch } : it) })
+    : undefined;
 
   const GRID_COLS: Record<number, string> = {
     2: "grid-cols-1 sm:grid-cols-2",
@@ -32,14 +42,14 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
   return (
     <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
-        {headline && (
+        {(headline || onFieldChange) && (
           <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
-            {headline}
+            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
           </h2>
         )}
-        {subheadline && (
+        {(subheadline || onFieldChange) && (
           <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed mb-12 lg:mb-16 ${isDark ? "text-white/70" : "text-slate-500"}`}>
-            {subheadline}
+            <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
           </p>
         )}
 
@@ -58,10 +68,12 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
             >
               <div className="aspect-[16/10] bg-slate-100 relative overflow-hidden">
                 {item.image ? (
-                  <img
+                  <InlineImage
                     src={item.image}
                     alt={item.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    wrapperClassName="block w-full h-full"
+                    onUpdate={updateItem ? (url) => updateItem(i, { image: url }) : undefined}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -70,20 +82,20 @@ export default function BlockResources({ props, brand, animationsEnabled = true 
                 )}
               </div>
               <div className="p-5 flex flex-col flex-1">
-                {item.category && (
+                {(item.category || updateItem) && (
                   <span
                     className="text-xs uppercase tracking-wider font-medium mb-2"
                     style={{ color: brand.primaryColor }}
                   >
-                    {item.category}
+                    <InlineText value={item.category ?? ""} onUpdate={updateItem ? (v) => updateItem(i, { category: v }) : undefined} />
                   </span>
                 )}
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} leading-snug mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
-                  {item.title}
+                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i, { title: v }) : undefined} />
                 </h3>
-                {item.description && (
+                {(item.description || updateItem) && (
                   <p className={`text-sm leading-relaxed flex-1 ${isDark ? "text-white/70" : "text-slate-500"}`}>
-                    {item.description}
+                    <InlineText value={item.description ?? ""} onUpdate={updateItem ? (v) => updateItem(i, { description: v }) : undefined} multiline />
                   </p>
                 )}
                 <div

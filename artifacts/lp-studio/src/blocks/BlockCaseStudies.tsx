@@ -6,11 +6,14 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: CaseStudiesBlockProps;
   brand: BrandConfig;
   animationsEnabled?: boolean;
+  onFieldChange?: (updated: CaseStudiesBlockProps) => void;
 }
 
 function Placeholder({ className }: { className?: string }) {
@@ -23,7 +26,7 @@ function Placeholder({ className }: { className?: string }) {
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export default function BlockCaseStudies({ props, brand, animationsEnabled = true }: Props) {
+export default function BlockCaseStudies({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
   const { headline, subheadline, backgroundStyle } = props;
   const items = props.items ?? [];
   const sectionPy = SECTION_PY[brand.sectionPadding];
@@ -32,14 +35,25 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
   const featured = items[0];
   const rest = items.slice(1);
 
+  const field = (key: keyof CaseStudiesBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as CaseStudiesBlockProps[typeof key] }) : undefined;
+  const updateItem = onFieldChange
+    ? (i: number, patch: Partial<CaseStudiesBlockProps["items"][number]>) =>
+        onFieldChange({ ...props, items: items.map((it, idx) => idx === i ? { ...it, ...patch } : it) })
+    : undefined;
+
   return (
     <section className={`${sectionPy}`} style={getBgStyle(backgroundStyle)}>
       <div className="max-w-7xl mx-auto px-6">
-        {headline && (
-          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>{headline}</h2>
+        {(headline || onFieldChange) && (
+          <h2 className={`${getHeadlineSizeClass(undefined, brand.h2Size ?? "lg")} ${getHeadingWeightClass(brand)} ${getHeadingLetterSpacingClass(brand)} font-display mb-2`}>
+            <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
+          </h2>
         )}
-        {subheadline && (
-          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-12 lg:mb-16`}>{subheadline}</p>
+        {(subheadline || onFieldChange) && (
+          <p className={`${getBodySizeClass(brand)} lg:text-lg leading-relaxed ${isDark ? "text-white/70" : "text-slate-500"} mb-12 lg:mb-16`}>
+            <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
+          </p>
         )}
 
         <div className={`grid grid-cols-1 gap-4 ${{
@@ -58,10 +72,12 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               whileHover={(props.hoverLift ?? true) ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {featured.image ? (
-                <img
+                <InlineImage
                   src={featured.image}
                   alt={featured.title}
                   className={cn("absolute inset-0 w-full h-full object-cover transition-transform duration-500", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
+                  wrapperClassName="absolute inset-0"
+                  onUpdate={updateItem ? (url) => updateItem(0, { image: url }) : undefined}
                 />
               ) : (
                 <Placeholder className="absolute inset-0 w-full h-full" />
@@ -76,11 +92,11 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               )}
               <div className="relative p-6 md:p-8">
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "md")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-2`}>
-                  {featured.title}
+                  <InlineText value={featured.title} onUpdate={updateItem ? (v) => updateItem(0, { title: v }) : undefined} />
                 </h3>
-                {featured.categories && (
+                {(featured.categories || updateItem) && (
                   <p className="text-xs uppercase tracking-wider text-white/60">
-                    {featured.categories}
+                    <InlineText value={featured.categories ?? ""} onUpdate={updateItem ? (v) => updateItem(0, { categories: v }) : undefined} />
                   </p>
                 )}
               </div>
@@ -99,10 +115,12 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               whileHover={(props.hoverLift ?? true) ? { y: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.14)" } : undefined}
             >
               {item.image ? (
-                <img
+                <InlineImage
                   src={item.image}
                   alt={item.title}
                   className={cn("absolute inset-0 w-full h-full object-cover transition-transform duration-500", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
+                  wrapperClassName="absolute inset-0"
+                  onUpdate={updateItem ? (url) => updateItem(i + 1, { image: url }) : undefined}
                 />
               ) : (
                 <Placeholder className="absolute inset-0 w-full h-full" />
@@ -117,11 +135,11 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
               )}
               <div className="relative p-5">
                 <h3 className={`${getHeadlineSizeClass(undefined, brand.h3Size ?? "sm")} ${getHeadingWeightClass(brand)} text-white leading-snug mb-1`}>
-                  {item.title}
+                  <InlineText value={item.title} onUpdate={updateItem ? (v) => updateItem(i + 1, { title: v }) : undefined} />
                 </h3>
-                {item.categories && (
+                {(item.categories || updateItem) && (
                   <p className="text-[11px] uppercase tracking-wider text-white/60">
-                    {item.categories}
+                    <InlineText value={item.categories ?? ""} onUpdate={updateItem ? (v) => updateItem(i + 1, { categories: v }) : undefined} />
                   </p>
                 )}
               </div>

@@ -451,11 +451,11 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "video-section":
-        return <BlockVideoSection props={block.props} brand={brand} onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined} />;
+        return <BlockVideoSection props={block.props} brand={brand} onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "case-studies":
-        return <BlockCaseStudies props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
+        return <BlockCaseStudies props={block.props} brand={brand} animationsEnabled={animationsEnabled} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "resources":
-        return <BlockResources props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
+        return <BlockResources props={block.props} brand={brand} animationsEnabled={animationsEnabled} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "rich-text":
         return <BlockRichText props={block.props} brand={brand} />;
       case "custom-html":
@@ -664,11 +664,11 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} brand={brand} />;
       case "dso-cta-capture":
-        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} isBuilder={isBuilder} />;
+        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-meet-team":
-        return <BlockDsoMeetTeam props={block.props} brand={brand} />;
+        return <BlockDsoMeetTeam props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-paradigm-shift":
-        return <BlockDsoParadigmShift props={block.props} brand={brand} />;
+        return <BlockDsoParadigmShift props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-partnership-perks":
         return <BlockDsoPartnershipPerks props={block.props} brand={brand} />;
       case "dso-products-grid":

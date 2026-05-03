@@ -4,17 +4,19 @@ import type { DsoParadigmShiftBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
+import { InlineText } from "@/components/InlineText";
 
 interface Props {
   props: DsoParadigmShiftBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: DsoParadigmShiftBlockProps) => void;
 }
 
 const BRAND   = "var(--brand-primary, #0f172a)";
 const LIME    = "var(--brand-accent, #3b82f6)"; /* alpha-concat literal */
 const DISPLAY = "'Bagoss Standard','Inter',system-ui,sans-serif";
 
-export function BlockDsoParadigmShift({ props, brand }: Props) {
+export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow, headline, subheadline,
     oldWayLabel = "Traditional Lab",
@@ -24,6 +26,14 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",
     backgroundStyle = "dark",
   } = props;
+  const field = (key: keyof DsoParadigmShiftBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoParadigmShiftBlockProps[typeof key] }) : undefined;
+  const updateOldItem = onFieldChange
+    ? (i: number, v: string) => onFieldChange({ ...props, oldWayItems: oldWayItems.map((it, idx) => idx === i ? v : it) })
+    : undefined;
+  const updateNewItem = onFieldChange
+    ? (i: number, v: string) => onFieldChange({ ...props, newWayItems: newWayItems.map((it, idx) => idx === i ? v : it) })
+    : undefined;
 
   const dark = isDarkBg(backgroundStyle);
   const sectionBg = getBgStyle(backgroundStyle);
@@ -60,17 +70,17 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
 
         {/* ── Header ── */}
         <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-          {eyebrow && (
+          {(eyebrow || onFieldChange) && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             >
-              {eyebrow}
+              <InlineText value={eyebrow ?? ""} onUpdate={field("eyebrow")} />
             </motion.p>
           )}
-          {headline && (
+          {(headline || onFieldChange) && (
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -78,10 +88,10 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
               transition={{ duration: 0.6 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem,4vw,3rem)", lineHeight: 1.1, fontWeight: 600, color: headlineC, letterSpacing: "-0.02em", whiteSpace: "pre-line" }}
             >
-              {headline}
+              <InlineText value={headline ?? ""} onUpdate={field("headline")} multiline />
             </motion.h2>
           )}
-          {subheadline && (
+          {(subheadline || onFieldChange) && (
             <motion.p
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -89,7 +99,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
               transition={{ delay: 0.1 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 580, margin: "1.25rem auto 0" }}
             >
-              {subheadline}
+              <InlineText value={subheadline ?? ""} onUpdate={field("subheadline")} multiline />
             </motion.p>
           )}
         </div>
@@ -115,7 +125,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                 Old Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: oldHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                {oldWayLabel}
+                <InlineText value={oldWayLabel} onUpdate={field("oldWayLabel")} />
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem" }} aria-label="Old Way">
@@ -132,7 +142,9 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                     aria-hidden="true"
                     style={{ width: 20, height: 20, color: oldIconC, flexShrink: 0, marginTop: 1 }}
                   />
-                  <span style={{ fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.6 }}>{item}</span>
+                  <span style={{ fontSize: "0.9375rem", color: oldItemC, lineHeight: 1.6 }}>
+                    <InlineText value={item} onUpdate={updateOldItem ? (v) => updateOldItem(i, v) : undefined} />
+                  </span>
                 </motion.li>
               ))}
             </ul>
@@ -169,7 +181,7 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                 New Way
               </p>
               <h3 style={{ fontFamily: DISPLAY, fontSize: "1.75rem", fontWeight: 600, color: newHeadC, lineHeight: 1.15, letterSpacing: "-0.01em" }}>
-                {newWayLabel}
+                <InlineText value={newWayLabel} onUpdate={field("newWayLabel")} />
               </h3>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "relative" }} aria-label="New Way">
@@ -186,7 +198,9 @@ export function BlockDsoParadigmShift({ props, brand }: Props) {
                     aria-hidden="true"
                     style={{ width: 20, height: 20, color: newIconC, flexShrink: 0, marginTop: 1 }}
                   />
-                  <span style={{ fontSize: "0.9375rem", color: newItemC, lineHeight: 1.6, fontWeight: 500 }}>{item}</span>
+                  <span style={{ fontSize: "0.9375rem", color: newItemC, lineHeight: 1.6, fontWeight: 500 }}>
+                    <InlineText value={item} onUpdate={updateNewItem ? (v) => updateNewItem(i, v) : undefined} />
+                  </span>
                 </motion.li>
               ))}
             </ul>

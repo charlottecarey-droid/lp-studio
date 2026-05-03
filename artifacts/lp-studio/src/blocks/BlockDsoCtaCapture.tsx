@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { X, Calendar, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { InlineText } from "@/components/InlineText";
 
 const DISPLAY_FONT = "'Bagoss Standard','Inter',system-ui,sans-serif";
 const AW = "var(--brand-accent, hsl(68,60%,52%))";
@@ -27,6 +28,7 @@ interface Props {
   /** When true (LP Studio builder canvas), suppress the fixed/portal Chili
    *  Piper overlay so it can never cover the builder's top bar / control rails. */
   isBuilder?: boolean;
+  onFieldChange?: (updated: DsoCtaCaptureBlockProps) => void;
 }
 
 type FormState = "idle" | "loading" | "success";
@@ -47,7 +49,9 @@ function buildChiliPiperUrl(base: string, email: string, company: string): strin
   }
 }
 
-export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, isBuilder }: Props) {
+export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, isBuilder, onFieldChange }: Props) {
+  const field = (key: keyof DsoCtaCaptureBlockProps) =>
+    onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoCtaCaptureBlockProps[typeof key] }) : undefined;
   const {
     eyebrow       = "Get Started Today",
     headline      = "See what we can do\nfor your team.",
@@ -217,7 +221,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               flexShrink: 0,
             }} />
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, margin: 0 }}>
-              {eyebrow}
+              <InlineText value={eyebrow} onUpdate={field("eyebrow")} />
             </p>
           </motion.div>
 
@@ -234,7 +238,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               marginBottom: "1.5rem", whiteSpace: "pre-line",
             }}
           >
-            {headline}
+            <InlineText value={headline} onUpdate={field("headline")} multiline />
           </motion.h2>
 
           {/* Body */}
@@ -244,7 +248,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
             transition={{ duration: 0.6, delay: 0.2 }}
             style={{ fontSize: "1.0625rem", lineHeight: 1.68, color: muted, maxWidth: 420, marginBottom: "2rem" }}
           >
-            {body}
+            <InlineText value={body} onUpdate={field("body")} multiline />
           </motion.p>
 
           {/* ── Success state ── */}
@@ -264,9 +268,13 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <CheckCircle2 style={{ width: 18, height: 18, color: AW, flexShrink: 0 }} />
-                <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: pfg }}>{successHeadline}</span>
+                <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: "1rem", color: pfg }}>
+                  <InlineText value={successHeadline} onUpdate={field("successHeadline")} />
+                </span>
               </div>
-              <p style={{ fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6 }}>{successBody}</p>
+              <p style={{ fontSize: "0.875rem", color: muted, margin: 0, lineHeight: 1.6 }}>
+                <InlineText value={successBody} onUpdate={field("successBody")} multiline />
+              </p>
               {chilipiperUrl && (
                 <button
                   type="button"
@@ -292,9 +300,9 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               style={{ maxWidth: 480 }}
             >
-              {inputLabel && (
+              {(inputLabel || onFieldChange) && (
                 <p style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "rgb(var(--brand-accent-rgb, 59 130 246) / 0.6)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)", marginBottom: "0.65rem" }}>
-                  {inputLabel}
+                  <InlineText value={inputLabel ?? ""} onUpdate={field("inputLabel")} />
                 </p>
               )}
 
