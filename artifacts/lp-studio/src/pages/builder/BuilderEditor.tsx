@@ -1737,7 +1737,8 @@ export default function BuilderEditor() {
   // sits ABOVE the loading / error early-returns below. Moving it after a
   // conditional return triggers React error #310 ("Rendered more hooks
   // than during the previous render") on the very first transition out of
-  // the loading state.
+  // the loading state — regression caught by
+  // tests/grid-pieces-palette-ui.spec.ts.
   const customBlockSources: CustomBlockSource[] = useMemo(() => {
     const out: CustomBlockSource[] = [];
     for (const row of customBlocks) {
