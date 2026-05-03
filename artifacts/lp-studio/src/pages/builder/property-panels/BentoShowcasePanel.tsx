@@ -422,20 +422,20 @@ export function BentoShowcasePanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
             <Plus className="w-3 h-3" /> Add a tile
           </Label>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {KIND_OPTIONS.map(opt => (
               <Button
                 key={opt.value}
                 variant="outline"
                 size="sm"
-                className="h-auto py-2 px-2 flex flex-col items-start gap-0.5 text-left"
+                className="h-auto w-full py-2 px-3 flex flex-col items-start gap-0.5 text-left whitespace-normal"
                 onClick={() => addTile(opt.value)}
               >
                 <span className="text-xs font-medium flex items-center gap-1.5">
                   <opt.Icon className="w-3 h-3" />
                   {opt.label}
                 </span>
-                <span className="text-[10px] text-muted-foreground font-normal leading-tight">
+                <span className="text-[10px] text-muted-foreground font-normal leading-tight break-words">
                   {opt.hint}
                 </span>
               </Button>

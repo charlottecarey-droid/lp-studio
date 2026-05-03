@@ -640,8 +640,15 @@ export default function PagesGallery() {
   const selectedAudienceType = selectedSegment ? inferAudienceType(selectedSegment.name) : null;
   const selectedAudienceBucket = audienceBucket(selectedAudienceType);
   const visibleApiTemplates = useMemo(() => {
-    if (selectedAudienceBucket !== "practice") return apiTemplates;
-    return apiTemplates.filter(t => !templateContainsLeadershipContent(t.blockTypes));
+    const filtered = selectedAudienceBucket !== "practice"
+      ? apiTemplates
+      : apiTemplates.filter(t => !templateContainsLeadershipContent(t.blockTypes));
+    // Tenant-owned templates always appear before global templates so the
+    // user's own saved templates are easy to find in the create dialog.
+    return [...filtered].sort((a, b) => {
+      if (a.isGlobal !== b.isGlobal) return a.isGlobal ? 1 : -1;
+      return 0;
+    });
   }, [apiTemplates, selectedAudienceBucket]);
 
   const handleCreate = async () => {

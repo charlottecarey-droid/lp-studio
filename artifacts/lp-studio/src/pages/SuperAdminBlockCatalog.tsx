@@ -107,14 +107,22 @@ function CatalogRowEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [jsonStatus, setJsonStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setForm(initial);
       setError(null);
       setJsonError(null);
+      setJsonStatus(null);
     }
   }, [open, initial]);
+
+  useEffect(() => {
+    if (!jsonStatus) return;
+    const t = setTimeout(() => setJsonStatus(null), 1500);
+    return () => clearTimeout(t);
+  }, [jsonStatus]);
 
   const validateJson = (s: string): boolean => {
     try {
@@ -161,12 +169,31 @@ function CatalogRowEditor({
   };
 
   const tryFormat = () => {
+    const raw = (form.default_props_json ?? "").trim();
+    // Empty textarea → seed with a starter object so super-admins can see
+    // the expected JSON shape and start authoring a new global block.
+    if (raw === "") {
+      setForm({ ...form, default_props_json: "{\n  \n}" });
+      setJsonError(null);
+      setJsonStatus("Inserted empty object — start typing");
+      return;
+    }
     try {
-      const parsed = JSON.parse(form.default_props_json);
+      const parsed = JSON.parse(raw);
       setForm({ ...form, default_props_json: JSON.stringify(parsed, null, 2) });
       setJsonError(null);
+      setJsonStatus("Formatted");
     } catch (e: any) {
       setJsonError(e.message || "Invalid JSON — cannot format");
+    }
+  };
+
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(form.default_props_json ?? "");
+      setJsonStatus("Copied to clipboard");
+    } catch {
+      setJsonStatus("Copy failed — clipboard unavailable");
     }
   };
 
@@ -265,9 +292,14 @@ function CatalogRowEditor({
               <div className="space-y-1.5 col-span-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs">Default props (JSON object)</Label>
-                  <Button type="button" size="sm" variant="ghost" onClick={tryFormat} className="h-6 text-xs">
-                    Format JSON
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button type="button" size="sm" variant="ghost" onClick={copyJson} className="h-6 text-xs">
+                      Copy
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={tryFormat} className="h-6 text-xs">
+                      Format JSON
+                    </Button>
+                  </div>
                 </div>
                 <Textarea
                   value={form.default_props_json}
@@ -281,6 +313,7 @@ function CatalogRowEditor({
                   spellCheck={false}
                 />
                 {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
+                {!jsonError && jsonStatus && <p className="text-xs text-emerald-600">{jsonStatus}</p>}
                 <p className="text-[11px] text-muted-foreground">
                   Shallow-merged on top of the in-code BLOCK_REGISTRY defaults. For example,
                   set <code className="font-mono">{`{ "headline": "Your SaaS, faster" }`}</code> to
