@@ -86,10 +86,13 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       <div className="relative w-full z-10">
         <InlineImage
           src={resolvedImage}
-          alt="Product showcase"
+          alt={props.imageAlt ?? "Product showcase"}
           className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
           wrapperClassName="block w-full"
           onUpdate={field("imageUrl")}
+          onAltUpdate={field("imageAlt")}
+          focalPoint={props.imageFocal}
+          onFocalUpdate={field("imageFocal")}
           loading="lazy"
         />
       </div>

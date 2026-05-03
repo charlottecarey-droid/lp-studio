@@ -120,6 +120,13 @@ interface Props {
    * Builder uses this to register a useDroppable target. Viewer ignores it.
    */
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
+  /**
+   * Optional callback for an "append-at-end" drop zone rendered after the
+   * last child of a non-empty container. Without this, dragging a block to
+   * the bottom of a list is impossible (sortable's "before over" semantics
+   * never resolves to "after the last item").
+   */
+  renderTailSlot?: (parentPath: BlockPath) => ReactNode;
   pageId?: number;
   /**
    * Active A/B test id when the page is being rendered as a test variant.
@@ -267,7 +274,7 @@ export const NO_REVEAL = new Set<string>([
   "spacer",
 ]);
 
-export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot }: Props) {
+export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
   // Helper: render the children slot for container/overlay blocks. Uses the
   // caller-supplied renderChild (builder chrome) when provided, otherwise
   // recurses into BlockRenderer directly (viewer/published pages).
@@ -279,7 +286,14 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
       return renderEmptySlot ? renderEmptySlot(parentPath) : null;
     }
     if (renderChild) {
-      return kids.map((c, i) => renderChild(c, i, parentPath));
+      const rendered = kids.map((c, i) => renderChild(c, i, parentPath));
+      // Append a tail droppable so users can drop blocks AFTER the last
+      // child (sortable "before over" semantics can't otherwise reach the
+      // end-of-list slot).
+      if (renderTailSlot) {
+        return [...rendered, <span key="__tail__">{renderTailSlot(parentPath)}</span>];
+      }
+      return rendered;
     }
     return kids.map((c, i) => (
       <BlockRenderer
@@ -295,6 +309,9 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         pageVars={pageVars}
         isBuilder={isBuilder}
         path={[...parentPath, i]}
+        renderChild={renderChild}
+        renderEmptySlot={renderEmptySlot}
+        renderTailSlot={renderTailSlot}
       />
     ));
   };

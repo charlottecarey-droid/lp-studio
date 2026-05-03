@@ -55,10 +55,13 @@ function Tile({
       >
         <InlineImage
           src={tile.primary}
-          alt={tile.secondary || ""}
+          alt={tile.imageAlt ?? tile.secondary ?? ""}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           wrapperClassName="absolute inset-0"
           onUpdate={onUpdate ? (url) => onUpdate({ primary: url }) : undefined}
+          onAltUpdate={onUpdate ? (v) => onUpdate({ imageAlt: v }) : undefined}
+          focalPoint={tile.imageFocal}
+          onFocalUpdate={onUpdate ? (v) => onUpdate({ imageFocal: v }) : undefined}
         />
         {(tile.secondary || onUpdate) && (
           <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/70 to-transparent z-10">

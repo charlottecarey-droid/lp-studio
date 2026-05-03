@@ -44,7 +44,7 @@ import {
   removeAtPath,
   setAtPath,
 } from "@/lib/block-tree";
-import { NestedChild, EmptyContainerSlot } from "./NestedChildren";
+import { NestedChild, EmptyContainerSlot, TailDropSlot } from "./NestedChildren";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
@@ -1394,6 +1394,7 @@ export default function BuilderEditor() {
         onBlockChange={updateBlock}
         renderChild={renderNestedChild}
         renderEmptySlot={renderEmptySlot}
+        renderTailSlot={renderTailSlot}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1408,6 +1409,12 @@ export default function BuilderEditor() {
           setInsertDialogOpen(true);
         }}
       />
+    ),
+    [],
+  );
+  const renderTailSlot = useCallback(
+    (parentPath: BlockPath): ReactNode => (
+      <TailDropSlot parentPath={parentPath} />
     ),
     [],
   );
@@ -2048,10 +2055,17 @@ export default function BuilderEditor() {
                           path={[index]}
                           renderChild={renderNestedChild}
                           renderEmptySlot={renderEmptySlot}
+                          renderTailSlot={renderTailSlot}
                         />
                         <InsertionBar onClick={() => openInsertAt(index + 1)} />
                       </div>
                     ))}
+                    {/* Top-level tail drop slot — lets users drop a block
+                        at the very end of the page (the standard sortable
+                        "before over" semantics never resolves to "after the
+                        last item"). Same `container:` droppable id is
+                        treated as "append" by handleDragEnd. */}
+                    <TailDropSlot parentPath={[]} />
                   </SortableContext>
               </div>
             )}
@@ -2791,11 +2805,12 @@ interface SortableCanvasBlockProps {
   path?: BlockPath;
   /** Recursive child renderer (BuilderEditor closure). */
   renderChild?: (c: PageBlock, i: number, parentPath: BlockPath) => ReactNode;
+  renderTailSlot?: (parentPath: BlockPath) => ReactNode;
   /** Empty-container droppable renderer (BuilderEditor closure). */
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot }: SortableCanvasBlockProps) {
+function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -3020,6 +3035,7 @@ function SortableCanvasBlock({ block, brand, isSelected, onSelect, onDelete, onT
               path={path ?? [blockIndex]}
               renderChild={renderChild}
               renderEmptySlot={renderEmptySlot}
+              renderTailSlot={renderTailSlot}
             />
           </BuilderBlockErrorBoundary>
         </div>

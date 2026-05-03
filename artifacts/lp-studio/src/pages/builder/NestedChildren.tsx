@@ -38,6 +38,7 @@ interface NestedChildProps {
   onBlockChange: (updated: PageBlock) => void;
   renderChild: (c: PageBlock, i: number, parentPath: BlockPath) => ReactNode;
   renderEmptySlot: (parentPath: BlockPath) => ReactNode;
+  renderTailSlot?: (parentPath: BlockPath) => ReactNode;
 }
 
 export function NestedChild({
@@ -53,6 +54,7 @@ export function NestedChild({
   onBlockChange,
   renderChild,
   renderEmptySlot,
+  renderTailSlot,
 }: NestedChildProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: child.id,
@@ -115,6 +117,7 @@ export function NestedChild({
           path={childPath}
           renderChild={renderChild}
           renderEmptySlot={renderEmptySlot}
+          renderTailSlot={renderTailSlot}
         />
       </div>
       <NestedInsertChip onClick={onInsertAfter} />
@@ -144,6 +147,28 @@ interface EmptyContainerSlotProps {
   parentPath: BlockPath;
   onInsert: () => void;
   label?: string;
+}
+
+/**
+ * Thin "drop here" slot rendered after the last child of a non-empty
+ * container so users can drop a block at the end (the standard sortable
+ * "before the over" semantics never resolves to "after the last item").
+ * Reuses the same `container:<parentPath>` droppable id as
+ * `EmptyContainerSlot` so `handleDragEnd` treats both identically (append).
+ */
+export function TailDropSlot({ parentPath }: { parentPath: BlockPath }) {
+  const id = `container:${parentPath.join(".")}`;
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      data-tail-slot={id}
+      className={cn(
+        "h-3 -mt-1 rounded transition-colors",
+        isOver ? "bg-primary/30 ring-1 ring-primary" : "bg-transparent",
+      )}
+    />
+  );
 }
 
 export function EmptyContainerSlot({ parentPath, onInsert, label }: EmptyContainerSlotProps) {

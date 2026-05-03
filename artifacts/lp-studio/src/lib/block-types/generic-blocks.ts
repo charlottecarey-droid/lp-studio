@@ -24,6 +24,10 @@ export interface HeroBlockProps {
   showSocialProof: boolean;
   socialProofText: string;
   imageUrl: string;
+  /** Optional alt text for the hero image (a11y + saved to JSON). */
+  imageAlt?: string;
+  /** Optional CSS object-position ("x% y%") for the hero image focal point. */
+  imageFocal?: string;
   mediaUrl: string;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   imageShadow?: boolean;
@@ -728,6 +732,10 @@ export interface BentoShowcaseTile {
   textColor?: string;
   /** Lucide icon name shown above feature-kind tiles. */
   icon?: string;
+  /** Image-tile only: alt text (saved to JSON). */
+  imageAlt?: string;
+  /** Image-tile only: CSS object-position focal point (e.g. "50% 30%"). */
+  imageFocal?: string;
 }
 
 export interface BentoShowcaseBlockProps {
