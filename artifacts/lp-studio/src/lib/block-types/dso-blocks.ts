@@ -1082,6 +1082,18 @@ export interface EventLandingHeroBlockProps {
   /** Primary CTA pill button label. Hidden when empty. */
   ctaText?: string;
   ctaUrl?: string;
+  /** CTA pill background color (resting). Defaults to the tenant's brand
+   *  primary color. */
+  ctaBgColor?: string;
+  /** CTA pill text color (resting). Defaults to a readable foreground on
+   *  the resting background. */
+  ctaTextColor?: string;
+  /** CTA pill background color on hover. Defaults to the tenant's brand
+   *  accent color. */
+  ctaHoverBgColor?: string;
+  /** CTA pill text color on hover. Defaults to a readable foreground on
+   *  the hover background. */
+  ctaHoverTextColor?: string;
   /** When true, the CTA button gets a stronger drop shadow to lift it off
    *  the background. Default false (subtle shadow only). */
   ctaDropShadow?: boolean;

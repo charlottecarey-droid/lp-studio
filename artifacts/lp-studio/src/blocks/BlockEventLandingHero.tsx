@@ -126,11 +126,13 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
-  // Brand-aware CTA palette.
-  const P = `var(--brand-primary, ${brand.primaryColor})`;
-  const A = `var(--brand-accent, ${brand.accentColor})`;
-  const ctaFg = readableOn(brand.primaryColor);
-  const accentFg = readableOn(brand.accentColor);
+  // Brand-aware CTA palette, with optional per-instance overrides. When the
+  // user supplies an explicit color it wins; otherwise we fall back to the
+  // tenant brand variables (so the rest of the brand system still applies).
+  const P = props.ctaBgColor ?? `var(--brand-primary, ${brand.primaryColor})`;
+  const A = props.ctaHoverBgColor ?? `var(--brand-accent, ${brand.accentColor})`;
+  const ctaFg = props.ctaTextColor ?? readableOn(props.ctaBgColor ?? brand.primaryColor);
+  const accentFg = props.ctaHoverTextColor ?? readableOn(props.ctaHoverBgColor ?? brand.accentColor);
 
   const handleCtaClick = () => {
     if (onCtaClick) { onCtaClick(); return; }

@@ -301,6 +301,32 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
           </div>
         </div>
         <div className="space-y-2 border rounded-md p-3">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Button colors</p>
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField
+              label="Background"
+              value={props.ctaBgColor}
+              onChange={(v) => set("ctaBgColor", v)}
+            />
+            <ColorField
+              label="Text"
+              value={props.ctaTextColor}
+              onChange={(v) => set("ctaTextColor", v)}
+            />
+            <ColorField
+              label="Hover background"
+              value={props.ctaHoverBgColor}
+              onChange={(v) => set("ctaHoverBgColor", v)}
+            />
+            <ColorField
+              label="Hover text"
+              value={props.ctaHoverTextColor}
+              onChange={(v) => set("ctaHoverTextColor", v)}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Empty fields fall back to your brand colors. Text auto-picks a readable shade if you only set a background.</p>
+        </div>
+        <div className="space-y-2 border rounded-md p-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Premium drop shadow on CTA</Label>
             <Switch
