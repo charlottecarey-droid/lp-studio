@@ -1,8 +1,47 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+
+/**
+ * Force the SPA shell (index.html) to revalidate on every visit so returning
+ * visitors don't render a stale HTML that points to old hashed asset bundles
+ * after a deploy. Symptom without this: a white page on first load that "fixes
+ * itself" when the user hits refresh — the cached HTML referenced
+ * `/assets/index-<oldhash>.js` which 404s after the new build replaces it.
+ *
+ * Hashed assets under `/assets/*` keep their long-lived immutable cache (Vite
+ * default), so this only affects the small HTML shell, not bundle re-downloads.
+ */
+function noCacheHtmlPlugin(): PluginOption {
+  const setHeaders = (url: string | undefined, setHeader: (k: string, v: string) => void) => {
+    // Only the HTML shell — never touch /assets/* (hashed, immutable).
+    if (!url) return;
+    const path = url.split("?")[0];
+    if (path.startsWith("/assets/")) return;
+    if (/\.[a-z0-9]+$/i.test(path) && !path.endsWith(".html")) return;
+    setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    setHeader("Pragma", "no-cache");
+    setHeader("Expires", "0");
+  };
+  return {
+    name: "lp-studio:no-cache-html",
+    apply: () => true,
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        setHeaders(req.url, (k, v) => res.setHeader(k, v));
+        next();
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        setHeaders(req.url, (k, v) => res.setHeader(k, v));
+        next();
+      });
+    },
+  };
+}
 
 const rawPort = process.env.PORT ?? "5173";
 const port = Number(rawPort);
@@ -19,6 +58,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    noCacheHtmlPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
