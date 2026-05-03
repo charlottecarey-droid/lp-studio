@@ -787,6 +787,10 @@ export interface MagazineHeroBlockProps {
   subheadline?: string;
   ctaText: string;
   ctaUrl: string;
+  /** Optional secondary CTA rendered as a text link next to the primary
+   *  button. Useful for "Read the story →" style flows. */
+  ctaSecondaryText?: string;
+  ctaSecondaryUrl?: string;
   bylineLabel?: string;
   bylineValue?: string;
   imageUrl?: string;
@@ -796,6 +800,26 @@ export interface MagazineHeroBlockProps {
   bgColor?: string;
   /** Text color for headline + body. */
   textColor?: string;
+  /** Layout variant. Defaults to "split" (current behavior). */
+  layout?: "split" | "stacked" | "cover";
+  /** Aspect ratio of the hero image. */
+  imageAspect?: "portrait" | "square" | "landscape" | "wide";
+  /** Serif typeface used for the headline.
+   *  - modern: Instrument Serif (light, editorial — Apple-marketing vibe)
+   *  - editorial: Fraunces (warm, contemporary)
+   *  - classic: Playfair Display (the original, more traditional) */
+  serifStyle?: "modern" | "editorial" | "classic";
+  /** Headline weight. Light feels more premium, bold feels more punchy. */
+  headlineWeight?: "light" | "regular" | "bold";
+  /** Optional small rotation on the hero image (degrees). Defaults to 0. */
+  imageRotation?: number;
+  /** Show a thin top + bottom rule for an editorial framed feel. */
+  showRule?: boolean;
+  /** Optional metadata strip rendered above the eyebrow, e.g.
+   *  "Issue 04 — Spring 2026". */
+  issueLabel?: string;
+  /** Cover layout only: how dark to scrim the image so overlay text reads. */
+  coverScrim?: number;
 }
 
 /* ------------------------------------------------------------------------- */

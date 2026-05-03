@@ -69,6 +69,9 @@ import { DandyCtaBlockPanel } from "./DandyCtaBlockPanel";
 import { OnePagerHeroPanel } from "./OnePagerHeroPanel";
 import { EventPagePanel } from "./EventPagePanel";
 import { BentoShowcasePanel } from "./BentoShowcasePanel";
+import { MagazineHeroPanel } from "./MagazineHeroPanel";
+import { BoldStatementPanel } from "./BoldStatementPanel";
+import { GradientPricingPanel } from "./GradientPricingPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -4990,9 +4993,26 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           />
         );
       case "magazine-hero":
+        return (
+          <MagazineHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
       case "bold-statement":
+        return (
+          <BoldStatementPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
       case "gradient-pricing":
-        return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
+        return (
+          <GradientPricingPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
       case "event-landing-hero":
         return (
           <EventLandingHeroPanel
