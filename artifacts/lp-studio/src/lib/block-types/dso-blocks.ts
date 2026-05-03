@@ -1070,6 +1070,9 @@ export interface EventLandingHeroBlockProps {
   overlayColor?: string;
   /** Optional small eyebrow above the headline (e.g. "*Limited spots*"). */
   eyebrow?: string;
+  /** When true (default), the eyebrow renders in italic. Set false for a
+   *  straight, non-italic eyebrow. */
+  eyebrowItalic?: boolean;
   /** Main headline (e.g. "Dandy After Hours: New York"). */
   headline: string;
   /** Date / location subtext shown under the headline. */
@@ -1079,6 +1082,12 @@ export interface EventLandingHeroBlockProps {
   /** Primary CTA pill button label. Hidden when empty. */
   ctaText?: string;
   ctaUrl?: string;
+  /** When true, the CTA button gets a stronger drop shadow to lift it off
+   *  the background. Default false (subtle shadow only). */
+  ctaDropShadow?: boolean;
+  /** When true, the CTA button gets an animated "shine" sweep across its
+   *  surface every few seconds to draw the eye. Default false. */
+  ctaShine?: boolean;
   /** Show the "SCROLL DOWN" indicator at the bottom. Default true. */
   showScrollIndicator?: boolean;
   /** Label rendered above the scroll-down chevron. Default "SCROLL DOWN". */

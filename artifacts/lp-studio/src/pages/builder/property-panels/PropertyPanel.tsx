@@ -204,6 +204,13 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
             placeholder="*Limited spots*"
           />
         </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Italic eyebrow</Label>
+          <Switch
+            checked={props.eyebrowItalic ?? true}
+            onCheckedChange={(v) => set("eyebrowItalic", v)}
+          />
+        </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Headline width — {props.headlineMaxWidthCh ?? 18} ch</Label>
           <Slider
@@ -292,6 +299,20 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
               placeholder="#rsvp"
             />
           </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Premium drop shadow on CTA</Label>
+          <Switch
+            checked={props.ctaDropShadow ?? false}
+            onCheckedChange={(v) => set("ctaDropShadow", v)}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Animated shine on CTA</Label>
+          <Switch
+            checked={props.ctaShine ?? false}
+            onCheckedChange={(v) => set("ctaShine", v)}
+          />
         </div>
         <div className="flex items-center justify-between">
           <Label className="text-xs">Show "Scroll down" indicator</Label>

@@ -62,11 +62,14 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
     backgroundFocalPoint,
     overlayColor = "#000000",
     eyebrow,
+    eyebrowItalic = true,
     headline,
     dateText,
     locationText,
     ctaText,
     ctaUrl,
+    ctaDropShadow = false,
+    ctaShine = false,
     showScrollIndicator = true,
     scrollLabel = "SCROLL DOWN",
     scrollTargetId,
@@ -259,7 +262,7 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               style={{
                 margin: 0,
                 fontSize: "clamp(0.75rem, 1.4vw, 0.875rem)",
-                fontStyle: "italic",
+                fontStyle: eyebrowItalic ? "italic" : "normal",
                 fontWeight: 500,
                 letterSpacing: "0.04em",
                 color: A,
@@ -340,6 +343,8 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               whileHover={{ y: -2 }}
               style={{
                 marginTop: "clamp(0.5rem, 2vh, 1rem)",
+                position: "relative",
+                overflow: "hidden",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -354,8 +359,13 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
                 textTransform: "uppercase",
                 border: "none",
                 cursor: "pointer",
-                boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
-                transition: "background-color 0.25s ease, box-shadow 0.25s ease",
+                // When `ctaDropShadow` is on, layer a tighter inner shadow with
+                // a wider, softer outer halo so the button reads as elevated
+                // off the hero photo. Otherwise keep the original subtle one.
+                boxShadow: ctaDropShadow
+                  ? "0 2px 6px rgba(0,0,0,0.25), 0 18px 42px rgba(0,0,0,0.55)"
+                  : "0 8px 28px rgba(0,0,0,0.35)",
+                transition: "background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = A;
@@ -367,6 +377,30 @@ export function BlockEventLandingHero({ props, brand, pageId, testId, variantId,
               }}
             >
               <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
+              {ctaShine && (
+                // Diagonal white sheen sweeping across the button every few
+                // seconds. `pointer-events: none` so it never intercepts the
+                // click, and `mix-blend-mode: screen` keeps the sheen visible
+                // on both light- and dark-tinted button backgrounds.
+                <motion.span
+                  aria-hidden
+                  initial={{ x: "-120%" }}
+                  animate={{ x: "220%" }}
+                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 2.4, ease: "easeInOut" }}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "55%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    background:
+                      "linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)",
+                    mixBlendMode: "screen",
+                    transform: "skewX(-20deg)",
+                  }}
+                />
+              )}
             </motion.button>
           )}
         </motion.div>
