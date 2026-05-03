@@ -923,7 +923,12 @@ async function runMigrations(): Promise<void> {
       // select field stored options as {label,value} objects and crashed
       // BlockForm with a minified "objects are not valid as a React
       // child" error in production.
-      const SEED_MARKER = "global_templates_seed_v18";
+      // v19: fix flagship templates — Creator Portfolio bold-statement
+      // crashed (`statement` was named `headline`); flagship bento tiles
+      // used invalid kind "headline" + headline/body fields (rendered
+      // blank); two `dandy-versus` blocks shipped with empty props (no
+      // text on either side).
+      const SEED_MARKER = "global_templates_seed_v19";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );

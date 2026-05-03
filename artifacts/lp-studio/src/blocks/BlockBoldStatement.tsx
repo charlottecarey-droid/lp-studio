@@ -34,7 +34,7 @@ function renderStatement(
   scrollReveal: boolean,
   dimColor: string,
 ): React.ReactNode {
-  const parts = html.split(/(<em[^>]*>.*?<\/em>)/gi);
+  const parts = (html ?? "").split(/(<em[^>]*>.*?<\/em>)/gi);
   return parts.map((part, i) => {
     const m = part.match(/^<em[^>]*>(.*)<\/em>$/i);
     const isAccent = !!m;
@@ -107,7 +107,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: 
             letterSpacing: "-0.04em",
           }}
         >
-          {renderStatement(props.statement, accent, text, scrollReveal, dimColor)}
+          {renderStatement(props.statement ?? "", accent, text, scrollReveal, dimColor)}
         </h2>
 
         {(props.footnote || props.ctaText) && (
