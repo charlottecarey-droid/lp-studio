@@ -9,12 +9,22 @@ import { FONT_CATALOG, findCatalogEntry, isSelfHostedFont } from "./font-catalog
  * them straight into the loader. Quietly returns `[]` for anything not in
  * the catalog (custom system stacks, etc.) — those don't need network loads.
  */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function extractCatalogFamilies(value: string | undefined | null): string[] {
   if (!value) return [];
   const lower = value.toLowerCase();
   const found: string[] = [];
   for (const entry of FONT_CATALOG) {
-    if (lower.includes(entry.family.toLowerCase())) {
+    // Match the family only when it appears as a standalone token in the
+    // CSS stack — bounded by string edges, quotes, commas, or whitespace.
+    // Prevents false positives like "Sora" matching inside "Source Serif 4".
+    const re = new RegExp(
+      `(?:^|["',\\s])${escapeRegex(entry.family.toLowerCase())}(?:["',\\s]|$)`,
+    );
+    if (re.test(lower)) {
       found.push(entry.family);
     }
   }

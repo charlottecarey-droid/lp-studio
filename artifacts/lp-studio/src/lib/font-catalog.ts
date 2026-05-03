@@ -44,11 +44,19 @@ export const FONT_CATALOG: FontCatalogEntry[] = [
   { family: "Figtree", category: "sans", googleParam: "Figtree:wght@400;500;600;700" },
   { family: "Outfit", category: "sans", googleParam: "Outfit:wght@400;500;600;700" },
 
+  // Sans-serifs (continued — backward-compat with legacy event-page picks)
+  { family: "Montserrat", category: "sans", googleParam: "Montserrat:wght@400;500;600;700" },
+  { family: "Poppins", category: "sans", googleParam: "Poppins:wght@400;500;600;700" },
+
   // Serifs
   { family: "Fraunces", category: "serif", googleParam: "Fraunces:wght@400;500;600;700" },
   { family: "Source Serif 4", label: "Source Serif", category: "serif", googleParam: "Source+Serif+4:wght@400;500;600;700" },
   { family: "Playfair Display", category: "serif", googleParam: "Playfair+Display:wght@400;500;600;700" },
   { family: "Lora", category: "serif", googleParam: "Lora:wght@400;500;600;700" },
+  { family: "EB Garamond", category: "serif", googleParam: "EB+Garamond:ital,wght@0,400;0,500;0,600;1,400" },
+  { family: "Cormorant Garamond", category: "serif", googleParam: "Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400" },
+  { family: "Cinzel", category: "serif", googleParam: "Cinzel:wght@400;500;600;700" },
+  { family: "DM Serif Display", category: "serif", googleParam: "DM+Serif+Display:ital@0;1" },
 ];
 
 /** Lookup helper. Matches case-insensitively on family name. */

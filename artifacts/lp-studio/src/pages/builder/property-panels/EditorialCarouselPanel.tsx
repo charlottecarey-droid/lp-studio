@@ -18,47 +18,7 @@ import {
 import { ImagePicker } from "@/components/ImagePicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
-import { FONT_CATALOG } from "@/lib/font-catalog";
-
-// Group catalog fonts by category for the panel's font dropdowns. Display
-// fonts come first since headline pickers usually want them.
-const FONT_GROUPS: Array<{ label: string; fonts: typeof FONT_CATALOG }> = [
-  { label: "Display", fonts: FONT_CATALOG.filter((f) => f.category === "display") },
-  { label: "Serif", fonts: FONT_CATALOG.filter((f) => f.category === "serif") },
-  { label: "Sans-serif", fonts: FONT_CATALOG.filter((f) => f.category === "sans") },
-  { label: "Monospace", fonts: FONT_CATALOG.filter((f) => f.category === "mono") },
-];
-
-function FontSelect({
-  value,
-  onChange,
-  inheritLabel,
-}: {
-  value: string | undefined;
-  onChange: (v: string | undefined) => void;
-  inheritLabel: string;
-}) {
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || undefined)}
-      className="w-full h-8 text-xs rounded-md border border-border bg-background px-2"
-    >
-      <option value="">{inheritLabel}</option>
-      {FONT_GROUPS.map((group) =>
-        group.fonts.length === 0 ? null : (
-          <optgroup key={group.label} label={group.label}>
-            {group.fonts.map((f) => (
-              <option key={f.family} value={f.family} style={{ fontFamily: f.family }}>
-                {f.label || f.family}
-              </option>
-            ))}
-          </optgroup>
-        ),
-      )}
-    </select>
-  );
-}
+import { FontSelect } from "@/components/FontSelect";
 
 interface Props {
   props: EditorialCarouselBlockProps;

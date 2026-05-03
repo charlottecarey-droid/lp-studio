@@ -10,6 +10,7 @@ import { BrandSwatches } from "@/components/BrandSwatches";
 import { suggestCopy } from "@/lib/copy-api";
 import type { EventPageBlockProps, EventPageAgendaDay, EventPagePhoto, EventPageDetail, EventPageNavLink, EventPageTheme } from "@/lib/block-types";
 import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
+import { FontSelect } from "@/components/FontSelect";
 
 const THEME_DEFAULTS: Required<EventPageTheme> = {
   bg: "#0c0f12",
@@ -25,31 +26,6 @@ const THEME_DEFAULTS: Required<EventPageTheme> = {
   displayFontFamily: "EB Garamond",
   bodyFontFamily: "Inter",
 };
-
-const DISPLAY_FONT_OPTIONS = [
-  "EB Garamond",
-  "Playfair Display",
-  "Cormorant Garamond",
-  "DM Serif Display",
-  "Lora",
-  "Cormorant",
-  "Cinzel",
-  "Inter",
-  "Montserrat",
-  "Poppins",
-];
-
-const BODY_FONT_OPTIONS = [
-  "Inter",
-  "Manrope",
-  "DM Sans",
-  "Work Sans",
-  "Source Sans 3",
-  "Plus Jakarta Sans",
-  "Nunito",
-  "Roboto",
-  "Lato",
-];
 
 function ColorRow({ label, value, fallback, onChange }: { label: string; value: string | undefined; fallback: string; onChange: (v: string) => void }) {
   const v = (value && value.trim()) || fallback;
@@ -185,27 +161,19 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
         <div className="space-y-3 pt-3 pb-4">
           <div className="space-y-2">
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Fonts</Label>
-            <Field label="Heading Font" hint="Used for headlines, event name, italic display text">
-              <select
-                value={theme.displayFontFamily ?? THEME_DEFAULTS.displayFontFamily}
-                onChange={e => setTheme({ displayFontFamily: e.target.value })}
-                className="w-full h-8 text-xs border border-border rounded px-2 bg-background"
-              >
-                {DISPLAY_FONT_OPTIONS.map(f => (
-                  <option key={f} value={f} style={{ fontFamily: `'${f}', serif` }}>{f}</option>
-                ))}
-              </select>
+            <Field label="Heading Font" hint="Used for headlines, event name, italic display text. Selected Google Fonts load automatically.">
+              <FontSelect
+                value={theme.displayFontFamily}
+                onChange={(v) => setTheme({ displayFontFamily: v ?? THEME_DEFAULTS.displayFontFamily })}
+                inheritLabel={`Default (${THEME_DEFAULTS.displayFontFamily})`}
+              />
             </Field>
-            <Field label="Body Font" hint="Used for paragraphs, nav links, buttons, form fields">
-              <select
-                value={theme.bodyFontFamily ?? THEME_DEFAULTS.bodyFontFamily}
-                onChange={e => setTheme({ bodyFontFamily: e.target.value })}
-                className="w-full h-8 text-xs border border-border rounded px-2 bg-background"
-              >
-                {BODY_FONT_OPTIONS.map(f => (
-                  <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
-                ))}
-              </select>
+            <Field label="Body Font" hint="Used for paragraphs, nav links, buttons, form fields. Selected Google Fonts load automatically.">
+              <FontSelect
+                value={theme.bodyFontFamily}
+                onChange={(v) => setTheme({ bodyFontFamily: v ?? THEME_DEFAULTS.bodyFontFamily })}
+                inheritLabel={`Default (${THEME_DEFAULTS.bodyFontFamily})`}
+              />
             </Field>
           </div>
 

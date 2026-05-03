@@ -4,6 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import type { EventPageBlockProps, EventPageTheme } from "@/lib/block-types";
 import type { FormField } from "@/lib/block-types";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 // Default dark luxury palette — used when theme overrides are absent
 const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingColor: string } = {
