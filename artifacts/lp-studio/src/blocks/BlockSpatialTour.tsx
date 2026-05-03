@@ -13,14 +13,17 @@ import spatialHeadsetImg from "@assets/image_1777179519607.png";
 // a forest_deep bg + white logo/text; "light" sections flip it to a near-white
 // bg + dark forest logo/text. Keep this in sync with the actual section
 // backgrounds rendered below — Hero, Marquee, the Spatial callout, and the
-// RSVP/Calendar are dark; Manifesto, the Tour stations, and Ways are light.
-// The Tour stations section uses a light/cream background, so the nav must
-// flip back to its light palette while it's behind the bar — otherwise the
-// dark nav text/logo are invisible on top of the cream stations.
+// RSVP/Calendar are dark; Manifesto and Ways are light.
+// The Tour group is split in two so the nav can flip per sub-section:
+//   • `tour-intro` (dark FOREST) — the "five stations" intro panel.
+//   • `tour` (light/cream) — the stacked station cards.
+// Both keep the same num/label so the nav chip ("04 / STATIONS") doesn't
+// flicker when the theme flips at the boundary between intro and stations.
 const ST_SECTIONS = [
   { kind: "hero", num: "01", label: "TOUR", theme: "dark" },
   { kind: "marquee", num: "02", label: "PROOF", theme: "dark" },
   { kind: "manifesto", num: "03", label: "WHY", theme: "light" },
+  { kind: "tour-intro", num: "04", label: "STATIONS", theme: "dark" },
   { kind: "tour", num: "04", label: "STATIONS", theme: "light" },
   { kind: "callout", num: "05", label: "SPATIAL", theme: "dark" },
   { kind: "ways", num: "06", label: "WAYS", theme: "light" },
@@ -2358,8 +2361,12 @@ export function BlockSpatialTour({ props }: { props: SpatialTourBlockProps }) {
       <div id={sectionId("manifesto")} style={{ position: "relative" }}>
         <Manifesto p={props} />
       </div>
-      <div id={sectionId("tour")} style={{ position: "relative" }}>
+      {/* Split observed sub-sections so the nav theme flips between the dark
+          intro and the cream stations stack. See ST_SECTIONS comment. */}
+      <div id={sectionId("tour-intro")} style={{ position: "relative" }}>
         <TourIntro p={props} />
+      </div>
+      <div id={sectionId("tour")} style={{ position: "relative" }}>
         {stations.map((s, i) => (
           <StationCard
             key={s.number || i}
