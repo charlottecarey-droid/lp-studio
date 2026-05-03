@@ -8,6 +8,7 @@ import {
   ElementType,
 } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import {
   Bold,
   Italic,
@@ -55,6 +56,12 @@ function fetchInternalPages(): Promise<InternalPageRef[]> {
   return pagesCache;
 }
 
+interface InlineTextAnimate {
+  y?: number;
+  delay?: number;
+  duration?: number;
+}
+
 interface InlineTextProps {
   value: string;
   onUpdate?: (value: string) => void;
@@ -62,6 +69,12 @@ interface InlineTextProps {
   multiline?: boolean;
   as?: ElementType;
   style?: React.CSSProperties;
+  /**
+   * Optional subtle entrance animation applied only on the read-only render
+   * path (when `onUpdate` is not provided). Edit mode skips animation so
+   * click-to-edit and selection are never blocked by an in-flight transform.
+   */
+  animate?: InlineTextAnimate;
 }
 
 const COLOR_SWATCHES: ReadonlyArray<{ name: string; value: string }> = [
@@ -118,6 +131,7 @@ export function InlineText({
   multiline = false,
   as: Tag = "span",
   style,
+  animate,
 }: InlineTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLElement | null>(null);
@@ -339,17 +353,46 @@ export function InlineText({
 
   // Read-only render path (no onUpdate) — also used when isEditing is false.
   if (!onUpdate) {
+    const baseStyle: React.CSSProperties = { ...wrapStyle, ...style };
+    if (animate) {
+      const MotionTag = motion.create(Tag as React.ComponentType<Record<string, unknown>>);
+      const motionProps = {
+        initial: { opacity: 0, y: animate.y ?? 12 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, margin: "-10% 0px" },
+        transition: {
+          duration: animate.duration ?? 0.6,
+          delay: animate.delay ?? 0,
+          ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+        },
+      };
+      if (renderedHtml && isLikelyHtml(value)) {
+        return (
+          <MotionTag
+            {...motionProps}
+            className={className}
+            style={baseStyle}
+            dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          />
+        );
+      }
+      return (
+        <MotionTag {...motionProps} className={className} style={baseStyle}>
+          {value}
+        </MotionTag>
+      );
+    }
     if (renderedHtml && isLikelyHtml(value)) {
       return (
         <Tag
           className={className}
-          style={{ ...wrapStyle, ...style }}
+          style={baseStyle}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />
       );
     }
     return (
-      <Tag className={className} style={{ ...wrapStyle, ...style }}>
+      <Tag className={className} style={baseStyle}>
         {value}
       </Tag>
     );

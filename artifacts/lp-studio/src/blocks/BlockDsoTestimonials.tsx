@@ -48,6 +48,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
               as="p"
               value={eyebrow ?? ""}
               onUpdate={field("eyebrow")}
+              animate={{ y: 10 }}
               style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: eyebrowC, marginBottom: "1.25rem" }}
             />
           )}
@@ -56,6 +57,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
               as="h2"
               value={headline ?? ""}
               onUpdate={field("headline")}
+              animate={{ y: 20, delay: 0.05 }}
               style={{ fontFamily: DISPLAY, fontSize: "clamp(1.875rem,3.5vw,2.75rem)", lineHeight: 1.15, fontWeight: 600, color: headlineC, letterSpacing: "-0.015em" }}
             />
           )}
@@ -65,6 +67,7 @@ export function BlockDsoTestimonials({ props, brand, onFieldChange }: Props) {
               value={subheadline ?? ""}
               onUpdate={field("subheadline")}
               multiline
+              animate={{ y: 15, delay: 0.12 }}
               style={{ marginTop: "1.25rem", fontSize: "1.0625rem", color: subC, lineHeight: 1.7, maxWidth: 560, margin: "1.25rem auto 0" }}
             />
           )}
