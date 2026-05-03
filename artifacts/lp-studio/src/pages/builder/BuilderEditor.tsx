@@ -32,7 +32,7 @@ import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
-import { BLOCK_REGISTRY, createBlock, getBlockDef, type PageBlock, type BlockType } from "@/lib/block-types";
+import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, type PageBlock, type BlockType } from "@/lib/block-types";
 import {
   type BlockPath,
   collectIds,
@@ -537,9 +537,12 @@ interface InsertBlockDialogProps {
   onInsert: (type: string) => void;
   customBlocks: CustomBlock[];
   visibleBlocks: ResolvedBlockDef[];
+  /** When true, hide blocks that are not allowed as nested children
+   *  (chrome blocks like nav-header/footer/popup/sticky-bar). */
+  nestedTarget?: boolean;
 }
 
-function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks }: InsertBlockDialogProps) {
+function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, nestedTarget }: InsertBlockDialogProps) {
   const categories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "DSO", "DSO Practices", "Events"] as const;
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -557,6 +560,11 @@ function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlock
             // the thumbnail only).
             const catBlocks = visibleBlocks
               .filter(b => b.category === cat)
+              .filter(b => {
+                if (!nestedTarget) return true;
+                const reg = BLOCK_REGISTRY.find(r => r.type === b.type);
+                return reg ? isAllowedAsChild(reg) : true;
+              })
               .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label));
             if (catBlocks.length === 0) return null;
             return (
@@ -1871,6 +1879,7 @@ export default function BuilderEditor() {
         onInsert={handleInsertBlock}
         customBlocks={visibleCustomBlocks}
         visibleBlocks={catalogBlocks}
+        nestedTarget={nestedInsertTarget !== null}
       />
 
       {/* Share for Review Modal */}

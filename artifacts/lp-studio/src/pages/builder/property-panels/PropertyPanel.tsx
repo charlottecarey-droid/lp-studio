@@ -4382,11 +4382,158 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "bento-showcase":
       case "gradient-pricing":
       case "event-landing-hero":
-      case "section":
-      case "columns":
-      case "grid":
-      case "stack":
         return <p className="text-sm text-muted-foreground">No settings available for this block.</p>;
+      case "section": {
+        const p = block.props;
+        const update = (patch: Partial<typeof p>) =>
+          onChange({ ...block, props: { ...p, ...patch } });
+        return (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Max width</Label>
+              <Select value={p.maxWidth ?? "default"} onValueChange={(v) => update({ maxWidth: v as typeof p.maxWidth })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="narrow">Narrow (640px)</SelectItem>
+                  <SelectItem value="default">Default (1100px)</SelectItem>
+                  <SelectItem value="wide">Wide (1280px)</SelectItem>
+                  <SelectItem value="full">Full bleed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Vertical padding</Label>
+              <Select value={p.paddingY ?? "default"} onValueChange={(v) => update({ paddingY: v as typeof p.paddingY })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="compact">Compact</SelectItem>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="spacious">Spacious</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Align children</Label>
+              <Select value={p.align ?? "stretch"} onValueChange={(v) => update({ align: v as typeof p.align })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="start">Start</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="end">End</SelectItem>
+                  <SelectItem value="stretch">Stretch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
+      case "columns": {
+        const p = block.props;
+        const update = (patch: Partial<typeof p>) =>
+          onChange({ ...block, props: { ...p, ...patch } });
+        return (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Columns</Label>
+              <Select value={String(p.columns ?? 2)} onValueChange={(v) => update({ columns: Number(v) as 2 | 3 | 4 })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="4">4</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Gap (rem)</Label>
+              <Input
+                type="number" step="0.25" min="0" max="8"
+                value={p.gap ?? 1.5}
+                onChange={(e) => update({ gap: Number(e.target.value) })}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Align children</Label>
+              <Select value={p.align ?? "stretch"} onValueChange={(v) => update({ align: v as typeof p.align })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="start">Start</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="end">End</SelectItem>
+                  <SelectItem value="stretch">Stretch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
+      case "grid": {
+        const p = block.props;
+        const update = (patch: Partial<typeof p>) =>
+          onChange({ ...block, props: { ...p, ...patch } });
+        return (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Desktop columns</Label>
+              <Input
+                type="number" step="1" min="1" max="12"
+                value={p.columns ?? 3}
+                onChange={(e) => update({ columns: Math.max(1, Math.min(12, Number(e.target.value))) })}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Mobile columns</Label>
+              <Input
+                type="number" step="1" min="1" max="4"
+                value={p.mobileColumns ?? 1}
+                onChange={(e) => update({ mobileColumns: Math.max(1, Math.min(4, Number(e.target.value))) })}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Gap (rem)</Label>
+              <Input
+                type="number" step="0.25" min="0" max="8"
+                value={p.gap ?? 1.5}
+                onChange={(e) => update({ gap: Number(e.target.value) })}
+                className="h-8"
+              />
+            </div>
+          </div>
+        );
+      }
+      case "stack": {
+        const p = block.props;
+        const update = (patch: Partial<typeof p>) =>
+          onChange({ ...block, props: { ...p, ...patch } });
+        return (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Gap (rem)</Label>
+              <Input
+                type="number" step="0.25" min="0" max="8"
+                value={p.gap ?? 1}
+                onChange={(e) => update({ gap: Number(e.target.value) })}
+                className="h-8"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Align children</Label>
+              <Select value={p.align ?? "stretch"} onValueChange={(v) => update({ align: v as typeof p.align })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="start">Start</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="end">End</SelectItem>
+                  <SelectItem value="stretch">Stretch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+      }
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

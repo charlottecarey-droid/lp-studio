@@ -111,6 +111,39 @@ export interface BlockDefinition {
   category: BlockCategory;
   defaultProps: () => any;
   thumbnail: () => React.ReactElement;
+  /**
+   * Slot-constraint hint: when `false`, this block is excluded from the
+   * Insert dialog whenever the user is targeting a nested container slot
+   * (e.g. dropping into a Section/Columns/Grid/Stack). Defaults to `true`.
+   * Used today for chrome blocks (nav-header, sticky-bar, footer, popups,
+   * dandy-site-header/footer) which are page-level singletons that should
+   * never be placed inside a content container.
+   */
+  allowedAsChild?: boolean;
+}
+
+/**
+ * Block types disallowed inside container slots regardless of registry
+ * authoring (kept here so `BlockDefinition.allowedAsChild` overrides remain
+ * optional for new block authors).
+ */
+export const CHROME_BLOCK_TYPES = new Set<BlockType>([
+  "nav-header",
+  "sticky-header",
+  "sticky-bar",
+  "popup",
+  "footer",
+  "dandy-site-header",
+  "dandy-site-footer",
+]);
+
+/** Returns true when `type` is allowed to be inserted as a nested child of
+ *  any container. Combines explicit `allowedAsChild === false` from the
+ *  registry with the CHROME_BLOCK_TYPES blacklist. */
+export function isAllowedAsChild(def: BlockDefinition): boolean {
+  if (def.allowedAsChild === false) return false;
+  if (CHROME_BLOCK_TYPES.has(def.type)) return false;
+  return true;
 }
 
 export const BLOCK_REGISTRY: BlockDefinition[] = [

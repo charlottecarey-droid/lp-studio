@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ interface Props {
   pageId?: number;
   variantId?: number;
   sessionId?: string;
+  /** Phase 2 overlay slot — recursively rendered nested children laid on top
+   *  of the hero content. Mirrors `BlockHero`'s overlay slot so users can
+   *  drop additional blocks (CTAs, badges, marquees) into the hero. */
+  childrenSlot?: ReactNode;
 }
 
 function hexToRgbParts(hex: string): string {
@@ -35,7 +39,7 @@ function hexToRgbParts(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
+export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId, childrenSlot }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
@@ -307,6 +311,12 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             <p className="text-white/60 text-sm font-medium mt-1">
               {props.socialProofText}
             </p>
+          )}
+
+          {childrenSlot && (
+            <div data-block-overlay-slot="full-bleed-hero" className="mt-4 w-full">
+              {childrenSlot}
+            </div>
           )}
         </div>
       </div>

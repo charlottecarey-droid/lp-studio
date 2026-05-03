@@ -511,6 +511,7 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
               ? (updated: FullBleedHeroBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
             animationsEnabled={animationsEnabled}
+            childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null}
           />
         );
       case "footer":

@@ -174,4 +174,4 @@ export type { BlockVariant, PageBlock, BlockType } from "./block-variant";
 
 // Block registry
 export type { BlockDefinition } from "./block-registry";
-export { BLOCK_REGISTRY, getBlockDef, createBlock, templateToBlocks } from "./block-registry";
+export { BLOCK_REGISTRY, getBlockDef, createBlock, templateToBlocks, isAllowedAsChild, CHROME_BLOCK_TYPES } from "./block-registry";
