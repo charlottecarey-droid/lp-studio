@@ -92,7 +92,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
             </h2>
             {props.subheadline && (
               <p className="text-lg text-slate-600 leading-relaxed">
-                <InlineText value={props.subheadline} onUpdate={field("subheadline")} />
+                <InlineText value={props.subheadline} onUpdate={field("subheadline")} multiline />
               </p>
             )}
             {(props.bullets ?? []).length > 0 && (
@@ -102,14 +102,14 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
                     <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center">
                       <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
                     </span>
-                    <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} />
+                    <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} multiline />
                   </li>
                 ))}
               </ul>
             )}
             {props.trustNote && (
               <p className="text-sm text-slate-400 mt-1">
-                <InlineText value={props.trustNote} onUpdate={field("trustNote")} />
+                <InlineText value={props.trustNote} onUpdate={field("trustNote")} multiline />
               </p>
             )}
           </div>

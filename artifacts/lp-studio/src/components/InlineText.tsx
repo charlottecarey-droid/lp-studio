@@ -328,19 +328,28 @@ export function InlineText({
 
   const [openMenu, setOpenMenu] = useState<"size" | "color" | null>(null);
 
+  // Wrap long unbroken tokens (URLs, glued strings, etc.) so the surface
+  // never extends past its container — both in read and edit mode.
+  const wrapStyle: React.CSSProperties = {
+    whiteSpace: "pre-line",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    maxWidth: "100%",
+  };
+
   // Read-only render path (no onUpdate) — also used when isEditing is false.
   if (!onUpdate) {
     if (renderedHtml && isLikelyHtml(value)) {
       return (
         <Tag
           className={className}
-          style={{ whiteSpace: "pre-line", ...style }}
+          style={{ ...wrapStyle, ...style }}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />
       );
     }
     return (
-      <Tag className={className} style={{ whiteSpace: "pre-line", ...style }}>
+      <Tag className={className} style={{ ...wrapStyle, ...style }}>
         {value}
       </Tag>
     );
@@ -355,7 +364,7 @@ export function InlineText({
       return (
         <Tag
           className={baseClass}
-          style={{ whiteSpace: "pre-line", ...style }}
+          style={{ ...wrapStyle, ...style }}
           onClick={(e: React.MouseEvent) => {
             e.stopPropagation();
             setIsEditing(true);
@@ -368,7 +377,7 @@ export function InlineText({
     return (
       <Tag
         className={baseClass}
-        style={{ whiteSpace: "pre-line", ...style }}
+        style={{ ...wrapStyle, ...style }}
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
           setIsEditing(true);
@@ -381,12 +390,18 @@ export function InlineText({
   }
 
   // Editing mode — contentEditable with floating toolbar in portal.
+  // Always allow wrapping (`pre-wrap`) so long tokens and edited text never
+  // overflow the canvas. Single-line mode is enforced by Enter committing
+  // instead of inserting a newline (see onKeyDown below).
   const editableStyle: React.CSSProperties = {
     ...style,
     outline: "2px solid hsl(var(--primary) / 0.6)",
     outlineOffset: 2,
     borderRadius: 4,
-    whiteSpace: multiline ? "pre-wrap" : "nowrap",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    maxWidth: "100%",
     minHeight: "1em",
   };
 
@@ -413,9 +428,17 @@ export function InlineText({
             e.preventDefault();
             cancel();
           }
-          if (!multiline && e.key === "Enter") {
-            e.preventDefault();
-            commit();
+          if (e.key === "Enter") {
+            // Shift+Enter always inserts a soft break (lets users add line
+            // breaks even in single-line fields). Plain Enter inserts a
+            // newline in multiline mode and commits in single-line mode.
+            if (e.shiftKey) {
+              e.preventDefault();
+              execCmd("insertLineBreak");
+            } else if (!multiline) {
+              e.preventDefault();
+              commit();
+            }
           }
           if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
             e.preventDefault();
