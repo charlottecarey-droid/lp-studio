@@ -3,6 +3,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import type { ProductShowcaseBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 
@@ -63,10 +64,12 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
               whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               {card.image && (
-                <img
+                <InlineImage
                   src={card.image}
                   alt={card.name}
                   className={cn("w-full h-48 object-cover transition-transform duration-300", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
+                  wrapperClassName="block w-full"
+                  onUpdate={onFieldChange ? (url) => updateCard(i, "image", url) : undefined}
                 />
               )}
               <div className="p-6 flex flex-col gap-3 flex-1">

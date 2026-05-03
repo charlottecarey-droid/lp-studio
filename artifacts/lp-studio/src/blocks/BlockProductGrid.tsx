@@ -3,12 +3,14 @@ import type { ProductGridBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { getHeadlineSizeClass } from "@/lib/typography";
+import { InlineImage } from "@/components/InlineImage";
 import { motion } from "framer-motion";
 
 interface Props {
   props: ProductGridBlockProps;
   brand: BrandConfig;
   animationsEnabled?: boolean;
+  onFieldChange?: (updated: ProductGridBlockProps) => void;
 }
 
 const GRID_COLS: Record<number, string> = {
@@ -20,9 +22,14 @@ const GRID_COLS: Record<number, string> = {
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export function BlockProductGrid({ props, brand, animationsEnabled = true }: Props) {
+export function BlockProductGrid({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const cols = props.columns ?? 3;
+  const updateItemImage = (i: number, url: string) => {
+    if (!onFieldChange) return;
+    const items = props.items.map((it, idx) => idx === i ? { ...it, image: url } : it);
+    onFieldChange({ ...props, items });
+  };
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
@@ -46,11 +53,13 @@ export function BlockProductGrid({ props, brand, animationsEnabled = true }: Pro
               whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
             >
               <div className="w-full h-52 overflow-hidden bg-slate-50">
-                <img
+                <InlineImage
                   src={item.image}
                   alt={item.title}
                   loading="lazy"
                   className={cn("w-full h-full object-cover transition-transform duration-300", (props.hoverImageZoom ?? true) && "group-hover:scale-105")}
+                  wrapperClassName="block w-full h-full"
+                  onUpdate={onFieldChange ? (url) => updateItemImage(i, url) : undefined}
                 />
               </div>
               <div className="p-6 flex-1 flex flex-col">

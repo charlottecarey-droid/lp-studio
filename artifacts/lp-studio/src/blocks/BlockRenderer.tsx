@@ -1,4 +1,4 @@
-import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps, ProductGridBlockProps, PhotoStripBlockProps } from "@/lib/block-types";
 import { PageContextProvider } from "@/lib/page-context";
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
 import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
@@ -350,9 +350,26 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
           />
         );
       case "product-grid":
-        return <BlockProductGrid props={block.props} brand={brand} animationsEnabled={animationsEnabled} />;
+        return (
+          <BlockProductGrid
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated: ProductGridBlockProps) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
       case "photo-strip":
-        return <BlockPhotoStrip props={block.props} brand={brand} />;
+        return (
+          <BlockPhotoStrip
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated: PhotoStripBlockProps) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
       case "bottom-cta":
         return (
           <BlockBottomCta

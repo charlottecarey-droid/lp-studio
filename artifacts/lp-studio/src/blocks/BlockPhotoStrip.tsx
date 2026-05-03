@@ -1,9 +1,11 @@
 import type { PhotoStripBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: PhotoStripBlockProps;
   brand: BrandConfig;
+  onFieldChange?: (updated: PhotoStripBlockProps) => void;
 }
 
 const SIZE_H: Record<string, number> = {
@@ -20,7 +22,12 @@ const SPEED_S: Record<string, number> = {
   fast: 18,
 };
 
-export function BlockPhotoStrip({ props }: Props) {
+export function BlockPhotoStrip({ props, onFieldChange }: Props) {
+  const updateImageAt = (originalIdx: number, url: string) => {
+    if (!onFieldChange) return;
+    const images = props.images.map((im, idx) => idx === originalIdx ? { ...im, src: url } : im);
+    onFieldChange({ ...props, images });
+  };
   const size = props.imageSize ?? "lg";
   const heightPx = SIZE_H[size];
   const gap = props.gap ?? 0;
@@ -46,21 +53,29 @@ export function BlockPhotoStrip({ props }: Props) {
         className="flex h-full animate-marquee w-max"
         style={{ animationDuration: `${duration}s` }}
       >
-        {doubled.map((img, i) => (
-          <img
-            key={i}
-            src={img.src}
-            alt={img.alt}
-            loading="lazy"
-            style={{
-              height: "100%",
-              width: size === "xs" || size === "sm" ? "auto" : `${heightPx * 1.2}px`,
-              flexShrink: 0,
-              objectFit: fit,
-              marginRight: gap > 0 ? `${gap}px` : undefined,
-            }}
-          />
-        ))}
+        {doubled.map((img, i) => {
+          const originalIdx = i % props.images.length;
+          // Only attach inline-replace UI to the first copy of each image so
+          // the marquee duplicate doesn't render two pills side by side.
+          const isFirstCopy = i < props.images.length;
+          return (
+            <InlineImage
+              key={i}
+              src={img.src}
+              alt={img.alt}
+              loading="lazy"
+              style={{
+                height: "100%",
+                width: size === "xs" || size === "sm" ? "auto" : `${heightPx * 1.2}px`,
+                flexShrink: 0,
+                objectFit: fit,
+                marginRight: gap > 0 ? `${gap}px` : undefined,
+              }}
+              wrapperClassName="h-full shrink-0"
+              onUpdate={onFieldChange && isFirstCopy ? (url) => updateImageAt(originalIdx, url) : undefined}
+            />
+          );
+        })}
       </div>
     </section>
   );

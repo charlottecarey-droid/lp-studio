@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ImageIcon } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ImagePicker } from "@/components/ImagePicker";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { ChiliPiperModal } from "./ChiliPiperModal";
@@ -36,6 +38,7 @@ function hexToRgbParts(hex: string): string {
 export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
+  const [bgPickerOpen, setBgPickerOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -210,6 +213,38 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
             opacity: overlayOpacity,
           }}
         />
+
+        {/* Inline background-image replace pill (builder mode, image bg only) */}
+        {onFieldChange && props.backgroundType !== "video" && (
+          <Popover open={bgPickerOpen} onOpenChange={setBgPickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                title="Replace background image"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-4 right-4 z-30 inline-flex items-center gap-1 rounded-md bg-black/70 px-2.5 py-1.5 text-xs font-medium text-white shadow hover:bg-black/85 transition"
+              >
+                <ImageIcon className="w-3 h-3" />
+                Replace background
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={6}
+              className="w-80 z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ImagePicker
+                value={props.backgroundImageUrl ?? ""}
+                onChange={(url) => {
+                  onFieldChange({ ...props, backgroundImageUrl: url });
+                  setBgPickerOpen(false);
+                }}
+                label="Replace background image"
+              />
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Hero content */}
         <div
