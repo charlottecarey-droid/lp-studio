@@ -2,6 +2,7 @@ import type { BoldStatementBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { ColorField } from "./BlockSettingsPanel";
 
 interface Props {
@@ -100,6 +101,37 @@ export function BoldStatementPanel({ props, onChange }: Props) {
           <code className="bg-muted px-1 rounded mx-0.5">&lt;em&gt;</code>,
           and the CTA button background.
         </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Scroll reveal</div>
+        <div className="flex items-center justify-between">
+          <div className="pr-3">
+            <Label className="text-xs">Light up text on scroll</Label>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Statement starts dim and brightens word-by-word as the visitor
+              scrolls through the section (same effect as the AI feature
+              block). Italic accent words still light up to the accent color.
+            </p>
+          </div>
+          <Switch
+            checked={!!props.scrollReveal}
+            onCheckedChange={(v) => update({ scrollReveal: v })}
+          />
+        </div>
+        {props.scrollReveal && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Dim color (optional)</Label>
+            <ColorField
+              label=""
+              value={props.dimColor ?? ""}
+              onChange={(v) => update({ dimColor: v || undefined })}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+              Leave blank to default to the text color at 20% opacity.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

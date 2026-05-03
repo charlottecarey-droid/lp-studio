@@ -847,6 +847,13 @@ export interface BoldStatementBlockProps {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** When true, the statement renders dim by default and lights up word-by-word
+   *  as the visitor scrolls into the section (same effect used by the AI
+   *  feature block). Defaults to false to preserve existing pages. */
+  scrollReveal?: boolean;
+  /** Dim/un-revealed color used when `scrollReveal` is enabled. Defaults to
+   *  the text color at 20% alpha. */
+  dimColor?: string;
 }
 
 /* ------------------------------------------------------------------------- */

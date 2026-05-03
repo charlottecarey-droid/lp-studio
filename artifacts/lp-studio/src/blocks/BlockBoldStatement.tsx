@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { BoldStatementBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { WordReveal } from "./WordReveal";
 
 interface Props {
   props: BoldStatementBlockProps;
@@ -10,18 +11,54 @@ interface Props {
   onFieldChange?: (updated: BoldStatementBlockProps) => void;
 }
 
-function renderStatement(html: string, accent: string): React.ReactNode {
+/** Convert a 3- or 6-digit hex color to an `rgba(...)` string with the
+ *  given alpha. Returns null when the input isn't a hex literal so callers
+ *  can fall back to a safe default (Framer Motion's color interpolator
+ *  needs hex/rgb/rgba/hsl — not CSS vars or color-mix). */
+function hexToRgba(hex: string, alpha: number): string | null {
+  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split("").map(c => c + c).join("") : m[1];
+  const num = parseInt(h, 16);
+  return `rgba(${(num >> 16) & 255},${(num >> 8) & 255},${num & 255},${alpha})`;
+}
+
+/** Split the statement into accent (em) vs plain segments and render each.
+ *  When `scrollReveal` is true each segment is wrapped in a WordReveal so the
+ *  whole sentence lights up word-by-word as the visitor scrolls — italic
+ *  segments still resolve to the accent color when fully revealed. */
+function renderStatement(
+  html: string,
+  accent: string,
+  text: string,
+  scrollReveal: boolean,
+  dimColor: string,
+): React.ReactNode {
   const parts = html.split(/(<em[^>]*>.*?<\/em>)/gi);
   return parts.map((part, i) => {
     const m = part.match(/^<em[^>]*>(.*)<\/em>$/i);
-    if (m) {
+    const isAccent = !!m;
+    const content = m ? m[1] : part;
+    if (!content) return null;
+    if (scrollReveal) {
+      return (
+        <WordReveal
+          key={i}
+          text={content}
+          dimColor={dimColor}
+          brightColor={isAccent ? accent : text}
+          style={isAccent ? { fontStyle: "italic" } : undefined}
+        />
+      );
+    }
+    if (isAccent) {
       return (
         <span key={i} style={{ color: accent, fontStyle: "italic" }}>
-          {m[1]}
+          {content}
         </span>
       );
     }
-    return <span key={i}>{part}</span>;
+    return <span key={i}>{content}</span>;
   });
 }
 
@@ -29,6 +66,14 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: 
   const bg = props.bgColor || "#0A0A0A";
   const text = props.textColor || "#FFFFFF";
   const accent = props.accentColor || brand.accentColor || "#C7E738";
+  // Disable scroll-reveal in the editor (when onFieldChange is set) so the
+  // author can always see the full statement while editing.
+  const scrollReveal = !!props.scrollReveal && !onFieldChange;
+  // Framer Motion's color interpolator only handles hex/rgb/rgba/hsl strings
+  // — `color-mix(...)` and CSS variables aren't animatable — so derive the
+  // default dim color as an rgba() literal from the text color when it's a
+  // hex; otherwise fall back to white-at-20%.
+  const dimColor = props.dimColor || hexToRgba(text, 0.2) || "rgba(255,255,255,0.2)";
   const field = (key: keyof BoldStatementBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -62,7 +107,7 @@ export function BlockBoldStatement({ props, brand, onCtaClick, onFieldChange }: 
             letterSpacing: "-0.04em",
           }}
         >
-          {renderStatement(props.statement, accent)}
+          {renderStatement(props.statement, accent, text, scrollReveal, dimColor)}
         </h2>
 
         {(props.footnote || props.ctaText) && (
