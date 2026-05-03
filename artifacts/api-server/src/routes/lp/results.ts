@@ -64,6 +64,7 @@ router.get("/lp/tests/:testId/results", async (req, res): Promise<void> => {
 
   const countMap = new Map<number, { impressions: number; conversions: number }>();
   for (const row of eventCounts) {
+    if (row.variantId == null) continue;
     if (!countMap.has(row.variantId)) {
       countMap.set(row.variantId, { impressions: 0, conversions: 0 });
     }
@@ -122,6 +123,7 @@ router.get("/lp/tests/:testId/results", async (req, res): Promise<void> => {
   // Build daily map: { day -> { variantId -> { impressions, conversions } } }
   const dailyMap = new Map<string, Map<number, { impressions: number; conversions: number }>>();
   for (const row of dailyEvents) {
+    if (row.variantId == null) continue;
     if (!dailyMap.has(row.day)) dailyMap.set(row.day, new Map());
     const dayData = dailyMap.get(row.day)!;
     if (!dayData.has(row.variantId)) dayData.set(row.variantId, { impressions: 0, conversions: 0 });

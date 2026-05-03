@@ -2,7 +2,7 @@ import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 
 const router = Router();

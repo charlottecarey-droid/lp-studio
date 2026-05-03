@@ -345,6 +345,7 @@ router.get("/lp/analytics/pages", async (req, res): Promise<void> => {
         .groupBy(lpEventsTable.variantId, lpEventsTable.eventType);
 
       for (const row of eventRows) {
+        if (row.variantId == null) continue;
         const pid = variantToPage.get(row.variantId);
         if (pid == null) continue;
         if (row.eventType === "impression") cvrByPage[pid].impressions += row.count;
