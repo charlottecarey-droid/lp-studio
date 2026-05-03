@@ -117,6 +117,20 @@ export function removeAtPath(
   return { tree, removed };
 }
 
+/** Find the block with the given id anywhere in the tree (root or nested
+ *  inside a container's children). O(n) over the full tree. Returns
+ *  undefined if no block in the tree has that id. */
+export function findBlockById(blocks: PageBlock[], id: string): PageBlock | undefined {
+  for (const b of blocks) {
+    if (b.id === id) return b;
+    if (b.children && b.children.length > 0) {
+      const sub = findBlockById(b.children, id);
+      if (sub) return sub;
+    }
+  }
+  return undefined;
+}
+
 /** Find the path of the block with the given id. O(n) over the full tree. */
 export function findPathById(blocks: PageBlock[], id: string): BlockPath | undefined {
   function walk(arr: PageBlock[], prefix: BlockPath): BlockPath | undefined {

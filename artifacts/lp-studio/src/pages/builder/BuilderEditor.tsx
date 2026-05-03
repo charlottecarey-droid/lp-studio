@@ -37,6 +37,7 @@ import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } 
 import {
   type BlockPath,
   collectIds,
+  findBlockById,
   findPathById,
   getAtPath,
   insertAtPath,
@@ -1233,7 +1234,10 @@ export default function BuilderEditor() {
     }
   };
 
-  const selectedBlock = blocks.find(b => b.id === selectedBlockId) ?? null;
+  // Walk the full tree (not just the root) so children of container blocks
+  // (Hero overlay, BentoShowcase children, Section/Columns/Grid/Stack) can
+  // be selected and edited via the property panel.
+  const selectedBlock = selectedBlockId ? (findBlockById(blocks, selectedBlockId) ?? null) : null;
 
   const VALID_BLOCK_TYPES = new Set<string>(BLOCK_REGISTRY.map(b => b.type));
   const isBlockType = (t: string): t is BlockType => VALID_BLOCK_TYPES.has(t);
