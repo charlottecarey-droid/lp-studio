@@ -54,6 +54,7 @@ import type {
   BoldStatementBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
+  EditorialCarouselBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -215,6 +216,7 @@ export type BlockVariant =
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "bento-showcase"; props: BentoShowcaseBlockProps }
   | { type: "gradient-pricing"; props: GradientPricingBlockProps }
+  | { type: "editorial-carousel"; props: EditorialCarouselBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

@@ -84,6 +84,8 @@ export type {
   BentoTileSize,
   GradientPricingBlockProps,
   GradientPricingTier,
+  EditorialCarouselBlockProps,
+  EditorialCarouselSlide,
   GridImageBlockProps,
   GridHeadlineSubBlockProps,
   GridParagraphBulletsBlockProps,

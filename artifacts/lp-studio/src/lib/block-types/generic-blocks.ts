@@ -884,6 +884,50 @@ export interface BentoShowcaseBlockProps {
 }
 
 /* ------------------------------------------------------------------------- */
+/*  Editorial Carousel — animated, draggable photo carousel extracted from   */
+/*  the Inside Dandy event page. Dark luxury treatment with letter-spaced    */
+/*  uppercase captions, hover zoom, animated underline, corner accents, and  */
+/*  optional auto-advance. Designed as a stand-alone showcase block.         */
+/* ------------------------------------------------------------------------- */
+
+export interface EditorialCarouselSlide {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+export interface EditorialCarouselBlockProps {
+  /** Optional eyebrow rendered above the headline. */
+  eyebrow?: string;
+  /** Optional headline shown above the carousel. Leave blank for a
+   *  carousel-only section. */
+  headline?: string;
+  /** Optional subheadline body copy under the headline. */
+  subheadline?: string;
+  slides: EditorialCarouselSlide[];
+  /** Section background. Defaults to a deep luxury near-black. */
+  bgColor?: string;
+  /** Heading + caption color. Defaults to a warm cream. */
+  textColor?: string;
+  /** Accent / brand color for the caption underline, dot indicator,
+   *  corner accents and prev/next button hover. */
+  accentColor?: string;
+  /** Border color for the prev/next buttons. */
+  borderColor?: string;
+  /** Aspect ratio of each slide. */
+  aspect?: "16/9" | "4/3" | "3/2" | "1/1";
+  /** Width each slide takes up on desktop, as a percentage. Smaller
+   *  values reveal more of the neighbours. */
+  slideWidthPct?: number;
+  /** Whether the carousel auto-advances. */
+  autoplay?: boolean;
+  /** Auto-advance interval in milliseconds. */
+  autoplayInterval?: number;
+  /** Round slide corners. */
+  rounded?: boolean;
+}
+
+/* ------------------------------------------------------------------------- */
 /*  Gradient Pricing — dark-mode pricing tiers with a gradient backdrop and  */
 /*  a featured (raised) middle card. Designed for SaaS landings.             */
 /* ------------------------------------------------------------------------- */

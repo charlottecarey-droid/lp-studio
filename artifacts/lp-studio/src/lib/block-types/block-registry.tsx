@@ -56,6 +56,7 @@ import type {
   BoldStatementBlockProps,
   BentoShowcaseBlockProps,
   GradientPricingBlockProps,
+  EditorialCarouselBlockProps,
 } from "./generic-blocks";
 import type {
   SectionBlockProps,
@@ -3596,6 +3597,72 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "editorial-carousel",
+    label: "Editorial Carousel",
+    category: "Showcase",
+    defaultProps: (): EditorialCarouselBlockProps => ({
+      eyebrow: "MOMENTS",
+      headline: "An editorial reel of the work.",
+      subheadline:
+        "Drag, autoplay, or click — captions fade in on hover, with quiet corner accents and a single hairline underline.",
+      slides: [
+        {
+          src: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1600&h=900&fit=crop",
+          alt: "Mountain ridge at dusk",
+          caption: "Dusk over the ridge",
+        },
+        {
+          src: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&h=900&fit=crop",
+          alt: "Pine forest at sunrise",
+          caption: "First light, day two",
+        },
+        {
+          src: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1600&h=900&fit=crop",
+          alt: "Snow-capped peak",
+          caption: "Summit approach",
+        },
+        {
+          src: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?q=80&w=1600&h=900&fit=crop",
+          alt: "Valley lake reflection",
+          caption: "Stillness, mid-afternoon",
+        },
+      ],
+      bgColor: "#0c0f12",
+      textColor: "#eeeae3",
+      accentColor: "#b59a6e",
+      borderColor: "#262a2f",
+      aspect: "16/9",
+      slideWidthPct: 60,
+      autoplay: true,
+      autoplayInterval: 5000,
+      rounded: false,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0c0f12" rx="4" />
+        <rect x="6" y="14" width="22" height="42" rx="1" fill="#1a1f24" />
+        <rect x="32" y="10" width="56" height="50" rx="1" fill="#3a4148" />
+        <rect x="32" y="10" width="56" height="50" rx="1" fill="url(#ec-scrim)" opacity="0.6" />
+        <defs>
+          <linearGradient id="ec-scrim" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#0c0f12" />
+            <stop offset="60%" stopColor="#0c0f12" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <rect x="92" y="14" width="22" height="42" rx="1" fill="#1a1f24" />
+        {/* corner accents on featured slide */}
+        <path d="M82 14 H86 V18" fill="none" stroke="#b59a6e" strokeWidth="0.7" />
+        <path d="M38 56 H34 V52" fill="none" stroke="#b59a6e" strokeWidth="0.7" />
+        {/* caption underline */}
+        <rect x="36" y="50" width="18" height="0.8" fill="#b59a6e" />
+        {/* dots */}
+        <circle cx="56" cy="64" r="1.4" fill="#b59a6e" />
+        <circle cx="60" cy="64" r="1" fill="#3a4148" />
+        <circle cx="64" cy="64" r="1" fill="#3a4148" />
+      </svg>
+    ),
+  },
   // ── Container blocks (Phase 2 — nested children). They render a single
   //    drop slot in the builder so users can nest other blocks inside.
   {
@@ -3834,6 +3901,7 @@ export function createBlock(type: "magazine-hero"): Extract<PageBlock, { type: "
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
 export function createBlock(type: "bento-showcase"): Extract<PageBlock, { type: "bento-showcase" }>;
 export function createBlock(type: "gradient-pricing"): Extract<PageBlock, { type: "gradient-pricing" }>;
+export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { type: "editorial-carousel" }>;
 export function createBlock(type: "section"): Extract<PageBlock, { type: "section" }>;
 export function createBlock(type: "columns"): Extract<PageBlock, { type: "columns" }>;
 export function createBlock(type: "grid"): Extract<PageBlock, { type: "grid" }>;
@@ -4042,6 +4110,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
     case "bento-showcase": return { id, type: "bento-showcase", props: props as BentoShowcaseBlockProps };
     case "gradient-pricing": return { id, type: "gradient-pricing", props: props as GradientPricingBlockProps };
+    case "editorial-carousel": return { id, type: "editorial-carousel", props: props as EditorialCarouselBlockProps };
     case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
     case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
     case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };

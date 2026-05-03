@@ -100,6 +100,7 @@ import { BlockScrollAssembly } from "./BlockScrollAssembly";
 import { BlockHorizontalShowcase } from "./BlockHorizontalShowcase";
 import { BlockStickyStack } from "./BlockStickyStack";
 import { BlockMagazineHero } from "./BlockMagazineHero";
+import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
 import { BlockBoldStatement } from "./BlockBoldStatement";
 import { BlockBentoShowcase } from "./BlockBentoShowcase";
 import { BlockGradientPricing } from "./BlockGradientPricing";
@@ -853,6 +854,8 @@ export function BlockRenderer({ block: rawBlock, brand, onCtaClick, onBlockChang
         return <BlockBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null} />;
       case "gradient-pricing":
         return <BlockGradientPricing props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "editorial-carousel":
+        return <BlockEditorialCarousel props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "section":
         return <BlockSection props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       case "columns":

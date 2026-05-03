@@ -72,6 +72,7 @@ import { BentoShowcasePanel } from "./BentoShowcasePanel";
 import { MagazineHeroPanel } from "./MagazineHeroPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
 import { GradientPricingPanel } from "./GradientPricingPanel";
+import { EditorialCarouselPanel } from "./EditorialCarouselPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -5009,6 +5010,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "gradient-pricing":
         return (
           <GradientPricingPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "editorial-carousel":
+        return (
+          <EditorialCarouselPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />
