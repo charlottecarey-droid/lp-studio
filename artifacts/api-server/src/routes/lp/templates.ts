@@ -3,23 +3,23 @@
 // This file adds the enriched listing endpoint for the marketplace UI.
 
 import { Router } from "express";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
-import { getTenantIndustry } from "../../lib/tenantIndustry";
 
 const router = Router();
 
 // GET /lp/templates/enriched — templates with block count for the marketplace.
 // Returns the union of:
 //   1. The caller's tenant-owned templates
-//   2. Global templates whose `industry` is null OR matches the caller's tenant industry
+//   2. All global templates (is_global=true), regardless of industry — every
+//      tenant has access to the full global template library. The UI lists
+//      tenant-owned templates first, then global starters.
 router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res);
     if (tenantId === null) return;
-    const industry = await getTenantIndustry(tenantId);
 
     const templates = await db
       .select()
@@ -29,10 +29,7 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
           eq(lpPagesTable.isTemplate, true),
           or(
             eq(lpPagesTable.tenantId, tenantId),
-            and(
-              eq(lpPagesTable.isGlobal, true),
-              or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, industry)),
-            ),
+            eq(lpPagesTable.isGlobal, true),
           ),
         ),
       );
@@ -71,7 +68,7 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
 });
 
 // GET /lp/templates/:id/preview — full block JSON for a single template the
-// caller is allowed to see (their own, or a global one matching their industry).
+// caller is allowed to see (their own, or any global template).
 // Used by the marketplace preview modal so users can scroll through a rendered
 // template before cloning it. Read-only: never returns drafts the caller does
 // not own and never returns non-template pages.
@@ -84,7 +81,6 @@ router.get("/lp/templates/:id/preview", async (req, res): Promise<void> => {
       res.status(400).json({ error: "Invalid template id" });
       return;
     }
-    const industry = await getTenantIndustry(tenantId);
     const [template] = await db
       .select()
       .from(lpPagesTable)
@@ -94,10 +90,7 @@ router.get("/lp/templates/:id/preview", async (req, res): Promise<void> => {
           eq(lpPagesTable.isTemplate, true),
           or(
             eq(lpPagesTable.tenantId, tenantId),
-            and(
-              eq(lpPagesTable.isGlobal, true),
-              or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, industry)),
-            ),
+            eq(lpPagesTable.isGlobal, true),
           ),
         ),
       );

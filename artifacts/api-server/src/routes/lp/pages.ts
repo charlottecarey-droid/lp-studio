@@ -1,11 +1,10 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, asc, and, or, isNull, desc } from "drizzle-orm";
+import { eq, asc, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { lpPagesTable, lpPageReviewsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getTenantIndustry } from "../../lib/tenantIndustry";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { createReviewTask, commentAndCompleteTask } from "../../lib/asana";
 import crypto from "node:crypto";
@@ -145,12 +144,11 @@ router.get("/lp/pages", async (req, res): Promise<void> => {
 // List all marketing-defined templates (pages with isTemplate = true).
 // Returns the union of:
 //   1. The caller's tenant-owned templates
-//   2. Global templates (isGlobal=true) whose `industry` is null (universal)
-//      OR matches the caller's tenant industry
+//   2. All global templates (isGlobal=true), regardless of industry — every
+//      tenant has access to the full global template library.
 router.get("/lp/templates", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const industry = await getTenantIndustry(tenantId);
     const templates = await db
       .select()
       .from(lpPagesTable)
@@ -159,10 +157,7 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
           eq(lpPagesTable.isTemplate, true),
           or(
             eq(lpPagesTable.tenantId, tenantId),
-            and(
-              eq(lpPagesTable.isGlobal, true),
-              or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, industry)),
-            ),
+            eq(lpPagesTable.isGlobal, true),
           ),
         ),
       )
@@ -233,9 +228,8 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   let sourceOgImage = "";
   let sourcePageVariables: Record<string, string> = {};
   if (typeof fromTemplateId === "number") {
-    // Source can be either a tenant-owned template or a global template visible
-    // to this tenant's industry. Non-template global pages are not allowed.
-    const callerIndustry = await getTenantIndustry(tenantId);
+    // Source can be either a tenant-owned template or any global template.
+    // Non-template global pages are not allowed.
     const [source] = await db.select().from(lpPagesTable).where(
       and(
         eq(lpPagesTable.id, fromTemplateId),
@@ -244,7 +238,6 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           and(
             eq(lpPagesTable.isGlobal, true),
             eq(lpPagesTable.isTemplate, true),
-            or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, callerIndustry)),
           ),
         ),
       )
@@ -709,12 +702,11 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid page ID" });
     return;
   }
-  // Source can be either a page/template owned by the caller's tenant, OR a
-  // global template (is_global=true AND is_template=true) whose industry is
-  // null (universal) or matches the caller's tenant industry. This mirrors the
+  // Source can be either a page/template owned by the caller's tenant, OR any
+  // global template (is_global=true AND is_template=true). This mirrors the
   // visibility rule used by GET /lp/templates/enriched and the fromTemplateId
-  // branch of POST /lp/pages, so cross-tenant global templates can be cloned.
-  const callerIndustry = await getTenantIndustry(tenantId);
+  // branch of POST /lp/pages, so cross-tenant global templates can be cloned
+  // regardless of industry.
   const [source] = await db.select().from(lpPagesTable).where(
     and(
       eq(lpPagesTable.id, id),
@@ -723,7 +715,6 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         and(
           eq(lpPagesTable.isGlobal, true),
           eq(lpPagesTable.isTemplate, true),
-          or(isNull(lpPagesTable.industry), eq(lpPagesTable.industry, callerIndustry)),
         ),
       ),
     )
