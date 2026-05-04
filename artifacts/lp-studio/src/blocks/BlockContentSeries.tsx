@@ -1653,7 +1653,6 @@ function AboutSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }
 
 function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme }) {
   const steps = p.formSteps ?? [];
-  if (!steps.length) return null;
 
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -1661,16 +1660,18 @@ function FormSection({ p, C }: { p: ContentSeriesBlockProps; C: ResolvedTheme })
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleFieldChange = useCallback((fieldId: string, value: string) => {
+    setFormData(prev => ({ ...prev, [fieldId]: value }));
+  }, []);
+
+  if (!steps.length) return null;
+
   const step = steps[currentStep];
   const isLastStep = currentStep >= steps.length - 1;
   const eyebrow = p.formEyebrow ?? "Be a Guest";
   const headline = p.formHeadline ?? "Share Your Story";
   const subtitle = p.formSubheadline ?? "";
   const successMessage = p.formSuccessMessage ?? "Thank you! We'll be in touch.";
-
-  const handleFieldChange = useCallback((fieldId: string, value: string) => {
-    setFormData(prev => ({ ...prev, [fieldId]: value }));
-  }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
